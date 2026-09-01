@@ -438,11 +438,11 @@ private fun AuthorHeader(author: AuthorRef?) {
 
                 Spacer(Modifier.height(EditorialSpace.sm))
 
-                // Author Name & Verified Badge
+                // Author Name & Verified Badge (strictly single line)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.padding(horizontal = EditorialSpace.xs)
                 ) {
                     Text(
                         text = author.name,
@@ -451,7 +451,9 @@ private fun AuthorHeader(author: AuthorRef?) {
                             fontWeight = FontWeight.Bold
                         ),
                         color = MaterialTheme.colorScheme.onSurface,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        softWrap = false
                     )
                     if (isVerified) {
                         Spacer(Modifier.width(6.dp))
