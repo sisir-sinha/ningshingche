@@ -1097,7 +1097,7 @@ fun AuthorChip(author: AuthorRef, onClick: () -> Unit) {
         onClick = onClick,
         shape = RoundedCornerShape(EditorialShape.card),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.width(168.dp).height(140.dp)
+        modifier = Modifier.width(168.dp).height(200.dp)
     ) {
         Column(
             modifier = Modifier.padding(EditorialSpace.md),
