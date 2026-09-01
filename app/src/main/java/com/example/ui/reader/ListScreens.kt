@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -24,6 +25,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
@@ -54,12 +57,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.data.portal.ArticleSummary
 import com.example.data.portal.AuthorRef
 import com.example.data.portal.CategoryRef
+import com.example.data.portal.stripHtml
 import com.example.ui.components.HtmlFormattedText
 import com.example.ui.components.VerifiedBadge
 import com.example.ui.editorial.ArticleRow
@@ -495,7 +500,7 @@ private fun AuthorHeader(author: AuthorRef?) {
                     }
                 }
 
-                // Formatted HTML Description from WYSIWYG Editor
+                // Formatted HTML Description from WYSIWYG Editor with See more / See less toggle
                 if (author.bio.isNotBlank()) {
                     Spacer(Modifier.height(EditorialSpace.md))
                     HorizontalDivider(
@@ -505,13 +510,47 @@ private fun AuthorHeader(author: AuthorRef?) {
                     )
                     Spacer(Modifier.height(EditorialSpace.md))
 
+                    val plainBio = remember(author.bio) { stripHtml(author.bio).trim() }
+                    val isLongBio = plainBio.length > 180
+                    var isExpanded by remember { mutableStateOf(false) }
+
                     HtmlFormattedText(
                         html = author.bio,
                         fontSize = 14.5.sp,
                         lineHeight = 23.sp,
                         baseTextColor = tokens.inkSoft,
+                        maxLines = if (isExpanded || !isLongBio) Int.MAX_VALUE else 3,
+                        overflow = if (isExpanded || !isLongBio) TextOverflow.Clip else TextOverflow.Ellipsis,
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    if (isLongBio) {
+                        Spacer(Modifier.height(4.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { isExpanded = !isExpanded }
+                                .padding(vertical = 4.dp, horizontal = 4.dp)
+                        ) {
+                            Text(
+                                text = if (isExpanded) "See less" else "See more",
+                                style = EditorialType.Subtitle.copy(
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                ),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(Modifier.width(3.dp))
+                            Icon(
+                                imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                contentDescription = if (isExpanded) "See less" else "See more",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
                 }
             }
         }

@@ -53,6 +53,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -70,7 +71,9 @@ fun HtmlFormattedText(
     baseTextColor: Color = MaterialTheme.colorScheme.onSurface,
     fontSize: TextUnit = 14.sp,
     lineHeight: TextUnit = 22.sp,
-    linkColor: Color = MaterialTheme.colorScheme.primary
+    linkColor: Color = MaterialTheme.colorScheme.primary,
+    maxLines: Int = Int.MAX_VALUE,
+    overflow: TextOverflow = TextOverflow.Clip
 ) {
     val annotatedString = remember(html, baseTextColor, linkColor) {
         parseHtmlToAnnotatedString(html, baseTextColor, linkColor)
@@ -82,6 +85,8 @@ fun HtmlFormattedText(
         fontSize = fontSize,
         lineHeight = lineHeight,
         color = baseTextColor,
+        maxLines = maxLines,
+        overflow = overflow,
         modifier = modifier
     )
 }
