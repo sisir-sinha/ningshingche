@@ -50,7 +50,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -1093,7 +1096,7 @@ fun AuthorRail(
 @Composable
 fun AuthorChip(author: AuthorRef, onClick: () -> Unit) {
     val isVerified = author.isVerified || com.example.data.remote.AuthorProfiles.isOfficial(author.imageUrl)
-    val showMore by remember { mutableStateOf(false) }
+    var showMore by remember { mutableStateOf(false) }
     Card(
         onClick = onClick,
         shape = RoundedCornerShape(EditorialShape.card),
@@ -1105,14 +1108,14 @@ fun AuthorChip(author: AuthorRef, onClick: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-                    Box {
-                        EditorialImage(
-                            url = author.imageUrl,
-                            contentDescription = author.name,
-                            modifier = Modifier.size(64.dp),
-                            shape = CircleShape
-                        )
-                    }
+            Box {
+                EditorialImage(
+                    url = author.imageUrl,
+                    contentDescription = author.name,
+                    modifier = Modifier.size(64.dp),
+                    shape = CircleShape
+                )
+            }
             Spacer(Modifier.height(EditorialSpace.sm))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -1130,29 +1133,32 @@ fun AuthorChip(author: AuthorRef, onClick: () -> Unit) {
                     com.example.ui.components.VerifiedBadge(size = 14.dp)
                 }
             }
-            val description = author.description ?: ""
+            val description = author.bio
             val descTruncated = description.length > 80
             val descPreview = if (descTruncated) {
                 if (showMore) description else description.substring(0, 80) + "…"
             } else description
 
-            Text(
-                text = descPreview,
-                style = EditorialType.Caption,
-                color = LocalEditorialTokens.current.inkMuted,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 2.dp)
-            )
+            if (descPreview.isNotBlank()) {
+                Text(
+                    text = descPreview,
+                    style = EditorialType.Caption,
+                    color = LocalEditorialTokens.current.inkMuted,
+                    maxLines = if (showMore) Int.MAX_VALUE else 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
 
             if (descTruncated && description.isNotEmpty()) {
                 Text(
                     text = if (showMore) "See less" else "See more",
                     style = EditorialType.Subtitle,
                     color = LocalEditorialTokens.current.accent,
-                    modifier = Modifier.padding(top = 2.dp),
-                    onClick = { showMore = !showMore }
+                    modifier = Modifier
+                        .padding(top = 2.dp)
+                        .clickable { showMore = !showMore }
                 )
             }
 
@@ -1166,7 +1172,6 @@ fun AuthorChip(author: AuthorRef, onClick: () -> Unit) {
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(top = 2.dp)
                 )
-            }
             }
         }
     }
