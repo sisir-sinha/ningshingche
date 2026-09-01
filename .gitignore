@@ -16,6 +16,8 @@
 local.properties
 .env
 debug.keystore
+debug.keystore.base64
+.build-outputs/
 
 # Git Auto Commit Generator learned data
 .git-auto-commit/

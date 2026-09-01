@@ -110,8 +110,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.data.ai.AiChatMessage
+import com.example.NinghsingCheApp
+import com.example.data.model.AiChatMessage
 import com.example.data.ai.NinghsingCheAiAssistant
+import java.util.UUID
 import com.example.data.portal.ArticleDetail
 import com.example.data.portal.ArticleSummary
 import com.example.data.portal.AuthorRef
@@ -1194,8 +1196,9 @@ fun ArticleAiAssistantBottomSheet(
         mutableStateOf(
             listOf(
                 AiChatMessage(
-                    role = "assistant",
-                    text = "নমস্কার! আমি এই নিবন্ধের এআই সহায়িকা।\n\n📌 **\"${article.title}\"** নিবন্ধটির যেকোনো তথ্য, বিশ্লেষণ বা মূল ভাব সম্পর্কে জানতে নিচের দ্রুত প্রশ্ন বেছে নিন অথবা নিচে আপনার প্রশ্ন লিখুন।"
+                    id = UUID.randomUUID().toString(),
+                    text = "নমস্কার! আমি এই নিবন্ধের এআই সহায়িকা।\n\n📌 **\"${article.title}\"** নিবন্ধটির যেকোনো তথ্য, বিশ্লেষণ বা মূল ভাব সম্পর্কে জানতে নিচের দ্রুত প্রশ্ন বেছে নিন অথবা নিচে আপনার প্রশ্ন লিখুন।",
+                    isUser = false
                 )
             )
         )
@@ -1207,25 +1210,33 @@ fun ArticleAiAssistantBottomSheet(
         val cleanPrompt = promptText.trim()
         if (cleanPrompt.isBlank() || isLoading) return
 
-        messages = messages + AiChatMessage(role = "user", text = cleanPrompt)
+        val userMsg = AiChatMessage(
+            id = UUID.randomUUID().toString(),
+            text = cleanPrompt,
+            isUser = true
+        )
+        messages = messages + userMsg
         inputText = TextFieldValue("")
         isLoading = true
 
         scope.launch {
             try {
-                val response = NinghsingCheAiAssistant.answerArticleSpecificQuestion(
-                    articleId = article.summary.id,
+                val assistant = (context.applicationContext as? NinghsingCheApp)?.aiAssistant
+                    ?: NinghsingCheApp.instance.aiAssistant
+                val response = assistant.answerArticleSpecificQuestion(
                     articleTitle = article.title,
-                    articleAuthor = authorName,
-                    articleCategory = category,
-                    articleHtml = article.html,
-                    userQuestion = cleanPrompt
+                    authorName = authorName,
+                    category = category,
+                    articleContentHtml = article.html,
+                    userQuestion = cleanPrompt,
+                    history = messages
                 )
-                messages = messages + AiChatMessage(role = "assistant", text = response)
+                messages = messages + response
             } catch (e: Exception) {
                 messages = messages + AiChatMessage(
-                    role = "assistant",
-                    text = "দুঃখিত, উত্তর তৈরি করতে সমস্যা হয়েছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।"
+                    id = UUID.randomUUID().toString(),
+                    text = "দুঃখিত, উত্তর তৈরি করতে সমস্যা হয়েছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।",
+                    isUser = false
                 )
             } finally {
                 isLoading = false
@@ -1338,7 +1349,7 @@ fun ArticleAiAssistantBottomSheet(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(messages) { msg ->
-                    val isUser = msg.role == "user"
+                    val isUser = msg.isUser
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
@@ -1366,9 +1377,9 @@ fun ArticleAiAssistantBottomSheet(
                                 } else {
                                     MarkdownFormattedText(
                                         markdown = msg.text,
-                                        fontSizeSp = 14.5f,
-                                        lineHeightSp = 21f,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        fontSize = 14.5.sp,
+                                        lineHeight = 21.sp,
+                                        baseTextColor = MaterialTheme.colorScheme.onSurface
                                     )
 
                                     Spacer(Modifier.height(6.dp))

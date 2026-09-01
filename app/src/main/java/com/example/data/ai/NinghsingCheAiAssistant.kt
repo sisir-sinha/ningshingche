@@ -719,7 +719,7 @@ class NinghsingCheAiAssistant(
                     snippet = plainTextContent.take(220)
                 )
             ),
-            suggestedFollowUps = if (suggestedFollowUps.isNotEmpty()) suggestedFollowUps else listOf(
+            suggestedQuestions = if (suggestedFollowUps.isNotEmpty()) suggestedFollowUps else listOf(
                 "এই নিবন্ধের মূল বার্তা বা সিদ্ধান্ত কী?",
                 "নিবন্ধটিতে উল্লেখিত গুরুত্বপূর্ণ বিষয়গুলো সংক্ষেপে লিখুন",
                 "লেখক এখানে কোন কোন দিককে বেশি গুরুত্ব দিয়েছেন?"

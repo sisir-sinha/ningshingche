@@ -291,3 +291,11 @@ fun EditorialTheme(
         )
     }
 }
+
+fun toBengaliNumeral(number: Number): String {
+    val bnDigits = charArrayOf('০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯')
+    return number.toString().map { ch ->
+        if (ch in '0'..'9') bnDigits[ch - '0'] else ch
+    }.joinToString("")
+}
+
