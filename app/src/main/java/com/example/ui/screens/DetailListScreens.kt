@@ -270,10 +270,12 @@ fun AuthorDetailScreen(
 
                             com.example.ui.components.HtmlFormattedText(
                                 html = author.bio.ifBlank { "লেখক সম্পর্কে কোনো পরিচিতি পাওয়া যায়নি।" },
-                                fontSize = 13.sp,
-                                lineHeight = 20.sp,
+                                fontSize = 14.sp,
+                                lineHeight = 22.sp,
                                 baseTextColor = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.padding(top = 4.dp)
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 4.dp)
                             )
                         }
                     }

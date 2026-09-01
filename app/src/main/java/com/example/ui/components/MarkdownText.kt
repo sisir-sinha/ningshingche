@@ -6,6 +6,7 @@ import android.graphics.Typeface
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.text.style.RelativeSizeSpan
+import android.text.style.StrikethroughSpan
 import android.text.style.StyleSpan
 import android.text.style.UnderlineSpan
 import android.text.style.URLSpan
@@ -122,6 +123,9 @@ fun parseHtmlToAnnotatedString(
                 }
                 is UnderlineSpan -> {
                     addStyle(SpanStyle(textDecoration = TextDecoration.Underline), start, end)
+                }
+                is StrikethroughSpan -> {
+                    addStyle(SpanStyle(textDecoration = TextDecoration.LineThrough), start, end)
                 }
                 is ForegroundColorSpan -> {
                     addStyle(SpanStyle(color = Color(span.foregroundColor)), start, end)

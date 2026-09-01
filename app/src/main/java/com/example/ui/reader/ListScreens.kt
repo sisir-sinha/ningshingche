@@ -9,21 +9,31 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -39,16 +49,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.data.portal.ArticleSummary
 import com.example.data.portal.AuthorRef
 import com.example.data.portal.CategoryRef
+import com.example.ui.components.HtmlFormattedText
+import com.example.ui.components.VerifiedBadge
 import com.example.ui.editorial.ArticleRow
 import com.example.ui.editorial.AuthorChip
 import com.example.ui.editorial.CategoryPill
+import com.example.ui.editorial.EditorialImage
 import com.example.ui.editorial.EditorialShape
 import com.example.ui.editorial.EditorialSpace
 import com.example.ui.editorial.EditorialType
@@ -58,6 +75,7 @@ import com.example.ui.editorial.Hairline
 import com.example.ui.editorial.LoadingFeed
 import com.example.ui.editorial.LocalEditorialTokens
 import com.example.ui.editorial.SectionHeader
+import com.example.ui.theme.Kalpurush
 
 /**
  * The three list screens — search, category and author — share one paging
@@ -383,31 +401,133 @@ fun AuthorScreen(
 @Composable
 private fun AuthorHeader(author: AuthorRef?) {
     if (author == null) return
+    val isVerified = com.example.data.remote.AuthorProfiles.isOfficial(author.imageUrl) || author.isVerified
+    val tokens = LocalEditorialTokens.current
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(EditorialSpace.gutter),
+            .padding(horizontal = EditorialSpace.gutter, vertical = EditorialSpace.md),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        AuthorChip(author = author, onClick = { })
-        Spacer(Modifier.height(EditorialSpace.md))
-        if (author.bio.isNotBlank()) {
+        // Author profile header container (100% full width)
+        Surface(
+            shape = RoundedCornerShape(18.dp),
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+            shadowElevation = 0.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(all = EditorialSpace.lg),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Author Avatar with subtle border
+                Box {
+                    EditorialImage(
+                        url = author.imageUrl,
+                        contentDescription = author.name,
+                        modifier = Modifier
+                            .size(88.dp)
+                            .border(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), CircleShape),
+                        shape = CircleShape
+                    )
+                }
+
+                Spacer(Modifier.height(EditorialSpace.sm))
+
+                // Author Name & Verified Badge
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = author.name,
+                        style = EditorialType.Display.copy(
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center
+                    )
+                    if (isVerified) {
+                        Spacer(Modifier.width(6.dp))
+                        VerifiedBadge(size = 18.dp)
+                    }
+                }
+
+                // Designation
+                if (author.designation.isNotBlank()) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = author.designation,
+                        style = EditorialType.Subtitle,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                // Location
+                if (author.location.isNotBlank()) {
+                    Spacer(Modifier.height(4.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = tokens.inkMuted,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = author.location,
+                            style = EditorialType.Caption,
+                            color = tokens.inkMuted,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+
+                // Formatted HTML Description from WYSIWYG Editor
+                if (author.bio.isNotBlank()) {
+                    Spacer(Modifier.height(EditorialSpace.md))
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                        thickness = 0.8.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(EditorialSpace.md))
+
+                    HtmlFormattedText(
+                        html = author.bio,
+                        fontSize = 14.5.sp,
+                        lineHeight = 23.sp,
+                        baseTextColor = tokens.inkSoft,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(EditorialSpace.lg))
+
+        // Author articles section title
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(
-                text = author.bio.replace(Regex("<[^>]+>"), " "),
-                style = EditorialType.BodySmall,
-                color = LocalEditorialTokens.current.inkSoft,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                text = "লেখকের রচনাবলী",
+                style = EditorialType.Title,
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
-        if (author.location.isNotBlank()) {
-            Spacer(Modifier.height(EditorialSpace.xs))
-            Text(
-                text = author.location,
-                style = EditorialType.Caption,
-                color = LocalEditorialTokens.current.inkMuted
-            )
-        }
-        Spacer(Modifier.height(EditorialSpace.md))
-        Hairline()
+        Spacer(Modifier.height(EditorialSpace.xs))
+        Hairline(modifier = Modifier.fillMaxWidth())
     }
 }
