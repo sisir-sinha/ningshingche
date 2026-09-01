@@ -1102,8 +1102,8 @@ fun AuthorChip(author: AuthorRef, onClick: () -> Unit) {
         Column(
             modifier = Modifier.padding(EditorialSpace.md),
             horizontalAlignment = Alignment.CenterHorizontally,
-                verticalAlignment = Alignment.Center
-                ) {
+            verticalArrangement = Arrangement.Center
+        ) {
                     Box {
                         EditorialImage(
                             url = author.imageUrl,
