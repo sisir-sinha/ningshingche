@@ -250,7 +250,7 @@ internal fun AuthorDto.toRef(): AuthorRef = AuthorRef(
     bio = description.orEmpty(),
     imageUrl = image.orEmpty(),
     location = location.orEmpty(),
-    isVerified = isVerified ?: false
+    isVerified = (isVerified == true) || (verified == true)
 )
 
 internal fun GalleryDto.toItem(): GalleryItem = GalleryItem(

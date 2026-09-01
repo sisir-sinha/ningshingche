@@ -1092,7 +1092,7 @@ fun AuthorRail(
 
 @Composable
 fun AuthorChip(author: AuthorRef, onClick: () -> Unit) {
-    val isVerified = com.example.data.remote.AuthorProfiles.isOfficial(author.imageUrl)
+    val isVerified = author.isVerified || com.example.data.remote.AuthorProfiles.isOfficial(author.imageUrl)
     Card(
         onClick = onClick,
         shape = RoundedCornerShape(EditorialShape.card),

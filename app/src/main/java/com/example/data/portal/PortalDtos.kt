@@ -63,6 +63,7 @@ data class AuthorDto(
     val designation: String? = null,
     val description: String? = null,
     @Json(name = "is_verified") val isVerified: Boolean? = null,
+    val verified: Boolean? = null,
     val location: String? = null,
     @Json(name = "created_at") val createdAt: String? = null
 )
