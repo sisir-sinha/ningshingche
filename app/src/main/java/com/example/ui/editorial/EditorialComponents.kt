@@ -1093,6 +1093,7 @@ fun AuthorRail(
 @Composable
 fun AuthorChip(author: AuthorRef, onClick: () -> Unit) {
     val isVerified = author.isVerified || com.example.data.remote.AuthorProfiles.isOfficial(author.imageUrl)
+    val showMore by remember { mutableStateOf(false) }
     Card(
         onClick = onClick,
         shape = RoundedCornerShape(EditorialShape.card),
@@ -1122,8 +1123,6 @@ fun AuthorChip(author: AuthorRef, onClick: () -> Unit) {
                     text = author.name,
                     style = EditorialType.Subtitle,
                     color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center
                 )
                 if (isVerified) {
@@ -1131,6 +1130,32 @@ fun AuthorChip(author: AuthorRef, onClick: () -> Unit) {
                     com.example.ui.components.VerifiedBadge(size = 14.dp)
                 }
             }
+            val description = author.description ?: ""
+            val descTruncated = description.length > 80
+            val descPreview = if (descTruncated) {
+                if (showMore) description else description.substring(0, 80) + "…"
+            } else description
+
+            Text(
+                text = descPreview,
+                style = EditorialType.Caption,
+                color = LocalEditorialTokens.current.inkMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+
+            if (descTruncated && description.isNotEmpty()) {
+                Text(
+                    text = if (showMore) "See less" else "See more",
+                    style = EditorialType.Subtitle,
+                    color = LocalEditorialTokens.current.accent,
+                    modifier = Modifier.padding(top = 2.dp),
+                    onClick = { showMore = !showMore }
+                )
+            }
+
             if (author.designation.isNotBlank()) {
                 Text(
                     text = author.designation,
@@ -1141,6 +1166,7 @@ fun AuthorChip(author: AuthorRef, onClick: () -> Unit) {
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(top = 2.dp)
                 )
+            }
             }
         }
     }
