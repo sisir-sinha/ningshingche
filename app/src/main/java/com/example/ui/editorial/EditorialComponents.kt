@@ -1097,26 +1097,21 @@ fun AuthorChip(author: AuthorRef, onClick: () -> Unit) {
         onClick = onClick,
         shape = RoundedCornerShape(EditorialShape.card),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.width(168.dp)
+        modifier = Modifier.width(168.dp).height(140.dp)
     ) {
         Column(
             modifier = Modifier.padding(EditorialSpace.md),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box {
-                EditorialImage(
-                    url = author.imageUrl,
-                    contentDescription = author.name,
-                    modifier = Modifier.size(64.dp),
-                    shape = CircleShape
-                )
-                if (isVerified) {
-                    com.example.ui.components.VerifiedBadge(
-                        modifier = Modifier.align(Alignment.BottomEnd),
-                        size = 18.dp
-                    )
-                }
-            }
+            horizontalAlignment = Alignment.CenterHorizontally,
+                verticalAlignment = Alignment.Center
+                ) {
+                    Box {
+                        EditorialImage(
+                            url = author.imageUrl,
+                            contentDescription = author.name,
+                            modifier = Modifier.size(64.dp),
+                            shape = CircleShape
+                        )
+                    }
             Spacer(Modifier.height(EditorialSpace.sm))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
