@@ -727,7 +727,7 @@ fun CategoryVisualCard(
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = LocalEditorialTokens.current.surfaceSunken),
         modifier = modifier
-            .width(152.dp)
+            .width(160.dp)
             .height(100.dp)
             .then(
                 if (isSelected) Modifier.border(2.dp, LocalEditorialTokens.current.accent, RoundedCornerShape(14.dp))
@@ -760,16 +760,28 @@ fun CategoryVisualCard(
                     .align(Alignment.BottomStart)
                     .padding(horizontal = 10.dp, vertical = 8.dp)
             ) {
-                Text(
-                    text = category.title,
-                    fontFamily = com.example.ui.theme.Kalpurush,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
-                    lineHeight = 20.sp,
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Tag,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = category.title,
+                        fontFamily = com.example.ui.theme.Kalpurush,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        lineHeight = 20.sp,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                 if (category.subTitle.isNotBlank()) {
                     Text(
                         text = category.subTitle,
