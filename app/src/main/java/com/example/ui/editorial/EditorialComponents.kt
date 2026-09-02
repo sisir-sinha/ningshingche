@@ -726,9 +726,9 @@ fun CategoryVisualCard(
         onClick = onClick,
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = LocalEditorialTokens.current.surfaceSunken),
-        modifier = modifier
-            .width(160.dp)
-            .height(100.dp)
+modifier = modifier
+                .width(180.dp)
+                .height(100.dp)
             .then(
                 if (isSelected) Modifier.border(2.dp, LocalEditorialTokens.current.accent, RoundedCornerShape(14.dp))
                 else Modifier.border(1.dp, LocalEditorialTokens.current.rule, RoundedCornerShape(14.dp))
@@ -768,9 +768,9 @@ fun CategoryVisualCard(
                         imageVector = Icons.Default.Tag,
                         contentDescription = null,
                         tint = Color.White,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(24.dp)
                     )
-                    Spacer(Modifier.width(6.dp))
+                    Spacer(Modifier.width(8.dp))
                     Text(
                         text = category.title,
                         fontFamily = com.example.ui.theme.Kalpurush,
@@ -1038,7 +1038,7 @@ fun GalleryModalDialog(
                                 modifier = Modifier.size(16.dp),
                                 tint = tokens.accent
                             )
-                            Spacer(Modifier.width(6.dp))
+                            Spacer(Modifier.width(8.dp))
                             Text(
                                 text = "শেয়ার করুন",
                                 fontFamily = com.example.ui.theme.Kalpurush,
