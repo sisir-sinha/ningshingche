@@ -421,7 +421,7 @@ fun RailArticleCard(
         onClick = onClick,
         shape = RoundedCornerShape(EditorialShape.card),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = modifier.width(268.dp)
+        modifier = modifier.width(268.dp).height(200.dp)
     ) {
         Column {
             EditorialImage(
@@ -437,7 +437,7 @@ fun RailArticleCard(
                     text = article.title,
                     style = EditorialType.Title,
                     color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 3,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(Modifier.height(6.dp))
