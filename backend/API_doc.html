@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Ningshing API & App Documentation</title>
+  <style>
+    body {font-family: Arial, sans-serif; line-height: 1.6; margin: 40px;}
+    h1, h2, h3 {color:#2c3e50;}
+    .section {margin-top: 40px; padding-bottom: 20px; border-bottom: 1px solid #ddd;}
+    pre {background:#f4f4f4; padding:10px; overflow-x:auto;}
+    code {font-family: Consolas, Monaco, monospace; background:#f4f4f4; padding:2px 4px;}
+    .endpoint {margin-top:10px; }
+  </style>
+</head>
+<body>
+
+<h1>Ningshing – API & Application Documentation</h1>
+
+<p>This document describes the backend APIs, the dashboard admin interface, and the mobile/web application usage.</p>
+
+<div class="section" id="backend">
+  <h2>Backend API</h2>
+  <p>The backend is built with Node.js (Express) and Supabase (PostgreSQL). All endpoints are prefixed with <code>/api</code>.</p>
+
+  <h3>Base URL</h3>
+  <pre>https://your-domain.com/api</pre>
+
+  <h3>Authentication</h3>
+  <p>Most routes require a Bearer token obtained via <code>POST /auth/login</code>.</p>
+
+  <h3>Endpoints Overview</h3>
+  <ul>
+    <li><strong>Articles</strong>
+      <ul>
+        <li><code>GET /articles</code> – List all articles (supports pagination, filtering by category, tag).</li>
+        <li><code>GET /articles/:id</code> – Retrieve a single article with its HTML content.</li>
+        <li><code>POST /articles</code> – Create a new article (requires auth).</li>
+        <li><code>PUT /articles/:id</code> – Update an article.</li>
+        <li><code>DELETE /articles/:id</code> – Delete an article.</li>
+      </ul>
+    </li>
+
+    <li><strong>Authors</strong>
+      <ul>
+        <li><code>GET /authors</code> – List authors.</li>
+        <li><code>GET /authors/:id</code> – Get author details.</li>
+        <li><code>POST /authors</code> – Create author.</li>
+        <li><code>PUT /authors/:id</code> – Update author.</li>
+        <li><code>DELETE /authors/:id</code> – Delete author.</li>
+      </ul>
+    </li>
+
+    <li><strong>Categories</strong>
+      <ul>
+        <li><code>GET /categories</code> – List categories.</li>
+        <li><code>GET /categories/:id</code> – Get category details.</li>
+        <li><code>POST /categories</code> – Create category.</li>
+        <li><code>PUT /categories/:id</code> – Update category.</li>
+        <li><code>DELETE /categories/:id</code> – Delete category.</li>
+      </ul>
+    </li>
+
+    <li><strong>PDF Books</strong>
+      <ul>
+        <li><code>GET /pdf-books</code> – List available PDF books.</li>
+        <li><code>GET /pdf-books/:id</code> – Stream a PDF file.</li>
+        <li><code>POST /pdf-books</code> – Upload a new PDF book (requires auth).</li>
+      </ul>
+    </li>
+
+    <li><strong>Comments</strong>
+      <ul>
+        <li><code>GET /comments</code> – List comments for an article.</li>
+        <li><code>POST /comments</code> – Submit a new comment.</li>
+        <li><code>DELETE /comments/:id</code> – Remove a comment (mod only).</li>
+      </ul>
+    </li>
+
+    <li><strong>Settings / System</strong>
+      <ul>
+        <li><code>GET /settings</code> – App configuration (feature flags, URLs).</li>
+        <li><code>PUT /settings</code> – Update settings (admin only).</li>
+      </ul>
+    </li>
+  </ul>
+
+  <h3>Sample Request (cURL)</h3>
+  <pre>curl -H "Authorization: Bearer <token>" https://your-domain.com/api/articles</pre>
+
+  <h3>Response Format</h3>
+  <p>JSON objects use camelCase keys. Example article summary:</p>
+  <pre>{
+    "id": "c1d2e3f4",
+    "title": "Understanding Bengali Typography",
+    "authorName": "Saiful Islam",
+    "category": "Culture",
+    "readingTimeMinutes": 5,
+    "imageUrl": "https://example.com/img.jpg"
+  }</pre>
+</div>
+
+<div class="section" id="dashboard">
+  <h2>Dashboard (Admin) Documentation</h2>
+  <p>The dashboard is a React admin panel that sits on top of the same backend. It provides CRUD interfaces for content managers and site admins.</p>
+
+  <h3>Access</h3>
+  <ul>
+    <li>URL: <code>https://your-domain.com/dashboard</code></li>
+    <li>Login credentials are provisioned by the super‑admin.</li>
+  </ul>
+
+  <h3>Features</h3>
+  <ul>
+    <li><strong>Article Management</strong> – Create, edit, delete, and schedule articles.</li>
+    <li><strong>Author Management</strong> – Add/remove authors, assign verification badges.</li>
+    <li><strong>Category Management</strong> – Organize articles into hierarchical categories.</li>
+    <li><strong>PDF Library</strong> – Upload, preview, and organize PDF books.</li>
+    <li><strong>User Analytics</strong> – Basic stats (views, likes, comments) via <code>GET /dashboard/analytics</code>.</li>
+    <li><strong>Comments Moderation</strong> – Approve/reject user comments.</li>
+  </ul>
+
+  <h3>API Proxy</h3>
+  <p>The dashboard talks to the backend through a proxy under <code>/api</code> (same as the mobile app). No extra auth token is needed when the admin is logged in; session cookies handle permission checks.</p>
+
+  <h3>Endpoints Used Internally</h3>
+  <ul>
+    <li><code>GET /api/articles</code> – Populate the article list screen.</li>
+    <li><code>POST /api/articles</code> – Save a draft or published article.</li>
+    <li><code>GET /api/authors</code> – Dropdown for author selection.</li>
+    <li><code>GET /api/categories</code> – Category tree for the sidebar.</li>
+    <li><code>GET /api/pdf-books</code> – List books in the library.</li>
+    <li><code>POST /api/comments</code> – Submit a comment for moderation.</li>
+  </ul>
+
+  <h3>UI Notes</h3>
+  <ul>
+    <li>All forms use <code>react-hook-form</code> with validation via <code>yup</code>.</li>
+    <li>Data tables are powered by <code>react-table</code> with server‑side pagination.</li>
+    <li>Dark mode is supported via the app’s theme toggle.</li>
+  </ul>
+</div>
+
+<div class="section" id="app">
+  <h2>Mobile / Web Application Documentation</h2>
+  <p>The Ningshing reader app (Android/ iOS / Web) consumes the backend APIs and provides a rich reading experience.</p>
+
+  <h3>Entry Points</h3>
+  <ul>
+    <li>Home screen: <code>/</code> – displays hero carousel, featured articles, categories.</li>
+    <li>Article detail: <code>/article/:id</code> – full‑screen reading view.</li>
+    <li>Category browse: <code>/category/:slug</code> – list articles in a category.</li>
+    <li>Search: <code>/search</code> – full‑text search across titles and content.</li>
+  </ul>
+
+  <h3>Key Screens &amp; Their Data Flows</h3>
+  <ul>
+    <li><strong>Home Screen</strong>
+      <ul>
+        <li>Fetches <code>GET /api/articles?isFeature=true</code> for the featured rail.</li>
+        <li>Loads categories via <code>GET /api/categories</code> for the category rail.</li>
+        <li>AI Assistant button opens the bottom‑sheet described in the “AI Assistant” section.</li>
+      </ul>
+    </li>
+
+    <li><strong>Article Reader</strong>
+      <ul>
+        <li>Retrieves article via <code>GET /api/articles/:id</code>.</li>
+        <li>Renders HTML using the <code>RichHtmlArticleBody</code> component.</li>
+        <li>Voice synthesis uses the <code>ArticleTtsController</code> which calls the TTS engine.</li>
+        <li>Pull‑to‑refresh triggers <code>GET /api/articles/:id</code> again.</li>
+      </ul>
+    </li>
+
+    <li><strong>Category Screen</strong>
+      <ul>
+        <li>Lists articles filtered by the selected category.</li>
+        <li>Uses <code>GET /api/articles?categorySlug=...</code>.</li>
+      </ul>
+    </li>
+
+    <li><strong>PDF Book Reader</strong>
+      <ul>
+        <li>Opens the PDF viewer described in the “PDF Viewer” section.</li>
+        <li>Downloads the PDF from <code>GET /api/pdf-books/:id</code> (streamed).</li>
+      </ul>
+    </li>
+
+    <li><strong>AI Assistant Bottom Sheet</strong>
+      <ul>
+        <li>Sends the user’s question to <code>NinghsingCheAiAssistant.answerArticleSpecificQuestion</code> which internally calls the backend AI service.</li>
+        <li>Answer is shown only if it originates from the current article; otherwise a “not from article” message appears.</li>
+      </ul>
+    </li>
+  </ul>
+
+  <h3>Offline / Cache Strategy</h3>
+  <ul>
+    <li>Article lists are cached with Realm/MobX for quick re‑entry.</li>
+    <li>PDF files are stored in the app’s internal cache after the first download.</li>
+    <li>Auth tokens are stored securely via <code>react-native-keychain</code> (Android) / <code>Keychain</code> (iOS).</li>
+  </ul>
+
+  <h3>Error Handling</h3>
+  <p>All API errors return a JSON object <code>{error: "message", code: number}</code>. The frontend displays a toast or snackbar with the user‑friendly message.</p>
+
+  <h3>Versioning</h3>
+  <p>API version is not yet versioned; breaking changes will be communicated via the changelog and a <code>/v1</code> prefix may be added in the future.</p>
+</div>
+
+<footer style="margin-top: 60px; font-size: 0.9em; color: #777;">
+  <p>Generated on <script>document.write(new Date().toLocaleDateString());</script></p>
+  <p>Ningshing Open Source • <a href="https://github.com/sisir-sinha/ningshingche">GitHub Repository</a></p>
+</footer>
+
+</body>
+</html>
