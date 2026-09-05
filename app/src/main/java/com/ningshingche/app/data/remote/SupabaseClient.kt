@@ -522,6 +522,159 @@ class SupabaseClient(private val context: Context) {
             }
         }
 
+    suspend fun getMyNotifications(): Result<List<UserNotificationRecord>> = withContext(Dispatchers.IO) {
+        val token = authToken
+        if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null) {
+            return@withContext Result.success(emptyList())
+        }
+        try {
+            val url = "${SupabaseConfig.restBaseUrl}/user_notifications?select=*&order=created_at.desc"
+            val request = createUserAuthedRequestBuilder(url, token).get().build()
+            val response = httpClient.newCall(request).execute()
+            val body = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                return@withContext Result.success(emptyList())
+            }
+            val array = JSONArray(body.ifBlank { "[]" })
+            val list = mutableListOf<UserNotificationRecord>()
+            for (i in 0 until array.length()) {
+                list.add(UserNotificationRecord.fromJson(array.getJSONObject(i)))
+            }
+            Result.success(list)
+        } catch (_: Exception) {
+            Result.success(emptyList())
+        }
+    }
+
+    suspend fun upsertNotification(notice: UserNotificationRecord): Result<UserNotificationRecord> =
+        withContext(Dispatchers.IO) {
+            val token = authToken
+            if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null) {
+                return@withContext Result.success(notice)
+            }
+            try {
+                val url = "${SupabaseConfig.restBaseUrl}/user_notifications"
+                val request = createUserAuthedRequestBuilder(url, token)
+                    .addHeader("Prefer", "resolution=merge-duplicates,return=representation")
+                    .post(notice.toJson().toString().toRequestBody(jsonMediaType))
+                    .build()
+                httpClient.newCall(request).execute().use { response ->
+                    val body = response.body?.string().orEmpty()
+                    if (response.isSuccessful && body.startsWith("[")) {
+                        val array = JSONArray(body)
+                        if (array.length() > 0) {
+                            return@withContext Result.success(UserNotificationRecord.fromJson(array.getJSONObject(0)))
+                        }
+                    }
+                }
+                Result.success(notice)
+            } catch (_: Exception) {
+                Result.success(notice)
+            }
+        }
+
+    suspend fun markNotificationRead(id: String): Result<Boolean> = withContext(Dispatchers.IO) {
+        val token = authToken
+        if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null || id.isBlank()) {
+            return@withContext Result.success(false)
+        }
+        try {
+            val url = "${SupabaseConfig.restBaseUrl}/user_notifications?id=eq.$id"
+            val payload = JSONObject().put("is_read", true).toString()
+            val request = createUserAuthedRequestBuilder(url, token)
+                .patch(payload.toRequestBody(jsonMediaType))
+                .build()
+            val response = httpClient.newCall(request).execute()
+            Result.success(response.isSuccessful)
+        } catch (_: Exception) {
+            Result.success(false)
+        }
+    }
+
+    suspend fun markAllNotificationsRead(): Result<Boolean> = withContext(Dispatchers.IO) {
+        val token = authToken
+        val userId = _currentUser.value?.id.orEmpty()
+        if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null || userId.isBlank()) {
+            return@withContext Result.success(false)
+        }
+        try {
+            val url = "${SupabaseConfig.restBaseUrl}/user_notifications?user_id=eq.$userId&is_read=eq.false"
+            val payload = JSONObject().put("is_read", true).toString()
+            val request = createUserAuthedRequestBuilder(url, token)
+                .patch(payload.toRequestBody(jsonMediaType))
+                .build()
+            val response = httpClient.newCall(request).execute()
+            Result.success(response.isSuccessful)
+        } catch (_: Exception) {
+            Result.success(false)
+        }
+    }
+
+    suspend fun getAdminMessages(): Result<List<AdminMessageRecord>> = withContext(Dispatchers.IO) {
+        val token = authToken
+        if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null) {
+            return@withContext Result.success(emptyList())
+        }
+        try {
+            val url = "${SupabaseConfig.restBaseUrl}/admin_messages?select=*&order=created_at.asc"
+            val request = createUserAuthedRequestBuilder(url, token).get().build()
+            val response = httpClient.newCall(request).execute()
+            val body = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                return@withContext Result.success(emptyList())
+            }
+            val array = JSONArray(body.ifBlank { "[]" })
+            val list = mutableListOf<AdminMessageRecord>()
+            for (i in 0 until array.length()) {
+                list.add(AdminMessageRecord.fromJson(array.getJSONObject(i)))
+            }
+            Result.success(list)
+        } catch (_: Exception) {
+            Result.success(emptyList())
+        }
+    }
+
+    suspend fun sendAdminMessage(subject: String, body: String): Result<AdminMessageRecord> =
+        withContext(Dispatchers.IO) {
+            val token = authToken
+            val userId = _currentUser.value?.id.orEmpty()
+            if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null) {
+                return@withContext Result.failure(Exception("সাইন ইন করা নেই।"))
+            }
+            if (userId.isBlank() || body.isBlank()) {
+                return@withContext Result.failure(Exception("বার্তা লিখুন।"))
+            }
+            try {
+                val record = AdminMessageRecord(
+                    userId = userId,
+                    sender = "user",
+                    subject = subject.trim(),
+                    body = body.trim()
+                )
+                val url = "${SupabaseConfig.restBaseUrl}/admin_messages"
+                val request = createUserAuthedRequestBuilder(url, token)
+                    .addHeader("Prefer", "return=representation")
+                    .post(record.toJson().toString().toRequestBody(jsonMediaType))
+                    .build()
+                val response = httpClient.newCall(request).execute()
+                val responseBody = response.body?.string().orEmpty()
+                if (!response.isSuccessful) {
+                    return@withContext Result.failure(
+                        Exception("বার্তা পাঠানো যায়নি (${response.code})। SQL মাইগ্রেশন 007 চালান।")
+                    )
+                }
+                if (responseBody.startsWith("[")) {
+                    val array = JSONArray(responseBody)
+                    if (array.length() > 0) {
+                        return@withContext Result.success(AdminMessageRecord.fromJson(array.getJSONObject(0)))
+                    }
+                }
+                Result.success(record)
+            } catch (error: Exception) {
+                Result.failure(error)
+            }
+        }
+
     private fun mergeGoogleProfile(google: UserProfile, existing: JSONObject?): UserProfile {
         if (existing == null) return google
         val stored = UserProfile.fromJson(existing)

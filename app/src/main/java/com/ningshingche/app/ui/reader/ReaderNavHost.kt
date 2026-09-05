@@ -37,6 +37,7 @@ import com.ningshingche.app.ui.screens.SettingsScreen
 import com.ningshingche.app.ui.screens.SocialActivitiesScreen
 import com.ningshingche.app.ui.screens.SplashScreen
 import com.ningshingche.app.ui.screens.UserDashboardScreen
+import com.ningshingche.app.ui.screens.UserInboxScreen
 import com.ningshingche.app.ui.screens.UserProfileScreen
 import com.ningshingche.app.ui.screens.WelcomeLoginScreen
 import com.ningshingche.app.ui.screens.WelcomeNotificationsScreen
@@ -69,6 +70,7 @@ object ReaderRoute {
     const val WelcomeNotifications = "welcome_notifications"
     const val UserDashboard = "user_dashboard"
     const val UserProfile = "user_profile"
+    const val UserInbox = "user_inbox"
     const val NewArticle = "new_article"
     const val Bookmarks = "bookmarks"
     const val History = "history"
@@ -113,6 +115,10 @@ fun EditorialReaderApp(
     val workspaceViewModel: ReaderWorkspaceViewModel = viewModel(factory = mainFactory)
     val currentUser by app.googleAuthRepository.currentUser.collectAsState()
     val isSignedIn = currentUser != null
+    val unreadCount by workspaceViewModel.unreadCount.collectAsState()
+    LaunchedEffect(isSignedIn, currentUser?.id) {
+        if (isSignedIn) workspaceViewModel.refreshInbox()
+    }
     val readerPreferences by app.preferencesRepository.readerPreferences.collectAsState(
         initial = com.ningshingche.app.data.model.ReaderPreferences()
     )
@@ -227,6 +233,8 @@ fun EditorialReaderApp(
                     onLoginClick = { navController.navigate(ReaderRoute.Login) },
                     onDashboardClick = { navController.navigate(ReaderRoute.UserDashboard) },
                     onProfileClick = { navController.navigate(ReaderRoute.UserProfile) },
+                    onNotificationsClick = { navController.navigate(ReaderRoute.UserInbox) },
+                    unreadCount = unreadCount,
                     onLogoutClick = { workspaceViewModel.signOut() },
                     isSignedIn = isSignedIn,
                     avatarUrl = currentUser?.avatarUrl.orEmpty(),
@@ -380,12 +388,20 @@ fun EditorialReaderApp(
                     viewModel = workspaceViewModel,
                     onBackClick = { navController.popBackStack() },
                     onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) },
-                    onNewArticle = { navController.navigate(ReaderRoute.NewArticle) }
+                    onNewArticle = { navController.navigate(ReaderRoute.NewArticle) },
+                    onInboxClick = { navController.navigate(ReaderRoute.UserInbox) }
                 )
             }
 
             composable(ReaderRoute.UserProfile) {
                 UserProfileScreen(
+                    viewModel = workspaceViewModel,
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+
+            composable(ReaderRoute.UserInbox) {
+                UserInboxScreen(
                     viewModel = workspaceViewModel,
                     onBackClick = { navController.popBackStack() }
                 )

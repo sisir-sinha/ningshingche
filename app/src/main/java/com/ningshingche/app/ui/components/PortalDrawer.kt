@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Explore
@@ -187,6 +188,9 @@ fun PortalDrawerContent(
                     }
                     DrawerRow("প্রোফাইল", Icons.Default.Person, currentRoute == Screen.UserProfile.route) {
                         onCloseDrawer(); onNavigate(Screen.UserProfile.route)
+                    }
+                    DrawerRow("বিজ্ঞপ্তি", Icons.Default.Notifications, currentRoute == Screen.UserInbox.route) {
+                        onCloseDrawer(); onNavigate(Screen.UserInbox.route)
                     }
                 } else {
                     DrawerRow("সাইন ইন", Icons.AutoMirrored.Filled.Login, currentRoute == Screen.Login.route) {

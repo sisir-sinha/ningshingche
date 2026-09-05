@@ -37,6 +37,15 @@ class ReaderWorkspaceViewModel(
     private val _comments = MutableStateFlow<List<CommentRecord>>(emptyList())
     val comments: StateFlow<List<CommentRecord>> = _comments.asStateFlow()
 
+    private val _notifications = MutableStateFlow<List<UserNotificationRecord>>(emptyList())
+    val notifications: StateFlow<List<UserNotificationRecord>> = _notifications.asStateFlow()
+
+    private val _adminMessages = MutableStateFlow<List<AdminMessageRecord>>(emptyList())
+    val adminMessages: StateFlow<List<AdminMessageRecord>> = _adminMessages.asStateFlow()
+
+    private val _unreadCount = MutableStateFlow(0)
+    val unreadCount: StateFlow<Int> = _unreadCount.asStateFlow()
+
     private val _metrics = MutableStateFlow(ReaderMetrics())
     val metrics: StateFlow<ReaderMetrics> = _metrics.asStateFlow()
 

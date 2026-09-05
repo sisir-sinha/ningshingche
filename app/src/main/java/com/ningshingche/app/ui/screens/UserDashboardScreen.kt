@@ -53,7 +53,8 @@ fun UserDashboardScreen(
     viewModel: ReaderWorkspaceViewModel,
     onBackClick: () -> Unit,
     onCompleteProfile: () -> Unit,
-    onNewArticle: () -> Unit
+    onNewArticle: () -> Unit,
+    onInboxClick: () -> Unit = {}
 ) {
     val user by viewModel.currentUser.collectAsStateWithLifecycle()
     val articles by viewModel.articles.collectAsStateWithLifecycle()
@@ -124,6 +125,17 @@ fun UserDashboardScreen(
                 }
 
                 item { MetricsGrid(metrics) }
+
+                item {
+                    Button(
+                        onClick = onInboxClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("dashboard_inbox_button")
+                    ) {
+                        Text("বিজ্ঞপ্তি ও অ্যাডমিন বার্তা", fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
+                    }
+                }
 
                 item {
                     TabRow(selectedTabIndex = tab) {

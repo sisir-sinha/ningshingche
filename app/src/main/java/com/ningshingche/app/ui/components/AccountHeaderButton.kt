@@ -36,6 +36,8 @@ fun AccountHeaderButton(
     onLoginClick: () -> Unit,
     onDashboardClick: () -> Unit,
     onProfileClick: () -> Unit,
+    onNotificationsClick: () -> Unit = {},
+    unreadCount: Int = 0,
     onLogoutClick: () -> Unit
 ) {
     var menuOpen by remember { mutableStateOf(false) }
@@ -91,6 +93,18 @@ fun AccountHeaderButton(
                     onProfileClick()
                 },
                 modifier = Modifier.testTag("account_menu_profile")
+            )
+            DropdownMenuItem(
+                text = {
+                    val label = if (unreadCount > 0) "বিজ্ঞপ্তি ($unreadCount)" else "বিজ্ঞপ্তি"
+                    Text(label, fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold)
+                },
+                leadingIcon = { Icon(Icons.Default.Notifications, contentDescription = null) },
+                onClick = {
+                    menuOpen = false
+                    onNotificationsClick()
+                },
+                modifier = Modifier.testTag("account_menu_notifications")
             )
             DropdownMenuItem(
                 text = {
