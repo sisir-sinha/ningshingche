@@ -107,8 +107,13 @@ data class ReaderPreferences(
     val themeMode: ReaderThemeMode = ReaderThemeMode.PAPER,
     val appThemeMode: AppThemeMode = AppThemeMode.LIGHT,
     val ttsSpeed: Float = 1.0f,
+    val notificationsEnabled: Boolean = true,
     val notificationNewArticles: Boolean = true,
-    val notificationFeatured: Boolean = true
+    val notificationFeatured: Boolean = true,
+    val notificationVideos: Boolean = true,
+    val notificationPdfs: Boolean = true,
+    val notificationSystem: Boolean = true,
+    val notificationOther: Boolean = true
 )
 
 data class ArticleCitation(

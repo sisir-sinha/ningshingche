@@ -16,6 +16,10 @@ import com.ningshingche.app.data.portal.PortalRepository
 import com.ningshingche.app.data.remote.NingshingCheWebsiteClient
 import com.ningshingche.app.data.remote.SupabaseClient
 import com.ningshingche.app.data.repository.ArticleRepository
+import com.ningshingche.app.notifications.AppNotificationManager
+import com.ningshingche.app.notifications.ContentCheckWorker
+import com.ningshingche.app.notifications.ContentUpdateNotifier
+import com.ningshingche.app.notifications.SeenContentStore
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
@@ -47,6 +51,12 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
 
     /** Public Supabase client for reading and moderated anonymous comments. */
     lateinit var portalRepository: PortalRepository
+        private set
+
+    lateinit var appNotificationManager: AppNotificationManager
+        private set
+
+    lateinit var contentUpdateNotifier: ContentUpdateNotifier
         private set
 
     /** Shared OkHttp client used by both the Portal API and Coil image loading,
@@ -119,6 +129,14 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
         articleRepository = ArticleRepository(database, supabaseClient, websiteClient)
         portalRepository = PortalProvider.repository()
         aiAssistant = NinghsingCheAiAssistant(articleRepository, portalRepository)
+        appNotificationManager = AppNotificationManager(this).also { it.createChannels() }
+        contentUpdateNotifier = ContentUpdateNotifier(
+            context = this,
+            seenStore = SeenContentStore(this),
+            notifications = appNotificationManager,
+            preferencesRepository = preferencesRepository
+        )
+        ContentCheckWorker.schedule(this)
     }
 
     companion object {

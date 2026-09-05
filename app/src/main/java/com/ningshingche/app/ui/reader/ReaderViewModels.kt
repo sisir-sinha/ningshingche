@@ -13,6 +13,7 @@ import com.ningshingche.app.data.portal.CommentItem
 import com.ningshingche.app.data.portal.HomeFeed
 import com.ningshingche.app.data.portal.Page
 import com.ningshingche.app.data.portal.PortalError
+import com.ningshingche.app.NinghsingCheApp
 import com.ningshingche.app.data.portal.PortalRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -70,6 +71,8 @@ class HomeViewModel(private val repository: PortalRepository) : ViewModel() {
                 .onSuccess { feed ->
                     _state.value = HomeUiState.Ready(feed)
                     _offlineNotice.value = null
+                    val notifier = runCatching { NinghsingCheApp.instance.contentUpdateNotifier }.getOrNull()
+                    notifier?.ingest(feed, notify = false)
                 }
                 .onFailure { error ->
                     val portalError = error as? PortalError

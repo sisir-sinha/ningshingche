@@ -28,8 +28,13 @@ class UserPreferencesRepository(private val context: Context) {
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val APP_THEME_MODE = stringPreferencesKey("app_theme_mode")
         val TTS_SPEED = floatPreferencesKey("tts_speed")
+        val NOTIF_ENABLED = booleanPreferencesKey("notif_enabled")
         val NOTIF_NEW_ARTICLES = booleanPreferencesKey("notif_new_articles")
         val NOTIF_FEATURED = booleanPreferencesKey("notif_featured")
+        val NOTIF_VIDEOS = booleanPreferencesKey("notif_videos")
+        val NOTIF_PDFS = booleanPreferencesKey("notif_pdfs")
+        val NOTIF_SYSTEM = booleanPreferencesKey("notif_system")
+        val NOTIF_OTHER = booleanPreferencesKey("notif_other")
     }
 
     val readerPreferences: Flow<ReaderPreferences> = context.dataStore.data
@@ -56,8 +61,13 @@ class UserPreferencesRepository(private val context: Context) {
             AppThemeMode.SYSTEM
         }
         val ttsSpeed = preferences[Keys.TTS_SPEED] ?: 1.0f
+        val notifEnabled = preferences[Keys.NOTIF_ENABLED] ?: true
         val notifNew = preferences[Keys.NOTIF_NEW_ARTICLES] ?: true
         val notifFeatured = preferences[Keys.NOTIF_FEATURED] ?: true
+        val notifVideos = preferences[Keys.NOTIF_VIDEOS] ?: true
+        val notifPdfs = preferences[Keys.NOTIF_PDFS] ?: true
+        val notifSystem = preferences[Keys.NOTIF_SYSTEM] ?: true
+        val notifOther = preferences[Keys.NOTIF_OTHER] ?: true
 
         ReaderPreferences(
             fontSizeSp = fontSize,
@@ -65,8 +75,13 @@ class UserPreferencesRepository(private val context: Context) {
             themeMode = themeMode,
             appThemeMode = appThemeMode,
             ttsSpeed = ttsSpeed,
+            notificationsEnabled = notifEnabled,
             notificationNewArticles = notifNew,
-            notificationFeatured = notifFeatured
+            notificationFeatured = notifFeatured,
+            notificationVideos = notifVideos,
+            notificationPdfs = notifPdfs,
+            notificationSystem = notifSystem,
+            notificationOther = notifOther
         )
     }
 

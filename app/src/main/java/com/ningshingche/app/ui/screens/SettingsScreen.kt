@@ -1,8 +1,14 @@
 package com.ningshingche.app.ui.screens
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -93,6 +99,9 @@ fun SettingsScreen(
         delay(1000L) // Minimum 1 second skeleton view
         isSkeletonLoading = false
     }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
 
     if (isSkeletonLoading) {
         SettingsSkeletonLayout()
@@ -613,6 +622,18 @@ fun SettingsScreen(
 
             // 3. Notifications Section
             item {
+                fun enableAndAskOs(onEnable: (Boolean) -> Unit): (Boolean) -> Unit = { enabled ->
+                    onEnable(enabled)
+                    if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        val granted = ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.POST_NOTIFICATIONS
+                        ) == PackageManager.PERMISSION_GRANTED
+                        if (!granted) {
+                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    }
+                }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         text = "বিজ্ঞপ্তি ও আপডেট",
@@ -629,38 +650,61 @@ fun SettingsScreen(
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "নতুন প্রকাশিত প্রবন্ধের বিজ্ঞপ্তি",
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            fontSize = 14.sp
-                                        )
-                                    )
-                                    Text(
-                                        text = "সাপ্তাহিক নতুন সংখ্যা ও গবেষণা প্রকাশিত হলে জানান",
-                                        style = MaterialTheme.typography.bodySmall.copy(
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            fontSize = 11.sp
-                                        )
-                                    )
-                                }
-                                Switch(
-                                    checked = preferences.notificationNewArticles,
-                                    onCheckedChange = { viewModel.toggleNewArticlesNotif(it) },
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
-                                    )
-                                )
-                            }
+                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                            NotificationSwitchRow(
+                                title = "সব বিজ্ঞপ্তি",
+                                subtitle = "অ্যান্ড্রয়েড সিস্টেম নোটিফিকেশন চালু রাখুন",
+                                checked = preferences.notificationsEnabled,
+                                onCheckedChange = enableAndAskOs { viewModel.toggleNotificationsEnabled(it) }
+                            )
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                            NotificationSwitchRow(
+                                title = "নতুন প্রবন্ধ",
+                                subtitle = "নতুন প্রকাশিত প্রবন্ধ এলে জানান",
+                                checked = preferences.notificationNewArticles,
+                                enabled = preferences.notificationsEnabled,
+                                onCheckedChange = enableAndAskOs { viewModel.toggleNewArticlesNotif(it) }
+                            )
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                            NotificationSwitchRow(
+                                title = "নির্বাচিত প্রবন্ধ",
+                                subtitle = "ফিচার্ড ও সম্পাদকীয় পছন্দ",
+                                checked = preferences.notificationFeatured,
+                                enabled = preferences.notificationsEnabled,
+                                onCheckedChange = { viewModel.toggleFeaturedNotif(it) }
+                            )
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                            NotificationSwitchRow(
+                                title = "নতুন ভিডিও",
+                                subtitle = "ভিডিও আর্কাইভে নতুন সংযোজন",
+                                checked = preferences.notificationVideos,
+                                enabled = preferences.notificationsEnabled,
+                                onCheckedChange = { viewModel.toggleVideosNotif(it) }
+                            )
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                            NotificationSwitchRow(
+                                title = "নতুন PDF বই",
+                                subtitle = "ডিজিটাল বই ও পত্রিকা প্রকাশিত হলে",
+                                checked = preferences.notificationPdfs,
+                                enabled = preferences.notificationsEnabled,
+                                onCheckedChange = { viewModel.togglePdfsNotif(it) }
+                            )
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                            NotificationSwitchRow(
+                                title = "সিস্টেম আপডেট",
+                                subtitle = "অ্যাপ সংস্করণ ও সাইট হালনাগাদ",
+                                checked = preferences.notificationSystem,
+                                enabled = preferences.notificationsEnabled,
+                                onCheckedChange = { viewModel.toggleSystemNotif(it) }
+                            )
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                            NotificationSwitchRow(
+                                title = "অন্যান্য",
+                                subtitle = "গ্যালারি ও বাকি আপডেট",
+                                checked = preferences.notificationOther,
+                                enabled = preferences.notificationsEnabled,
+                                onCheckedChange = { viewModel.toggleOtherNotif(it) }
+                            )
                         }
                     }
                 }
@@ -798,6 +842,50 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun NotificationSwitchRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean = true
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 14.sp
+                )
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp
+                )
+            )
+        }
+        Switch(
+            checked = checked && enabled,
+            onCheckedChange = onCheckedChange,
+            enabled = enabled,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+            )
+        )
     }
 }
 

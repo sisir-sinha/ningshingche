@@ -601,6 +601,12 @@ class SettingsViewModel(
         }
     }
 
+    fun toggleNotificationsEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.updateNotificationsEnabled(enabled)
+        }
+    }
+
     fun toggleNewArticlesNotif(enabled: Boolean) {
         viewModelScope.launch {
             preferencesRepository.updateNotificationNew(enabled)
@@ -610,6 +616,30 @@ class SettingsViewModel(
     fun toggleFeaturedNotif(enabled: Boolean) {
         viewModelScope.launch {
             preferencesRepository.updateNotificationFeatured(enabled)
+        }
+    }
+
+    fun toggleVideosNotif(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.updateNotificationVideos(enabled)
+        }
+    }
+
+    fun togglePdfsNotif(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.updateNotificationPdfs(enabled)
+        }
+    }
+
+    fun toggleSystemNotif(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.updateNotificationSystem(enabled)
+        }
+    }
+
+    fun toggleOtherNotif(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.updateNotificationOther(enabled)
         }
     }
 
