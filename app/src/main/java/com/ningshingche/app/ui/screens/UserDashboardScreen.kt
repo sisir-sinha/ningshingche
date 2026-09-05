@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -263,6 +264,7 @@ private fun UserInfoCard(
     onEditProfile: () -> Unit
 ) {
     val name = user?.composedFullName().orEmpty().ifBlank { "পাঠক" }
+    val designation = user?.designation.orEmpty().ifBlank { "—" }
     Surface(
         shape = RoundedCornerShape(16.dp),
         tonalElevation = 2.dp,
@@ -270,63 +272,41 @@ private fun UserInfoCard(
             .fillMaxWidth()
             .testTag("dashboard_user_info")
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(shape = CircleShape, modifier = Modifier.size(64.dp)) {
-                    if (!user?.avatarUrl.isNullOrBlank()) {
-                        AsyncImage(
-                            model = user?.avatarUrl,
-                            contentDescription = "প্রোফাইল ছবি",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize().clip(CircleShape)
-                        )
-                    } else {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(36.dp))
-                        }
-                    }
-                }
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(name, fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                    if (!user?.designation.isNullOrBlank()) {
-                        Text(user?.designation.orEmpty(), fontFamily = Kalpurush, fontSize = 13.sp)
-                    }
-                    Text(
-                        if (user?.isProfileComplete == true) "প্রোফাইল সম্পূর্ণ" else "প্রোফাইল অসম্পূর্ণ",
-                        fontFamily = Kalpurush,
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.primary
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(shape = CircleShape, modifier = Modifier.size(64.dp)) {
+                if (!user?.avatarUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = user?.avatarUrl,
+                        contentDescription = "প্রোফাইল ছবি",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize().clip(CircleShape)
                     )
+                } else {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(36.dp))
+                    }
                 }
             }
-            InfoLine("ইমেইল", user?.email.orEmpty().ifBlank { "—" })
-            InfoLine("ফোন", user?.phone.orEmpty().ifBlank { "—" })
-            InfoLine("ঠিকানা", user?.address.orEmpty().ifBlank { "—" })
-            InfoLine("Facebook", user?.facebookId.orEmpty().ifBlank { "—" })
-            if (!user?.location.isNullOrBlank()) {
-                InfoLine("অবস্থান", user?.location.orEmpty())
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(name, fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text(
+                    designation,
+                    fontFamily = Kalpurush,
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-            if (!user?.about.isNullOrBlank()) {
-                Text(user?.about.orEmpty(), fontFamily = Kalpurush, fontSize = 13.sp)
-            }
-            OutlinedButton(
+            IconButton(
                 onClick = onEditProfile,
-                modifier = Modifier.fillMaxWidth().testTag("dashboard_edit_profile")
+                modifier = Modifier.testTag("dashboard_edit_profile")
             ) {
-                Text("প্রোফাইল সম্পাদনা", fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
+                Icon(Icons.Default.Edit, contentDescription = "প্রোফাইল সম্পাদনা")
             }
         }
-    }
-}
-
-@Composable
-private fun InfoLine(label: String, value: String) {
-    Column {
-        Text(label, fontFamily = Kalpurush, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, fontFamily = Kalpurush, fontSize = 14.sp)
     }
 }
 
