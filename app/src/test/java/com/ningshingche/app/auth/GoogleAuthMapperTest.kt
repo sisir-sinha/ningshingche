@@ -115,4 +115,43 @@ class GoogleAuthMapperTest {
         assertEquals(hex, GoogleAuthMapper.sha256Hex("ningshing-che"))
         assertTrue(hex.matches(Regex("[0-9a-f]+")))
     }
+
+    @Test
+    fun timeoutIsNotTreatedAsUserCancel() {
+        val failed = GoogleAuthException.Failed("Google সাইন-ইন সময় শেষ হয়েছে। আবার চেষ্টা করুন।")
+        assertFalse(GoogleAuthMapper.isCancellation(failed))
+        assertEquals(
+            "Google সাইন-ইন সময় শেষ হয়েছে। আবার চেষ্টা করুন।",
+            GoogleAuthMapper.userMessage(failed)
+        )
+    }
+
+    @Test
+    fun supabaseNonceSentOnlyWhenTokenHasMatchingHash() {
+        val raw = "raw-nonce-value"
+        val hashed = GoogleAuthMapper.sha256Hex(raw)
+        val withHash = fakeIdToken(mapOf("nonce" to hashed))
+        val withoutNonce = fakeIdToken(mapOf("sub" to "abc"))
+        val withRaw = fakeIdToken(mapOf("nonce" to raw))
+        assertEquals(raw, GoogleAuthMapper.supabaseNonce(withHash, raw))
+        assertEquals("", GoogleAuthMapper.supabaseNonce(withoutNonce, raw))
+        assertEquals("", GoogleAuthMapper.supabaseNonce(withRaw, raw))
+        assertEquals("", GoogleAuthMapper.supabaseNonce("not-a-jwt", raw))
+    }
+
+    @Test
+    fun developerConsoleErrorIsExplained() {
+        val error = GoogleAuthException.Failed(
+            "During begin sign in, failure response from one tap: 16: [28444] Developer console is not set up correctly."
+        )
+        assertTrue(GoogleAuthMapper.isDeveloperConsoleError(error))
+        assertTrue(GoogleAuthMapper.userMessage(error).contains("SHA-1"))
+    }
+
+    private fun fakeIdToken(claims: Map<String, String>): String {
+        val payload = org.json.JSONObject(claims).toString()
+        val encoded = java.util.Base64.getUrlEncoder().withoutPadding()
+            .encodeToString(payload.toByteArray(Charsets.UTF_8))
+        return "eyJhbGciOiJub25lIn0.$encoded.sig"
+    }
 }

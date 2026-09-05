@@ -3,47 +3,52 @@ package com.ningshingche.app.data.auth
 import android.content.Context
 import com.ningshingche.app.data.remote.SupabaseClient
 import com.ningshingche.app.data.remote.UserProfile
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import java.util.concurrent.atomic.AtomicBoolean
 
-/**
- * Reader Google authentication: Credential Manager (Sign in with Google) →
- * Supabase Auth ID-token grant → upsert `profiles` → persisted session.
- */
 class GoogleAuthRepository(
     private val supabaseClient: SupabaseClient,
     private val identityClient: GoogleIdentityClient = GoogleIdentityClient()
 ) {
-
     val currentUser: StateFlow<UserProfile?> = supabaseClient.currentUser
 
-    private val inProgress = AtomicBoolean(false)
+    private val signInMutex = Mutex()
 
     suspend fun signInWithGoogle(activityContext: Context): Result<UserProfile> {
-        if (!inProgress.compareAndSet(false, true)) {
+        if (signInMutex.isLocked) {
             return Result.failure(GoogleAuthException.InProgress())
         }
-        return try {
-            val tokenResult = try {
-                withTimeout(90_000) {
-                    identityClient.requestIdToken(activityContext)
+        return signInMutex.withLock {
+            try {
+                val google = withTimeout(180_000L) {
+                    withContext(Dispatchers.Main) {
+                        identityClient.requestGoogleIdToken(activityContext)
+                    }
                 }
-            } catch (_: TimeoutCancellationException) {
-                Result.failure(GoogleAuthException.Failed("Google sign-in timed out. Try again."))
+                val authResult = withTimeout(45_000L) {
+                    supabaseClient.signInWithGoogleIdToken(
+                        idToken = google.idToken,
+                        rawNonce = google.rawNonce
+                    )
+                }
+                authResult.onSuccess { profile ->
+                    supabaseClient.upsertReaderProfile(profile)
+                }
+                authResult
+            } catch (error: TimeoutCancellationException) {
+                Result.failure(
+                    GoogleAuthException.Failed("Google সাইন-ইন সময় শেষ হয়েছে। আবার চেষ্টা করুন।")
+                )
+            } catch (error: GoogleAuthException) {
+                Result.failure(error)
+            } catch (error: Exception) {
+                Result.failure(mapFailure(error))
             }
-            val payload = tokenResult.getOrElse { return Result.failure(it) }
-            val authResult = supabaseClient.signInWithGoogleIdToken(
-                idToken = payload.idToken,
-                rawNonce = payload.rawNonce
-            )
-            authResult.onSuccess { profile ->
-                supabaseClient.upsertReaderProfile(profile)
-            }
-            authResult
-        } finally {
-            inProgress.set(false)
         }
     }
 
@@ -51,7 +56,14 @@ class GoogleAuthRepository(
         supabaseClient.signOutRemote()
     }
 
-    fun signOutLocal() {
-        supabaseClient.signOut()
+    private fun mapFailure(error: Throwable): GoogleAuthException {
+        return when {
+            GoogleAuthMapper.isCancellation(error) -> GoogleAuthException.Cancelled()
+            GoogleAuthMapper.isNoAccount(error) -> GoogleAuthException.NoAccount()
+            GoogleAuthMapper.isNetworkFailure(error) -> GoogleAuthException.Network()
+            GoogleAuthMapper.isDeveloperConsoleError(error) ->
+                GoogleAuthException.Failed(GoogleAuthMapper.DEVELOPER_CONSOLE_MESSAGE)
+            else -> GoogleAuthException.Failed("Google sign-in failed.")
+        }
     }
 }

@@ -357,45 +357,9 @@ class SupabaseClient(private val context: Context) {
     suspend fun signInWithGoogleIdToken(idToken: String, rawNonce: String): Result<UserProfile> =
         withContext(Dispatchers.IO) {
             try {
-                val url = "${SupabaseConfig.authBaseUrl}/token?grant_type=id_token"
-                val payload = JSONObject().apply {
-                    put("provider", "google")
-                    put("id_token", idToken)
-                    if (rawNonce.isNotBlank()) put("nonce", rawNonce)
-                }.toString()
-
-                val request = createAuthRequestBuilder(url)
-                    .post(payload.toRequestBody(jsonMediaType))
-                    .build()
-
-                val response = httpClient.newCall(request).execute()
-                val responseBody = response.body?.string().orEmpty()
-
-                if (response.isSuccessful && responseBody.isNotBlank()) {
-                    val json = JSONObject(responseBody)
-                    val token = json.optString("access_token", "")
-                    if (!GoogleAuthMapper.isSupabaseJwt(token)) {
-                        return@withContext Result.failure(
-                            GoogleAuthException.Failed("Supabase authentication failed.")
-                        )
-                    }
-                    val userObj = json.optJSONObject("user")
-                        ?: return@withContext Result.failure(
-                            GoogleAuthException.Failed("Supabase authentication failed.")
-                        )
-                    val profile = GoogleAuthMapper.profileFromAuthUser(userObj)
-                    val refresh = json.optString("refresh_token", "")
-                    val expiresAt = System.currentTimeMillis() +
-                        json.optLong("expires_in", 3600L) * 1000L - 30_000L
-                    saveSession(token, profile, refresh.ifBlank { null }, expiresAt)
-                    Result.success(profile)
-                } else {
-                    if (response.code >= 500) {
-                        Result.failure(GoogleAuthException.Network())
-                    } else {
-                        Result.failure(GoogleAuthException.Failed("Supabase authentication failed."))
-                    }
-                }
+                exchangeGoogleIdToken(idToken, rawNonce)
+                    ?: if (rawNonce.isNotBlank()) exchangeGoogleIdToken(idToken, "") else null
+                    ?: Result.failure(GoogleAuthException.Failed("Supabase authentication failed."))
             } catch (error: Exception) {
                 if (GoogleAuthMapper.isNetworkFailure(error)) {
                     Result.failure(GoogleAuthException.Network())
@@ -404,6 +368,64 @@ class SupabaseClient(private val context: Context) {
                 }
             }
         }
+
+    private fun exchangeGoogleIdToken(idToken: String, rawNonce: String): Result<UserProfile>? {
+        val url = "${SupabaseConfig.authBaseUrl}/token?grant_type=id_token"
+        val payload = JSONObject().apply {
+            put("provider", "google")
+            put("id_token", idToken)
+            if (rawNonce.isNotBlank()) put("nonce", rawNonce)
+        }.toString()
+        val request = createAuthRequestBuilder(url)
+            .post(payload.toRequestBody(jsonMediaType))
+            .build()
+        httpClient.newCall(request).execute().use { response ->
+            val responseBody = response.body?.string().orEmpty()
+            if (response.isSuccessful && responseBody.isNotBlank()) {
+                val json = JSONObject(responseBody)
+                val token = json.optString("access_token", "")
+                if (!GoogleAuthMapper.isSupabaseJwt(token)) return null
+                val userObj = json.optJSONObject("user") ?: return null
+                val profile = GoogleAuthMapper.profileFromAuthUser(userObj)
+                val refresh = json.optString("refresh_token", "")
+                val expiresAt = System.currentTimeMillis() +
+                    json.optLong("expires_in", 3600L) * 1000L - 30_000L
+                saveSession(token, profile, refresh.ifBlank { null }, expiresAt)
+                return Result.success(profile)
+            }
+            if (response.code >= 500) {
+                return Result.failure(GoogleAuthException.Network())
+            }
+            val authError = googleIdTokenAuthError(responseBody)
+            if (rawNonce.isNotBlank() && GoogleAuthMapper.isNonceAuthError(authError)) {
+                return null
+            }
+            return Result.failure(authError)
+        }
+    }
+
+    private fun googleIdTokenAuthError(body: String): GoogleAuthException {
+        val parsed = runCatching { JSONObject(body) }.getOrNull()
+        val detail = listOf("error_description", "msg", "error", "message")
+            .map { parsed?.optString(it).orEmpty().trim() }
+            .firstOrNull { it.isNotBlank() && it != "null" }
+            .orEmpty()
+        val combined = "$detail $body"
+        return when {
+            GoogleAuthMapper.isNonceAuthError(Exception(combined)) ->
+                GoogleAuthException.Failed("nonce_mismatch")
+            combined.contains("audience", ignoreCase = true) ->
+                GoogleAuthException.Failed(
+                    "Google ও Supabase-এ Web Client ID মিলছে না। Dashboard → Authentication → Google-এ Web Client ID দিন।"
+                )
+            combined.contains("provider", ignoreCase = true) &&
+                combined.contains("disabled", ignoreCase = true) ->
+                GoogleAuthException.Failed(
+                    "Supabase-এ Google সাইন-ইন চালু নেই। Authentication → Providers → Google চালু করুন।"
+                )
+            else -> GoogleAuthException.Failed("Supabase authentication failed.")
+        }
+    }
 
     /**
      * Idempotent upsert of the signed-in Google user into `public.profiles`.

@@ -8,7 +8,9 @@ import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.security.MessageDigest
+import java.util.Base64
 import java.util.UUID
+import kotlinx.coroutines.TimeoutCancellationException
 
 sealed class GoogleAuthException(message: String) : Exception(message) {
     class Cancelled : GoogleAuthException("cancelled")
@@ -30,6 +32,48 @@ object GoogleAuthMapper {
         val raw = UUID.randomUUID().toString()
         return raw to sha256Hex(raw)
     }
+
+    /**
+     * Supabase hashes the nonce we send and compares it to the ID-token claim.
+     * Send the raw nonce only when Google stored our SHA-256 hex in the token.
+     * If Google omitted the claim (common on some Play services builds), send
+     * nothing — a nonce in the request with none in the token is rejected.
+     */
+    fun supabaseNonce(idToken: String, rawNonce: String): String {
+        if (rawNonce.isBlank() || idToken.isBlank()) return ""
+        val claim = idTokenNonceClaim(idToken) ?: return ""
+        if (claim.isBlank()) return ""
+        val hashed = sha256Hex(rawNonce)
+        return if (claim.equals(hashed, ignoreCase = true)) rawNonce else ""
+    }
+
+    fun idTokenNonceClaim(idToken: String): String? {
+        val parts = idToken.split('.')
+        if (parts.size < 2) return null
+        return try {
+            val payload = parts[1]
+            val padded = payload + "=".repeat((4 - payload.length % 4) % 4)
+            val decoded = Base64.getUrlDecoder().decode(padded)
+            val json = JSONObject(String(decoded, Charsets.UTF_8))
+            if (!json.has("nonce")) null else json.optString("nonce")
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun isNonceAuthError(error: Throwable): Boolean {
+        val message = error.message.orEmpty().lowercase()
+        return message.contains("nonce")
+    }
+
+    fun isDeveloperConsoleError(error: Throwable): Boolean {
+        val message = error.message.orEmpty()
+        return message.contains("28444") ||
+            message.contains("Developer console is not set up correctly", ignoreCase = true)
+    }
+
+    const val DEVELOPER_CONSOLE_MESSAGE =
+        "Google কনসোলে এই অ্যাপের প্যাকেজ নাম (com.ningshingche.app) ও সাইনিং SHA-1 মিলছে না। Debug ও Release দুই SHA-1 Android OAuth ক্লায়েন্টে যোগ করুন।"
 
     fun isSupabaseJwt(token: String?): Boolean {
         if (token.isNullOrBlank()) return false
@@ -86,10 +130,18 @@ object GoogleAuthMapper {
 
     fun isCancellation(error: Throwable): Boolean {
         if (error is GoogleAuthException.Cancelled) return true
+        // TimeoutCancellationException's class name contains "Cancellation" but
+        // it is not the user dismissing the account picker.
+        if (error is TimeoutCancellationException) return false
         val name = error::class.java.name
-        return name.contains("Cancellation", ignoreCase = true) ||
-            name.contains("Canceled", ignoreCase = true) ||
-            name.contains("Cancelled", ignoreCase = true)
+        val message = error.message.orEmpty()
+        if (name.contains("TimeoutCancellation", ignoreCase = true)) return false
+        return name.contains("GetCredentialCancellation", ignoreCase = true) ||
+            (name.contains("CancellationException", ignoreCase = true) &&
+                message.contains("cancel", ignoreCase = true) &&
+                !message.contains("timed out", ignoreCase = true)) ||
+            message.contains("User cancelled the selector", ignoreCase = true) ||
+            message.contains("activity is cancelled by the user", ignoreCase = true)
     }
 
     fun isNoAccount(error: Throwable): Boolean {
@@ -133,9 +185,23 @@ object GoogleAuthMapper {
                 "এই ডিভাইসে কোনো Google অ্যাকাউন্ট পাওয়া যায়নি। একটি Google অ্যাকাউন্ট যোগ করে আবার চেষ্টা করুন।"
             isNetworkFailure(error) ->
                 "Unable to connect. Please check your internet connection and try again."
-            error is GoogleAuthException.Failed ->
-                error.message?.takeIf { it.isNotBlank() }
-                    ?: "Google দিয়ে প্রবেশ করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।"
+            isDeveloperConsoleError(error) -> DEVELOPER_CONSOLE_MESSAGE
+            error is TimeoutCancellationException ->
+                "Google সাইন-ইন সময় শেষ হয়েছে। আবার চেষ্টা করুন।"
+            error is GoogleAuthException.Failed -> {
+                val message = error.message?.trim().orEmpty()
+                when {
+                    message.isBlank() ||
+                        message == "Google sign-in failed." ||
+                        message == "Supabase authentication failed." ||
+                        message.startsWith("nonce_mismatch") ->
+                        "Google দিয়ে প্রবেশ করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।"
+                    isDeveloperConsoleError(error) -> DEVELOPER_CONSOLE_MESSAGE
+                    message.contains("timed out", ignoreCase = true) ->
+                        "Google সাইন-ইন সময় শেষ হয়েছে। আবার চেষ্টা করুন।"
+                    else -> message
+                }
+            }
             else -> "Google দিয়ে প্রবেশ করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।"
         }
     }
