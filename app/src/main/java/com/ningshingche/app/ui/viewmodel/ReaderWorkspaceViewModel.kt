@@ -85,7 +85,72 @@ class ReaderWorkspaceViewModel(
             )
             articleResult.exceptionOrNull()?.message?.let { _message.value = it }
             commentResult.exceptionOrNull()?.message?.let { if (_message.value == null) _message.value = it }
+            refreshInbox(user.id, articles, comments)
             _isLoading.value = false
+        }
+    }
+
+    fun refreshInbox() {
+        val user = currentUser.value ?: return
+        viewModelScope.launch {
+            refreshInbox(user.id, _articles.value, _comments.value)
+        }
+    }
+
+    private suspend fun refreshInbox(
+        userId: String,
+        articles: List<SubmittedBlogRecord>,
+        comments: List<CommentRecord>
+    ) {
+        val remote = supabaseClient.getMyNotifications().getOrDefault(emptyList())
+        val existingKeys = remote.map { "${it.kind}:${it.relatedId}" }.toSet()
+        val generated = InboxSync.noticesFromPublished(userId, articles, comments, existingKeys)
+        generated.forEach { supabaseClient.upsertNotification(it) }
+        val merged = if (generated.isEmpty()) {
+            remote
+        } else {
+            supabaseClient.getMyNotifications().getOrDefault(remote + generated)
+        }
+        _notifications.value = merged.distinctBy { "${it.kind}:${it.relatedId}" }
+            .sortedByDescending { it.createdAt }
+        _unreadCount.value = _notifications.value.count { !it.isRead }
+        _adminMessages.value = supabaseClient.getAdminMessages().getOrDefault(emptyList())
+    }
+
+    fun markNotificationRead(id: String) {
+        viewModelScope.launch {
+            supabaseClient.markNotificationRead(id)
+            _notifications.value = _notifications.value.map {
+                if (it.id == id) it.copy(isRead = true) else it
+            }
+            _unreadCount.value = _notifications.value.count { !it.isRead }
+        }
+    }
+
+    fun markAllNotificationsRead() {
+        viewModelScope.launch {
+            supabaseClient.markAllNotificationsRead()
+            _notifications.value = _notifications.value.map { it.copy(isRead = true) }
+            _unreadCount.value = 0
+        }
+    }
+
+    fun sendAdminMessage(subject: String, body: String) {
+        if (body.isBlank()) {
+            _message.value = "বার্তা লিখুন।"
+            return
+        }
+        viewModelScope.launch {
+            _isSaving.value = true
+            supabaseClient.sendAdminMessage(subject, body)
+                .onSuccess { sent ->
+                    _adminMessages.value = _adminMessages.value + sent
+                    _message.value = "অ্যাডমিনকে বার্তা পাঠানো হয়েছে।"
+                }
+                .onFailure { error ->
+                    _message.value = error.message ?: "বার্তা পাঠানো যায়নি।"
+                }
+            _isSaving.value = false
         }
     }
 
