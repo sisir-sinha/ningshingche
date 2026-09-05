@@ -13,10 +13,13 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,11 +29,11 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -93,6 +96,13 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import com.ningshingche.app.data.local.ArticleAiChatStore
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -115,7 +125,6 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.ningshingche.app.NinghsingCheApp
 import com.ningshingche.app.data.model.AiChatMessage
-import com.ningshingche.app.data.ai.NinghsingCheAiAssistant
 import java.util.UUID
 import com.ningshingche.app.data.portal.ArticleDetail
 import com.ningshingche.app.data.portal.ArticleSummary
@@ -1017,11 +1026,13 @@ private fun ModernCommentCard(comment: CommentItem) {
     }
 }
 
+
 /**
- * Grounded Article AI Assistant Bottom Sheet
- * Responds strictly based on the article content.
+ * Article AI assistant popup.
+ * Stays a fixed height, does not grow or scroll the article when sending,
+ * and only closes from the top handle (or the close button). Chat history
+ * is stored on-device per article.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArticleAiAssistantBottomSheet(
     article: ArticleDetail,
@@ -1029,35 +1040,58 @@ fun ArticleAiAssistantBottomSheet(
     category: String,
     onDismiss: () -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val tokens = LocalEditorialTokens.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val chatListState = rememberLazyListState()
+    val store = remember { ArticleAiChatStore(NinghsingCheApp.instance.database.chatDao()) }
+    val articleId = article.id
 
-    var messages by remember {
-        mutableStateOf(
-            listOf(
-                AiChatMessage(
-                    id = UUID.randomUUID().toString(),
-                    text = "নমস্কার! আমি এই নিবন্ধের এআই সহায়িকা।\n\n📌 **\"${article.title}\"** নিবন্ধটির যেকোনো তথ্য, বিশ্লেষণ বা মূল ভাব সম্পর্কে জানতে নিচের দ্রুত প্রশ্ন বেছে নিন অথবা নিচে আপনার প্রশ্ন লিখুন।",
-                    isUser = false
-                )
-            )
+    val welcome = remember(article.title) {
+        AiChatMessage(
+            id = "welcome-$articleId",
+            text = "নমস্কার! আমি এই নিবন্ধের এআই সহায়িকা।\n\n📌 **\"${article.title}\"** নিবন্ধটির যেকোনো তথ্য, বিশ্লেষণ বা মূল ভাব সম্পর্কে জানতে নিচের দ্রুত প্রশ্ন বেছে নিন অথবা নিচে আপনার প্রশ্ন লিখুন।",
+            isUser = false
         )
     }
+
+    var messages by remember(articleId) { mutableStateOf(listOf(welcome)) }
+    var historyReady by remember(articleId) { mutableStateOf(false) }
     var inputText by remember { mutableStateOf(TextFieldValue("")) }
     var isLoading by remember { mutableStateOf(false) }
+    var handleDrag by remember { mutableFloatStateOf(0f) }
+
+    BackHandler(onBack = onDismiss)
+
+    LaunchedEffect(articleId) {
+        val stored = store.load(articleId)
+        messages = if (stored.isEmpty()) listOf(welcome) else stored
+        historyReady = true
+    }
+
+    LaunchedEffect(messages.size, isLoading) {
+        val last = messages.size - 1 + if (isLoading) 1 else 0
+        if (last >= 0) {
+            chatListState.animateScrollToItem(last)
+        }
+    }
+
+    fun persist(message: AiChatMessage) {
+        scope.launch { store.append(articleId, message) }
+    }
 
     fun askQuestion(promptText: String) {
         val cleanPrompt = promptText.trim()
-        if (cleanPrompt.isBlank() || isLoading) return
+        if (cleanPrompt.isBlank() || isLoading || !historyReady) return
 
         val userMsg = AiChatMessage(
             id = UUID.randomUUID().toString(),
             text = cleanPrompt,
             isUser = true
         )
-        messages = messages + userMsg
+        val snapshot = messages + userMsg
+        messages = snapshot
+        persist(userMsg)
         inputText = TextFieldValue("")
         isLoading = true
 
@@ -1071,262 +1105,305 @@ fun ArticleAiAssistantBottomSheet(
                     category = category,
                     articleContentHtml = article.html,
                     userQuestion = cleanPrompt,
-                    history = messages
+                    history = snapshot
                 )
                 messages = messages + response
+                persist(response)
             } catch (e: Exception) {
-                messages = messages + AiChatMessage(
+                val error = AiChatMessage(
                     id = UUID.randomUUID().toString(),
                     text = "দুঃখিত, উত্তর তৈরি করতে সমস্যা হয়েছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।",
                     isUser = false
                 )
+                messages = messages + error
+                persist(error)
             } finally {
                 isLoading = false
             }
         }
     }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .zIndex(8f)
     ) {
-        DialogImeAdjustResize()
-        val imeOpen = WindowInsets.ime.getBottom(LocalDensity.current) > 0
-        Column(
+        Box(
             modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.35f))
+        )
+        Surface(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .keyboardAvoidingPadding()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-                .padding(bottom = 12.dp)
+                .height(460.dp)
+                .navigationBarsPadding()
+                .imePadding(),
+            shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 16.dp
         ) {
-            // Top Bar
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp, bottom = 8.dp)
+                        .pointerInput(Unit) {
+                            detectVerticalDragGestures(
+                                onDragEnd = {
+                                    if (handleDrag > 72f) onDismiss()
+                                    handleDrag = 0f
+                                },
+                                onDragCancel = { handleDrag = 0f },
+                                onVerticalDrag = { change, amount ->
+                                    change.consume()
+                                    if (amount > 0f) handleDrag += amount else handleDrag = 0f
+                                }
+                            )
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    Column {
-                        Text(
-                            text = "নিবন্ধ এআই সহায়িকা",
-                            fontFamily = Kalpurush,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 17.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "শুধুমাত্র এই নিবন্ধের তথ্যের ভিত্তিতে উত্তর প্রদান করা হয়",
-                            fontFamily = Kalpurush,
-                            fontSize = 11.5.sp,
-                            color = tokens.inkMuted
-                        )
-                    }
+                            .width(42.dp)
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(MaterialTheme.colorScheme.outline)
+                    )
                 }
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, contentDescription = "বন্ধ করুন")
-                }
-            }
 
-            Spacer(Modifier.height(8.dp))
-
-            // Quick Prompt Chips
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                val promptSuggestions = listOf(
-                    "📌 সম্পূর্ণ সারসংক্ষেপ" to "এই নিবন্ধের একটি সংক্ষিপ্ত ও গোছানো সারসংক্ষেপ দিন।",
-                    "💡 মূল শিক্ষণীয় বিষয়" to "এই নিবন্ধ থেকে কী কী মূল বিষয় বা শিক্ষা পাওয়া যায়?",
-                    "🎯 লেখকের বক্তব্য" to "এই নিবন্ধে লেখকের মূল বক্তব্য ও লক্ষ্য কী?",
-                    "❓ প্রশ্নোত্তর বিশ্লেষণ" to "নিবন্ধটির সবচেয়ে গুরুত্বপূর্ণ ৩টি প্রশ্নোত্তর তৈরি করে দিন।"
-                )
-
-                promptSuggestions.forEach { (label, prompt) ->
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = tokens.accentSoft,
-                        border = BorderStroke(1.dp, tokens.accent.copy(alpha = 0.35f)),
-                        modifier = Modifier.clickable(enabled = !isLoading) { askQuestion(prompt) }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = label,
-                            fontFamily = Kalpurush,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 12.5.sp,
-                            color = tokens.accent,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            // Chat Message List
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(if (imeOpen) 140.dp else 300.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(tokens.surfaceSunken.copy(alpha = 0.4f))
-                    .padding(10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(messages) { msg ->
-                    val isUser = msg.isUser
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(
-                                topStart = 14.dp,
-                                topEnd = 14.dp,
-                                bottomStart = if (isUser) 14.dp else 2.dp,
-                                bottomEnd = if (isUser) 2.dp else 14.dp
-                            ),
-                            color = if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                            border = if (!isUser) BorderStroke(1.dp, tokens.rule) else null,
-                            shadowElevation = if (!isUser) 1.dp else 0.dp,
-                            modifier = Modifier.fillMaxWidth(0.92f)
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                if (isUser) {
-                                    Text(
-                                        text = msg.text,
-                                        fontFamily = Kalpurush,
-                                        fontSize = 14.5.sp,
-                                        color = MaterialTheme.colorScheme.onPrimary
-                                    )
-                                } else {
-                                    MarkdownFormattedText(
-                                        markdown = msg.text,
-                                        fontSize = 14.5.sp,
-                                        lineHeight = 21.sp,
-                                        baseTextColor = MaterialTheme.colorScheme.onSurface
-                                    )
+                            Icon(
+                                imageVector = Icons.Default.AutoAwesome,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = "নিবন্ধ এআই সহায়িকা",
+                                fontFamily = Kalpurush,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 17.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "শুধুমাত্র এই নিবন্ধের তথ্যের ভিত্তিতে উত্তর প্রদান করা হয়",
+                                fontFamily = Kalpurush,
+                                fontSize = 11.5.sp,
+                                color = tokens.inkMuted
+                            )
+                        }
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "বন্ধ করুন")
+                    }
+                }
 
-                                    Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
 
-                                    // Copy answer button
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.End
-                                    ) {
-                                        IconButton(
-                                            onClick = {
-                                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-                                                val clip = ClipData.newPlainText("Article AI Answer", msg.text)
-                                                clipboard?.setPrimaryClip(clip)
-                                                Toast.makeText(context, "উত্তর কপি করা হয়েছে", Toast.LENGTH_SHORT).show()
-                                            },
-                                            modifier = Modifier.size(28.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val promptSuggestions = listOf(
+                        "📌 সম্পূর্ণ সারসংক্ষেপ" to "এই নিবন্ধের একটি সংক্ষিপ্ত ও গোছানো সারসংক্ষেপ দিন।",
+                        "💡 মূল শিক্ষণীয় বিষয়" to "এই নিবন্ধ থেকে কী কী মূল বিষয় বা শিক্ষা পাওয়া যায়?",
+                        "🎯 লেখকের বক্তব্য" to "এই নিবন্ধে লেখকের মূল বক্তব্য ও লক্ষ্য কী?",
+                        "❓ প্রশ্নোত্তর বিশ্লেষণ" to "নিবন্ধটির সবচেয়ে গুরুত্বপূর্ণ ৩টি প্রশ্নোত্তর তৈরি করে দিন।"
+                    )
+
+                    promptSuggestions.forEach { (label, prompt) ->
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = tokens.accentSoft,
+                            border = BorderStroke(1.dp, tokens.accent.copy(alpha = 0.35f)),
+                            modifier = Modifier.clickable(enabled = !isLoading) { askQuestion(prompt) }
+                        ) {
+                            Text(
+                                text = label,
+                                fontFamily = Kalpurush,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 12.5.sp,
+                                color = tokens.accent,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                LazyColumn(
+                    state = chatListState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(tokens.surfaceSunken.copy(alpha = 0.4f))
+                        .padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(messages, key = { it.id }) { msg ->
+                        val isUser = msg.isUser
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(
+                                    topStart = 14.dp,
+                                    topEnd = 14.dp,
+                                    bottomStart = if (isUser) 14.dp else 2.dp,
+                                    bottomEnd = if (isUser) 2.dp else 14.dp
+                                ),
+                                color = if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                                border = if (!isUser) BorderStroke(1.dp, tokens.rule) else null,
+                                shadowElevation = if (!isUser) 1.dp else 0.dp,
+                                modifier = Modifier.fillMaxWidth(0.92f)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    if (isUser) {
+                                        Text(
+                                            text = msg.text,
+                                            fontFamily = Kalpurush,
+                                            fontSize = 14.5.sp,
+                                            color = MaterialTheme.colorScheme.onPrimary
+                                        )
+                                    } else {
+                                        MarkdownFormattedText(
+                                            markdown = msg.text,
+                                            fontSize = 14.5.sp,
+                                            lineHeight = 21.sp,
+                                            baseTextColor = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Spacer(Modifier.height(6.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.End
                                         ) {
-                                            Icon(
-                                                imageVector = Icons.Default.ContentCopy,
-                                                contentDescription = "কপি করুন",
-                                                modifier = Modifier.size(14.dp),
-                                                tint = tokens.inkMuted
-                                            )
+                                            IconButton(
+                                                onClick = {
+                                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                                    val clip = ClipData.newPlainText("Article AI Answer", msg.text)
+                                                    clipboard?.setPrimaryClip(clip)
+                                                    Toast.makeText(context, "উত্তর কপি করা হয়েছে", Toast.LENGTH_SHORT).show()
+                                                },
+                                                modifier = Modifier.size(28.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.ContentCopy,
+                                                    contentDescription = "কপি করুন",
+                                                    modifier = Modifier.size(14.dp),
+                                                    tint = tokens.inkMuted
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
                     }
-                }
 
-                if (isLoading) {
-                    item {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.padding(6.dp)
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                text = "নিবন্ধ থেকে উত্তর তৈরি করা হচ্ছে...",
-                                fontFamily = Kalpurush,
-                                fontSize = 13.sp,
-                                color = tokens.inkMuted
-                            )
+                    if (isLoading) {
+                        item("thinking") {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.padding(6.dp)
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = "নিবন্ধ থেকে উত্তর তৈরি করা হচ্ছে...",
+                                    fontFamily = Kalpurush,
+                                    fontSize = 13.sp,
+                                    color = tokens.inkMuted
+                                )
+                            }
                         }
                     }
                 }
-            }
 
-            Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(12.dp))
 
-            // Text Input Box
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedTextField(
-                    value = inputText,
-                    onValueChange = { inputText = it },
-                    placeholder = {
-                        Text(
-                            "এই নিবন্ধ সম্পর্কে প্রশ্ন লিখুন...",
-                            fontFamily = Kalpurush,
-                            fontSize = 14.sp
-                        )
-                    },
-                    singleLine = true,
-                    textStyle = androidx.compose.ui.text.TextStyle(fontFamily = Kalpurush, fontSize = 14.5.sp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = tokens.accent,
-                        unfocusedBorderColor = tokens.rule
-                    ),
-                    modifier = Modifier.weight(1f)
-                )
-
-                IconButton(
-                    onClick = { askQuestion(inputText.text) },
-                    enabled = !isLoading && inputText.text.isNotBlank(),
+                Row(
                     modifier = Modifier
-                        .size(46.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (!isLoading && inputText.text.isNotBlank())
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.outlineVariant
-                        )
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Send,
-                        contentDescription = "পাঠান",
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
+                    OutlinedTextField(
+                        value = inputText,
+                        onValueChange = { inputText = it },
+                        placeholder = {
+                            Text(
+                                "এই নিবন্ধ সম্পর্কে প্রশ্ন লিখুন...",
+                                fontFamily = Kalpurush,
+                                fontSize = 14.sp
+                            )
+                        },
+                        singleLine = true,
+                        textStyle = androidx.compose.ui.text.TextStyle(fontFamily = Kalpurush, fontSize = 14.5.sp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = tokens.accent,
+                            unfocusedBorderColor = tokens.rule
+                        ),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                        keyboardActions = KeyboardActions(
+                            onSend = { askQuestion(inputText.text) }
+                        ),
+                        modifier = Modifier.weight(1f)
                     )
+
+                    IconButton(
+                        onClick = { askQuestion(inputText.text) },
+                        enabled = !isLoading && inputText.text.isNotBlank(),
+                        modifier = Modifier
+                            .size(46.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (!isLoading && inputText.text.isNotBlank())
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    MaterialTheme.colorScheme.outlineVariant
+                            )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Send,
+                            contentDescription = "পাঠান",
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
         }

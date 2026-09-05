@@ -60,5 +60,7 @@ data class ChatMessageEntity(
     val timestamp: Long = System.currentTimeMillis(),
     /** JSON array of `{articleId,title,author,category,snippet}` objects. */
     val citationsRaw: String = "[]",
-    val offerOnline: Boolean = false
+    val offerOnline: Boolean = false,
+    /** Empty for the global assistant; article id for per-article chats. */
+    val articleId: String = ""
 )

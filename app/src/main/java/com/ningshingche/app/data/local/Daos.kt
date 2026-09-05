@@ -113,11 +113,20 @@ interface ChatDao {
     @Query("SELECT * FROM ai_chat_messages ORDER BY timestamp ASC")
     suspend fun getAllMessagesOnce(): List<ChatMessageEntity>
 
+    @Query("SELECT * FROM ai_chat_messages WHERE articleId = :articleId ORDER BY timestamp ASC")
+    suspend fun getMessagesForArticle(articleId: String): List<ChatMessageEntity>
+
+    @Query("SELECT * FROM ai_chat_messages WHERE articleId = :articleId ORDER BY timestamp ASC")
+    fun observeMessagesForArticle(articleId: String): Flow<List<ChatMessageEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessage(message: ChatMessageEntity)
 
     @Query("DELETE FROM ai_chat_messages WHERE id = :id")
     suspend fun deleteMessage(id: String)
+
+    @Query("DELETE FROM ai_chat_messages WHERE articleId = :articleId")
+    suspend fun clearArticle(articleId: String)
 
     @Query("DELETE FROM ai_chat_messages")
     suspend fun clearAll()
