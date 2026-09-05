@@ -1367,9 +1367,11 @@ fun FontSizeControlBottomSheet(
         containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
     ) {
+        DialogImeAdjustResize()
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .keyboardAvoidingPadding()
                 .padding(horizontal = 24.dp, vertical = 12.dp)
                 .padding(bottom = 24.dp)
         ) {
