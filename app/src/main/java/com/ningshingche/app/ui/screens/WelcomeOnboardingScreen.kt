@@ -33,6 +33,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,7 +56,8 @@ import com.ningshingche.app.ui.viewmodel.SettingsViewModel
 @Composable
 fun WelcomeLoginScreen(
     viewModel: SettingsViewModel,
-    onSignedIn: () -> Unit
+    onSignedIn: () -> Unit,
+    onSkip: () -> Unit = onSignedIn
 ) {
     val context = LocalContext.current
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
@@ -126,6 +128,20 @@ fun WelcomeLoginScreen(
             enabled = !inProgress,
             onClick = { viewModel.signInWithGoogle(context) }
         )
+
+        Spacer(Modifier.height(14.dp))
+
+        TextButton(
+            onClick = onSkip,
+            modifier = Modifier.testTag("welcome_login_skip_button")
+        ) {
+            Text(
+                text = "সাইন-ইন ছাড়া এগিয়ে যান",
+                fontFamily = Kalpurush,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
     }
 }
 
@@ -235,6 +251,20 @@ fun WelcomeNotificationsScreen(
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp
+            )
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        TextButton(
+            onClick = { finishOnboarding(enable = false) },
+            modifier = Modifier.testTag("welcome_skip_notifications_button")
+        ) {
+            Text(
+                text = "এখন নয়",
+                fontFamily = Kalpurush,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

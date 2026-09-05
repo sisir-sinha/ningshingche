@@ -345,6 +345,36 @@ fun EditorialReaderApp(
                 )
             }
 
+            // Onboarding Welcome Screens
+            composable(ReaderRoute.WelcomeLogin) {
+                val settingsViewModel: SettingsViewModel = viewModel(factory = mainFactory)
+                WelcomeLoginScreen(
+                    viewModel = settingsViewModel,
+                    onSignedIn = {
+                        navController.navigate(ReaderRoute.WelcomeNotifications) {
+                            popUpTo(ReaderRoute.WelcomeLogin) { inclusive = true }
+                        }
+                    },
+                    onSkip = {
+                        navController.navigate(ReaderRoute.WelcomeNotifications) {
+                            popUpTo(ReaderRoute.WelcomeLogin) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
+            composable(ReaderRoute.WelcomeNotifications) {
+                val settingsViewModel: SettingsViewModel = viewModel(factory = mainFactory)
+                WelcomeNotificationsScreen(
+                    viewModel = settingsViewModel,
+                    onFinished = {
+                        navController.navigate(ReaderRoute.Home) {
+                            popUpTo(ReaderRoute.WelcomeNotifications) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
             composable(ReaderRoute.UserDashboard) {
                 UserDashboardScreen(
                     viewModel = workspaceViewModel,
