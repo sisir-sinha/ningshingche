@@ -3,7 +3,6 @@ package com.ningshingche.app.ui.components
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -16,10 +15,9 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,10 +40,10 @@ import com.ningshingche.app.ui.theme.PortalSaffron
 @Composable
 fun PortalTopBar(
     isDark: Boolean,
+    isSignedIn: Boolean = false,
     onMenuClick: () -> Unit,
     onSearchClick: () -> Unit,
-    onAiClick: () -> Unit,
-    onToggleTheme: () -> Unit
+    onAccountClick: () -> Unit
 ) {
     val barColor by animateColorAsState(
         targetValue = if (isDark) PortalDarkBg else PortalMaroon,
@@ -97,16 +95,16 @@ fun PortalTopBar(
             }
 
             IconButton(
-                onClick = onToggleTheme,
+                onClick = onAccountClick,
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .testTag("theme_toggle_button")
+                    .testTag("signin_top_button")
             ) {
                 Icon(
-                    imageVector = if (isDark) Icons.Default.LightMode else Icons.Default.DarkMode,
-                    contentDescription = if (isDark) "লাইট থিম" else "ডার্ক থিম",
-                    tint = PortalSaffron
+                    imageVector = if (isSignedIn) Icons.Default.AccountCircle else Icons.Default.Person,
+                    contentDescription = if (isSignedIn) "অ্যাকাউন্ট" else "সাইন ইন",
+                    tint = iconTint
                 )
             }
             IconButton(
@@ -117,16 +115,6 @@ fun PortalTopBar(
                     .testTag("search_button")
             ) {
                 Icon(Icons.Default.Search, contentDescription = "অনুসন্ধান", tint = iconTint)
-            }
-            IconButton(
-                onClick = onAiClick,
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .border(1.dp, PortalSaffron, CircleShape)
-                    .testTag("ai_assistant_button")
-            ) {
-                Icon(Icons.Default.AutoAwesome, contentDescription = "AI", tint = PortalSaffron)
             }
         }
     }

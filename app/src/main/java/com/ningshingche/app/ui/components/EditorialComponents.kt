@@ -36,6 +36,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.AutoStories
@@ -46,7 +47,6 @@ import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material.icons.filled.CollectionsBookmark
 import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.EditNote
@@ -188,7 +188,8 @@ fun EditorialTopHeader(
     subtitle: String = "বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ",
     onMenuClick: () -> Unit,
     onSearchClick: () -> Unit,
-    onAiClick: () -> Unit
+    onAccountClick: () -> Unit,
+    isSignedIn: Boolean = false
 ) {
     Surface(
         color = MaterialTheme.colorScheme.background,
@@ -251,11 +252,28 @@ fun EditorialTopHeader(
                 }
             }
 
-            // Right Bar: Search and AI Assistant Icons
+            // Right Bar: Sign-in icon and Search
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                IconButton(
+                    onClick = onAccountClick,
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surface)
+                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                        .testTag("signin_top_button")
+                ) {
+                    Icon(
+                        imageVector = if (isSignedIn) Icons.Default.AccountCircle else Icons.Default.Person,
+                        contentDescription = if (isSignedIn) "অ্যাকাউন্ট" else "সাইন ইন",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
                 IconButton(
                     onClick = onSearchClick,
                     modifier = Modifier
@@ -269,22 +287,6 @@ fun EditorialTopHeader(
                         imageVector = Icons.Default.Search,
                         contentDescription = "Search",
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                IconButton(
-                    onClick = onAiClick,
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary)
-                        .testTag("ai_assistant_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AutoAwesome,
-                        contentDescription = "AI Assistant",
-                        tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -1512,40 +1514,6 @@ fun EditorialNavigationDrawerContent(
                 modifier = Modifier
                     .padding(horizontal = 12.dp, vertical = 2.dp)
                     .testTag("drawer_nav_settings")
-            )
-
-            // Dashboard / CMS Control Panel
-            NavigationDrawerItem(
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.Dashboard,
-                        contentDescription = "Dashboard",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                },
-                label = {
-                    Text(
-                        text = "ড্যাশবোর্ড (CMS)",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = if (currentRoute == Screen.Dashboard.route) FontWeight.Bold else FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    )
-                },
-                selected = currentRoute == Screen.Dashboard.route,
-                onClick = {
-                    onCloseDrawer()
-                    onNavigate(Screen.Dashboard.route)
-                },
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .padding(horizontal = 12.dp, vertical = 2.dp)
-                    .testTag("drawer_nav_dashboard")
-            )
-
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
             )
 
             // Section 3: Web & Share

@@ -8,7 +8,7 @@ sealed class Screen(val route: String) {
     data object History : Screen("history")
     data object AiAssistant : Screen("ai_assistant")
     data object Settings : Screen("settings")
-    data object Dashboard : Screen("dashboard")
+    data object Login : Screen("login")
     data object PdfArchive : Screen("pdf_archive")
     data object Featured : Screen("featured")
     data object About : Screen("about")

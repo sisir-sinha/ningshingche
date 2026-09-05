@@ -7,6 +7,7 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -21,8 +22,6 @@ import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.ningshingche.app.NinghsingCheApp
 import com.ningshingche.app.ui.components.PortalDrawerContent
-import com.ningshingche.app.ui.dashboard.DashboardScreen
-import com.ningshingche.app.ui.dashboard.DashboardViewModel
 import com.ningshingche.app.ui.screens.AboutScreen
 import com.ningshingche.app.ui.screens.AiAssistantScreen
 import com.ningshingche.app.ui.screens.AuthorsDirectoryScreen
@@ -30,6 +29,7 @@ import com.ningshingche.app.ui.screens.BookmarksScreen
 import com.ningshingche.app.ui.screens.ExploreScreen
 import com.ningshingche.app.ui.screens.FeaturedScreen
 import com.ningshingche.app.ui.screens.HistoryScreen
+import com.ningshingche.app.ui.screens.LoginScreen
 import com.ningshingche.app.ui.screens.PdfArchiveScreen
 import com.ningshingche.app.ui.screens.PdfViewerScreen
 import com.ningshingche.app.ui.screens.SettingsScreen
@@ -58,6 +58,7 @@ object ReaderRoute {
     const val Author = "author/{authorId}"
     const val AiAssistant = "ai_assistant"
     const val Settings = "settings"
+    const val Login = "login"
     const val Bookmarks = "bookmarks"
     const val History = "history"
     const val PdfArchive = "pdf_archive"
@@ -67,7 +68,6 @@ object ReaderRoute {
     const val About = "about"
     const val AuthorsDirectory = "authors_directory"
     const val SocialActivities = "social_activities"
-    const val Dashboard = "dashboard"
 
     fun article(idOrSlug: String) = "article/${encode(idOrSlug)}"
     fun category(slug: String) = "category/${encode(slug)}"
@@ -95,10 +95,11 @@ fun EditorialReaderApp(
         repository = app.articleRepository,
         preferencesRepository = app.preferencesRepository,
         aiAssistant = app.aiAssistant,
-        dashboardRepository = app.dashboardRepository,
         googleAuthRepository = app.googleAuthRepository,
         context = context
     )
+    val currentUser by app.googleAuthRepository.currentUser.collectAsState()
+    val isSignedIn = currentUser != null
 
     val openExternal: (String) -> Unit = { url ->
         if (url.isNotBlank()) {
@@ -118,6 +119,7 @@ fun EditorialReaderApp(
             PortalDrawerContent(
                 currentRoute = currentRoute,
                 isDark = isDark,
+                isSignedIn = isSignedIn,
                 onNavigate = { route ->
                     coroutineScope.launch {
                         drawerState.close()
@@ -201,10 +203,14 @@ fun EditorialReaderApp(
                     onAiClick = {
                         navController.navigate(ReaderRoute.AiAssistant)
                     },
-                    onToggleTheme = onToggleTheme,
+                    onAccountClick = {
+                        navController.navigate(
+                            if (isSignedIn) ReaderRoute.Settings else ReaderRoute.Login
+                        )
+                    },
+                    isSignedIn = isSignedIn,
                     onNavigate = { route -> navController.navigate(route) },
-                    onOpenLink = openExternal,
-                    isDark = isDark
+                    onOpenLink = openExternal
                 )
             }
 
@@ -309,6 +315,15 @@ fun EditorialReaderApp(
                 )
             }
 
+            composable(ReaderRoute.Login) {
+                val settingsViewModel: SettingsViewModel = viewModel(factory = mainFactory)
+                LoginScreen(
+                    viewModel = settingsViewModel,
+                    onBackClick = { navController.popBackStack() },
+                    onSignedIn = { navController.popBackStack() }
+                )
+            }
+
             // Bookmarks / Saved Screen
             composable(ReaderRoute.Bookmarks) {
                 val bookmarksViewModel: BookmarksViewModel = viewModel(factory = mainFactory)
@@ -399,14 +414,6 @@ fun EditorialReaderApp(
                 )
             }
 
-            // CMS Dashboard Screen
-            composable(ReaderRoute.Dashboard) {
-                val dashboardViewModel: DashboardViewModel = viewModel(factory = mainFactory)
-                DashboardScreen(
-                    viewModel = dashboardViewModel,
-                    onNavigateToReaderView = { navController.popBackStack() }
-                )
-            }
         }
     }
 }

@@ -1,6 +1,8 @@
 package com.ningshingche.app.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,12 +21,14 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PictureAsPdf
@@ -41,6 +45,10 @@ import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -49,7 +57,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.ningshingche.app.ui.navigation.PortalNavItem
 import com.ningshingche.app.ui.navigation.PortalNavigation
 import com.ningshingche.app.ui.navigation.Screen
 import com.ningshingche.app.ui.theme.Kalpurush
@@ -60,6 +67,7 @@ import com.ningshingche.app.ui.theme.PortalSaffron
 fun PortalDrawerContent(
     currentRoute: String,
     isDark: Boolean,
+    isSignedIn: Boolean,
     onNavigate: (String) -> Unit,
     onCategory: (String) -> Unit,
     onYear: (Int) -> Unit,
@@ -68,6 +76,12 @@ fun PortalDrawerContent(
     onShareApp: () -> Unit,
     onCloseDrawer: () -> Unit
 ) {
+    var mainOpen by rememberSaveable { mutableStateOf(true) }
+    var yearsOpen by rememberSaveable { mutableStateOf(false) }
+    var categoriesOpen by rememberSaveable { mutableStateOf(false) }
+    var portalOpen by rememberSaveable { mutableStateOf(false) }
+    var appOpen by rememberSaveable { mutableStateOf(false) }
+
     ModalDrawerSheet(
         drawerContainerColor = MaterialTheme.colorScheme.surface,
         drawerContentColor = MaterialTheme.colorScheme.onSurface,
@@ -93,82 +107,100 @@ fun PortalDrawerContent(
                 }
             }
 
-            SectionLabel("প্রধান পাতা")
-            DrawerRow("ঘর", Icons.Default.Home, currentRoute == Screen.Home.route) {
-                onCloseDrawer(); onNavigate(Screen.Home.route)
-            }
-            DrawerRow("ফিচার্ড", Icons.Default.Star, currentRoute == Screen.Featured.route) {
-                onCloseDrawer(); onNavigate(Screen.Featured.route)
-            }
-            DrawerRow("অন্বেষণ", Icons.Default.Explore, currentRoute == Screen.Explore.route) {
-                onCloseDrawer(); onNavigate(Screen.Explore.route)
-            }
-            DrawerRow("PDF আর্কাইভ", Icons.Default.PictureAsPdf, currentRoute == Screen.PdfArchive.route) {
-                onCloseDrawer(); onNavigate(Screen.PdfArchive.route)
-            }
-            DrawerRow("অনুসন্ধান", Icons.Default.Search, currentRoute == Screen.Search.route) {
-                onCloseDrawer(); onNavigate(Screen.Search.route)
-            }
-            DrawerRow("সংরক্ষিত", Icons.Default.Bookmark, currentRoute == Screen.Bookmarks.route) {
-                onCloseDrawer(); onNavigate(Screen.Bookmarks.route)
-            }
-
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-            SectionLabel("অনলাইন চে — বার্ষিক সংখ্যা")
-            PortalNavigation.years.forEach { item ->
-                DrawerRow(item.label, Icons.Default.CalendarMonth, false) {
-                    onCloseDrawer()
-                    item.year?.let(onYear)
+            CollapsibleSection("প্রধান পাতা", expanded = mainOpen, onToggle = { mainOpen = !mainOpen }) {
+                DrawerRow("ঘর", Icons.Default.Home, currentRoute == Screen.Home.route) {
+                    onCloseDrawer(); onNavigate(Screen.Home.route)
+                }
+                DrawerRow("ফিচার্ড", Icons.Default.Star, currentRoute == Screen.Featured.route) {
+                    onCloseDrawer(); onNavigate(Screen.Featured.route)
+                }
+                DrawerRow("অন্বেষণ", Icons.Default.Explore, currentRoute == Screen.Explore.route) {
+                    onCloseDrawer(); onNavigate(Screen.Explore.route)
+                }
+                DrawerRow("PDF আর্কাইভ", Icons.Default.PictureAsPdf, currentRoute == Screen.PdfArchive.route) {
+                    onCloseDrawer(); onNavigate(Screen.PdfArchive.route)
+                }
+                DrawerRow("অনুসন্ধান", Icons.Default.Search, currentRoute == Screen.Search.route) {
+                    onCloseDrawer(); onNavigate(Screen.Search.route)
+                }
+                DrawerRow("সংরক্ষিত", Icons.Default.Bookmark, currentRoute == Screen.Bookmarks.route) {
+                    onCloseDrawer(); onNavigate(Screen.Bookmarks.route)
                 }
             }
 
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-            SectionLabel("বিভাগসমূহ")
-            PortalNavigation.categories.forEach { item ->
-                DrawerRow(item.label, Icons.Default.MenuBook, currentRoute.contains(item.categorySlug.orEmpty())) {
-                    onCloseDrawer()
-                    item.categorySlug?.let(onCategory)
-                }
-            }
-
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-            SectionLabel("পোর্টাল")
-            DrawerRow("আমার সম্পর্কে", Icons.Default.Info, currentRoute == Screen.About.route) {
-                onCloseDrawer(); onNavigate(Screen.About.route)
-            }
-            DrawerRow("লেখক", Icons.Default.People, currentRoute == Screen.AuthorsDirectory.route) {
-                onCloseDrawer(); onNavigate(Screen.AuthorsDirectory.route)
-            }
-            DrawerRow("সামাজিক কার্যকলাপ", Icons.Default.VolunteerActivism, currentRoute == Screen.SocialActivities.route) {
-                onCloseDrawer(); onNavigate(Screen.SocialActivities.route)
-            }
-            DrawerRow("লেখা জমাদান", Icons.Default.Language, false) {
-                onCloseDrawer(); onExternal("https://ningshingche.com/blog_submission")
-            }
-            DrawerRow("ningshingche.com", Icons.Default.Language, false) {
-                onCloseDrawer(); onExternal("https://ningshingche.com")
-            }
-
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-            SectionLabel("অ্যাপ")
-            DrawerRow("AI সহকারী", Icons.Default.AutoAwesome, currentRoute == Screen.AiAssistant.route) {
-                onCloseDrawer(); onNavigate(Screen.AiAssistant.route)
-            }
-            DrawerRow("সেটিংস", Icons.Default.Settings, currentRoute == Screen.Settings.route) {
-                onCloseDrawer(); onNavigate(Screen.Settings.route)
-            }
-            DrawerRow("ড্যাশবোর্ড (CMS)", Icons.Default.Dashboard, currentRoute == Screen.Dashboard.route) {
-                onCloseDrawer(); onNavigate(Screen.Dashboard.route)
-            }
-            DrawerRow(
-                if (isDark) "লাইট থিম" else "ডার্ক থিম",
-                if (isDark) Icons.Default.LightMode else Icons.Default.DarkMode,
-                false
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+            CollapsibleSection(
+                "অনলাইন চে — বার্ষিক সংখ্যা",
+                expanded = yearsOpen,
+                onToggle = { yearsOpen = !yearsOpen }
             ) {
-                onToggleTheme()
+                PortalNavigation.years.forEach { item ->
+                    DrawerRow(item.label, Icons.Default.CalendarMonth, false) {
+                        onCloseDrawer()
+                        item.year?.let(onYear)
+                    }
+                }
             }
-            DrawerRow("অ্যাপ শেয়ার করুন", Icons.Default.Share, false) {
-                onCloseDrawer(); onShareApp()
+
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+            CollapsibleSection("বিভাগসমূহ", expanded = categoriesOpen, onToggle = { categoriesOpen = !categoriesOpen }) {
+                PortalNavigation.categories.forEach { item ->
+                    DrawerRow(
+                        item.label,
+                        Icons.Default.MenuBook,
+                        currentRoute.contains(item.categorySlug.orEmpty())
+                    ) {
+                        onCloseDrawer()
+                        item.categorySlug?.let(onCategory)
+                    }
+                }
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+            CollapsibleSection("পোর্টাল", expanded = portalOpen, onToggle = { portalOpen = !portalOpen }) {
+                DrawerRow("আমার সম্পর্কে", Icons.Default.Info, currentRoute == Screen.About.route) {
+                    onCloseDrawer(); onNavigate(Screen.About.route)
+                }
+                DrawerRow("লেখক", Icons.Default.People, currentRoute == Screen.AuthorsDirectory.route) {
+                    onCloseDrawer(); onNavigate(Screen.AuthorsDirectory.route)
+                }
+                DrawerRow("সামাজিক কার্যকলাপ", Icons.Default.VolunteerActivism, currentRoute == Screen.SocialActivities.route) {
+                    onCloseDrawer(); onNavigate(Screen.SocialActivities.route)
+                }
+                DrawerRow("লেখা জমাদান", Icons.Default.Language, false) {
+                    onCloseDrawer(); onExternal("https://ningshingche.com/blog_submission")
+                }
+                DrawerRow("ningshingche.com", Icons.Default.Language, false) {
+                    onCloseDrawer(); onExternal("https://ningshingche.com")
+                }
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+            CollapsibleSection("অ্যাপ", expanded = appOpen, onToggle = { appOpen = !appOpen }) {
+                DrawerRow(
+                    if (isSignedIn) "অ্যাকাউন্ট" else "সাইন ইন",
+                    Icons.Default.Login,
+                    currentRoute == Screen.Login.route || currentRoute == Screen.Settings.route
+                ) {
+                    onCloseDrawer()
+                    onNavigate(if (isSignedIn) Screen.Settings.route else Screen.Login.route)
+                }
+                DrawerRow("AI সহকারী", Icons.Default.AutoAwesome, currentRoute == Screen.AiAssistant.route) {
+                    onCloseDrawer(); onNavigate(Screen.AiAssistant.route)
+                }
+                DrawerRow("সেটিংস", Icons.Default.Settings, currentRoute == Screen.Settings.route) {
+                    onCloseDrawer(); onNavigate(Screen.Settings.route)
+                }
+                DrawerRow(
+                    if (isDark) "লাইট থিম" else "ডার্ক থিম",
+                    if (isDark) Icons.Default.LightMode else Icons.Default.DarkMode,
+                    false
+                ) {
+                    onToggleTheme()
+                }
+                DrawerRow("অ্যাপ শেয়ার করুন", Icons.Default.Share, false) {
+                    onCloseDrawer(); onShareApp()
+                }
             }
 
             Text(
@@ -186,15 +218,38 @@ fun PortalDrawerContent(
 }
 
 @Composable
-private fun SectionLabel(text: String) {
-    Text(
-        text = text,
-        fontFamily = Kalpurush,
-        color = PortalSaffron,
-        fontWeight = FontWeight.Bold,
-        fontSize = 12.sp,
-        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
-    )
+private fun CollapsibleSection(
+    title: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle)
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .testTag("drawer_section_$title"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = title,
+            fontFamily = Kalpurush,
+            color = PortalSaffron,
+            fontWeight = FontWeight.Bold,
+            fontSize = 12.sp
+        )
+        Icon(
+            imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+            contentDescription = if (expanded) "সংকুচিত করুন" else "প্রসারিত করুন",
+            tint = PortalSaffron,
+            modifier = Modifier.size(20.dp)
+        )
+    }
+    AnimatedVisibility(visible = expanded) {
+        Column { content() }
+    }
 }
 
 @Composable
@@ -229,6 +284,6 @@ private fun DrawerRow(
         ),
         modifier = Modifier
             .padding(horizontal = 10.dp, vertical = 1.dp)
-            .testTag("drawer_${label}")
+            .testTag("drawer_$label")
     )
 }

@@ -30,9 +30,8 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -123,10 +122,10 @@ fun HomeScreen(
     onSeeAllFeatured: () -> Unit = {},
     onMenuClick: () -> Unit = {},
     onAiClick: () -> Unit = {},
-    onToggleTheme: () -> Unit = {},
+    onAccountClick: () -> Unit = {},
+    isSignedIn: Boolean = false,
     onNavigate: (String) -> Unit = {},
     onOpenLink: (String) -> Unit = {},
-    isDark: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsState()
@@ -175,23 +174,13 @@ fun HomeScreen(
                 },
                 actions = {
                     IconButton(
-                        onClick = onToggleTheme,
-                        modifier = Modifier.testTag("theme_toggle_button")
+                        onClick = onAccountClick,
+                        modifier = Modifier.testTag("signin_top_button")
                     ) {
                         Icon(
-                            imageVector = if (isDark) Icons.Default.LightMode else Icons.Default.DarkMode,
-                            contentDescription = if (isDark) "লাইট থিম চালু করুন" else "ডার্ক থিম চালু করুন",
+                            imageVector = if (isSignedIn) Icons.Default.AccountCircle else Icons.Default.Person,
+                            contentDescription = if (isSignedIn) "অ্যাকাউন্ট" else "সাইন ইন",
                             tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                    IconButton(
-                        onClick = onAiClick,
-                        modifier = Modifier.testTag("ai_assistant_top_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = "AI সহকারী",
-                            tint = LocalEditorialTokens.current.accent
                         )
                     }
                     IconButton(

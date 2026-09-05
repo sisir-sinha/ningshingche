@@ -16,7 +16,6 @@ import com.ningshingche.app.data.portal.PortalRepository
 import com.ningshingche.app.data.remote.NingshingCheWebsiteClient
 import com.ningshingche.app.data.remote.SupabaseClient
 import com.ningshingche.app.data.repository.ArticleRepository
-import com.ningshingche.app.data.repository.DashboardRepository
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
@@ -41,9 +40,6 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
         private set
 
     lateinit var supabaseClient: SupabaseClient
-        private set
-
-    lateinit var dashboardRepository: DashboardRepository
         private set
 
     lateinit var googleAuthRepository: GoogleAuthRepository
@@ -120,7 +116,6 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
         websiteClient = NingshingCheWebsiteClient()
         supabaseClient = SupabaseClient(this)
         googleAuthRepository = GoogleAuthRepository(supabaseClient)
-        dashboardRepository = DashboardRepository(this, supabaseClient, database)
         articleRepository = ArticleRepository(database, supabaseClient, websiteClient)
         portalRepository = PortalProvider.repository()
         aiAssistant = NinghsingCheAiAssistant(articleRepository, portalRepository)

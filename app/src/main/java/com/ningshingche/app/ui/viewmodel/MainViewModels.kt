@@ -27,9 +27,7 @@ import com.ningshingche.app.data.model.ReadingHistory
 import com.ningshingche.app.data.model.YearArchive
 import com.ningshingche.app.data.preferences.UserPreferencesRepository
 import com.ningshingche.app.data.repository.ArticleRepository
-import com.ningshingche.app.data.repository.DashboardRepository
 import com.ningshingche.app.data.repository.WebsiteSyncState
-import com.ningshingche.app.ui.dashboard.DashboardViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -568,17 +566,20 @@ class SettingsViewModel(
         viewModelScope.launch {
             _googleAuthInProgress.value = true
             _googleAuthMessage.value = null
-            val result = googleAuthRepository.signInWithGoogle(activityContext)
-            result.onSuccess {
-                _googleAuthMessage.value = null
-            }.onFailure { error ->
-                if (error is GoogleAuthException.Cancelled || error is GoogleAuthException.InProgress) {
+            try {
+                val result = googleAuthRepository.signInWithGoogle(activityContext)
+                result.onSuccess {
                     _googleAuthMessage.value = null
-                } else {
-                    _googleAuthMessage.value = GoogleAuthMapper.userMessage(error)
+                }.onFailure { error ->
+                    if (error is GoogleAuthException.Cancelled || error is GoogleAuthException.InProgress) {
+                        _googleAuthMessage.value = null
+                    } else {
+                        _googleAuthMessage.value = GoogleAuthMapper.userMessage(error)
+                    }
                 }
+            } finally {
+                _googleAuthInProgress.value = false
             }
-            _googleAuthInProgress.value = false
         }
     }
 
@@ -730,7 +731,6 @@ class ViewModelFactory(
     private val repository: ArticleRepository,
     private val preferencesRepository: UserPreferencesRepository,
     private val aiAssistant: NinghsingCheAiAssistant,
-    private val dashboardRepository: DashboardRepository,
     private val googleAuthRepository: GoogleAuthRepository,
     private val context: Context
 ) : ViewModelProvider.Factory {
@@ -747,7 +747,6 @@ class ViewModelFactory(
             modelClass.isAssignableFrom(SettingsViewModel::class.java) -> SettingsViewModel(preferencesRepository, repository, googleAuthRepository) as T
             modelClass.isAssignableFrom(PdfArchiveViewModel::class.java) -> PdfArchiveViewModel(repository) as T
             modelClass.isAssignableFrom(PdfViewerViewModel::class.java) -> PdfViewerViewModel(repository, context) as T
-            modelClass.isAssignableFrom(DashboardViewModel::class.java) -> DashboardViewModel(dashboardRepository, googleAuthRepository) as T
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
     }

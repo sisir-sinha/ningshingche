@@ -1,6 +1,9 @@
 package com.ningshingche.app.data.auth
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
+import androidx.credentials.Credential
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -8,57 +11,98 @@ import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.exceptions.NoCredentialException
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
-
 
 data class GoogleIdTokenPayload(
     val idToken: String,
     val rawNonce: String
 )
 
+fun Context.findActivity(): Activity? {
+    var current: Context = this
+    while (current is ContextWrapper) {
+        if (current is Activity) return current
+        current = current.baseContext
+    }
+    return null
+}
+
 /**
  * Native Google account picker via Credential Manager.
- * Requests an ID token whose audience is the **Web** OAuth client ID so
- * Supabase Auth can verify it. No browser redirect or custom scheme is used.
+ *
+ * Explicit "Continue with Google" uses [GetSignInWithGoogleOption] (account
+ * chooser). [GetGoogleIdOption] (One Tap) is a fallback only — it often
+ * reports "no credentials" even when a Google account is on the device.
  */
 class GoogleIdentityClient(
     private val credentialManagerFactory: (Context) -> CredentialManager = { CredentialManager.create(it) }
 ) {
 
     suspend fun requestIdToken(activityContext: Context): Result<GoogleIdTokenPayload> {
-        val (rawNonce, hashedNonce) = GoogleAuthMapper.newNoncePair()
-        return try {
-            val googleIdOption = GetGoogleIdOption.Builder()
-                .setFilterByAuthorizedAccounts(false)
-                .setServerClientId(GoogleAuthConfig.WEB_CLIENT_ID)
-                .setNonce(hashedNonce)
-                .setAutoSelectEnabled(false)
-                .build()
-
-            val request = GetCredentialRequest.Builder()
-                .addCredentialOption(googleIdOption)
-                .build()
-
-            val credentialManager = credentialManagerFactory(activityContext)
-            val response = credentialManager.getCredential(
-                context = activityContext,
-                request = request
+        val activity = activityContext.findActivity()
+            ?: return Result.failure(
+                GoogleAuthException.Failed("Google sign-in must be started from the app screen.")
             )
-            val credential = response.credential
-            if (credential is CustomCredential &&
-                credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
-            ) {
-                val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
-                val idToken = googleIdTokenCredential.idToken
-                if (idToken.isBlank()) {
-                    Result.failure(GoogleAuthException.Failed("Google identity token was empty."))
-                } else {
-                    Result.success(GoogleIdTokenPayload(idToken = idToken, rawNonce = rawNonce))
-                }
-            } else {
-                Result.failure(GoogleAuthException.Failed("Unexpected Google credential type."))
-            }
+        val (rawNonce, hashedNonce) = GoogleAuthMapper.newNoncePair()
+        val manager = credentialManagerFactory(activity)
+
+        val buttonResult = request(
+            manager = manager,
+            activity = activity,
+            request = GetCredentialRequest.Builder()
+                .addCredentialOption(
+                    GetSignInWithGoogleOption.Builder(GoogleAuthConfig.WEB_CLIENT_ID)
+                        .setNonce(hashedNonce)
+                        .build()
+                )
+                .build(),
+            rawNonce = rawNonce
+        )
+        if (buttonResult.isSuccess) return buttonResult
+        val buttonError = buttonResult.exceptionOrNull()
+        if (buttonError is GoogleAuthException.Cancelled) return buttonResult
+        if (buttonError is GoogleAuthException.Network) return buttonResult
+
+        val oneTapResult = request(
+            manager = manager,
+            activity = activity,
+            request = GetCredentialRequest.Builder()
+                .addCredentialOption(
+                    GetGoogleIdOption.Builder()
+                        .setFilterByAuthorizedAccounts(false)
+                        .setServerClientId(GoogleAuthConfig.WEB_CLIENT_ID)
+                        .setNonce(hashedNonce)
+                        .setAutoSelectEnabled(false)
+                        .build()
+                )
+                .build(),
+            rawNonce = rawNonce
+        )
+        if (oneTapResult.isSuccess) return oneTapResult
+
+        val oneTapError = oneTapResult.exceptionOrNull()
+        return when {
+            oneTapError is GoogleAuthException.Cancelled -> oneTapResult
+            buttonError is GoogleAuthException.NoAccount ||
+                oneTapError is GoogleAuthException.NoAccount ->
+                Result.failure(GoogleAuthException.NoAccount())
+            else -> Result.failure(
+                GoogleAuthException.Failed("Google sign-in failed.")
+            )
+        }
+    }
+
+    private suspend fun request(
+        manager: CredentialManager,
+        activity: Activity,
+        request: GetCredentialRequest,
+        rawNonce: String
+    ): Result<GoogleIdTokenPayload> {
+        return try {
+            val response = manager.getCredential(context = activity, request = request)
+            parseCredential(response.credential, rawNonce)
         } catch (cancelled: GetCredentialCancellationException) {
             Result.failure(GoogleAuthException.Cancelled())
         } catch (missing: NoCredentialException) {
@@ -70,10 +114,29 @@ class GoogleIdentityClient(
         } catch (error: Throwable) {
             if (GoogleAuthMapper.isNetworkFailure(error)) {
                 Result.failure(GoogleAuthException.Network())
+            } else if (GoogleAuthMapper.isCancellation(error)) {
+                Result.failure(GoogleAuthException.Cancelled())
+            } else if (GoogleAuthMapper.isNoAccount(error)) {
+                Result.failure(GoogleAuthException.NoAccount())
             } else {
                 Result.failure(GoogleAuthException.Failed("Google sign-in failed."))
             }
         }
+    }
+
+    private fun parseCredential(credential: Credential, rawNonce: String): Result<GoogleIdTokenPayload> {
+        if (credential is CustomCredential &&
+            credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+        ) {
+            val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
+            val idToken = googleIdTokenCredential.idToken
+            return if (idToken.isBlank()) {
+                Result.failure(GoogleAuthException.Failed("Google identity token was empty."))
+            } else {
+                Result.success(GoogleIdTokenPayload(idToken = idToken, rawNonce = rawNonce))
+            }
+        }
+        return Result.failure(GoogleAuthException.Failed("Unexpected Google credential type."))
     }
 
     private fun mapCredentialError(error: GetCredentialException): GoogleAuthException {
