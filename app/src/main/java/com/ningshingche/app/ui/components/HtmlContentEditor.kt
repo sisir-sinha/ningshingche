@@ -184,7 +184,7 @@ fun HtmlContentEditor(
                         .testTag("article_content"),
                     factory = { viewContext ->
                         @SuppressLint("SetJavaScriptEnabled")
-                        WebView(viewContext).apply {
+                        RichEditorWebView(viewContext).apply {
                             layoutParams = ViewGroup.LayoutParams(
                                 ViewGroup.LayoutParams.MATCH_PARENT,
                                 ViewGroup.LayoutParams.MATCH_PARENT
@@ -199,7 +199,6 @@ fun HtmlContentEditor(
                             settings.allowFileAccess = false
                             settings.loadsImagesAutomatically = true
                             settings.blockNetworkImage = false
-                            suppressNativeSelectionMenu()
                             addJavascriptInterface(
                                 HtmlBridge { html -> post { onValueChange(html) } },
                                 "Android"
@@ -225,7 +224,6 @@ fun HtmlContentEditor(
                     },
                     update = { view ->
                         webView = view
-                        view.suppressNativeSelectionMenu()
                     }
                 )
                 if (uploading) {
@@ -312,28 +310,9 @@ private class HtmlBridge(private val emit: (String) -> Unit) {
     }
 }
 
-private val noNativeActionMode = object : ActionMode.Callback {
-    override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
-        menu?.clear()
-        mode?.finish()
-        return false
-    }
-
-    override fun onPrepareActionMode(mode: ActionMode?, menu: Menu?): Boolean {
-        menu?.clear()
-        return false
-    }
-
-    override fun onActionItemClicked(mode: ActionMode?, item: MenuItem?) = false
-
-    override fun onDestroyActionMode(mode: ActionMode?) = Unit
-}
-
-private fun WebView.suppressNativeSelectionMenu() {
-    customSelectionActionModeCallback = noNativeActionMode
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        customInsertionActionModeCallback = noNativeActionMode
-    }
+open class RichEditorWebView(context: android.content.Context) : WebView(context) {
+    override fun startActionMode(callback: ActionMode.Callback?): ActionMode? = null
+    override fun startActionMode(callback: ActionMode.Callback?, type: Int): ActionMode? = null
 }
 
 private fun editorHtml(bgArgb: Int, fgArgb: Int, accentArgb: Int): String {
