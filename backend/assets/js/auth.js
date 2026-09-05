@@ -252,11 +252,17 @@
     return isAuthenticated() ? (NC.state.session.accessToken || '') : '';
   }
 
+  function permissionKey(route) {
+    const item = NC_CONFIG.routes.find((entry) => entry.id === route);
+    return item?.parent || item?.id || String(route || '');
+  }
+
   function canAccess(route) {
     if (!isAuthenticated()) return false;
     const user = NC.state.session.user || {};
     if (NC.state.session.mode === LEGACY_MODE || user.roleSlug === 'super-admin') return true;
-    return Array.isArray(user.permissions) && user.permissions.includes(String(route || ''));
+    const key = permissionKey(route);
+    return Array.isArray(user.permissions) && (user.permissions.includes(String(route || '')) || user.permissions.includes(key));
   }
 
   function isSuperAdmin() {

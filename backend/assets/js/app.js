@@ -30,20 +30,53 @@
     if (persist) NC.utils.writePreference('table-density', value);
   }
 
+  function navLink(item) {
+    return `<a class="nav-link" href="#/${escapeHTML(item.id)}" data-nav-route="${escapeHTML(item.id)}"><i class="fa-regular ${escapeHTML(item.icon)}" aria-hidden="true"></i><span>${escapeHTML(item.label)}</span>${item.id === 'submissions' ? '<span class="nav-count hidden" data-submission-nav-count></span>' : ''}</a>`;
+  }
+
   function renderNavigation() {
     const nav = qs('#sidebar-navigation');
+    const current = getHashRoute().route;
     const visibleRoutes = NC_CONFIG.routes.filter((item) => NC.auth.canAccess(item.id));
+    const communityParent = visibleRoutes.find((item) => item.id === 'registered-users');
+    const communityChildren = [
+      communityParent ? { id: 'registered-users', label: 'Dashboard', icon: 'fa-gauge-high' } : null,
+      ...visibleRoutes.filter((item) => item.parent === 'registered-users')
+    ].filter(Boolean);
+    const communityOpen = communityChildren.some((item) => item.id === current);
     const groups = [
       { id: 'overview', label: '', items: visibleRoutes.filter((item) => item.group === 'overview') },
-      { id: 'community', label: 'App users', items: visibleRoutes.filter((item) => item.group === 'community') },
-      { id: 'content', label: 'Content', items: visibleRoutes.filter((item) => item.group === 'content') },
-      { id: 'system', label: 'System', items: visibleRoutes.filter((item) => item.group === 'system') }
+      { id: 'content', label: 'Content', items: visibleRoutes.filter((item) => item.group === 'content' && !item.parent) },
+      { id: 'system', label: 'System', items: visibleRoutes.filter((item) => item.group === 'system' && !item.parent) }
     ].filter((group) => group.items.length);
-    nav.innerHTML = groups.map((group) => `
+    const communityHtml = communityParent ? `
+      <div class="nav-group">
+        <p class="nav-group-label">Registered users</p>
+        <button type="button" class="nav-link nav-parent ${communityOpen ? 'is-open' : ''}" data-nav-toggle="registered-users" aria-expanded="${communityOpen ? 'true' : 'false'}">
+          <i class="fa-regular fa-user-group" aria-hidden="true"></i>
+          <span>Registered users</span>
+          <i class="fa-regular fa-chevron-down nav-caret" aria-hidden="true"></i>
+        </button>
+        <div class="nav-submenu ${communityOpen ? 'is-open' : ''}" data-nav-submenu="registered-users">
+          ${communityChildren.map(navLink).join('')}
+        </div>
+      </div>` : '';
+    nav.innerHTML = [
+      groups.filter((group) => group.id === 'overview').map((group) => `<div class="nav-group">${group.items.map(navLink).join('')}</div>`).join(''),
+      communityHtml,
+      groups.filter((group) => group.id !== 'overview').map((group) => `
       <div class="nav-group">
         ${group.label ? `<p class="nav-group-label">${escapeHTML(group.label)}</p>` : ''}
-        ${group.items.map((item) => `<a class="nav-link" href="#/${escapeHTML(item.id)}" data-nav-route="${escapeHTML(item.id)}"><i class="fa-regular ${escapeHTML(item.icon)}" aria-hidden="true"></i><span>${escapeHTML(item.label)}</span>${item.id === 'submissions' ? '<span class="nav-count hidden" data-submission-nav-count></span>' : ''}</a>`).join('')}
-      </div>`).join('');
+        ${group.items.map(navLink).join('')}
+      </div>`).join('')
+    ].join('');
+    nav.querySelectorAll('[data-nav-toggle]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const open = button.classList.toggle('is-open');
+        button.setAttribute('aria-expanded', String(open));
+        qs(`[data-nav-submenu="${button.dataset.navToggle}"]`, nav)?.classList.toggle('is-open', open);
+      });
+    });
   }
 
   function firstAccessibleRoute() {

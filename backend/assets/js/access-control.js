@@ -15,7 +15,7 @@
   }
 
   function menuRoutes() {
-    return NC_CONFIG.routes.filter((item) => item.id !== 'access-control');
+    return NC_CONFIG.routes.filter((item) => item.id !== 'access-control' && !item.parent);
   }
 
   function menuLabel(id) {
