@@ -77,9 +77,10 @@ fun DashboardScreen(
     modifier: Modifier = Modifier
 ) {
     val currentUser by viewModel.currentUser.collectAsState()
+    val dashboardUser = currentUser?.takeIf { it.canAccessDashboard }
 
-    // If user is not authenticated in CMS Dashboard, present the Login Form
-    if (currentUser == null) {
+    // CMS is staff-only. Google reader accounts stay on the public reader.
+    if (dashboardUser == null) {
         DashboardLoginView(
             onLoginSuccess = { loggedInUser ->
                 viewModel.updateCurrentUser(loggedInUser)
@@ -88,6 +89,10 @@ fun DashboardScreen(
             onPerformSignIn = { email, password ->
                 viewModel.signIn(email, password)
             },
+            onPerformGoogleSignIn = { activityContext ->
+                viewModel.signInWithGoogle(activityContext)
+            },
+            onGoogleReaderSignedIn = onNavigateToReaderView,
             modifier = modifier
         )
         return
@@ -127,7 +132,7 @@ fun DashboardScreen(
                         viewModel.setSection(section)
                         coroutineScope.launch { drawerState.close() }
                     },
-                    currentUser = currentUser,
+                    currentUser = dashboardUser,
                     onUserIconClick = {
                         showProfileModal = true
                         coroutineScope.launch { drawerState.close() }
@@ -245,7 +250,7 @@ fun DashboardScreen(
                             DashboardSection.HOME -> DashboardHomeView(
                                 stats = summaryStats,
                                 recentActivities = recentActivities,
-                                currentUser = currentUser,
+                                currentUser = dashboardUser,
                                 onNavigateSection = { viewModel.setSection(it) },
                                 onQuickAddBlog = { viewModel.setSection(DashboardSection.BLOGS) },
                                 onQuickAddAuthor = { viewModel.setSection(DashboardSection.AUTHORS) },
@@ -307,7 +312,7 @@ fun DashboardScreen(
                             DashboardSection.SETTINGS -> DashboardSettingsView(
                                 settings = settings,
                                 onSaveSettings = { viewModel.saveSettings(it) },
-                                currentUser = currentUser,
+                                currentUser = dashboardUser,
                                 onUpdateUserCredentials = { newEmail, newPassword, profile ->
                                     viewModel.updateAdminCredentials(newEmail, newPassword, profile)
                                 },
@@ -322,7 +327,7 @@ fun DashboardScreen(
 
     if (showProfileModal) {
         UserProfileAuthDialog(
-            currentUser = currentUser,
+            currentUser = dashboardUser,
             supabaseClient = viewModel.dashboardRepository.supabaseClient,
             onDismiss = { showProfileModal = false },
             onUserUpdated = { updated ->

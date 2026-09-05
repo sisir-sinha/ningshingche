@@ -8,6 +8,7 @@ import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import com.ningshingche.app.data.ai.NinghsingCheAiAssistant
+import com.ningshingche.app.data.auth.GoogleAuthRepository
 import com.ningshingche.app.data.local.AppDatabase
 import com.ningshingche.app.data.preferences.UserPreferencesRepository
 import com.ningshingche.app.data.portal.PortalProvider
@@ -43,6 +44,9 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
         private set
 
     lateinit var dashboardRepository: DashboardRepository
+        private set
+
+    lateinit var googleAuthRepository: GoogleAuthRepository
         private set
 
     /** Public Supabase client for reading and moderated anonymous comments. */

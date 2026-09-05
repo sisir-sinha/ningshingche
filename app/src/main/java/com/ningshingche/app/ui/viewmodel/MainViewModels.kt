@@ -8,6 +8,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.ningshingche.app.data.ai.NinghsingCheAiAssistant
+import com.ningshingche.app.data.auth.GoogleAuthException
+import com.ningshingche.app.data.auth.GoogleAuthMapper
+import com.ningshingche.app.data.auth.GoogleAuthRepository
+import com.ningshingche.app.data.remote.UserProfile
 import com.ningshingche.app.data.model.AiChatMessage
 import com.ningshingche.app.data.model.AppThemeMode
 import com.ningshingche.app.data.model.Article
@@ -544,11 +548,50 @@ class AiViewModel(
 // Settings ViewModel
 class SettingsViewModel(
     private val preferencesRepository: UserPreferencesRepository,
-    private val articleRepository: ArticleRepository
+    private val articleRepository: ArticleRepository,
+    private val googleAuthRepository: GoogleAuthRepository
 ) : ViewModel() {
 
     val preferences: StateFlow<ReaderPreferences> = preferencesRepository.readerPreferences
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ReaderPreferences())
+
+    val currentUser: StateFlow<UserProfile?> = googleAuthRepository.currentUser
+
+    private val _googleAuthInProgress = MutableStateFlow(false)
+    val googleAuthInProgress: StateFlow<Boolean> = _googleAuthInProgress.asStateFlow()
+
+    private val _googleAuthMessage = MutableStateFlow<String?>(null)
+    val googleAuthMessage: StateFlow<String?> = _googleAuthMessage.asStateFlow()
+
+    fun signInWithGoogle(activityContext: android.content.Context) {
+        if (_googleAuthInProgress.value) return
+        viewModelScope.launch {
+            _googleAuthInProgress.value = true
+            _googleAuthMessage.value = null
+            val result = googleAuthRepository.signInWithGoogle(activityContext)
+            result.onSuccess {
+                _googleAuthMessage.value = null
+            }.onFailure { error ->
+                if (error is GoogleAuthException.Cancelled || error is GoogleAuthException.InProgress) {
+                    _googleAuthMessage.value = null
+                } else {
+                    _googleAuthMessage.value = GoogleAuthMapper.userMessage(error)
+                }
+            }
+            _googleAuthInProgress.value = false
+        }
+    }
+
+    fun signOutAccount() {
+        viewModelScope.launch {
+            googleAuthRepository.signOut()
+            _googleAuthMessage.value = null
+        }
+    }
+
+    fun clearGoogleAuthMessage() {
+        _googleAuthMessage.value = null
+    }
 
     fun updateAppThemeMode(mode: AppThemeMode) {
         viewModelScope.launch {
@@ -688,6 +731,7 @@ class ViewModelFactory(
     private val preferencesRepository: UserPreferencesRepository,
     private val aiAssistant: NinghsingCheAiAssistant,
     private val dashboardRepository: DashboardRepository,
+    private val googleAuthRepository: GoogleAuthRepository,
     private val context: Context
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
@@ -700,10 +744,10 @@ class ViewModelFactory(
             modelClass.isAssignableFrom(BookmarksViewModel::class.java) -> BookmarksViewModel(repository) as T
             modelClass.isAssignableFrom(HistoryViewModel::class.java) -> HistoryViewModel(repository) as T
             modelClass.isAssignableFrom(AiViewModel::class.java) -> AiViewModel(aiAssistant) as T
-            modelClass.isAssignableFrom(SettingsViewModel::class.java) -> SettingsViewModel(preferencesRepository, repository) as T
+            modelClass.isAssignableFrom(SettingsViewModel::class.java) -> SettingsViewModel(preferencesRepository, repository, googleAuthRepository) as T
             modelClass.isAssignableFrom(PdfArchiveViewModel::class.java) -> PdfArchiveViewModel(repository) as T
             modelClass.isAssignableFrom(PdfViewerViewModel::class.java) -> PdfViewerViewModel(repository, context) as T
-            modelClass.isAssignableFrom(DashboardViewModel::class.java) -> DashboardViewModel(dashboardRepository) as T
+            modelClass.isAssignableFrom(DashboardViewModel::class.java) -> DashboardViewModel(dashboardRepository, googleAuthRepository) as T
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
     }

@@ -1,7 +1,9 @@
 package com.ningshingche.app.ui.dashboard
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ningshingche.app.data.auth.GoogleAuthRepository
 import com.ningshingche.app.data.remote.AuthorRecord
 import com.ningshingche.app.data.remote.BlogRecord
 import com.ningshingche.app.data.remote.CategoryRecord
@@ -25,7 +27,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class DashboardViewModel(
-    val dashboardRepository: DashboardRepository
+    val dashboardRepository: DashboardRepository,
+    private val googleAuthRepository: GoogleAuthRepository
 ) : ViewModel() {
 
     private val _currentSection = MutableStateFlow(DashboardSection.HOME)
@@ -190,6 +193,10 @@ class DashboardViewModel(
 
     suspend fun signIn(email: String, pass: String): Result<UserProfile> {
         return dashboardRepository.supabaseClient.signIn(email, pass)
+    }
+
+    suspend fun signInWithGoogle(activityContext: Context): Result<UserProfile> {
+        return googleAuthRepository.signInWithGoogle(activityContext)
     }
 
     fun updateCurrentUser(profile: UserProfile) {

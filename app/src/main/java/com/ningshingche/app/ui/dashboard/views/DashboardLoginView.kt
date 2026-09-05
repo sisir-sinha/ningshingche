@@ -38,6 +38,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -53,6 +54,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -62,7 +64,11 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.content.Context
+import com.ningshingche.app.data.auth.GoogleAuthException
+import com.ningshingche.app.data.auth.GoogleAuthMapper
 import com.ningshingche.app.data.remote.UserProfile
+import com.ningshingche.app.ui.components.GoogleSignInButton
 import kotlinx.coroutines.launch
 
 @Composable
@@ -70,18 +76,23 @@ fun DashboardLoginView(
     onLoginSuccess: (UserProfile) -> Unit,
     onNavigateToReaderView: () -> Unit,
     onPerformSignIn: suspend (String, String) -> Result<UserProfile>,
+    onPerformGoogleSignIn: suspend (Context) -> Result<UserProfile>,
+    onGoogleReaderSignedIn: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val coroutineScope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
+    val context = LocalContext.current
 
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
 
-    var isLoading by remember { mutableStateOf(false) }
+    var isEmailLoading by remember { mutableStateOf(false) }
+    var isGoogleLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var successMessage by remember { mutableStateOf<String?>(null) }
+    val isBusy = isEmailLoading || isGoogleLoading
 
     fun executeLogin() {
         val trimmedEmail = email.trim()
@@ -96,9 +107,10 @@ fun DashboardLoginView(
             return
         }
 
+        if (isBusy) return
         focusManager.clearFocus()
         coroutineScope.launch {
-            isLoading = true
+            isEmailLoading = true
             errorMessage = null
             successMessage = null
 
@@ -109,7 +121,35 @@ fun DashboardLoginView(
             }.onFailure { error ->
                 errorMessage = error.localizedMessage ?: "ভুল ইমেইল বা পাসওয়ার্ড। পুনরায় চেষ্টা করুন।"
             }
-            isLoading = false
+            isEmailLoading = false
+        }
+    }
+
+    fun executeGoogleSignIn() {
+        if (isBusy) return
+        focusManager.clearFocus()
+        coroutineScope.launch {
+            isGoogleLoading = true
+            errorMessage = null
+            successMessage = null
+            val result = onPerformGoogleSignIn(context)
+            result.onSuccess { profile ->
+                if (profile.canAccessDashboard) {
+                    successMessage = "সফলভাবে লগইন হয়েছে! প্রবেশ করা হচ্ছে..."
+                    onLoginSuccess(profile)
+                } else {
+                    successMessage = "Google অ্যাকাউন্টে প্রবেশ হয়েছে।"
+                    onGoogleReaderSignedIn()
+                }
+            }.onFailure { error ->
+                if (error is GoogleAuthException.Cancelled || error is GoogleAuthException.InProgress) {
+                    errorMessage = null
+                } else {
+                    errorMessage = GoogleAuthMapper.userMessage(error)
+                        .ifBlank { "Google দিয়ে প্রবেশ করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।" }
+                }
+            }
+            isGoogleLoading = false
         }
     }
 
@@ -318,7 +358,7 @@ fun DashboardLoginView(
                     // Submit Login Button - Gorgeous Modern Button
                     Button(
                         onClick = { executeLogin() },
-                        enabled = !isLoading,
+                        enabled = !isBusy,
                         shape = RoundedCornerShape(14.dp),
                         elevation = ButtonDefaults.buttonElevation(
                             defaultElevation = 3.dp,
@@ -329,7 +369,7 @@ fun DashboardLoginView(
                             .height(52.dp)
                             .testTag("dashboard_btn_submit_login")
                     ) {
-                        if (isLoading) {
+                        if (isEmailLoading) {
                             CircularProgressIndicator(
                                 color = MaterialTheme.colorScheme.onPrimary,
                                 modifier = Modifier.size(22.dp),
@@ -346,6 +386,28 @@ fun DashboardLoginView(
                             )
                         }
                     }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        HorizontalDivider(modifier = Modifier.weight(1f))
+                        Text(
+                            text = "অথবা",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        )
+                        HorizontalDivider(modifier = Modifier.weight(1f))
+                    }
+
+                    GoogleSignInButton(
+                        isLoading = isGoogleLoading,
+                        enabled = !isBusy,
+                        onClick = { executeGoogleSignIn() }
+                    )
                 }
             }
 

@@ -28,8 +28,15 @@ data class UserProfile(
     val role: UserRole = UserRole.ADMINISTRATOR,
     val avatarUrl: String = "",
     val createdAt: String = "",
-    val updatedAt: String = ""
+    val updatedAt: String = "",
+    val authProvider: String = "local"
 ) {
+    /** CMS dashboard is staff-only. Google reader accounts are AUTHOR. */
+    val canAccessDashboard: Boolean
+        get() = role == UserRole.ADMINISTRATOR ||
+            role == UserRole.EDITOR ||
+            role == UserRole.MODERATOR
+
     fun toJson(): JSONObject {
         return JSONObject().apply {
             put("id", id)
@@ -37,6 +44,7 @@ data class UserProfile(
             put("full_name", fullName)
             put("role", role.name)
             put("avatar_url", avatarUrl)
+            put("auth_provider", authProvider)
         }
     }
 
@@ -49,7 +57,8 @@ data class UserProfile(
                 role = UserRole.fromString(json.optString("role", "ADMINISTRATOR")),
                 avatarUrl = json.optString("avatar_url", ""),
                 createdAt = json.optString("created_at", ""),
-                updatedAt = json.optString("updated_at", "")
+                updatedAt = json.optString("updated_at", ""),
+                authProvider = json.optString("auth_provider", "local")
             )
         }
     }

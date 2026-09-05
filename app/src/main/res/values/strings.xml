@@ -1,3 +1,10 @@
 <resources>
     <string name="app_name">নিংশিং চে</string>
+    <string name="continue_with_google">Google দিয়ে চালিয়ে যান</string>
+    <string name="signing_in">প্রবেশ করা হচ্ছে...</string>
+    <string name="google_sign_in_failed">Google দিয়ে প্রবেশ করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।</string>
+    <string name="unable_to_connect">Unable to connect. Please check your internet connection and try again.</string>
+    <string name="sign_in_cancelled">সাইন-ইন বাতিল করা হয়েছে</string>
+    <string name="no_google_account">এই ডিভাইসে কোনো Google অ্যাকাউন্ট পাওয়া যায়নি। একটি Google অ্যাকাউন্ট যোগ করে আবার চেষ্টা করুন।</string>
+    <string name="sign_out">লগ আউট</string>
 </resources>

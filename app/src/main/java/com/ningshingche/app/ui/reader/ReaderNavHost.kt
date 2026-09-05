@@ -96,6 +96,7 @@ fun EditorialReaderApp(
         preferencesRepository = app.preferencesRepository,
         aiAssistant = app.aiAssistant,
         dashboardRepository = app.dashboardRepository,
+        googleAuthRepository = app.googleAuthRepository,
         context = context
     )
 

@@ -1,18 +1,23 @@
 package com.ningshingche.app.data.remote
 
 import android.content.Context
-import android.util.Log
+import com.ningshingche.app.data.auth.GoogleAuthConfig
+import com.ningshingche.app.data.auth.GoogleAuthException
+import com.ningshingche.app.data.auth.GoogleAuthMapper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
@@ -29,6 +34,8 @@ class SupabaseClient(private val context: Context) {
     val currentUser: StateFlow<UserProfile?> = _currentUser.asStateFlow()
 
     private var authToken: String? = null
+    private var refreshToken: String? = null
+    private var expiresAtMillis: Long = 0L
 
     init {
         // Initialize default administrator session
@@ -43,6 +50,8 @@ class SupabaseClient(private val context: Context) {
         if (!token.isNullOrBlank() && !userJsonStr.isNullOrBlank()) {
             try {
                 authToken = token
+                refreshToken = prefs.getString("refresh_token", null)
+                expiresAtMillis = prefs.getLong("expires_at", 0L)
                 _currentUser.value = UserProfile.fromJson(JSONObject(userJsonStr))
             } catch (_: Exception) {
                 _currentUser.value = null
@@ -84,27 +93,42 @@ class SupabaseClient(private val context: Context) {
             email = email,
             fullName = "প্রধান সম্পাদক (Admin)",
             role = UserRole.ADMINISTRATOR,
-            avatarUrl = ""
+            avatarUrl = "",
+            authProvider = GoogleAuthConfig.PROVIDER_LOCAL
         )
         saveSession("admin_default_token", defaultAdmin)
     }
 
-    fun saveSession(token: String, profile: UserProfile) {
+    fun saveSession(
+        token: String,
+        profile: UserProfile,
+        newRefreshToken: String? = refreshToken,
+        expiresAt: Long = expiresAtMillis
+    ) {
         authToken = token
+        refreshToken = newRefreshToken
+        expiresAtMillis = expiresAt
         _currentUser.value = profile
         context.getSharedPreferences("supabase_auth_session", Context.MODE_PRIVATE)
             .edit()
             .putString("access_token", token)
+            .putString("refresh_token", newRefreshToken)
+            .putLong("expires_at", expiresAt)
             .putString("user_profile", profile.toJson().toString())
             .apply()
     }
 
     fun clearSession() {
         authToken = null
+        refreshToken = null
+        expiresAtMillis = 0L
         _currentUser.value = null
         context.getSharedPreferences("supabase_auth_session", Context.MODE_PRIVATE)
             .edit()
-            .clear()
+            .remove("access_token")
+            .remove("refresh_token")
+            .remove("expires_at")
+            .remove("user_profile")
             .apply()
     }
 
@@ -146,9 +170,13 @@ class SupabaseClient(private val context: Context) {
                 email = trimmedEmail,
                 fullName = "প্রধান সম্পাদক (Admin)",
                 role = UserRole.ADMINISTRATOR,
-                avatarUrl = ""
+                avatarUrl = "",
+                authProvider = GoogleAuthConfig.PROVIDER_LOCAL
             )
-            val updatedProfile = savedProfile.copy(email = trimmedEmail)
+            val updatedProfile = savedProfile.copy(
+                email = trimmedEmail,
+                authProvider = GoogleAuthConfig.PROVIDER_LOCAL
+            )
             saveSession(authToken ?: "admin_auth_token", updatedProfile)
             return@withContext Result.success(updatedProfile)
         }
@@ -180,9 +208,12 @@ class SupabaseClient(private val context: Context) {
                     email = trimmedEmail,
                     fullName = userMetadata?.optString("full_name", trimmedEmail.substringBefore("@")) ?: trimmedEmail.substringBefore("@"),
                     role = UserRole.fromString(userMetadata?.optString("role", "ADMINISTRATOR") ?: "ADMINISTRATOR"),
-                    avatarUrl = userMetadata?.optString("avatar_url", "") ?: ""
+                    avatarUrl = userMetadata?.optString("avatar_url", "") ?: "",
+                    authProvider = GoogleAuthConfig.PROVIDER_PASSWORD
                 )
-                saveSession(token, profile)
+                val refresh = json.optString("refresh_token", "")
+                val expiresAt = System.currentTimeMillis() + json.optLong("expires_in", 3600L) * 1000L - 30_000L
+                saveSession(token, profile, refresh.ifBlank { null }, expiresAt)
                 Result.success(profile)
             } else {
                 Result.failure(Exception("ভুল ইমেইল বা পাসওয়ার্ড। অনুগ্রহ করে সঠিক তথ্য প্রদান করুন।"))
@@ -248,7 +279,148 @@ class SupabaseClient(private val context: Context) {
     }
 
     fun signOut() {
+        val token = authToken
         clearSession()
+        if (GoogleAuthMapper.isSupabaseJwt(token) && token != null) {
+            val request = createAuthRequestBuilder("${SupabaseConfig.authBaseUrl}/logout", bearer = token)
+                .post("{}".toRequestBody(jsonMediaType))
+                .build()
+            httpClient.newCall(request).enqueue(object : Callback {
+                override fun onFailure(call: okhttp3.Call, e: IOException) = Unit
+                override fun onResponse(call: okhttp3.Call, response: Response) {
+                    response.close()
+                }
+            })
+        }
+    }
+
+    suspend fun signOutRemote() = withContext(Dispatchers.IO) {
+        signOut()
+    }
+
+    /**
+     * Native Google ID-token grant. The ID token is sent only to Supabase Auth
+     * and is never logged or shown in the UI.
+     */
+    suspend fun signInWithGoogleIdToken(idToken: String, rawNonce: String): Result<UserProfile> =
+        withContext(Dispatchers.IO) {
+            try {
+                val url = "${SupabaseConfig.authBaseUrl}/token?grant_type=id_token"
+                val payload = JSONObject().apply {
+                    put("provider", "google")
+                    put("id_token", idToken)
+                    if (rawNonce.isNotBlank()) put("nonce", rawNonce)
+                }.toString()
+
+                val request = createAuthRequestBuilder(url)
+                    .post(payload.toRequestBody(jsonMediaType))
+                    .build()
+
+                val response = httpClient.newCall(request).execute()
+                val responseBody = response.body?.string().orEmpty()
+
+                if (response.isSuccessful && responseBody.isNotBlank()) {
+                    val json = JSONObject(responseBody)
+                    val token = json.optString("access_token", "")
+                    if (!GoogleAuthMapper.isSupabaseJwt(token)) {
+                        return@withContext Result.failure(
+                            GoogleAuthException.Failed("Supabase authentication failed.")
+                        )
+                    }
+                    val userObj = json.optJSONObject("user")
+                        ?: return@withContext Result.failure(
+                            GoogleAuthException.Failed("Supabase authentication failed.")
+                        )
+                    val profile = GoogleAuthMapper.profileFromAuthUser(userObj)
+                    val refresh = json.optString("refresh_token", "")
+                    val expiresAt = System.currentTimeMillis() +
+                        json.optLong("expires_in", 3600L) * 1000L - 30_000L
+                    saveSession(token, profile, refresh.ifBlank { null }, expiresAt)
+                    Result.success(profile)
+                } else {
+                    if (response.code >= 500) {
+                        Result.failure(GoogleAuthException.Network())
+                    } else {
+                        Result.failure(GoogleAuthException.Failed("Supabase authentication failed."))
+                    }
+                }
+            } catch (error: Exception) {
+                if (GoogleAuthMapper.isNetworkFailure(error)) {
+                    Result.failure(GoogleAuthException.Network())
+                } else {
+                    Result.failure(GoogleAuthException.Failed("Supabase authentication failed."))
+                }
+            }
+        }
+
+    /**
+     * Idempotent upsert of the signed-in Google user into `public.profiles`.
+     * Missing table or RLS errors do not fail the login.
+     */
+    suspend fun upsertReaderProfile(profile: UserProfile): Result<UserProfile> = withContext(Dispatchers.IO) {
+        val token = authToken
+        if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null) {
+            return@withContext Result.success(profile)
+        }
+        try {
+            val existing = fetchReaderProfile(profile.id, token)
+            val payload = JSONObject().apply {
+                put("id", profile.id)
+                put("name", profile.fullName)
+                if (profile.email.isNotBlank()) put("email", profile.email)
+                put("avatar_url", profile.avatarUrl)
+            }
+            if (existing != null) {
+                val changed = existing.optString("name") != profile.fullName ||
+                    existing.optString("avatar_url") != profile.avatarUrl ||
+                    (profile.email.isNotBlank() && existing.optString("email") != profile.email)
+                if (!changed) return@withContext Result.success(profile)
+                val url = "${SupabaseConfig.restBaseUrl}/profiles?id=eq.${profile.id}"
+                val request = createUserAuthedRequestBuilder(url, token)
+                    .patch(payload.toString().toRequestBody(jsonMediaType))
+                    .build()
+                httpClient.newCall(request).execute().use { it.body?.close() }
+            } else {
+                val url = "${SupabaseConfig.restBaseUrl}/profiles"
+                val request = createUserAuthedRequestBuilder(url, token)
+                    .addHeader("Prefer", "resolution=merge-duplicates,return=minimal")
+                    .post(payload.toString().toRequestBody(jsonMediaType))
+                    .build()
+                httpClient.newCall(request).execute().use { it.body?.close() }
+            }
+            Result.success(profile)
+        } catch (_: Exception) {
+            Result.success(profile)
+        }
+    }
+
+    private fun fetchReaderProfile(userId: String, token: String): JSONObject? {
+        val url = "${SupabaseConfig.restBaseUrl}/profiles?id=eq.$userId&select=id,name,email,avatar_url&limit=1"
+        val request = createUserAuthedRequestBuilder(url, token).get().build()
+        val response = httpClient.newCall(request).execute()
+        val body = response.body?.string().orEmpty()
+        if (!response.isSuccessful || body.isBlank()) return null
+        val array = JSONArray(body)
+        return if (array.length() > 0) array.getJSONObject(0) else null
+    }
+
+    private fun createAuthRequestBuilder(url: String, bearer: String? = null): Request.Builder {
+        val key = SupabaseConfig.supabaseKey
+        val access = bearer ?: key
+        return Request.Builder()
+            .url(url)
+            .addHeader("apikey", key)
+            .addHeader("Authorization", "Bearer $access")
+            .addHeader("Content-Type", "application/json")
+    }
+
+    private fun createUserAuthedRequestBuilder(url: String, userJwt: String): Request.Builder {
+        val key = SupabaseConfig.supabaseKey
+        return Request.Builder()
+            .url(url)
+            .addHeader("apikey", key)
+            .addHeader("Authorization", "Bearer $userJwt")
+            .addHeader("Content-Type", "application/json")
     }
 
     // ==========================================
