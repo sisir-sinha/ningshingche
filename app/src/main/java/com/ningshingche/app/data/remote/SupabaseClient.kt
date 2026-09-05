@@ -134,21 +134,73 @@ class SupabaseClient(private val context: Context) {
 
     fun getAuthToken(): String? = authToken
 
+    @Synchronized
+    private fun sessionBearer(): String {
+        val key = SupabaseConfig.supabaseKey
+        val token = authToken
+        if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null) return key
+        val expiry = if (expiresAtMillis > 0L) expiresAtMillis else jwtExpiryMillis(token)
+        if (expiry > 0L && System.currentTimeMillis() >= expiry - 30_000L) {
+            refreshAccessTokenLocked()?.let { return it }
+            return key
+        }
+        return token
+    }
+
+    private fun jwtExpiryMillis(token: String): Long {
+        return try {
+            val payload = token.split('.').getOrNull(1) ?: return 0L
+            val padded = payload + "=".repeat((4 - payload.length % 4) % 4)
+            val decoded = android.util.Base64.decode(
+                padded,
+                android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP
+            )
+            JSONObject(String(decoded, Charsets.UTF_8)).optLong("exp", 0L) * 1000L
+        } catch (_: Exception) {
+            0L
+        }
+    }
+
+    @Synchronized
+    private fun refreshAccessTokenLocked(): String? {
+        val refresh = refreshToken ?: return null
+        return try {
+            val url = "${SupabaseConfig.authBaseUrl}/token?grant_type=refresh_token"
+            val payload = JSONObject().put("refresh_token", refresh).toString()
+            val request = createAuthRequestBuilder(url)
+                .post(payload.toRequestBody(jsonMediaType))
+                .build()
+            val response = httpClient.newCall(request).execute()
+            val body = response.body?.string().orEmpty()
+            if (!response.isSuccessful || body.isBlank()) return null
+            val json = JSONObject(body)
+            val token = json.optString("access_token", "")
+            if (!GoogleAuthMapper.isSupabaseJwt(token)) return null
+            val nextRefresh = json.optString("refresh_token", refresh)
+            val expiresAt = System.currentTimeMillis() + json.optLong("expires_in", 3600L) * 1000L - 30_000L
+            val profile = _currentUser.value
+            if (profile != null) {
+                saveSession(token, profile, nextRefresh.ifBlank { refresh }, expiresAt)
+            } else {
+                authToken = token
+                refreshToken = nextRefresh.ifBlank { refresh }
+                expiresAtMillis = expiresAt
+            }
+            token
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     private fun createBaseRequestBuilder(url: String): Request.Builder {
         val key = SupabaseConfig.supabaseKey
-        val builder = Request.Builder()
+        val bearer = sessionBearer()
+        return Request.Builder()
             .url(url)
             .addHeader("apikey", key)
+            .addHeader("Authorization", "Bearer $bearer")
             .addHeader("Content-Type", "application/json")
             .addHeader("Prefer", "return=representation")
-
-        val token = authToken
-        if (!token.isNullOrBlank()) {
-            builder.addHeader("Authorization", "Bearer $token")
-        } else {
-            builder.addHeader("Authorization", "Bearer $key")
-        }
-        return builder
     }
 
     // ==========================================
@@ -446,16 +498,22 @@ class SupabaseClient(private val context: Context) {
                 }
                 params.add(filter)
                 val url = "${SupabaseConfig.restBaseUrl}/submitted_blogs?${params.joinToString("&")}"
-                val request = createBaseRequestBuilder(url).get().build()
-                val response = httpClient.newCall(request).execute()
-                val body = response.body?.string().orEmpty()
-                if (response.isSuccessful && body.isNotBlank()) {
-                    val array = JSONArray(body)
+                var response = httpClient.newCall(createBaseRequestBuilder(url).get().build()).execute()
+                var body = response.body?.string().orEmpty()
+                if (response.code == 401) {
+                    refreshAccessTokenLocked()
+                    response = httpClient.newCall(createBaseRequestBuilder(url).get().build()).execute()
+                    body = response.body?.string().orEmpty()
+                }
+                if (response.isSuccessful) {
+                    val array = JSONArray(body.ifBlank { "[]" })
                     val list = mutableListOf<SubmittedBlogRecord>()
                     for (i in 0 until array.length()) {
                         list.add(SubmittedBlogRecord.fromJson(array.getJSONObject(i)))
                     }
                     Result.success(list)
+                } else if (response.code == 401 || response.code == 403) {
+                    Result.success(emptyList())
                 } else {
                     Result.failure(Exception("প্রবন্ধ তালিকা লোড হয়নি (${response.code})"))
                 }
@@ -475,16 +533,22 @@ class SupabaseClient(private val context: Context) {
                 }
                 params.add(filter)
                 val url = "${SupabaseConfig.restBaseUrl}/comments?${params.joinToString("&")}"
-                val request = createBaseRequestBuilder(url).get().build()
-                val response = httpClient.newCall(request).execute()
-                val body = response.body?.string().orEmpty()
-                if (response.isSuccessful && body.isNotBlank()) {
-                    val array = JSONArray(body)
+                var response = httpClient.newCall(createBaseRequestBuilder(url).get().build()).execute()
+                var body = response.body?.string().orEmpty()
+                if (response.code == 401) {
+                    refreshAccessTokenLocked()
+                    response = httpClient.newCall(createBaseRequestBuilder(url).get().build()).execute()
+                    body = response.body?.string().orEmpty()
+                }
+                if (response.isSuccessful) {
+                    val array = JSONArray(body.ifBlank { "[]" })
                     val list = mutableListOf<CommentRecord>()
                     for (i in 0 until array.length()) {
                         list.add(CommentRecord.fromJson(array.getJSONObject(i)))
                     }
                     Result.success(list)
+                } else if (response.code == 401 || response.code == 403) {
+                    Result.success(emptyList())
                 } else {
                     Result.failure(Exception("মন্তব্য তালিকা লোড হয়নি (${response.code})"))
                 }
@@ -761,10 +825,16 @@ class SupabaseClient(private val context: Context) {
 
     private fun createUserAuthedRequestBuilder(url: String, userJwt: String): Request.Builder {
         val key = SupabaseConfig.supabaseKey
+        val refreshed = sessionBearer()
+        val bearer = when {
+            GoogleAuthMapper.isSupabaseJwt(refreshed) -> refreshed
+            GoogleAuthMapper.isSupabaseJwt(userJwt) -> userJwt
+            else -> key
+        }
         return Request.Builder()
             .url(url)
             .addHeader("apikey", key)
-            .addHeader("Authorization", "Bearer $userJwt")
+            .addHeader("Authorization", "Bearer $bearer")
             .addHeader("Content-Type", "application/json")
     }
 
