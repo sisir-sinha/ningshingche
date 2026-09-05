@@ -107,10 +107,6 @@ fun DashboardSettingsView(
 
     var isSavedNoticeVisible by remember { mutableStateOf(false) }
 
-    // *** NEW: Backup settings ***
-    var backupEnabled by remember { mutableStateOf(settings.backupEnabled) }
-    var backupPath by remember { mutableStateOf(settings.backupPath) }
-
     fun saveAllSettings() {
         val updated = settings.copy(
             siteTitle = siteTitle.trim(),
@@ -738,7 +734,9 @@ fun DashboardSettingsView(
 
         
 
-        // Backup & Restore
+        // Content backups are implemented in the web CMS, not this native screen.
+        // The old duplicated placeholder referenced non-existent settings fields and
+        // reported a fake "Backup started" toast without ever creating a backup.
         Card(
             shape = RoundedCornerShape(18.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -747,141 +745,15 @@ fun DashboardSettingsView(
         ) {
             Column(
                 modifier = Modifier.padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CloudDownload,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Text(
-                        text = "Backup & Restore",
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Switch(
-                        checked = backupEnabled,
-                        onCheckedChange = {
-                            backupEnabled = it
-                            isSavedNoticeVisible = false
-                        }
-                    )
-                    OutlinedTextField(
-                        value = backupPath,
-                        onValueChange = {
-                            backupPath = it
-                            isSavedNoticeVisible = false
-                        },
-                        label = { Text("Backup path") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                        ),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                Button(
-                    onClick = {
-                        // TODO: call backup repository function
-                        Toast.makeText(context, "Backup started at $backupPath", Toast.LENGTH_SHORT).show()
-                    },
-                    shape = RoundedCornerShape(12.dp),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Create Backup", fontWeight = FontWeight.Bold)
-                }
-            }
-        )
-
-//
-// Backup & Restore
-        Card(
-            shape = RoundedCornerShape(18.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CloudDownload,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Text(
-                        text = "Backup & Restore",
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Switch(
-                        checked = backupEnabled,
-                        onCheckedChange = {
-                            backupEnabled = it
-                            isSavedNoticeVisible = false
-                        }
-                    )
-                    OutlinedTextField(
-                        value = backupPath,
-                        onValueChange = {
-                            backupPath = it
-                            isSavedNoticeVisible = false
-                        },
-                        label = { Text("Backup path") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                        ),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                Button(
-                    onClick = {
-                        // TODO: call backup repository function
-                        Toast.makeText(context, "Backup started at $backupPath", Toast.LENGTH_SHORT).show()
-                    },
-                    shape = RoundedCornerShape(12.dp),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Create Backup", fontWeight = FontWeight.Bold)
-                }
+                Text("Backup", style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    "ওয়েব ড্যাশবোর্ডের Settings → Backup থেকে তথ্যের JSON ব্যাকআপ ডাউনলোড করুন। এই অ্যাপের সেটিংস থেকে ব্যাকআপ বা রিস্টোর চালানো হয় না।",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 
