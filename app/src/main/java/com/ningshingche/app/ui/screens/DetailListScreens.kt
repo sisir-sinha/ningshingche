@@ -33,7 +33,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -45,6 +44,7 @@ import com.ningshingche.app.data.model.YearArchive
 import com.ningshingche.app.ui.components.ArticleListItemCard
 import com.ningshingche.app.ui.components.DetailListSkeletonLayout
 import kotlinx.coroutines.delay
+import com.ningshingche.app.ui.theme.Kalpurush
 
 @Composable
 fun CategoryDetailScreen(
@@ -94,7 +94,7 @@ fun CategoryDetailScreen(
                 Text(
                     text = category?.name ?: "বিভাগ",
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = FontFamily.Serif,
+                        fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 18.sp
@@ -199,7 +199,7 @@ fun AuthorDetailScreen(
                 Text(
                     text = "লেখক পরিচিতি",
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = FontFamily.Serif,
+                        fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 18.sp
@@ -249,7 +249,7 @@ fun AuthorDetailScreen(
                                 Text(
                                     text = author.name,
                                     style = MaterialTheme.typography.titleLarge.copy(
-                                        fontFamily = FontFamily.Serif,
+                                        fontFamily = Kalpurush,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface,
                                         fontSize = 18.sp
@@ -286,7 +286,7 @@ fun AuthorDetailScreen(
                 Text(
                     text = "লেখকের প্রকাশিত রচনাসমূহ (${articles.size})",
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = FontFamily.Serif,
+                        fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 15.sp
@@ -352,7 +352,7 @@ fun ArchiveYearDetailScreen(
                 Text(
                     text = "${yearArchive?.bengaliYearText ?: ""} বার্ষিক সংখ্যা",
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = FontFamily.Serif,
+                        fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 18.sp
@@ -399,7 +399,7 @@ fun ArchiveYearDetailScreen(
                                 Text(
                                     text = yearArchive.title,
                                     style = MaterialTheme.typography.titleMedium.copy(
-                                        fontFamily = FontFamily.Serif,
+                                        fontFamily = Kalpurush,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                                         fontSize = 16.sp

@@ -42,7 +42,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -53,6 +52,7 @@ import com.ningshingche.app.data.repository.NinghsingCheContentData
 import com.ningshingche.app.ui.components.ArticleListItemCard
 import com.ningshingche.app.ui.components.SearchSkeletonLayout
 import com.ningshingche.app.ui.viewmodel.SearchViewModel
+import com.ningshingche.app.ui.theme.Kalpurush
 
 @Composable
 fun SearchScreen(
@@ -351,7 +351,7 @@ fun SearchScreen(
                             Text(
                                 text = "কোনো প্রবন্ধ খুঁজে পাওয়া যায়নি",
                                 style = MaterialTheme.typography.titleMedium.copy(
-                                    fontFamily = FontFamily.Serif,
+                                    fontFamily = Kalpurush,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )

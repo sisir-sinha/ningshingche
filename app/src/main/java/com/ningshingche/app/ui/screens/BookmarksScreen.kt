@@ -38,7 +38,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -48,6 +47,7 @@ import com.ningshingche.app.data.repository.NinghsingCheContentData
 import com.ningshingche.app.ui.components.ArticleListItemCard
 import com.ningshingche.app.ui.components.BookmarksSkeletonLayout
 import com.ningshingche.app.ui.viewmodel.BookmarksViewModel
+import com.ningshingche.app.ui.theme.Kalpurush
 
 @Composable
 fun BookmarksScreen(
@@ -94,7 +94,7 @@ fun BookmarksScreen(
                 Text(
                     text = "সংরক্ষিত প্রবন্ধ",
                     style = MaterialTheme.typography.displaySmall.copy(
-                        fontFamily = FontFamily.Serif,
+                        fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground,
                         fontSize = 22.sp
@@ -224,7 +224,7 @@ fun BookmarksScreen(
                 Text(
                     text = "কোনো সংরক্ষিত প্রবন্ধ নেই",
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = FontFamily.Serif,
+                        fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )

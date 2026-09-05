@@ -34,7 +34,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -58,6 +57,7 @@ import com.ningshingche.app.ui.components.HeroArticleCarousel
 import com.ningshingche.app.ui.components.HomeSkeletonLayout
 import com.ningshingche.app.ui.viewmodel.HomeViewModel
 import androidx.compose.material.icons.filled.People
+import com.ningshingche.app.ui.theme.Kalpurush
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -218,7 +218,7 @@ fun HomeScreen(
                             Text(
                                 text = "নিংশিং চে AI সহকারী",
                                 style = MaterialTheme.typography.titleMedium.copy(
-                                    fontFamily = FontFamily.Serif,
+                                    fontFamily = Kalpurush,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onPrimary,
                                     fontSize = 15.sp
@@ -284,7 +284,7 @@ fun HomeScreen(
                                 Text(
                                     text = "PDF আর্কাইভ ও পত্রিকা",
                                     style = MaterialTheme.typography.titleMedium.copy(
-                                        fontFamily = FontFamily.Serif,
+                                        fontFamily = Kalpurush,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface,
                                         fontSize = 15.sp
@@ -378,7 +378,7 @@ fun HomeScreen(
                                         Text(
                                             text = lastArticle.title,
                                             style = MaterialTheme.typography.titleMedium.copy(
-                                                fontFamily = FontFamily.Serif,
+                                                fontFamily = Kalpurush,
                                                 fontWeight = FontWeight.Bold,
                                                 color = MaterialTheme.colorScheme.onSurface,
                                                 fontSize = 13.sp
@@ -603,7 +603,7 @@ fun HomeScreen(
                                     Text(
                                         text = yearArchive.bengaliYearText,
                                         style = MaterialTheme.typography.titleMedium.copy(
-                                            fontFamily = FontFamily.Serif,
+                                            fontFamily = Kalpurush,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 15.sp,
                                             color = MaterialTheme.colorScheme.onSurface

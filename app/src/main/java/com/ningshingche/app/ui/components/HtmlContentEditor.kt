@@ -1,7 +1,6 @@
 package com.ningshingche.app.ui.components
 
 import android.annotation.SuppressLint
-import android.os.Build
 import android.view.ActionMode
 import android.view.Menu
 import android.view.MenuItem
@@ -197,6 +196,7 @@ fun HtmlContentEditor(
                             settings.javaScriptEnabled = true
                             settings.domStorageEnabled = false
                             settings.allowFileAccess = true
+                            settings.allowContentAccess = true
                             settings.loadsImagesAutomatically = true
                             settings.blockNetworkImage = false
                             addJavascriptInterface(
@@ -213,8 +213,13 @@ fun HtmlContentEditor(
                                 }
                             }
                             loadDataWithBaseURL(
-                                "file:///android_asset/",
-                                editorHtml(background.toArgb(), onSurface.toArgb(), accent.toArgb()),
+                                "https://ningshingche.com/",
+                                editorHtml(
+                                    background.toArgb(),
+                                    onSurface.toArgb(),
+                                    accent.toArgb(),
+                                    KalpurushWebFont.css(viewContext)
+                                ),
                                 "text/html",
                                 "utf-8",
                                 null
@@ -315,7 +320,32 @@ open class RichEditorWebView(context: android.content.Context) : WebView(context
     override fun startActionMode(callback: ActionMode.Callback?, type: Int): ActionMode? = null
 }
 
-private fun editorHtml(bgArgb: Int, fgArgb: Int, accentArgb: Int): String {
+
+private object KalpurushWebFont {
+    @Volatile private var cached: String? = null
+
+    fun css(context: android.content.Context): String {
+        cached?.let { return it }
+        synchronized(this) {
+            cached?.let { return it }
+            val bytes = context.assets.open("fonts/kalpurush.ttf").use { it.readBytes() }
+            val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+            val face = """
+            @font-face {
+              font-family: 'Kalpurush';
+              src: url('data:font/truetype;charset=utf-8;base64,$b64') format('truetype');
+              font-weight: 100 900;
+              font-style: normal;
+              font-display: block;
+            }
+            """.trimIndent()
+            cached = face
+            return face
+        }
+    }
+}
+
+private fun editorHtml(bgArgb: Int, fgArgb: Int, accentArgb: Int, fontFaceCss: String): String {
     val bg = hexColor(bgArgb)
     val fg = hexColor(fgArgb)
     val accent = hexColor(accentArgb)
@@ -326,20 +356,15 @@ private fun editorHtml(bgArgb: Int, fgArgb: Int, accentArgb: Int): String {
           <meta charset="utf-8"/>
           <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
           <style>
-            @font-face {
-              font-family: 'Kalpurush';
-              src: url('fonts/kalpurush.ttf') format('truetype');
-              font-weight: 400;
-              font-style: normal;
-            }
+            $fontFaceCss
             html,body { margin:0; padding:0; background:$bg; color:$fg; font-size:16px; height:100%;
-              font-family:'Kalpurush', serif;
+              font-family:'Kalpurush', sans-serif !important;
               -webkit-touch-callout:none; -webkit-user-select:text; user-select:text; }
             body { position:relative; }
             #e { min-height:100%; padding:14px 14px 56px; outline:none; line-height:1.65;
-              font-family:'Kalpurush', serif;
+              font-family:'Kalpurush', sans-serif !important;
               -webkit-touch-callout:none; -webkit-user-select:text; user-select:text; }
-            #e:empty:before { content:'লেখা লিখুন… নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি ও কাট আসবে।'; color:#888; font-family:'Kalpurush', serif; }
+            #e:empty:before { content:'লেখা লিখুন… নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি ও কাট আসবে।'; color:#888; font-family:'Kalpurush', sans-serif !important; }
             #e img { max-width:100%; height:auto; border-radius:8px; margin:8px 0; }
             #selbar {
               position:absolute; display:none; z-index:20;

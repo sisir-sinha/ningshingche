@@ -57,7 +57,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
@@ -77,6 +76,7 @@ import com.ningshingche.app.ui.components.AiSourceCitationCard
 import com.ningshingche.app.ui.components.keyboardAvoidingPadding
 import com.ningshingche.app.ui.viewmodel.AiViewModel
 import kotlinx.coroutines.delay
+import com.ningshingche.app.ui.theme.Kalpurush
 
 @Composable
 fun AiAssistantScreen(
@@ -177,7 +177,7 @@ fun AiAssistantScreen(
                     Text(
                         text = "নিংশিং চে AI সহকারী",
                         style = MaterialTheme.typography.titleMedium.copy(
-                            fontFamily = FontFamily.Serif,
+                            fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 16.sp

@@ -68,7 +68,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -81,6 +80,7 @@ import com.ningshingche.app.ui.viewmodel.SettingsViewModel
 import com.ningshingche.app.util.ApkManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.ningshingche.app.ui.theme.Kalpurush
 
 @Composable
 fun SettingsScreen(
@@ -142,7 +142,7 @@ fun SettingsScreen(
                 Text(
                     text = "সেটিংস ও তথ্যকোষ বিবরণ",
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = FontFamily.Serif,
+                        fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 18.sp
@@ -576,7 +576,7 @@ fun SettingsScreen(
                         Text(
                             text = "নিংশিং চে — বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ",
                             style = MaterialTheme.typography.titleLarge.copy(
-                                fontFamily = FontFamily.Serif,
+                                fontFamily = Kalpurush,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 fontSize = 17.sp

@@ -110,7 +110,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -128,6 +127,7 @@ import com.ningshingche.app.data.model.PdfDocument
 import com.ningshingche.app.data.model.YearArchive
 import com.ningshingche.app.data.repository.NinghsingCheContentData
 import com.ningshingche.app.ui.navigation.Screen
+import com.ningshingche.app.ui.theme.Kalpurush
 
 /**
  * Returns a dedicated Google Material Icon for each category.
@@ -235,7 +235,7 @@ fun EditorialTopHeader(
                     Text(
                         text = title,
                         style = MaterialTheme.typography.titleLarge.copy(
-                            fontFamily = FontFamily.Serif,
+                            fontFamily = Kalpurush,
                             fontWeight = FontWeight.Black,
                             color = MaterialTheme.colorScheme.onBackground,
                             fontSize = 20.sp
@@ -565,7 +565,7 @@ fun FeaturedArticleHeroCard(
                 Text(
                     text = article.title,
                     style = MaterialTheme.typography.titleLarge.copy(
-                        fontFamily = FontFamily.Serif,
+                        fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
                         fontSize = 19.sp,
@@ -670,7 +670,7 @@ fun ArticleListItemCard(
                 Text(
                     text = article.title,
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = FontFamily.Serif,
+                        fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 14.sp,
@@ -807,7 +807,7 @@ fun AuthorCardItem(
                     Text(
                         text = author.name,
                         style = MaterialTheme.typography.titleMedium.copy(
-                            fontFamily = FontFamily.Serif,
+                            fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 15.sp
@@ -923,7 +923,7 @@ fun YearArchiveTimelineCard(
                 Text(
                     text = archive.title,
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = FontFamily.Serif,
+                        fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 15.sp
@@ -1082,7 +1082,7 @@ fun PdfDocumentCard(
                 Text(
                     text = pdf.title,
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = FontFamily.Serif,
+                        fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 14.sp,
@@ -1229,7 +1229,7 @@ fun AiSourceCitationCard(
                 Text(
                     text = citation.title,
                     style = MaterialTheme.typography.titleSmall.copy(
-                        fontFamily = FontFamily.Serif,
+                        fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 13.sp
@@ -1351,7 +1351,7 @@ fun EditorialNavigationDrawerContent(
                             Text(
                                 text = "নিংশিং চে",
                                 style = MaterialTheme.typography.titleLarge.copy(
-                                    fontFamily = FontFamily.Serif,
+                                    fontFamily = Kalpurush,
                                     fontWeight = FontWeight.Black,
                                     color = MaterialTheme.colorScheme.onPrimary,
                                     fontSize = 22.sp

@@ -4,12 +4,32 @@ import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontLoadingStrategy
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.ningshingche.app.R
 
+/**
+ * Kalpurush ships as a single Regular TTF. Motorola (and some other OEMs) will
+ * fall back to the system Bengali face whenever a Text asks for Medium/Bold
+ * unless every weight is mapped to that same file.
+ */
+private fun kalpurushFace(weight: FontWeight) = Font(
+    resId = R.font.kalpurush,
+    weight = weight,
+    loadingStrategy = FontLoadingStrategy.Blocking
+)
+
 val Kalpurush: FontFamily = FontFamily(
-    Font(R.font.kalpurush, FontWeight.Normal)
+    kalpurushFace(FontWeight.Thin),
+    kalpurushFace(FontWeight.ExtraLight),
+    kalpurushFace(FontWeight.Light),
+    kalpurushFace(FontWeight.Normal),
+    kalpurushFace(FontWeight.Medium),
+    kalpurushFace(FontWeight.SemiBold),
+    kalpurushFace(FontWeight.Bold),
+    kalpurushFace(FontWeight.ExtraBold),
+    kalpurushFace(FontWeight.Black)
 )
 val BengDefaultSerif: FontFamily = Kalpurush
 val BengDefaultSans: FontFamily = Kalpurush
