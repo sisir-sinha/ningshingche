@@ -51,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -225,6 +226,7 @@ fun UserDashboardScreen(
                         }
                         item {
                             AdminMessageComposer(
+                                status = status,
                                 saving = saving,
                                 onSend = { subject, body -> viewModel.sendAdminMessage(subject, body) },
                                 onSeeAll = onInboxClick

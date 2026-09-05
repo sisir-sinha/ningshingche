@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogWindowProvider
 
@@ -18,8 +19,9 @@ import androidx.compose.ui.window.DialogWindowProvider
  * so the field stays visible. Safe to stack: Compose uses the remaining
  * unconsumed inset, so it will not double-pad.
  */
-fun Modifier.keyboardAvoidingPadding(): Modifier =
+fun Modifier.keyboardAvoidingPadding(): Modifier = composed {
     windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))
+}
 
 /**
  * Dialog / [androidx.compose.material3.ModalBottomSheet] hosts often ignore
