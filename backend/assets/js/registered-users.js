@@ -237,9 +237,271 @@
     if (id && userById(id)) openUser(userById(id));
   }
 
-  function renderArticles() {
+
+  async function refreshScreen(renderFn, context = {}) {
+    await loadCache();
+    renderFn(context);
+  }
+
+  function articleById(id) {
+    return cache.articles.find((item) => item.id === id) || null;
+  }
+
+  function commentById(id) {
+    return cache.comments.find((item) => item.id === id) || null;
+  }
+
+  function noticeGroupMembers(item) {
+    if (item?.kind === 'staff_notice' && item.related_id) {
+      return cache.notices.filter((row) => row.kind === item.kind && row.related_id === item.related_id);
+    }
+    return cache.notices.filter((row) => row.id === item?.id);
+  }
+
+  function openArticleView(record, onEdit) {
+    NC.components.openModal({
+      title: record.title || 'Untitled article',
+      eyebrow: record.status || 'Pending',
+      size: 'xl',
+      content: `
+        <dl class="details-list">
+          <div><dt>Writer</dt><dd>${escapeHTML(record.writer_name || record.writer_email || '—')}</dd></div>
+          <div><dt>Email</dt><dd>${escapeHTML(record.writer_email || '—')}</dd></div>
+          <div><dt>Status</dt><dd>${NC.components.statusBadge(record.status || 'Pending')}</dd></div>
+          <div><dt>Submitted</dt><dd>${escapeHTML(formatDateTime(record.created_at))}</dd></div>
+        </dl>
+        <h3 class="section-mini-title mt-6">${escapeHTML(record.content_title || record.title || 'Article')}</h3>
+        <div class="prose-content mt-4">${NC.utils.sanitizeHTML(record.content || '')}</div>`,
+      footer: '<button type="button" class="btn btn-secondary" data-modal-close>Close</button><button type="button" class="btn btn-primary" data-article-edit><i class="fa-regular fa-pen" aria-hidden="true"></i>Edit</button>',
+      onOpen: (modalRoot) => {
+        modalRoot.querySelector('[data-article-edit]')?.addEventListener('click', () => {
+          NC.components.closeModal();
+          window.setTimeout(() => onEdit(record), 180);
+        });
+      }
+    });
+  }
+
+  function openArticleForm(record, onSaved) {
+    const statuses = ['Pending', 'Reviewed', 'Approved', 'Rejected', 'Published'];
+    NC.components.openModal({
+      title: 'Edit article',
+      eyebrow: 'Registered users',
+      size: 'xl',
+      content: `<form id="ru-article-form" class="form-stack" novalidate>
+        <div class="form-grid-2">
+          <div class="field"><label class="field-label" for="ru-article-title">Title <span aria-hidden="true">*</span></label>
+            <input class="form-input" id="ru-article-title" name="title" value="${escapeHTML(record.title || '')}" required>
+            <p class="field-error hidden" data-field-error="title"></p></div>
+          <div class="field"><label class="field-label" for="ru-article-status">Status</label>
+            <select class="form-select" id="ru-article-status" name="status">
+              ${statuses.map((status) => `<option value="${status}" ${status === (record.status || 'Pending') ? 'selected' : ''}>${status}</option>`).join('')}
+            </select></div>
+        </div>
+        <div class="form-grid-2">
+          <div class="field"><label class="field-label" for="ru-article-writer">Writer</label>
+            <input class="form-input" id="ru-article-writer" name="writer_name" value="${escapeHTML(record.writer_name || '')}"></div>
+          <div class="field"><label class="field-label" for="ru-article-email">Writer email</label>
+            <input class="form-input" id="ru-article-email" name="writer_email" value="${escapeHTML(record.writer_email || '')}"></div>
+        </div>
+        <div class="field"><label class="field-label" for="ru-article-content">Content</label>
+          <textarea class="form-textarea min-h-40" id="ru-article-content" name="content">${escapeHTML(record.content || '')}</textarea></div>
+      </form>`,
+      footer: '<button type="button" class="btn btn-secondary" data-modal-close>Cancel</button><button type="submit" form="ru-article-form" class="btn btn-primary"><i class="fa-regular fa-floppy-disk" aria-hidden="true"></i>Save</button>',
+      onOpen: (modalRoot) => {
+        modalRoot.querySelector('#ru-article-form')?.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const data = formData(event.currentTarget);
+          if (!NC.utils.validateFields(event.currentTarget, { title: data.title ? '' : 'Enter a title.' })) return;
+          try {
+            await NC.api.update('submissions', record.id, {
+              title: data.title,
+              content_title: data.title,
+              writer_name: data.writer_name,
+              writer_email: data.writer_email,
+              content: data.content,
+              status: data.status || record.status
+            });
+            NC.components.toast('Article saved.', 'success');
+            NC.components.closeModal();
+            await onSaved();
+          } catch (error) {
+            console.error(error);
+            NC.components.toast(NC.api.userMessage(error, 'Unable to save article.'), 'error');
+          }
+        });
+      }
+    });
+  }
+
+  async function deleteArticle(record, onDeleted) {
+    const deleted = await NC.crud.deleteRecord({
+      table: 'submissions',
+      record,
+      label: 'article',
+      remoteDeleteUrls: [record.imgbb_delete_url, record.writer_profile_delete_url].filter(Boolean)
+    });
+    if (deleted) await onDeleted();
+  }
+
+  function openCommentView(record, onEdit) {
+    NC.components.openModal({
+      title: record.name || record.email || 'Comment',
+      eyebrow: record.status || 'Unpublish',
+      size: 'lg',
+      content: `
+        <dl class="details-list">
+          <div><dt>Article</dt><dd>${escapeHTML(record.blog_title || '—')}</dd></div>
+          <div><dt>Email</dt><dd>${escapeHTML(record.email || '—')}</dd></div>
+          <div><dt>Phone</dt><dd>${escapeHTML(record.phone || '—')}</dd></div>
+          <div><dt>Received</dt><dd>${escapeHTML(formatDateTime(record.created_at))}</dd></div>
+        </dl>
+        <p class="mt-6">${escapeHTML(record.content || '')}</p>`,
+      footer: '<button type="button" class="btn btn-secondary" data-modal-close>Close</button><button type="button" class="btn btn-primary" data-comment-edit><i class="fa-regular fa-pen" aria-hidden="true"></i>Edit</button>',
+      onOpen: (modalRoot) => {
+        modalRoot.querySelector('[data-comment-edit]')?.addEventListener('click', () => {
+          NC.components.closeModal();
+          window.setTimeout(() => onEdit(record), 180);
+        });
+      }
+    });
+  }
+
+  function openCommentForm(record, onSaved) {
+    NC.components.openModal({
+      title: 'Edit comment',
+      eyebrow: 'Registered users',
+      size: 'lg',
+      content: `<form id="ru-comment-form" class="form-stack" novalidate>
+        <div class="form-grid-2">
+          <div class="field"><label class="field-label" for="ru-comment-name">Name <span aria-hidden="true">*</span></label>
+            <input class="form-input" id="ru-comment-name" name="name" value="${escapeHTML(record.name || '')}" required>
+            <p class="field-error hidden" data-field-error="name"></p></div>
+          <div class="field"><label class="field-label" for="ru-comment-status">Status</label>
+            <select class="form-select" id="ru-comment-status" name="status">
+              <option value="Unpublish" ${record.status !== 'Publish' ? 'selected' : ''}>Unpublish</option>
+              <option value="Publish" ${record.status === 'Publish' ? 'selected' : ''}>Publish</option>
+            </select></div>
+        </div>
+        <div class="field"><label class="field-label" for="ru-comment-content">Comment <span aria-hidden="true">*</span></label>
+          <textarea class="form-textarea min-h-28" id="ru-comment-content" name="content" required>${escapeHTML(record.content || '')}</textarea>
+          <p class="field-error hidden" data-field-error="content"></p></div>
+      </form>`,
+      footer: '<button type="button" class="btn btn-secondary" data-modal-close>Cancel</button><button type="submit" form="ru-comment-form" class="btn btn-primary"><i class="fa-regular fa-floppy-disk" aria-hidden="true"></i>Save</button>',
+      onOpen: (modalRoot) => {
+        modalRoot.querySelector('#ru-comment-form')?.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const data = formData(event.currentTarget);
+          if (!NC.utils.validateFields(event.currentTarget, {
+            name: data.name ? '' : 'Enter a name.',
+            content: data.content ? '' : 'Write a comment.'
+          })) return;
+          try {
+            await NC.api.update('comments', record.id, {
+              name: data.name,
+              content: data.content,
+              status: data.status || record.status
+            });
+            NC.components.toast('Comment saved.', 'success');
+            NC.components.closeModal();
+            await onSaved();
+          } catch (error) {
+            console.error(error);
+            NC.components.toast(NC.api.userMessage(error, 'Unable to save comment.'), 'error');
+          }
+        });
+      }
+    });
+  }
+
+  async function deleteComment(record, onDeleted) {
+    const deleted = await NC.crud.deleteRecord({ table: 'comments', record, label: 'comment' });
+    if (deleted) await onDeleted();
+  }
+
+  function openNoticeView(item) {
+    const user = userById(item.user_id);
+    const audience = item.recipient_count > 1
+      ? `${item.recipient_count} users`
+      : (user ? displayName(user) : item.user_id);
+    NC.components.openModal({
+      title: item.title || 'Notification',
+      eyebrow: item.kind || 'notice',
+      size: 'lg',
+      content: `
+        <dl class="details-list">
+          <div><dt>Audience</dt><dd>${escapeHTML(audience)}</dd></div>
+          <div><dt>Kind</dt><dd>${escapeHTML(item.kind || '—')}</dd></div>
+          <div><dt>Sent</dt><dd>${escapeHTML(formatDateTime(item.created_at))}</dd></div>
+        </dl>
+        <p class="mt-6">${escapeHTML(item.body || '')}</p>`
+    });
+  }
+
+  function openNoticeForm(item, onSaved) {
+    NC.components.openModal({
+      title: 'Edit notification',
+      eyebrow: 'Registered users',
+      size: 'lg',
+      content: `<form id="ru-notice-edit-form" class="form-stack" novalidate>
+        <div class="field"><label class="field-label" for="ru-notice-edit-title">Title <span aria-hidden="true">*</span></label>
+          <input class="form-input" id="ru-notice-edit-title" name="title" value="${escapeHTML(item.title || '')}" required>
+          <p class="field-error hidden" data-field-error="title"></p></div>
+        <div class="field"><label class="field-label" for="ru-notice-edit-body">Message <span aria-hidden="true">*</span></label>
+          <textarea class="form-textarea min-h-28" id="ru-notice-edit-body" name="body" required>${escapeHTML(item.body || '')}</textarea>
+          <p class="field-error hidden" data-field-error="body"></p></div>
+      </form>`,
+      footer: '<button type="button" class="btn btn-secondary" data-modal-close>Cancel</button><button type="submit" form="ru-notice-edit-form" class="btn btn-primary"><i class="fa-regular fa-floppy-disk" aria-hidden="true"></i>Save</button>',
+      onOpen: (modalRoot) => {
+        modalRoot.querySelector('#ru-notice-edit-form')?.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const data = formData(event.currentTarget);
+          if (!NC.utils.validateFields(event.currentTarget, {
+            title: data.title ? '' : 'Enter a title.',
+            body: data.body ? '' : 'Write a message.'
+          })) return;
+          try {
+            const members = noticeGroupMembers(item);
+            await Promise.all(members.map((row) => NC.api.update('notifications', row.id, {
+              title: data.title,
+              body: data.body
+            })));
+            NC.components.toast(members.length > 1 ? `Notification updated for ${members.length} users.` : 'Notification saved.', 'success');
+            NC.components.closeModal();
+            await onSaved();
+          } catch (error) {
+            console.error(error);
+            NC.components.toast(NC.api.userMessage(error, 'Unable to save notification.'), 'error');
+          }
+        });
+      }
+    });
+  }
+
+  async function deleteNotice(item, onDeleted) {
+    const members = noticeGroupMembers(item);
+    const accepted = await NC.components.confirm({
+      title: members.length > 1 ? 'Delete this broadcast?' : 'Delete notification?',
+      description: members.length > 1
+        ? `This will remove the notice from ${members.length} app users.`
+        : `“${item.title || 'This notification'}” will be permanently removed.`,
+      confirmLabel: 'Delete notification'
+    });
+    if (!accepted) return;
+    try {
+      await Promise.all(members.map((row) => NC.api.remove('notifications', row.id)));
+      NC.components.toast('Notification deleted.', 'success');
+      await onDeleted();
+    } catch (error) {
+      console.error(error);
+      NC.components.toast(NC.api.userMessage(error, 'Unable to delete notification.'), 'error');
+    }
+  }
+
+  function renderArticles(context = {}) {
     const state = new NC.crud.ListState('articles', { searchFields: ['title', 'writer_name', 'writer_email', 'content_title'], sortKey: 'created_at' });
     state.setRecords(appArticles());
+    const reload = () => refreshScreen(renderArticles, context);
     root.innerHTML = `${pageChrome('Articles', 'Articles submitted by registered app users.')}
       <section class="surface"><div class="list-toolbar"><label class="search-field"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><span class="sr-only">Search articles</span><input type="search" placeholder="Search title or writer…" data-ru-search></label></div><div data-ru-table></div></section>`;
     const renderList = () => {
@@ -250,25 +512,42 @@
         return;
       }
       content.innerHTML = `${NC.components.tableShell({
-        caption: 'App articles', minWidth: '960px',
-        head: `<tr><th>Article</th><th>Writer</th><th>Status</th><th><button type="button" data-sort="created_at">Submitted ${NC.crud.sortIcon(state, 'created_at')}</button></th></tr>`,
+        caption: 'App articles', minWidth: '1080px',
+        head: `<tr><th>Article</th><th>Writer</th><th>Status</th><th><button type="button" data-sort="created_at">Submitted ${NC.crud.sortIcon(state, 'created_at')}</button></th><th class="text-right">Actions</th></tr>`,
         body: rows.map((item) => `<tr>
           <td data-label="Article"><strong>${escapeHTML(item.title || 'Untitled')}</strong></td>
           <td data-label="Writer">${escapeHTML(item.writer_name || item.writer_email || '—')}</td>
           <td data-label="Status">${NC.components.statusBadge(item.status || 'Pending')}</td>
           <td data-label="Submitted">${escapeHTML(formatDateTime(item.created_at))}</td>
+          <td data-label="Actions" class="text-right">${NC.components.rowActions([
+            { action: 'view', id: item.id, label: 'View article', icon: 'fa-eye' },
+            { action: 'edit', id: item.id, label: 'Edit article', icon: 'fa-pen' },
+            { action: 'delete', id: item.id, label: 'Delete article', icon: 'fa-trash', danger: true }
+          ])}</td>
         </tr>`).join('')
       })}${NC.components.pagination({ page: state.page, pageSize: state.pageSize, total })}`;
+      content.querySelectorAll('[data-action]').forEach((button) => {
+        const record = articleById(button.dataset.id);
+        if (!record) return;
+        button.addEventListener('click', () => {
+          if (button.dataset.action === 'view') openArticleView(record, (item) => openArticleForm(item, reload));
+          if (button.dataset.action === 'edit') openArticleForm(record, reload);
+          if (button.dataset.action === 'delete') deleteArticle(record, reload);
+        });
+      });
       NC.crud.bindPagination(root, state, renderList);
       NC.crud.bindSort(root, state, renderList);
     };
     bindList(state, renderList);
     renderList();
+    const openId = context.params?.get('id');
+    if (openId && articleById(openId)) openArticleView(articleById(openId), (item) => openArticleForm(item, reload));
   }
 
-  function renderComments() {
+  function renderComments(context = {}) {
     const state = new NC.crud.ListState('comments', { searchFields: ['name', 'email', 'content', 'blog_title'], sortKey: 'created_at' });
     state.setRecords(appComments());
+    const reload = () => refreshScreen(renderComments, context);
     root.innerHTML = `${pageChrome('Comments', 'Comments left by registered app users.')}
       <section class="surface"><div class="list-toolbar"><label class="search-field"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><span class="sr-only">Search comments</span><input type="search" placeholder="Search comments…" data-ru-search></label></div><div data-ru-table></div></section>`;
     const renderList = () => {
@@ -279,20 +558,36 @@
         return;
       }
       content.innerHTML = `${NC.components.tableShell({
-        caption: 'App comments', minWidth: '960px',
-        head: `<tr><th>Comment</th><th>Article</th><th>Status</th><th><button type="button" data-sort="created_at">Received ${NC.crud.sortIcon(state, 'created_at')}</button></th></tr>`,
+        caption: 'App comments', minWidth: '1080px',
+        head: `<tr><th>Comment</th><th>Article</th><th>Status</th><th><button type="button" data-sort="created_at">Received ${NC.crud.sortIcon(state, 'created_at')}</button></th><th class="text-right">Actions</th></tr>`,
         body: rows.map((item) => `<tr>
           <td data-label="Comment"><div class="comment-cell"><strong>${escapeHTML(item.name || item.email || 'Reader')}</strong><p>${escapeHTML(NC.utils.truncate(item.content, 120))}</p></div></td>
           <td data-label="Article">${escapeHTML(item.blog_title || '—')}</td>
           <td data-label="Status">${NC.components.statusBadge(item.status || 'Unpublish')}</td>
           <td data-label="Received">${escapeHTML(formatDateTime(item.created_at))}</td>
+          <td data-label="Actions" class="text-right">${NC.components.rowActions([
+            { action: 'view', id: item.id, label: 'View comment', icon: 'fa-eye' },
+            { action: 'edit', id: item.id, label: 'Edit comment', icon: 'fa-pen' },
+            { action: 'delete', id: item.id, label: 'Delete comment', icon: 'fa-trash', danger: true }
+          ])}</td>
         </tr>`).join('')
       })}${NC.components.pagination({ page: state.page, pageSize: state.pageSize, total })}`;
+      content.querySelectorAll('[data-action]').forEach((button) => {
+        const record = commentById(button.dataset.id);
+        if (!record) return;
+        button.addEventListener('click', () => {
+          if (button.dataset.action === 'view') openCommentView(record, (item) => openCommentForm(item, reload));
+          if (button.dataset.action === 'edit') openCommentForm(record, reload);
+          if (button.dataset.action === 'delete') deleteComment(record, reload);
+        });
+      });
       NC.crud.bindPagination(root, state, renderList);
       NC.crud.bindSort(root, state, renderList);
     };
     bindList(state, renderList);
     renderList();
+    const openId = context.params?.get('id');
+    if (openId && commentById(openId)) openCommentView(commentById(openId), (item) => openCommentForm(item, reload));
   }
 
   function threadFor(userId) {
@@ -667,8 +962,8 @@
         return;
       }
       content.innerHTML = `${NC.components.tableShell({
-        caption: 'Sent and generated notices', minWidth: '960px',
-        head: `<tr><th>User</th><th>Notice</th><th>Kind</th><th><button type="button" data-sort="created_at">Sent ${NC.crud.sortIcon(state, 'created_at')}</button></th></tr>`,
+        caption: 'Sent and generated notices', minWidth: '1080px',
+        head: `<tr><th>User</th><th>Notice</th><th>Kind</th><th><button type="button" data-sort="created_at">Sent ${NC.crud.sortIcon(state, 'created_at')}</button></th><th class="text-right">Actions</th></tr>`,
         body: rows.map((item) => {
           const user = userById(item.user_id);
           const audience = item.recipient_count > 1
@@ -679,9 +974,23 @@
             <td data-label="Notice"><strong>${escapeHTML(item.title)}</strong><div>${escapeHTML(NC.utils.truncate(item.body, 120))}</div></td>
             <td data-label="Kind">${escapeHTML(item.kind)}</td>
             <td data-label="Sent">${escapeHTML(formatDateTime(item.created_at))}</td>
+            <td data-label="Actions" class="text-right">${NC.components.rowActions([
+              { action: 'view', id: item.id, label: 'View notification', icon: 'fa-eye' },
+              { action: 'edit', id: item.id, label: 'Edit notification', icon: 'fa-pen' },
+              { action: 'delete', id: item.id, label: 'Delete notification', icon: 'fa-trash', danger: true }
+            ])}</td>
           </tr>`;
         }).join('')
       })}${NC.components.pagination({ page: state.page, pageSize: state.pageSize, total })}`;
+      content.querySelectorAll('[data-action]').forEach((button) => {
+        const item = state.filtered().find((row) => row.id === button.dataset.id);
+        if (!item) return;
+        button.addEventListener('click', () => {
+          if (button.dataset.action === 'view') openNoticeView(item);
+          if (button.dataset.action === 'edit') openNoticeForm(item, () => refreshScreen(renderNotifications, context));
+          if (button.dataset.action === 'delete') deleteNotice(item, () => refreshScreen(renderNotifications, context));
+        });
+      });
       NC.crud.bindPagination(root, state, renderList);
       NC.crud.bindSort(root, state, renderList);
     };
