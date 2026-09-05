@@ -151,7 +151,7 @@
           status: item.status || 'Unpublish'
         })), 'No app comments yet', 'ru-comments')}
         ${recentBlock('Latest messages', cache.messages.map((item) => ({
-          id: item.id, route: 'ru-messages', icon: 'messages', title: item.sender === 'admin' ? 'Admin reply' : 'User message',
+          id: item.user_id, route: 'ru-messages', icon: 'messages', title: item.sender === 'admin' ? 'Admin reply' : 'User message',
           meta: `${NC.utils.truncate(item.body, 80)} · ${relativeTime(item.created_at)}`,
           status: item.sender
         })), 'No messages yet', 'ru-messages')}
@@ -312,63 +312,190 @@
     });
     const unread = threadFor(userId).filter((item) => item.sender === 'user' && !item.is_read);
     await Promise.allSettled(unread.map((item) => NC.api.update('messages', item.id, { is_read: true })));
+    if (record) cache.messages = [record, ...cache.messages.filter((item) => item.id !== record.id)];
     return record;
   }
 
-  function openThread(userId, context) {
+  const chatTabs = new Map();
+  const MAX_OPEN_CHATS = 3;
+
+  function ensureChatDock() {
+    let dock = document.getElementById('ru-chat-dock');
+    if (dock) return dock;
+    dock = document.createElement('div');
+    dock.id = 'ru-chat-dock';
+    dock.className = 'ru-chat-dock';
+    dock.innerHTML = '<div class="ru-chat-windows" data-ru-chat-windows></div><div class="ru-chat-pills" data-ru-chat-pills></div>';
+    document.body.appendChild(dock);
+    return dock;
+  }
+
+  function chatIdentity(userId) {
     const user = userById(userId);
+    const name = user ? displayName(user) : 'Reader';
+    return {
+      user,
+      name,
+      email: user?.email || '',
+      avatar: NC.utils.avatarHTML(name, user?.avatar_url, 'ru-chat-head-avatar ru-chat-fallback')
+    };
+  }
+
+  function bubblesHTML(userId) {
+    const { name } = chatIdentity(userId);
     const thread = threadFor(userId);
-    const name = user ? displayName(user) : userId;
-    NC.components.openModal({
-      title: name,
-      eyebrow: 'Conversation',
-      description: user?.email || 'Reply is delivered to the user’s Admin Message tab.',
-      size: 'xl',
-      content: `
-        <div class="ru-thread" data-ru-thread>
-          ${thread.length ? thread.map((item) => `
-            <article class="ru-bubble ${item.sender === 'admin' ? 'is-admin' : 'is-user'}">
-              <header><strong>${item.sender === 'admin' ? 'Admin' : escapeHTML(name)}</strong><time>${escapeHTML(formatDateTime(item.created_at))}</time></header>
-              <p>${escapeHTML(item.body || '')}</p>
-            </article>`).join('') : '<p class="text-muted-foreground">No messages in this thread yet. Write the first reply below.</p>'}
-        </div>
-        <form id="ru-reply-form" class="form-stack mt-4" novalidate>
-          <div class="field"><label class="field-label" for="ru-reply-body">Message <span aria-hidden="true">*</span></label>
-            <textarea class="form-textarea min-h-28" id="ru-reply-body" name="body" required placeholder="Write a message…" autofocus></textarea>
-            <p class="field-error hidden" data-field-error="body"></p>
+    if (!thread.length) {
+      return '<p class="text-muted-foreground" style="padding:8px">No messages yet. Write the first reply below.</p>';
+    }
+    return thread.map((item) => `
+      <article class="ru-bubble ${item.sender === 'admin' ? 'is-admin' : 'is-user'}">
+        <header><strong>${item.sender === 'admin' ? 'Admin' : escapeHTML(name)}</strong><time>${escapeHTML(formatDateTime(item.created_at))}</time></header>
+        <p>${escapeHTML(item.body || '')}</p>
+      </article>`).join('');
+  }
+
+  function fromCell(item) {
+    const user = userById(item.user_id);
+    if (item.sender === 'admin') {
+      return `<span class="ru-admin-avatar" title="Admin"><i class="fa-regular fa-user-tie" aria-hidden="true"></i></span>`;
+    }
+    return NC.utils.avatarHTML(user ? displayName(user) : 'User', user?.avatar_url, 'ru-from-avatar person-avatar');
+  }
+
+  function renderChatDock() {
+    const dock = ensureChatDock();
+    const windows = dock.querySelector('[data-ru-chat-windows]');
+    const pills = dock.querySelector('[data-ru-chat-pills]');
+    const ids = [...chatTabs.keys()];
+    if (!ids.length) {
+      dock.classList.add('hidden');
+      windows.replaceChildren();
+      pills.replaceChildren();
+      return;
+    }
+    dock.classList.remove('hidden');
+    const openIds = ids.filter((id) => !chatTabs.get(id).minimized);
+    const minIds = ids.filter((id) => chatTabs.get(id).minimized);
+    windows.innerHTML = openIds.map((userId) => {
+      const { name, email, avatar } = chatIdentity(userId);
+      const sending = chatTabs.get(userId).sending;
+      return `<section class="ru-chat-window" data-ru-chat="${escapeHTML(userId)}" role="dialog" aria-label="Conversation with ${escapeHTML(name)}">
+        <header class="ru-chat-head" data-ru-chat-toggle="${escapeHTML(userId)}">
+          ${avatar.replace('class=""', 'class="ru-chat-head-avatar"').replace('<span class="', '<span class="ru-chat-fallback ')}
+          <div class="ru-chat-head-copy"><strong>${escapeHTML(name)}</strong><small>${escapeHTML(email || 'App user')}</small></div>
+          <div class="ru-chat-head-actions">
+            <button type="button" data-ru-chat-min="${escapeHTML(userId)}" aria-label="Minimize"><i class="fa-regular fa-dash" aria-hidden="true"></i></button>
+            <button type="button" data-ru-chat-close="${escapeHTML(userId)}" aria-label="Close"><i class="fa-regular fa-xmark" aria-hidden="true"></i></button>
           </div>
-        </form>`,
-      footer: '<button type="button" class="btn btn-secondary" data-modal-close>Close</button><button type="button" class="btn btn-primary" data-send-reply><i class="fa-regular fa-paper-plane" aria-hidden="true"></i>Send reply</button>',
-      onOpen: (modalRoot) => {
-        const threadEl = modalRoot.querySelector('[data-ru-thread]');
-        if (threadEl) threadEl.scrollTop = threadEl.scrollHeight;
-        modalRoot.querySelector('[data-send-reply]')?.addEventListener('click', async () => {
-          const form = modalRoot.querySelector('#ru-reply-form');
-          const data = formData(form);
-          if (!NC.utils.validateFields(form, { body: data.body ? '' : 'Write a reply.' })) return;
-          const button = modalRoot.querySelector('[data-send-reply]');
-          NC.utils.setButtonLoading(button, true, 'Sending…');
-          try {
-            await sendAdminReply(userId, data.body);
-            NC.components.toast('Reply sent to the user’s Admin Message tab.', 'success');
-            NC.components.closeModal('sent');
-            await loadCache();
-            renderMessages(context || {});
-          } catch (error) {
-            console.error(error);
-            NC.components.toast(NC.api.userMessage(error, 'Unable to send reply. Run migrations 007–010.'), 'error');
-          } finally {
-            NC.utils.setButtonLoading(button, false);
-          }
-        });
-      }
+        </header>
+        <div class="ru-thread" data-ru-thread>${bubblesHTML(userId)}</div>
+        <form class="ru-chat-compose" data-ru-chat-form="${escapeHTML(userId)}">
+          <textarea name="body" rows="1" placeholder="Write a message…" ${sending ? 'disabled' : ''}></textarea>
+          <button type="submit" ${sending ? 'disabled' : ''} aria-label="Send"><i class="fa-regular fa-paper-plane" aria-hidden="true"></i></button>
+        </form>
+      </section>`;
+    }).join('');
+    pills.innerHTML = minIds.map((userId) => {
+      const { name, avatar } = chatIdentity(userId);
+      return `<button type="button" class="ru-chat-pill" data-ru-chat-restore="${escapeHTML(userId)}" title="${escapeHTML(name)}">
+        ${avatar}
+        <span>${escapeHTML(name)}</span>
+        <span data-ru-chat-close="${escapeHTML(userId)}" role="button" aria-label="Close" tabindex="0"><i class="fa-regular fa-xmark" aria-hidden="true"></i></span>
+      </button>`;
+    }).join('');
+    windows.querySelectorAll('[data-ru-thread]').forEach((el) => { el.scrollTop = el.scrollHeight; });
+    bindChatDock(dock);
+    const focusId = openIds.at(-1);
+    if (focusId) dock.querySelector(`[data-ru-chat="${CSS.escape(focusId)}"] textarea`)?.focus();
+  }
+
+  function bindChatDock(dock) {
+    dock.querySelectorAll('[data-ru-chat-min]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const id = button.dataset.ruChatMin;
+        const tab = chatTabs.get(id);
+        if (tab) tab.minimized = true;
+        renderChatDock();
+      });
     });
+    dock.querySelectorAll('[data-ru-chat-close]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        chatTabs.delete(button.dataset.ruChatClose);
+        renderChatDock();
+      });
+    });
+    dock.querySelectorAll('[data-ru-chat-toggle]').forEach((head) => {
+      head.addEventListener('click', (event) => {
+        if (event.target.closest('[data-ru-chat-min], [data-ru-chat-close]')) return;
+        const id = head.dataset.ruChatToggle;
+        const tab = chatTabs.get(id);
+        if (tab) tab.minimized = true;
+        renderChatDock();
+      });
+    });
+    dock.querySelectorAll('[data-ru-chat-restore]').forEach((pill) => {
+      pill.addEventListener('click', (event) => {
+        if (event.target.closest('[data-ru-chat-close]')) return;
+        openChat(pill.dataset.ruChatRestore);
+      });
+    });
+    dock.querySelectorAll('[data-ru-chat-form]').forEach((form) => {
+      const area = form.querySelector('textarea');
+      area?.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+          event.preventDefault();
+          form.requestSubmit();
+        }
+      });
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const userId = form.dataset.ruChatForm;
+        const body = String(new FormData(form).get('body') || '').trim();
+        if (!body) return;
+        const tab = chatTabs.get(userId);
+        if (!tab || tab.sending) return;
+        tab.sending = true;
+        renderChatDock();
+        try {
+          await sendAdminReply(userId, body);
+          NC.components.toast('Reply sent to the user’s Admin Message tab.', 'success');
+          await loadCache();
+        } catch (error) {
+          console.error(error);
+          NC.components.toast(NC.api.userMessage(error, 'Unable to send reply. Run migrations 007–010.'), 'error');
+        } finally {
+          if (chatTabs.has(userId)) chatTabs.get(userId).sending = false;
+          renderChatDock();
+        }
+      });
+    });
+  }
+
+  function openChat(userId) {
+    if (!userId) return;
+    if (!chatTabs.has(userId)) chatTabs.set(userId, { minimized: false, sending: false });
+    else chatTabs.get(userId).minimized = false;
+    const open = [...chatTabs.entries()].filter(([, tab]) => !tab.minimized);
+    if (open.length > MAX_OPEN_CHATS) {
+      open.slice(0, open.length - MAX_OPEN_CHATS).forEach(([id]) => {
+        chatTabs.get(id).minimized = true;
+      });
+    }
+    renderChatDock();
+  }
+
+  function openThread(userId) {
+    openChat(userId);
   }
 
   function renderMessages(context = {}) {
     const state = new NC.crud.ListState('messages', { searchFields: ['body', 'sender'], sortKey: 'created_at' });
     state.setRecords(cache.messages);
-    root.innerHTML = `${pageChrome('Messages', 'Read user messages and reply. Replies appear in the Android Admin Message tab.')}
+    root.innerHTML = `${pageChrome('Messages', 'Read user messages and reply. Conversations open as chat tabs in the bottom-right corner.')}
       ${cache.inboxReady ? '' : `<div class="mb-6">${NC.components.notice('Run 007_user_inbox.sql so admin messages can be stored.', 'warning')}</div>`}
       <section class="surface"><div class="list-toolbar"><label class="search-field"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><span class="sr-only">Search messages</span><input type="search" placeholder="Search messages…" data-ru-search></label></div><div data-ru-table></div></section>`;
     const renderList = () => {
@@ -384,7 +511,7 @@
         body: rows.map((item) => {
           const user = userById(item.user_id);
           return `<tr>
-            <td data-label="From">${NC.components.statusBadge(item.sender === 'admin' ? 'Admin' : 'User')}</td>
+            <td data-label="From">${fromCell(item)}</td>
             <td data-label="User">${escapeHTML(user ? displayName(user) : item.user_id)}</td>
             <td data-label="Message">${escapeHTML(NC.utils.truncate(item.body, 180))}</td>
             <td data-label="Sent">${escapeHTML(formatDateTime(item.created_at))}</td>
@@ -396,7 +523,7 @@
         }).join('')
       })}${NC.components.pagination({ page: state.page, pageSize: state.pageSize, total })}`;
       content.querySelectorAll('[data-action]').forEach((button) => {
-        button.addEventListener('click', () => openThread(button.dataset.id, context));
+        button.addEventListener('click', () => openChat(button.dataset.id));
       });
       NC.crud.bindPagination(root, state, renderList);
       NC.crud.bindSort(root, state, renderList);
@@ -404,7 +531,7 @@
     bindList(state, renderList);
     renderList();
     const openId = context.params?.get('id');
-    if (openId) openThread(openId, context);
+    if (openId) openChat(openId);
   }
 
   function renderNotifications(context) {

@@ -1,10 +1,16 @@
 package com.ningshingche.app.ui.components
 
 import android.annotation.SuppressLint
+import android.os.Build
+import android.view.ActionMode
+import android.view.Menu
+import android.view.MenuItem
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -21,22 +27,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.FormatBold
 import androidx.compose.material.icons.filled.FormatItalic
-import androidx.compose.material.icons.filled.FormatListNumbered
-import androidx.compose.material.icons.filled.FormatQuote
-import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.FormatUnderlined
-import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.Redo
-import androidx.compose.material.icons.filled.FormatStrikethrough
-import androidx.compose.material.icons.filled.Title
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Undo
-import androidx.compose.material.icons.filled.UnfoldLess
-import androidx.compose.material.icons.filled.UnfoldMore
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -45,25 +42,27 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.ningshingche.app.data.remote.ImgBbUploader
 import com.ningshingche.app.ui.theme.Kalpurush
+import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 @Composable
@@ -76,9 +75,11 @@ fun HtmlContentEditor(
 ) {
     var htmlMode by remember { mutableStateOf(false) }
     var webView by remember { mutableStateOf<WebView?>(null) }
-    var showLinkDialog by remember { mutableStateOf(false) }
-    var linkUrl by remember { mutableStateOf("https://") }
+    var uploading by remember { mutableStateOf(false) }
+    var uploadError by remember { mutableStateOf<String?>(null) }
     val height = editorHeight.coerceIn(200, 720)
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     fun run(command: String, arg: String? = null) {
         val script = if (arg == null) {
@@ -87,6 +88,27 @@ fun HtmlContentEditor(
             "document.execCommand('$command', false, ${JSONObject.quote(arg)})"
         }
         webView?.evaluateJavascript(script, null)
+    }
+
+    fun insertImageUrl(url: String) {
+        val quoted = JSONObject.quote(url)
+        webView?.evaluateJavascript("if(window.insertImage){window.insertImage($quoted);}", null)
+    }
+
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            uploading = true
+            uploadError = null
+            val result = ImgBbUploader.uploadFromUri(context, uri, "inline_${System.currentTimeMillis()}")
+            uploading = false
+            result.onSuccess { image ->
+                val url = image.displayUrl.ifBlank { image.url }
+                if (url.isNotBlank()) insertImageUrl(url)
+            }.onFailure { error ->
+                uploadError = error.message ?: "ছবি আপলোড হয়নি।"
+            }
+        }
     }
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -106,15 +128,10 @@ fun HtmlContentEditor(
                     ToolIcon("মোটা", Icons.Default.FormatBold) { run("bold") }
                     ToolIcon("বাঁকা", Icons.Default.FormatItalic) { run("italic") }
                     ToolIcon("নিচে দাগ", Icons.Default.FormatUnderlined) { run("underline") }
-                    ToolIcon("কেটে দাগ", Icons.Default.FormatStrikethrough) { run("strikeThrough") }
-                    ToolIcon("শিরোনাম", Icons.Default.Title) { run("formatBlock", "h2") }
-                    ToolIcon("উপশিরোনাম", Icons.Default.FormatSize) { run("formatBlock", "h3") }
-                    ToolIcon("উদ্ধৃতি", Icons.Default.FormatQuote) { run("formatBlock", "blockquote") }
-                    ToolIcon("বুলেট তালিকা", Icons.AutoMirrored.Filled.FormatListBulleted) { run("insertUnorderedList") }
-                    ToolIcon("সংখ্যা তালিকা", Icons.Default.FormatListNumbered) { run("insertOrderedList") }
-                    ToolIcon("লিংক", Icons.Default.Link) { showLinkDialog = true }
+                    ToolIcon("ছবি যোগ", Icons.Default.Image) {
+                        if (!uploading) imagePicker.launch("image/*")
+                    }
                     ToolIcon("আগের কাজ", Icons.Default.Undo) { run("undo") }
-                    ToolIcon("পুনরায়", Icons.Default.Redo) { run("redo") }
                 }
                 FilterChip(
                     selected = htmlMode,
@@ -133,31 +150,12 @@ fun HtmlContentEditor(
             }
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                "লেখা নির্বাচন করলে ফরম্যাট অপশন দেখাবে। নিচে টেনে এডিটর বড় করুন।",
-                fontFamily = Kalpurush,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f)
-            )
-            FilledTonalIconButton(
-                onClick = { onEditorHeightChange((height - 80).coerceAtLeast(200)) },
-                enabled = height > 200
-            ) {
-                Icon(Icons.Default.UnfoldLess, contentDescription = "এডিটর ছোট করুন")
-            }
-            FilledTonalIconButton(
-                onClick = { onEditorHeightChange((height + 80).coerceAtMost(720)) },
-                enabled = height < 720
-            ) {
-                Icon(Icons.Default.UnfoldMore, contentDescription = "এডিটর বড় করুন")
-            }
-        }
+        Text(
+            "লেখা নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি ও কাট দেখাবে। ছবি ImgBB-তে আপলোড হয়।",
+            fontFamily = Kalpurush,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
 
         if (htmlMode) {
             OutlinedTextField(
@@ -176,53 +174,74 @@ fun HtmlContentEditor(
             val onSurface = MaterialTheme.colorScheme.onSurface
             val outline = MaterialTheme.colorScheme.outline
             val accent = MaterialTheme.colorScheme.primary
-            AndroidView(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(height.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .border(1.dp, outline, RoundedCornerShape(12.dp))
-                    .testTag("article_content"),
-                factory = { context ->
-                    @SuppressLint("SetJavaScriptEnabled")
-                    WebView(context).apply {
-                        layoutParams = ViewGroup.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
-                        )
-                        setBackgroundColor(background.toArgb())
-                        isFocusable = true
-                        isFocusableInTouchMode = true
-                        settings.javaScriptEnabled = true
-                        settings.domStorageEnabled = false
-                        settings.allowFileAccess = false
-                        addJavascriptInterface(
-                            HtmlBridge { html -> post { onValueChange(html) } },
-                            "Android"
-                        )
-                        webViewClient = object : WebViewClient() {
-                            override fun onPageFinished(view: WebView?, url: String?) {
-                                val quoted = JSONObject.quote(value)
-                                view?.evaluateJavascript(
-                                    "if(window.setHtml){window.setHtml($quoted);}",
-                                    null
-                                )
+            Box {
+                AndroidView(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(height.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(1.dp, outline, RoundedCornerShape(12.dp))
+                        .testTag("article_content"),
+                    factory = { viewContext ->
+                        @SuppressLint("SetJavaScriptEnabled")
+                        WebView(viewContext).apply {
+                            layoutParams = ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                            setBackgroundColor(background.toArgb())
+                            isFocusable = true
+                            isFocusableInTouchMode = true
+                            isLongClickable = true
+                            isHapticFeedbackEnabled = false
+                            settings.javaScriptEnabled = true
+                            settings.domStorageEnabled = false
+                            settings.allowFileAccess = false
+                            settings.loadsImagesAutomatically = true
+                            settings.blockNetworkImage = false
+                            suppressNativeSelectionMenu()
+                            addJavascriptInterface(
+                                HtmlBridge { html -> post { onValueChange(html) } },
+                                "Android"
+                            )
+                            webViewClient = object : WebViewClient() {
+                                override fun onPageFinished(view: WebView?, url: String?) {
+                                    val quoted = JSONObject.quote(value)
+                                    view?.evaluateJavascript(
+                                        "if(window.setHtml){window.setHtml($quoted);}",
+                                        null
+                                    )
+                                }
                             }
+                            loadDataWithBaseURL(
+                                "https://ningshingche.com/",
+                                editorHtml(background.toArgb(), onSurface.toArgb(), accent.toArgb()),
+                                "text/html",
+                                "utf-8",
+                                null
+                            )
+                            webView = this
                         }
-                        loadDataWithBaseURL(
-                            null,
-                            editorHtml(background.toArgb(), onSurface.toArgb(), accent.toArgb()),
-                            "text/html",
-                            "utf-8",
-                            null
-                        )
-                        webView = this
+                    },
+                    update = { view ->
+                        webView = view
+                        view.suppressNativeSelectionMenu()
                     }
-                },
-                update = { view ->
-                    webView = view
+                )
+                if (uploading) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 2.dp)
+                            Text("ছবি আপলোড হচ্ছে…", fontFamily = Kalpurush, modifier = Modifier.padding(top = 8.dp))
+                        }
+                    }
                 }
-            )
+            }
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -249,38 +268,29 @@ fun HtmlContentEditor(
                 }
             }
         }
-    }
 
-    if (showLinkDialog) {
-        AlertDialog(
-            onDismissRequest = { showLinkDialog = false },
-            title = { Text("লিংক যোগ করুন", fontFamily = Kalpurush, fontWeight = FontWeight.Bold) },
-            text = {
-                OutlinedTextField(
-                    value = linkUrl,
-                    onValueChange = { linkUrl = it },
-                    label = { Text("URL", fontFamily = Kalpurush) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val url = linkUrl.trim()
-                        if (url.startsWith("http://") || url.startsWith("https://")) {
-                            run("createLink", url)
-                        }
-                        showLinkDialog = false
-                    }
-                ) { Text("যোগ করুন", fontFamily = Kalpurush) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showLinkDialog = false }) {
-                    Text("বাতিল", fontFamily = Kalpurush)
-                }
+        uploadError?.let { error ->
+            Text(error, color = MaterialTheme.colorScheme.error, fontFamily = Kalpurush, style = MaterialTheme.typography.bodySmall)
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            FilledTonalIconButton(
+                onClick = { onEditorHeightChange((height - 80).coerceAtLeast(200)) },
+                enabled = height > 200
+            ) {
+                Text("−", fontWeight = FontWeight.Bold)
             }
-        )
+            FilledTonalIconButton(
+                onClick = { onEditorHeightChange((height + 80).coerceAtMost(720)) },
+                enabled = height < 720
+            ) {
+                Text("+", fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }
 
@@ -302,6 +312,30 @@ private class HtmlBridge(private val emit: (String) -> Unit) {
     }
 }
 
+private val noNativeActionMode = object : ActionMode.Callback {
+    override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
+        menu?.clear()
+        mode?.finish()
+        return false
+    }
+
+    override fun onPrepareActionMode(mode: ActionMode?, menu: Menu?): Boolean {
+        menu?.clear()
+        return false
+    }
+
+    override fun onActionItemClicked(mode: ActionMode?, item: MenuItem?) = false
+
+    override fun onDestroyActionMode(mode: ActionMode?) = Unit
+}
+
+private fun WebView.suppressNativeSelectionMenu() {
+    customSelectionActionModeCallback = noNativeActionMode
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        customInsertionActionModeCallback = noNativeActionMode
+    }
+}
+
 private fun editorHtml(bgArgb: Int, fgArgb: Int, accentArgb: Int): String {
     val bg = hexColor(bgArgb)
     val fg = hexColor(fgArgb)
@@ -313,13 +347,13 @@ private fun editorHtml(bgArgb: Int, fgArgb: Int, accentArgb: Int): String {
           <meta charset="utf-8"/>
           <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
           <style>
-            html,body { margin:0; padding:0; background:$bg; color:$fg; font-size:16px; height:100%; }
+            html,body { margin:0; padding:0; background:$bg; color:$fg; font-size:16px; height:100%;
+              -webkit-touch-callout:none; -webkit-user-select:text; user-select:text; }
             body { position:relative; }
-            #e { min-height:100%; padding:14px 14px 56px; outline:none; line-height:1.65; }
-            #e:empty:before { content:'লেখা লিখুন… নির্বাচন করলে ফরম্যাট অপশন আসবে।'; color:#888; }
-            #e h2 { font-size:1.35em; margin:0.6em 0 0.3em; }
-            #e h3 { font-size:1.15em; margin:0.5em 0 0.25em; }
-            #e blockquote { margin:0.5em 0; padding-left:12px; border-left:3px solid $accent; color:#666; }
+            #e { min-height:100%; padding:14px 14px 56px; outline:none; line-height:1.65;
+              -webkit-touch-callout:none; -webkit-user-select:text; user-select:text; }
+            #e:empty:before { content:'লেখা লিখুন… নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি ও কাট আসবে।'; color:#888; }
+            #e img { max-width:100%; height:auto; border-radius:8px; margin:8px 0; }
             #selbar {
               position:absolute; display:none; z-index:20;
               background:#1a1512; color:#fff; border-radius:10px;
@@ -338,12 +372,8 @@ private fun editorHtml(bgArgb: Int, fgArgb: Int, accentArgb: Int): String {
             <button type="button" data-cmd="bold">B</button>
             <button type="button" data-cmd="italic"><i>I</i></button>
             <button type="button" data-cmd="underline"><u>U</u></button>
-            <button type="button" data-cmd="strikeThrough"><s>S</s></button>
-            <button type="button" data-block="h2">H2</button>
-            <button type="button" data-block="h3">H3</button>
-            <button type="button" data-cmd="insertUnorderedList">•</button>
-            <button type="button" data-cmd="insertOrderedList">1.</button>
-            <button type="button" data-block="blockquote">“</button>
+            <button type="button" data-cmd="copy">Copy</button>
+            <button type="button" data-cmd="cut">Cut</button>
           </div>
           <div id="e" contenteditable="true"></div>
           <script>
@@ -352,20 +382,20 @@ private fun editorHtml(bgArgb: Int, fgArgb: Int, accentArgb: Int): String {
             function emit(){ if (window.Android) Android.onHtml(e.innerHTML); }
             e.addEventListener('input', emit);
             e.addEventListener('blur', emit);
+            document.addEventListener('contextmenu', function(ev){ ev.preventDefault(); });
             window.setHtml = function(html){
-              if (typeof html === 'string') e.innerHTML = html;
+              if (typeof html === 'string' && html !== e.innerHTML) e.innerHTML = html;
+            };
+            window.insertImage = function(url){
+              if (!url) return;
+              e.focus();
+              document.execCommand('insertHTML', false, '<p><img src="'+String(url).replace(/"/g,'')+'" alt=""></p>');
+              emit();
             };
             document.querySelectorAll('#selbar [data-cmd]').forEach(function(btn){
               btn.addEventListener('mousedown', function(ev){ ev.preventDefault(); });
               btn.addEventListener('click', function(){
                 document.execCommand(btn.getAttribute('data-cmd'));
-                emit();
-              });
-            });
-            document.querySelectorAll('#selbar [data-block]').forEach(function(btn){
-              btn.addEventListener('mousedown', function(ev){ ev.preventDefault(); });
-              btn.addEventListener('click', function(){
-                document.execCommand('formatBlock', false, btn.getAttribute('data-block'));
                 emit();
               });
             });
@@ -378,7 +408,7 @@ private fun editorHtml(bgArgb: Int, fgArgb: Int, accentArgb: Int): String {
               const rect = sel.getRangeAt(0).getBoundingClientRect();
               bar.style.display = 'flex';
               const top = window.scrollY + rect.top - bar.offsetHeight - 8;
-              const left = Math.max(8, Math.min(window.scrollX + rect.left, document.body.clientWidth - 220));
+              const left = Math.max(8, Math.min(window.scrollX + rect.left, document.body.clientWidth - 260));
               bar.style.top = Math.max(8, top) + 'px';
               bar.style.left = left + 'px';
             });

@@ -1251,9 +1251,102 @@ html[data-density="compact"] .article-cell > img, html[data-density="compact"] .
 }
 .ru-bubble p { margin: 0; white-space: pre-wrap; }
 .ru-bubble .ru-subject { font-weight: 650; margin-bottom: 4px; }
+.ru-from-avatar, .ru-admin-avatar {
+  width: 42px; height: 42px; border-radius: 50%; object-fit: cover;
+}
+.ru-admin-avatar {
+  display: inline-grid; place-items: center;
+  background: var(--brand-soft); color: var(--brand); font-size: .95rem;
+}
+.ru-chat-dock {
+  position: fixed; z-index: 160; right: 16px; bottom: 0;
+  display: flex; align-items: flex-end; justify-content: flex-end;
+  gap: 10px; pointer-events: none; max-width: calc(100vw - 24px);
+}
+.ru-chat-windows {
+  display: flex; align-items: flex-end; justify-content: flex-end;
+  gap: 10px; flex-wrap: wrap-reverse; pointer-events: none;
+}
+.ru-chat-pills {
+  display: flex; flex-direction: column-reverse; gap: 8px;
+  padding-bottom: 10px; pointer-events: none;
+}
+.ru-chat-window {
+  pointer-events: auto; width: 328px; height: 454px;
+  display: flex; flex-direction: column;
+  border: 1px solid var(--border-strong); border-bottom: 0;
+  border-radius: 14px 14px 0 0; background: var(--surface-raised);
+  box-shadow: var(--shadow-lg); overflow: hidden;
+}
+.ru-chat-window.is-minimized { display: none; }
+.ru-chat-head {
+  display: flex; align-items: center; gap: 8px;
+  min-height: 52px; padding: 8px 8px 8px 12px;
+  border-bottom: 1px solid var(--border); background: var(--surface);
+  cursor: pointer;
+}
+.ru-chat-head img, .ru-chat-head .ru-chat-fallback {
+  width: 32px; height: 32px; border-radius: 50%; flex: 0 0 auto; object-fit: cover;
+}
+.ru-chat-fallback {
+  display: inline-grid; place-items: center;
+  background: var(--brand-soft); color: var(--brand); font-size: .68rem; font-weight: 800;
+}
+.ru-chat-head-copy { min-width: 0; flex: 1; }
+.ru-chat-head-copy strong, .ru-chat-head-copy small {
+  display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ru-chat-head-copy strong { font-size: .8rem; }
+.ru-chat-head-copy small { color: var(--muted-foreground); font-size: .65rem; }
+.ru-chat-head-actions { display: flex; gap: 2px; }
+.ru-chat-head-actions button {
+  display: grid; width: 30px; height: 30px; place-items: center;
+  border: 0; border-radius: 8px; background: transparent; color: var(--muted-foreground); cursor: pointer;
+}
+.ru-chat-head-actions button:hover { background: var(--surface-hover); color: var(--foreground); }
+.ru-chat-window .ru-thread {
+  flex: 1; max-height: none; margin: 0; border-radius: 0; padding: 10px;
+}
+.ru-chat-compose {
+  display: flex; gap: 8px; align-items: flex-end;
+  border-top: 1px solid var(--border); padding: 8px 10px 10px; background: var(--surface);
+}
+.ru-chat-compose textarea {
+  min-height: 40px; max-height: 96px; resize: none; flex: 1;
+  border: 1px solid var(--border-strong); border-radius: 12px;
+  padding: 8px 10px; background: var(--input); color: var(--foreground);
+}
+.ru-chat-compose textarea:focus { border-color: var(--brand); outline: 0; box-shadow: 0 0 0 3px rgba(139,92,246,.14); }
+.ru-chat-compose button {
+  width: 40px; height: 40px; flex: 0 0 auto; display: grid; place-items: center;
+  border: 0; border-radius: 11px; background: var(--brand-strong); color: #fff; cursor: pointer;
+}
+.ru-chat-compose button:disabled { opacity: .55; cursor: not-allowed; }
+.ru-chat-pill {
+  pointer-events: auto; display: flex; align-items: center; gap: 8px;
+  width: 210px; min-height: 44px; padding: 6px 8px 6px 8px;
+  border: 1px solid var(--border-strong); border-radius: 999px;
+  background: var(--surface-raised); box-shadow: var(--shadow-md); cursor: pointer; text-align: left;
+}
+.ru-chat-pill img, .ru-chat-pill .ru-chat-fallback {
+  width: 30px; height: 30px; border-radius: 50%; object-fit: cover;
+}
+.ru-chat-pill span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .76rem; font-weight: 700; }
+.ru-chat-pill [data-ru-chat-close] {
+  width: 26px; height: 26px; display: grid; place-items: center;
+  border: 0; border-radius: 50%; background: transparent; color: var(--muted-foreground); cursor: pointer;
+}
+.ru-chat-pill [data-ru-chat-close]:hover { background: var(--danger-soft); color: var(--danger); }
+@media (max-width: 640px) {
+  .ru-chat-dock { right: 0; left: 0; max-width: none; padding: 0 8px; }
+  .ru-chat-window { width: min(100vw - 16px, 360px); height: min(70vh, 480px); }
+  .ru-chat-pill { width: min(100%, 220px); }
+}
+
+.login-mode .ru-chat-dock { display: none !important; }
 
 @media print {
-  .sidebar, .topbar, .page-actions, .editor-action-bar, .schema-banner, .offline-banner { display: none !important; }
+  .sidebar, .topbar, .page-actions, .editor-action-bar, .schema-banner, .offline-banner, .ru-chat-dock { display: none !important; }
   .app-shell { margin: 0; }
   .main-content { max-width: none; padding: 0; }
   body { background: white; color: black; }
