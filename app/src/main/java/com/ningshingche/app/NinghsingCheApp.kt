@@ -119,6 +119,7 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
         database = AppDatabase.getInstance(this)
         websiteClient = NingshingCheWebsiteClient()
         supabaseClient = SupabaseClient(this)
+        googleAuthRepository = GoogleAuthRepository(supabaseClient)
         dashboardRepository = DashboardRepository(this, supabaseClient, database)
         articleRepository = ArticleRepository(database, supabaseClient, websiteClient)
         portalRepository = PortalProvider.repository()
