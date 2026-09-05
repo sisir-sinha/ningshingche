@@ -30,27 +30,31 @@ class ContentCheckWorker(
         const val ONE_SHOT_NAME = "nsc_content_notifications_once"
 
         fun schedule(context: Context) {
-            val constraints = Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
-                .build()
-            val periodic = PeriodicWorkRequestBuilder<ContentCheckWorker>(3, TimeUnit.HOURS)
-                .setConstraints(constraints)
-                .build()
-            val once = OneTimeWorkRequestBuilder<ContentCheckWorker>()
-                .setConstraints(constraints)
-                .setInitialDelay(20, TimeUnit.MINUTES)
-                .build()
-            val work = WorkManager.getInstance(context)
-            work.enqueueUniquePeriodicWork(
-                PERIODIC_NAME,
-                ExistingPeriodicWorkPolicy.KEEP,
-                periodic
-            )
-            work.enqueueUniqueWork(
-                ONE_SHOT_NAME,
-                ExistingWorkPolicy.KEEP,
-                once
-            )
+            runCatching {
+                val constraints = Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build()
+                val periodic = PeriodicWorkRequestBuilder<ContentCheckWorker>(3, TimeUnit.HOURS)
+                    .setConstraints(constraints)
+                    .build()
+                val once = OneTimeWorkRequestBuilder<ContentCheckWorker>()
+                    .setConstraints(constraints)
+                    .setInitialDelay(20, TimeUnit.MINUTES)
+                    .build()
+                val work = WorkManager.getInstance(context)
+                work.enqueueUniquePeriodicWork(
+                    PERIODIC_NAME,
+                    ExistingPeriodicWorkPolicy.KEEP,
+                    periodic
+                )
+                work.enqueueUniqueWork(
+                    ONE_SHOT_NAME,
+                    ExistingWorkPolicy.KEEP,
+                    once
+                )
+            }.onFailure {
+                android.util.Log.w("ContentCheckWorker", "WorkManager schedule skipped: ${it.message}")
+            }
         }
     }
 }
