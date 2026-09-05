@@ -196,7 +196,7 @@ fun HtmlContentEditor(
                             isHapticFeedbackEnabled = false
                             settings.javaScriptEnabled = true
                             settings.domStorageEnabled = false
-                            settings.allowFileAccess = false
+                            settings.allowFileAccess = true
                             settings.loadsImagesAutomatically = true
                             settings.blockNetworkImage = false
                             addJavascriptInterface(
@@ -213,7 +213,7 @@ fun HtmlContentEditor(
                                 }
                             }
                             loadDataWithBaseURL(
-                                "https://ningshingche.com/",
+                                "file:///android_asset/",
                                 editorHtml(background.toArgb(), onSurface.toArgb(), accent.toArgb()),
                                 "text/html",
                                 "utf-8",
@@ -326,12 +326,20 @@ private fun editorHtml(bgArgb: Int, fgArgb: Int, accentArgb: Int): String {
           <meta charset="utf-8"/>
           <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
           <style>
+            @font-face {
+              font-family: 'Kalpurush';
+              src: url('fonts/kalpurush.ttf') format('truetype');
+              font-weight: 400;
+              font-style: normal;
+            }
             html,body { margin:0; padding:0; background:$bg; color:$fg; font-size:16px; height:100%;
+              font-family:'Kalpurush', serif;
               -webkit-touch-callout:none; -webkit-user-select:text; user-select:text; }
             body { position:relative; }
             #e { min-height:100%; padding:14px 14px 56px; outline:none; line-height:1.65;
+              font-family:'Kalpurush', serif;
               -webkit-touch-callout:none; -webkit-user-select:text; user-select:text; }
-            #e:empty:before { content:'লেখা লিখুন… নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি ও কাট আসবে।'; color:#888; }
+            #e:empty:before { content:'লেখা লিখুন… নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি ও কাট আসবে।'; color:#888; font-family:'Kalpurush', serif; }
             #e img { max-width:100%; height:auto; border-radius:8px; margin:8px 0; }
             #selbar {
               position:absolute; display:none; z-index:20;

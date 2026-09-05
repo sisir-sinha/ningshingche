@@ -961,23 +961,11 @@ private fun ModernCommentCard(comment: CommentItem) {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // User initial avatar
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(CircleShape)
-                                .background(tokens.accent.copy(alpha = 0.15f))
-                                .border(1.dp, tokens.accent.copy(alpha = 0.35f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = comment.name.trim().take(1).uppercase().ifBlank { "প" },
-                                fontFamily = Kalpurush,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp,
-                                color = tokens.accent
-                            )
-                        }
+                        CommenterAvatar(
+                            name = comment.name,
+                            avatarUrl = comment.avatarUrl,
+                            size = 40.dp
+                        )
 
                         Column {
                             Text(

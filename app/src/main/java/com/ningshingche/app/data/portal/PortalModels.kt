@@ -118,7 +118,8 @@ data class CommentItem(
     val name: String,
     val content: String,
     val createdAt: String,
-    val address: String
+    val address: String,
+    val avatarUrl: String = ""
 )
 
 data class SiteSettings(
@@ -294,7 +295,8 @@ internal fun CommentDto.toItem(): CommentItem = CommentItem(
     name = name.trim(),
     content = content.trim(),
     createdAt = createdAt.orEmpty(),
-    address = address.orEmpty()
+    address = address.orEmpty(),
+    avatarUrl = avatarUrl.orEmpty()
 )
 
 internal fun SettingsDto.toModel(): SiteSettings = SiteSettings(

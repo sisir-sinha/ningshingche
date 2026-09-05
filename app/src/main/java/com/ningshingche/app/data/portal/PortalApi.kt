@@ -44,7 +44,7 @@ interface PortalApi {
             "id,title,image,book_published_date,link,file_provider,author_or_editor," +
                 "edition,category,page_count,file_size_mb,description"
         const val VIDEO_COLUMNS = "id,title,video_link,platform,description,thumbnail_url,created_at"
-        const val COMMENT_COLUMNS = "id,blog_id,blog_title,name,address,content,status,created_at"
+        const val COMMENT_COLUMNS = "id,blog_id,blog_title,name,address,content,status,created_at,avatar_url,user_id"
         const val SETTINGS_COLUMNS =
             "id,site_title,site_description,logo_url,contact_email,contact_phone," +
                 "facebook_url,youtube_url,instagram_url,hero_slider_enabled," +

@@ -325,7 +325,9 @@ class PortalRepository(
         email: String?,
         content: String,
         phone: String = "",
-        address: String = ""
+        address: String = "",
+        avatarUrl: String = "",
+        userId: String? = null
     ): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val response = api.postComment(
@@ -337,7 +339,9 @@ class PortalRepository(
                     email = email.orEmpty().trim(),
                     phone = phone.trim(),
                     content = content.trim(),
-                    status = "Unpublish"
+                    status = "Unpublish",
+                    avatarUrl = avatarUrl.trim(),
+                    userId = userId?.takeIf { it.isNotBlank() }
                 )
             )
             // The successful anonymous insert has no response body (201/204).

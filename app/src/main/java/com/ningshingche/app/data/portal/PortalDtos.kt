@@ -115,7 +115,9 @@ data class CommentDto(
     val address: String? = null,
     val content: String,
     val status: String? = null,
-    @Json(name = "created_at") val createdAt: String? = null
+    @Json(name = "created_at") val createdAt: String? = null,
+    @Json(name = "avatar_url") val avatarUrl: String? = null,
+    @Json(name = "user_id") val userId: String? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -151,5 +153,7 @@ data class NewCommentDto(
     val email: String = "",
     val phone: String = "",
     val content: String,
-    val status: String = "Unpublish"
+    val status: String = "Unpublish",
+    @Json(name = "avatar_url") val avatarUrl: String = "",
+    @Json(name = "user_id") val userId: String? = null
 )

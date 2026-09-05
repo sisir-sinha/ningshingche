@@ -114,6 +114,7 @@ data class CommentFormState(
     val email: String = "",
     val phone: String = "",
     val address: String = "",
+    val avatarUrl: String = "",
     val content: String = "",
     val detailsLoaded: Boolean = false,
     val identityFromAccount: Boolean = false,
@@ -163,6 +164,7 @@ class ArticleViewModel(
                             email = user.email.ifBlank { form.email },
                             phone = user.phone.ifBlank { form.phone },
                             address = user.address.ifBlank { form.address },
+                            avatarUrl = user.avatarUrl.ifBlank { form.avatarUrl },
                             identityFromAccount = true,
                             detailsLoaded = true
                         )
@@ -300,6 +302,7 @@ class ArticleViewModel(
         val email = account?.email?.ifBlank { form.email } ?: form.email
         val phone = account?.phone?.ifBlank { form.phone } ?: form.phone
         val address = account?.address?.ifBlank { form.address } ?: form.address
+        val avatarUrl = account?.avatarUrl?.ifBlank { form.avatarUrl } ?: form.avatarUrl
         val invalid = when {
             name.isBlank() || form.content.isBlank() -> if (account != null) "মন্তব্য আবশ্যক।" else "নাম ও মন্তব্য আবশ্যক।"
             email.isNotBlank() && !Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$").matches(email.trim()) ->

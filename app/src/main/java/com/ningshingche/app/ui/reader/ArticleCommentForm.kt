@@ -1,7 +1,10 @@
 package com.ningshingche.app.ui.reader
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -27,16 +31,58 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.ningshingche.app.ui.editorial.EditorialSpace
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.theme.Kalpurush
+
+@Composable
+internal fun CommenterAvatar(
+    name: String,
+    avatarUrl: String,
+    modifier: Modifier = Modifier,
+    size: Dp = 40.dp
+) {
+    val tokens = LocalEditorialTokens.current
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(tokens.accent.copy(alpha = 0.15f))
+            .border(1.dp, tokens.accent.copy(alpha = 0.35f), CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        if (avatarUrl.isNotBlank()) {
+            AsyncImage(
+                model = avatarUrl,
+                contentDescription = name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(size)
+                    .clip(CircleShape)
+            )
+        } else {
+            Text(
+                text = name.trim().take(1).uppercase().ifBlank { "প" },
+                fontFamily = Kalpurush,
+                fontWeight = FontWeight.Bold,
+                fontSize = (size.value * 0.42f).sp,
+                color = tokens.accent
+            )
+        }
+    }
+}
 
 /** Stateless fields: drafts live only in the article ViewModel, never in saved instance state. */
 @Composable
@@ -75,7 +121,34 @@ internal fun ArticleCommentForm(
             if (!form.detailsLoaded) {
                 Text("সংরক্ষিত তথ্য লোড হচ্ছে...", fontFamily = Kalpurush, fontSize = 13.sp, color = tokens.inkMuted)
             }
-            if (!registered) {
+            if (registered) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("comment_identity")
+                ) {
+                    CommenterAvatar(name = form.name, avatarUrl = form.avatarUrl, size = 44.dp)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = form.name.ifBlank { "পাঠক" },
+                            fontFamily = Kalpurush,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "নিবন্ধিত পাঠক",
+                            fontFamily = Kalpurush,
+                            fontSize = 12.sp,
+                            color = tokens.inkMuted
+                        )
+                    }
+                }
+            } else {
                 OutlinedTextField(
                     value = form.name,
                     onValueChange = { onFormChange(form.copy(name = it)) },
