@@ -50,11 +50,13 @@ internal fun ArticleCommentForm(
 ) {
     val tokens = LocalEditorialTokens.current
     val editable = form.detailsLoaded && !isPosting
+    val registered = form.identityFromAccount
     val fieldColors = OutlinedTextFieldDefaults.colors(
         focusedBorderColor = tokens.accent,
         unfocusedBorderColor = tokens.rule
     )
     val fieldStyle = TextStyle(fontFamily = Kalpurush, fontSize = 15.sp)
+    val canSubmit = editable && form.content.isNotBlank() && (registered || form.name.isNotBlank())
 
     Surface(
         shape = RoundedCornerShape(16.dp),
@@ -70,39 +72,37 @@ internal fun ArticleCommentForm(
                 Text("মন্তব্য করুন", fontFamily = Kalpurush, fontWeight = FontWeight.Bold,
                     fontSize = 16.5.sp, color = MaterialTheme.colorScheme.onSurface)
             }
-            Text(
-                text = "লগইন লাগবে না। নাম ও মন্তব্য আবশ্যক; ইমেইল ও ফোন ঐচ্ছিক।",
-                fontFamily = Kalpurush, fontSize = 13.sp, color = tokens.inkMuted
-            )
             if (!form.detailsLoaded) {
                 Text("সংরক্ষিত তথ্য লোড হচ্ছে...", fontFamily = Kalpurush, fontSize = 13.sp, color = tokens.inkMuted)
             }
-            OutlinedTextField(
-                value = form.name,
-                onValueChange = { onFormChange(form.copy(name = it)) },
-                label = { Text("আপনার নাম *", fontFamily = Kalpurush) },
-                singleLine = true, enabled = editable, textStyle = fieldStyle,
-                shape = RoundedCornerShape(10.dp), colors = fieldColors,
-                modifier = Modifier.fillMaxWidth().testTag("comment_name")
-            )
-            OutlinedTextField(
-                value = form.email,
-                onValueChange = { onFormChange(form.copy(email = it)) },
-                label = { Text("ইমেইল (ঐচ্ছিক)", fontFamily = Kalpurush) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                singleLine = true, enabled = editable, textStyle = fieldStyle,
-                shape = RoundedCornerShape(10.dp), colors = fieldColors,
-                modifier = Modifier.fillMaxWidth().testTag("comment_email")
-            )
-            OutlinedTextField(
-                value = form.phone,
-                onValueChange = { onFormChange(form.copy(phone = it)) },
-                label = { Text("ফোন (ঐচ্ছিক)", fontFamily = Kalpurush) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                singleLine = true, enabled = editable, textStyle = fieldStyle,
-                shape = RoundedCornerShape(10.dp), colors = fieldColors,
-                modifier = Modifier.fillMaxWidth().testTag("comment_phone")
-            )
+            if (!registered) {
+                OutlinedTextField(
+                    value = form.name,
+                    onValueChange = { onFormChange(form.copy(name = it)) },
+                    label = { Text("আপনার নাম *", fontFamily = Kalpurush) },
+                    singleLine = true, enabled = editable, textStyle = fieldStyle,
+                    shape = RoundedCornerShape(10.dp), colors = fieldColors,
+                    modifier = Modifier.fillMaxWidth().testTag("comment_name")
+                )
+                OutlinedTextField(
+                    value = form.email,
+                    onValueChange = { onFormChange(form.copy(email = it)) },
+                    label = { Text("ইমেইল (ঐচ্ছিক)", fontFamily = Kalpurush) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    singleLine = true, enabled = editable, textStyle = fieldStyle,
+                    shape = RoundedCornerShape(10.dp), colors = fieldColors,
+                    modifier = Modifier.fillMaxWidth().testTag("comment_email")
+                )
+                OutlinedTextField(
+                    value = form.phone,
+                    onValueChange = { onFormChange(form.copy(phone = it)) },
+                    label = { Text("ফোন (ঐচ্ছিক)", fontFamily = Kalpurush) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    singleLine = true, enabled = editable, textStyle = fieldStyle,
+                    shape = RoundedCornerShape(10.dp), colors = fieldColors,
+                    modifier = Modifier.fillMaxWidth().testTag("comment_phone")
+                )
+            }
             OutlinedTextField(
                 value = form.content,
                 onValueChange = { onFormChange(form.copy(content = it)) },
@@ -111,14 +111,10 @@ internal fun ArticleCommentForm(
                 shape = RoundedCornerShape(10.dp), colors = fieldColors,
                 modifier = Modifier.fillMaxWidth().testTag("comment_content")
             )
-            Text(
-                text = "সফলভাবে পাঠানোর পর নাম, ইমেইল ও ফোন শুধু এই ডিভাইসে মনে রাখা হবে। মন্তব্যের লেখা মনে রাখা হবে না।",
-                fontFamily = Kalpurush, fontSize = 12.sp, color = tokens.inkMuted
-            )
             Spacer(Modifier.height(2.dp))
             Button(
                 onClick = onSubmit,
-                enabled = editable && form.name.isNotBlank() && form.content.isNotBlank(),
+                enabled = canSubmit,
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = tokens.accent, contentColor = Color.White),
                 modifier = Modifier.fillMaxWidth().testTag("comment_submit")

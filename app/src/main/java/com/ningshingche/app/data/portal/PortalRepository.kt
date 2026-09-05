@@ -324,7 +324,8 @@ class PortalRepository(
         name: String,
         email: String?,
         content: String,
-        phone: String = ""
+        phone: String = "",
+        address: String = ""
     ): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val response = api.postComment(
@@ -332,6 +333,7 @@ class PortalRepository(
                     blogId = blogId,
                     blogTitle = blogTitle,
                     name = name.trim(),
+                    address = address.trim(),
                     email = email.orEmpty().trim(),
                     phone = phone.trim(),
                     content = content.trim(),

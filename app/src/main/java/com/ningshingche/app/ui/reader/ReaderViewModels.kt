@@ -3,9 +3,11 @@ package com.ningshingche.app.ui.reader
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.ningshingche.app.data.auth.GoogleAuthRepository
 import com.ningshingche.app.data.preferences.CommenterDetails
 import com.ningshingche.app.data.preferences.CommenterDetailsStore
 import com.ningshingche.app.data.portal.ArticleDetail
+import com.ningshingche.app.data.remote.UserProfile
 import com.ningshingche.app.data.portal.ArticleSummary
 import com.ningshingche.app.data.portal.AuthorRef
 import com.ningshingche.app.data.portal.CategoryRef
@@ -111,14 +113,17 @@ data class CommentFormState(
     val name: String = "",
     val email: String = "",
     val phone: String = "",
+    val address: String = "",
     val content: String = "",
     val detailsLoaded: Boolean = false,
+    val identityFromAccount: Boolean = false,
     val isError: Boolean = false
 )
 
 class ArticleViewModel(
     private val repository: PortalRepository,
-    private val commenterDetailsStore: CommenterDetailsStore
+    private val commenterDetailsStore: CommenterDetailsStore,
+    private val currentUser: kotlinx.coroutines.flow.StateFlow<UserProfile?> = kotlinx.coroutines.flow.MutableStateFlow(null)
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<ArticleUiState>(ArticleUiState.Loading)
@@ -148,6 +153,23 @@ class ArticleViewModel(
             } catch (_: Exception) {
                 // A local storage problem must never require login or block commenting.
                 _commentForm.update { it.copy(detailsLoaded = true) }
+            }
+            currentUser.collect { user ->
+                if (user != null) {
+                    val name = user.composedFullName().ifBlank { user.fullName }
+                    _commentForm.update { form ->
+                        form.copy(
+                            name = name.ifBlank { form.name },
+                            email = user.email.ifBlank { form.email },
+                            phone = user.phone.ifBlank { form.phone },
+                            address = user.address.ifBlank { form.address },
+                            identityFromAccount = true,
+                            detailsLoaded = true
+                        )
+                    }
+                } else {
+                    _commentForm.update { it.copy(identityFromAccount = false) }
+                }
             }
         }
     }
@@ -273,9 +295,14 @@ class ArticleViewModel(
         if (_isPostingComment.value || !_commentForm.value.detailsLoaded) return
         val current = (_state.value as? ArticleUiState.Ready) ?: return
         val form = _commentForm.value
+        val account = currentUser.value
+        val name = account?.composedFullName()?.ifBlank { account.fullName }?.ifBlank { form.name } ?: form.name
+        val email = account?.email?.ifBlank { form.email } ?: form.email
+        val phone = account?.phone?.ifBlank { form.phone } ?: form.phone
+        val address = account?.address?.ifBlank { form.address } ?: form.address
         val invalid = when {
-            form.name.isBlank() || form.content.isBlank() -> "নাম ও মন্তব্য আবশ্যক।"
-            form.email.isNotBlank() && !Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$").matches(form.email.trim()) ->
+            name.isBlank() || form.content.isBlank() -> if (account != null) "মন্তব্য আবশ্যক।" else "নাম ও মন্তব্য আবশ্যক।"
+            email.isNotBlank() && !Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$").matches(email.trim()) ->
                 "সঠিক ইমেইল দিন অথবা ঐচ্ছিক ঘরটি খালি রাখুন।"
             else -> null
         }
@@ -293,16 +320,24 @@ class ArticleViewModel(
                 repository.postComment(
                     blogId = current.article.id,
                     blogTitle = current.article.title,
-                    name = form.name,
-                    email = form.email,
-                    phone = form.phone,
-                    content = form.content
+                    name = name,
+                    email = email,
+                    phone = phone,
+                    content = form.content,
+                    address = address
                 ).onSuccess {
-                    val details = CommenterDetails(form.name.trim(), form.email.trim(), form.phone.trim())
+                    val details = CommenterDetails(name.trim(), email.trim(), phone.trim())
                     // Clear the draft ONLY after the server confirms the insert.
                     _commentForm.update {
-                        it.copy(name = details.name, email = details.email, phone = details.phone,
-                            content = "", isError = false)
+                        it.copy(
+                            name = details.name,
+                            email = details.email,
+                            phone = details.phone,
+                            address = address,
+                            content = "",
+                            isError = false,
+                            identityFromAccount = account != null
+                        )
                     }
                     _commentStatus.value = "মন্তব্য জমা হয়েছে। অনুমোদনের পর প্রকাশিত হবে।"
                     _state.update { state ->
@@ -519,7 +554,8 @@ class SearchViewModel(private val repository: PortalRepository) : ViewModel() {
 
 class ReaderViewModelFactory(
     private val repository: PortalRepository,
-    private val commenterDetailsStore: CommenterDetailsStore
+    private val commenterDetailsStore: CommenterDetailsStore,
+    private val googleAuthRepository: GoogleAuthRepository
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
@@ -527,7 +563,7 @@ class ReaderViewModelFactory(
         modelClass.isAssignableFrom(HomeViewModel::class.java) ->
             HomeViewModel(repository) as T
         modelClass.isAssignableFrom(ArticleViewModel::class.java) ->
-            ArticleViewModel(repository, commenterDetailsStore) as T
+            ArticleViewModel(repository, commenterDetailsStore, googleAuthRepository.currentUser) as T
         modelClass.isAssignableFrom(SearchViewModel::class.java) ->
             SearchViewModel(repository) as T
         else -> throw IllegalArgumentException("Unknown ViewModel: ${modelClass.name}")
