@@ -88,7 +88,7 @@ curl -s "$U/settings?id=eq.site_settings" -H "apikey: $K" -H "Authorization: Bea
 Defined in `app/.../ui/editorial/EditorialTheme.kt` as `LocalEditorialTokens` +
 `EditorialSpace` / `EditorialShape` / `EditorialType`.
 
-`Kalpurush` exists in `com.example.ui.theme` but is now `FontFamily.Serif` — the TTF was
+`Kalpurush` exists in `com.ningshingche.app.ui.theme` but is now `FontFamily.Serif` — the TTF was
 removed to cut binary size. Keep using the `Kalpurush` symbol; don't reintroduce a font file.
 
 ### Content notes that change UI decisions
@@ -124,10 +124,10 @@ https://github.com/surajit-singha-sisir/NingshingCheApp (branch main).
 
 Read these before anything else:
 - ANDROID_API.md (repo root) — the API and UI spec
-- app/src/main/java/com/example/ui/reader/  (ReaderNavHost.kt, HomeScreen.kt,
+- app/src/main/java/com/ningshingche/app/ui/reader/  (ReaderNavHost.kt, HomeScreen.kt,
   ArticleScreen.kt, ListScreens.kt, ReaderViewModels.kt)
-- app/src/main/java/com/example/data/portal/  (PortalApi, PortalRepository, PortalModels)
-- app/src/main/java/com/example/ui/editorial/  (EditorialTheme, EditorialComponents,
+- app/src/main/java/com/ningshingche/app/data/portal/  (PortalApi, PortalRepository, PortalModels)
+- app/src/main/java/com/ningshingche/app/ui/editorial/  (EditorialTheme, EditorialComponents,
   LazyImage, VideoPlayer, SiteFooter)
 
 Do not write or modify any code in this phase. Report back:
@@ -157,7 +157,7 @@ and correct it — don't let it build on a hallucinated map.
 
 ```
 Repo: https://github.com/surajit-singha-sisir/NingshingCheApp (branch main).
-Read ANDROID_API.md and app/src/main/java/com/example/data/portal/ first.
+Read ANDROID_API.md and app/src/main/java/com/ningshingche/app/data/portal/ first.
 
 Build out the reader's data layer. Scope: READ ONLY — the anonymous public reader. Do not
 add login, the dashboard, or any write/insert path other than the existing public comment
@@ -201,7 +201,7 @@ network off, and that it does not crash when the app is killed mid-load.
 
 ```
 Repo: https://github.com/surajit-singha-sisir/NingshingCheApp (branch main).
-Read app/src/main/java/com/example/ui/editorial/EditorialTheme.kt and
+Read app/src/main/java/com/ningshingche/app/ui/editorial/EditorialTheme.kt and
 EditorialComponents.kt first.
 
 Consolidate the reader's shared UI primitives. Design language is "modern editorial":
@@ -243,7 +243,7 @@ skeleton then fade in, with no layout jump and no spinner.
 
 ```
 Repo: https://github.com/surajit-singha-sisir/NingshingCheApp (branch main).
-Read app/src/main/java/com/example/ui/reader/HomeScreen.kt and ANDROID_API.md first.
+Read app/src/main/java/com/ningshingche/app/ui/reader/HomeScreen.kt and ANDROID_API.md first.
 
 Finish the home feed. It is a LazyColumn and already has: hero carousel, category strip,
 featured rail, special articles, photo gallery, books/PDFs, video rail, authors rail,
@@ -284,7 +284,7 @@ play in-app, gallery swipes.
 
 ```
 Repo: https://github.com/surajit-singha-sisir/NingshingCheApp (branch main).
-Read app/src/main/java/com/example/ui/reader/ArticleScreen.kt,
+Read app/src/main/java/com/ningshingche/app/ui/reader/ArticleScreen.kt,
 HtmlArticleRenderer.kt and ArticleTtsPlayer.kt first.
 
 Finish the article screen.
@@ -321,7 +321,7 @@ image loading, comment posting, and that audio stops when you back out.
 
 ```
 Repo: https://github.com/surajit-singha-sisir/NingshingCheApp (branch main).
-Read app/src/main/java/com/example/ui/reader/ReaderNavHost.kt and ListScreens.kt first.
+Read app/src/main/java/com/ningshingche/app/ui/reader/ReaderNavHost.kt and ListScreens.kt first.
 
 There are 18 routes. Make sure each one leads to a real, finished screen. Handle these
 specifically:

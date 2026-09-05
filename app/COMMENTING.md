@@ -67,7 +67,7 @@ Requirements: JDK 17+, Gradle 9.3.1 (see `gradle/wrapper/gradle-wrapper.properti
 
 ```sh
 gradle :app:compileDebugKotlin
-gradle :app:testDebugUnitTest --tests 'com.example.comments.*'
+gradle :app:testDebugUnitTest --tests 'com.ningshingche.app.comments.*'
 ```
 
 Validation on 2026-09-05: the Android sources compiled successfully and all **13** comment regression tests passed (including three Compose form tests).

@@ -5,7 +5,7 @@
 error codes). Read that first; this document explains *how the Kotlin app consumes it today* and
 *what must change* so every screen is functional.
 
-Everything below was read from `app/src/main/java/com/example/**`, `app/build.gradle.kts`, and
+Everything below was read from `app/src/main/java/com/ningshingche/app/**`, `app/build.gradle.kts`, and
 `gradle/libs.versions.toml`. Line references are to the current `main`.
 
 ---
@@ -36,8 +36,8 @@ Everything below was read from `app/src/main/java/com/example/**`, `app/build.gr
 | Item | Value |
 | --- | --- |
 | Module | `app/` (single-module Gradle project, root `settings.gradle.kts` includes `:app`) |
-| Namespace / packages | `com.example` (root), `com.example.data.*`, `com.example.ui.*`, `com.example.util.*` |
-| `applicationId` | `com.aistudio.ningshingche.bcdppr` |
+| Namespace / packages | `com.ningshingche.app` (root), `com.ningshingche.app.data.*`, `com.ningshingche.app.ui.*`, `com.ningshingche.app.util.*` |
+| `applicationId` | `com.ningshingche.app` |
 | `minSdk` / `targetSdk` / `compileSdk` | 24 / 36 / 36.1 |
 | Kotlin | 2.2.10, JVM target 11 |
 | Compose | Material 3, BOM `2024.09.00`, `compose.compiler` via `org.jetbrains.kotlin.plugin.compose` |
@@ -52,6 +52,8 @@ Everything below was read from `app/src/main/java/com/example/**`, `app/build.gr
 | App entry | `NinghsingCheApp : Application` → `MainActivity : ComponentActivity` |
 | Permissions | `INTERNET`, `ACCESS_NETWORK_STATE` |
 | Fonts | `app/src/main/res/font/kalpurush.ttf` (Bengali) |
+
+**Branded identity:** see [`app/BRANDING.md`](./app/BRANDING.md) for source-package migration, development-install implications, Firebase registrations, and verified App Links.
 
 BuildConfig keys injected from `.env`: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `IMGBB_API_KEY`,
 `GEMINI_API_KEY`. Values starting with `MY_` are treated as unset and fall back to
@@ -100,7 +102,7 @@ scraping ningshingche.com, falling back to the shipped seed data in `NinghsingCh
 
 ## 3. Composition root and DI
 
-`NinghsingCheApp.onCreate()` (`app/src/main/java/com/example/NinghsingCheApp.kt`):
+`NinghsingCheApp.onCreate()` (`app/src/main/java/com/ningshingche/app/NinghsingCheApp.kt`):
 
 ```kotlin
 database            = AppDatabase.getInstance(this)      // Room: "ningshingche_database"
