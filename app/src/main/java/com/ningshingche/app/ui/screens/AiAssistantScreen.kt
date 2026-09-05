@@ -51,6 +51,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,6 +77,7 @@ import com.ningshingche.app.ui.components.AiSourceCitationCard
 import com.ningshingche.app.ui.components.keyboardAvoidingPadding
 import com.ningshingche.app.ui.viewmodel.AiViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import com.ningshingche.app.ui.theme.Kalpurush
 
 @Composable
@@ -101,21 +103,23 @@ fun AiAssistantScreen(
 
     var inputQuery by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
 
-    LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1)
+    suspend fun scrollChatToBottom() {
+        val last = messages.size - 1 + if (isLoading) 1 else 0
+        if (last >= 0) {
+            listState.scrollToItem(last)
         }
     }
 
-    // The app is edge-to-edge, so the IME insets are ours to handle. Re-scroll to the
-    // newest message whenever the keyboard appears, otherwise the bar covers it.
+    LaunchedEffect(messages.size, isLoading, messages.lastOrNull()?.id) {
+        scrollChatToBottom()
+    }
+
     val density = LocalDensity.current
     val keyboardVisible = WindowInsets.ime.getBottom(density) > 0
-    LaunchedEffect(keyboardVisible) {
-        if (keyboardVisible && messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.lastIndex)
-        }
+    LaunchedEffect(keyboardVisible, isLoading) {
+        if (keyboardVisible) scrollChatToBottom()
     }
 
     if (isSkeletonLoading) {
@@ -358,8 +362,8 @@ fun AiAssistantScreen(
                         if (inputQuery.isNotBlank()) {
                             val q = inputQuery
                             inputQuery = ""
-                            focusManager.clearFocus()
                             viewModel.sendQuestion(q)
+                            scope.launch { scrollChatToBottom() }
                         }
                     }),
                     modifier = Modifier
@@ -372,8 +376,8 @@ fun AiAssistantScreen(
                         if (inputQuery.isNotBlank()) {
                             val q = inputQuery
                             inputQuery = ""
-                            focusManager.clearFocus()
                             viewModel.sendQuestion(q)
+                            scope.launch { scrollChatToBottom() }
                         }
                     },
                     modifier = Modifier
