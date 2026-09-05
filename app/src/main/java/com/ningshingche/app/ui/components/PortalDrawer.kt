@@ -17,6 +17,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Login
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -147,7 +149,7 @@ fun PortalDrawerContent(
                 PortalNavigation.categories.forEach { item ->
                     DrawerRow(
                         item.label,
-                        Icons.Default.MenuBook,
+                        Icons.AutoMirrored.Filled.MenuBook,
                         currentRoute.contains(item.categorySlug.orEmpty())
                     ) {
                         onCloseDrawer()
@@ -179,7 +181,7 @@ fun PortalDrawerContent(
             CollapsibleSection("অ্যাপ", expanded = appOpen, onToggle = { appOpen = !appOpen }) {
                 DrawerRow(
                     if (isSignedIn) "অ্যাকাউন্ট" else "সাইন ইন",
-                    Icons.Default.Login,
+                    Icons.AutoMirrored.Filled.Login,
                     currentRoute == Screen.Login.route || currentRoute == Screen.Settings.route
                 ) {
                     onCloseDrawer()

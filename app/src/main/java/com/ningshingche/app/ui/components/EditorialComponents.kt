@@ -33,6 +33,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.AccountBalance
@@ -144,8 +145,8 @@ fun getCategoryIcon(categorySlug: String): ImageVector {
         "editorial", "preface", "সম্পাদকীয়", "ভুমিকা" -> Icons.Default.EditNote
         "mythology", "religion", "পৌরাণিক-কাহিনী", "ধর্ম" -> Icons.Default.AccountBalance
         "science-technology", "বিজ্ঞান-ও-প্রযুক্তি" -> Icons.Default.Science
-        "news", "misc", "পৌ", "রকমারি" -> Icons.Default.MenuBook
-        else -> Icons.Default.MenuBook
+        "news", "misc", "পৌ", "রকমারি" -> Icons.AutoMirrored.Filled.MenuBook
+        else -> Icons.AutoMirrored.Filled.MenuBook
     }
 }
 
@@ -1157,7 +1158,7 @@ fun PdfDocumentCard(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.MenuBook,
+                                    imageVector = Icons.AutoMirrored.Filled.MenuBook,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onPrimary,
                                     modifier = Modifier.size(12.dp)
@@ -1216,7 +1217,7 @@ fun AiSourceCitationCard(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = Icons.Default.MenuBook,
+                        imageVector = Icons.AutoMirrored.Filled.MenuBook,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(16.dp)
