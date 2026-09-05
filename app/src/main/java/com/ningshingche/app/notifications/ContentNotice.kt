@@ -88,11 +88,11 @@ object ContentUpdatePolicy {
     }
 
     fun summaryTitle(kind: NotificationKind, count: Int): String = when (kind) {
-        NotificationKind.ARTICLE -> "$countটি নতুন প্রবন্ধ"
-        NotificationKind.FEATURED -> "$countটি নির্বাচিত প্রবন্ধ"
-        NotificationKind.VIDEO -> "$countটি নতুন ভিডিও"
-        NotificationKind.PDF -> "$countটি নতুন PDF বই"
-        NotificationKind.GALLERY -> "$countটি নতুন ছবি"
+        NotificationKind.ARTICLE -> "${count}টি নতুন প্রবন্ধ"
+        NotificationKind.FEATURED -> "${count}টি নির্বাচিত প্রবন্ধ"
+        NotificationKind.VIDEO -> "${count}টি নতুন ভিডিও"
+        NotificationKind.PDF -> "${count}টি নতুন PDF বই"
+        NotificationKind.GALLERY -> "${count}টি নতুন ছবি"
         NotificationKind.SYSTEM -> "সিস্টেম আপডেট"
     }
 

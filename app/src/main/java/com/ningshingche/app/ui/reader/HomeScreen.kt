@@ -176,16 +176,14 @@ fun HomeScreen(
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = onAccountClick,
-                        modifier = Modifier.testTag("signin_top_button")
-                    ) {
-                        Icon(
-                            imageVector = if (isSignedIn) Icons.Default.AccountCircle else Icons.Default.Person,
-                            contentDescription = if (isSignedIn) "অ্যাকাউন্ট" else "সাইন ইন",
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+                    AccountHeaderButton(
+                        isSignedIn = isSignedIn,
+                        avatarUrl = avatarUrl,
+                        onLoginClick = onLoginClick,
+                        onDashboardClick = onDashboardClick,
+                        onProfileClick = onProfileClick,
+                        onLogoutClick = onLogoutClick
+                    )
                     IconButton(
                         onClick = onSearchClick,
                         modifier = Modifier.testTag("search_top_button")
