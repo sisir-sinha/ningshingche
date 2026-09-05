@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -99,6 +100,14 @@ fun UserInboxScreen(
                     }
                 },
                 actions = {
+                    if (tab == 1) {
+                        IconButton(
+                            onClick = { viewModel.refreshInbox(markSeen = false) },
+                            modifier = Modifier.testTag("inbox_reload_chat")
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = "চ্যাট রিলোড")
+                        }
+                    }
                     if (tab == 0 && notifications.any { !it.isRead }) {
                         IconButton(onClick = { viewModel.markAllNotificationsRead() }) {
                             Icon(Icons.Default.DoneAll, contentDescription = "সব পঠিত")
@@ -128,7 +137,8 @@ fun UserInboxScreen(
                 AdminMessagePane(
                     messages = messages,
                     saving = saving,
-                    onSend = { body -> viewModel.sendAdminMessage(body) }
+                    onSend = { body -> viewModel.sendAdminMessage(body) },
+                    onReload = { viewModel.refreshInbox(markSeen = false) }
                 )
             }
         }
@@ -199,7 +209,8 @@ private fun NotificationList(
 private fun AdminMessagePane(
     messages: List<AdminMessageRecord>,
     saving: Boolean,
-    onSend: (String) -> Unit
+    onSend: (String) -> Unit,
+    onReload: () -> Unit
 ) {
     var body by remember { mutableStateOf("") }
     val ordered = remember(messages) { messages.sortedBy { it.createdAt } }
@@ -255,6 +266,12 @@ private fun AdminMessagePane(
                 verticalAlignment = Alignment.Bottom,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                IconButton(
+                    onClick = onReload,
+                    modifier = Modifier.testTag("admin_message_reload")
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = "চ্যাট রিলোড")
+                }
                 OutlinedTextField(
                     value = body,
                     onValueChange = { body = it },

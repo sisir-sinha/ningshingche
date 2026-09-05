@@ -678,6 +678,8 @@
     });
   }
 
+  let chatDockFocus = true;
+
   function renderChatDock() {
     const dock = ensureChatDock();
     const windows = dock.querySelector('[data-ru-chat-windows]');
@@ -700,6 +702,7 @@
           ${avatar.replace('class=""', 'class="ru-chat-head-avatar"').replace('<span class="', '<span class="ru-chat-fallback ')}
           <div class="ru-chat-head-copy"><strong>${escapeHTML(name)}</strong><small>${escapeHTML(email || 'App user')}</small></div>
           <div class="ru-chat-head-actions">
+            <button type="button" data-ru-chat-reload="${escapeHTML(userId)}" aria-label="Reload chat" title="Reload chat"><i class="fa-regular fa-rotate-right" aria-hidden="true"></i></button>
             <button type="button" data-ru-chat-min="${escapeHTML(userId)}" aria-label="Minimize"><i class="fa-regular fa-minus" aria-hidden="true"></i></button>
             <button type="button" data-ru-chat-close="${escapeHTML(userId)}" aria-label="Close"><i class="fa-regular fa-xmark" aria-hidden="true"></i></button>
           </div>
@@ -721,11 +724,34 @@
     }).join('');
     windows.querySelectorAll('[data-ru-thread]').forEach((el) => { el.scrollTop = el.scrollHeight; });
     bindChatDock(dock);
-    const focusId = openIds.at(-1);
-    if (focusId) dock.querySelector(`[data-ru-chat="${CSS.escape(focusId)}"] textarea`)?.focus();
+    if (chatDockFocus) {
+      const focusId = openIds.at(-1);
+      if (focusId) dock.querySelector(`[data-ru-chat="${CSS.escape(focusId)}"] textarea`)?.focus();
+    }
   }
 
   function bindChatDock(dock) {
+    dock.querySelectorAll('[data-ru-chat-reload]').forEach((button) => {
+      button.addEventListener('click', async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const userId = button.dataset.ruChatReload;
+        button.disabled = true;
+        try {
+          await loadCache();
+          chatDockFocus = false;
+          renderChatDock();
+          chatDockFocus = true;
+          NC.components.toast('Chat reloaded.', 'success');
+          const thread = dock.querySelector(`[data-ru-chat="${CSS.escape(userId)}"] [data-ru-thread]`);
+          if (thread) thread.scrollTop = thread.scrollHeight;
+        } catch (error) {
+          console.error(error);
+          NC.components.toast(NC.api.userMessage(error, 'Unable to reload chat.'), 'error');
+          button.disabled = false;
+        }
+      });
+    });
     dock.querySelectorAll('[data-ru-chat-min]').forEach((button) => {
       button.addEventListener('click', (event) => {
         event.preventDefault();

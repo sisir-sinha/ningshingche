@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -229,7 +230,8 @@ fun UserDashboardScreen(
                             AdminMessageComposer(
                                 saving = saving,
                                 onSend = { body -> viewModel.sendAdminMessage(body) },
-                                onSeeAll = onInboxClick
+                                onSeeAll = onInboxClick,
+                                onReload = { viewModel.refreshInbox(markSeen = false) }
                             )
                         }
                     }
@@ -509,6 +511,14 @@ private fun CommentStatusCard(comment: CommentRecord) {
 
 private fun statusLabel(status: String): String {
     return when (status.lowercase()) {
+        "pending" -> "অপেক্ষমাণ"
+        "published", "approved" -> "প্রকাশিত"
+        "rejected" -> "প্রত্যাখ্যাত"
+        "reviewed" -> "পর্যালোচিত"
+        else -> status
+    }
+}
+ase()) {
         "pending" -> "অপেক্ষমাণ"
         "published", "approved" -> "প্রকাশিত"
         "rejected" -> "প্রত্যাখ্যাত"
