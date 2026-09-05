@@ -13,11 +13,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -74,6 +71,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import com.ningshingche.app.ui.components.MarkdownFormattedText
 import com.ningshingche.app.ui.components.AiAssistantSkeletonLayout
 import com.ningshingche.app.ui.components.AiSourceCitationCard
+import com.ningshingche.app.ui.components.keyboardAvoidingPadding
 import com.ningshingche.app.ui.viewmodel.AiViewModel
 import kotlinx.coroutines.delay
 
@@ -128,6 +126,7 @@ fun AiAssistantScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .keyboardAvoidingPadding()
             .pointerInput(Unit) {
                 detectTapGestures(onTap = {
                     focusManager.clearFocus()

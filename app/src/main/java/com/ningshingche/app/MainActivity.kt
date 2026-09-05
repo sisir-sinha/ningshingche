@@ -5,6 +5,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -21,6 +23,10 @@ import kotlinx.coroutines.launch
  *
  * All navigation lives in [EditorialReaderApp]; this class owns the theme
  * (system / light / dark, read from DataStore) and the edge-to-edge window.
+ *
+ * Keyboard: [enableEdgeToEdge] opts out of decor fitting, so `adjustResize`
+ * does not shrink the window. The root [imePadding] lifts the entire app by
+ * the software-keyboard height so every focused field stays visible.
  */
 class MainActivity : ComponentActivity() {
 
@@ -42,17 +48,19 @@ class MainActivity : ComponentActivity() {
             }
 
             EditorialTheme(darkTheme = darkTheme) {
-                EditorialReaderApp(
-                    app = app,
-                    isDark = darkTheme,
-                    onToggleTheme = {
-                        coroutineScope.launch {
-                            val nextMode = if (darkTheme) AppThemeMode.LIGHT else AppThemeMode.DARK
-                            app.preferencesRepository.updateAppThemeMode(nextMode)
-                        }
-                    },
-                    modifier = Modifier.imePadding()
-                )
+                Box(Modifier.fillMaxSize().imePadding()) {
+                    EditorialReaderApp(
+                        app = app,
+                        isDark = darkTheme,
+                        onToggleTheme = {
+                            coroutineScope.launch {
+                                val nextMode = if (darkTheme) AppThemeMode.LIGHT else AppThemeMode.DARK
+                                app.preferencesRepository.updateAppThemeMode(nextMode)
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
         }
     }

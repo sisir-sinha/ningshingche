@@ -26,9 +26,11 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -103,6 +105,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
@@ -120,8 +123,10 @@ import com.ningshingche.app.data.portal.AuthorRef
 import com.ningshingche.app.data.portal.CommentItem
 import com.ningshingche.app.data.portal.permalinkOf
 import com.ningshingche.app.data.remote.AuthorProfiles
+import com.ningshingche.app.ui.components.DialogImeAdjustResize
 import com.ningshingche.app.ui.components.MarkdownFormattedText
 import com.ningshingche.app.ui.components.VerifiedBadge
+import com.ningshingche.app.ui.components.keyboardAvoidingPadding
 import com.ningshingche.app.ui.editorial.ArticleRow
 import com.ningshingche.app.ui.editorial.EditorialShape
 import com.ningshingche.app.ui.editorial.EditorialSpace
@@ -1099,11 +1104,14 @@ fun ArticleAiAssistantBottomSheet(
         containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
     ) {
+        DialogImeAdjustResize()
+        val imeOpen = WindowInsets.ime.getBottom(LocalDensity.current) > 0
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .keyboardAvoidingPadding()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
-                .padding(bottom = 20.dp)
+                .padding(bottom = 12.dp)
         ) {
             // Top Bar
             Row(
@@ -1191,7 +1199,7 @@ fun ArticleAiAssistantBottomSheet(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(300.dp)
+                    .height(if (imeOpen) 140.dp else 300.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(tokens.surfaceSunken.copy(alpha = 0.4f))
                     .padding(10.dp),
