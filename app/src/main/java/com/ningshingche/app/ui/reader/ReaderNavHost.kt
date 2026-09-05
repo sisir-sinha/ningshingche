@@ -135,6 +135,7 @@ fun EditorialReaderApp(
     val currentRoute = navBackStackEntry?.destination?.route ?: ReaderRoute.Home
 
     ModalNavigationDrawer(
+        modifier = modifier,
         drawerState = drawerState,
         gesturesEnabled = currentRoute == ReaderRoute.Home,
         drawerContent = {
@@ -194,7 +195,7 @@ fun EditorialReaderApp(
         NavHost(
             navController = navController,
             startDestination = ReaderRoute.Splash,
-            modifier = modifier
+            modifier = Modifier
         ) {
             // Splash Screen
             composable(ReaderRoute.Splash) {

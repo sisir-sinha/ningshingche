@@ -675,6 +675,25 @@ class SupabaseClient(private val context: Context) {
             }
         }
 
+    suspend fun markAdminMessagesRead(): Result<Boolean> = withContext(Dispatchers.IO) {
+        val token = authToken
+        val userId = _currentUser.value?.id.orEmpty()
+        if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null || userId.isBlank()) {
+            return@withContext Result.success(false)
+        }
+        try {
+            val url = "${SupabaseConfig.restBaseUrl}/admin_messages?user_id=eq.$userId&sender=eq.admin&is_read=eq.false"
+            val payload = JSONObject().put("is_read", true).toString()
+            val request = createUserAuthedRequestBuilder(url, token)
+                .patch(payload.toRequestBody(jsonMediaType))
+                .build()
+            val response = httpClient.newCall(request).execute()
+            Result.success(response.isSuccessful)
+        } catch (_: Exception) {
+            Result.success(false)
+        }
+    }
+
     private fun mergeGoogleProfile(google: UserProfile, existing: JSONObject?): UserProfile {
         if (existing == null) return google
         val stored = UserProfile.fromJson(existing)

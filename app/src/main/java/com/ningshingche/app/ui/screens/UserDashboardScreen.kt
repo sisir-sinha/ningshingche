@@ -20,6 +20,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,6 +32,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -88,7 +92,16 @@ fun UserDashboardScreen(
         if (user != null) viewModel.refresh()
     }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(status) {
+        val text = status ?: return@LaunchedEffect
+        if (text.isBlank()) return@LaunchedEffect
+        snackbarHostState.showSnackbar(text)
+        viewModel.clearMessage()
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("আমার ড্যাশবোর্ড", fontFamily = Kalpurush, fontWeight = FontWeight.Bold) },
@@ -212,7 +225,6 @@ fun UserDashboardScreen(
                         }
                         item {
                             AdminMessageComposer(
-                                status = status,
                                 saving = saving,
                                 onSend = { subject, body -> viewModel.sendAdminMessage(subject, body) },
                                 onSeeAll = onInboxClick
@@ -413,6 +425,27 @@ private fun MessageCard(item: AdminMessageRecord) {
                 Text(item.subject, fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold)
             }
             Text(item.body, fontFamily = Kalpurush, fontSize = 14.sp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (item.createdAt.isNotBlank()) {
+                    Text(
+                        shortDateTime(item.createdAt),
+                        fontFamily = Kalpurush,
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (!item.isFromAdmin) {
+                    Icon(
+                        imageVector = if (item.isRead) Icons.Default.DoneAll else Icons.Default.Done,
+                        contentDescription = if (item.isRead) "দেখা হয়েছে" else "পাঠানো হয়েছে",
+                        tint = if (item.isRead) Color(0xFF25D366) else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
     }
 }

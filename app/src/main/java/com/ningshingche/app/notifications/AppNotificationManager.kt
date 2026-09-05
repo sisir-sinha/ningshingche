@@ -25,6 +25,7 @@ class AppNotificationManager(private val context: Context) {
         const val CHANNEL_PDFS = "nsc_pdfs"
         const val CHANNEL_SYSTEM = "nsc_system"
         const val CHANNEL_GENERAL = "nsc_general"
+        const val CHANNEL_MESSAGES = "nsc_messages"
 
         const val EXTRA_ROUTE = "nsc_route"
         const val EXTRA_TARGET_ID = "nsc_target_id"
@@ -32,6 +33,7 @@ class AppNotificationManager(private val context: Context) {
         const val ROUTE_ARTICLE = "article"
         const val ROUTE_PDF = "pdf"
         const val ROUTE_SETTINGS = "settings"
+        const val ROUTE_INBOX = "user_inbox"
     }
 
     fun createChannels() {
@@ -52,6 +54,9 @@ class AppNotificationManager(private val context: Context) {
             },
             NotificationChannel(CHANNEL_GENERAL, "অন্যান্য", NotificationManager.IMPORTANCE_DEFAULT).apply {
                 description = "গ্যালারি ও অন্যান্য আপডেট"
+            },
+            NotificationChannel(CHANNEL_MESSAGES, "অ্যাডমিন বার্তা", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "অ্যাডমিন নতুন বার্তা পাঠালে"
             }
         )
         manager.createNotificationChannels(channels)
@@ -86,10 +91,11 @@ class AppNotificationManager(private val context: Context) {
         NotificationKind.PDF -> CHANNEL_PDFS
         NotificationKind.SYSTEM -> CHANNEL_SYSTEM
         NotificationKind.GALLERY -> CHANNEL_GENERAL
+        NotificationKind.MESSAGE -> CHANNEL_MESSAGES
     }
 
     private fun priorityFor(kind: NotificationKind): Int = when (kind) {
-        NotificationKind.ARTICLE, NotificationKind.FEATURED, NotificationKind.SYSTEM ->
+        NotificationKind.ARTICLE, NotificationKind.FEATURED, NotificationKind.SYSTEM, NotificationKind.MESSAGE ->
             NotificationCompat.PRIORITY_HIGH
         else -> NotificationCompat.PRIORITY_DEFAULT
     }

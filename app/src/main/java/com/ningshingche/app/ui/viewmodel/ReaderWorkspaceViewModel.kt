@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ningshingche.app.NinghsingCheApp
 import com.ningshingche.app.data.auth.GoogleAuthRepository
 import com.ningshingche.app.data.remote.AdminMessageRecord
 import com.ningshingche.app.data.remote.CommentRecord
@@ -85,22 +86,30 @@ class ReaderWorkspaceViewModel(
             )
             articleResult.exceptionOrNull()?.message?.let { _message.value = it }
             commentResult.exceptionOrNull()?.message?.let { if (_message.value == null) _message.value = it }
-            refreshInbox(user.id, articles, comments)
+            refreshInbox(user.id, articles, comments, notifySystem = true, markSeen = false)
             _isLoading.value = false
         }
     }
 
-    fun refreshInbox() {
+    fun refreshInbox(markSeen: Boolean = false) {
         val user = currentUser.value ?: return
         viewModelScope.launch {
-            refreshInbox(user.id, _articles.value, _comments.value)
+            refreshInbox(
+                userId = user.id,
+                articles = _articles.value,
+                comments = _comments.value,
+                notifySystem = !markSeen,
+                markSeen = markSeen
+            )
         }
     }
 
     private suspend fun refreshInbox(
         userId: String,
         articles: List<SubmittedBlogRecord>,
-        comments: List<CommentRecord>
+        comments: List<CommentRecord>,
+        notifySystem: Boolean,
+        markSeen: Boolean
     ) {
         val remote = supabaseClient.getMyNotifications().getOrDefault(emptyList())
         val existingKeys = remote.map { "${it.kind}:${it.relatedId}" }.toSet()
@@ -111,10 +120,38 @@ class ReaderWorkspaceViewModel(
         } else {
             supabaseClient.getMyNotifications().getOrDefault(remote + generated)
         }
-        _notifications.value = merged.distinctBy { "${it.kind}:${it.relatedId}" }
+        val notices = merged.distinctBy { "${it.kind}:${it.relatedId}" }
             .sortedByDescending { it.createdAt }
-        _unreadCount.value = _notifications.value.count { !it.isRead }
-        _adminMessages.value = supabaseClient.getAdminMessages().getOrDefault(emptyList())
+        var messages = supabaseClient.getAdminMessages().getOrDefault(emptyList())
+            .sortedBy { it.createdAt }
+        var seenNotices = notices
+        if (markSeen) {
+            supabaseClient.markAllNotificationsRead()
+            supabaseClient.markAdminMessagesRead()
+            seenNotices = notices.map { it.copy(isRead = true) }
+            messages = messages.map { item ->
+                if (item.isFromAdmin) item.copy(isRead = true) else item
+            }
+        }
+        _notifications.value = seenNotices
+        _adminMessages.value = messages
+        recountUnread(seenNotices, messages)
+        runCatching {
+            NinghsingCheApp.instance.contentUpdateNotifier.ingestInbox(
+                userNotices = notices,
+                messages = messages,
+                notify = notifySystem
+            )
+        }
+    }
+
+    private fun recountUnread(
+        notices: List<UserNotificationRecord> = _notifications.value,
+        messages: List<AdminMessageRecord> = _adminMessages.value
+    ) {
+        val noticeUnread = notices.count { !it.isRead }
+        val messageUnread = messages.count { it.isFromAdmin && !it.isRead }
+        _unreadCount.value = noticeUnread + messageUnread
     }
 
     fun markNotificationRead(id: String) {
@@ -123,7 +160,7 @@ class ReaderWorkspaceViewModel(
             _notifications.value = _notifications.value.map {
                 if (it.id == id) it.copy(isRead = true) else it
             }
-            _unreadCount.value = _notifications.value.count { !it.isRead }
+            recountUnread()
         }
     }
 
@@ -131,6 +168,18 @@ class ReaderWorkspaceViewModel(
         viewModelScope.launch {
             supabaseClient.markAllNotificationsRead()
             _notifications.value = _notifications.value.map { it.copy(isRead = true) }
+            recountUnread()
+        }
+    }
+
+    fun markInboxSeen() {
+        viewModelScope.launch {
+            supabaseClient.markAllNotificationsRead()
+            supabaseClient.markAdminMessagesRead()
+            _notifications.value = _notifications.value.map { it.copy(isRead = true) }
+            _adminMessages.value = _adminMessages.value.map { item ->
+                if (item.isFromAdmin) item.copy(isRead = true) else item
+            }
             _unreadCount.value = 0
         }
     }
@@ -144,7 +193,8 @@ class ReaderWorkspaceViewModel(
             _isSaving.value = true
             supabaseClient.sendAdminMessage(subject, body)
                 .onSuccess { sent ->
-                    _adminMessages.value = _adminMessages.value + sent
+                    val merged = (_adminMessages.value + sent).distinctBy { it.id }.sortedBy { it.createdAt }
+                    _adminMessages.value = merged
                     _message.value = "অ্যাডমিনকে বার্তা পাঠানো হয়েছে।"
                 }
                 .onFailure { error ->
@@ -205,7 +255,9 @@ class ReaderWorkspaceViewModel(
             upload.onSuccess { image ->
                 val next = user.copy(avatarUrl = image.displayUrl.ifBlank { image.url }, imgbbDeleteUrl = image.deleteUrl)
                 val result = supabaseClient.updateReaderProfile(next)
-                result.onFailure { _message.value = it.message ?: "ছবি সংরক্ষণ যায়নি।" }
+                result.onSuccess {
+                    _message.value = "প্রোফাইল ছবি আপডেট হয়েছে।"
+                }.onFailure { _message.value = it.message ?: "ছবি সংরক্ষণ যায়নি।" }
             }.onFailure {
                 _message.value = it.message ?: "ছবি আপলোড যায়নি।"
             }
@@ -219,7 +271,11 @@ class ReaderWorkspaceViewModel(
             _message.value = "নতুন প্রবন্ধ জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।"
             return
         }
-        if (title.isBlank() || content.isBlank()) {
+        val plain = content.replace(Regex("<[^>]*>"), " ")
+            .replace("&nbsp;", " ", ignoreCase = true)
+            .replace("&amp;", "&", ignoreCase = true)
+            .trim()
+        if (title.isBlank() || plain.isBlank()) {
             _message.value = "শিরোনাম ও লেখা আবশ্যক।"
             return
         }
@@ -267,77 +323,14 @@ class ReaderWorkspaceViewModel(
         }
     }
 
-    fun refreshInbox() {
-        val user = currentUser.value ?: return
-        viewModelScope.launch {
-            val noteResult = supabaseClient.getMyNotifications()
-            val msgResult = supabaseClient.getAdminMessages()
-            val existingNotes = noteResult.getOrDefault(emptyList())
-            val messages = msgResult.getOrDefault(emptyList())
-
-            val articleList = _articles.value.ifEmpty {
-                supabaseClient.getMySubmittedBlogs(user.id, user.email).getOrDefault(emptyList())
-            }
-            val commentList = _comments.value.ifEmpty {
-                supabaseClient.getMyComments(user.id, user.email).getOrDefault(emptyList())
-            }
-            val existingKeys = existingNotes.map { "${it.kind}:${it.relatedId}" }.toSet()
-            val newNotices = InboxSync.noticesFromPublished(user.id, articleList, commentList, existingKeys)
-            for (n in newNotices) {
-                supabaseClient.upsertNotification(n)
-            }
-            val finalNotes = if (newNotices.isNotEmpty()) {
-                supabaseClient.getMyNotifications().getOrDefault(existingNotes + newNotices)
-            } else {
-                existingNotes
-            }
-
-            _notifications.value = finalNotes
-            _adminMessages.value = messages
-            _unreadCount.value = finalNotes.count { !it.isRead } + messages.count { it.isFromAdmin && !it.isRead }
-        }
-    }
-
-    fun markNotificationRead(id: String) {
-        viewModelScope.launch {
-            _notifications.value = _notifications.value.map {
-                if (it.id == id) it.copy(isRead = true) else it
-            }
-            _unreadCount.value = _notifications.value.count { !it.isRead } + _adminMessages.value.count { it.isFromAdmin && !it.isRead }
-            supabaseClient.markNotificationRead(id)
-        }
-    }
-
-    fun markAllNotificationsRead() {
-        viewModelScope.launch {
-            _notifications.value = _notifications.value.map { it.copy(isRead = true) }
-            _unreadCount.value = _adminMessages.value.count { it.isFromAdmin && !it.isRead }
-            supabaseClient.markAllNotificationsRead()
-        }
-    }
-
-    fun sendAdminMessage(subject: String, body: String) {
-        if (body.isBlank()) {
-            _message.value = "বার্তার বিবরণ আবশ্যক।"
-            return
-        }
-        viewModelScope.launch {
-            _isSaving.value = true
-            _message.value = null
-            val result = supabaseClient.sendAdminMessage(subject.trim(), body.trim())
-            result.onSuccess { msg ->
-                _adminMessages.value = listOf(msg) + _adminMessages.value
-                _message.value = "বার্তা পাঠানো হয়েছে।"
-            }.onFailure {
-                _message.value = it.message ?: "বার্তা পাঠানো যায়নি।"
-            }
-            _isSaving.value = false
-        }
-    }
-
     fun signOut() {
         viewModelScope.launch {
             googleAuthRepository.signOut()
+            _articles.value = emptyList()
+            _comments.value = emptyList()
+            _notifications.value = emptyList()
+            _adminMessages.value = emptyList()
+            _unreadCount.value = 0
         }
     }
 }

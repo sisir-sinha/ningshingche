@@ -7,6 +7,8 @@ import com.ningshingche.app.data.model.ReaderPreferences
 import com.ningshingche.app.data.portal.HomeFeed
 import com.ningshingche.app.data.portal.permalinkOf
 import com.ningshingche.app.data.preferences.UserPreferencesRepository
+import com.ningshingche.app.data.remote.AdminMessageRecord
+import com.ningshingche.app.data.remote.UserNotificationRecord
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -56,6 +58,64 @@ class ContentUpdateNotifier(
             versionCode = versionCode,
             settingsHash = settingsHash
         )
+    }
+
+    /**
+     * Posts a system notification when the signed-in user receives a new
+     * admin chat message or staff notice. The first inbox snapshot is silent.
+     */
+    suspend fun ingestInbox(
+        userNotices: List<UserNotificationRecord>,
+        messages: List<AdminMessageRecord>,
+        notify: Boolean
+    ) = mutex.withLock {
+        val prefs = preferencesRepository.readerPreferences.first()
+        val incoming = inboxNotices(userNotices, messages)
+        if (incoming.isEmpty()) return
+        val seen = seenStore.seenKeys()
+        val hasInboxBaseline = incoming.any { it.seenKey in seen } ||
+            seen.any { it.startsWith("${NotificationKind.MESSAGE.name}:") }
+        val fresh = ContentUpdatePolicy.unseen(seen, incoming)
+
+        if (!hasInboxBaseline) {
+            seenStore.markSeen(keys = incoming.map { it.seenKey })
+            return
+        }
+
+        val enabled = fresh.filter { enabledFor(it.kind, prefs) }
+        if (notify && prefs.notificationsEnabled) {
+            ContentUpdatePolicy.drafts(hasBaseline = true, unseen = enabled).forEach { draft ->
+                notifications.post(draft)
+            }
+        }
+        seenStore.markSeen(keys = incoming.map { it.seenKey } + fresh.map { it.seenKey })
+    }
+
+    private fun inboxNotices(
+        notices: List<UserNotificationRecord>,
+        messages: List<AdminMessageRecord>
+    ): List<ContentNotice> {
+        val fromChat = messages.filter { it.isFromAdmin && it.id.isNotBlank() }.map { item ->
+            ContentNotice(
+                kind = NotificationKind.MESSAGE,
+                id = item.id,
+                title = item.subject.ifBlank { "অ্যাডমিনের বার্তা" },
+                body = item.body.take(180),
+                uri = AppNotificationManager.ROUTE_INBOX
+            )
+        }
+        val fromNotices = notices.filter {
+            it.kind == UserNotificationRecord.KIND_ADMIN || it.kind == "staff_notice"
+        }.map { item ->
+            ContentNotice(
+                kind = NotificationKind.MESSAGE,
+                id = "notice-${item.id}",
+                title = item.title.ifBlank { "অ্যাডমিনের বার্তা" },
+                body = item.body.take(180),
+                uri = AppNotificationManager.ROUTE_INBOX
+            )
+        }
+        return (fromChat + fromNotices).distinctBy { it.id }
     }
 
     private fun noticesFrom(
@@ -144,6 +204,7 @@ class ContentUpdateNotifier(
         NotificationKind.PDF -> prefs.notificationPdfs
         NotificationKind.SYSTEM -> prefs.notificationSystem
         NotificationKind.GALLERY -> prefs.notificationOther
+        NotificationKind.MESSAGE -> prefs.notificationOther || prefs.notificationSystem
     }
 
     private fun settingsHash(feed: HomeFeed): String {

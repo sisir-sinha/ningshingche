@@ -13,7 +13,8 @@ enum class NotificationKind {
     VIDEO,
     PDF,
     GALLERY,
-    SYSTEM
+    SYSTEM,
+    MESSAGE
 }
 
 data class ContentNotice(
@@ -85,6 +86,7 @@ object ContentUpdatePolicy {
         NotificationKind.PDF -> "নতুন PDF বই"
         NotificationKind.GALLERY -> "নতুন ছবি"
         NotificationKind.SYSTEM -> "সিস্টেম আপডেট"
+        NotificationKind.MESSAGE -> "অ্যাডমিনের বার্তা"
     }
 
     fun summaryTitle(kind: NotificationKind, count: Int): String = when (kind) {
@@ -94,6 +96,7 @@ object ContentUpdatePolicy {
         NotificationKind.PDF -> "${count}টি নতুন PDF বই"
         NotificationKind.GALLERY -> "${count}টি নতুন ছবি"
         NotificationKind.SYSTEM -> "সিস্টেম আপডেট"
+        NotificationKind.MESSAGE -> "${count}টি নতুন বার্তা"
     }
 
     fun notificationId(kind: NotificationKind, key: String): Int {

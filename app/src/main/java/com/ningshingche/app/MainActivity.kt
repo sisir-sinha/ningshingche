@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -50,7 +51,7 @@ class MainActivity : ComponentActivity() {
                             app.preferencesRepository.updateAppThemeMode(nextMode)
                         }
                     },
-                    modifier = Modifier
+                    modifier = Modifier.imePadding()
                 )
             }
         }

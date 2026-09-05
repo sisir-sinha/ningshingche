@@ -20,9 +20,14 @@ class ContentCheckWorker(
 
     override suspend fun doWork(): Result {
         val app = applicationContext as? NinghsingCheApp ?: return Result.retry()
-        val feed = app.portalRepository.homeFeed().getOrNull() ?: return Result.retry()
-        app.contentUpdateNotifier.ingest(feed, notify = true)
-        return Result.success()
+        val feed = app.portalRepository.homeFeed().getOrNull()
+        if (feed != null) {
+            app.contentUpdateNotifier.ingest(feed, notify = true)
+        }
+        val notices = app.supabaseClient.getMyNotifications().getOrDefault(emptyList())
+        val messages = app.supabaseClient.getAdminMessages().getOrDefault(emptyList())
+        app.contentUpdateNotifier.ingestInbox(userNotices = notices, messages = messages, notify = true)
+        return if (feed != null) Result.success() else Result.retry()
     }
 
     companion object {
@@ -34,17 +39,17 @@ class ContentCheckWorker(
                 val constraints = Constraints.Builder()
                     .setRequiredNetworkType(NetworkType.CONNECTED)
                     .build()
-                val periodic = PeriodicWorkRequestBuilder<ContentCheckWorker>(3, TimeUnit.HOURS)
+                val periodic = PeriodicWorkRequestBuilder<ContentCheckWorker>(15, TimeUnit.MINUTES)
                     .setConstraints(constraints)
                     .build()
                 val once = OneTimeWorkRequestBuilder<ContentCheckWorker>()
                     .setConstraints(constraints)
-                    .setInitialDelay(20, TimeUnit.MINUTES)
+                    .setInitialDelay(5, TimeUnit.MINUTES)
                     .build()
                 val work = WorkManager.getInstance(context)
                 work.enqueueUniquePeriodicWork(
                     PERIODIC_NAME,
-                    ExistingPeriodicWorkPolicy.KEEP,
+                    ExistingPeriodicWorkPolicy.UPDATE,
                     periodic
                 )
                 work.enqueueUniqueWork(
