@@ -1,6 +1,8 @@
 package com.ningshingche.app.ui.components
 
 import android.annotation.SuppressLint
+import android.content.ClipboardManager
+import android.content.Context
 import android.view.ActionMode
 import android.view.Menu
 import android.view.MenuItem
@@ -27,6 +29,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.FormatBold
 import androidx.compose.material.icons.filled.FormatItalic
 import androidx.compose.material.icons.filled.FormatUnderlined
@@ -94,6 +97,12 @@ fun HtmlContentEditor(
         webView?.evaluateJavascript("if(window.insertImage){window.insertImage($quoted);}", null)
     }
 
+    fun pasteClipboard() {
+        val text = clipboardText(context)
+        if (text.isBlank()) return
+        webView?.evaluateJavascript("if(window.pasteText){window.pasteText(${JSONObject.quote(text)});}", null)
+    }
+
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
@@ -127,6 +136,7 @@ fun HtmlContentEditor(
                     ToolIcon("মোটা", Icons.Default.FormatBold) { run("bold") }
                     ToolIcon("বাঁকা", Icons.Default.FormatItalic) { run("italic") }
                     ToolIcon("নিচে দাগ", Icons.Default.FormatUnderlined) { run("underline") }
+                    ToolIcon("পেস্ট", Icons.Default.ContentPaste) { pasteClipboard() }
                     ToolIcon("ছবি যোগ", Icons.Default.Image) {
                         if (!uploading) imagePicker.launch("image/*")
                     }
@@ -150,7 +160,7 @@ fun HtmlContentEditor(
         }
 
         Text(
-            "লেখা নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি ও কাট দেখাবে। ছবি ImgBB-তে আপলোড হয়।",
+            "লেখা নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি, কাট ও পেস্ট দেখাবে। ছবি ImgBB-তে আপলোড হয়।",
             fontFamily = Kalpurush,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -200,7 +210,10 @@ fun HtmlContentEditor(
                             settings.loadsImagesAutomatically = true
                             settings.blockNetworkImage = false
                             addJavascriptInterface(
-                                HtmlBridge { html -> post { onValueChange(html) } },
+                                HtmlBridge(
+                                    host = this,
+                                    emit = { html -> post { onValueChange(html) } }
+                                ),
                                 "Android"
                             )
                             webViewClient = object : WebViewClient() {
@@ -308,11 +321,30 @@ private fun ToolIcon(
     }
 }
 
-private class HtmlBridge(private val emit: (String) -> Unit) {
+private class HtmlBridge(
+    private val host: WebView,
+    private val emit: (String) -> Unit
+) {
     @JavascriptInterface
     fun onHtml(html: String) {
         emit(html)
     }
+
+    @JavascriptInterface
+    fun requestPaste() {
+        host.post {
+            val text = clipboardText(host.context)
+            if (text.isBlank()) return@post
+            host.evaluateJavascript("if(window.pasteText){window.pasteText(${JSONObject.quote(text)});}", null)
+        }
+    }
+}
+
+private fun clipboardText(context: Context): String {
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return ""
+    val clip = clipboard.primaryClip ?: return ""
+    if (clip.itemCount <= 0) return ""
+    return clip.getItemAt(0).coerceToText(context).toString()
 }
 
 open class RichEditorWebView(context: android.content.Context) : WebView(context) {
@@ -364,7 +396,7 @@ private fun editorHtml(bgArgb: Int, fgArgb: Int, accentArgb: Int, fontFaceCss: S
             #e { min-height:100%; padding:14px 14px 56px; outline:none; line-height:1.65;
               font-family:'Kalpurush', sans-serif !important;
               -webkit-touch-callout:none; -webkit-user-select:text; user-select:text; }
-            #e:empty:before { content:'লেখা লিখুন… নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি ও কাট আসবে।'; color:#888; font-family:'Kalpurush', sans-serif !important; }
+            #e:empty:before { content:'লেখা লিখুন… নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি, কাট ও পেস্ট আসবে।'; color:#888; font-family:'Kalpurush', sans-serif !important; }
             #e img { max-width:100%; height:auto; border-radius:8px; margin:8px 0; }
             #selbar {
               position:absolute; display:none; z-index:20;
@@ -386,6 +418,7 @@ private fun editorHtml(bgArgb: Int, fgArgb: Int, accentArgb: Int, fontFaceCss: S
             <button type="button" data-cmd="underline"><u>U</u></button>
             <button type="button" data-cmd="copy">Copy</button>
             <button type="button" data-cmd="cut">Cut</button>
+            <button type="button" data-cmd="paste">Paste</button>
           </div>
           <div id="e" contenteditable="true"></div>
           <script>
@@ -420,7 +453,7 @@ private fun editorHtml(bgArgb: Int, fgArgb: Int, accentArgb: Int, fontFaceCss: S
               const rect = sel.getRangeAt(0).getBoundingClientRect();
               bar.style.display = 'flex';
               const top = window.scrollY + rect.top - bar.offsetHeight - 8;
-              const left = Math.max(8, Math.min(window.scrollX + rect.left, document.body.clientWidth - 260));
+              const left = Math.max(8, Math.min(window.scrollX + rect.left, document.body.clientWidth - 340));
               bar.style.top = Math.max(8, top) + 'px';
               bar.style.left = left + 'px';
             });
