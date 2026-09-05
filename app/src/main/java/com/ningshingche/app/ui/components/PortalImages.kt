@@ -24,7 +24,7 @@ fun PortalAsyncImage(
             .data(cleaned.ifBlank { NinghsingCheContentData.APP_LOGO_URL })
             .crossfade(true)
             .addHeader("User-Agent", PORTAL_IMAGE_UA)
-            .addHeader("Accept", "image/avif,image/webp,image/apng,image/*,*/*;q=0.8")
+            .addHeader("Accept", "image/webp,image/png,image/jpeg,image/*,*/*;q=0.8")
             .error(R.drawable.ic_ningshingche_logo)
             .fallback(R.drawable.ic_ningshingche_logo)
             .build()

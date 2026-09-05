@@ -63,7 +63,7 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
                 .writeTimeout(30, TimeUnit.SECONDS)
                 .addInterceptor { chain ->
                     val request = chain.request().newBuilder()
-                        .addHeader("Accept", "image/avif,image/webp,image/apng,image/*,*/*;q=0.8")
+                        .addHeader("Accept", "image/webp,image/png,image/jpeg,image/*,*/*;q=0.8")
                         .build()
                     chain.proceed(request)
                 }
