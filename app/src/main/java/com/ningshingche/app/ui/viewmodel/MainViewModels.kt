@@ -548,7 +548,8 @@ class AiViewModel(
 class SettingsViewModel(
     private val preferencesRepository: UserPreferencesRepository,
     private val articleRepository: ArticleRepository,
-    private val googleAuthRepository: GoogleAuthRepository
+    private val googleAuthRepository: GoogleAuthRepository,
+    private val supabaseClient: SupabaseClient
 ) : ViewModel() {
 
     val preferences: StateFlow<ReaderPreferences> = preferencesRepository.readerPreferences
@@ -604,6 +605,7 @@ class SettingsViewModel(
     fun toggleNotificationsEnabled(enabled: Boolean) {
         viewModelScope.launch {
             preferencesRepository.updateNotificationsEnabled(enabled)
+            supabaseClient.syncNotificationsEnabled(enabled)
         }
     }
 
@@ -783,7 +785,7 @@ class ViewModelFactory(
             modelClass.isAssignableFrom(BookmarksViewModel::class.java) -> BookmarksViewModel(repository) as T
             modelClass.isAssignableFrom(HistoryViewModel::class.java) -> HistoryViewModel(repository) as T
             modelClass.isAssignableFrom(AiViewModel::class.java) -> AiViewModel(aiAssistant) as T
-            modelClass.isAssignableFrom(SettingsViewModel::class.java) -> SettingsViewModel(preferencesRepository, repository, googleAuthRepository) as T
+            modelClass.isAssignableFrom(SettingsViewModel::class.java) -> SettingsViewModel(preferencesRepository, repository, googleAuthRepository, supabaseClient) as T
             modelClass.isAssignableFrom(PdfArchiveViewModel::class.java) -> PdfArchiveViewModel(repository) as T
             modelClass.isAssignableFrom(PdfViewerViewModel::class.java) -> PdfViewerViewModel(repository, context) as T
             modelClass.isAssignableFrom(ReaderWorkspaceViewModel::class.java) -> ReaderWorkspaceViewModel(googleAuthRepository, supabaseClient) as T

@@ -487,6 +487,25 @@ class SupabaseClient(private val context: Context) {
         }
     }
 
+    suspend fun syncNotificationsEnabled(enabled: Boolean): Result<Boolean> = withContext(Dispatchers.IO) {
+        val token = authToken
+        val userId = _currentUser.value?.id.orEmpty()
+        if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null || userId.isBlank()) {
+            return@withContext Result.success(false)
+        }
+        try {
+            val url = "${SupabaseConfig.restBaseUrl}/profiles?id=eq.$userId"
+            val payload = JSONObject().put("notifications_enabled", enabled).toString()
+            val request = createUserAuthedRequestBuilder(url, token)
+                .patch(payload.toRequestBody(jsonMediaType))
+                .build()
+            val response = httpClient.newCall(request).execute()
+            Result.success(response.isSuccessful)
+        } catch (_: Exception) {
+            Result.success(false)
+        }
+    }
+
     suspend fun getMySubmittedBlogs(userId: String, email: String): Result<List<SubmittedBlogRecord>> =
         withContext(Dispatchers.IO) {
             try {

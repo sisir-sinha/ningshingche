@@ -176,6 +176,17 @@
     return Array.isArray(data) ? data[0] : data;
   }
 
+  async function insertMany(keyOrName, rows) {
+    const payload = (rows || []).map((row) => cleanPayload(row));
+    if (!payload.length) return [];
+    const { data } = await request(`${restBase}/${tableName(keyOrName)}`, {
+      method: 'POST',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify(payload)
+    });
+    return Array.isArray(data) ? data : [];
+  }
+
   async function update(keyOrName, id, payload) {
     const params = new URLSearchParams({ id: `eq.${id}` });
     const { data } = await request(`${restBase}/${tableName(keyOrName)}?${params}`, {
@@ -374,7 +385,7 @@
   }
 
   NC.api = Object.freeze({
-    ApiError, request, list, getById, count, insert, update, upsert, remove,
+    ApiError, request, list, getById, count, insert, insertMany, update, upsert, remove,
     rpc, slugExists, searchAll, schemaProbe, uploadPdf, deleteStorageObject,
     storagePublicUrl, attemptImgBBDelete, userMessage, tableName
   });

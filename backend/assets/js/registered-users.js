@@ -354,12 +354,33 @@
       </article>`).join('');
   }
 
-  function fromCell(item) {
-    const user = userById(item.user_id);
-    if (item.sender === 'admin') {
-      return `<span class="ru-admin-avatar" title="Admin"><i class="fa-regular fa-user-tie" aria-hidden="true"></i></span>`;
-    }
+  function fromCell(userId) {
+    const user = userById(userId);
     return NC.utils.avatarHTML(user ? displayName(user) : 'User', user?.avatar_url, 'ru-from-avatar person-avatar');
+  }
+
+  function conversationRows() {
+    const latest = new Map();
+    cache.messages.forEach((item) => {
+      if (!item.user_id) return;
+      const prev = latest.get(item.user_id);
+      if (!prev || String(item.created_at || '') > String(prev.created_at || '')) {
+        latest.set(item.user_id, item);
+      }
+    });
+    return [...latest.values()].map((item) => {
+      const user = userById(item.user_id);
+      const thread = threadFor(item.user_id);
+      return {
+        user_id: item.user_id,
+        user_name: user ? displayName(user) : item.user_id,
+        last_body: item.body || '',
+        last_sender: item.sender || '',
+        created_at: item.created_at || '',
+        count: thread.length,
+        unread: thread.filter((row) => row.sender === 'user' && !row.is_read).length
+      };
+    });
   }
 
   function renderChatDock() {
@@ -384,7 +405,7 @@
           ${avatar.replace('class=""', 'class="ru-chat-head-avatar"').replace('<span class="', '<span class="ru-chat-fallback ')}
           <div class="ru-chat-head-copy"><strong>${escapeHTML(name)}</strong><small>${escapeHTML(email || 'App user')}</small></div>
           <div class="ru-chat-head-actions">
-            <button type="button" data-ru-chat-min="${escapeHTML(userId)}" aria-label="Minimize"><i class="fa-regular fa-dash" aria-hidden="true"></i></button>
+            <button type="button" data-ru-chat-min="${escapeHTML(userId)}" aria-label="Minimize"><i class="fa-regular fa-minus" aria-hidden="true"></i></button>
             <button type="button" data-ru-chat-close="${escapeHTML(userId)}" aria-label="Close"><i class="fa-regular fa-xmark" aria-hidden="true"></i></button>
           </div>
         </header>
@@ -493,28 +514,29 @@
   }
 
   function renderMessages(context = {}) {
-    const state = new NC.crud.ListState('messages', { searchFields: ['body', 'sender'], sortKey: 'created_at' });
-    state.setRecords(cache.messages);
-    root.innerHTML = `${pageChrome('Messages', 'Read user messages and reply. Conversations open as chat tabs in the bottom-right corner.')}
+    const state = new NC.crud.ListState('conversations', { searchFields: ['user_name', 'last_body'], sortKey: 'created_at' });
+    state.setRecords(conversationRows());
+    root.innerHTML = `${pageChrome('Messages', 'One row per user. Open a conversation to read the full thread.')}
       ${cache.inboxReady ? '' : `<div class="mb-6">${NC.components.notice('Run 007_user_inbox.sql so admin messages can be stored.', 'warning')}</div>`}
-      <section class="surface"><div class="list-toolbar"><label class="search-field"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><span class="sr-only">Search messages</span><input type="search" placeholder="Search messages…" data-ru-search></label></div><div data-ru-table></div></section>`;
+      <section class="surface"><div class="list-toolbar"><label class="search-field"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><span class="sr-only">Search conversations</span><input type="search" placeholder="Search people or messages…" data-ru-search></label></div><div data-ru-table></div></section>`;
     const renderList = () => {
       const content = root.querySelector('[data-ru-table]');
       const { rows, total } = state.paged();
       if (!total) {
-        content.innerHTML = NC.components.emptyState({ icon: 'fa-messages', title: state.query ? 'No messages match' : 'No messages yet' });
+        content.innerHTML = NC.components.emptyState({ icon: 'fa-messages', title: state.query ? 'No conversations match' : 'No messages yet' });
         return;
       }
       content.innerHTML = `${NC.components.tableShell({
-        caption: 'Admin messages', minWidth: '1080px',
-        head: `<tr><th>From</th><th>User</th><th>Message</th><th><button type="button" data-sort="created_at">Sent ${NC.crud.sortIcon(state, 'created_at')}</button></th><th class="text-right">Actions</th></tr>`,
+        caption: 'Conversations', minWidth: '960px',
+        head: `<tr><th>From</th><th>User</th><th>Last message</th><th><button type="button" data-sort="created_at">Updated ${NC.crud.sortIcon(state, 'created_at')}</button></th><th class="text-right">Actions</th></tr>`,
         body: rows.map((item) => {
-          const user = userById(item.user_id);
+          const preview = item.last_sender === 'admin' ? `Admin: ${item.last_body}` : item.last_body;
+          const extra = item.count > 1 ? `<small>${item.count} messages${item.unread ? ` · ${item.unread} unread` : ''}</small>` : (item.unread ? '<small>Unread</small>' : '');
           return `<tr>
-            <td data-label="From">${fromCell(item)}</td>
-            <td data-label="User">${escapeHTML(user ? displayName(user) : item.user_id)}</td>
-            <td data-label="Message">${escapeHTML(NC.utils.truncate(item.body, 180))}</td>
-            <td data-label="Sent">${escapeHTML(formatDateTime(item.created_at))}</td>
+            <td data-label="From">${fromCell(item.user_id)}</td>
+            <td data-label="User">${escapeHTML(item.user_name)}</td>
+            <td data-label="Last message"><div>${escapeHTML(NC.utils.truncate(preview, 180))}</div>${extra}</td>
+            <td data-label="Updated">${escapeHTML(formatDateTime(item.created_at))}</td>
             <td data-label="Actions" class="text-right">${NC.components.rowActions([
               { action: 'reply', id: item.user_id, label: 'Reply', icon: 'fa-reply' },
               { action: 'thread', id: item.user_id, label: 'Open conversation', icon: 'fa-comments' }
@@ -534,19 +556,44 @@
     if (openId) openChat(openId);
   }
 
+  function noticeAudienceUsers() {
+    return cache.users.filter((user) => user?.id && user.notifications_enabled !== false);
+  }
+
+  function groupedNotices() {
+    const groups = new Map();
+    cache.notices.forEach((item) => {
+      const key = item.kind === 'staff_notice' && item.related_id
+        ? `${item.kind}:${item.related_id}`
+        : item.id;
+      const prev = groups.get(key);
+      if (!prev) {
+        groups.set(key, { ...item, recipient_count: 1 });
+        return;
+      }
+      prev.recipient_count += 1;
+      if (String(item.created_at || '') > String(prev.created_at || '')) {
+        prev.created_at = item.created_at;
+      }
+    });
+    return [...groups.values()];
+  }
+
   function renderNotifications(context) {
     const state = new NC.crud.ListState('notices', { searchFields: ['title', 'body', 'kind'], sortKey: 'created_at' });
-    state.setRecords(cache.notices);
+    state.setRecords(groupedNotices());
     const preselect = context.params?.get('id') || '';
-    root.innerHTML = `${pageChrome('Notification', 'Send an in-app notification to a particular registered user.')}
+    const enabledCount = noticeAudienceUsers().length;
+    root.innerHTML = `${pageChrome('Notification', 'Send to one user, or to every app user who has notifications enabled.')}
       ${cache.inboxReady ? '' : `<div class="mb-6">${NC.components.notice('Run 007 and 009 so staff notices can be stored.', 'warning')}</div>`}
       <section class="surface">
         <div class="surface-header"><div><p class="eyebrow">Compose</p><h2>Send notification</h2></div></div>
         <form id="ru-notice-form" class="form-stack" novalidate>
           <div class="form-grid-2">
-            <div class="field"><label class="field-label" for="ru-notice-user">User <span aria-hidden="true">*</span></label>
+            <div class="field"><label class="field-label" for="ru-notice-user">Audience <span aria-hidden="true">*</span></label>
               <select class="form-select" id="ru-notice-user" name="user_id" required>
-                <option value="">Choose a registered user</option>
+                <option value="__all_enabled__">All app users with notifications on (${enabledCount})</option>
+                <option value="" disabled>—— One user ——</option>
                 ${cache.users.map((user) => `<option value="${escapeHTML(user.id)}" ${user.id === preselect ? 'selected' : ''}>${escapeHTML(displayName(user))} — ${escapeHTML(user.email || 'no email')}</option>`).join('')}
               </select>
               <p class="field-error hidden" data-field-error="user_id"></p>
@@ -560,15 +607,19 @@
             <textarea class="form-textarea min-h-28" id="ru-notice-body" name="body" required></textarea>
             <p class="field-error hidden" data-field-error="body"></p>
           </div>
-          <div><button type="submit" class="btn btn-primary" data-send-notice><i class="fa-regular fa-paper-plane" aria-hidden="true"></i>Send to this user</button></div>
+          <div><button type="submit" class="btn btn-primary" data-send-notice><i class="fa-regular fa-paper-plane" aria-hidden="true"></i>Send notification</button></div>
         </form>
       </section>
       <section class="surface mt-6"><div class="list-toolbar"><label class="search-field"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><span class="sr-only">Search notices</span><input type="search" placeholder="Search sent notices…" data-ru-search></label></div><div data-ru-table></div></section>`;
+    if (preselect) {
+      const select = root.querySelector('#ru-notice-user');
+      if (select) select.value = preselect;
+    }
     root.querySelector('#ru-notice-form').addEventListener('submit', async (event) => {
       event.preventDefault();
       const data = formData(event.currentTarget);
       const errors = {
-        user_id: data.user_id ? '' : 'Choose a user.',
+        user_id: data.user_id ? '' : 'Choose an audience.',
         title: data.title ? '' : 'Enter a title.',
         body: data.body ? '' : 'Write a message.'
       };
@@ -576,15 +627,29 @@
       const button = root.querySelector('[data-send-notice]');
       NC.utils.setButtonLoading(button, true, 'Sending…');
       try {
-        await NC.api.insert('notifications', {
-          user_id: data.user_id,
+        const campaignId = NC.utils.uuid();
+        const recipients = data.user_id === '__all_enabled__'
+          ? noticeAudienceUsers()
+          : cache.users.filter((user) => user.id === data.user_id);
+        if (!recipients.length) throw new Error('No recipients. Users must have notifications enabled on the app.');
+        const rows = recipients.map((user) => ({
+          user_id: user.id,
           kind: 'staff_notice',
           title: data.title,
           body: data.body,
-          related_id: NC.utils.uuid(),
+          related_id: campaignId,
           is_read: false
-        });
-        NC.components.toast('Notification sent to the user’s app inbox.', 'success');
+        }));
+        const chunk = 80;
+        for (let i = 0; i < rows.length; i += chunk) {
+          await NC.api.insertMany('notifications', rows.slice(i, i + chunk));
+        }
+        NC.components.toast(
+          recipients.length === 1
+            ? 'Notification sent to the user’s app inbox.'
+            : `Notification sent to ${recipients.length} app users. Devices with notification permission will alert.`,
+          'success'
+        );
         await loadCache();
         renderNotifications(context);
       } catch (error) {
@@ -606,8 +671,11 @@
         head: `<tr><th>User</th><th>Notice</th><th>Kind</th><th><button type="button" data-sort="created_at">Sent ${NC.crud.sortIcon(state, 'created_at')}</button></th></tr>`,
         body: rows.map((item) => {
           const user = userById(item.user_id);
+          const audience = item.recipient_count > 1
+            ? `${item.recipient_count} users`
+            : (user ? displayName(user) : item.user_id);
           return `<tr>
-            <td data-label="User">${escapeHTML(user ? displayName(user) : item.user_id)}</td>
+            <td data-label="User">${escapeHTML(audience)}</td>
             <td data-label="Notice"><strong>${escapeHTML(item.title)}</strong><div>${escapeHTML(NC.utils.truncate(item.body, 120))}</div></td>
             <td data-label="Kind">${escapeHTML(item.kind)}</td>
             <td data-label="Sent">${escapeHTML(formatDateTime(item.created_at))}</td>
