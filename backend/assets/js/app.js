@@ -35,6 +35,7 @@
     const visibleRoutes = NC_CONFIG.routes.filter((item) => NC.auth.canAccess(item.id));
     const groups = [
       { id: 'overview', label: '', items: visibleRoutes.filter((item) => item.group === 'overview') },
+      { id: 'community', label: 'App users', items: visibleRoutes.filter((item) => item.group === 'community') },
       { id: 'content', label: 'Content', items: visibleRoutes.filter((item) => item.group === 'content') },
       { id: 'system', label: 'System', items: visibleRoutes.filter((item) => item.group === 'system') }
     ].filter((group) => group.items.length);
@@ -278,7 +279,7 @@
           <span class="search-result-type">${escapeHTML(result.label)}</span><i class="fa-regular fa-arrow-right" aria-hidden="true"></i>
         </button>`).join('')}</div>`;
       qsa('[data-search-route]', output).forEach((button) => button.addEventListener('click', () => {
-        const route = button.dataset.searchRoute;
+        const route = button.dataset.searchRoute === 'profiles' ? 'registered-users' : button.dataset.searchRoute;
         const action = route === 'categories' ? 'edit' : 'view';
         closeGlobalSearch(); routeTo(route, { action, id: button.dataset.searchId });
       }));

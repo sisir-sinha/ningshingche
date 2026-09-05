@@ -235,9 +235,13 @@
       ['galleries', 'Galleries', 'images', ['title', 'description']],
       ['books', 'PDF Books', 'books', ['title', 'author_or_editor']],
       ['submissions', 'Submit Blogs', 'file-pen', ['title', 'writer_name', 'content_title']],
-      ['videos', 'Videos', 'video', ['title', 'description']]
+      ['videos', 'Videos', 'video', ['title', 'description']],
+      ['profiles', 'Registered users', 'user-group', ['name', 'email', 'phone', 'first_name', 'last_name']]
     ];
-    const accessible = definitions.filter(([table]) => NC.auth?.canAccess?.(table));
+    const accessible = definitions.filter(([table]) => {
+      if (table === 'profiles') return NC.auth?.canAccess?.('registered-users');
+      return NC.auth?.canAccess?.(table);
+    });
     const settled = await Promise.allSettled(accessible.map(async ([table, label, icon, fields]) => {
       const or = fields.map((field) => `${field}.ilike.*${term}*`).join(',');
       const result = await list(table, { select: '*', or, order: 'created_at.desc', limit: 5 });

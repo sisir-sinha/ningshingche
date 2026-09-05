@@ -224,7 +224,7 @@
     const selected = new Set(role?.permissions || ['dashboard']);
     selected.add('dashboard');
     const groups = [
-      ['overview', 'Overview'], ['content', 'Content'], ['system', 'System']
+      ['overview', 'Overview'], ['community', 'App users'], ['content', 'Content'], ['system', 'System']
     ];
     return groups.map(([group, label]) => {
       const routes = menuRoutes().filter((route) => route.group === group);

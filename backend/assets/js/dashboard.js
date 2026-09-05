@@ -17,12 +17,14 @@
     ['galleries', 'Galleries', 'fa-images', 'fuchsia'],
     ['books', 'PDF Books', 'fa-books', 'orange'],
     ['submissions', 'Submitted Blogs', 'fa-file-pen', 'cyan'],
-    ['videos', 'Videos', 'fa-video', 'pink']
+    ['videos', 'Videos', 'fa-video', 'pink'],
+    ['profiles', 'Registered users', 'fa-user-group', 'teal']
   ]);
 
   function permissionRoute(key) {
     if (['published', 'drafts'].includes(key)) return 'blogs';
     if (key === 'pendingComments') return 'comments';
+    if (key === 'profiles') return 'registered-users';
     return key;
   }
 
@@ -47,10 +49,11 @@
       ['galleries', 'id,title,created_at'],
       ['books', 'id,title,created_at'],
       ['submissions', 'id,title,writer_name,status,created_at'],
-      ['videos', 'id,title,created_at']
+      ['videos', 'id,title,created_at'],
+      ['profiles', 'id,name,email,created_at']
     ];
     const canAnalyze = NC.auth.canAccess('analytics');
-    const entities = allEntities.filter(([key]) => canAnalyze || NC.auth.canAccess(key));
+    const entities = allEntities.filter(([key]) => canAnalyze || NC.auth.canAccess(permissionRoute(key)));
     const settled = await Promise.allSettled(entities.map(([key, select]) => NC.api.list(key, {
       select, order: 'created_at.desc', limit: 1000, count: true
     })));

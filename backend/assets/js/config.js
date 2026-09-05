@@ -14,7 +14,7 @@
     app: Object.freeze({
       name: 'Ningshing Che',
       subtitle: 'Editorial Command Center',
-      version: '1.3.0',
+      version: '1.4.0',
       websiteUrl: 'https://ningshingche.com',
       locale: 'en-BD',
       timeZone: 'Asia/Dhaka',
@@ -63,11 +63,15 @@
       books: 'pdf_books',
       submissions: 'submitted_blogs',
       videos: 'videos',
-      settings: 'settings'
+      settings: 'settings',
+      profiles: 'profiles',
+      notifications: 'user_notifications',
+      messages: 'admin_messages'
     }),
 
     routes: Object.freeze([
       { id: 'dashboard', label: 'Dashboard', icon: 'fa-gauge-high', group: 'overview' },
+      { id: 'registered-users', label: 'Registered users', icon: 'fa-user-group', group: 'community' },
       { id: 'authors', label: 'Authors', icon: 'fa-user-pen', group: 'content' },
       { id: 'blogs', label: 'Blogs', icon: 'fa-newspaper', group: 'content' },
       { id: 'categories', label: 'Categories', icon: 'fa-layer-group', group: 'content' },
