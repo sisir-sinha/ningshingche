@@ -380,6 +380,7 @@ private fun NotificationCard(
                     UserNotificationRecord.KIND_ARTICLE -> "প্রবন্ধ"
                     UserNotificationRecord.KIND_COMMENT -> "মন্তব্য"
                     UserNotificationRecord.KIND_ADMIN -> "অ্যাডমিন"
+                    "staff_notice" -> "অ্যাডমিন"
                     else -> notice.kind
                 },
                 fontFamily = Kalpurush,
