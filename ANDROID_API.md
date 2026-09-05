@@ -835,6 +835,12 @@ Certificate pinning was deliberately **not** added: Supabase serves projects fro
 behind a managed edge whose leaf certificates rotate, so a pin would brick every
 installed app at the next rotation.
 
+### Anonymous comment submission and remembered form details
+
+The active article form now uses `PortalApi.postComment` with `Prefer: return=minimal` and `Response<Unit>`. An anonymous caller cannot read back a newly inserted `Unpublish` row, so `return=representation` is incorrect for this flow. Name/comment are required; email/phone are optional. Successful submissions cache **name, email and phone only** in a private, no-backup DataStore. Failed requests keep the draft and do not replace cached details; the comment body is never persisted locally.
+
+See [`app/COMMENTING.md`](./app/COMMENTING.md) for the request contract, live non-persisting checks, moderation behavior, cache privacy, and regression tests.
+
 ### 17.2 Screens still to build
 
 Gallery viewer, PDF archive + viewer, bookmarks, reading history, settings, and the

@@ -1,6 +1,8 @@
 package com.example
 
 import android.app.Application
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import com.example.data.preferences.CommenterPreferencesRepository
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
@@ -28,6 +30,9 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
     lateinit var preferencesRepository: UserPreferencesRepository
         private set
 
+    lateinit var commenterPreferencesRepository: CommenterPreferencesRepository
+        private set
+
     lateinit var aiAssistant: NinghsingCheAiAssistant
         private set
 
@@ -40,7 +45,7 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
     lateinit var dashboardRepository: DashboardRepository
         private set
 
-    /** Live, read-only Supabase client used by the public reader UI. */
+    /** Public Supabase client for reading and moderated anonymous comments. */
     lateinit var portalRepository: PortalRepository
         private set
 
@@ -102,6 +107,11 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
         }
 
         preferencesRepository = UserPreferencesRepository(this)
+        commenterPreferencesRepository = CommenterPreferencesRepository(
+            PreferenceDataStoreFactory.create {
+                noBackupFilesDir.resolve("commenter_details.preferences_pb")
+            }
+        )
         database = AppDatabase.getInstance(this)
         websiteClient = NingshingCheWebsiteClient()
         supabaseClient = SupabaseClient(this)

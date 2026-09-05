@@ -3,6 +3,8 @@ package com.example.ui.reader
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.data.preferences.CommenterDetails
+import com.example.data.preferences.CommenterDetailsStore
 import com.example.data.portal.ArticleDetail
 import com.example.data.portal.ArticleSummary
 import com.example.data.portal.AuthorRef
@@ -12,12 +14,14 @@ import com.example.data.portal.HomeFeed
 import com.example.data.portal.Page
 import com.example.data.portal.PortalError
 import com.example.data.portal.PortalRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
@@ -99,7 +103,20 @@ sealed interface ArticleUiState {
     data class Error(val message: String) : ArticleUiState
 }
 
-class ArticleViewModel(private val repository: PortalRepository) : ViewModel() {
+/** In-memory draft only: no SavedStateHandle or persistent comment-content field. */
+data class CommentFormState(
+    val name: String = "",
+    val email: String = "",
+    val phone: String = "",
+    val content: String = "",
+    val detailsLoaded: Boolean = false,
+    val isError: Boolean = false
+)
+
+class ArticleViewModel(
+    private val repository: PortalRepository,
+    private val commenterDetailsStore: CommenterDetailsStore
+) : ViewModel() {
 
     private val _state = MutableStateFlow<ArticleUiState>(ArticleUiState.Loading)
     val state: StateFlow<ArticleUiState> = _state.asStateFlow()
@@ -110,7 +127,33 @@ class ArticleViewModel(private val repository: PortalRepository) : ViewModel() {
     private val _isPostingComment = MutableStateFlow(false)
     val isPostingComment: StateFlow<Boolean> = _isPostingComment.asStateFlow()
 
+    private val _commentForm = MutableStateFlow(CommentFormState())
+    val commentForm: StateFlow<CommentFormState> = _commentForm.asStateFlow()
+
     private var currentIdOrSlug: String = ""
+
+    init {
+        viewModelScope.launch {
+            try {
+                val saved = commenterDetailsStore.details.first()
+                _commentForm.value = CommentFormState(
+                    name = saved.name, email = saved.email, phone = saved.phone,
+                    detailsLoaded = true
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // A local storage problem must never require login or block commenting.
+                _commentForm.update { it.copy(detailsLoaded = true) }
+            }
+        }
+    }
+
+    fun updateCommentForm(form: CommentFormState) {
+        if (_isPostingComment.value || !_commentForm.value.detailsLoaded) return
+        _commentForm.value = form.copy(detailsLoaded = true, isError = false)
+        _commentStatus.value = null
+    }
 
     fun retry() {
         if (currentIdOrSlug.isNotBlank()) {
@@ -153,6 +196,10 @@ class ArticleViewModel(private val repository: PortalRepository) : ViewModel() {
     }
 
     fun load(idOrSlug: String) {
+        if (currentIdOrSlug.isNotBlank() && currentIdOrSlug != idOrSlug.trim()) {
+            _commentForm.update { it.copy(content = "", isError = false) }
+            _commentStatus.value = null
+        }
         currentIdOrSlug = idOrSlug.trim()
         if (currentIdOrSlug.isBlank()) {
             _state.value = ArticleUiState.Error("প্রবন্ধটি পাওয়া যায়নি।")
@@ -219,32 +266,72 @@ class ArticleViewModel(private val repository: PortalRepository) : ViewModel() {
             .take(4)
     }
 
-    fun postComment(name: String, email: String, content: String) {
+    fun postComment() {
+        if (_isPostingComment.value || !_commentForm.value.detailsLoaded) return
         val current = (_state.value as? ArticleUiState.Ready) ?: return
-        if (name.isBlank() || content.isBlank()) {
-            _commentStatus.value = "নাম ও মন্তব্য আবশ্যক।"
+        val form = _commentForm.value
+        val invalid = when {
+            form.name.isBlank() || form.content.isBlank() -> "নাম ও মন্তব্য আবশ্যক।"
+            form.email.isNotBlank() && !Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$").matches(form.email.trim()) ->
+                "সঠিক ইমেইল দিন অথবা ঐচ্ছিক ঘরটি খালি রাখুন।"
+            else -> null
+        }
+        if (invalid != null) {
+            _commentForm.update { it.copy(isError = true) }
+            _commentStatus.value = invalid
             return
         }
+        // Set synchronously, before launching: rapid taps must not create duplicate POSTs.
+        _isPostingComment.value = true
+        _commentForm.update { it.copy(isError = false) }
+        _commentStatus.value = "মন্তব্য পাঠানো হচ্ছে..."
         viewModelScope.launch {
-            _isPostingComment.value = true
-            _commentStatus.value = "মন্তব্য পাঠানো হচ্ছে..."
-            repository.postComment(
-                blogId = current.article.id,
-                blogTitle = current.article.title,
-                name = name,
-                email = email,
-                content = content
-            ).onSuccess {
-                _commentStatus.value = "মন্তব্য জমা হয়েছে। অনুমোদনের পর প্রকাশিত হবে।"
-                _state.update { (it as? ArticleUiState.Ready)?.copy(commentPosted = true) ?: it }
-            }.onFailure { error ->
-                _commentStatus.value = (error as? PortalError).message()
+            try {
+                repository.postComment(
+                    blogId = current.article.id,
+                    blogTitle = current.article.title,
+                    name = form.name,
+                    email = form.email,
+                    phone = form.phone,
+                    content = form.content
+                ).onSuccess {
+                    val details = CommenterDetails(form.name.trim(), form.email.trim(), form.phone.trim())
+                    // Clear the draft ONLY after the server confirms the insert.
+                    _commentForm.update {
+                        it.copy(name = details.name, email = details.email, phone = details.phone,
+                            content = "", isError = false)
+                    }
+                    _commentStatus.value = "মন্তব্য জমা হয়েছে। অনুমোদনের পর প্রকাশিত হবে।"
+                    _state.update { state ->
+                        (state as? ArticleUiState.Ready)?.takeIf { it.article.id == current.article.id }
+                            ?.copy(commentPosted = true) ?: state
+                    }
+                    try {
+                        commenterDetailsStore.save(details)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        // The comment succeeded. Never report a failed POST or invite a duplicate
+                        // submission merely because saving local contact details failed.
+                        _commentStatus.value = "মন্তব্য জমা হয়েছে। অনুমোদনের পর প্রকাশিত হবে। তবে এই ডিভাইসে আপনার তথ্য মনে রাখা যায়নি।"
+                    }
+                }.onFailure { error ->
+                    _commentForm.update { it.copy(isError = true) }
+                    _commentStatus.value = if (error is PortalError.Offline) {
+                        "ইন্টারনেট সংযোগ যাচাই করে আবার চেষ্টা করুন। আপনার মন্তব্য মুছে ফেলা হয়নি।"
+                    } else (error as? PortalError).message()
+                }
+            } finally {
+                _isPostingComment.value = false
             }
-            _isPostingComment.value = false
         }
     }
 
-    fun clearCommentStatus() { _commentStatus.value = null }
+    fun clearCommentStatus() {
+        _commentStatus.value = null
+        _commentForm.update { it.copy(isError = false) }
+    }
+
 }
 
 // ---------------------------------------------------------------------------
@@ -428,7 +515,8 @@ class SearchViewModel(private val repository: PortalRepository) : ViewModel() {
 // ---------------------------------------------------------------------------
 
 class ReaderViewModelFactory(
-    private val repository: PortalRepository
+    private val repository: PortalRepository,
+    private val commenterDetailsStore: CommenterDetailsStore
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
@@ -436,7 +524,7 @@ class ReaderViewModelFactory(
         modelClass.isAssignableFrom(HomeViewModel::class.java) ->
             HomeViewModel(repository) as T
         modelClass.isAssignableFrom(ArticleViewModel::class.java) ->
-            ArticleViewModel(repository) as T
+            ArticleViewModel(repository, commenterDetailsStore) as T
         modelClass.isAssignableFrom(SearchViewModel::class.java) ->
             SearchViewModel(repository) as T
         else -> throw IllegalArgumentException("Unknown ViewModel: ${modelClass.name}")

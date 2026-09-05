@@ -90,7 +90,7 @@ fun EditorialReaderApp(
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
 
-    val portalFactory = ReaderViewModelFactory(app.portalRepository)
+    val portalFactory = ReaderViewModelFactory(app.portalRepository, app.commenterPreferencesRepository)
     val mainFactory = ViewModelFactory(
         repository = app.articleRepository,
         preferencesRepository = app.preferencesRepository,

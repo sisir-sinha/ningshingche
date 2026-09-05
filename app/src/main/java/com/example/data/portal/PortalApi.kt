@@ -161,11 +161,13 @@ interface PortalApi {
      * Anonymous comment submission. Allowed by the `comments_public_insert`
      * RLS policy; the row lands as `Unpublish` until a moderator approves it.
      */
-    @Headers("Prefer: return=representation")
+    // Anonymous users may INSERT an Unpublish row, but may not SELECT it.
+    // Asking for a representation triggers the SELECT policy and rejects the insert.
+    @Headers("Prefer: return=minimal")
     @POST("comments")
     suspend fun postComment(
         @Body comment: NewCommentDto
-    ): Response<List<CommentDto>>
+    ): Response<Unit>
 
     // --------------------------------------------------------------- settings
 

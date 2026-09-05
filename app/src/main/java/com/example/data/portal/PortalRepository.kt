@@ -1,5 +1,6 @@
 package com.example.data.portal
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -12,7 +13,7 @@ import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
 /**
- * Read-only repository over the live Supabase REST API.
+ * Public reader repository with moderated, anonymous comment submission.
  *
  * Design rules
  * ------------
@@ -322,21 +323,29 @@ class PortalRepository(
         blogTitle: String,
         name: String,
         email: String?,
-        content: String
+        content: String,
+        phone: String = ""
     ): Result<Unit> = withContext(Dispatchers.IO) {
-        runCatching {
+        try {
             val response = api.postComment(
                 NewCommentDto(
                     blogId = blogId,
                     blogTitle = blogTitle,
                     name = name.trim(),
-                    email = email?.trim()?.takeIf { it.isNotBlank() },
-                    content = content.trim()
+                    email = email.orEmpty().trim(),
+                    phone = phone.trim(),
+                    content = content.trim(),
+                    status = "Unpublish"
                 )
             )
-            if (!response.isSuccessful) throw PortalError.Http(response.code(), response.message())
-            Unit
-        }.recoverCatching { throw it.toPortalError() }
+            // The successful anonymous insert has no response body (201/204).
+            if (!response.isSuccessful) throw httpError(response.code(), response)
+            Result.success(Unit)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            Result.failure(error.toPortalError())
+        }
     }
 
     // -------------------------------------------------------------- plumbing
@@ -366,10 +375,9 @@ class PortalRepository(
     private fun httpError(code: Int, response: Response<*>): PortalError {
         val raw = response.errorBody()?.string().orEmpty()
         val message = runCatching {
-            val obj = org.json.JSONObject(raw)
-            obj.optString("message")
-                .takeIf { it.isNotBlank() }
-                ?: obj.optString("error_description")
+            val obj = PortalConfig.moshi.adapter(Map::class.java).fromJson(raw)
+            (obj?.get("message") as? String)?.takeIf { it.isNotBlank() }
+                ?: (obj?.get("error_description") as? String)
         }.getOrNull()
         return when {
             code == 404 || raw.contains("PGRST205") ->

@@ -339,6 +339,10 @@ reading time as `ceil(words / 220)`.
 | `content` | text | Required |
 | `status` | text | `Publish` \| `Unpublish`, default `Unpublish` |
 
+**Anonymous reader inserts:** use `POST /comments` with `Prefer: return=minimal` and `status: "Unpublish"`. A public reader cannot SELECT a new pending row, so requesting `return=representation` can cause the insert to fail. The Android client sends optional `email`, `phone`, and `address` as empty strings when absent; no new phone column/migration is required. For the active Android form and cache contract, see [`app/COMMENTING.md`](../app/COMMENTING.md).
+
+**Privacy:** the public SELECT policy applies to whole published comment rows. Client-side selection that omits email/phone is not a permission boundary; protect contact columns with a separately reviewed public-view/RPC migration if moderator-only access is required.
+
 ### `galleries`
 | Column | Type | Notes |
 | --- | --- | --- |

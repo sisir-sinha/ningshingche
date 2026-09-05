@@ -9,7 +9,7 @@ import com.squareup.moshi.JsonClass
  * Field names mirror the columns in `backend/supabase/schema.sql` exactly, so
  * Moshi needs no custom naming strategy. Unknown columns (for example
  * `image_meta`, `inline_media`, `pdf_storage_path`) are ignored on read and are
- * never sent by the reader, which only performs GET requests.
+ * never sent by the reader. Public comment POSTs use the explicit NewCommentDto payload.
  *
  * Every nullable field is nullable on purpose: PostgREST omits `null` columns
  * from JSON, and Bengali content frequently leaves optional columns empty.
@@ -146,9 +146,10 @@ data class NewCommentDto(
     @Json(name = "blog_id") val blogId: String,
     @Json(name = "blog_title") val blogTitle: String,
     val name: String,
-    val address: String? = null,
-    val email: String? = null,
-    val phone: String? = null,
+    // Optional form fields map to NOT NULL database columns with empty defaults.
+    val address: String = "",
+    val email: String = "",
+    val phone: String = "",
     val content: String,
     val status: String = "Unpublish"
 )

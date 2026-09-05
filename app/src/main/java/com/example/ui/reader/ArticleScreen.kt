@@ -376,9 +376,9 @@ fun ArticleScreen(
                                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                             } catch (_: Exception) { }
                         },
-                        onPostComment = { name, email, body ->
-                            viewModel.postComment(name, email, body)
-                        },
+                        onPostComment = viewModel::postComment,
+                        commentForm = viewModel.commentForm.collectAsState().value,
+                        onCommentFormChange = viewModel::updateCommentForm,
                         commentStatus = viewModel.commentStatus.collectAsState().value,
                         isPostingComment = viewModel.isPostingComment.collectAsState().value
                     )
@@ -429,7 +429,9 @@ private fun ArticleReaderContent(
     onAuthorClick: (String) -> Unit,
     onTagClick: (String) -> Unit,
     onOpenLink: (String) -> Unit,
-    onPostComment: (String, String, String) -> Unit,
+    onPostComment: () -> Unit,
+    commentForm: CommentFormState,
+    onCommentFormChange: (CommentFormState) -> Unit,
     commentStatus: String?,
     isPostingComment: Boolean
 ) {
@@ -753,9 +755,11 @@ private fun ArticleReaderContent(
 
         // Comment Input Form
         item {
-            ModernCommentForm(
+            ArticleCommentForm(
+                form = commentForm,
                 status = commentStatus,
                 isPosting = isPostingComment,
+                onFormChange = onCommentFormChange,
                 onSubmit = onPostComment
             )
         }
@@ -1015,161 +1019,6 @@ private fun ModernCommentCard(comment: CommentItem) {
                     lineHeight = 22.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.95f)
                 )
-            }
-        }
-    }
-}
-
-/**
- * Modern Highlighted Comment Submission Form with styled fields and Kalpurush font.
- */
-@Composable
-private fun ModernCommentForm(
-    status: String?,
-    isPosting: Boolean,
-    onSubmit: (String, String, String) -> Unit
-) {
-    val tokens = LocalEditorialTokens.current
-    var name by remember { mutableStateOf(TextFieldValue("")) }
-    var email by remember { mutableStateOf(TextFieldValue("")) }
-    var body by remember { mutableStateOf(TextFieldValue("")) }
-
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-        border = BorderStroke(1.2.dp, tokens.accent.copy(alpha = 0.35f)),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = EditorialSpace.gutter, vertical = EditorialSpace.md)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(30.dp)
-                        .clip(CircleShape)
-                        .background(tokens.accentSoft),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Comment,
-                        contentDescription = null,
-                        tint = tokens.accent,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-                Text(
-                    text = "মন্তব্য প্রকাশ করুন",
-                    fontFamily = Kalpurush,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.5.sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("আপনার নাম *", fontFamily = Kalpurush) },
-                singleLine = true,
-                textStyle = androidx.compose.ui.text.TextStyle(fontFamily = Kalpurush, fontSize = 15.sp),
-                shape = RoundedCornerShape(10.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = tokens.accent,
-                    unfocusedBorderColor = tokens.rule
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(Modifier.height(8.dp))
-
-            OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                label = { Text("ইমেইল (ঐচ্ছিক)", fontFamily = Kalpurush) },
-                singleLine = true,
-                textStyle = androidx.compose.ui.text.TextStyle(fontFamily = Kalpurush, fontSize = 15.sp),
-                shape = RoundedCornerShape(10.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = tokens.accent,
-                    unfocusedBorderColor = tokens.rule
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(Modifier.height(8.dp))
-
-            OutlinedTextField(
-                value = body,
-                onValueChange = { body = it },
-                label = { Text("আপনার মূল্যবান মন্তব্য *", fontFamily = Kalpurush) },
-                minLines = 3,
-                textStyle = androidx.compose.ui.text.TextStyle(fontFamily = Kalpurush, fontSize = 15.sp),
-                shape = RoundedCornerShape(10.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = tokens.accent,
-                    unfocusedBorderColor = tokens.rule
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(Modifier.height(12.dp))
-
-            Button(
-                onClick = {
-                    if (name.text.isNotBlank() && body.text.isNotBlank()) {
-                        onSubmit(name.text, email.text, body.text)
-                        body = TextFieldValue("")
-                    }
-                },
-                enabled = !isPosting && name.text.isNotBlank() && body.text.isNotBlank(),
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = tokens.accent,
-                    contentColor = Color.White
-                ),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                if (isPosting) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
-                        color = Color.White
-                    )
-                    Spacer(Modifier.width(8.dp))
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.Send,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                }
-                Text("মন্তব্য জমা দিন", fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-            }
-
-            if (!status.isNullOrBlank()) {
-                Spacer(Modifier.height(10.dp))
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = tokens.accentSoft,
-                    border = BorderStroke(1.dp, tokens.accent.copy(alpha = 0.3f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = status,
-                        fontFamily = Kalpurush,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 13.sp,
-                        color = tokens.accent,
-                        modifier = Modifier.padding(10.dp)
-                    )
-                }
             }
         }
     }
