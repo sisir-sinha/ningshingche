@@ -226,9 +226,8 @@ fun UserDashboardScreen(
                         }
                         item {
                             AdminMessageComposer(
-                                status = status,
                                 saving = saving,
-                                onSend = { subject, body -> viewModel.sendAdminMessage(subject, body) },
+                                onSend = { body -> viewModel.sendAdminMessage(body) },
                                 onSeeAll = onInboxClick
                             )
                         }
@@ -423,9 +422,6 @@ private fun MessageCard(item: AdminMessageRecord) {
                 fontWeight = FontWeight.Bold,
                 fontSize = 12.sp
             )
-            if (item.subject.isNotBlank()) {
-                Text(item.subject, fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold)
-            }
             Text(item.body, fontFamily = Kalpurush, fontSize = 14.sp)
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -454,28 +450,16 @@ private fun MessageCard(item: AdminMessageRecord) {
 
 @Composable
 private fun AdminMessageComposer(
-    status: String?,
     saving: Boolean,
-    onSend: (String, String) -> Unit,
+    onSend: (String) -> Unit,
     onSeeAll: () -> Unit
 ) {
-    var subject by remember { mutableStateOf("") }
     var body by remember { mutableStateOf("") }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag("dashboard_message_composer")) {
-        if (!status.isNullOrBlank()) {
-            Text(status, fontFamily = Kalpurush, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
-        }
-        OutlinedTextField(
-            value = subject,
-            onValueChange = { subject = it },
-            label = { Text("বিষয় (ঐচ্ছিক)", fontFamily = Kalpurush) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
         OutlinedTextField(
             value = body,
             onValueChange = { body = it },
-            label = { Text("অ্যাডমিনকে বার্তা", fontFamily = Kalpurush) },
+            label = { Text("বার্তা", fontFamily = Kalpurush) },
             minLines = 3,
             modifier = Modifier.fillMaxWidth().testTag("dashboard_admin_message_body")
         )
@@ -489,7 +473,7 @@ private fun AdminMessageComposer(
             }
             Button(
                 onClick = {
-                    onSend(subject, body)
+                    onSend(body)
                     body = ""
                 },
                 enabled = !saving && body.isNotBlank(),

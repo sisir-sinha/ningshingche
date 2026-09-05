@@ -128,7 +128,7 @@ fun UserInboxScreen(
                 AdminMessagePane(
                     messages = messages,
                     saving = saving,
-                    onSend = { subject, body -> viewModel.sendAdminMessage(subject, body) }
+                    onSend = { body -> viewModel.sendAdminMessage(body) }
                 )
             }
         }
@@ -199,9 +199,8 @@ private fun NotificationList(
 private fun AdminMessagePane(
     messages: List<AdminMessageRecord>,
     saving: Boolean,
-    onSend: (String, String) -> Unit
+    onSend: (String) -> Unit
 ) {
-    var subject by remember { mutableStateOf("") }
     var body by remember { mutableStateOf("") }
     val ordered = remember(messages) { messages.sortedBy { it.createdAt } }
     var window by remember { mutableIntStateOf(PAGE) }
@@ -251,13 +250,6 @@ private fun AdminMessagePane(
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            OutlinedTextField(
-                value = subject,
-                onValueChange = { subject = it },
-                label = { Text("বিষয় (ঐচ্ছিক)", fontFamily = Kalpurush) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Bottom,
@@ -275,7 +267,7 @@ private fun AdminMessagePane(
                 )
                 IconButton(
                     onClick = {
-                        onSend(subject, body)
+                        onSend(body)
                         body = ""
                     },
                     enabled = !saving && body.isNotBlank(),
@@ -316,9 +308,6 @@ private fun ChatBubble(item: AdminMessageRecord) {
                     fontWeight = FontWeight.Bold,
                     fontSize = 11.sp
                 )
-                if (item.subject.isNotBlank()) {
-                    Text(item.subject, fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                }
                 Text(item.body, fontFamily = Kalpurush, fontSize = 15.sp)
                 Row(
                     modifier = Modifier.align(Alignment.End),

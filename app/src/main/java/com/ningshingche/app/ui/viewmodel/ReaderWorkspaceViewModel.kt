@@ -184,14 +184,14 @@ class ReaderWorkspaceViewModel(
         }
     }
 
-    fun sendAdminMessage(subject: String, body: String) {
+    fun sendAdminMessage(body: String) {
         if (body.isBlank()) {
             _message.value = "বার্তা লিখুন।"
             return
         }
         viewModelScope.launch {
             _isSaving.value = true
-            supabaseClient.sendAdminMessage(subject, body)
+            supabaseClient.sendAdminMessage(body)
                 .onSuccess { sent ->
                     val merged = (_adminMessages.value + sent).distinctBy { it.id }.sortedBy { it.createdAt }
                     _adminMessages.value = merged

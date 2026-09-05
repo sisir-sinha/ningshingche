@@ -99,7 +99,7 @@ class ContentUpdateNotifier(
             ContentNotice(
                 kind = NotificationKind.MESSAGE,
                 id = item.id,
-                title = item.subject.ifBlank { "অ্যাডমিনের বার্তা" },
+                title = "অ্যাডমিনের বার্তা",
                 body = item.body.take(180),
                 uri = AppNotificationManager.ROUTE_INBOX
             )

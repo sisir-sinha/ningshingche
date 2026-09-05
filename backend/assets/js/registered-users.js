@@ -302,11 +302,11 @@
       .sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')));
   }
 
-  async function sendAdminReply(userId, subject, body) {
+  async function sendAdminReply(userId, body) {
     const record = await NC.api.insert('messages', {
       user_id: userId,
       sender: 'admin',
-      subject: subject || 'Reply',
+      subject: '',
       body,
       is_read: false
     });
@@ -329,16 +329,12 @@
           ${thread.length ? thread.map((item) => `
             <article class="ru-bubble ${item.sender === 'admin' ? 'is-admin' : 'is-user'}">
               <header><strong>${item.sender === 'admin' ? 'Admin' : escapeHTML(name)}</strong><time>${escapeHTML(formatDateTime(item.created_at))}</time></header>
-              ${item.subject ? `<p class="ru-subject">${escapeHTML(item.subject)}</p>` : ''}
               <p>${escapeHTML(item.body || '')}</p>
             </article>`).join('') : '<p class="text-muted-foreground">No messages in this thread yet. Write the first reply below.</p>'}
         </div>
         <form id="ru-reply-form" class="form-stack mt-4" novalidate>
-          <div class="field"><label class="field-label" for="ru-reply-subject">Subject</label>
-            <input class="form-input" id="ru-reply-subject" name="subject" placeholder="Optional">
-          </div>
-          <div class="field"><label class="field-label" for="ru-reply-body">Reply <span aria-hidden="true">*</span></label>
-            <textarea class="form-textarea min-h-28" id="ru-reply-body" name="body" required placeholder="Write a reply to this user…" autofocus></textarea>
+          <div class="field"><label class="field-label" for="ru-reply-body">Message <span aria-hidden="true">*</span></label>
+            <textarea class="form-textarea min-h-28" id="ru-reply-body" name="body" required placeholder="Write a message…" autofocus></textarea>
             <p class="field-error hidden" data-field-error="body"></p>
           </div>
         </form>`,
@@ -353,7 +349,7 @@
           const button = modalRoot.querySelector('[data-send-reply]');
           NC.utils.setButtonLoading(button, true, 'Sending…');
           try {
-            await sendAdminReply(userId, data.subject, data.body);
+            await sendAdminReply(userId, data.body);
             NC.components.toast('Reply sent to the user’s Admin Message tab.', 'success');
             NC.components.closeModal('sent');
             await loadCache();
@@ -370,7 +366,7 @@
   }
 
   function renderMessages(context = {}) {
-    const state = new NC.crud.ListState('messages', { searchFields: ['subject', 'body', 'sender'], sortKey: 'created_at' });
+    const state = new NC.crud.ListState('messages', { searchFields: ['body', 'sender'], sortKey: 'created_at' });
     state.setRecords(cache.messages);
     root.innerHTML = `${pageChrome('Messages', 'Read user messages and reply. Replies appear in the Android Admin Message tab.')}
       ${cache.inboxReady ? '' : `<div class="mb-6">${NC.components.notice('Run 007_user_inbox.sql so admin messages can be stored.', 'warning')}</div>`}
@@ -390,7 +386,7 @@
           return `<tr>
             <td data-label="From">${NC.components.statusBadge(item.sender === 'admin' ? 'Admin' : 'User')}</td>
             <td data-label="User">${escapeHTML(user ? displayName(user) : item.user_id)}</td>
-            <td data-label="Message"><strong>${escapeHTML(item.subject || '—')}</strong><div>${escapeHTML(NC.utils.truncate(item.body, 140))}</div></td>
+            <td data-label="Message">${escapeHTML(NC.utils.truncate(item.body, 180))}</td>
             <td data-label="Sent">${escapeHTML(formatDateTime(item.created_at))}</td>
             <td data-label="Actions" class="text-right">${NC.components.rowActions([
               { action: 'reply', id: item.user_id, label: 'Reply', icon: 'fa-reply' },

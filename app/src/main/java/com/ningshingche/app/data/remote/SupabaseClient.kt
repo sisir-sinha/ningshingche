@@ -634,7 +634,7 @@ class SupabaseClient(private val context: Context) {
         }
     }
 
-    suspend fun sendAdminMessage(subject: String, body: String): Result<AdminMessageRecord> =
+    suspend fun sendAdminMessage(body: String): Result<AdminMessageRecord> =
         withContext(Dispatchers.IO) {
             val token = authToken
             val userId = _currentUser.value?.id.orEmpty()
@@ -648,7 +648,7 @@ class SupabaseClient(private val context: Context) {
                 val record = AdminMessageRecord(
                     userId = userId,
                     sender = "user",
-                    subject = subject.trim(),
+                    subject = "",
                     body = body.trim()
                 )
                 val url = "${SupabaseConfig.restBaseUrl}/admin_messages"
