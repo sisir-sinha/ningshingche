@@ -35,6 +35,7 @@ class UserPreferencesRepository(private val context: Context) {
         val NOTIF_PDFS = booleanPreferencesKey("notif_pdfs")
         val NOTIF_SYSTEM = booleanPreferencesKey("notif_system")
         val NOTIF_OTHER = booleanPreferencesKey("notif_other")
+        val ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")
     }
 
     val readerPreferences: Flow<ReaderPreferences> = context.dataStore.data
@@ -68,6 +69,7 @@ class UserPreferencesRepository(private val context: Context) {
         val notifPdfs = preferences[Keys.NOTIF_PDFS] ?: true
         val notifSystem = preferences[Keys.NOTIF_SYSTEM] ?: true
         val notifOther = preferences[Keys.NOTIF_OTHER] ?: true
+        val onboardingComplete = preferences[Keys.ONBOARDING_COMPLETE] ?: false
 
         ReaderPreferences(
             fontSizeSp = fontSize,
@@ -81,7 +83,8 @@ class UserPreferencesRepository(private val context: Context) {
             notificationVideos = notifVideos,
             notificationPdfs = notifPdfs,
             notificationSystem = notifSystem,
-            notificationOther = notifOther
+            notificationOther = notifOther,
+            onboardingComplete = onboardingComplete
         )
     }
 
@@ -115,6 +118,12 @@ class UserPreferencesRepository(private val context: Context) {
         }
     }
 
+    suspend fun updateNotificationsEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.NOTIF_ENABLED] = enabled
+        }
+    }
+
     suspend fun updateNotificationNew(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[Keys.NOTIF_NEW_ARTICLES] = enabled
@@ -124,6 +133,36 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun updateNotificationFeatured(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[Keys.NOTIF_FEATURED] = enabled
+        }
+    }
+
+    suspend fun updateNotificationVideos(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.NOTIF_VIDEOS] = enabled
+        }
+    }
+
+    suspend fun updateNotificationPdfs(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.NOTIF_PDFS] = enabled
+        }
+    }
+
+    suspend fun updateNotificationSystem(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.NOTIF_SYSTEM] = enabled
+        }
+    }
+
+    suspend fun updateNotificationOther(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.NOTIF_OTHER] = enabled
+        }
+    }
+
+    suspend fun markOnboardingComplete() {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.ONBOARDING_COMPLETE] = true
         }
     }
 }

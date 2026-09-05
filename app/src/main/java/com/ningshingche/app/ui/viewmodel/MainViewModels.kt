@@ -643,6 +643,13 @@ class SettingsViewModel(
         }
     }
 
+    fun completeOnboarding(onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            preferencesRepository.markOnboardingComplete()
+            onDone()
+        }
+    }
+
     fun clearCache() {
         viewModelScope.launch {
             articleRepository.clearAllCache()

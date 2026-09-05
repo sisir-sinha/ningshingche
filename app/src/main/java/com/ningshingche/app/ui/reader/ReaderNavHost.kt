@@ -38,6 +38,8 @@ import com.ningshingche.app.ui.screens.SocialActivitiesScreen
 import com.ningshingche.app.ui.screens.SplashScreen
 import com.ningshingche.app.ui.screens.UserDashboardScreen
 import com.ningshingche.app.ui.screens.UserProfileScreen
+import com.ningshingche.app.ui.screens.WelcomeLoginScreen
+import com.ningshingche.app.ui.screens.WelcomeNotificationsScreen
 import com.ningshingche.app.ui.viewmodel.AiViewModel
 import com.ningshingche.app.ui.viewmodel.BookmarksViewModel
 import com.ningshingche.app.ui.viewmodel.ExploreViewModel
@@ -63,6 +65,8 @@ object ReaderRoute {
     const val AiAssistant = "ai_assistant"
     const val Settings = "settings"
     const val Login = "login"
+    const val WelcomeLogin = "welcome_login"
+    const val WelcomeNotifications = "welcome_notifications"
     const val UserDashboard = "user_dashboard"
     const val UserProfile = "user_profile"
     const val NewArticle = "new_article"
@@ -109,6 +113,9 @@ fun EditorialReaderApp(
     val workspaceViewModel: ReaderWorkspaceViewModel = viewModel(factory = mainFactory)
     val currentUser by app.googleAuthRepository.currentUser.collectAsState()
     val isSignedIn = currentUser != null
+    val readerPreferences by app.preferencesRepository.readerPreferences.collectAsState(
+        initial = com.ningshingche.app.data.model.ReaderPreferences()
+    )
 
     val openExternal: (String) -> Unit = { url ->
         if (url.isNotBlank()) {
@@ -187,7 +194,12 @@ fun EditorialReaderApp(
             composable(ReaderRoute.Splash) {
                 SplashScreen(
                     onSplashComplete = {
-                        navController.navigate(ReaderRoute.Home) {
+                        val dest = when {
+                            readerPreferences.onboardingComplete -> ReaderRoute.Home
+                            isSignedIn -> ReaderRoute.WelcomeNotifications
+                            else -> ReaderRoute.WelcomeLogin
+                        }
+                        navController.navigate(dest) {
                             popUpTo(ReaderRoute.Splash) { inclusive = true }
                         }
                     }

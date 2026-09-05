@@ -113,7 +113,8 @@ data class ReaderPreferences(
     val notificationVideos: Boolean = true,
     val notificationPdfs: Boolean = true,
     val notificationSystem: Boolean = true,
-    val notificationOther: Boolean = true
+    val notificationOther: Boolean = true,
+    val onboardingComplete: Boolean = false
 )
 
 data class ArticleCitation(
