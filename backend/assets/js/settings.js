@@ -4,6 +4,7 @@
   const { escapeHTML, formData, validateFields } = NC.utils;
   let root;
   let current = null;
+  let backupCleanup = null;
 
   const defaults = Object.freeze({
     id: 'site_settings', site_title: 'Ningshing Che', site_description: 'Bishnupriya Manipuri Magazine',
@@ -39,9 +40,9 @@
     const pageSize = Number(NC.utils.readPreference('items-per-page', NC_CONFIG.app.defaultPageSize));
     const density = NC.utils.readPreference('table-density', 'comfortable');
     root.innerHTML = `
-      ${NC.components.pageHeader({ eyebrow: 'System', title: 'Settings', description: 'Control appearance, editorial preferences, and public website configuration.', breadcrumb: [{ label: 'Settings' }], actions: '<button type="submit" form="settings-form" class="btn btn-primary" data-save-settings><i class="fa-regular fa-floppy-disk" aria-hidden="true"></i>Save settings</button>' })}
+      ${NC.components.pageHeader({ eyebrow: 'System', title: 'Settings', description: 'Control appearance, editorial preferences, website configuration, and data backups.', breadcrumb: [{ label: 'Settings' }], actions: '<button type="submit" form="settings-form" class="btn btn-primary" data-save-settings><i class="fa-regular fa-floppy-disk" aria-hidden="true"></i>Save settings</button>' })}
       <form id="settings-form" class="settings-layout" novalidate>
-        <nav class="settings-nav" aria-label="Settings sections"><a href="#settings-appearance"><i class="fa-regular fa-palette" aria-hidden="true"></i>Appearance</a><a href="#settings-dashboard"><i class="fa-regular fa-gauge-high" aria-hidden="true"></i>Dashboard</a><a href="#settings-site"><i class="fa-regular fa-globe" aria-hidden="true"></i>Frontend</a><a href="#settings-features"><i class="fa-regular fa-toggle-on" aria-hidden="true"></i>Features</a><a href="#settings-security"><i class="fa-regular fa-shield-check" aria-hidden="true"></i>Security</a></nav>
+        <nav class="settings-nav" aria-label="Settings sections"><a href="#settings-appearance"><i class="fa-regular fa-palette" aria-hidden="true"></i>Appearance</a><a href="#settings-dashboard"><i class="fa-regular fa-gauge-high" aria-hidden="true"></i>Dashboard</a><a href="#settings-site"><i class="fa-regular fa-globe" aria-hidden="true"></i>Frontend</a><a href="#settings-features"><i class="fa-regular fa-toggle-on" aria-hidden="true"></i>Features</a><a href="#settings-security"><i class="fa-regular fa-shield-check" aria-hidden="true"></i>Security</a><a href="#settings-backup"><i class="fa-regular fa-box-archive" aria-hidden="true"></i>Backup</a></nav>
         <div class="settings-content">
           <section class="surface settings-section" id="settings-appearance"><div class="surface-header"><div><p class="eyebrow">Personal preference</p><h2>Appearance</h2><p>Choose the dashboard color scheme. Your selection is saved in this browser.</p></div></div><div class="theme-options" role="radiogroup" aria-label="Theme"><label class="theme-option ${theme === 'dark' ? 'is-selected' : ''}"><input type="radio" name="theme" value="dark" ${theme === 'dark' ? 'checked' : ''}><span class="theme-preview theme-preview-dark"><i></i><i></i><i></i></span><span><strong>Dark</strong><small>Default editorial workspace</small></span><i class="fa-solid fa-circle-check theme-check" aria-hidden="true"></i></label><label class="theme-option ${theme === 'light' ? 'is-selected' : ''}"><input type="radio" name="theme" value="light" ${theme === 'light' ? 'checked' : ''}><span class="theme-preview theme-preview-light"><i></i><i></i><i></i></span><span><strong>Light</strong><small>Bright, high-clarity workspace</small></span><i class="fa-solid fa-circle-check theme-check" aria-hidden="true"></i></label></div></section>
           <section class="surface settings-section" id="settings-dashboard"><div class="surface-header"><div><p class="eyebrow">Workspace behavior</p><h2>Dashboard preferences</h2></div></div><div class="form-grid-2"><div class="field"><label class="field-label" for="settings-landing">Default landing page</label><select class="form-select" id="settings-landing" name="landing_page">${NC_CONFIG.routes.filter((item) => item.id !== 'settings' && NC.auth.canAccess(item.id)).map((item) => `<option value="${item.id}" ${item.id === landing ? 'selected' : ''}>${escapeHTML(item.label)}</option>`).join('')}</select></div><div class="field"><label class="field-label" for="settings-page-size">Items per page</label><select class="form-select" id="settings-page-size" name="page_size">${[10, 20, 30, 50].map((size) => `<option value="${size}" ${size === pageSize ? 'selected' : ''}>${size} items</option>`).join('')}</select></div></div><fieldset class="field mt-5"><legend class="field-label">Table density</legend><div class="segmented-control"><label><input type="radio" name="density" value="comfortable" ${density !== 'compact' ? 'checked' : ''}><span>Comfortable</span></label><label><input type="radio" name="density" value="compact" ${density === 'compact' ? 'checked' : ''}><span>Compact</span></label></div></fieldset></section>
@@ -54,14 +55,21 @@
             ['allow_user_submissions', 'Public submissions', 'Allow readers to send articles for review.']
           ].map(([name, label, description]) => `<label class="switch-row"><span><strong>${escapeHTML(label)}</strong><small>${escapeHTML(description)}</small></span><span class="switch"><input type="checkbox" name="${name}" ${current?.[name] !== false ? 'checked' : ''}><span></span></span></label>`).join('')}</div></section>
           <section class="surface settings-section" id="settings-security"><div class="surface-header"><div><p class="eyebrow">Security posture</p><h2>Authentication & database</h2></div><button type="button" class="btn btn-secondary btn-sm" data-check-schema><i class="fa-regular fa-stethoscope" aria-hidden="true"></i>Run check</button></div>${securityContent()}<div class="diagnostics mt-5" data-schema-diagnostics><p class="text-sm text-muted-foreground">Run the database check to verify required tables and columns.</p></div></section>
+          ${NC.backup.markup()}
           <div class="settings-save-bar"><p><i class="fa-regular fa-cloud" aria-hidden="true"></i>Site configuration is saved to Supabase; preferences stay in this browser.</p><button type="submit" class="btn btn-primary" data-save-settings><i class="fa-regular fa-floppy-disk" aria-hidden="true"></i>Save settings</button></div>
         </div>
       </form>`;
     bindEvents();
+    backupCleanup = NC.backup.mount(root.querySelector('#settings-backup'));
   }
 
   function bindEvents() {
     const form = root.querySelector('#settings-form');
+    root.querySelectorAll('.settings-nav a').forEach((link) => link.addEventListener('click', (event) => {
+      // Settings anchors must not be mistaken for application hash routes.
+      event.preventDefault();
+      scrollToSection(link.getAttribute('href').replace('#settings-', ''));
+    }));
     form.querySelectorAll('input[name="theme"]').forEach((input) => input.addEventListener('change', () => {
       NC.app?.setTheme?.(input.value);
       form.querySelectorAll('.theme-option').forEach((option) => option.classList.toggle('is-selected', option.contains(input)));
@@ -112,7 +120,21 @@
     finally { root.querySelectorAll('[data-save-settings]').forEach((button) => NC.utils.setButtonLoading(button, false)); }
   }
 
+  function scrollToSection(name) {
+    const section = root.querySelector(`#settings-${CSS.escape(name)}`);
+    if (!section) return;
+    section.setAttribute('tabindex', '-1');
+    section.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
+    section.focus({ preventScroll: true });
+  }
+
+  function destroy() {
+    backupCleanup?.();
+    backupCleanup = null;
+  }
+
   async function render(container, context = {}) {
+    destroy();
     root = container;
     root.innerHTML = `${NC.components.pageHeader({ eyebrow: 'System', title: 'Settings', description: 'Loading configuration…', breadcrumb: [{ label: 'Settings' }] })}${NC.components.skeleton(8, 2)}`;
     try {
@@ -125,7 +147,9 @@
       NC.components.toast(NC.api.userMessage(error, 'Using local defaults because site settings could not be loaded.'), 'warning');
     }
     renderSettings();
+    const section = context.params?.get('section');
+    if (section) scrollToSection(section);
   }
 
-  NC.views.settings = { render };
+  NC.views.settings = { render, destroy };
 })(window.NC);

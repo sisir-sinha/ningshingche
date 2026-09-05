@@ -26,6 +26,7 @@ The dashboard is located entirely inside `backend/`, as requested.
 - First-row CSV/Excel population in every Add workflow for manual review before save
 - Transactional submission-to-blog conversion with author de-duplication
 - Real Chart.js metrics and activity calculated from Supabase records
+- Permission-aware, paginated JSON content backups in Settings, with cancellation, download summaries, and browser-local download history
 - Global `Ctrl + K` search
 - Accessible modals, confirmations, toasts, loading states, empty states, and keyboard navigation
 - Responsive behavior from 320 px through large desktop screens
@@ -58,6 +59,7 @@ backend/
 │       ├── books.js
 │       ├── submissions.js
 │       ├── videos.js
+│       ├── backup.js          # Read-only JSON export and Settings backup controls
 │       ├── settings.js
 │       ├── access-control.js  # Super Admin users, roles, and own credentials
 │       └── app.js             # Authorized shell, routing, theme, search
@@ -481,6 +483,32 @@ Completed checks:
 - No uncaught browser page errors occurred in the fixture-backed navigation pass or spreadsheet-import pass.
 
 The configured project returns HTTP 200 for all nine required tables after `supabase/schema.sql` was installed. On that existing installation, the project owner must still apply migration 003 (if pending) and migration 004 in Supabase SQL Editor; a publishable browser key cannot execute DDL. Destructive live CRUD, live credential creation, and third-party ImgBB uploads were intentionally not run against production. Perform the final add/edit/delete/upload and multi-role checklist in a staging project after installing both migrations.
+
+## Settings → Backup
+
+Open **Settings**, select **Backup** in the section navigation, then:
+
+1. Choose **All accessible data** (recommended), or **Selected sections**. The selection is limited to menus in your role. All nine sections must be selected for an `all-content` export.
+2. Click **Create backup**. Keep the tab open and pause editorial changes until it finishes. Progress shows the current section and record count; **Cancel** stops the active request.
+3. Review the record counts and click **Download JSON**. Save the file somewhere secure. Browser download controls choose the destination.
+
+A direct link is `#/settings?section=backup`. Backups are independent of **Save settings**: save any pending site changes first. No new SQL migration is added by this feature; it uses the existing **migration 004** permission RPC and requires a server-issued dashboard session. Compatibility/demo login is deliberately disabled for exports, because a public-only result must not be mistaken for a complete backup.
+
+### Contents and limitations
+
+- Exports the selected `authors`, `categories`, `blogs`, `comments`, `galleries`, `pdf_books`, `submitted_blogs`, `videos`, and `settings` records. IDs, relationships, Unicode text, drafts, timestamps, URLs, and media metadata are preserved as returned by Supabase.
+- Includes format/version, source project URL, export start/end timestamps, table counts, total records, and omitted tables in a manifest. **It never serializes app configuration, login state, API keys, or browser storage.**
+- Does **not** download image/PDF/video binaries, Supabase Storage objects, database schema/functions/RLS, or dashboard users, roles, passwords, or sessions. This is a content data export, **not** a complete disaster-recovery backup.
+- Uses stable ID ordering, 500-row requested pages, and exact counts. Short server-capped pages do not stop the export. Missing counts, changed counts, duplicate IDs, interrupted requests, and failed server permission checks stop the operation; no partial file is offered.
+- The export is a **paginated live read, not a transactionally consistent snapshot**. Same-count edits or changes between different tables cannot all be detected. Use managed database backups for point-in-time recovery and back up hosted files separately.
+- Maximum JSON size: **50 MB**. For larger datasets, select fewer sections or use a managed database backup.
+- This version is **manual backup/download only**. It does not offer automatic scheduling or restore. The JSON is not a CSV/Excel import file; restoring it requires a reviewed, relationship-aware migration. Never feed it blindly into a production database.
+
+**Privacy:** these JSON files are unencrypted and may include unpublished work, reader contact details, and private media-deletion URLs. Treat them as sensitive. Up to five download *requests* are recorded per project/account in this browser, with filename, date, record count, and size only. No backup contents are retained in browser storage or uploaded elsewhere; an in-memory download is discarded when you leave Settings, switch selection, or sign out. The browser cannot confirm whether a requested download was actually saved.
+
+### Backup tests
+
+The tests use fixtures only and do not contact or modify production Supabase. See [`tests/README.md`](./tests/README.md) for the unit and isolated Chromium test commands. Coverage includes >1,000 records, server-capped pagination, Unicode, permission checks, cancelled/error exports, downloaded JSON, existing Settings saves, and dark/light layouts from 320–1440 px.
 
 ## Troubleshooting
 

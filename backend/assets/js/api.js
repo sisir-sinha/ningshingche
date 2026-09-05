@@ -47,6 +47,10 @@
 
   async function request(url, options = {}) {
     const controller = new AbortController();
+    // Allow long-running, read-only workflows to cancel their active request.
+    const abortFromCaller = () => controller.abort();
+    if (options.signal?.aborted) throw new DOMException('Request cancelled.', 'AbortError');
+    options.signal?.addEventListener('abort', abortFromCaller, { once: true });
     const timeout = window.setTimeout(() => controller.abort(), options.timeout || NC_CONFIG.app.requestTimeoutMs);
     const headers = {
       Accept: 'application/json',
@@ -83,6 +87,7 @@
       return { data: body, response };
     } catch (error) {
       if (error.name === 'AbortError') {
+        if (options.signal?.aborted) throw error;
         throw new ApiError('The request timed out. Please check your connection and try again.', { code: 'TIMEOUT' });
       }
       if (error instanceof ApiError) throw error;
@@ -91,6 +96,7 @@
       });
     } finally {
       window.clearTimeout(timeout);
+      options.signal?.removeEventListener('abort', abortFromCaller);
     }
   }
 
@@ -125,13 +131,15 @@
 
   async function list(keyOrName, options = {}) {
     const { data, response } = await request(buildListUrl(keyOrName, options), {
-      headers: options.count ? { Prefer: 'count=exact' } : undefined
+      headers: options.count ? { Prefer: 'count=exact' } : undefined,
+      signal: options.signal
     });
     const contentRange = response.headers.get('content-range') || '';
     const match = contentRange.match(/\/(\d+|\*)$/);
     return {
       data: Array.isArray(data) ? data : [],
-      count: match && match[1] !== '*' ? Number(match[1]) : (Array.isArray(data) ? data.length : 0)
+      count: match && match[1] !== '*' ? Number(match[1]) : (Array.isArray(data) ? data.length : 0),
+      hasExactCount: Boolean(match && match[1] !== '*')
     };
   }
 
@@ -196,11 +204,12 @@
     return true;
   }
 
-  async function rpc(functionName, payload = {}) {
+  async function rpc(functionName, payload = {}, options = {}) {
     const { data } = await request(`${restBase}/rpc/${functionName}`, {
       method: 'POST',
       headers: { Prefer: 'return=representation' },
-      body: JSON.stringify(cleanPayload(payload))
+      body: JSON.stringify(cleanPayload(payload)),
+      signal: options.signal
     });
     return data;
   }

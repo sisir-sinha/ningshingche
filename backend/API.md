@@ -31,6 +31,8 @@ editorial dashboard in `backend/`. Everything here was read from the shipped sou
 14. [JavaScript client reference](#14-javascript-client-reference)
 15. [Security model and hardening](#15-security-model-and-hardening)
 16. [cURL cheat sheet](#16-curl-cheat-sheet)
+17. [Android client](#17-android-client-kotlin--jetpack-compose)
+18. [Settings backups](#18-settings-backups)
 
 ---
 
@@ -63,6 +65,7 @@ Module map:
 | `media.js` | ImgBB uploader, PDF uploader, video preview |
 | `editor.js` | Quill rich-text abstraction |
 | `importer.js` | CSV/XLSX templates, validation, preview, batch insert |
+| `backup.js` | Permission-aware, paginated JSON content backups in Settings |
 | `dashboard.js` | Metrics, Chart.js data, activity feed |
 | `access-control.js` | Users & Roles UI (Super Admin RPCs) |
 | `app.js` | Shell, hash routing, theme, global search wiring |
@@ -250,7 +253,7 @@ GET /rest/v1/blogs?select=*&order=created_at.desc&limit=20&offset=40
 - `order` accepts any PostgREST expression, e.g. `book_published_date.desc.nullslast,created_at.desc`.
 - Paging is `limit` + `offset` (no `Range` header for list reads).
 - Exact totals come from the `Content-Range` response header (`*/N` or `0-19/N`) when
-  `Prefer: count=exact` is sent. `NC.api.list()` parses this and returns `{ data, count }`.
+  `Prefer: count=exact` is sent. `NC.api.list()` parses this and returns `{ data, count, hasExactCount }`. The new boolean is false when the response omits a numeric total; existing list count fallbacks remain unchanged.
 - `NC.api.count()` uses `select=id&limit=1` + `Range: 0-0` + `Prefer: count=exact` for a
   header-only total.
 
@@ -974,15 +977,15 @@ All helpers live on the `window.NC` namespace. Load order matters — see `index
 
 | Method | Signature | Purpose |
 | --- | --- | --- |
-| `request(url, options)` | `(string, { method, body, headers, timeout, cache })` → `{ data, response }` | Raw authenticated fetch |
-| `list(key, options)` | `({ select, order, limit, offset, filters, or, count })` → `{ data[], count }` | Paged read with total |
+| `request(url, options)` | `(string, { method, body, headers, timeout, cache, signal })` → `{ data, response }` | Raw authenticated fetch |
+| `list(key, options)` | `({ select, order, limit, offset, filters, or, count, signal })` → `{ data[], count, hasExactCount }` | Paged read with total |
 | `getById(key, id, select)` | → object \| `null` | Single record by `id` |
 | `count(key, filters)` | → number | Header-only exact count |
 | `insert(key, payload)` | → created row | `POST` |
 | `update(key, id, payload)` | → updated row | `PATCH` by `id` |
 | `upsert(key, payload, conflict = 'id')` | → row | Merge-duplicates upsert |
 | `remove(key, id)` | → `true` | `DELETE` by `id` |
-| `rpc(name, payload)` | → unwrapped result | `POST /rpc/<name>` |
+| `rpc(name, payload, { signal }?)` | → unwrapped result | `POST /rpc/<name>` |
 | `slugExists(slug, excludeId)` | → boolean | Blog slug uniqueness |
 | `searchAll(query)` | → `[{ table, label, icon, item }]` | Global search |
 | `schemaProbe()` | → `{ ok, results, missing, mismatched, accessControlMissing }` | Health check |
@@ -1186,6 +1189,56 @@ integration guide: [`ANDROID_API.md`](../ANDROID_API.md). Summary:
    `seo_description`, `reviewed_at`, `converted_blog_id`, `favicon_url`.
 
 Fix order and code recipes: [`ANDROID_API.md` §14–§16](../ANDROID_API.md#14-critical-gaps-and-required-changes).
+
+---
+
+## 18. Settings backups
+
+`assets/js/backup.js` adds **Settings → Backup** (`#/settings?section=backup`). No new endpoint, SQL migration, or privileged key is required. Migration 004 must already be installed and the user must have a server-issued dashboard session.
+
+### Read-only requests and authorization
+
+- Requires `settings` and each selected section's menu permission in the browser.
+- Calls existing stable `POST /rest/v1/rpc/dashboard_has_permission` with `{ "p_permission": "settings" }` before and after export, and checks each selected menu after reading its table. The expected response is the JSON boolean `true`; a missing RPC, network failure, or false response aborts. This RPC only reads permissions; unlike `dashboard_session`, it does not update `last_seen_at`.
+- Reads allowlisted content tables with `GET /rest/v1/<table>?select=*&order=id.asc&limit=500&offset=...` and `Prefer: count=exact`. Uses the existing publishable key and `x-dashboard-session` headers; RLS stays in force.
+- Advances offsets by the **actual** number of rows returned, not the requested page size. It continues past short capped pages until the exact count is reached, rejects duplicate/missing IDs and changed/missing counts, and never offers a partial file after an error.
+- Tracks the originating session locally throughout the operation; sign-out, expiry, account/permission changes, cancellation, and Settings view destruction discard unfinished results. No `INSERT`, `UPDATE`, `DELETE`, Storage download, media upload, auth-table read, or backup upload is performed by this feature.
+
+`NC.api.request`, `list`, and `rpc` accept an optional `AbortSignal`. User-initiated cancellation remains an `AbortError`; ordinary timeouts retain the existing `ApiError` with code `TIMEOUT`.
+
+### Client interface
+
+| Member | Behavior |
+| --- | --- |
+| `NC.backup.sections` | Frozen allowlist of nine `{ key, table, label, icon }` entries |
+| `availableSections()` | Sections allowed by the current user's menu permissions |
+| `collect(keys, { signal, onProgress }?)` | Returns a backup object after validating permissions and reading all selected rows; performs no download or storage write |
+| `onProgress(state)` | `{ section, completed, sections, records, expected, totalRecords }`; `expected` is `null` before the first page |
+| `markup()` / `mount(element)` | Settings section HTML and event binding; `mount` returns an abort/revoke/listener cleanup function |
+| `FORMAT`, `VERSION`, `MAX_BYTES` | `ningshing-che-dashboard-backup`, `1`, `52428800` (50 MB) |
+
+### JSON format v1
+
+The file is UTF-8 JSON, named `ningshing-che-backup-<UTC timestamp>.json`. `tables` uses **database table names** (`pdf_books`, `submitted_blogs`), not UI route aliases. Each selected table is an array containing the unmodified records returned by Supabase. Empty selected tables are included as `[]`.
+
+| Field | Meaning |
+| --- | --- |
+| `format`, `version` | Fixed format identifier and integer schema version |
+| `application`, `application_version` | Dashboard name and version only, never the full config object |
+| `started_at`, `created_at` | UTC ISO timestamps delimiting the export |
+| `source` | `{ supabase_url, website_url }`, with no API key or session |
+| `manifest.scope` | `all-content` only when all nine tables are included; otherwise `selected-content` |
+| `manifest.table_counts`, `manifest.total_records` | Per-table and aggregate counts, including zero-row selected tables |
+| `manifest.omitted_tables` | Explicit list of the content tables not selected |
+| `manifest.media` | `references-only` |
+| `manifest.excluded`, `manifest.consistency` | Machine-readable-file notes describing exclusions and live-read consistency limitations |
+| `tables` | Object keyed by selected database table names, each containing an array of records |
+
+The data contains URLs/metadata, **not hosted file bytes**. Schema, functions, RLS, dashboard users/roles/passwords/sessions, API keys, and browser preferences are excluded. The result is a **non-transactional live export**, not a complete database/Storage snapshot: pause editing while it runs and use managed backups for point-in-time recovery. The 50 MB cap is checked during collection and again against the finished JSON Blob. There is no restore or scheduler in this version; the file is not compatible with the CSV/Excel importer.
+
+### Download history and privacy
+
+The UI only offers **Download JSON** after successful completion and keeps its Blob URL in memory until the user changes selection, creates another backup, leaves Settings, or signs out. Per-project/per-account `nc:backup-downloads:<project URL>:<user ID>` preferences retain at most five `{ filename, records, bytes, requested_at }` entries. They do not retain backup contents or credentials and do not claim the browser completed the save. Files are unencrypted and may include private drafts, personal contact details, and media-deletion links; store them securely.
 
 ---
 

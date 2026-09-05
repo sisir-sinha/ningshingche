@@ -1,0 +1,14 @@
+{
+  "name": "ningshing-dashboard-backup-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Fixture-only tests; no production Supabase requests",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "node --test backup.test.cjs",
+    "test:browser": "node backup.browser.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}
