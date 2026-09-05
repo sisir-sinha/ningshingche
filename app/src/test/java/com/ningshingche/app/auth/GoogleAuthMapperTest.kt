@@ -61,6 +61,30 @@ class GoogleAuthMapperTest {
     }
 
     @Test
+    fun splitDisplayNameHandlesSingleAndTwoPartNames() {
+        assertEquals("Sisir" to "", GoogleAuthMapper.splitDisplayName("Sisir"))
+        assertEquals("সুকান্ত" to "সিংহ", GoogleAuthMapper.splitDisplayName("সুকান্ত সিংহ"))
+    }
+
+    @Test
+    fun completeProfileRequiresRequiredFields() {
+        val incomplete = GoogleAuthMapper.profileFromAuthUser(
+            JSONObject("""{"id":"1","email":"a@b.com","user_metadata":{"full_name":"A B"}}""")
+        )
+        assertFalse(incomplete.isProfileComplete)
+        val complete = incomplete.copy(
+            firstName = "A",
+            lastName = "B",
+            avatarUrl = "https://example.com/a.png",
+            about = "লেখক",
+            phone = "01700000000",
+            address = "Sylhet",
+            facebookId = "facebook.com/ab"
+        )
+        assertTrue(complete.isProfileComplete)
+    }
+
+    @Test
     fun jwtDetectionRejectsLocalAdminTokens() {
         assertFalse(GoogleAuthMapper.isSupabaseJwt("admin_auth_token"))
         assertFalse(GoogleAuthMapper.isSupabaseJwt(null))

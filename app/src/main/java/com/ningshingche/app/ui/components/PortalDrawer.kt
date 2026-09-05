@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -33,6 +34,7 @@ import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -179,13 +181,17 @@ fun PortalDrawerContent(
 
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
             CollapsibleSection("অ্যাপ", expanded = appOpen, onToggle = { appOpen = !appOpen }) {
-                DrawerRow(
-                    if (isSignedIn) "অ্যাকাউন্ট" else "সাইন ইন",
-                    Icons.AutoMirrored.Filled.Login,
-                    currentRoute == Screen.Login.route || currentRoute == Screen.Settings.route
-                ) {
-                    onCloseDrawer()
-                    onNavigate(if (isSignedIn) Screen.Settings.route else Screen.Login.route)
+                if (isSignedIn) {
+                    DrawerRow("ড্যাশবোর্ড", Icons.Default.Dashboard, currentRoute == Screen.UserDashboard.route) {
+                        onCloseDrawer(); onNavigate(Screen.UserDashboard.route)
+                    }
+                    DrawerRow("প্রোফাইল", Icons.Default.Person, currentRoute == Screen.UserProfile.route) {
+                        onCloseDrawer(); onNavigate(Screen.UserProfile.route)
+                    }
+                } else {
+                    DrawerRow("সাইন ইন", Icons.AutoMirrored.Filled.Login, currentRoute == Screen.Login.route) {
+                        onCloseDrawer(); onNavigate(Screen.Login.route)
+                    }
                 }
                 DrawerRow("AI সহকারী", Icons.Default.AutoAwesome, currentRoute == Screen.AiAssistant.route) {
                     onCloseDrawer(); onNavigate(Screen.AiAssistant.route)

@@ -30,8 +30,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -69,6 +67,7 @@ import com.ningshingche.app.data.portal.GalleryItem
 import com.ningshingche.app.data.portal.PdfBook
 import com.ningshingche.app.data.portal.VideoItem
 import com.ningshingche.app.ui.editorial.EditorialFooter
+import com.ningshingche.app.ui.components.AccountHeaderButton
 import com.ningshingche.app.ui.components.HomeSkeletonLayout
 import com.ningshingche.app.ui.components.NingshingCheBrandLogo
 import com.ningshingche.app.ui.editorial.AiAssistantHomeBanner
@@ -122,8 +121,12 @@ fun HomeScreen(
     onSeeAllFeatured: () -> Unit = {},
     onMenuClick: () -> Unit = {},
     onAiClick: () -> Unit = {},
-    onAccountClick: () -> Unit = {},
+    onLoginClick: () -> Unit = {},
+    onDashboardClick: () -> Unit = {},
+    onProfileClick: () -> Unit = {},
+    onLogoutClick: () -> Unit = {},
     isSignedIn: Boolean = false,
+    avatarUrl: String = "",
     onNavigate: (String) -> Unit = {},
     onOpenLink: (String) -> Unit = {},
     modifier: Modifier = Modifier

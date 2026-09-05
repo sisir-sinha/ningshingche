@@ -29,36 +29,101 @@ data class UserProfile(
     val avatarUrl: String = "",
     val createdAt: String = "",
     val updatedAt: String = "",
-    val authProvider: String = "local"
+    val authProvider: String = "local",
+    val firstName: String = "",
+    val lastName: String = "",
+    val about: String = "",
+    val phone: String = "",
+    val address: String = "",
+    val facebookId: String = "",
+    val designation: String = "",
+    val location: String = "",
+    val website: String = "",
+    val imgbbDeleteUrl: String = "",
+    val profileCompleted: Boolean = false
 ) {
-    /** CMS dashboard is staff-only. Google reader accounts are AUTHOR. */
+    /** Staff CMS is not available to Google reader accounts. */
     val canAccessDashboard: Boolean
         get() = role == UserRole.ADMINISTRATOR ||
             role == UserRole.EDITOR ||
             role == UserRole.MODERATOR
+
+    val displayFirstName: String
+        get() = firstName.ifBlank { fullName.trim().substringBefore(" ").ifBlank { fullName } }
+
+    val displayLastName: String
+        get() = lastName.ifBlank {
+            val parts = fullName.trim().split(Regex("\\s+"), limit = 2)
+            parts.getOrNull(1).orEmpty()
+        }
+
+    val isProfileComplete: Boolean
+        get() = displayFirstName.isNotBlank() &&
+            displayLastName.isNotBlank() &&
+            avatarUrl.isNotBlank() &&
+            about.isNotBlank() &&
+            email.isNotBlank() &&
+            phone.isNotBlank() &&
+            address.isNotBlank() &&
+            facebookId.isNotBlank()
+
+    fun composedFullName(): String {
+        return listOf(displayFirstName, displayLastName)
+            .filter { it.isNotBlank() }
+            .joinToString(" ")
+            .ifBlank { fullName }
+    }
 
     fun toJson(): JSONObject {
         return JSONObject().apply {
             put("id", id)
             put("email", email)
             put("full_name", fullName)
+            put("name", fullName)
             put("role", role.name)
             put("avatar_url", avatarUrl)
             put("auth_provider", authProvider)
+            put("first_name", firstName)
+            put("last_name", lastName)
+            put("about", about)
+            put("phone", phone)
+            put("address", address)
+            put("facebook_id", facebookId)
+            put("designation", designation)
+            put("location", location)
+            put("website", website)
+            put("imgbb_delete_url", imgbbDeleteUrl)
+            put("profile_completed", profileCompleted || isProfileComplete)
         }
     }
 
     companion object {
         fun fromJson(json: JSONObject): UserProfile {
+            val fullName = json.optString("full_name", json.optString("name", "Administrator"))
+            val parts = fullName.trim().split(Regex("\\s+"), limit = 2)
+            val first = json.optString("first_name").ifBlank { parts.getOrNull(0).orEmpty() }
+            val last = json.optString("last_name").ifBlank { parts.getOrNull(1).orEmpty() }
+            val completed = json.optBoolean("profile_completed", false)
             return UserProfile(
                 id = json.optString("id", UUID.randomUUID().toString()),
                 email = json.optString("email", ""),
-                fullName = json.optString("full_name", json.optString("name", "Administrator")),
+                fullName = fullName,
                 role = UserRole.fromString(json.optString("role", "ADMINISTRATOR")),
                 avatarUrl = json.optString("avatar_url", ""),
                 createdAt = json.optString("created_at", ""),
                 updatedAt = json.optString("updated_at", ""),
-                authProvider = json.optString("auth_provider", "local")
+                authProvider = json.optString("auth_provider", "local"),
+                firstName = first,
+                lastName = last,
+                about = json.optString("about", json.optString("bio", "")),
+                phone = json.optString("phone", ""),
+                address = json.optString("address", ""),
+                facebookId = json.optString("facebook_id", json.optString("facebook", "")),
+                designation = json.optString("designation", ""),
+                location = json.optString("location", ""),
+                website = json.optString("website", ""),
+                imgbbDeleteUrl = json.optString("imgbb_delete_url", ""),
+                profileCompleted = completed
             )
         }
     }
@@ -259,7 +324,8 @@ data class CommentRecord(
     val content: String,
     val status: String = "Publish", // "Publish" or "Unpublish"
     val createdAt: String = "",
-    val updatedAt: String = ""
+    val updatedAt: String = "",
+    val userId: String = ""
 ) {
     val isPublished: Boolean get() = status.equals("Publish", ignoreCase = true)
 
@@ -274,6 +340,7 @@ data class CommentRecord(
             put("email", email)
             put("content", content)
             put("status", status)
+            if (userId.isNotBlank()) put("user_id", userId)
         }
     }
 
@@ -290,7 +357,8 @@ data class CommentRecord(
                 content = json.optString("content", ""),
                 status = json.optString("status", "Publish"),
                 createdAt = json.optString("created_at", ""),
-                updatedAt = json.optString("updated_at", "")
+                updatedAt = json.optString("updated_at", ""),
+                userId = json.optString("user_id", "")
             )
         }
     }
@@ -405,7 +473,8 @@ data class SubmittedBlogRecord(
     val content: String,
     val status: String = "Pending", // "Pending", "Published", "Rejected"
     val createdAt: String = "",
-    val updatedAt: String = ""
+    val updatedAt: String = "",
+    val userId: String = ""
 ) {
     fun toJson(): JSONObject {
         return JSONObject().apply {
@@ -424,6 +493,7 @@ data class SubmittedBlogRecord(
             put("content_title", contentTitle)
             put("content", content)
             put("status", status)
+            if (userId.isNotBlank()) put("user_id", userId)
         }
     }
 
@@ -446,7 +516,8 @@ data class SubmittedBlogRecord(
                 content = json.optString("content", ""),
                 status = json.optString("status", "Pending"),
                 createdAt = json.optString("created_at", ""),
-                updatedAt = json.optString("updated_at", "")
+                updatedAt = json.optString("updated_at", ""),
+                userId = json.optString("user_id", "")
             )
         }
     }

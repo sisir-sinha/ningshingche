@@ -355,6 +355,7 @@ class SupabaseClient(private val context: Context) {
 
     /**
      * Idempotent upsert of the signed-in Google user into `public.profiles`.
+     * Existing completed fields are never overwritten by Google defaults.
      * Missing table or RLS errors do not fail the login.
      */
     suspend fun upsertReaderProfile(profile: UserProfile): Result<UserProfile> = withContext(Dispatchers.IO) {
@@ -364,17 +365,9 @@ class SupabaseClient(private val context: Context) {
         }
         try {
             val existing = fetchReaderProfile(profile.id, token)
-            val payload = JSONObject().apply {
-                put("id", profile.id)
-                put("name", profile.fullName)
-                if (profile.email.isNotBlank()) put("email", profile.email)
-                put("avatar_url", profile.avatarUrl)
-            }
+            val merged = mergeGoogleProfile(profile, existing)
+            val payload = readerProfilePayload(merged, includeEmail = existing == null)
             if (existing != null) {
-                val changed = existing.optString("name") != profile.fullName ||
-                    existing.optString("avatar_url") != profile.avatarUrl ||
-                    (profile.email.isNotBlank() && existing.optString("email") != profile.email)
-                if (!changed) return@withContext Result.success(profile)
                 val url = "${SupabaseConfig.restBaseUrl}/profiles?id=eq.${profile.id}"
                 val request = createUserAuthedRequestBuilder(url, token)
                     .patch(payload.toString().toRequestBody(jsonMediaType))
@@ -388,14 +381,194 @@ class SupabaseClient(private val context: Context) {
                     .build()
                 httpClient.newCall(request).execute().use { it.body?.close() }
             }
-            Result.success(profile)
+            val hydrated = fetchReaderProfile(profile.id, token)?.let { row ->
+                UserProfile.fromJson(row).copy(
+                    role = profile.role,
+                    authProvider = profile.authProvider,
+                    email = profile.email.ifBlank { UserProfile.fromJson(row).email }
+                )
+            } ?: merged
+            saveSession(token, hydrated, refreshToken, expiresAtMillis)
+            Result.success(hydrated)
         } catch (_: Exception) {
             Result.success(profile)
         }
     }
 
+    suspend fun updateReaderProfile(profile: UserProfile): Result<UserProfile> = withContext(Dispatchers.IO) {
+        val token = authToken
+        if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null) {
+            return@withContext Result.failure(Exception("সাইন ইন করা নেই।"))
+        }
+        try {
+            val completed = profile.copy(
+                fullName = profile.composedFullName(),
+                profileCompleted = profile.isProfileComplete
+            )
+            val payload = readerProfilePayload(completed, includeEmail = false)
+            payload.put("profile_completed", completed.isProfileComplete)
+            val url = "${SupabaseConfig.restBaseUrl}/profiles?id=eq.${profile.id}"
+            val request = createUserAuthedRequestBuilder(url, token)
+                .addHeader("Prefer", "return=representation")
+                .patch(payload.toString().toRequestBody(jsonMediaType))
+                .build()
+            val response = httpClient.newCall(request).execute()
+            val body = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                return@withContext Result.failure(
+                    Exception("প্রোফাইল সংরক্ষণ যায়নি (${response.code})। SQL মাইগ্রেশন 006 চালানো হয়েছে কি?")
+                )
+            }
+            val saved = if (body.startsWith("[")) {
+                val array = JSONArray(body)
+                if (array.length() > 0) UserProfile.fromJson(array.getJSONObject(0)) else completed
+            } else completed
+            val hydrated = saved.copy(
+                role = profile.role,
+                authProvider = profile.authProvider,
+                email = profile.email
+            )
+            saveSession(token, hydrated, refreshToken, expiresAtMillis)
+            Result.success(hydrated)
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
+    }
+
+    suspend fun getMySubmittedBlogs(userId: String, email: String): Result<List<SubmittedBlogRecord>> =
+        withContext(Dispatchers.IO) {
+            try {
+                val params = mutableListOf("select=*", "order=created_at.desc")
+                val filter = when {
+                    userId.isNotBlank() -> "user_id=eq.$userId"
+                    email.isNotBlank() -> "writer_email=eq.${java.net.URLEncoder.encode(email, "UTF-8")}"
+                    else -> return@withContext Result.success(emptyList())
+                }
+                params.add(filter)
+                val url = "${SupabaseConfig.restBaseUrl}/submitted_blogs?${params.joinToString("&")}"
+                val request = createBaseRequestBuilder(url).get().build()
+                val response = httpClient.newCall(request).execute()
+                val body = response.body?.string().orEmpty()
+                if (response.isSuccessful && body.isNotBlank()) {
+                    val array = JSONArray(body)
+                    val list = mutableListOf<SubmittedBlogRecord>()
+                    for (i in 0 until array.length()) {
+                        list.add(SubmittedBlogRecord.fromJson(array.getJSONObject(i)))
+                    }
+                    Result.success(list)
+                } else {
+                    Result.failure(Exception("প্রবন্ধ তালিকা লোড হয়নি (${response.code})"))
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    suspend fun getMyComments(userId: String, email: String): Result<List<CommentRecord>> =
+        withContext(Dispatchers.IO) {
+            try {
+                val params = mutableListOf("select=*", "order=created_at.desc")
+                val filter = when {
+                    userId.isNotBlank() -> "or=(user_id.eq.$userId,email.eq.${java.net.URLEncoder.encode(email, "UTF-8")})"
+                    email.isNotBlank() -> "email=eq.${java.net.URLEncoder.encode(email, "UTF-8")}"
+                    else -> return@withContext Result.success(emptyList())
+                }
+                params.add(filter)
+                val url = "${SupabaseConfig.restBaseUrl}/comments?${params.joinToString("&")}"
+                val request = createBaseRequestBuilder(url).get().build()
+                val response = httpClient.newCall(request).execute()
+                val body = response.body?.string().orEmpty()
+                if (response.isSuccessful && body.isNotBlank()) {
+                    val array = JSONArray(body)
+                    val list = mutableListOf<CommentRecord>()
+                    for (i in 0 until array.length()) {
+                        list.add(CommentRecord.fromJson(array.getJSONObject(i)))
+                    }
+                    Result.success(list)
+                } else {
+                    Result.failure(Exception("মন্তব্য তালিকা লোড হয়নি (${response.code})"))
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    suspend fun submitReaderArticle(sub: SubmittedBlogRecord): Result<SubmittedBlogRecord> =
+        withContext(Dispatchers.IO) {
+            try {
+                val url = "${SupabaseConfig.restBaseUrl}/submitted_blogs"
+                val payload = sub.toJson()
+                payload.put("status", "Pending")
+                val request = createBaseRequestBuilder(url)
+                    .addHeader("Prefer", "return=representation")
+                    .post(payload.toString().toRequestBody(jsonMediaType))
+                    .build()
+                val response = httpClient.newCall(request).execute()
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) {
+                    return@withContext Result.failure(
+                        Exception("লেখা জমা যায়নি (${response.code})। প্রোফাইল সম্পূর্ণ করে আবার চেষ্টা করুন।")
+                    )
+                }
+                if (body.startsWith("[")) {
+                    val array = JSONArray(body)
+                    if (array.length() > 0) {
+                        return@withContext Result.success(SubmittedBlogRecord.fromJson(array.getJSONObject(0)))
+                    }
+                }
+                Result.success(sub)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    private fun mergeGoogleProfile(google: UserProfile, existing: JSONObject?): UserProfile {
+        if (existing == null) return google
+        val stored = UserProfile.fromJson(existing)
+        val first = stored.firstName.ifBlank { google.firstName }
+        val last = stored.lastName.ifBlank { google.lastName }
+        val avatar = stored.avatarUrl.ifBlank { google.avatarUrl }
+        val name = listOf(first, last).filter { it.isNotBlank() }.joinToString(" ")
+            .ifBlank { stored.fullName.ifBlank { google.fullName } }
+        return google.copy(
+            fullName = name,
+            firstName = first,
+            lastName = last,
+            avatarUrl = avatar,
+            about = stored.about.ifBlank { google.about },
+            phone = stored.phone.ifBlank { google.phone },
+            address = stored.address.ifBlank { google.address },
+            facebookId = stored.facebookId.ifBlank { google.facebookId },
+            designation = stored.designation.ifBlank { google.designation },
+            location = stored.location.ifBlank { google.location },
+            website = stored.website.ifBlank { google.website },
+            imgbbDeleteUrl = stored.imgbbDeleteUrl.ifBlank { google.imgbbDeleteUrl },
+            profileCompleted = stored.profileCompleted || stored.isProfileComplete,
+            email = google.email.ifBlank { stored.email }
+        )
+    }
+
+    private fun readerProfilePayload(profile: UserProfile, includeEmail: Boolean): JSONObject {
+        return JSONObject().apply {
+            put("id", profile.id)
+            put("name", profile.composedFullName())
+            put("first_name", profile.displayFirstName)
+            put("last_name", profile.displayLastName)
+            put("avatar_url", profile.avatarUrl)
+            put("about", profile.about)
+            put("phone", profile.phone)
+            put("address", profile.address)
+            put("facebook_id", profile.facebookId)
+            put("designation", profile.designation)
+            put("location", profile.location)
+            put("website", profile.website)
+            put("imgbb_delete_url", profile.imgbbDeleteUrl)
+            if (includeEmail && profile.email.isNotBlank()) put("email", profile.email)
+        }
+    }
+
     private fun fetchReaderProfile(userId: String, token: String): JSONObject? {
-        val url = "${SupabaseConfig.restBaseUrl}/profiles?id=eq.$userId&select=id,name,email,avatar_url&limit=1"
+        val url = "${SupabaseConfig.restBaseUrl}/profiles?id=eq.$userId&select=*&limit=1"
         val request = createUserAuthedRequestBuilder(url, token).get().build()
         val response = httpClient.newCall(request).execute()
         val body = response.body?.string().orEmpty()

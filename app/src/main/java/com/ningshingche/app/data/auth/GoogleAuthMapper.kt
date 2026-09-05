@@ -47,6 +47,9 @@ object GoogleAuthMapper {
             metadata.optString("name"),
             email.substringBefore("@")
         ).ifBlank { "পাঠক" }
+        val split = splitDisplayName(fullName)
+        val firstName = firstNonBlank(metadata.optString("given_name"), split.first)
+        val lastName = firstNonBlank(metadata.optString("family_name"), split.second)
         val avatarUrl = firstNonBlank(
             metadata.optString("avatar_url"),
             metadata.optString("picture")
@@ -60,8 +63,17 @@ object GoogleAuthMapper {
             avatarUrl = avatarUrl,
             createdAt = user.optString("created_at", ""),
             updatedAt = user.optString("updated_at", ""),
-            authProvider = GoogleAuthConfig.PROVIDER_GOOGLE
+            authProvider = GoogleAuthConfig.PROVIDER_GOOGLE,
+            firstName = firstName,
+            lastName = lastName
         )
+    }
+
+    fun splitDisplayName(fullName: String): Pair<String, String> {
+        val trimmed = fullName.trim()
+        if (trimmed.isBlank()) return "" to ""
+        val parts = trimmed.split(Regex("\\s+"), limit = 2)
+        return parts[0] to parts.getOrNull(1).orEmpty()
     }
 
     fun firstNonBlank(vararg values: String?): String {

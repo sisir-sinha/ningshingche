@@ -11,6 +11,7 @@ import com.ningshingche.app.data.ai.NinghsingCheAiAssistant
 import com.ningshingche.app.data.auth.GoogleAuthException
 import com.ningshingche.app.data.auth.GoogleAuthMapper
 import com.ningshingche.app.data.auth.GoogleAuthRepository
+import com.ningshingche.app.data.remote.SupabaseClient
 import com.ningshingche.app.data.remote.UserProfile
 import com.ningshingche.app.data.model.AiChatMessage
 import com.ningshingche.app.data.model.AppThemeMode
@@ -732,7 +733,8 @@ class ViewModelFactory(
     private val preferencesRepository: UserPreferencesRepository,
     private val aiAssistant: NinghsingCheAiAssistant,
     private val googleAuthRepository: GoogleAuthRepository,
-    private val context: Context
+    private val context: Context,
+    private val supabaseClient: SupabaseClient
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -747,6 +749,7 @@ class ViewModelFactory(
             modelClass.isAssignableFrom(SettingsViewModel::class.java) -> SettingsViewModel(preferencesRepository, repository, googleAuthRepository) as T
             modelClass.isAssignableFrom(PdfArchiveViewModel::class.java) -> PdfArchiveViewModel(repository) as T
             modelClass.isAssignableFrom(PdfViewerViewModel::class.java) -> PdfViewerViewModel(repository, context) as T
+            modelClass.isAssignableFrom(ReaderWorkspaceViewModel::class.java) -> ReaderWorkspaceViewModel(googleAuthRepository, supabaseClient) as T
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
     }

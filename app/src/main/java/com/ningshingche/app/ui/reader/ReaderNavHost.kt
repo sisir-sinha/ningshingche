@@ -30,17 +30,21 @@ import com.ningshingche.app.ui.screens.ExploreScreen
 import com.ningshingche.app.ui.screens.FeaturedScreen
 import com.ningshingche.app.ui.screens.HistoryScreen
 import com.ningshingche.app.ui.screens.LoginScreen
+import com.ningshingche.app.ui.screens.NewArticleScreen
 import com.ningshingche.app.ui.screens.PdfArchiveScreen
 import com.ningshingche.app.ui.screens.PdfViewerScreen
 import com.ningshingche.app.ui.screens.SettingsScreen
 import com.ningshingche.app.ui.screens.SocialActivitiesScreen
 import com.ningshingche.app.ui.screens.SplashScreen
+import com.ningshingche.app.ui.screens.UserDashboardScreen
+import com.ningshingche.app.ui.screens.UserProfileScreen
 import com.ningshingche.app.ui.viewmodel.AiViewModel
 import com.ningshingche.app.ui.viewmodel.BookmarksViewModel
 import com.ningshingche.app.ui.viewmodel.ExploreViewModel
 import com.ningshingche.app.ui.viewmodel.HistoryViewModel
 import com.ningshingche.app.ui.viewmodel.PdfArchiveViewModel
 import com.ningshingche.app.ui.viewmodel.PdfViewerViewModel
+import com.ningshingche.app.ui.viewmodel.ReaderWorkspaceViewModel
 import com.ningshingche.app.ui.viewmodel.SettingsViewModel
 import com.ningshingche.app.ui.viewmodel.ViewModelFactory
 import kotlinx.coroutines.launch
@@ -59,6 +63,9 @@ object ReaderRoute {
     const val AiAssistant = "ai_assistant"
     const val Settings = "settings"
     const val Login = "login"
+    const val UserDashboard = "user_dashboard"
+    const val UserProfile = "user_profile"
+    const val NewArticle = "new_article"
     const val Bookmarks = "bookmarks"
     const val History = "history"
     const val PdfArchive = "pdf_archive"
@@ -96,8 +103,10 @@ fun EditorialReaderApp(
         preferencesRepository = app.preferencesRepository,
         aiAssistant = app.aiAssistant,
         googleAuthRepository = app.googleAuthRepository,
-        context = context
+        context = context,
+        supabaseClient = app.supabaseClient
     )
+    val workspaceViewModel: ReaderWorkspaceViewModel = viewModel(factory = mainFactory)
     val currentUser by app.googleAuthRepository.currentUser.collectAsState()
     val isSignedIn = currentUser != null
 
@@ -203,12 +212,12 @@ fun EditorialReaderApp(
                     onAiClick = {
                         navController.navigate(ReaderRoute.AiAssistant)
                     },
-                    onAccountClick = {
-                        navController.navigate(
-                            if (isSignedIn) ReaderRoute.Settings else ReaderRoute.Login
-                        )
-                    },
+                    onLoginClick = { navController.navigate(ReaderRoute.Login) },
+                    onDashboardClick = { navController.navigate(ReaderRoute.UserDashboard) },
+                    onProfileClick = { navController.navigate(ReaderRoute.UserProfile) },
+                    onLogoutClick = { workspaceViewModel.signOut() },
                     isSignedIn = isSignedIn,
+                    avatarUrl = currentUser?.avatarUrl.orEmpty(),
                     onNavigate = { route -> navController.navigate(route) },
                     onOpenLink = openExternal
                 )
@@ -321,6 +330,30 @@ fun EditorialReaderApp(
                     viewModel = settingsViewModel,
                     onBackClick = { navController.popBackStack() },
                     onSignedIn = { navController.popBackStack() }
+                )
+            }
+
+            composable(ReaderRoute.UserDashboard) {
+                UserDashboardScreen(
+                    viewModel = workspaceViewModel,
+                    onBackClick = { navController.popBackStack() },
+                    onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) },
+                    onNewArticle = { navController.navigate(ReaderRoute.NewArticle) }
+                )
+            }
+
+            composable(ReaderRoute.UserProfile) {
+                UserProfileScreen(
+                    viewModel = workspaceViewModel,
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+
+            composable(ReaderRoute.NewArticle) {
+                NewArticleScreen(
+                    viewModel = workspaceViewModel,
+                    onBackClick = { navController.popBackStack() },
+                    onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) }
                 )
             }
 
