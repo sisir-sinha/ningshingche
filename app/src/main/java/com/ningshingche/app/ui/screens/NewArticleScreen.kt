@@ -32,6 +32,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -41,9 +42,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ningshingche.app.data.preferences.ArticleDraftStore
 import com.ningshingche.app.ui.components.HtmlContentEditor
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.ReaderWorkspaceViewModel
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,13 +56,20 @@ fun NewArticleScreen(
     onCompleteProfile: () -> Unit
 ) {
     val context = LocalContext.current
+    val draftStore = remember { ArticleDraftStore(context) }
     val user by viewModel.currentUser.collectAsStateWithLifecycle()
     val saving by viewModel.isSaving.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
-    var title by remember { mutableStateOf("") }
-    var content by remember { mutableStateOf("") }
+    var title by remember { mutableStateOf(draftStore.title()) }
+    var content by remember { mutableStateOf(draftStore.content()) }
+    var editorHeight by remember { mutableIntStateOf(draftStore.editorHeight()) }
     var thumbnail by remember { mutableStateOf<Uri?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(title, content, editorHeight) {
+        delay(350)
+        draftStore.save(title, content, editorHeight)
+    }
 
     LaunchedEffect(message) {
         val text = message ?: return@LaunchedEffect
@@ -69,6 +79,8 @@ fun NewArticleScreen(
             title = ""
             content = ""
             thumbnail = null
+            editorHeight = 280
+            draftStore.clear()
         }
         viewModel.clearMessage()
     }
@@ -109,7 +121,7 @@ fun NewArticleScreen(
             }
 
             Text(
-                "লেখা সম্পাদকীয় পর্যালোচনার পর প্রকাশিত হবে। মূল লেখা WYSIWYG বা HTML মোডে লিখুন।",
+                "লেখা সম্পাদকীয় পর্যালোচনার পর প্রকাশিত হবে। শিরোনাম ও মূল লেখা জমা দেওয়া পর্যন্ত সংরক্ষিত থাকবে।",
                 fontFamily = Kalpurush,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -123,6 +135,8 @@ fun NewArticleScreen(
             HtmlContentEditor(
                 value = content,
                 onValueChange = { content = it },
+                editorHeight = editorHeight,
+                onEditorHeightChange = { editorHeight = it },
                 modifier = Modifier.fillMaxWidth()
             )
             OutlinedButton(onClick = { picker.launch("image/*") }, modifier = Modifier.fillMaxWidth()) {

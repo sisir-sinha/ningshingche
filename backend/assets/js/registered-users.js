@@ -295,10 +295,84 @@
     renderList();
   }
 
-  function renderMessages() {
+  function threadFor(userId) {
+    return cache.messages
+      .filter((item) => item.user_id === userId)
+      .slice()
+      .sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')));
+  }
+
+  async function sendAdminReply(userId, subject, body) {
+    const record = await NC.api.insert('messages', {
+      user_id: userId,
+      sender: 'admin',
+      subject: subject || 'Reply',
+      body,
+      is_read: false
+    });
+    const unread = threadFor(userId).filter((item) => item.sender === 'user' && !item.is_read);
+    await Promise.allSettled(unread.map((item) => NC.api.update('messages', item.id, { is_read: true })));
+    return record;
+  }
+
+  function openThread(userId, context) {
+    const user = userById(userId);
+    const thread = threadFor(userId);
+    const name = user ? displayName(user) : userId;
+    NC.components.openModal({
+      title: name,
+      eyebrow: 'Conversation',
+      description: user?.email || 'Reply is delivered to the user’s Admin Message tab.',
+      size: 'xl',
+      content: `
+        <div class="ru-thread" data-ru-thread>
+          ${thread.length ? thread.map((item) => `
+            <article class="ru-bubble ${item.sender === 'admin' ? 'is-admin' : 'is-user'}">
+              <header><strong>${item.sender === 'admin' ? 'Admin' : escapeHTML(name)}</strong><time>${escapeHTML(formatDateTime(item.created_at))}</time></header>
+              ${item.subject ? `<p class="ru-subject">${escapeHTML(item.subject)}</p>` : ''}
+              <p>${escapeHTML(item.body || '')}</p>
+            </article>`).join('') : '<p class="text-muted-foreground">No messages in this thread yet. Write the first reply below.</p>'}
+        </div>
+        <form id="ru-reply-form" class="form-stack mt-4" novalidate>
+          <div class="field"><label class="field-label" for="ru-reply-subject">Subject</label>
+            <input class="form-input" id="ru-reply-subject" name="subject" placeholder="Optional">
+          </div>
+          <div class="field"><label class="field-label" for="ru-reply-body">Reply <span aria-hidden="true">*</span></label>
+            <textarea class="form-textarea min-h-28" id="ru-reply-body" name="body" required placeholder="Write a reply to this user…" autofocus></textarea>
+            <p class="field-error hidden" data-field-error="body"></p>
+          </div>
+        </form>`,
+      footer: '<button type="button" class="btn btn-secondary" data-modal-close>Close</button><button type="button" class="btn btn-primary" data-send-reply><i class="fa-regular fa-paper-plane" aria-hidden="true"></i>Send reply</button>',
+      onOpen: (modalRoot) => {
+        const threadEl = modalRoot.querySelector('[data-ru-thread]');
+        if (threadEl) threadEl.scrollTop = threadEl.scrollHeight;
+        modalRoot.querySelector('[data-send-reply]')?.addEventListener('click', async () => {
+          const form = modalRoot.querySelector('#ru-reply-form');
+          const data = formData(form);
+          if (!NC.utils.validateFields(form, { body: data.body ? '' : 'Write a reply.' })) return;
+          const button = modalRoot.querySelector('[data-send-reply]');
+          NC.utils.setButtonLoading(button, true, 'Sending…');
+          try {
+            await sendAdminReply(userId, data.subject, data.body);
+            NC.components.toast('Reply sent to the user’s Admin Message tab.', 'success');
+            NC.components.closeModal('sent');
+            await loadCache();
+            renderMessages(context || {});
+          } catch (error) {
+            console.error(error);
+            NC.components.toast(NC.api.userMessage(error, 'Unable to send reply. Run migrations 007–010.'), 'error');
+          } finally {
+            NC.utils.setButtonLoading(button, false);
+          }
+        });
+      }
+    });
+  }
+
+  function renderMessages(context = {}) {
     const state = new NC.crud.ListState('messages', { searchFields: ['subject', 'body', 'sender'], sortKey: 'created_at' });
     state.setRecords(cache.messages);
-    root.innerHTML = `${pageChrome('Messages', 'Conversation between registered users and editorial staff.')}
+    root.innerHTML = `${pageChrome('Messages', 'Read user messages and reply. Replies appear in the Android Admin Message tab.')}
       ${cache.inboxReady ? '' : `<div class="mb-6">${NC.components.notice('Run 007_user_inbox.sql so admin messages can be stored.', 'warning')}</div>`}
       <section class="surface"><div class="list-toolbar"><label class="search-field"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><span class="sr-only">Search messages</span><input type="search" placeholder="Search messages…" data-ru-search></label></div><div data-ru-table></div></section>`;
     const renderList = () => {
@@ -309,8 +383,8 @@
         return;
       }
       content.innerHTML = `${NC.components.tableShell({
-        caption: 'Admin messages', minWidth: '960px',
-        head: `<tr><th>From</th><th>User</th><th>Message</th><th><button type="button" data-sort="created_at">Sent ${NC.crud.sortIcon(state, 'created_at')}</button></th></tr>`,
+        caption: 'Admin messages', minWidth: '1080px',
+        head: `<tr><th>From</th><th>User</th><th>Message</th><th><button type="button" data-sort="created_at">Sent ${NC.crud.sortIcon(state, 'created_at')}</button></th><th class="text-right">Actions</th></tr>`,
         body: rows.map((item) => {
           const user = userById(item.user_id);
           return `<tr>
@@ -318,14 +392,23 @@
             <td data-label="User">${escapeHTML(user ? displayName(user) : item.user_id)}</td>
             <td data-label="Message"><strong>${escapeHTML(item.subject || '—')}</strong><div>${escapeHTML(NC.utils.truncate(item.body, 140))}</div></td>
             <td data-label="Sent">${escapeHTML(formatDateTime(item.created_at))}</td>
+            <td data-label="Actions" class="text-right">${NC.components.rowActions([
+              { action: 'reply', id: item.user_id, label: 'Reply', icon: 'fa-reply' },
+              { action: 'thread', id: item.user_id, label: 'Open conversation', icon: 'fa-comments' }
+            ])}</td>
           </tr>`;
         }).join('')
       })}${NC.components.pagination({ page: state.page, pageSize: state.pageSize, total })}`;
+      content.querySelectorAll('[data-action]').forEach((button) => {
+        button.addEventListener('click', () => openThread(button.dataset.id, context));
+      });
       NC.crud.bindPagination(root, state, renderList);
       NC.crud.bindSort(root, state, renderList);
     };
     bindList(state, renderList);
     renderList();
+    const openId = context.params?.get('id');
+    if (openId) openThread(openId, context);
   }
 
   function renderNotifications(context) {

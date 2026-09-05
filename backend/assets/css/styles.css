@@ -1218,6 +1218,40 @@ html[data-density="compact"] .article-cell > img, html[data-density="compact"] .
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
 
+.ru-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 340px;
+  overflow: auto;
+  padding: 8px 4px 12px;
+  background: var(--surface-sunken, rgba(0,0,0,.03));
+  border-radius: 14px;
+}
+.ru-bubble {
+  max-width: 86%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--rule, rgba(0,0,0,.08));
+  background: var(--surface, #fff);
+}
+.ru-bubble.is-user { align-self: flex-start; }
+.ru-bubble.is-admin {
+  align-self: flex-end;
+  background: var(--brand-soft, rgba(139, 92, 246, .12));
+  border-color: transparent;
+}
+.ru-bubble header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: .78rem;
+  margin-bottom: 4px;
+  opacity: .78;
+}
+.ru-bubble p { margin: 0; white-space: pre-wrap; }
+.ru-bubble .ru-subject { font-weight: 650; margin-bottom: 4px; }
+
 @media print {
   .sidebar, .topbar, .page-actions, .editor-action-bar, .schema-banner, .offline-banner { display: none !important; }
   .app-shell { margin: 0; }
