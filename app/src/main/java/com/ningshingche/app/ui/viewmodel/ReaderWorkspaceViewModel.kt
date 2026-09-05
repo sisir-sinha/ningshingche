@@ -5,10 +5,13 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ningshingche.app.data.auth.GoogleAuthRepository
+import com.ningshingche.app.data.remote.AdminMessageRecord
 import com.ningshingche.app.data.remote.CommentRecord
 import com.ningshingche.app.data.remote.ImgBbUploader
+import com.ningshingche.app.data.remote.InboxSync
 import com.ningshingche.app.data.remote.SubmittedBlogRecord
 import com.ningshingche.app.data.remote.SupabaseClient
+import com.ningshingche.app.data.remote.UserNotificationRecord
 import com.ningshingche.app.data.remote.UserProfile
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -194,6 +197,74 @@ class ReaderWorkspaceViewModel(
                 refresh()
             }.onFailure {
                 _message.value = it.message ?: "লেখা জমা যায়নি।"
+            }
+            _isSaving.value = false
+        }
+    }
+
+    fun refreshInbox() {
+        val user = currentUser.value ?: return
+        viewModelScope.launch {
+            val noteResult = supabaseClient.getMyNotifications()
+            val msgResult = supabaseClient.getAdminMessages()
+            val existingNotes = noteResult.getOrDefault(emptyList())
+            val messages = msgResult.getOrDefault(emptyList())
+
+            val articleList = _articles.value.ifEmpty {
+                supabaseClient.getMySubmittedBlogs(user.id, user.email).getOrDefault(emptyList())
+            }
+            val commentList = _comments.value.ifEmpty {
+                supabaseClient.getMyComments(user.id, user.email).getOrDefault(emptyList())
+            }
+            val existingKeys = existingNotes.map { "${it.kind}:${it.relatedId}" }.toSet()
+            val newNotices = InboxSync.noticesFromPublished(user.id, articleList, commentList, existingKeys)
+            for (n in newNotices) {
+                supabaseClient.upsertNotification(n)
+            }
+            val finalNotes = if (newNotices.isNotEmpty()) {
+                supabaseClient.getMyNotifications().getOrDefault(existingNotes + newNotices)
+            } else {
+                existingNotes
+            }
+
+            _notifications.value = finalNotes
+            _adminMessages.value = messages
+            _unreadCount.value = finalNotes.count { !it.isRead } + messages.count { it.isFromAdmin && !it.isRead }
+        }
+    }
+
+    fun markNotificationRead(id: String) {
+        viewModelScope.launch {
+            _notifications.value = _notifications.value.map {
+                if (it.id == id) it.copy(isRead = true) else it
+            }
+            _unreadCount.value = _notifications.value.count { !it.isRead } + _adminMessages.value.count { it.isFromAdmin && !it.isRead }
+            supabaseClient.markNotificationRead(id)
+        }
+    }
+
+    fun markAllNotificationsRead() {
+        viewModelScope.launch {
+            _notifications.value = _notifications.value.map { it.copy(isRead = true) }
+            _unreadCount.value = _adminMessages.value.count { it.isFromAdmin && !it.isRead }
+            supabaseClient.markAllNotificationsRead()
+        }
+    }
+
+    fun sendAdminMessage(subject: String, body: String) {
+        if (body.isBlank()) {
+            _message.value = "বার্তার বিবরণ আবশ্যক।"
+            return
+        }
+        viewModelScope.launch {
+            _isSaving.value = true
+            _message.value = null
+            val result = supabaseClient.sendAdminMessage(subject.trim(), body.trim())
+            result.onSuccess { msg ->
+                _adminMessages.value = listOf(msg) + _adminMessages.value
+                _message.value = "বার্তা পাঠানো হয়েছে।"
+            }.onFailure {
+                _message.value = it.message ?: "বার্তা পাঠানো যায়নি।"
             }
             _isSaving.value = false
         }

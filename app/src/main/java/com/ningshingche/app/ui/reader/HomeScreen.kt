@@ -184,11 +184,8 @@ fun HomeScreen(
                         onLoginClick = onLoginClick,
                         onDashboardClick = onDashboardClick,
                         onProfileClick = onProfileClick,
-<<<<<<< HEAD
-=======
                         onNotificationsClick = onNotificationsClick,
                         unreadCount = unreadCount,
->>>>>>> a43b557 (Add user inbox: published article/comment notices and admin messages.)
                         onLogoutClick = onLogoutClick
                     )
                     IconButton(
