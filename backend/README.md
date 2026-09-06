@@ -9,6 +9,9 @@ The dashboard is located entirely inside `backend/`, as requested.
 
 ## Highlights
 
+- **Filters everywhere** — Blogs filter by author, নিংশিং চে annual issue, and other tags; Comments filter by blog author *and* by commenter; Registered users › Articles and Messages filter by app user. Active filters are shown as removable chips and encoded in the URL.
+- **Registered-user articles use the full editor** — the same Quill workspace, ImgBB thumbnail, preview, and status controls as Blogs, plus *Add article* on behalf of a selected app user and *Approve & convert to Blog*.
+- **Registered-user charts** — growth, article status, profile completion, 14-day message volume, most active users, and notification read state.
 - Dark-first editorial interface with a persistent light theme
 - Database-backed dashboard users with bcrypt password hashes and expiring, revocable, SHA-256-hashed sessions
 - Custom roles with menu-level authorization, direct-route denial, and permission-aware Supabase RLS
@@ -43,6 +46,7 @@ backend/
 │   └── js/
 │       ├── config.js          # Central browser-safe configuration
 │       ├── utils.js           # Formatting, validation, sanitization helpers
+│       ├── tags.js            # Blog tag / annual-issue (নিংশিং চে-YYYY) normalisation
 │       ├── auth.js            # Database-backed login/session/permission client
 │       ├── api.js             # Central Supabase REST/Storage API layer
 │       ├── components.js      # Modal, toast, table, badges, states
@@ -51,6 +55,7 @@ backend/
 │       ├── crud.js            # Shared list and CRUD behavior
 │       ├── importer.js        # CSV/XLS/XLSX templates, validation, preview, import
 │       ├── dashboard.js       # Metrics, charts, activity
+│       ├── registered-users.js # App users, articles editor, comments, messages, notices, charts
 │       ├── authors.js
 │       ├── blogs.js
 │       ├── categories.js
@@ -73,7 +78,9 @@ backend/
     └── migrations/
         ├── 002_production_rls.sql          # Legacy only; never run after 004
         ├── 003_blog_media_uploads.sql
-        └── 004_dashboard_access_control.sql
+        ├── 004_dashboard_access_control.sql
+        ├── 005 … 012                       # Registered-user profiles, inbox, notifications, comment avatars
+        └── 013_blog_tags.sql               # Tag keys, blog_tag_counts view, blogs_by_issue / blogs_by_tag RPCs
 ```
 
 ## Database setup
@@ -131,6 +138,17 @@ For an existing installation, use this order:
 3. Run `004_dashboard_access_control.sql`.
 4. Sign in as `admin` / `admin123` only on a fresh access-control installation and replace that password immediately.
 5. Open **Settings → Authentication & database → Run check**.
+6. Run the registered-user migrations `005`–`012` in order if the app's reader features are in use.
+7. Run `013_blog_tags.sql` (optional but recommended). It installs the **tag endpoints**: normalised tag keys (`blog_tag_key`), a generated `blogs.tag_keys` column with a GIN index, the `blog_tag_counts` view, and the `blogs_by_issue` / `blogs_by_tag` / `blog_issue_years` RPCs. Until it is installed, the Blogs page shows a small hint and runs the issue/tag filters in the browser instead.
+
+### Annual issues and tags (নিংশিং চে বার্ষিক সংখ্যা)
+
+Annual issues are ordinary blog tags of the form **`নিংশিং চে-YYYY`**. The archive contains several spellings of the same issue (`নিংশিং চে - ২০২৩`, `নিংশিং চে-২০২৩`, `নিংশিং চে-2023`); the dashboard treats them as one issue everywhere:
+
+- **Blogs → নিংশিং চে issue** filter lists only the years that actually exist in the data, with counts, newest first. **Other tags** lists the remaining tags. Author, status, and category filters combine with them, active filters appear as removable chips, and tag chips in the table are clickable.
+- Filtered lists are shareable: `#/blogs?issue=2025`, `#/blogs?issue=২০২৫`, `#/blogs?tag=নিংশিং চে-2024`, `#/blogs?author=<author-id>&filter=Publish`.
+- The blog editor has a **নিংশিং চে issue** picker. It writes the issue tag using the spelling already most common in the archive (so new posts match old ones on the website and in the app) and keeps free-text tags separate.
+- The Android app and website can query issues with `tags=ov.{…}` today and with `tag_keys=cs.{"নিংশিংচে-2025"}` or `rpc/blogs_by_issue` after migration 013; see `API.md` §4.3.1.
 
 `002_production_rls.sql` belongs to the older fixed Supabase Auth design. **Do not run migration 002 after migration 004**; the legacy migration now detects migration 004 and aborts before it can replace the dashboard-session helper. The current full `schema.sql` includes downgrade guards and was rerun safely in QA, but numbered migrations remain the preferred upgrade path; never paste an older standalone demo-auth policy snippet over migration 004.
 
@@ -392,6 +410,10 @@ External URLs are validated as `http:` or `https:`. Video previews use provider-
 
 For defense in depth, the public website should sanitize content again on render and deploy a restrictive Content Security Policy.
 
+## Registered users → Articles
+
+`#/ru-articles` lists the articles that app users submitted from the Android app (`submitted_blogs` rows linked to a `profiles` row by `user_id` or e-mail). Editing opens the **same full-page editor as Blogs**: Quill rich text with inline images, ImgBB thumbnail, live preview, word count, and the article status (`Pending`, `Reviewed`, `Approved`, `Rejected`, `Published`; *Published* is what the app shows readers). **Add article** creates a record on behalf of a chosen profile and pre-fills the writer fields from it. **Approve & convert to Blog** runs the transactional `approve_submission` RPC (falling back to client-side inserts on older databases), optionally tags the new blog with a নিংশিং চে issue, and opens it in the Blogs editor. Editing requires the *Submit Blogs* permission; conversion additionally requires *Blogs* and *Authors*, exactly like the Submit Blogs page.
+
 ## Submission moderation
 
 Supported states:
@@ -555,6 +577,14 @@ The `admin` / `admin123` account is inserted only when migration 004 finds no da
 - Use direct public URLs for spreadsheet media fields; do not paste local paths or embed files inside Excel.
 - If `.xlsx` parsing or Excel template generation is unavailable, check whether `cdn.sheetjs.com` is blocked, or use CSV.
 - Run migration 003 before importing Blog/submission media metadata into an older database.
+
+### Issue / tag filters show “run in the browser” hint
+
+Migration `013_blog_tags.sql` is not installed. The filters still work (the dashboard aggregates `blogs.tags` client-side); install the migration to get the `blog_tag_counts` view and `blogs_by_issue` / `blogs_by_tag` RPCs for the app and website. If a tag appears twice in *Other tags*, its spellings differ by more than spacing, dash style, case, or digit script — merge them in the blog editor.
+
+### Select dropdowns have no arrow
+
+Fixed in 1.5.0: `.form-select` now draws its own chevron. If you overrode `assets/css/styles.css`, keep `background-color` (not the `background` shorthand) on `.form-select` so the chevron image is not reset.
 
 ### Charts, editor, or Excel parser do not load
 

@@ -32,3 +32,14 @@ BACKUP_SCREENSHOTS=/your/local/qa-folder npm run test:browser
 ```
 
 All records and sessions in these tests are synthetic. Never replace the fixture session with a production token.
+
+## Filter, tag, and registered-user smoke test
+
+```sh
+cd backend/tests
+npm ci
+npx playwright install --with-deps chromium
+node filters.browser.cjs          # NC_OFFLINE=1 stubs the CDN libraries
+```
+
+Fixture-only (every `*.supabase.co` request is intercepted; PATCH/POST to `submitted_blogs` are recorded in memory). It drives the real pages and asserts: the `.form-select` chevron is rendered; Blogs issue/author/tag filters, chips, deep links (`?issue=২০২৪`, `?tag=…`, `?filter=Draft`), and the editor's issue picker; Comments blog-author and commenter filters; six Chart.js instances on the Registered users dashboard; the Articles user filter, full-page editor save (PATCH payload), *Add article* (POST payload with the chosen profile), and the approval modal; Messages user/unread filters; `NC.api.blogsByIssue/ blogsByTag` over both the migration-013 RPC path and the `tags=ov` fallback; and no horizontal overflow at 375 px. Screenshots are written to `tests/screenshots/` (git-ignored).

@@ -238,11 +238,48 @@ other operators (`api.js → filterExpression`):
 { status: { op: 'neq', value: 'Draft' } }  // → status=neq.Draft
 { id:    { op: 'in',  value: [a, b] } }    // → id=in.(a,b)
 { deleted_at: { op: 'is', value: 'null' }} // → deleted_at=is.null
-{ tags:  { op: 'cs',  value: ['x'] } }     // → tags=cs.{x}
+{ tags:  { op: 'cs',  value: ['x'] } }     // → tags=cs.{"x"}      (array contains all)
+{ tags:  { op: 'ov',  value: ['x','y'] } } // → tags=ov.{"x","y"}  (array overlaps any)
 ```
 
 `undefined`, `null`, and `''` filters are dropped. Any PostgREST operator (`gte`, `lte`, `like`,
-`ilike`, `fts`, …) works by setting `op`.
+`ilike`, `fts`, …) works by setting `op`. Array literals for `cs`, `cd`, and `ov` are emitted through
+`NC.api.arrayLiteral()`, which double-quotes every element so values containing spaces, commas, or
+braces — such as the issue tag `নিংশিং চে - ২০২৩` — match exactly.
+
+#### 4.3.1 Blog tags and annual issues
+
+`blogs.tags` is free text, and the annual-issue tag ("নিংশিং চে বার্ষিক সংখ্যা") exists in several
+spellings in the archive (`নিংশিং চে - ২০২৩`, `নিংশিং চে-২০২৩`, `নিংশিং চে-2023`). The dashboard therefore
+never compares raw strings; `assets/js/tags.js` (`NC.tags`) reduces every tag to a key:
+
+| Helper | Example | Result |
+| --- | --- | --- |
+| `NC.tags.keyOf(tag)` | `'নিংশিং চে - ২০২৩'`, `'নিংশিং চে-2023'` | `'নিংশিংচে-2023'` (same key for every spelling) |
+| `NC.tags.keyOf(tag)` | `'#সাহিত্য '` | `'সাহিত্য'` |
+| `NC.tags.issueYear(tag)` | `'নিংশিং চে-২০২৫'` | `2025` (`null` for ordinary tags) |
+| `NC.tags.issueLabel(year)` | `2025` | `'নিংশিং চে-২০২৫'` (canonical display form) |
+| `NC.tags.index(records)` | blog rows | `{ issues: [{ key, label, year, count, publishedCount, variants }], tags: […] }` |
+| `NC.tags.parseIssueParam(v)` | `'2025'`, `'২০২৫'`, `'নিংশিং চে-২০২৫'` | `2025` |
+
+The same rules exist in PostgreSQL after `supabase/migrations/013_blog_tags.sql` (`blog_tag_key`,
+`blog_tag_issue_year`), which also adds a generated `blogs.tag_keys text[]` column with a GIN index, so
+the server-side filter is a plain REST parameter:
+
+```
+GET /rest/v1/blogs?select=id,title&tag_keys=cs.{"নিংশিংচে-2025"}&status=eq.Publish
+GET /rest/v1/blog_tag_counts?order=issue_year.desc.nullslast,total.desc   # catalogue with counts
+GET /rest/v1/blog_tag_counts?issue_year=not.is.null                        # annual issues only
+POST /rest/v1/rpc/blogs_by_issue   {"p_year": 2025, "p_status": "Publish", "p_limit": 50, "p_offset": 0}
+POST /rest/v1/rpc/blogs_by_tag     {"p_tag": "সাহিত্য", "p_status": "Publish"}
+POST /rest/v1/rpc/blog_issue_years {"p_status": "Publish"}                 # [{ issue_year, label, total }]
+```
+
+All of these are `security invoker`: anonymous callers only see published blogs, dashboard sessions
+with the Blogs menu also see drafts. Without migration 013 the client helpers below fall back to
+`tags=ov.{…}` over the known spellings (`NC.tags.issueVariants(year)`) plus a client-side key check,
+and `tagIndex()` aggregates `select=id,status,tags` in the browser. `NC.api.probeTagEndpoints()`
+re-checks availability (also every five minutes) so installing the migration needs no reload.
 
 ### 4.4 Ordering, paging, counting
 
@@ -440,6 +477,11 @@ Table name mapping lives in `NC_CONFIG.tables`:
 | `submissions` | `submitted_blogs` | `created_at.desc` | 10 |
 | `videos` | `videos` | `created_at.desc` | 10 |
 | `settings` | `settings` | `id=eq.site_settings` | 1 |
+| `profiles` | `profiles` | `created_at.desc` | 10 (Registered users) |
+| `submissions` (app articles) | `submitted_blogs` | `created_at.desc` | 10 (Registered users › Articles) |
+| `messages` | `admin_messages` | `created_at.desc` | grouped per user |
+| `notifications` | `user_notifications` | `created_at.desc` | 10 |
+| — (read-only view) | `blog_tag_counts` | `issue_year.desc.nullslast,total.desc` | filter dropdowns |
 
 Generic operations — substitute `<table>` from the mapping above:
 
@@ -731,7 +773,20 @@ Self-service username / display name / password change. Requires the current pas
 
 ---
 
-### 7.11 Internal helpers (not callable from the browser)
+### 7.11 Tag endpoints (`013_blog_tags.sql`, publishable key allowed)
+
+| RPC / view | Arguments | Returns |
+| --- | --- | --- |
+| `blogs_by_issue` | `p_year integer, p_status text = null, p_limit int = 200, p_offset int = 0` | `setof blogs` for the annual issue, newest first |
+| `blogs_by_tag` | `p_tag text, p_status text = null, p_limit int = 200, p_offset int = 0` | `setof blogs` whose normalised tag key matches |
+| `blog_issue_years` | `p_status text = 'Publish'` | `(issue_year, label, total)` newest first |
+| `blog_tag_counts` (view) | REST filters | `tag_key, tag, issue_year, is_issue, total, published, spellings[]` |
+
+`p_status` accepts `Publish`, `Draft`, `null`, `''`, or `all`. All run as the caller (`security invoker`), so
+`blogs` RLS decides visibility. The migration is idempotent and additive; it also populates the generated
+`blogs.tag_keys` column for existing rows.
+
+### 7.12 Internal helpers (not callable from the browser)
 
 `dashboard_valid_permissions()`, `dashboard_request_session_token()`, `dashboard_current_user_id()`,
 `dashboard_has_permission(text)`, `dashboard_has_any_permission(text[])`, `dashboard_is_super_admin()`,
@@ -999,6 +1054,24 @@ All helpers live on the `window.NC` namespace. Load order matters — see `index
 | `attemptImgBBDelete(deleteUrl)` | → `{ ok, requiresManual?, deleteUrl }` | Best-effort image removal |
 | `userMessage(error, fallback)` | → string | Human-readable error |
 | `tableName(key)` | → string | Logical key → physical table |
+| `arrayLiteral(values)` | → `{"a","b"}` | Quoted PostgREST array literal for `cs`/`cd`/`ov` |
+| `tagIndex({ records?, status?, signal? })` | → `{ issues[], tags[], source }` | Tag catalogue with counts (view or client-side) |
+| `issueYears(options?)` | → `[{ year, key, label, count, publishedCount }]` | Annual issues present in the data, newest first |
+| `blogsByIssue(year, { status, limit, offset, select, signal })` | → `{ data[], count, hasExactCount }` | Blogs of one annual issue (`2025`, `'২০২৫'`, or an issue tag) |
+| `blogsByTag(tag, options)` | → `{ data[], count, hasExactCount }` | Blogs carrying a tag in any spelling |
+| `tagEndpointsAvailable()` / `probeTagEndpoints()` | → `true`/`false`/`null` | Whether migration 013 endpoints exist |
+
+### `NC.tags`
+
+Pure helpers (no requests) — see §4.3.1: `clean`, `normalize`, `keyOf`, `issueYear`, `isIssue`,
+`issueKey`, `issueLabel`, `issueVariants`, `tagsOf`, `matchesKey`, `matchesIssue`, `parseIssueParam`,
+`index`, `indexFromRows`, `houseIssueLabel`, `displayLabel`, `withIssue`, `toAsciiDigits`, `toBengaliDigits`.
+
+### `NC.crud` additions
+
+`filterSelect(options, { attr, label, placeholder, selected, wide })` renders a toolbar `<select>` with
+counts, `renderActiveFilters(host, chips, { onRemove, onClear })` renders removable filter chips, and
+`tagChips(tags, { max, attr })` renders clickable tag chips (issue tags highlighted).
 
 ### `NC.auth`
 
