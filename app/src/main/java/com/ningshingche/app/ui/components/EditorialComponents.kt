@@ -133,7 +133,7 @@ import com.ningshingche.app.ui.theme.Kalpurush
  * Returns a dedicated Google Material Icon for each category.
  */
 fun getCategoryIcon(categorySlug: String): ImageVector {
-    return when (categorySlug.lowercase()) {
+    return when (categorySlug.trim().lowercase().replace(Regex("\\s+"), "-")) {
         "history-heritage", "history", "heritage", "ইতিহাস" -> Icons.Default.AccountBalance
         "literature-poetry", "literature", "poetry", "সাহিত্য", "কবিতা" -> Icons.Default.AutoStories
         "language-grammar", "language", "grammar", "ইমার-ঠারর-এলা" -> Icons.Default.Translate
@@ -147,6 +147,33 @@ fun getCategoryIcon(categorySlug: String): ImageVector {
         "science-technology", "বিজ্ঞান-ও-প্রযুক্তি" -> Icons.Default.Science
         "news", "misc", "পৌ", "রকমারি" -> Icons.AutoMirrored.Filled.MenuBook
         else -> Icons.AutoMirrored.Filled.MenuBook
+    }
+}
+
+/**
+ * Icon for a category row. Prefers the Font Awesome `icon_name` chosen in the
+ * dashboard (e.g. `book-open`, `landmark`), falling back to [getCategoryIcon]
+ * keyed by the category title or slug.
+ */
+fun categoryIconFor(iconName: String?, titleOrSlug: String): ImageVector {
+    return when (iconName?.trim()?.lowercase()?.removePrefix("fa-")) {
+        "landmark", "monument", "building-columns" -> Icons.Default.AccountBalance
+        "language", "globe" -> Icons.Default.Translate
+        "feather", "feather-pointed", "pen-fancy" -> Icons.Default.AutoStories
+        "address-card", "id-card", "user" -> Icons.Default.PersonPin
+        "hands-praying", "place-of-worship", "om" -> Icons.Default.AccountBalance
+        "magnifying-glass", "search" -> Icons.Default.Science
+        "dragon", "wand-magic-sparkles", "hat-wizard" -> Icons.Default.Psychology
+        "microchip", "flask", "atom", "laptop-code" -> Icons.Default.Science
+        "circle-info", "info" -> Icons.Default.EditNote
+        "shapes", "layer-group", "icons" -> Icons.AutoMirrored.Filled.MenuBook
+        "people-group", "users", "people-roof" -> Icons.Default.Psychology
+        "pen-nib", "pen", "pen-to-square" -> Icons.Default.EditNote
+        "masks-theater", "palette", "music" -> Icons.Default.Celebration
+        "book-open", "book", "book-open-reader" -> Icons.Default.AutoStories
+        "clock-rotate-left", "history", "hourglass" -> Icons.Default.PersonPin
+        "newspaper" -> Icons.AutoMirrored.Filled.MenuBook
+        else -> getCategoryIcon(titleOrSlug)
     }
 }
 
@@ -593,12 +620,24 @@ fun FeaturedArticleHeroCard(
     }
 }
 
+/**
+ * Compact article card used by list pages.
+ *
+ * @param isBookmarked when non-null a save/bookmark toggle is shown on the
+ *   right edge; tapping it calls [onBookmarkClick] without opening the article.
+ */
 @Composable
 fun ArticleListItemCard(
     article: Article,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isBookmarked: Boolean? = null,
+    onBookmarkClick: (() -> Unit)? = null
 ) {
+    // Explicit parameters win; otherwise pick up the app-wide controller.
+    val shared = if (isBookmarked == null) rememberBookmarkStateFor(article.id) else null
+    val saved = isBookmarked ?: shared?.first
+    val onToggle = onBookmarkClick ?: shared?.second
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
@@ -702,7 +741,33 @@ fun ArticleListItemCard(
                     )
                 }
             }
+
+            if (saved != null && onToggle != null) {
+                BookmarkToggleButton(
+                    isBookmarked = saved,
+                    onClick = onToggle,
+                    modifier = Modifier.testTag("bookmark_toggle_${article.id}")
+                )
+            }
         }
+    }
+}
+
+/** Save / unsave toggle shown on article cards (filled = saved). */
+@Composable
+fun BookmarkToggleButton(
+    isBookmarked: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    tint: Color = MaterialTheme.colorScheme.primary
+) {
+    IconButton(onClick = onClick, modifier = modifier.size(36.dp)) {
+        Icon(
+            imageVector = if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+            contentDescription = if (isBookmarked) "সংরক্ষণ বাতিল করুন" else "সংরক্ষণ করুন",
+            tint = if (isBookmarked) tint else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(22.dp)
+        )
     }
 }
 
@@ -1307,282 +1372,6 @@ fun PdfCategoryFilterChip(
                         fontSize = 9.sp
                     ),
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun EditorialNavigationDrawerContent(
-    currentRoute: String,
-    onNavigate: (String) -> Unit,
-    onCloseDrawer: () -> Unit,
-    onVisitWebsite: () -> Unit,
-    onShareApp: () -> Unit
-) {
-    ModalDrawerSheet(
-        drawerContainerColor = MaterialTheme.colorScheme.surface,
-        drawerContentColor = MaterialTheme.colorScheme.onSurface,
-        modifier = Modifier.width(310.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-        ) {
-            // 1. Drawer Header with Official Logo & Pure Bengali Text
-            Surface(
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 24.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        NingshingCheBrandLogo(size = 52.dp)
-
-                        Column {
-                            Text(
-                                text = "নিংশিং চে",
-                                style = MaterialTheme.typography.titleLarge.copy(
-                                    fontFamily = Kalpurush,
-                                    fontWeight = FontWeight.Black,
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                    fontSize = 22.sp
-                                )
-                            )
-                            Text(
-                                text = "বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f),
-                                    fontSize = 11.sp
-                                )
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.15f),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = "ডিজিটাল লাইব্রেরি, ইতিহাস, সাহিত্য ও PDF আর্কাইভ",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Medium
-                            ),
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Section 1: Main Pages (100% Bengali titles, NO English in parentheses)
-            Text(
-                text = "প্রধান পাতা ও অন্বেষণ",
-                style = MaterialTheme.typography.labelSmall.copy(
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp
-                ),
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
-            )
-
-            val mainNavItems = listOf(
-                Triple(Screen.Home.route, "হোম", Icons.Default.Home),
-                Triple(Screen.Explore.route, "বিষয় ও বিভাগসমূহ", Icons.Default.Explore),
-                Triple(Screen.PdfArchive.route, "PDF আর্কাইভ ও পত্রিকা", Icons.Default.PictureAsPdf),
-                Triple(Screen.Search.route, "অনুসন্ধান", Icons.Default.Search),
-                Triple(Screen.Bookmarks.route, "সংরক্ষিত প্রবন্ধসমূহ", Icons.Default.Bookmark),
-                Triple(Screen.History.route, "পড়ার ইতিহাস", Icons.Default.History)
-            )
-
-            mainNavItems.forEach { (route, label, icon) ->
-                val isSelected = currentRoute == route
-                NavigationDrawerItem(
-                    icon = {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = label,
-                            tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    },
-                    label = {
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                            )
-                        )
-                    },
-                    selected = isSelected,
-                    onClick = {
-                        onCloseDrawer()
-                        onNavigate(route)
-                    },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = NavigationDrawerItemDefaults.colors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                        unselectedContainerColor = Color.Transparent
-                    ),
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp, vertical = 2.dp)
-                        .testTag("drawer_nav_${route}")
-                )
-            }
-
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
-            )
-
-            // Section 2: Special Tools & Settings (Minified to "সেটিংস" as requested)
-            Text(
-                text = "বিশেষ সহকারী ও সেটিংস",
-                style = MaterialTheme.typography.labelSmall.copy(
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp
-                ),
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
-            )
-
-            NavigationDrawerItem(
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.AutoAwesome,
-                        contentDescription = "AI Assistant",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                },
-                label = {
-                    Text(
-                        text = "AI সহকারী",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = if (currentRoute == Screen.AiAssistant.route) FontWeight.Bold else FontWeight.Normal,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    )
-                },
-                selected = currentRoute == Screen.AiAssistant.route,
-                onClick = {
-                    onCloseDrawer()
-                    onNavigate(Screen.AiAssistant.route)
-                },
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .padding(horizontal = 12.dp, vertical = 2.dp)
-                    .testTag("drawer_nav_ai")
-            )
-
-            // Minified to "সেটিংস" as requested by user
-            NavigationDrawerItem(
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Settings",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                },
-                label = {
-                    Text(
-                        text = "সেটিংস",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = if (currentRoute == Screen.Settings.route) FontWeight.Bold else FontWeight.Normal,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    )
-                },
-                selected = currentRoute == Screen.Settings.route,
-                onClick = {
-                    onCloseDrawer()
-                    onNavigate(Screen.Settings.route)
-                },
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .padding(horizontal = 12.dp, vertical = 2.dp)
-                    .testTag("drawer_nav_settings")
-            )
-
-            // Section 3: Web & Share
-            NavigationDrawerItem(
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.Language,
-                        contentDescription = "Website",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                },
-                label = {
-                    Text(
-                        text = "ningshingche.com ওয়েবসাইট",
-                        style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface)
-                    )
-                },
-                selected = false,
-                onClick = {
-                    onCloseDrawer()
-                    onVisitWebsite()
-                },
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .padding(horizontal = 12.dp, vertical = 2.dp)
-                    .testTag("drawer_nav_web")
-            )
-
-            NavigationDrawerItem(
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.Share,
-                        contentDescription = "Share App",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                },
-                label = {
-                    Text(
-                        text = "অ্যাপ শেয়ার করুন",
-                        style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface)
-                    )
-                },
-                selected = false,
-                onClick = {
-                    onCloseDrawer()
-                    onShareApp()
-                },
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .padding(horizontal = 12.dp, vertical = 2.dp)
-                    .testTag("drawer_nav_share")
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Footer
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "সংস্করণ ১.০ • নিংশিং চে ডিজিটাল আর্কাইভ",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 10.sp
-                    )
                 )
             }
         }

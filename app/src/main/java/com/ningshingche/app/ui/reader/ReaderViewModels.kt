@@ -17,8 +17,14 @@ import com.ningshingche.app.data.portal.Page
 import com.ningshingche.app.data.portal.PortalError
 import com.ningshingche.app.NinghsingCheApp
 import com.ningshingche.app.data.portal.PortalRepository
+import com.ningshingche.app.data.portal.GalleryItem
+import com.ningshingche.app.data.portal.IssueSummary
+import com.ningshingche.app.data.portal.IssueTags
+import com.ningshingche.app.data.portal.PortalConfig
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -491,6 +497,210 @@ class AuthorViewModel(
     fun loadMore() = paginator.loadMore()
 }
 
+/** Articles of one annual issue (`নিংশিং চে - YYYY` tag, any spelling). */
+class IssueViewModel(
+    private val repository: PortalRepository,
+    val year: Int
+) : ViewModel() {
+
+    private val paginator = ArticlePaginator(viewModelScope) { limit, offset ->
+        repository.articlesByIssue(year, limit = limit, offset = offset)
+    }
+    val state: StateFlow<ListUiState> = paginator.state
+
+    init { load() }
+
+    fun load() = paginator.loadFirst()
+
+    fun loadMore() = paginator.loadMore()
+}
+
+// ---------------------------------------------------------------------------
+// Explore
+// ---------------------------------------------------------------------------
+
+data class CategoryFacet(val category: CategoryRef, val articleCount: Int)
+
+data class AuthorFacet(val author: AuthorRef, val articleCount: Int)
+
+/** Everything the four Explore tabs show, loaded from the live API in one batch. */
+data class ExploreData(
+    val categories: List<CategoryFacet>,
+    val authors: List<AuthorFacet>,
+    val issues: List<IssueSummary>,
+    val popular: List<ArticleSummary>
+)
+
+sealed interface ExploreUiState {
+    data object Loading : ExploreUiState
+    data class Ready(val data: ExploreData, val isRefreshing: Boolean = false) : ExploreUiState
+    data class Error(val message: String) : ExploreUiState
+}
+
+/** "সামাজিক কার্যকলাপ": gallery entries + articles of the সমাজ ও সংস্কৃতি category. */
+sealed interface SocialUiState {
+    data object Loading : SocialUiState
+    data class Ready(
+        val galleries: List<GalleryItem>,
+        val articles: List<ArticleSummary>,
+        val isRefreshing: Boolean = false
+    ) : SocialUiState
+    data class Error(val message: String) : SocialUiState
+}
+
+/**
+ * Explore ("অন্বেষণ ও সংগ্রহ").
+ *
+ * - **Categories**: the `categories` table with a real published-article count
+ *   per category, derived from the facet scan (the table has no counter column).
+ * - **Authors**: the `authors` table with a real article count; authors without
+ *   a published article are listed last.
+ * - **Issues**: annual `নিংশিং চে - YYYY` tags that actually have published
+ *   articles (RPC from migration 013 when available, tag scan otherwise).
+ * - **Popular & selected**: `is_special_article`/`is_feature` rows first, then
+ *   the most viewed articles from the feed.
+ */
+class ExploreViewModel(private val repository: PortalRepository) : ViewModel() {
+
+    private val _state = MutableStateFlow<ExploreUiState>(ExploreUiState.Loading)
+    val state: StateFlow<ExploreUiState> = _state.asStateFlow()
+
+    private val _offlineNotice = MutableStateFlow<String?>(null)
+    val offlineNotice: StateFlow<String?> = _offlineNotice.asStateFlow()
+
+    init { load() }
+
+    fun load(force: Boolean = false) {
+        viewModelScope.launch {
+            val previous = (_state.value as? ExploreUiState.Ready)?.data
+            _state.value = if (previous != null) ExploreUiState.Ready(previous, isRefreshing = true) else ExploreUiState.Loading
+
+            val result = runCatching {
+                coroutineScope {
+                    val categories = async { repository.categories(forceRefresh = force) }
+                    val authors = async { repository.authors(limit = 200, forceRefresh = force) }
+                    val facets = async { repository.facets(forceRefresh = force) }
+                    val issues = async { repository.issues(forceRefresh = force) }
+                    val special = async { repository.specialArticles().getOrNull().orEmpty() }
+                    val featured = async { repository.featuredArticles().getOrNull().orEmpty() }
+                    val latest = async { repository.latestArticles(limit = PortalConfig.MAX_PAGE_SIZE).getOrNull()?.items.orEmpty() }
+
+                    val facetRows = facets.await().getOrNull().orEmpty()
+                    val categoryRefs = categories.await().getOrThrow()
+                    val authorRefs = authors.await().getOrThrow()
+
+                    val byCategoryId = facetRows.groupingBy { it.categoryId.orEmpty() }.eachCount()
+                    val byCategorySlug = facetRows.groupingBy { it.categorySlug }.eachCount()
+                    val byAuthor = facetRows.groupingBy { it.authorId.orEmpty() }.eachCount()
+
+                    val categoryFacets = categoryRefs
+                        .map { ref ->
+                            CategoryFacet(
+                                category = ref,
+                                articleCount = byCategoryId[ref.id] ?: byCategorySlug[ref.slug] ?: 0
+                            )
+                        }
+                        .sortedWith(compareByDescending<CategoryFacet> { it.articleCount }.thenBy { it.category.title })
+
+                    val authorFacets = authorRefs
+                        .map { ref -> AuthorFacet(author = ref, articleCount = byAuthor[ref.id] ?: 0) }
+                        .sortedWith(
+                            compareByDescending<AuthorFacet> { it.articleCount > 0 }
+                                .thenByDescending { it.author.isVerified }
+                                .thenByDescending { it.articleCount }
+                                .thenBy { it.author.name }
+                        )
+
+                    val issueList = issues.await().getOrElse { error ->
+                        if (facetRows.isEmpty()) throw error
+                        // Derive from the facet scan so the tab still fills in.
+                        facetRows.flatMap { row -> row.tags.mapNotNull { IssueTags.issueYear(it) }.distinct() }
+                            .groupingBy { it }.eachCount()
+                            .map { (year, count) -> IssueSummary(year, count) }
+                            .sortedByDescending { it.year }
+                    }
+
+                    val curated = (special.await() + featured.await()).distinctBy { it.id }
+                    val mostViewed = latest.await()
+                        .filter { article -> curated.none { it.id == article.id } }
+                        .sortedByDescending { it.viewsCount }
+                    val popular = (curated + mostViewed).take(40)
+
+                    ExploreData(
+                        categories = categoryFacets,
+                        authors = authorFacets,
+                        issues = issueList,
+                        popular = popular
+                    )
+                }
+            }
+
+            result
+                .onSuccess { data ->
+                    _state.value = ExploreUiState.Ready(data)
+                    _offlineNotice.value = null
+                }
+                .onFailure { error ->
+                    if (error is CancellationException) throw error
+                    val message = (error as? PortalError).message()
+                    if (previous != null) {
+                        _state.value = ExploreUiState.Ready(previous)
+                        _offlineNotice.value = message
+                    } else {
+                        _state.value = ExploreUiState.Error(message)
+                    }
+                }
+        }
+    }
+
+    fun clearOfflineNotice() {
+        _offlineNotice.value = null
+    }
+
+    // ----------------------------------------------------- social activities
+
+    private val _socialState = MutableStateFlow<SocialUiState>(SocialUiState.Loading)
+    val socialState: StateFlow<SocialUiState> = _socialState.asStateFlow()
+    private var socialJob: Job? = null
+
+    fun loadSocial(force: Boolean = false) {
+        val current = _socialState.value
+        if (!force && current is SocialUiState.Ready) return
+        if (socialJob?.isActive == true) return
+        socialJob = viewModelScope.launch {
+            val previous = current as? SocialUiState.Ready
+            _socialState.value = previous?.copy(isRefreshing = true) ?: SocialUiState.Loading
+            val result = runCatching {
+                coroutineScope {
+                    val galleries = async {
+                        repository.galleries(category = SOCIAL_CATEGORY_TITLE, limit = 40).getOrNull()?.items.orEmpty()
+                    }
+                    val articles = async {
+                        val categories = repository.categories(forceRefresh = force).getOrNull().orEmpty()
+                        val social = categories.firstOrNull { it.title.trim() == SOCIAL_CATEGORY_TITLE }
+                            ?: categories.firstOrNull { it.title.contains("সমাজ") }
+                        if (social == null) emptyList()
+                        else repository.articlesByCategory(social.id, limit = PortalConfig.MAX_PAGE_SIZE)
+                            .getOrThrow().items
+                    }
+                    SocialUiState.Ready(galleries = galleries.await(), articles = articles.await())
+                }
+            }
+            result
+                .onSuccess { _socialState.value = it }
+                .onFailure { error ->
+                    if (error is CancellationException) throw error
+                    _socialState.value = previous?.copy(isRefreshing = false)
+                        ?: SocialUiState.Error((error as? PortalError).message())
+                }
+        }
+    }
+
+    private companion object {
+        const val SOCIAL_CATEGORY_TITLE = "সমাজ ও সংস্কৃতি"
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Search
 // ---------------------------------------------------------------------------
@@ -569,8 +779,19 @@ class ReaderViewModelFactory(
             ArticleViewModel(repository, commenterDetailsStore, googleAuthRepository.currentUser) as T
         modelClass.isAssignableFrom(SearchViewModel::class.java) ->
             SearchViewModel(repository) as T
+        modelClass.isAssignableFrom(ExploreViewModel::class.java) ->
+            ExploreViewModel(repository) as T
         else -> throw IllegalArgumentException("Unknown ViewModel: ${modelClass.name}")
     }
+}
+
+class IssueViewModelFactory(
+    private val repository: PortalRepository,
+    private val year: Int
+) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T =
+        IssueViewModel(repository, year) as T
 }
 
 /** Keyed factories for the parameterised list screens. */

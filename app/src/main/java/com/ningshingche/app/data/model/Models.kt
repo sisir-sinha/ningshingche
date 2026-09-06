@@ -105,7 +105,7 @@ data class ReaderPreferences(
     val fontSizeSp: Float = 18f,
     val lineSpacingMultiplier: Float = 1.6f,
     val themeMode: ReaderThemeMode = ReaderThemeMode.PAPER,
-    val appThemeMode: AppThemeMode = AppThemeMode.LIGHT,
+    val appThemeMode: AppThemeMode = AppThemeMode.SYSTEM,
     val ttsSpeed: Float = 1.0f,
     val notificationsEnabled: Boolean = true,
     val notificationNewArticles: Boolean = true,

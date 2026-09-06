@@ -52,9 +52,15 @@ class MainActivity : ComponentActivity() {
                     EditorialReaderApp(
                         app = app,
                         isDark = darkTheme,
-                        onToggleTheme = {
+                        themeMode = preferences.appThemeMode,
+                        onCycleTheme = {
+                            // System (default) → Light → Dark → System …
                             coroutineScope.launch {
-                                val nextMode = if (darkTheme) AppThemeMode.LIGHT else AppThemeMode.DARK
+                                val nextMode = when (preferences.appThemeMode) {
+                                    AppThemeMode.SYSTEM -> AppThemeMode.LIGHT
+                                    AppThemeMode.LIGHT -> AppThemeMode.DARK
+                                    AppThemeMode.DARK -> AppThemeMode.SYSTEM
+                                }
                                 app.preferencesRepository.updateAppThemeMode(nextMode)
                             }
                         },

@@ -415,12 +415,20 @@ class ArticleRepository(
 
     fun isBookmarked(articleId: String): Flow<Boolean> = bookmarkDao.isBookmarked(articleId)
 
-    suspend fun toggleBookmark(articleId: String) {
+    /** Flips the saved state of [articleId]; returns `true` when it is now saved. */
+    suspend fun toggleBookmark(articleId: String): Boolean {
         val exists = bookmarkDao.isBookmarkedDirect(articleId)
-        if (exists) {
+        return if (exists) {
             bookmarkDao.deleteBookmark(articleId)
+            false
         } else {
             bookmarkDao.insertBookmark(BookmarkEntity(articleId = articleId))
+            // Make sure the saved article is available offline in the local
+            // catalogue even if it was bookmarked from a live (portal) list
+            // before the background sync stored it.
+            runCatching { getArticleById(articleId) }
+                .onFailure { Log.w(TAG, "Could not cache bookmarked article $articleId", it) }
+            true
         }
     }
 

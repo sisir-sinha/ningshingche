@@ -47,6 +47,16 @@ class PortalRepository(
     private val pdfCache = mutableMapOf<String, CacheEntry<List<PdfBook>>>()
     private val videoCache = mutableMapOf<String, CacheEntry<List<VideoItem>>>()
     private val settingsCache = mutableMapOf<String, CacheEntry<SiteSettings>>()
+    private val facetsCache = mutableMapOf<String, CacheEntry<List<BlogFacet>>>()
+    private val issuesCache = mutableMapOf<String, CacheEntry<List<IssueSummary>>>()
+    private val tagCountsCache = mutableMapOf<String, CacheEntry<List<TagCount>>>()
+
+    /**
+     * Tri-state memo of whether the migration 013 endpoints exist on this
+     * database: `null` = not probed yet, `true` = available, `false` = missing
+     * (fall back to scanning `blogs.tags` client-side).
+     */
+    @Volatile private var tagEndpointsAvailable: Boolean? = null
 
     private companion object {
         val TTL_REFERENCE = TimeUnit.MINUTES.toMillis(10)
@@ -174,6 +184,203 @@ class PortalRepository(
             )
         }.map { page -> page.mapItems { it.toSummary() } }
     }
+
+    // ------------------------------------------------------------ tags / issues
+
+    /**
+     * Per-article facets (category, author, tags) for every published article.
+     * One ~5 KB request that lets Explore show real counts next to categories,
+     * authors and annual issues instead of hard-coded numbers.
+     */
+    suspend fun facets(forceRefresh: Boolean = false): Result<List<BlogFacet>> =
+        withContext(Dispatchers.IO) {
+            cached("all", facetsCache, TTL_REFERENCE, forceRefresh) {
+                callList { api.blogFacets() }.getOrThrow().map { it.toFacet() }
+            }
+        }
+
+    /**
+     * Articles of one annual issue (`নিংশিং চে - YYYY` tag, any spelling).
+     *
+     * Fast path: `tag_keys=cs.{নিংশিংচে-YYYY}` on the generated column from
+     * migration 013. Fallback: `tags=ov.{…every known spelling…}` plus a
+     * client-side [IssueTags.matchesIssue] check, which also catches spellings
+     * the variant list does not enumerate but the normaliser understands.
+     */
+    suspend fun articlesByIssue(
+        year: Int,
+        limit: Int = PortalConfig.PAGE_SIZE,
+        offset: Int = 0
+    ): Result<Page<ArticleSummary>> = withContext(Dispatchers.IO) {
+        if (tagEndpointsAvailable != false) {
+            val viaKeys = callPage {
+                api.blogs(
+                    status = "eq.Publish",
+                    tagKeys = "cs." + encodeArrayLiteral(listOf(IssueTags.issueKey(year))),
+                    order = PortalApi.FEED_ORDER,
+                    limit = limit,
+                    offset = offset
+                )
+            }
+            if (viaKeys.isSuccess) {
+                tagEndpointsAvailable = true
+                return@withContext viaKeys.map { page -> page.mapItems { it.toSummary() } }
+            }
+            if (viaKeys.exceptionOrNull() !is PortalError.SchemaMissing) {
+                return@withContext viaKeys.map { page -> page.mapItems { it.toSummary() } }
+            }
+            tagEndpointsAvailable = false
+        }
+        callPage {
+            api.blogs(
+                status = "eq.Publish",
+                tags = "ov." + encodeArrayLiteral(IssueTags.issueVariants(year)),
+                order = PortalApi.FEED_ORDER,
+                limit = limit,
+                offset = offset
+            )
+        }.map { page ->
+            page.mapItems { it.toSummary() }.let { mapped ->
+                mapped.copy(items = mapped.items.filter { IssueTags.matchesIssue(it.tags, year) })
+            }
+        }
+    }
+
+    /**
+     * Articles carrying [tag] in any spelling. Annual-issue tags are routed to
+     * [articlesByIssue]; topic tags use `tag_keys` when available and otherwise
+     * an exact-spelling `tags=cs.{…}` query softened by a client-side key match.
+     */
+    suspend fun articlesByTag(
+        tag: String,
+        limit: Int = PortalConfig.PAGE_SIZE,
+        offset: Int = 0
+    ): Result<Page<ArticleSummary>> = withContext(Dispatchers.IO) {
+        IssueTags.issueYear(tag)?.let { return@withContext articlesByIssue(it, limit, offset) }
+        val cleaned = IssueTags.clean(tag)
+        if (cleaned.isBlank()) {
+            return@withContext Result.success(Page(emptyList(), total = 0, offset = offset, limit = limit))
+        }
+        val key = IssueTags.keyOf(cleaned)
+        if (tagEndpointsAvailable != false) {
+            val viaKeys = callPage {
+                api.blogs(
+                    status = "eq.Publish",
+                    tagKeys = "cs." + encodeArrayLiteral(listOf(key)),
+                    order = PortalApi.FEED_ORDER,
+                    limit = limit,
+                    offset = offset
+                )
+            }
+            if (viaKeys.isSuccess) {
+                tagEndpointsAvailable = true
+                return@withContext viaKeys.map { page -> page.mapItems { it.toSummary() } }
+            }
+            if (viaKeys.exceptionOrNull() !is PortalError.SchemaMissing) {
+                return@withContext viaKeys.map { page -> page.mapItems { it.toSummary() } }
+            }
+            tagEndpointsAvailable = false
+        }
+        // Without the generated column only exact spellings can be matched
+        // server-side; try the cleaned spelling and a `#`-prefixed variant.
+        callPage {
+            api.blogs(
+                status = "eq.Publish",
+                tags = "ov." + encodeArrayLiteral(listOf(cleaned, "#$cleaned")),
+                order = PortalApi.FEED_ORDER,
+                limit = limit,
+                offset = offset
+            )
+        }.map { page ->
+            page.mapItems { it.toSummary() }.let { mapped ->
+                mapped.copy(items = mapped.items.filter { IssueTags.matches(it.tags, cleaned) })
+            }
+        }
+    }
+
+    /**
+     * One row per annual issue that actually has published articles, newest
+     * first. Uses the `blog_issue_years` RPC when migration 013 is installed
+     * and otherwise derives the same list from a light `id,tags` scan.
+     */
+    suspend fun issues(forceRefresh: Boolean = false): Result<List<IssueSummary>> =
+        withContext(Dispatchers.IO) {
+            cached("all", issuesCache, TTL_REFERENCE, forceRefresh) {
+                if (tagEndpointsAvailable != false) {
+                    val viaRpc = callList { api.issueYears() }
+                    if (viaRpc.isSuccess) {
+                        tagEndpointsAvailable = true
+                        val rows = viaRpc.getOrThrow()
+                            .filter { (it.total ?: 0) > 0 }
+                            .map { IssueSummary(year = it.issueYear, articleCount = it.total ?: 0) }
+                            .sortedByDescending { it.year }
+                        if (rows.isNotEmpty()) return@cached rows
+                    } else if (viaRpc.exceptionOrNull() is PortalError.SchemaMissing) {
+                        tagEndpointsAvailable = false
+                    } else {
+                        throw viaRpc.exceptionOrNull() ?: PortalError.Unknown()
+                    }
+                }
+                val rows = facets(forceRefresh = forceRefresh).getOrThrow()
+                rows.flatMap { row -> row.tags.mapNotNull { IssueTags.issueYear(it) }.distinct() }
+                    .groupingBy { it }
+                    .eachCount()
+                    .map { (year, count) -> IssueSummary(year = year, articleCount = count) }
+                    .sortedByDescending { it.year }
+            }
+        }
+
+    /**
+     * Distinct tags with published-article counts (issue tags first, then by
+     * frequency), merging every spelling of a tag into one row.
+     */
+    suspend fun tagCounts(forceRefresh: Boolean = false): Result<List<TagCount>> =
+        withContext(Dispatchers.IO) {
+            cached("all", tagCountsCache, TTL_REFERENCE, forceRefresh) {
+                if (tagEndpointsAvailable != false) {
+                    val viaView = callList { api.tagCounts() }
+                    if (viaView.isSuccess) {
+                        tagEndpointsAvailable = true
+                        return@cached viaView.getOrThrow()
+                            .filter { (it.published ?: it.total ?: 0) > 0 }
+                            .map { row ->
+                                TagCount(
+                                    key = row.tagKey,
+                                    label = row.issueYear?.let { IssueTags.issueLabel(it) } ?: IssueTags.clean(row.tag),
+                                    issueYear = row.issueYear,
+                                    count = row.published ?: row.total ?: 0
+                                )
+                            }
+                    } else if (viaView.exceptionOrNull() is PortalError.SchemaMissing) {
+                        tagEndpointsAvailable = false
+                    } else {
+                        throw viaView.exceptionOrNull() ?: PortalError.Unknown()
+                    }
+                }
+                val rows = facets(forceRefresh = forceRefresh).getOrThrow()
+                val counts = linkedMapOf<String, TagCount>()
+                rows.forEach { row ->
+                    row.tags
+                        .distinctBy { IssueTags.keyOf(it) }
+                        .forEach { tag ->
+                            val key = IssueTags.keyOf(tag)
+                            val year = IssueTags.issueYear(tag)
+                            val previous = counts[key]
+                            counts[key] = TagCount(
+                                key = key,
+                                label = year?.let { IssueTags.issueLabel(it) } ?: (previous?.label ?: tag),
+                                issueYear = year,
+                                count = (previous?.count ?: 0) + 1
+                            )
+                        }
+                }
+                counts.values.sortedWith(
+                    compareByDescending<TagCount> { it.issueYear ?: Int.MIN_VALUE }
+                        .thenByDescending { it.count }
+                        .thenBy { it.label }
+                )
+            }
+        }
 
     /**
      * Server-side search. PostgREST ORs an `ilike` across title, subtitle and
@@ -408,6 +615,16 @@ class PortalRepository(
      */
     private fun escapeFilterValue(value: String): String =
         URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+
+    /**
+     * PostgREST array literal for `cs.` / `ov.` filters, e.g. `{"a","b c"}`.
+     * Braces, quotes and commas are structural and stay raw; the values are
+     * percent-encoded because the query parameter is sent `encoded = true`.
+     */
+    private fun encodeArrayLiteral(values: Collection<String>): String =
+        values.distinct().joinToString(",", prefix = "{", postfix = "}") { value ->
+            "\"" + escapeFilterValue(value.replace("\\", "\\\\").replace("\"", "\\\"")) + "\""
+        }
 
     private suspend fun <T> cached(
         key: String,

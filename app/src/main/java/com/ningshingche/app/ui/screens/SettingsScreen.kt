@@ -52,7 +52,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -75,13 +79,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.ningshingche.app.data.model.AppThemeMode
 import com.ningshingche.app.ui.components.GoogleSignInButton
-import com.ningshingche.app.ui.components.SettingsSkeletonLayout
 import com.ningshingche.app.ui.viewmodel.SettingsViewModel
 import com.ningshingche.app.util.ApkManager
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.ningshingche.app.ui.theme.Kalpurush
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
@@ -94,67 +97,57 @@ fun SettingsScreen(
     val googleAuthInProgress by viewModel.googleAuthInProgress.collectAsStateWithLifecycle()
     val googleAuthMessage by viewModel.googleAuthMessage.collectAsStateWithLifecycle()
 
-    var isSkeletonLoading by remember { mutableStateOf(true) }
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        delay(1000L) // Minimum 1 second skeleton view
-        isSkeletonLoading = false
-    }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { }
-
-    if (isSkeletonLoading) {
-        SettingsSkeletonLayout()
-        return
-    }
 
     val apkInfo = remember(context) { ApkManager.getInstalledApkInfo(context) }
     var isSavingApk by remember { mutableStateOf(false) }
     var downloadResultMsg by remember { mutableStateOf<String?>(null) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
-        // Header
-        Surface(
-            color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-            shadowElevation = 1.dp
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = onBackClick,
-                    modifier = Modifier.testTag("settings_back_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = MaterialTheme.colorScheme.onSurface
+    // Sticky default header: a Material top app bar that stays pinned while the
+    // list below scrolls and respects the status-bar inset.
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "সেটিংস",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontFamily = Kalpurush,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 18.sp
+                        )
                     )
-                }
-                Text(
-                    text = "সেটিংস ও তথ্যকোষ বিবরণ",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = Kalpurush,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 18.sp
-                    )
-                )
-            }
-        }
-
+                },
+                navigationIcon = {
+                    IconButton(
+                        onClick = onBackClick,
+                        modifier = Modifier.testTag("settings_back_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "পেছনে",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surface
+                ),
+                modifier = Modifier.testTag("settings_top_bar")
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { innerPadding ->
         LazyColumn(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
         ) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {

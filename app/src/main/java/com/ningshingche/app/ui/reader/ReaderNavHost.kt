@@ -6,6 +6,10 @@ import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -21,6 +25,9 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.ningshingche.app.NinghsingCheApp
+import com.ningshingche.app.data.model.AppThemeMode
+import com.ningshingche.app.data.portal.IssueTags
+import com.ningshingche.app.ui.navigation.ExploreTab
 import com.ningshingche.app.ui.components.PortalDrawerContent
 import com.ningshingche.app.ui.screens.AboutScreen
 import com.ningshingche.app.ui.screens.AiAssistantScreen
@@ -28,7 +35,6 @@ import com.ningshingche.app.ui.screens.AuthorsDirectoryScreen
 import com.ningshingche.app.ui.screens.BookmarksScreen
 import com.ningshingche.app.ui.screens.ExploreScreen
 import com.ningshingche.app.ui.screens.FeaturedScreen
-import com.ningshingche.app.ui.screens.HistoryScreen
 import com.ningshingche.app.ui.screens.LoginScreen
 import com.ningshingche.app.ui.screens.NewArticleScreen
 import com.ningshingche.app.ui.screens.PdfArchiveScreen
@@ -43,8 +49,9 @@ import com.ningshingche.app.ui.screens.WelcomeLoginScreen
 import com.ningshingche.app.ui.screens.WelcomeNotificationsScreen
 import com.ningshingche.app.ui.viewmodel.AiViewModel
 import com.ningshingche.app.ui.viewmodel.BookmarksViewModel
-import com.ningshingche.app.ui.viewmodel.ExploreViewModel
-import com.ningshingche.app.ui.viewmodel.HistoryViewModel
+import com.ningshingche.app.ui.viewmodel.SavedArticlesViewModel
+import com.ningshingche.app.ui.components.BookmarkController
+import com.ningshingche.app.ui.components.LocalBookmarkController
 import com.ningshingche.app.ui.viewmodel.PdfArchiveViewModel
 import com.ningshingche.app.ui.viewmodel.PdfViewerViewModel
 import com.ningshingche.app.ui.viewmodel.ReaderWorkspaceViewModel
@@ -73,10 +80,11 @@ object ReaderRoute {
     const val UserInbox = "user_inbox"
     const val NewArticle = "new_article"
     const val Bookmarks = "bookmarks"
-    const val History = "history"
     const val PdfArchive = "pdf_archive"
     const val PdfViewer = "pdf_viewer/{pdfId}"
     const val Explore = "explore"
+    const val ExplorePattern = "explore?tab={tab}"
+    const val Issue = "issue/{year}"
     const val Featured = "featured"
     const val About = "about"
     const val AuthorsDirectory = "authors_directory"
@@ -86,6 +94,18 @@ object ReaderRoute {
     fun category(slug: String) = "category/${encode(slug)}"
     fun author(id: String) = "author/${encode(id)}"
     fun pdfViewer(pdfId: String) = "pdf_viewer/${encode(pdfId)}"
+    fun explore(tab: ExploreTab) = "explore?tab=${tab.key}"
+    fun issue(year: Int) = "issue/$year"
+
+    /**
+     * Where a tapped tag should go: annual-issue tags (`নিংশিং চে - ২০২৩`, any
+     * spelling) open the issue list, a bare year too; anything else is treated
+     * as a category slug/title and opens the category list.
+     */
+    fun forTag(tag: String): String {
+        IssueTags.parseYear(tag)?.let { return issue(it) }
+        return category(tag)
+    }
 
     private fun encode(value: String) =
         URLEncoder.encode(value, "UTF-8").replace("+", "%20")
@@ -95,7 +115,8 @@ object ReaderRoute {
 fun EditorialReaderApp(
     app: NinghsingCheApp,
     isDark: Boolean,
-    onToggleTheme: () -> Unit,
+    themeMode: AppThemeMode,
+    onCycleTheme: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val navController = rememberNavController()
@@ -117,6 +138,11 @@ fun EditorialReaderApp(
         supabaseClient = app.supabaseClient
     )
     val workspaceViewModel: ReaderWorkspaceViewModel = viewModel(factory = mainFactory)
+    val savedArticlesViewModel: SavedArticlesViewModel = viewModel(factory = mainFactory)
+    val savedIds by savedArticlesViewModel.savedIds.collectAsState()
+    val bookmarkController = remember(savedIds) {
+        BookmarkController(savedIds = savedIds, onToggle = savedArticlesViewModel::toggle)
+    }
     val currentUser by app.googleAuthRepository.currentUser.collectAsState()
     val isSignedIn = currentUser != null
     val unreadCount by workspaceViewModel.unreadCount.collectAsState()
@@ -138,44 +164,56 @@ fun EditorialReaderApp(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: ReaderRoute.Home
 
+    // Top-level destinations reached from the drawer: single instance each,
+    // state saved/restored so switching back keeps scroll positions.
+    fun navigateTopLevel(route: String) {
+        navController.navigate(route) {
+            popUpTo(ReaderRoute.Home) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
+    // Tab requested from the drawer ("বার্ষিক সংখ্যা" / "বিভাগসমূহ"). Carried as
+    // explicit state (with a nonce) in addition to the route argument so the
+    // Explore screen switches tabs even when it is already on top of the stack.
+    var exploreTabRequest by remember { mutableStateOf<Pair<Int, ExploreTab>?>(null) }
+
+    // Swipe-to-open is enabled on every screen that shows the hamburger.
+    val drawerGesturesEnabled = currentRoute == ReaderRoute.Home ||
+        currentRoute == ReaderRoute.ExplorePattern ||
+        currentRoute == ReaderRoute.Explore
+
+    CompositionLocalProvider(LocalBookmarkController provides bookmarkController) {
     ModalNavigationDrawer(
         modifier = modifier,
         drawerState = drawerState,
-        gesturesEnabled = currentRoute == ReaderRoute.Home,
+        gesturesEnabled = drawerGesturesEnabled,
         drawerContent = {
             PortalDrawerContent(
                 currentRoute = currentRoute,
                 isDark = isDark,
-                isSignedIn = isSignedIn,
+                themeMode = themeMode,
                 onNavigate = { route ->
                     coroutineScope.launch {
                         drawerState.close()
-                        navController.navigate(route) {
+                        navigateTopLevel(route)
+                    }
+                },
+                onExploreTab = { tab ->
+                    exploreTabRequest = ((exploreTabRequest?.first ?: 0) + 1) to tab
+                    coroutineScope.launch {
+                        drawerState.close()
+                        // Explore is one destination; the `tab` argument selects
+                        // the page. launchSingleTop + a changed argument delivers
+                        // the new tab to the existing screen.
+                        navController.navigate(ReaderRoute.explore(tab)) {
                             popUpTo(ReaderRoute.Home) { saveState = true }
                             launchSingleTop = true
-                            restoreState = true
                         }
                     }
                 },
-                onCategory = { slug ->
-                    coroutineScope.launch {
-                        drawerState.close()
-                        navController.navigate(ReaderRoute.category(slug))
-                    }
-                },
-                onYear = { year ->
-                    coroutineScope.launch {
-                        drawerState.close()
-                        navController.navigate(ReaderRoute.category(year.toString()))
-                    }
-                },
-                onExternal = { url ->
-                    coroutineScope.launch {
-                        drawerState.close()
-                        openExternal(url)
-                    }
-                },
-                onToggleTheme = onToggleTheme,
+                onCycleTheme = onCycleTheme,
                 onShareApp = {
                     coroutineScope.launch {
                         drawerState.close()
@@ -289,7 +327,7 @@ fun EditorialReaderApp(
                     },
                     onTagClick = { tag ->
                         if (tag.isNotBlank()) {
-                            navController.navigate(ReaderRoute.category(tag))
+                            navController.navigate(ReaderRoute.forTag(tag))
                         }
                     }
                 )
@@ -306,6 +344,23 @@ fun EditorialReaderApp(
                 )
                 CategoryScreen(
                     viewModel = categoryViewModel,
+                    onBackClick = { navController.popBackStack() },
+                    onArticleClick = { navController.navigate(ReaderRoute.article(it)) }
+                )
+            }
+
+            // Annual issue (নিংশিং চে - YYYY) articles
+            composable(
+                route = ReaderRoute.Issue,
+                arguments = listOf(navArgument("year") { type = NavType.IntType })
+            ) { entry ->
+                val year = entry.arguments?.getInt("year") ?: 0
+                val issueViewModel: IssueViewModel = viewModel(
+                    factory = IssueViewModelFactory(app.portalRepository, year),
+                    key = "issue-$year"
+                )
+                IssueScreen(
+                    viewModel = issueViewModel,
                     onBackClick = { navController.popBackStack() },
                     onArticleClick = { navController.navigate(ReaderRoute.article(it)) }
                 )
@@ -425,15 +480,6 @@ fun EditorialReaderApp(
                 val bookmarksViewModel: BookmarksViewModel = viewModel(factory = mainFactory)
                 BookmarksScreen(
                     viewModel = bookmarksViewModel,
-                    onArticleClick = { navController.navigate(ReaderRoute.article(it)) }
-                )
-            }
-
-            // Reading History Screen
-            composable(ReaderRoute.History) {
-                val historyViewModel: HistoryViewModel = viewModel(factory = mainFactory)
-                HistoryScreen(
-                    viewModel = historyViewModel,
                     onBackClick = { navController.popBackStack() },
                     onArticleClick = { navController.navigate(ReaderRoute.article(it)) }
                 )
@@ -465,15 +511,28 @@ fun EditorialReaderApp(
                 )
             }
 
-            // Explore Categories & Authors Screen
-            composable(ReaderRoute.Explore) {
-                val exploreViewModel: ExploreViewModel = viewModel(factory = mainFactory)
+            // Explore: categories, authors, annual issues, popular
+            composable(
+                route = ReaderRoute.ExplorePattern,
+                arguments = listOf(
+                    navArgument("tab") {
+                        type = NavType.StringType
+                        defaultValue = ExploreTab.Categories.key
+                    }
+                )
+            ) { entry ->
+                val tab = ExploreTab.fromKey(entry.arguments?.getString("tab"))
+                val exploreViewModel: ExploreViewModel = viewModel(factory = portalFactory)
                 ExploreScreen(
                     viewModel = exploreViewModel,
+                    initialTab = tab,
+                    tabRequest = exploreTabRequest,
+                    onMenuClick = { coroutineScope.launch { drawerState.open() } },
+                    onSearchClick = { navController.navigate(ReaderRoute.Search) },
                     onArticleClick = { navController.navigate(ReaderRoute.article(it)) },
                     onCategoryClick = { navController.navigate(ReaderRoute.category(it)) },
                     onAuthorClick = { navController.navigate(ReaderRoute.author(it)) },
-                    onArchiveClick = { navController.navigate(ReaderRoute.category(it.toString())) }
+                    onIssueClick = { navController.navigate(ReaderRoute.issue(it)) }
                 )
             }
 
@@ -489,27 +548,30 @@ fun EditorialReaderApp(
 
             // About Screen
             composable(ReaderRoute.About) {
-                AboutScreen()
+                AboutScreen(onBackClick = { navController.popBackStack() })
             }
 
             // Authors Directory Screen
             composable(ReaderRoute.AuthorsDirectory) {
-                val exploreViewModel: ExploreViewModel = viewModel(factory = mainFactory)
+                val exploreViewModel: ExploreViewModel = viewModel(factory = portalFactory)
                 AuthorsDirectoryScreen(
                     viewModel = exploreViewModel,
+                    onBackClick = { navController.popBackStack() },
                     onAuthorClick = { navController.navigate(ReaderRoute.author(it)) }
                 )
             }
 
             // Social Activities Screen
             composable(ReaderRoute.SocialActivities) {
-                val exploreViewModel: ExploreViewModel = viewModel(factory = mainFactory)
+                val exploreViewModel: ExploreViewModel = viewModel(factory = portalFactory)
                 SocialActivitiesScreen(
                     viewModel = exploreViewModel,
+                    onBackClick = { navController.popBackStack() },
                     onArticleClick = { navController.navigate(ReaderRoute.article(it)) }
                 )
             }
 
         }
+    }
     }
 }

@@ -38,6 +38,8 @@ interface PortalApi {
             "$BLOG_LIST_COLUMNS,content,seo_title,seo_description,video_link,pdf_book_link"
 
         const val CATEGORY_COLUMNS = "id,title,sub_title,slug,icon_name"
+        const val TAG_COUNT_COLUMNS = "tag_key,tag,issue_year,is_issue,total,published,spellings"
+        const val FACET_COLUMNS = "id,category_id,category_slug,author_id,tags,published_date,created_at,views_count"
         const val AUTHOR_COLUMNS = "id,title,image,designation,description,is_verified,location"
         const val GALLERY_COLUMNS = "id,title,description,image,category,created_at"
         const val PDF_COLUMNS =
@@ -70,6 +72,10 @@ interface PortalApi {
         @Query("is_special_article") isSpecialArticle: String? = null,
         @Query("title", encoded = true) title: String? = null,
         @Query("or", encoded = true) or: String? = null,
+        /** `ov.{…}` / `cs.{…}` against the raw `tags` column (exact spellings). */
+        @Query("tags", encoded = true) tags: String? = null,
+        /** `cs.{…}` against the generated `tag_keys` column (migration 013). */
+        @Query("tag_keys", encoded = true) tagKeys: String? = null,
         @Query("order") order: String? = FEED_ORDER,
         @Query("limit") limit: Int? = null,
         @Query("offset") offset: Int? = null
@@ -82,6 +88,39 @@ interface PortalApi {
         @Query("or", encoded = true) or: String,
         @Query("limit") limit: Int = 1
     ): Response<List<BlogDto>>
+
+    // ------------------------------------------------------------------- tags
+
+    /**
+     * Aggregated tag counts (migration 013 view). Returns 404 / PGRST205 on a
+     * database that has not run the migration — callers must fall back to
+     * scanning `blogs.tags` client-side.
+     */
+    @GET("blog_tag_counts")
+    suspend fun tagCounts(
+        @Query("select") select: String = TAG_COUNT_COLUMNS,
+        @Query("order") order: String = "issue_year.desc.nullslast,total.desc",
+        @Query("limit") limit: Int? = 200
+    ): Response<List<TagCountDto>>
+
+    /** Published article count per annual issue (migration 013 RPC). */
+    @POST("rpc/blog_issue_years")
+    suspend fun issueYears(
+        @Body body: Map<String, String> = emptyMap()
+    ): Response<List<IssueYearDto>>
+
+    /**
+     * Lightweight facet projection (no titles, no bodies — ~100 bytes per row)
+     * used to count published articles per category, author, tag and issue
+     * client-side. Also the fallback for tag statistics when the migration 013
+     * endpoints are unavailable.
+     */
+    @GET("blogs")
+    suspend fun blogFacets(
+        @Query("select") select: String = FACET_COLUMNS,
+        @Query("status") status: String = "eq.Publish",
+        @Query("limit") limit: Int = 1000
+    ): Response<List<BlogFacetDto>>
 
     // ------------------------------------------------------------- categories
 

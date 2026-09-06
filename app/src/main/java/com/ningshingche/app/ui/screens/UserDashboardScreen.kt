@@ -434,7 +434,8 @@ private fun MessageCard(item: AdminMessageRecord) {
 private fun AdminMessageComposer(
     saving: Boolean,
     onSend: (String) -> Unit,
-    onSeeAll: () -> Unit
+    onSeeAll: () -> Unit,
+    onReload: () -> Unit = {}
 ) {
     var body by remember { mutableStateOf("") }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag("dashboard_message_composer")) {
@@ -452,6 +453,12 @@ private fun AdminMessageComposer(
         ) {
             OutlinedButton(onClick = onSeeAll, modifier = Modifier.weight(1f)) {
                 Text("সব বার্তা", fontFamily = Kalpurush)
+            }
+            IconButton(
+                onClick = onReload,
+                modifier = Modifier.testTag("dashboard_admin_message_reload")
+            ) {
+                Icon(Icons.Default.Refresh, contentDescription = "রিলোড")
             }
             Button(
                 onClick = {
@@ -511,14 +518,6 @@ private fun CommentStatusCard(comment: CommentRecord) {
 
 private fun statusLabel(status: String): String {
     return when (status.lowercase()) {
-        "pending" -> "অপেক্ষমাণ"
-        "published", "approved" -> "প্রকাশিত"
-        "rejected" -> "প্রত্যাখ্যাত"
-        "reviewed" -> "পর্যালোচিত"
-        else -> status
-    }
-}
-ase()) {
         "pending" -> "অপেক্ষমাণ"
         "published", "approved" -> "প্রকাশিত"
         "rejected" -> "প্রত্যাখ্যাত"

@@ -154,6 +154,34 @@ data class SiteSettings(
     }
 }
 
+/** Category/author/tag facets of one published article (no text content). */
+data class BlogFacet(
+    val id: String,
+    val categoryId: String?,
+    val categorySlug: String,
+    val authorId: String?,
+    val tags: List<String>,
+    val year: Int,
+    val viewsCount: Long
+)
+
+/** One annual issue (`নিংশিং চে - YYYY`) with its published-article count. */
+data class IssueSummary(
+    val year: Int,
+    val articleCount: Int
+) {
+    val label: String get() = IssueTags.issueLabel(year)
+    val bengaliYear: String get() = IssueTags.toBengaliDigits(year)
+}
+
+/** A distinct tag (all spellings merged) with its published-article count. */
+data class TagCount(
+    val key: String,
+    val label: String,
+    val issueYear: Int?,
+    val count: Int
+)
+
 /** Everything the home feed needs, fetched in one parallel batch. */
 data class HomeFeed(
     val hero: List<ArticleSummary>,
@@ -234,6 +262,16 @@ internal fun BlogDto.toDetail(): ArticleDetail = ArticleDetail(
     seoDescription = seoDescription.orEmpty(),
     videoLink = videoLink.orEmpty(),
     pdfLink = pdfBookLink.orEmpty()
+)
+
+internal fun BlogFacetDto.toFacet(): BlogFacet = BlogFacet(
+    id = id,
+    categoryId = categoryId,
+    categorySlug = categorySlug.orEmpty(),
+    authorId = authorId,
+    tags = tags?.map { IssueTags.clean(it) }?.filter { it.isNotBlank() }.orEmpty(),
+    year = yearOf(publishedDate.orEmpty(), createdAt),
+    viewsCount = viewsCount ?: 0L
 )
 
 internal fun CategoryDto.toRef(): CategoryRef = CategoryRef(

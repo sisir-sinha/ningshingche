@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import com.ningshingche.app.ui.components.PortalAsyncImage
+import com.ningshingche.app.ui.components.rememberBookmarkStateFor
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,11 +37,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BrokenImage
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Tag
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -58,6 +61,7 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -452,13 +456,24 @@ fun RailArticleCard(
     }
 }
 
-/** The workhorse list row: text on the left, thumbnail on the right. */
+/**
+ * The workhorse list row: text on the left, thumbnail on the right.
+ *
+ * @param isBookmarked when non-null a save toggle is rendered under the
+ *   thumbnail; tapping it calls [onBookmarkClick] without opening the article.
+ */
 @Composable
 fun ArticleRow(
     article: ArticleSummary,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isBookmarked: Boolean? = null,
+    onBookmarkClick: (() -> Unit)? = null
 ) {
+    // Explicit parameters win; otherwise pick up the app-wide controller.
+    val shared = if (isBookmarked == null) rememberBookmarkStateFor(article.id) else null
+    val saved = isBookmarked ?: shared?.first
+    val onToggle = onBookmarkClick ?: shared?.second
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -496,11 +511,29 @@ fun ArticleRow(
             )
         }
         Spacer(Modifier.width(EditorialSpace.md))
-        EditorialImage(
-            url = article.imageUrl,
-            contentDescription = null,
-            modifier = Modifier.size(width = 96.dp, height = 72.dp)
-        )
+        Column(horizontalAlignment = Alignment.End) {
+            EditorialImage(
+                url = article.imageUrl,
+                contentDescription = null,
+                modifier = Modifier.size(width = 96.dp, height = 72.dp)
+            )
+            if (saved != null && onToggle != null) {
+                Spacer(Modifier.height(2.dp))
+                IconButton(
+                    onClick = onToggle,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .testTag("bookmark_toggle_${article.id}")
+                ) {
+                    Icon(
+                        imageVector = if (saved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                        contentDescription = if (saved) "সংরক্ষণ বাতিল করুন" else "সংরক্ষণ করুন",
+                        tint = if (saved) LocalEditorialTokens.current.accent else LocalEditorialTokens.current.inkMuted,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
     }
 }
 

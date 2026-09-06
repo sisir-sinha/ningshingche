@@ -64,6 +64,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ningshingche.app.data.portal.ArticleSummary
 import com.ningshingche.app.data.portal.AuthorRef
 import com.ningshingche.app.data.portal.CategoryRef
+import com.ningshingche.app.data.portal.IssueTags
 import com.ningshingche.app.data.portal.stripHtml
 import com.ningshingche.app.ui.components.HtmlFormattedText
 import com.ningshingche.app.ui.components.VerifiedBadge
@@ -348,6 +349,74 @@ fun CategoryScreen(
                         Spacer(Modifier.height(EditorialSpace.sm))
                         Text(
                             text = "$total টি প্রবন্ধ",
+                            style = EditorialType.Caption,
+                            color = LocalEditorialTokens.current.inkMuted
+                        )
+                    }
+                }
+                Spacer(Modifier.height(EditorialSpace.sm))
+                Hairline()
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Annual issue
+// ---------------------------------------------------------------------------
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun IssueScreen(
+    viewModel: IssueViewModel,
+    onBackClick: () -> Unit,
+    onArticleClick: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val state by viewModel.state.collectAsState()
+    val label = IssueTags.issueLabel(viewModel.year)
+
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            TopAppBar(
+                title = { Text(label, style = EditorialType.Title) },
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "পেছনে")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
+            )
+        }
+    ) { padding ->
+        ArticleList(
+            state = state,
+            onArticleClick = onArticleClick,
+            onLoadMore = viewModel::loadMore,
+            onRetry = { viewModel.load() },
+            modifier = Modifier.padding(padding)
+        ) {
+            Column(modifier = Modifier.padding(horizontal = EditorialSpace.gutter, vertical = EditorialSpace.md)) {
+                Text(
+                    text = label,
+                    style = EditorialType.Display,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(Modifier.height(EditorialSpace.xs))
+                Text(
+                    text = "বার্ষিক সংখ্যা • ${IssueTags.toBengaliDigits(viewModel.year)} সালে প্রকাশিত লেখাসমূহ",
+                    style = EditorialType.Body,
+                    color = LocalEditorialTokens.current.inkSoft
+                )
+                if (state is ListUiState.Ready) {
+                    val total = (state as ListUiState.Ready).total
+                    if (total != null) {
+                        Spacer(Modifier.height(EditorialSpace.sm))
+                        Text(
+                            text = "${IssueTags.toBengaliDigits(total)} টি প্রবন্ধ",
                             style = EditorialType.Caption,
                             color = LocalEditorialTokens.current.inkMuted
                         )

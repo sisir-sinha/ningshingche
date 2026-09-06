@@ -48,6 +48,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -67,6 +68,7 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -117,6 +119,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
@@ -135,6 +138,7 @@ import com.ningshingche.app.data.remote.AuthorProfiles
 import com.ningshingche.app.ui.components.DialogImeAdjustResize
 import com.ningshingche.app.ui.components.MarkdownFormattedText
 import com.ningshingche.app.ui.components.VerifiedBadge
+import com.ningshingche.app.ui.components.rememberBookmarkStateFor
 import com.ningshingche.app.ui.components.keyboardAvoidingPadding
 import com.ningshingche.app.ui.editorial.ArticleRow
 import com.ningshingche.app.ui.editorial.EditorialShape
@@ -284,6 +288,21 @@ fun ArticleScreen(
                                         tint = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
+                            }
+                        }
+
+                        // Save / bookmark toggle (shared app-wide state)
+                        val bookmarkState = readyArticle?.let { rememberBookmarkStateFor(it.summary.id) }
+                        if (bookmarkState != null) {
+                            IconButton(
+                                onClick = bookmarkState.second,
+                                modifier = Modifier.testTag("article_bookmark_button")
+                            ) {
+                                Icon(
+                                    imageVector = if (bookmarkState.first) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                                    contentDescription = if (bookmarkState.first) "সংরক্ষণ বাতিল করুন" else "সংরক্ষণ করুন",
+                                    tint = if (bookmarkState.first) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                )
                             }
                         }
 

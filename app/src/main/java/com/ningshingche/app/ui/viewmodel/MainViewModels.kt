@@ -1,9 +1,6 @@
 package com.ningshingche.app.ui.viewmodel
 
 import android.content.Context
-import android.speech.tts.TextToSpeech
-import android.speech.tts.UtteranceProgressListener
-import android.speech.tts.Voice
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -17,14 +14,12 @@ import com.ningshingche.app.data.remote.UserProfile
 import com.ningshingche.app.data.model.AiChatMessage
 import com.ningshingche.app.data.model.AppThemeMode
 import com.ningshingche.app.data.model.Article
-import com.ningshingche.app.data.model.ArticleComment
 import com.ningshingche.app.data.model.Author
 import com.ningshingche.app.data.model.Bookmark
 import com.ningshingche.app.data.model.Category
 import com.ningshingche.app.data.model.PdfCategory
 import com.ningshingche.app.data.model.PdfDocument
 import com.ningshingche.app.data.model.ReaderPreferences
-import com.ningshingche.app.data.model.ReaderThemeMode
 import com.ningshingche.app.data.model.ReadingHistory
 import com.ningshingche.app.data.model.YearArchive
 import com.ningshingche.app.data.preferences.UserPreferencesRepository
@@ -38,9 +33,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.util.Locale
 import java.util.UUID
 
 // Home ViewModel
@@ -86,330 +81,24 @@ class HomeViewModel(
     }
 }
 
-// Explore ViewModel
-class ExploreViewModel(
-    private val repository: ArticleRepository
-) : ViewModel() {
-    val categories: StateFlow<List<Category>> = repository.categories
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), repository.getCategories())
-    val authors: StateFlow<List<Author>> = repository.authors
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), repository.getAuthors())
-    val yearArchives: StateFlow<List<YearArchive>> = repository.yearArchives
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), repository.getYearArchives())
+data class SavedCategory(val slug: String, val title: String, val count: Int)
 
-    val allArticles: StateFlow<List<Article>> = repository.getAllArticles()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    private val _selectedTab = MutableStateFlow(0) // 0: Categories, 1: Authors, 2: Archives, 3: Popular
-    val selectedTab: StateFlow<Int> = _selectedTab.asStateFlow()
-
-    fun selectTab(tab: Int) {
-        _selectedTab.value = tab
-    }
-}
-
-// Search ViewModel
-class SearchViewModel(
+/**
+ * App-wide saved-article state: the set of bookmarked ids plus a toggle. One
+ * instance lives for the whole activity so every article card (home, lists,
+ * explore, reader) shows the same save state instantly.
+ */
+class SavedArticlesViewModel(
     private val repository: ArticleRepository
 ) : ViewModel() {
 
-    private val _searchQuery = MutableStateFlow("")
-    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+    val savedIds: StateFlow<Set<String>> = repository.getAllBookmarks()
+        .map { bookmarks -> bookmarks.map { it.articleId }.toSet() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
-    private val _selectedCategorySlug = MutableStateFlow<String?>(null)
-    val selectedCategorySlug: StateFlow<String?> = _selectedCategorySlug.asStateFlow()
-
-    private val _selectedYear = MutableStateFlow<Int?>(null)
-    val selectedYear: StateFlow<Int?> = _selectedYear.asStateFlow()
-
-    val categories: StateFlow<List<Category>> = repository.categories
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), repository.getCategories())
-
-    val yearArchives: StateFlow<List<YearArchive>> = repository.yearArchives
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), repository.getYearArchives())
-
-    val recentSearches: StateFlow<List<String>> = repository.getRecentSearches()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    private val _searchResults = MutableStateFlow<List<Article>>(emptyList())
-    val searchResults: StateFlow<List<Article>> = _searchResults.asStateFlow()
-
-    val popularSuggestions = listOf(
-        "ভাষা আন্দোলন", "ইঞ্চৌঘর", "শহীদ সুদেষ্ণা সিংহ", "মিংকৌ", "বিশু উৎসব", "গোকুলানন্দ গীতিস্বামী", "লোকতাক হ্রদ", "কবিতা"
-    )
-
-    init {
-        performSearch()
-    }
-
-    fun onQueryChange(query: String) {
-        _searchQuery.value = query
-        performSearch()
-    }
-
-    fun setCategoryFilter(slug: String?) {
-        _selectedCategorySlug.value = if (_selectedCategorySlug.value == slug) null else slug
-        performSearch()
-    }
-
-    fun setYearFilter(year: Int?) {
-        _selectedYear.value = if (_selectedYear.value == year) null else year
-        performSearch()
-    }
-
-    fun executeSearch(query: String) {
-        _searchQuery.value = query
-        if (query.isNotBlank()) {
-            viewModelScope.launch {
-                repository.recordSearch(query)
-            }
-        }
-        performSearch()
-    }
-
-    fun removeRecentSearch(query: String) {
-        viewModelScope.launch {
-            repository.removeSearch(query)
-        }
-    }
-
-    fun clearAllRecentSearches() {
-        viewModelScope.launch {
-            repository.clearSearchHistory()
-        }
-    }
-
-    private fun performSearch() {
-        viewModelScope.launch {
-            repository.searchArticles(_searchQuery.value, _selectedCategorySlug.value, _selectedYear.value)
-                .collect { results ->
-                    _searchResults.value = results
-                }
-        }
-    }
-}
-
-// Reader ViewModel with Text-To-Speech
-class ReaderViewModel(
-    private val repository: ArticleRepository,
-    private val preferencesRepository: UserPreferencesRepository,
-    context: Context
-) : ViewModel() {
-
-    private val appContext = context.applicationContext
-    private var tts: TextToSpeech? = null
-    private var isTtsInitialized = false
-
-    private val _currentArticle = MutableStateFlow<Article?>(null)
-    val currentArticle: StateFlow<Article?> = _currentArticle.asStateFlow()
-
-    private val _relatedArticles = MutableStateFlow<List<Article>>(emptyList())
-    val relatedArticles: StateFlow<List<Article>> = _relatedArticles.asStateFlow()
-
-    private val _isBookmarked = MutableStateFlow(false)
-    val isBookmarked: StateFlow<Boolean> = _isBookmarked.asStateFlow()
-
-    private val _comments = MutableStateFlow<List<ArticleComment>>(emptyList())
-    val comments: StateFlow<List<ArticleComment>> = _comments.asStateFlow()
-
-    private val _commentStatus = MutableStateFlow<String?>(null)
-    val commentStatus: StateFlow<String?> = _commentStatus.asStateFlow()
-
-    private val _isSubmittingComment = MutableStateFlow(false)
-    val isSubmittingComment: StateFlow<Boolean> = _isSubmittingComment.asStateFlow()
-
-    val readerPreferences: StateFlow<ReaderPreferences> = preferencesRepository.readerPreferences
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ReaderPreferences())
-
-    // TTS playback states
-    private val _isTtsPlaying = MutableStateFlow(false)
-    val isTtsPlaying: StateFlow<Boolean> = _isTtsPlaying.asStateFlow()
-
-    private val _ttsProgressText = MutableStateFlow("")
-    val ttsProgressText: StateFlow<String> = _ttsProgressText.asStateFlow()
-
-    init {
-        initTts()
-    }
-
-    private fun initTts() {
-        tts = TextToSpeech(appContext) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                isTtsInitialized = true
-                val bengaliLocale = Locale("bn", "BD")
-                val result = tts?.setLanguage(bengaliLocale)
-                if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    val inLocale = Locale("bn", "IN")
-                    val inResult = tts?.setLanguage(inLocale)
-                    if (inResult == TextToSpeech.LANG_MISSING_DATA || inResult == TextToSpeech.LANG_NOT_SUPPORTED) {
-                        val genericBn = Locale("bn")
-                        val genResult = tts?.setLanguage(genericBn)
-                        if (genResult == TextToSpeech.LANG_MISSING_DATA || genResult == TextToSpeech.LANG_NOT_SUPPORTED) {
-                            tts?.language = Locale.getDefault()
-                        }
-                    }
-                }
-
-                // Choose best high-quality female Bengali voice
-                try {
-                    val voices = tts?.voices
-                    if (!voices.isNullOrEmpty()) {
-                        val bestFemale = voices
-                            .filter { v ->
-                                val l = v.locale?.language.orEmpty()
-                                l.equals("bn", ignoreCase = true) || v.locale?.toLanguageTag()?.startsWith("bn", ignoreCase = true) == true
-                            }
-                            .sortedWith(
-                                compareByDescending<Voice> { v ->
-                                    val name = v.name.lowercase()
-                                    var score = 0
-                                    if (name.contains("female") || name.contains("fem") ||
-                                        name.contains("ban-local") || name.contains("ban-network") ||
-                                        name.contains("bin-local") || name.contains("bin-network") ||
-                                        name.contains("wavenet-a") || name.contains("wavenet-c") ||
-                                        name.contains("neural2-a") || name.contains("neural2-c") ||
-                                        name.contains("-f-") || name.contains("_f_") || name.endsWith("-f")
-                                    ) {
-                                        score += 60
-                                    }
-                                    if (v.quality == Voice.QUALITY_VERY_HIGH) score += 30
-                                    else if (v.quality == Voice.QUALITY_HIGH) score += 20
-                                    else if (v.quality == Voice.QUALITY_NORMAL) score += 10
-                                    if (!v.isNetworkConnectionRequired) score += 5
-                                    if (v.locale?.country.equals("BD", ignoreCase = true)) score += 5
-                                    score
-                                }
-                            )
-                            .firstOrNull()
-
-                        if (bestFemale != null) {
-                            tts?.voice = bestFemale
-                        }
-                    }
-                } catch (_: Throwable) {}
-
-                tts?.setPitch(1.05f)
-                tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                    override fun onStart(utteranceId: String?) {
-                        _isTtsPlaying.value = true
-                    }
-
-                    override fun onDone(utteranceId: String?) {
-                        _isTtsPlaying.value = false
-                        _ttsProgressText.value = "পাঠ সমাপ্ত"
-                    }
-
-                    @Deprecated("Deprecated in Java")
-                    override fun onError(utteranceId: String?) {
-                        _isTtsPlaying.value = false
-                    }
-                })
-            }
-        }
-    }
-
-    fun loadArticle(articleId: String) {
-        viewModelScope.launch {
-            val art = repository.getArticleById(articleId)
-            _currentArticle.value = art
-            if (art != null && art.sourceUrl.contains("ningshingche.com")) {
-                _comments.value = repository.loadComments(art.sourceUrl)
-            }
-
-            if (art != null) {
-                repository.isBookmarked(art.id).collect { bookmarked ->
-                    _isBookmarked.value = bookmarked
-                }
-            }
-        }
-
-        viewModelScope.launch {
-            repository.getAllArticles().collect { all ->
-                val current = _currentArticle.value
-                if (current != null) {
-                    _relatedArticles.value = all.filter { it.id != current.id && (it.categorySlug == current.categorySlug || it.authorId == current.authorId) }.take(4)
-                }
-            }
-        }
-    }
-
-    fun submitComment(name: String, address: String, email: String, phone: String, content: String) {
-        val art = _currentArticle.value ?: return
-        if (name.isBlank() || email.isBlank() || content.isBlank()) {
-            _commentStatus.value = "নাঙ, ইমেইল বারো মন্তব্য আবশ্যক।"
-            return
-        }
-        viewModelScope.launch {
-            _isSubmittingComment.value = true
-            _commentStatus.value = "মন্তব্য পাঠানি অর..."
-            val result = repository.submitComment(art.sourceUrl, name, address, email, phone, content)
-            _isSubmittingComment.value = false
-            _commentStatus.value = result.getOrElse { it.message ?: "মন্তব্য পাঠানো যায়নি" }
-            if (result.isSuccess) {
-                _comments.value = repository.loadComments(art.sourceUrl)
-            }
-        }
-    }
-
-    fun toggleBookmark() {
-        val art = _currentArticle.value ?: return
-        viewModelScope.launch {
-            repository.toggleBookmark(art.id)
-            _isBookmarked.value = !_isBookmarked.value
-        }
-    }
-
-    fun updateReadingProgress(scrollPos: Int, progressPercent: Float) {
-        val art = _currentArticle.value ?: return
-        viewModelScope.launch {
-            repository.saveReadingProgress(art.id, scrollPos, progressPercent)
-        }
-    }
-
-    fun updateFontSize(newSize: Float) {
-        viewModelScope.launch {
-            preferencesRepository.updateFontSize(newSize.coerceIn(12f, 26f))
-        }
-    }
-
-    fun updateLineSpacing(newSpacing: Float) {
-        viewModelScope.launch {
-            preferencesRepository.updateLineSpacing(newSpacing.coerceIn(1.2f, 2.4f))
-        }
-    }
-
-    fun updateThemeMode(mode: ReaderThemeMode) {
-        viewModelScope.launch {
-            preferencesRepository.updateThemeMode(mode)
-        }
-    }
-
-    fun toggleTts() {
-        val article = _currentArticle.value ?: return
-        if (!isTtsInitialized || tts == null) return
-
-        if (_isTtsPlaying.value) {
-            tts?.stop()
-            _isTtsPlaying.value = false
-            _ttsProgressText.value = "স্থগিত"
-        } else {
-            val speechText = "${article.title}. লেখক ${article.authorName}. ${article.content}"
-            _ttsProgressText.value = "অডিও পাঠ চলছে..."
-            tts?.speak(speechText, TextToSpeech.QUEUE_FLUSH, null, "ArticleTts_${article.id}")
-            _isTtsPlaying.value = true
-        }
-    }
-
-    fun stopTts() {
-        tts?.stop()
-        _isTtsPlaying.value = false
-        _ttsProgressText.value = ""
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        tts?.stop()
-        tts?.shutdown()
+    fun toggle(articleId: String) {
+        if (articleId.isBlank()) return
+        viewModelScope.launch { repository.toggleBookmark(articleId) }
     }
 }
 
@@ -424,20 +113,42 @@ class BookmarksViewModel(
     private val _selectedCategoryFilter = MutableStateFlow<String?>(null)
     val selectedCategoryFilter: StateFlow<String?> = _selectedCategoryFilter.asStateFlow()
 
-    val bookmarkedArticles: StateFlow<List<Article>> = combine(
+    /** Saved articles, newest save first (regardless of search/filter). */
+    private val savedArticles: StateFlow<List<Article>> = combine(
         repository.getAllBookmarks(),
-        repository.getAllArticles(),
+        repository.getAllArticles()
+    ) { bookmarks, allArticles ->
+        val savedAt = bookmarks.associate { it.articleId to it.savedAtTimestamp }
+        allArticles.filter { it.id in savedAt }
+            .sortedByDescending { savedAt[it.id] ?: 0L }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val savedCount: StateFlow<Int> = savedArticles
+        .map { it.size }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    /** Categories that actually contain saved articles, with counts. */
+    val savedCategories: StateFlow<List<SavedCategory>> = savedArticles
+        .map { articles ->
+            articles.groupBy { it.categorySlug }
+                .map { (slug, items) -> SavedCategory(slug, items.first().category.ifBlank { slug }, items.size) }
+                .sortedWith(compareByDescending<SavedCategory> { it.count }.thenBy { it.title })
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val bookmarkedArticles: StateFlow<List<Article>> = combine(
+        savedArticles,
         _searchSavedQuery,
         _selectedCategoryFilter
-    ) { bookmarks, allArticles, query, categoryFilter ->
-        val bookmarkIds = bookmarks.map { it.articleId }.toSet()
-        val filtered = allArticles.filter { it.id in bookmarkIds }
-            .filter { art ->
-                val matchQuery = query.isBlank() || art.title.contains(query, ignoreCase = true) || art.authorName.contains(query, ignoreCase = true)
-                val matchCategory = categoryFilter == null || art.categorySlug == categoryFilter
-                matchQuery && matchCategory
-            }
-        filtered
+    ) { saved, query, categoryFilter ->
+        saved.filter { art ->
+            val matchQuery = query.isBlank() ||
+                art.title.contains(query, ignoreCase = true) ||
+                art.authorName.contains(query, ignoreCase = true) ||
+                art.category.contains(query, ignoreCase = true)
+            val matchCategory = categoryFilter == null || art.categorySlug == categoryFilter
+            matchQuery && matchCategory
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun onSearchQueryChange(query: String) {
@@ -451,29 +162,6 @@ class BookmarksViewModel(
     fun removeBookmark(articleId: String) {
         viewModelScope.launch {
             repository.toggleBookmark(articleId)
-        }
-    }
-}
-
-// History ViewModel
-class HistoryViewModel(
-    private val repository: ArticleRepository
-) : ViewModel() {
-
-    val historyItems: StateFlow<List<Pair<ReadingHistory, Article>>> = combine(
-        repository.getReadingHistory(),
-        repository.getAllArticles()
-    ) { historyList, allArticles ->
-        val articleMap = allArticles.associateBy { it.id }
-        historyList.mapNotNull { history ->
-            val article = articleMap[history.articleId]
-            if (article != null) history to article else null
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    fun clearAllHistory() {
-        viewModelScope.launch {
-            repository.clearHistory()
         }
     }
 }
@@ -798,11 +486,8 @@ class ViewModelFactory(
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         return when {
             modelClass.isAssignableFrom(HomeViewModel::class.java) -> HomeViewModel(repository) as T
-            modelClass.isAssignableFrom(ExploreViewModel::class.java) -> ExploreViewModel(repository) as T
-            modelClass.isAssignableFrom(SearchViewModel::class.java) -> SearchViewModel(repository) as T
-            modelClass.isAssignableFrom(ReaderViewModel::class.java) -> ReaderViewModel(repository, preferencesRepository, context) as T
             modelClass.isAssignableFrom(BookmarksViewModel::class.java) -> BookmarksViewModel(repository) as T
-            modelClass.isAssignableFrom(HistoryViewModel::class.java) -> HistoryViewModel(repository) as T
+            modelClass.isAssignableFrom(SavedArticlesViewModel::class.java) -> SavedArticlesViewModel(repository) as T
             modelClass.isAssignableFrom(AiViewModel::class.java) -> AiViewModel(
                 aiAssistant,
                 ArticleAiChatStore(com.ningshingche.app.data.local.AppDatabase.getInstance(context).chatDao())

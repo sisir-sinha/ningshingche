@@ -157,3 +157,38 @@ data class NewCommentDto(
     @Json(name = "avatar_url") val avatarUrl: String = "",
     @Json(name = "user_id") val userId: String? = null
 )
+
+// ---------------------------------------------------------------- tags (013)
+
+/** Row of the `blog_tag_counts` view created by migration 013. */
+@JsonClass(generateAdapter = true)
+data class TagCountDto(
+    @Json(name = "tag_key") val tagKey: String,
+    val tag: String,
+    @Json(name = "issue_year") val issueYear: Int? = null,
+    @Json(name = "is_issue") val isIssue: Boolean? = null,
+    val total: Int? = null,
+    val published: Int? = null,
+    val spellings: List<String>? = null
+)
+
+/** Row returned by the `blog_issue_years` RPC. */
+@JsonClass(generateAdapter = true)
+data class IssueYearDto(
+    @Json(name = "issue_year") val issueYear: Int,
+    val label: String? = null,
+    val total: Int? = null
+)
+
+/** Minimal projection used for client-side category/author/tag statistics. */
+@JsonClass(generateAdapter = true)
+data class BlogFacetDto(
+    val id: String,
+    @Json(name = "category_id") val categoryId: String? = null,
+    @Json(name = "category_slug") val categorySlug: String? = null,
+    @Json(name = "author_id") val authorId: String? = null,
+    val tags: List<String>? = null,
+    @Json(name = "published_date") val publishedDate: String? = null,
+    @Json(name = "created_at") val createdAt: String? = null,
+    @Json(name = "views_count") val viewsCount: Long? = null
+)

@@ -55,7 +55,8 @@ class UserPreferencesRepository(private val context: Context) {
         } catch (_: Exception) {
             ReaderThemeMode.PAPER
         }
-        val appThemeModeStr = preferences[Keys.APP_THEME_MODE] ?: AppThemeMode.LIGHT.name
+        // Default is System (follows the device dark-mode setting).
+        val appThemeModeStr = preferences[Keys.APP_THEME_MODE] ?: AppThemeMode.SYSTEM.name
         val appThemeMode = try {
             AppThemeMode.valueOf(appThemeModeStr)
         } catch (_: Exception) {

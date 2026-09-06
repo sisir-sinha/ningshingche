@@ -357,8 +357,10 @@ class SupabaseClient(private val context: Context) {
     suspend fun signInWithGoogleIdToken(idToken: String, rawNonce: String): Result<UserProfile> =
         withContext(Dispatchers.IO) {
             try {
-                exchangeGoogleIdToken(idToken, rawNonce)
+                val firstAttempt: Result<UserProfile>? = exchangeGoogleIdToken(idToken, rawNonce)
+                val secondAttempt: Result<UserProfile>? = firstAttempt
                     ?: if (rawNonce.isNotBlank()) exchangeGoogleIdToken(idToken, "") else null
+                secondAttempt
                     ?: Result.failure(GoogleAuthException.Failed("Supabase authentication failed."))
             } catch (error: Exception) {
                 if (GoogleAuthMapper.isNetworkFailure(error)) {
