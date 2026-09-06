@@ -1,12 +1,20 @@
 (function (NC) {
   'use strict';
 
-  const { escapeHTML, formatDateTime, debounce, formData, number, relativeTime, routeTo } = NC.utils;
+  const { escapeHTML, formatDateTime, debounce, formData, number, relativeTime, routeTo, safeImage, slugify } = NC.utils;
   let root;
   let cache = emptyCache();
+  let charts = [];
+  let articleEditor = null;      // Quill controller while the article editor is open
+  let articleEditorCleanup = null;
 
   function emptyCache() {
-    return { users: [], articles: [], comments: [], messages: [], notices: [], inboxReady: true };
+    return { users: [], articles: [], comments: [], messages: [], notices: [], categories: [], authors: [], inboxReady: true };
+  }
+
+  function destroyCharts() {
+    charts.forEach((chart) => chart?.destroy?.());
+    charts = [];
   }
 
   function displayName(user) {
@@ -52,12 +60,15 @@
   }
 
   async function loadCache(context = {}) {
-    const [profilesResult, submissionsResult, commentsResult, messagesResult, noticesResult] = await Promise.all([
+    const optional = (key, options) => NC.api.list(key, options).catch(() => ({ data: [] }));
+    const [profilesResult, submissionsResult, commentsResult, messagesResult, noticesResult, categoriesResult, authorsResult] = await Promise.all([
       NC.api.list('profiles', { select: '*', order: 'created_at.desc', limit: 3000 }),
       safeList('submissions', { select: '*', order: 'created_at.desc', limit: 3000 }),
       safeList('comments', { select: '*', order: 'created_at.desc', limit: 3000 }),
       safeList('messages', { select: '*', order: 'created_at.desc', limit: 3000 }),
-      safeList('notifications', { select: '*', order: 'created_at.desc', limit: 3000 })
+      safeList('notifications', { select: '*', order: 'created_at.desc', limit: 3000 }),
+      optional('categories', { select: 'id,title,slug', order: 'title.asc', limit: 1000 }),
+      optional('authors', { select: 'id,title,image', order: 'title.asc', limit: 2000 })
     ]);
     if (NC.crud.isStaleNavigation(context)) return false;
     cache = {
@@ -66,6 +77,8 @@
       comments: commentsResult.data,
       messages: messagesResult.data,
       notices: noticesResult.data,
+      categories: categoriesResult.data,
+      authors: authorsResult.data,
       inboxReady: !messagesResult.missing && !noticesResult.missing
     };
     return true;
@@ -85,6 +98,48 @@
       state.setQuery(event.target.value);
       renderList();
     }, 220));
+  }
+
+  /** Which registered user does a record belong to? Matches user_id, then e-mail. */
+  function ownerOf(record, emailField) {
+    if (!record) return null;
+    if (record.user_id) { const byId = userById(record.user_id); if (byId) return byId; }
+    const email = String(record[emailField] || '').toLowerCase();
+    if (!email) return null;
+    return cache.users.find((user) => String(user.email || '').toLowerCase() === email) || null;
+  }
+
+  function userFilterOptions(records, emailField) {
+    const counts = new Map();
+    records.forEach((record) => { const owner = ownerOf(record, emailField); if (owner) counts.set(owner.id, (counts.get(owner.id) || 0) + 1); });
+    return cache.users
+      .filter((user) => counts.has(user.id))
+      .map((user) => ({ value: user.id, label: `${displayName(user)}${user.email ? ` — ${user.email}` : ''}`, count: counts.get(user.id) }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'bn'));
+  }
+
+  function userFilterSelect(records, emailField, attr, label) {
+    return NC.crud.filterSelect(userFilterOptions(records, emailField), { attr, label, placeholder: 'All users', wide: true });
+  }
+
+  function bindUserFilter(state, renderList, attr, emailField, chipsHost, extraChips = () => []) {
+    const select = root.querySelector(`[${attr}]`);
+    if (!select) return () => {};
+    const apply = () => {
+      const value = select.value;
+      state.setFilter('__user', value && value !== 'all' ? (_, record) => ownerOf(record, emailField)?.id === value : 'all');
+      renderList();
+      const host = root.querySelector(chipsHost);
+      if (host) NC.crud.renderActiveFilters(host, [
+        { key: 'user', label: 'User', value: value && value !== 'all' ? displayName(userById(value) || {}) : '' },
+        ...extraChips()
+      ], {
+        onRemove: (key) => { if (key === 'user') { select.value = 'all'; apply(); } else extraChips().find((chip) => chip.key === key)?.remove?.(); },
+        onClear: () => { select.value = 'all'; extraChips().forEach((chip) => chip.remove?.()); apply(); }
+      });
+    };
+    select.addEventListener('change', apply);
+    return { apply, select };
   }
 
   function metrics() {
@@ -127,11 +182,163 @@
         </button>`).join('')}</div></article>`;
   }
 
+  function chartCard(title, description, canvasId, className = '') {
+    return `<article class="surface chart-card ${className}"><div class="surface-header"><div><h2>${escapeHTML(title)}</h2><p>${escapeHTML(description)}</p></div></div><div class="chart-wrap"><canvas id="${escapeHTML(canvasId)}" role="img" aria-label="${escapeHTML(title)} chart"></canvas></div></article>`;
+  }
+
+  function monthlyBuckets(months = 6) {
+    const now = new Date();
+    const buckets = [];
+    for (let offset = months - 1; offset >= 0; offset -= 1) {
+      const date = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+      buckets.push({ key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`, label: new Intl.DateTimeFormat(NC_CONFIG.app.locale, { month: 'short', year: '2-digit' }).format(date), count: 0 });
+    }
+    return buckets;
+  }
+
+  function monthlyCounts(records, months = 6) {
+    return NC.utils.groupMonthly(records, months).map((item) => item.count);
+  }
+
+  function dailyBuckets(days = 14) {
+    const today = new Date();
+    return Array.from({ length: days }, (_, index) => {
+      const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (days - 1 - index));
+      return { key: date.toISOString().slice(0, 10), label: new Intl.DateTimeFormat(NC_CONFIG.app.locale, { day: 'numeric', month: 'short' }).format(date), count: 0 };
+    });
+  }
+
+  function dailyCounts(records, days = 14) {
+    const buckets = dailyBuckets(days);
+    const map = new Map(buckets.map((bucket) => [bucket.key, bucket]));
+    records.forEach((record) => {
+      const date = NC.utils.toDate(record.created_at);
+      if (!date) return;
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      if (map.has(key)) map.get(key).count += 1;
+    });
+    return { labels: buckets.map((bucket) => bucket.label), counts: buckets.map((bucket) => bucket.count) };
+  }
+
+  function topContributors(limit = 8) {
+    const rows = cache.users.map((user) => ({
+      user,
+      name: displayName(user),
+      articles: relatedArticles(user).length,
+      comments: relatedComments(user).length,
+      messages: cache.messages.filter((item) => item.user_id === user.id && item.sender === 'user').length
+    })).map((row) => ({ ...row, total: row.articles + row.comments + row.messages }))
+      .filter((row) => row.total > 0)
+      .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'bn'));
+    return rows.slice(0, limit);
+  }
+
+  function renderHomeCharts() {
+    destroyCharts();
+    if (!window.Chart) {
+      root.querySelectorAll('.chart-wrap').forEach((node) => { node.innerHTML = NC.components.notice('Chart.js did not load. Check your connection and refresh.', 'warning'); });
+      return;
+    }
+    const css = getComputedStyle(document.documentElement);
+    const text = css.getPropertyValue('--muted-foreground').trim() || '#94a3b8';
+    const grid = css.getPropertyValue('--border').trim() || 'rgba(148,163,184,.15)';
+    const palette = { brand: '#8b5cf6', emerald: '#22c55e', sky: '#38bdf8', amber: '#f59e0b', rose: '#f43f5e', indigo: '#6366f1', teal: '#14b8a6', slate: '#94a3b8', fuchsia: '#d946ef' };
+    const common = {
+      responsive: true, maintainAspectRatio: false, animation: { duration: 450 },
+      plugins: { legend: { labels: { color: text, usePointStyle: true, boxWidth: 8, padding: 16 } } },
+      scales: {
+        x: { ticks: { color: text, maxRotation: 0, autoSkip: true }, grid: { display: false }, border: { display: false } },
+        y: { beginAtZero: true, ticks: { color: text, precision: 0 }, grid: { color: grid }, border: { display: false } }
+      }
+    };
+    const articles = appArticles();
+    const comments = appComments();
+    const userMessages = cache.messages.filter((item) => item.sender === 'user');
+    const adminMessages = cache.messages.filter((item) => item.sender === 'admin');
+    const labels = monthlyBuckets(6).map((bucket) => bucket.label);
+    const mount = (id, config) => { const canvas = document.getElementById(id); if (canvas) charts.push(new Chart(canvas, config)); };
+
+    // 1. Sign-ups + activity over six months
+    mount('ru-chart-growth', {
+      type: 'line',
+      data: { labels, datasets: [
+        { label: 'New users', data: monthlyCounts(cache.users), borderColor: palette.teal, backgroundColor: `${palette.teal}22`, tension: .35, fill: true, pointRadius: 3 },
+        { label: 'Articles', data: monthlyCounts(articles), borderColor: palette.brand, backgroundColor: `${palette.brand}22`, tension: .35, pointRadius: 3 },
+        { label: 'Comments', data: monthlyCounts(comments), borderColor: palette.indigo, backgroundColor: `${palette.indigo}22`, tension: .35, pointRadius: 3 },
+        { label: 'User messages', data: monthlyCounts(userMessages), borderColor: palette.sky, backgroundColor: `${palette.sky}22`, tension: .35, pointRadius: 3 }
+      ] },
+      options: common
+    });
+
+    // 2. Article status doughnut
+    const statuses = ['Pending', 'Reviewed', 'Approved', 'Published', 'Rejected'];
+    const statusColors = [palette.amber, palette.sky, palette.emerald, palette.teal, palette.rose];
+    mount('ru-chart-status', {
+      type: 'doughnut',
+      data: { labels: statuses, datasets: [{ data: statuses.map((status) => articles.filter((item) => (item.status || 'Pending') === status).length), backgroundColor: statusColors, borderWidth: 0, hoverOffset: 4 }] },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '68%', plugins: { legend: { position: 'bottom', labels: common.plugins.legend.labels } } }
+    });
+
+    // 3. Profile completion + notification opt-in
+    const complete = cache.users.filter((item) => item.profile_completed).length;
+    const optIn = cache.users.filter((item) => item.notifications_enabled !== false).length;
+    mount('ru-chart-profiles', {
+      type: 'bar',
+      data: { labels: ['Profile complete', 'Profile incomplete', 'Notifications on', 'Notifications off'], datasets: [{ label: 'Users', data: [complete, cache.users.length - complete, optIn, cache.users.length - optIn], backgroundColor: [palette.emerald, palette.slate, palette.brand, palette.slate], borderRadius: 8, borderSkipped: false }] },
+      options: { ...common, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ...common.scales.y }, y: { ...common.scales.x } } }
+    });
+
+    // 4. Daily messages: user vs admin (14 days)
+    const userDaily = dailyCounts(userMessages);
+    const adminDaily = dailyCounts(adminMessages);
+    mount('ru-chart-messages', {
+      type: 'bar',
+      data: { labels: userDaily.labels, datasets: [
+        { label: 'From users', data: userDaily.counts, backgroundColor: palette.sky, borderRadius: 6, borderSkipped: false, stack: 'm' },
+        { label: 'Admin replies', data: adminDaily.counts, backgroundColor: palette.brand, borderRadius: 6, borderSkipped: false, stack: 'm' }
+      ] },
+      options: { ...common, scales: { x: { ...common.scales.x, stacked: true }, y: { ...common.scales.y, stacked: true } } }
+    });
+
+    // 5. Most active users (stacked horizontal)
+    const top = topContributors(8);
+    const topCanvas = document.getElementById('ru-chart-top');
+    if (topCanvas && !top.length) topCanvas.closest('.chart-wrap').innerHTML = '<div class="chart-empty">No user activity yet.</div>';
+    else mount('ru-chart-top', {
+      type: 'bar',
+      data: { labels: top.map((row) => row.name), datasets: [
+        { label: 'Articles', data: top.map((row) => row.articles), backgroundColor: palette.brand, stack: 'a', borderRadius: 4 },
+        { label: 'Comments', data: top.map((row) => row.comments), backgroundColor: palette.indigo, stack: 'a', borderRadius: 4 },
+        { label: 'Messages', data: top.map((row) => row.messages), backgroundColor: palette.sky, stack: 'a', borderRadius: 4 }
+      ] },
+      options: { ...common, indexAxis: 'y', scales: { x: { ...common.scales.y, stacked: true }, y: { ...common.scales.x, stacked: true } } }
+    });
+
+    // 6. Notification kinds + read state
+    const kinds = [...new Set(cache.notices.map((item) => item.kind || 'notice'))].slice(0, 8);
+    mount('ru-chart-notices', {
+      type: 'bar',
+      data: { labels: kinds.map((kind) => kind.replace(/_/g, ' ')), datasets: [
+        { label: 'Read', data: kinds.map((kind) => cache.notices.filter((item) => (item.kind || 'notice') === kind && item.is_read).length), backgroundColor: palette.emerald, stack: 'n', borderRadius: 4 },
+        { label: 'Unread', data: kinds.map((kind) => cache.notices.filter((item) => (item.kind || 'notice') === kind && !item.is_read).length), backgroundColor: palette.rose, stack: 'n', borderRadius: 4 }
+      ] },
+      options: { ...common, scales: { x: { ...common.scales.x, stacked: true }, y: { ...common.scales.y, stacked: true } } }
+    });
+  }
+
   function renderHome() {
     const articles = appArticles();
     const comments = appComments();
     root.innerHTML = `${pageChrome('Dashboard', 'Users, articles, comments, messages, and notifications pushed from the Android app.')}
       ${metrics()}
+      <section class="ru-chart-grid mt-6" aria-label="Registered user charts">
+        ${chartCard('Growth & activity', 'New sign-ups, articles, comments, and user messages per month.', 'ru-chart-growth', 'chart-wide')}
+        ${chartCard('Article status', 'Where registered-user submissions sit in the review flow.', 'ru-chart-status')}
+        ${chartCard('Profiles & notifications', 'Completed profiles and notification opt-in.', 'ru-chart-profiles')}
+        ${chartCard('Messages · last 14 days', 'Incoming user messages against admin replies.', 'ru-chart-messages', 'chart-wide')}
+        ${chartCard('Most active users', 'Articles, comments, and messages per reader.', 'ru-chart-top', 'chart-wide')}
+        ${chartCard('Notifications', 'Sent notices by kind, read vs unread.', 'ru-chart-notices')}
+      </section>
       <section class="dashboard-columns mt-6">
         ${recentBlock('Latest users', cache.users.map((user) => ({
           id: user.id, route: 'ru-users', icon: 'user', title: displayName(user),
@@ -163,7 +370,12 @@
     root.querySelectorAll('[data-ru-goto], [data-ru-open]').forEach((button) => {
       button.addEventListener('click', () => routeTo(button.dataset.ruGoto || button.dataset.ruOpen, button.dataset.ruId ? { id: button.dataset.ruId } : {}));
     });
+    renderHomeCharts();
   }
+
+  window.addEventListener('nc:theme-change', () => {
+    if (charts.length && NC.utils.getHashRoute().route === 'registered-users') window.setTimeout(renderHomeCharts, 50);
+  });
 
   function openUser(user) {
     const articles = relatedArticles(user);
@@ -272,66 +484,385 @@
         </dl>
         <h3 class="section-mini-title mt-6">${escapeHTML(record.content_title || record.title || 'Article')}</h3>
         <div class="prose-content mt-4">${NC.utils.sanitizeHTML(record.content || '')}</div>`,
-      footer: '<button type="button" class="btn btn-secondary" data-modal-close>Close</button><button type="button" class="btn btn-primary" data-article-edit><i class="fa-regular fa-pen" aria-hidden="true"></i>Edit</button>',
+      footer: `<button type="button" class="btn btn-secondary" data-modal-close>Close</button>${canConvertArticle() && !articleConverted(record) && record.status !== 'Rejected' ? '<button type="button" class="btn btn-secondary" data-article-approve><i class="fa-regular fa-circle-check" aria-hidden="true"></i>Approve & convert to Blog</button>' : ''}${canEditArticles() ? '<button type="button" class="btn btn-primary" data-article-edit><i class="fa-regular fa-pen" aria-hidden="true"></i>Edit</button>' : ''}`,
       onOpen: (modalRoot) => {
         modalRoot.querySelector('[data-article-edit]')?.addEventListener('click', () => {
           NC.components.closeModal();
           window.setTimeout(() => onEdit(record), 180);
         });
+        modalRoot.querySelector('[data-article-approve]')?.addEventListener('click', () => {
+          NC.components.closeModal();
+          window.setTimeout(() => openArticleApproval(record, { onConverted: () => refreshScreen(renderArticles, {}) }), 180);
+        });
       }
     });
   }
 
-  function openArticleForm(record, onSaved) {
-    const statuses = ['Pending', 'Reviewed', 'Approved', 'Rejected', 'Published'];
+  // ---------------------------------------------------------------------------
+  // Article editor — the same editorial workspace as Blogs › Add new blog:
+  // Quill rich text with inline images, ImgBB thumbnail, live preview, status.
+  // Records stay in submitted_blogs so the Android app keeps seeing them.
+  // ---------------------------------------------------------------------------
+  const ARTICLE_STATUSES = ['Pending', 'Reviewed', 'Approved', 'Rejected', 'Published'];
+
+  function canEditArticles() {
+    return NC.auth.canAccess('submissions');
+  }
+
+  function canConvertArticle() {
+    return NC.auth.canAccess('submissions') && NC.auth.canAccess('blogs') && NC.auth.canAccess('authors');
+  }
+
+  function articleConverted(record) {
+    return Boolean(record?.converted_blog_id) || ['Approved', 'Published'].includes(record?.status);
+  }
+
+  function articleOwner(record) {
+    return ownerOf(record, 'writer_email');
+  }
+
+  function profileFields(user) {
+    if (!user) return {};
+    return {
+      user_id: user.id,
+      writer_name: displayName(user),
+      writer_email: user.email || '',
+      writer_profile_image: user.avatar_url || '',
+      writer_designation: user.designation || '',
+      writer_facebook: user.facebook_id || user.facebook || '',
+      phone: user.phone || '',
+      address: user.address || user.location || ''
+    };
+  }
+
+  function closeArticleEditor() {
+    articleEditorCleanup?.();
+    articleEditorCleanup = null;
+    articleEditor?.destroy?.();
+    articleEditor = null;
+  }
+
+  function articlePreviewMarkup(data) {
+    const image = safeImage(data.thumbnail);
+    const owner = data.user_id ? userById(data.user_id) : null;
+    return `
+      <article class="article-preview">
+        <header>
+          <div class="article-kicker"><span>Registered user article</span><time>${escapeHTML(NC.utils.formatDate(data.created_at || new Date()))}</time></div>
+          <h1>${escapeHTML(data.title || 'Untitled article')}</h1>
+          ${data.content_title && data.content_title !== data.title ? `<p class="article-subtitle">${escapeHTML(data.content_title)}</p>` : ''}
+          <div class="article-byline">${NC.utils.avatarHTML(data.writer_name || 'Writer', data.writer_profile_image || owner?.avatar_url, 'article-author-avatar')}<div><strong>${escapeHTML(data.writer_name || owner?.name || 'Unknown writer')}</strong><span>${escapeHTML(data.writer_designation || data.writer_email || 'App user')} · ${escapeHTML(data.status || 'Pending')} preview</span></div></div>
+        </header>
+        ${image ? `<img class="article-hero" src="${escapeHTML(image)}" alt="${escapeHTML(data.title || '')}" referrerpolicy="no-referrer">` : ''}
+        <div class="article-body prose-content">${NC.utils.sanitizeHTML(data.content || '<p>Article content preview will appear here.</p>')}</div>
+      </article>`;
+  }
+
+  function previewArticle(data) {
     NC.components.openModal({
-      title: 'Edit article',
-      eyebrow: 'Registered users',
-      size: 'xl',
-      content: `<form id="ru-article-form" class="form-stack" novalidate>
-        <div class="form-grid-2">
-          <div class="field"><label class="field-label" for="ru-article-title">Title <span aria-hidden="true">*</span></label>
-            <input class="form-input" id="ru-article-title" name="title" value="${escapeHTML(record.title || '')}" required>
-            <p class="field-error hidden" data-field-error="title"></p></div>
-          <div class="field"><label class="field-label" for="ru-article-status">Status</label>
-            <select class="form-select" id="ru-article-status" name="status">
-              ${statuses.map((status) => `<option value="${status}" ${status === (record.status || 'Pending') ? 'selected' : ''}>${status}</option>`).join('')}
-            </select></div>
+      title: 'Article preview', eyebrow: data.status || 'Pending', size: 'preview',
+      content: articlePreviewMarkup(data),
+      footer: '<button type="button" class="btn btn-secondary" data-modal-close>Close</button>',
+      onOpen: (modalRoot) => NC.components.bindImageFallbacks(modalRoot)
+    });
+  }
+
+  /**
+   * Full-page editor. `record` may be an existing submission or null for
+   * "Add article" (then `presetUser` decides whose profile it is filed under).
+   */
+  function renderArticleEditor(record = null, { presetUser = null, onDone } = {}) {
+    if (!canEditArticles()) {
+      NC.components.toast('Editing registered-user articles requires Submit Blogs access.', 'warning');
+      return;
+    }
+    closeArticleEditor();
+    destroyCharts();
+    const isEdit = Boolean(record?.id);
+    const owner = isEdit ? articleOwner(record) : presetUser;
+    const draft = { ...(record || {}), ...(!isEdit && owner ? profileFields(owner) : {}) };
+    const converted = articleConverted(record);
+    const userOptions = cache.users
+      .map((user) => ({ id: user.id, label: `${displayName(user)}${user.email ? ` — ${user.email}` : ''}` }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'bn'));
+    const finish = onDone || (() => refreshScreen(renderArticles, {}));
+
+    root.innerHTML = `
+      ${NC.components.pageHeader({
+        eyebrow: isEdit ? 'Edit article' : 'New article',
+        title: isEdit ? (record.title || 'Untitled article') : 'Add article for a registered user',
+        description: isEdit ? 'Edit the article exactly as the Blogs editor works. Changes stay linked to the reader’s app profile.' : 'Publish an article on behalf of an app user. It will appear under their profile in the Android app.',
+        breadcrumb: [{ label: 'Registered users', route: 'registered-users' }, { label: 'Articles', route: 'ru-articles' }, { label: isEdit ? 'Edit' : 'New' }],
+        actions: '<button type="button" class="btn btn-secondary" data-article-cancel><i class="fa-regular fa-arrow-left" aria-hidden="true"></i>Back to articles</button>'
+      })}
+      ${converted ? `<div class="mb-5">${NC.components.notice(`This article was already converted to a blog${record.converted_blog_id ? '' : ' (status ' + escapeHTML(record.status) + ')'}. Edits here do not change the published blog.`, 'info')}</div>` : ''}
+      <form id="ru-article-editor" class="blog-editor" novalidate>
+        <div class="blog-editor-main">
+          <section class="surface form-stack">
+            <div class="field"><label class="field-label" for="ru-article-title">Title <span aria-hidden="true">*</span></label><input class="title-input" id="ru-article-title" name="title" value="${escapeHTML(draft.title || '')}" placeholder="Enter an article title" autofocus required><p class="field-error hidden" data-field-error="title"></p></div>
+            <div class="field"><label class="field-label" for="ru-article-subtitle">Subtitle</label><textarea class="subtitle-input" id="ru-article-subtitle" name="content_title" rows="2" placeholder="Optional standfirst shown under the title">${escapeHTML(draft.content_title && draft.content_title !== draft.title ? draft.content_title : '')}</textarea></div>
+            ${NC.media.imageUploaderHTML({ id: 'ru-article-thumbnail', label: 'Thumbnail', hint: 'Choose a local image for ImgBB upload, or paste a direct image URL.' })}
+            ${NC.editor.editorHTML({ id: 'ru-article-content', label: 'Article content', hint: 'Use headings and short paragraphs for a readable article.', required: true })}
+          </section>
         </div>
+        <aside class="blog-editor-sidebar">
+          <section class="surface form-stack"><div class="surface-header compact"><div><p class="eyebrow">Registered user</p><h2>Writer</h2></div></div>
+            <div class="field"><label class="field-label" for="ru-article-user">App user <span aria-hidden="true">*</span></label><select class="form-select" id="ru-article-user" name="user_id" ${isEdit && draft.user_id ? '' : ''}><option value="">Choose a registered user</option>${userOptions.map((item) => `<option value="${escapeHTML(item.id)}" ${item.id === (draft.user_id || owner?.id) ? 'selected' : ''}>${escapeHTML(item.label)}</option>`).join('')}</select><p class="field-error hidden" data-field-error="user_id"></p><span class="field-hint">Writer details below follow the selected profile.</span></div>
+            <div class="person-cell compact" data-article-user-card>${owner ? NC.utils.avatarHTML(displayName(owner), owner.avatar_url, 'person-avatar') : ''}<div><strong>${escapeHTML(owner ? displayName(owner) : 'No profile selected')}</strong><span>${escapeHTML(owner?.email || '')}</span></div></div>
+            <div class="form-grid-2">
+              <div class="field"><label class="field-label" for="ru-article-writer">Writer name <span aria-hidden="true">*</span></label><input class="form-input" id="ru-article-writer" name="writer_name" value="${escapeHTML(draft.writer_name || '')}" required><p class="field-error hidden" data-field-error="writer_name"></p></div>
+              <div class="field"><label class="field-label" for="ru-article-email">Writer email</label><input class="form-input" id="ru-article-email" name="writer_email" type="email" value="${escapeHTML(draft.writer_email || '')}"></div>
+            </div>
+            <div class="form-grid-2">
+              <div class="field"><label class="field-label" for="ru-article-designation">Designation</label><input class="form-input" id="ru-article-designation" name="writer_designation" value="${escapeHTML(draft.writer_designation || draft.designation || '')}"></div>
+              <div class="field"><label class="field-label" for="ru-article-phone">Phone</label><input class="form-input" id="ru-article-phone" name="phone" value="${escapeHTML(draft.phone || '')}"></div>
+            </div>
+            <div class="field"><label class="field-label" for="ru-article-address">Address</label><input class="form-input" id="ru-article-address" name="address" value="${escapeHTML(draft.address || '')}"></div>
+          </section>
+          <section class="surface form-stack mt-5"><div class="surface-header compact"><div><p class="eyebrow">Review</p><h2>Status</h2></div></div>
+            <div class="field"><label class="field-label" for="ru-article-status">Status</label><select class="form-select" id="ru-article-status" name="status">${ARTICLE_STATUSES.map((status) => `<option value="${status}" ${status === (draft.status || 'Pending') ? 'selected' : ''}>${status}</option>`).join('')}</select><span class="field-hint">“Published” is what the Android app shows readers. “Approved” means converted to a magazine blog.</span></div>
+            ${isEdit ? `<dl class="details-list"><div><dt>Submitted</dt><dd>${escapeHTML(formatDateTime(record.created_at))}</dd></div>${record.reviewed_at ? `<div><dt>Reviewed</dt><dd>${escapeHTML(formatDateTime(record.reviewed_at))}</dd></div>` : ''}${record.converted_blog_id && NC.auth.canAccess('blogs') ? `<div><dt>Blog</dt><dd><button type="button" class="table-link" data-open-converted="${escapeHTML(record.converted_blog_id)}">Open converted blog</button></dd></div>` : ''}</dl>` : ''}
+          </section>
+          <section class="surface mt-5"><p class="eyebrow mb-3">At a glance</p><div class="editor-summary"><div><span>Words</span><strong data-article-word-count>0</strong></div><div><span>Reading time</span><strong data-article-read-time>1 min</strong></div><div><span>Last saved</span><strong>${escapeHTML(record?.updated_at || record?.reviewed_at ? NC.utils.formatDate(record.updated_at || record.reviewed_at) : 'Not saved')}</strong></div></div></section>
+        </aside>
+        <div class="editor-action-bar"><div><span class="save-indicator"><i class="fa-regular fa-shield-check" aria-hidden="true"></i>Content is sanitized before save</span></div><div class="editor-actions">
+          <button type="button" class="btn btn-secondary" data-article-cancel>Cancel</button>
+          <button type="button" class="btn btn-secondary" data-article-preview><i class="fa-regular fa-eye" aria-hidden="true"></i>Preview</button>
+          ${isEdit && canConvertArticle() && !converted && record.status !== 'Rejected' ? '<button type="button" class="btn btn-secondary" data-article-approve><i class="fa-regular fa-circle-check" aria-hidden="true"></i>Approve & convert to Blog</button>' : ''}
+          <button type="button" class="btn btn-secondary" data-article-save="__keep__"><i class="fa-regular fa-floppy-disk" aria-hidden="true"></i>Save</button>
+          <button type="button" class="btn btn-primary" data-article-save="Published"><i class="fa-regular fa-paper-plane" aria-hidden="true"></i>Save & publish in app</button>
+        </div></div>
+      </form>`;
+
+    const form = root.querySelector('#ru-article-editor');
+    const thumbnailUploads = [];
+    let editorClosed = false;
+    const thumbnail = NC.media.mountImageUploader(root.querySelector('#ru-article-thumbnail'), {
+      initial: { url: draft.thumbnail || '', delete_url: draft.imgbb_delete_url || '', image_meta: draft.thumbnail_meta || {} },
+      label: 'Thumbnail',
+      onChange: (next) => {
+        if (next?.provider !== 'imgbb' || !next.delete_url) return;
+        if (!thumbnailUploads.some((item) => item.url === next.url)) thumbnailUploads.push({ ...next });
+        if (editorClosed) NC.crud.deleteMediaRecords([next]);
+      }
+    });
+    articleEditor = NC.editor.mountEditor(root.querySelector('#ru-article-content'), {
+      initial: draft.content || '',
+      media: Array.isArray(draft.inline_media) ? draft.inline_media : [],
+      required: true,
+      label: 'Article content',
+      onChange: updateWordCount
+    });
+
+    function updateWordCount(changedHtml) {
+      const html = typeof changedHtml === 'string' ? changedHtml : (articleEditor?.getValue?.() || draft.content || '');
+      const words = NC.utils.stripHTML(html).split(/\s+/).filter(Boolean).length;
+      const count = root.querySelector('[data-article-word-count]');
+      const time = root.querySelector('[data-article-read-time]');
+      if (count) count.textContent = words.toLocaleString();
+      if (time) time.textContent = `${Math.max(1, Math.ceil(words / 220))} min`;
+    }
+    updateWordCount();
+
+    form.elements.user_id.addEventListener('change', () => {
+      const user = userById(form.elements.user_id.value);
+      const card = root.querySelector('[data-article-user-card]');
+      if (card) card.innerHTML = `${user ? NC.utils.avatarHTML(displayName(user), user.avatar_url, 'person-avatar') : ''}<div><strong>${escapeHTML(user ? displayName(user) : 'No profile selected')}</strong><span>${escapeHTML(user?.email || '')}</span></div>`;
+      if (!user) return;
+      const fields = profileFields(user);
+      ['writer_name', 'writer_email', 'writer_designation', 'phone', 'address'].forEach((name) => {
+        const input = form.elements[name];
+        if (input && (!input.value || input.dataset.autofilled === 'true')) { input.value = fields[name] || ''; input.dataset.autofilled = 'true'; }
+      });
+    });
+    ['writer_name', 'writer_email', 'writer_designation', 'phone', 'address'].forEach((name) => {
+      form.elements[name]?.addEventListener('input', (event) => { event.target.dataset.autofilled = 'false'; });
+    });
+
+    function collectData(statusOverride) {
+      const data = formData(form);
+      const user = userById(data.user_id);
+      const media = thumbnail.getValue();
+      const status = statusOverride && statusOverride !== '__keep__' ? statusOverride : (data.status || 'Pending');
+      return {
+        ...draft,
+        title: data.title,
+        content_title: data.content_title || data.title,
+        content: articleEditor.getValue(),
+        inline_media: articleEditor.getMedia(),
+        thumbnail: media?.url || '',
+        imgbb_delete_url: media?.delete_url || '',
+        thumbnail_meta: NC.crud.imagePayload(media).image_meta,
+        user_id: data.user_id || null,
+        writer_name: data.writer_name,
+        writer_email: data.writer_email,
+        writer_designation: data.writer_designation,
+        writer_profile_image: draft.writer_profile_image || user?.avatar_url || '',
+        designation: data.writer_designation,
+        phone: data.phone,
+        address: data.address,
+        status
+      };
+    }
+
+    function payloadFor(data) {
+      const payload = {
+        title: data.title, content_title: data.content_title, content: data.content, inline_media: data.inline_media,
+        thumbnail: data.thumbnail, imgbb_delete_url: data.imgbb_delete_url, thumbnail_meta: data.thumbnail_meta,
+        user_id: data.user_id, writer_name: data.writer_name, writer_email: data.writer_email,
+        writer_designation: data.writer_designation, writer_profile_image: data.writer_profile_image,
+        designation: data.designation, phone: data.phone, address: data.address, status: data.status
+      };
+      if (isEdit && ['Reviewed', 'Approved', 'Rejected', 'Published'].includes(data.status) && data.status !== record.status) payload.reviewed_at = new Date().toISOString();
+      return payload;
+    }
+
+    async function cleanup({ saved = false, payload = null } = {}) {
+      editorClosed = true;
+      const keep = new Set((payload?.inline_media || []).map((item) => item.url));
+      const inline = (saved ? articleEditor.getInactiveMedia() : articleEditor.getSessionUploads()).filter((item) => !keep.has(item.url));
+      const thumbs = thumbnailUploads.filter((item) => !saved || item.url !== payload?.thumbnail);
+      await NC.crud.deleteMediaRecords([...thumbs, ...inline]);
+    }
+    articleEditorCleanup = cleanup;
+
+    async function save(status, button) {
+      const data = collectData(status);
+      const errors = {
+        title: data.title ? '' : 'Article title is required.',
+        user_id: data.user_id ? '' : 'Choose the registered user this article belongs to.',
+        writer_name: data.writer_name ? '' : 'Writer name is required.'
+      };
+      if (!articleEditor.validate()) errors.title ||= '';
+      if (!NC.utils.validateFields(form, errors) || !articleEditor.validate()) return;
+      if (thumbnail.isUploading()) { NC.components.toast('Wait for the thumbnail upload to finish.', 'warning'); return; }
+      NC.utils.setButtonLoading(button, true, 'Saving…');
+      try {
+        const payload = payloadFor(data);
+        const saved = isEdit ? await NC.api.update('submissions', record.id, payload) : await NC.api.insert('submissions', payload);
+        if (isEdit && record.imgbb_delete_url && record.imgbb_delete_url !== payload.imgbb_delete_url && !articleConverted(record)) {
+          NC.crud.deleteMediaRecords([{ url: record.thumbnail, delete_url: record.imgbb_delete_url, provider: 'imgbb' }]);
+        }
+        await cleanup({ saved: true, payload });
+        articleEditorCleanup = null;
+        NC.components.toast(isEdit ? 'Article saved.' : 'Article created for the selected user.', 'success');
+        closeArticleEditor();
+        await finish(saved);
+      } catch (error) {
+        console.error(error);
+        NC.components.toast(NC.api.userMessage(error, 'Unable to save the article.'), 'error');
+      } finally {
+        NC.utils.setButtonLoading(button, false);
+      }
+    }
+
+    root.querySelector('[data-article-preview]').addEventListener('click', () => previewArticle(collectData()));
+    root.querySelectorAll('[data-article-save]').forEach((button) => button.addEventListener('click', () => save(button.dataset.articleSave, button)));
+    root.querySelector('[data-article-approve]')?.addEventListener('click', async () => {
+      if (!isEdit) return;
+      openArticleApproval(record, { onConverted: async () => { articleEditorCleanup = null; closeArticleEditor(); await finish(); } });
+    });
+    root.querySelector('[data-open-converted]')?.addEventListener('click', () => routeTo('blogs', { action: 'edit', id: record.converted_blog_id }));
+    root.querySelectorAll('[data-article-cancel]').forEach((button) => button.addEventListener('click', async () => {
+      if (thumbnail.isUploading()) { NC.components.toast('Wait for active media uploads to finish before leaving the editor.', 'warning'); return; }
+      const leave = await NC.components.confirm({ title: 'Leave the editor?', description: 'Unsaved changes will be lost. Newly uploaded files will be cleaned up where the provider permits it.', danger: false, confirmLabel: 'Leave editor', confirmIcon: 'fa-arrow-left' });
+      if (!leave) return;
+      await cleanup();
+      articleEditorCleanup = null;
+      closeArticleEditor();
+      await finish();
+    }));
+  }
+
+  /** Legacy name kept for the view modal's Edit button. */
+  function openArticleForm(record, onSaved) {
+    renderArticleEditor(record, { onDone: onSaved });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Approve & convert to Blog — mirrors Submit Blogs: approve_submission RPC
+  // (migration 004) with a client-side fallback when the RPC is unavailable.
+  // ---------------------------------------------------------------------------
+  function openArticleApproval(record, { onConverted } = {}) {
+    if (!canConvertArticle()) { NC.components.toast('Approval conversion requires Submit Blogs, Blogs, and Authors access.', 'warning'); return; }
+    if (articleConverted(record) || record.status === 'Rejected') { NC.components.toast('This article is not eligible for another conversion.', 'warning'); return; }
+    if (!cache.categories.length) { NC.components.toast('Create a blog category first.', 'warning'); return; }
+    const owner = articleOwner(record);
+    const suggestedSlug = slugify(record.title || '') || `article-${String(record.id).slice(0, 8)}`;
+    const matchedAuthor = cache.authors.find((item) => String(item.title || '').trim().toLocaleLowerCase() === String(record.writer_name || '').trim().toLocaleLowerCase());
+    NC.components.openModal({
+      title: 'Approve & convert to blog', eyebrow: 'Registered users', size: 'lg',
+      description: 'The article becomes a magazine blog. The writer is linked to an existing author with the same name, or a new author is created.',
+      content: `<form id="ru-approval-form" class="form-stack" novalidate>
+        ${NC.components.notice(matchedAuthor ? `Writer “${escapeHTML(record.writer_name)}” matches the existing author “${escapeHTML(matchedAuthor.title)}”.` : `A new author “${escapeHTML(record.writer_name || 'Unknown')}” will be created${owner?.avatar_url ? ' with the app profile photo' : ''}.`, 'info')}
+        <div class="field"><label class="field-label" for="ru-approval-category">Blog category <span aria-hidden="true">*</span></label><select class="form-select" id="ru-approval-category" name="category_id"><option value="">Choose a category</option>${cache.categories.map((item) => `<option value="${escapeHTML(item.id)}">${escapeHTML(item.title)}</option>`).join('')}</select><p class="field-error hidden" data-field-error="category_id"></p></div>
         <div class="form-grid-2">
-          <div class="field"><label class="field-label" for="ru-article-writer">Writer</label>
-            <input class="form-input" id="ru-article-writer" name="writer_name" value="${escapeHTML(record.writer_name || '')}"></div>
-          <div class="field"><label class="field-label" for="ru-article-email">Writer email</label>
-            <input class="form-input" id="ru-article-email" name="writer_email" value="${escapeHTML(record.writer_email || '')}"></div>
+          <div class="field"><label class="field-label" for="ru-approval-status">Initial blog status</label><select class="form-select" id="ru-approval-status" name="status"><option value="Draft">Save as draft</option><option value="Publish">Publish immediately</option></select></div>
+          <div class="field"><label class="field-label" for="ru-approval-slug">Blog slug <span aria-hidden="true">*</span></label><input class="form-input" id="ru-approval-slug" name="slug" value="${escapeHTML(suggestedSlug)}"><p class="field-error hidden" data-field-error="slug"></p></div>
         </div>
-        <div class="field"><label class="field-label" for="ru-article-content">Content</label>
-          <textarea class="form-textarea min-h-40" id="ru-article-content" name="content">${escapeHTML(record.content || '')}</textarea></div>
+        <div class="field"><label class="field-label" for="ru-approval-issue">নিংশিং চে issue (optional)</label><select class="form-select" id="ru-approval-issue" name="issue_year"><option value="">Not part of an annual issue</option>${[new Date().getFullYear() + 1, new Date().getFullYear(), new Date().getFullYear() - 1].map((year) => `<option value="${year}">${escapeHTML(NC.tags.issueLabel(year))}</option>`).join('')}</select></div>
+        <div class="conversion-map"><div><span>Article title</span><strong>${escapeHTML(record.title || 'Untitled')}</strong><i class="fa-regular fa-arrow-down" aria-hidden="true"></i><span>Blog title</span></div><div><span>Writer</span><strong>${escapeHTML(record.writer_name || '—')}</strong><i class="fa-regular fa-arrow-down" aria-hidden="true"></i><span>Author relationship</span></div><div><span>Thumbnail & content</span><strong>Preserved</strong><i class="fa-regular fa-arrow-down" aria-hidden="true"></i><span>Hero & article body</span></div></div>
       </form>`,
-      footer: '<button type="button" class="btn btn-secondary" data-modal-close>Cancel</button><button type="submit" form="ru-article-form" class="btn btn-primary"><i class="fa-regular fa-floppy-disk" aria-hidden="true"></i>Save</button>',
+      footer: '<button type="button" class="btn btn-secondary" data-modal-close>Cancel</button><button type="submit" form="ru-approval-form" class="btn btn-primary" data-confirm-approval><i class="fa-regular fa-circle-check" aria-hidden="true"></i>Approve & convert</button>',
       onOpen: (modalRoot) => {
-        modalRoot.querySelector('#ru-article-form')?.addEventListener('submit', async (event) => {
+        const form = modalRoot.querySelector('#ru-approval-form');
+        form.addEventListener('submit', async (event) => {
           event.preventDefault();
-          const data = formData(event.currentTarget);
-          if (!NC.utils.validateFields(event.currentTarget, { title: data.title ? '' : 'Enter a title.' })) return;
+          const data = formData(form); data.slug = slugify(data.slug); form.elements.slug.value = data.slug;
+          if (!NC.utils.validateFields(form, { category_id: data.category_id ? '' : 'Choose a blog category.', slug: data.slug ? '' : 'Enter a valid unique slug.' })) return;
+          const button = modalRoot.querySelector('[data-confirm-approval]'); NC.utils.setButtonLoading(button, true, 'Converting…');
           try {
-            await NC.api.update('submissions', record.id, {
-              title: data.title,
-              content_title: data.title,
-              writer_name: data.writer_name,
-              writer_email: data.writer_email,
-              content: data.content,
-              status: data.status || record.status
-            });
-            NC.components.toast('Article saved.', 'success');
+            if (await NC.api.slugExists(data.slug)) { NC.utils.validateFields(form, { slug: 'This blog slug is already in use.' }); return; }
+            let converted;
+            try {
+              converted = await NC.api.rpc('approve_submission', { p_submission_id: record.id, p_category_id: data.category_id, p_status: data.status, p_slug: data.slug });
+            } catch (rpcError) {
+              if (![404, 400].includes(rpcError.status) && rpcError.code !== 'PGRST202') throw rpcError;
+              converted = await fallbackArticleApproval(record, data);
+            }
+            const blog = Array.isArray(converted) ? converted[0] : converted;
+            const year = NC.tags.parseIssueParam(data.issue_year);
+            if (blog?.id && year && NC.auth.canAccess('blogs')) {
+              try { await NC.api.update('blogs', blog.id, { tags: NC.tags.withIssue(blog.tags || [], year) }); } catch (tagError) { console.warn('Issue tag was not applied:', tagError); }
+            }
+            NC.components.toast(data.status === 'Publish' ? 'Article approved and blog published.' : 'Article approved and converted to a draft blog.', 'success');
             NC.components.closeModal();
-            await onSaved();
+            await onConverted?.(blog);
+            if (blog?.id) routeTo('blogs', { action: 'edit', id: blog.id });
           } catch (error) {
             console.error(error);
-            NC.components.toast(NC.api.userMessage(error, 'Unable to save article.'), 'error');
-          }
+            NC.components.toast(NC.api.userMessage(error, 'Unable to convert this article. Nothing was discarded.'), 'error');
+          } finally { NC.utils.setButtonLoading(button, false); }
         });
       }
     });
+  }
+
+  async function fallbackArticleApproval(record, data) {
+    const writer = String(record.writer_name || '').trim();
+    let author = cache.authors.find((item) => String(item.title || '').trim().toLocaleLowerCase() === writer.toLocaleLowerCase());
+    if (!author) {
+      const owner = articleOwner(record);
+      author = await NC.api.insert('authors', {
+        title: writer || displayName(owner || {}), designation: record.writer_designation || owner?.designation || '',
+        image: record.writer_profile_image || owner?.avatar_url || '', imgbb_delete_url: record.writer_profile_delete_url || '',
+        image_meta: record.writer_profile_meta || {}, description: '', is_verified: false, location: record.address || ''
+      });
+      cache.authors.push(author);
+    }
+    const category = cache.categories.find((item) => item.id === data.category_id);
+    const blog = await NC.api.insert('blogs', {
+      title: record.title, sub_title: record.content_title && record.content_title !== record.title ? record.content_title : '',
+      image: record.thumbnail || '', imgbb_delete_url: record.imgbb_delete_url || '', image_meta: record.thumbnail_meta || {},
+      content: record.content || '', inline_media: Array.isArray(record.inline_media) ? record.inline_media : [],
+      category_id: data.category_id, category_title: category?.title || '', category_slug: category?.slug || '',
+      author_id: author.id, author_name: author.title, author_image: author.image || '', status: data.status,
+      slug: data.slug, tags: [], is_slider: false, is_feature: false, is_special_article: false,
+      seo_title: '', seo_description: '', video_link: '', pdf_book_link: '',
+      published_date: data.status === 'Publish' ? new Date().toISOString().slice(0, 10) : null
+    });
+    await NC.api.update('submissions', record.id, { status: 'Approved', reviewed_at: new Date().toISOString(), converted_blog_id: blog.id });
+    return blog;
   }
 
   async function deleteArticle(record, onDeleted) {
@@ -499,49 +1030,93 @@
   }
 
   function renderArticles(context = {}) {
+    closeArticleEditor();
     const state = new NC.crud.ListState('articles', { searchFields: ['title', 'writer_name', 'writer_email', 'content_title'], sortKey: 'created_at' });
-    state.setRecords(appArticles());
+    const records = appArticles();
+    state.setRecords(records);
     const reload = () => refreshScreen(renderArticles, context);
-    root.innerHTML = `${pageChrome('Articles', 'Articles submitted by registered app users.')}
-      <section class="surface"><div class="list-toolbar"><label class="search-field"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><span class="sr-only">Search articles</span><input type="search" placeholder="Search title or writer…" data-ru-search></label></div><div data-ru-table></div></section>`;
+    const params = context.params || new URLSearchParams();
+    const presetUser = params.get('user') || 'all';
+    const presetStatus = params.get('status') || 'all';
+    const statusOptions = ARTICLE_STATUSES.map((status) => ({ value: status, label: status, count: records.filter((item) => (item.status || 'Pending') === status).length })).filter((item) => item.count > 0);
+    root.innerHTML = `${pageChrome('Articles', 'Articles submitted by registered app users. Edit them in the full editor, publish them in the app, or convert them into magazine blogs.',
+      canEditArticles() ? `<div class="page-actions mb-5"><button type="button" class="btn btn-primary" data-ru-add-article><i class="fa-regular fa-plus" aria-hidden="true"></i>Add article</button></div>` : '')}
+      <section class="surface">
+        <div class="list-toolbar">
+          <label class="search-field"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><span class="sr-only">Search articles</span><input type="search" placeholder="Search title or writer…" data-ru-search></label>
+          ${userFilterSelect(records, 'writer_email', 'data-ru-user-filter', 'Filter by user')}
+          ${NC.crud.filterSelect(statusOptions, { attr: 'data-ru-status-filter', label: 'Filter by status', placeholder: 'All statuses', selected: presetStatus })}
+        </div>
+        <div class="active-filters hidden" data-ru-active-filters></div>
+        <div data-ru-table></div>
+      </section>`;
     const renderList = () => {
       const content = root.querySelector('[data-ru-table]');
       const { rows, total } = state.paged();
       if (!total) {
-        content.innerHTML = NC.components.emptyState({ icon: 'fa-file-pen', title: state.query ? 'No articles match' : 'No app articles yet', description: 'Registered users submit articles from the Android dashboard.' });
+        const filtered = Boolean(state.query) || root.querySelector('[data-ru-user-filter]')?.value !== 'all' || root.querySelector('[data-ru-status-filter]')?.value !== 'all';
+        content.innerHTML = NC.components.emptyState({ icon: 'fa-file-pen', title: filtered ? 'No articles match' : 'No app articles yet', description: filtered ? 'Try another user, status, or search.' : 'Registered users submit articles from the Android app, or add one for them here.', action: !filtered && canEditArticles() ? '<button type="button" class="btn btn-primary" data-ru-add-article><i class="fa-regular fa-plus" aria-hidden="true"></i>Add article</button>' : '' });
+        content.querySelector('[data-ru-add-article]')?.addEventListener('click', () => renderArticleEditor(null, { onDone: reload }));
         return;
       }
       content.innerHTML = `${NC.components.tableShell({
-        caption: 'App articles', minWidth: '1080px',
-        head: `<tr><th>Article</th><th>Writer</th><th>Status</th><th><button type="button" data-sort="created_at">Submitted ${NC.crud.sortIcon(state, 'created_at')}</button></th><th class="text-right">Actions</th></tr>`,
-        body: rows.map((item) => `<tr>
-          <td data-label="Article"><strong>${escapeHTML(item.title || 'Untitled')}</strong></td>
-          <td data-label="Writer">${escapeHTML(item.writer_name || item.writer_email || '—')}</td>
-          <td data-label="Status">${NC.components.statusBadge(item.status || 'Pending')}</td>
+        caption: 'App articles', minWidth: '1120px',
+        head: `<tr><th>Article</th><th>Writer · App user</th><th>Status</th><th><button type="button" data-sort="created_at">Submitted ${NC.crud.sortIcon(state, 'created_at')}</button></th><th class="text-right">Actions</th></tr>`,
+        body: rows.map((item) => {
+          const owner = articleOwner(item);
+          const thumb = safeImage(item.thumbnail);
+          const actions = [{ action: 'view', id: item.id, label: 'View article', icon: 'fa-eye' }];
+          if (canEditArticles()) actions.push({ action: 'edit', id: item.id, label: 'Edit article', icon: 'fa-pen' });
+          if (canConvertArticle() && !articleConverted(item) && item.status !== 'Rejected') actions.push({ action: 'approve', id: item.id, label: 'Approve & convert to Blog', icon: 'fa-circle-check' });
+          if (item.converted_blog_id && NC.auth.canAccess('blogs')) actions.push({ action: 'blog', id: item.id, label: 'Open converted blog', icon: 'fa-newspaper' });
+          if (canEditArticles()) actions.push({ action: 'delete', id: item.id, label: 'Delete article', icon: 'fa-trash', danger: true });
+          return `<tr>
+          <td data-label="Article"><div class="article-cell">${thumb ? `<img src="${escapeHTML(thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-image-fallback>` : '<span class="article-thumb-placeholder"><i class="fa-regular fa-file-lines" aria-hidden="true"></i></span>'}<div><strong>${escapeHTML(item.title || 'Untitled')}</strong><small>${escapeHTML(NC.utils.truncate(NC.utils.stripHTML(item.content || ''), 90) || 'No content yet')}</small></div></div></td>
+          <td data-label="Writer"><div class="person-cell compact">${NC.utils.avatarHTML(item.writer_name || displayName(owner || {}), item.writer_profile_image || owner?.avatar_url, 'person-avatar')}<div><strong>${escapeHTML(item.writer_name || item.writer_email || '—')}</strong><span>${owner ? `<button type="button" class="table-link" data-ru-filter-user="${escapeHTML(owner.id)}" title="Show only this user’s articles">${escapeHTML(displayName(owner))}${owner.email ? ` · ${escapeHTML(owner.email)}` : ''}</button>` : escapeHTML(item.writer_email || 'No linked profile')}</span></div></div></td>
+          <td data-label="Status">${NC.components.statusBadge(item.status || 'Pending')}${item.converted_blog_id ? '<div class="mt-1"><small class="text-muted-foreground">Converted to blog</small></div>' : ''}</td>
           <td data-label="Submitted">${escapeHTML(formatDateTime(item.created_at))}</td>
-          <td data-label="Actions" class="text-right">${NC.components.rowActions([
-            { action: 'view', id: item.id, label: 'View article', icon: 'fa-eye' },
-            { action: 'edit', id: item.id, label: 'Edit article', icon: 'fa-pen' },
-            { action: 'delete', id: item.id, label: 'Delete article', icon: 'fa-trash', danger: true }
-          ])}</td>
-        </tr>`).join('')
+          <td data-label="Actions" class="text-right">${NC.components.rowActions(actions)}</td>
+        </tr>`;
+        }).join('')
       })}${NC.components.pagination({ page: state.page, pageSize: state.pageSize, total })}`;
+      NC.components.bindImageFallbacks(content);
       content.querySelectorAll('[data-action]').forEach((button) => {
         const record = articleById(button.dataset.id);
         if (!record) return;
         button.addEventListener('click', () => {
-          if (button.dataset.action === 'view') openArticleView(record, (item) => openArticleForm(item, reload));
-          if (button.dataset.action === 'edit') openArticleForm(record, reload);
+          if (button.dataset.action === 'view') openArticleView(record, (item) => renderArticleEditor(item, { onDone: reload }));
+          if (button.dataset.action === 'edit') renderArticleEditor(record, { onDone: reload });
+          if (button.dataset.action === 'approve') openArticleApproval(record, { onConverted: reload });
+          if (button.dataset.action === 'blog') routeTo('blogs', { action: 'edit', id: record.converted_blog_id });
           if (button.dataset.action === 'delete') deleteArticle(record, reload);
         });
       });
+      content.querySelectorAll('[data-ru-filter-user]').forEach((button) => button.addEventListener('click', () => {
+        const select = root.querySelector('[data-ru-user-filter]');
+        if (select) { select.value = button.dataset.ruFilterUser; select.dispatchEvent(new Event('change')); }
+      }));
       NC.crud.bindPagination(root, state, renderList);
       NC.crud.bindSort(root, state, renderList);
     };
     bindList(state, renderList);
-    renderList();
-    const openId = context.params?.get('id');
-    if (openId && articleById(openId)) openArticleView(articleById(openId), (item) => openArticleForm(item, reload));
+    root.querySelectorAll('[data-ru-add-article]').forEach((button) => button.addEventListener('click', () => {
+      const selected = root.querySelector('[data-ru-user-filter]')?.value;
+      renderArticleEditor(null, { presetUser: selected && selected !== 'all' ? userById(selected) : null, onDone: reload });
+    }));
+    const statusSelect = root.querySelector('[data-ru-status-filter]');
+    const statusChip = () => [{ key: 'status', label: 'Status', value: statusSelect.value !== 'all' ? statusSelect.value : '', remove: () => { statusSelect.value = 'all'; statusSelect.dispatchEvent(new Event('change')); } }];
+    const userFilter = bindUserFilter(state, renderList, 'data-ru-user-filter', 'writer_email', '[data-ru-active-filters]', statusChip);
+    statusSelect.addEventListener('change', () => { state.setFilter('status', statusSelect.value); userFilter.apply(); });
+    if (presetUser !== 'all' && userFilter.select && [...userFilter.select.options].some((option) => option.value === presetUser)) userFilter.select.value = presetUser;
+    state.setFilter('status', statusSelect.value);
+    userFilter.apply();
+    const openId = params.get('id');
+    if (openId && articleById(openId)) {
+      if (params.get('action') === 'edit') renderArticleEditor(articleById(openId), { onDone: reload });
+      else openArticleView(articleById(openId), (item) => renderArticleEditor(item, { onDone: reload }));
+    } else if (params.get('action') === 'new') {
+      renderArticleEditor(null, { presetUser: presetUser !== 'all' ? userById(presetUser) : null, onDone: reload });
+    }
   }
 
   function renderComments(context = {}) {
@@ -836,15 +1411,36 @@
 
   function renderMessages(context = {}) {
     const state = new NC.crud.ListState('conversations', { searchFields: ['user_name', 'last_body'], sortKey: 'created_at' });
-    state.setRecords(conversationRows());
+    const conversations = conversationRows();
+    state.setRecords(conversations);
+    const params = context.params || new URLSearchParams();
+    const presetUser = params.get('user') || 'all';
+    const userOptions = conversations
+      .map((item) => ({ value: item.user_id, label: `${item.user_name}${userById(item.user_id)?.email ? ` — ${userById(item.user_id).email}` : ''}`, count: item.count }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'bn'));
     root.innerHTML = `${pageChrome('Messages', 'One row per user. Open a conversation to read the full thread.')}
       ${cache.inboxReady ? '' : `<div class="mb-6">${NC.components.notice('Run 007_user_inbox.sql so admin messages can be stored.', 'warning')}</div>`}
-      <section class="surface"><div class="list-toolbar"><label class="search-field"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><span class="sr-only">Search conversations</span><input type="search" placeholder="Search people or messages…" data-ru-search></label></div><div data-ru-table></div></section>`;
+      <section class="surface"><div class="list-toolbar"><label class="search-field"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><span class="sr-only">Search conversations</span><input type="search" placeholder="Search people or messages…" data-ru-search></label>${NC.crud.filterSelect(userOptions, { attr: 'data-ru-user-filter', label: 'Filter by user', placeholder: 'All users', selected: presetUser, wide: true })}<select class="form-select toolbar-select" data-ru-unread-filter aria-label="Filter by unread"><option value="all">Read & unread</option><option value="unread">Unread only</option></select></div><div class="active-filters hidden" data-ru-active-filters></div><div data-ru-table></div></section>`;
+    const userSelect = root.querySelector('[data-ru-user-filter]');
+    const unreadSelect = root.querySelector('[data-ru-unread-filter]');
+    const applyFilters = () => {
+      state.setFilter('user_id', userSelect.value);
+      state.setFilter('__unread', unreadSelect.value === 'unread' ? (_, row) => row.unread > 0 : 'all');
+      renderList();
+      NC.crud.renderActiveFilters(root.querySelector('[data-ru-active-filters]'), [
+        { key: 'user', label: 'User', value: userSelect.value !== 'all' ? (conversations.find((item) => item.user_id === userSelect.value)?.user_name || 'User') : '' },
+        { key: 'unread', label: 'Only', value: unreadSelect.value === 'unread' ? 'Unread' : '' }
+      ], {
+        onRemove: (key) => { if (key === 'user') userSelect.value = 'all'; if (key === 'unread') unreadSelect.value = 'all'; applyFilters(); },
+        onClear: () => { userSelect.value = 'all'; unreadSelect.value = 'all'; applyFilters(); }
+      });
+    };
     const renderList = () => {
       const content = root.querySelector('[data-ru-table]');
       const { rows, total } = state.paged();
       if (!total) {
-        content.innerHTML = NC.components.emptyState({ icon: 'fa-messages', title: state.query ? 'No conversations match' : 'No messages yet' });
+        const filtered = Boolean(state.query) || userSelect.value !== 'all' || unreadSelect.value !== 'all';
+        content.innerHTML = NC.components.emptyState({ icon: 'fa-messages', title: filtered ? 'No conversations match' : 'No messages yet', description: filtered ? 'Try another user or clear the filters.' : '' });
         return;
       }
       content.innerHTML = `${NC.components.tableShell({
@@ -872,8 +1468,10 @@
       NC.crud.bindSort(root, state, renderList);
     };
     bindList(state, renderList);
-    renderList();
-    const openId = context.params?.get('id');
+    userSelect.addEventListener('change', applyFilters);
+    unreadSelect.addEventListener('change', applyFilters);
+    applyFilters();
+    const openId = params.get('id');
     if (openId) openChat(openId);
   }
 
@@ -1047,6 +1645,12 @@
   }
 
   Object.keys(screens).forEach((route) => {
-    NC.views[route] = { render: (container, context) => render(container, { ...context, route }) };
+    NC.views[route] = {
+      render: (container, context) => render(container, { ...context, route }),
+      destroy: () => {
+        destroyCharts();
+        closeArticleEditor();
+      }
+    };
   });
 })(window.NC);

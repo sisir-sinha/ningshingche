@@ -155,6 +155,51 @@
     };
   }
 
+  /**
+   * Toolbar <select> filled from a list of { value, label, count } options.
+   * Options: { attr, label, placeholder, selected, wide, countLabel }.
+   */
+  function filterSelect(options, { attr, label, placeholder = 'All', selected = 'all', wide = false } = {}) {
+    const { escapeHTML } = NC.utils;
+    const rows = options.map((item) => {
+      const value = String(item.value);
+      const count = Number.isFinite(item.count) ? ` (${Number(item.count).toLocaleString()})` : '';
+      return `<option value="${escapeHTML(value)}" ${value === String(selected) ? 'selected' : ''}>${escapeHTML(item.label)}${escapeHTML(count)}</option>`;
+    }).join('');
+    return `<select class="form-select toolbar-select${wide ? ' toolbar-select-wide' : ''}" ${attr} aria-label="${escapeHTML(label)}"><option value="all">${escapeHTML(placeholder)}</option>${rows}</select>`;
+  }
+
+  /**
+   * Renders the "Filters: [chip ×] [chip ×] Clear all" strip inside `host`.
+   * `chips` is [{ key, label, value }]. onRemove(key) and onClear() re-render.
+   */
+  function renderActiveFilters(host, chips, { onRemove, onClear } = {}) {
+    if (!host) return;
+    const { escapeHTML } = NC.utils;
+    const active = chips.filter((chip) => chip && chip.value);
+    if (!active.length) { host.innerHTML = ''; host.classList.add('hidden'); return; }
+    host.classList.remove('hidden');
+    host.innerHTML = `<span class="active-filters-label">Filters</span>${active.map((chip) => `
+      <span class="filter-chip"><small>${escapeHTML(chip.label)}:</small>${escapeHTML(chip.value)}<button type="button" data-filter-remove="${escapeHTML(chip.key)}" aria-label="Remove ${escapeHTML(chip.label)} filter"><i class="fa-regular fa-xmark" aria-hidden="true"></i></button></span>`).join('')}
+      ${active.length > 1 ? '<button type="button" class="filter-chip-clear" data-filter-clear>Clear all</button>' : ''}`;
+    host.querySelectorAll('[data-filter-remove]').forEach((button) => button.addEventListener('click', () => onRemove?.(button.dataset.filterRemove)));
+    host.querySelector('[data-filter-clear]')?.addEventListener('click', () => onClear?.());
+  }
+
+  /** Small tag chip list for table cells. Issue tags are highlighted; extra tags collapse into "+N". */
+  function tagChips(tags, { max = 3, attr = 'data-tag-filter' } = {}) {
+    const { escapeHTML } = NC.utils;
+    const list = NC.tags.tagsOf(tags);
+    if (!list.length) return '';
+    const sorted = [...list].sort((a, b) => Number(NC.tags.isIssue(b)) - Number(NC.tags.isIssue(a)));
+    const shown = sorted.slice(0, max);
+    const rest = sorted.length - shown.length;
+    return `<div class="tag-chips">${shown.map((tag) => {
+      const issue = NC.tags.isIssue(tag);
+      return `<button type="button" class="tag-chip${issue ? ' is-issue' : ''}" ${attr}="${escapeHTML(NC.tags.keyOf(tag))}" title="Filter by ${escapeHTML(NC.tags.displayLabel(tag))}">${issue ? '<i class="fa-solid fa-calendar" aria-hidden="true"></i>' : '#'}${escapeHTML(NC.tags.displayLabel(tag))}</button>`;
+    }).join('')}${rest > 0 ? `<span class="tag-chip is-more" title="${escapeHTML(sorted.slice(max).map(NC.tags.displayLabel).join(', '))}">+${rest}</span>` : ''}</div>`;
+  }
+
   function isStaleNavigation(context = {}) {
     return Boolean(context.navigationId && context.navigationId !== NC.state.navigationId);
   }
@@ -168,6 +213,7 @@
 
   NC.crud = Object.freeze({
     ListState, bindPagination, bindSort, sortIcon, save, deleteRecord,
-    deleteReplacedMedia, deleteMediaRecords, imagePayload, handleLoadError, isStaleNavigation
+    deleteReplacedMedia, deleteMediaRecords, imagePayload, handleLoadError, isStaleNavigation,
+    filterSelect, renderActiveFilters, tagChips
   });
 })(window.NC);

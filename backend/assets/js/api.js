@@ -104,13 +104,20 @@
     return tables[keyOrName] || keyOrName;
   }
 
+  // PostgREST array literal with every element double-quoted, so values that
+  // contain spaces, commas, or braces (e.g. "নিংশিং চে - ২০২৩") match exactly.
+  function arrayLiteral(values) {
+    const items = (Array.isArray(values) ? values : [values]).filter((item) => item !== undefined && item !== null && item !== '');
+    return `{${items.map((item) => `"${String(item).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`).join(',')}}`;
+  }
+
   function filterExpression(value) {
     if (value && typeof value === 'object' && !Array.isArray(value)) {
       const op = value.op || 'eq';
       const raw = value.value;
       if (op === 'in') return `in.(${(raw || []).map((item) => String(item).replace(/[(),]/g, '')).join(',')})`;
       if (op === 'is') return `is.${raw}`;
-      if (op === 'cs') return `cs.{${(raw || []).join(',')}}`;
+      if (['cs', 'cd', 'ov'].includes(op)) return `${op}.${arrayLiteral(raw)}`;
       return `${op}.${raw}`;
     }
     return `eq.${value}`;
@@ -225,6 +232,118 @@
     return data;
   }
 
+  // ---------------------------------------------------------------------------
+  // Blog tags / annual issues ("নিংশিং চে বার্ষিক সংখ্যা")
+  // Prefers the endpoints from migration 013 (blog_tag_counts view,
+  // blogs_by_issue / blogs_by_tag RPCs, generated tag_keys column). When they
+  // are not installed yet the same result is built client-side from
+  // public.blogs so the dashboard keeps working on an older database.
+  // ---------------------------------------------------------------------------
+  const tagEndpointState = { available: null, checkedAt: 0 };
+
+  function tagEndpointsMissing(error) {
+    return Boolean(error && (error.isSchemaMissing || error.isSchemaMismatch || error.isRpcMissing || [400, 404].includes(error.status)));
+  }
+
+  function markTagEndpoints(available) {
+    tagEndpointState.available = available;
+    tagEndpointState.checkedAt = Date.now();
+  }
+
+  function tagEndpointsAvailable() {
+    return tagEndpointState.available;
+  }
+
+  // Re-try the server endpoints after a while so installing migration 013
+  // is picked up without a full reload.
+  function shouldTryTagEndpoints() {
+    return tagEndpointState.available !== false || Date.now() - tagEndpointState.checkedAt > 5 * 60 * 1000;
+  }
+
+  async function probeTagEndpoints() {
+    try {
+      await list('blog_tag_counts', { select: 'tag_key', limit: 1 });
+      markTagEndpoints(true);
+    } catch (error) {
+      if (tagEndpointsMissing(error)) markTagEndpoints(false);
+    }
+    return tagEndpointState.available;
+  }
+
+  /**
+   * Tag catalogue: { issues: [...], tags: [...], source: 'view' | 'client' }.
+   * Every entry: { key, label, year, count, publishedCount, variants[] }.
+   * Pass { records } to index an already loaded blog list without a request.
+   */
+  async function tagIndex({ records = null, status = 'all', signal } = {}) {
+    if (Array.isArray(records)) return { ...NC.tags.index(records), source: 'client' };
+    if (shouldTryTagEndpoints()) {
+      try {
+        const result = await list('blog_tag_counts', { select: '*', order: 'issue_year.desc.nullslast,total.desc', limit: 1000, signal });
+        markTagEndpoints(true);
+        const rows = status === 'Publish' ? result.data.filter((row) => Number(row.published || 0) > 0) : result.data;
+        return { ...NC.tags.indexFromRows(rows), source: 'view' };
+      } catch (error) {
+        if (!tagEndpointsMissing(error)) throw error;
+        markTagEndpoints(false);
+      }
+    }
+    const filters = status && status !== 'all' ? { status } : {};
+    const result = await list('blogs', { select: 'id,status,tags', filters, limit: 5000, signal });
+    return { ...NC.tags.index(result.data), source: 'client' };
+  }
+
+  /** Annual issues only, newest first: [{ year, key, label, count, publishedCount }]. */
+  async function issueYears(options = {}) {
+    const index = await tagIndex(options);
+    return index.issues.map((issue) => ({ year: issue.year, key: issue.key, label: issue.label, count: issue.count, publishedCount: issue.publishedCount }));
+  }
+
+  /** Blogs of one annual issue, e.g. blogsByIssue(2025) or blogsByIssue('২০২৫'). */
+  async function blogsByIssue(year, { status = 'all', limit = 500, offset = 0, select = '*', signal } = {}) {
+    const resolved = NC.tags.parseIssueParam(year);
+    if (!resolved) return { data: [], count: 0, hasExactCount: true };
+    if (shouldTryTagEndpoints()) {
+      try {
+        const data = await rpc('blogs_by_issue', { p_year: resolved, p_status: status === 'all' ? null : status, p_limit: limit, p_offset: offset }, { signal });
+        markTagEndpoints(true);
+        return { data: Array.isArray(data) ? data : [], count: Array.isArray(data) ? data.length : 0, hasExactCount: false };
+      } catch (error) {
+        if (!tagEndpointsMissing(error)) throw error;
+        markTagEndpoints(false);
+      }
+    }
+    const filters = { tags: { op: 'ov', value: NC.tags.issueVariants(resolved) } };
+    if (status && status !== 'all') filters.status = status;
+    const result = await list('blogs', { select, filters, order: 'published_date.desc.nullslast,created_at.desc', limit, offset, signal });
+    // The overlap filter covers the known spellings; the client key check covers any others.
+    result.data = result.data.filter((record) => NC.tags.matchesIssue(record, resolved));
+    return result;
+  }
+
+  /** Blogs carrying a tag in any spelling, e.g. blogsByTag('সাহিত্য'). */
+  async function blogsByTag(tag, { status = 'all', limit = 500, offset = 0, select = '*', signal } = {}) {
+    const year = NC.tags.issueYear(tag);
+    if (year) return blogsByIssue(year, { status, limit, offset, select, signal });
+    const key = NC.tags.keyOf(tag);
+    if (!key) return { data: [], count: 0, hasExactCount: true };
+    if (shouldTryTagEndpoints()) {
+      try {
+        const data = await rpc('blogs_by_tag', { p_tag: NC.tags.clean(tag), p_status: status === 'all' ? null : status, p_limit: limit, p_offset: offset }, { signal });
+        markTagEndpoints(true);
+        return { data: Array.isArray(data) ? data : [], count: Array.isArray(data) ? data.length : 0, hasExactCount: false };
+      } catch (error) {
+        if (!tagEndpointsMissing(error)) throw error;
+        markTagEndpoints(false);
+      }
+    }
+    const filters = {};
+    if (status && status !== 'all') filters.status = status;
+    const result = await list('blogs', { select, filters, order: 'published_date.desc.nullslast,created_at.desc', limit: 5000, signal });
+    const data = result.data.filter((record) => NC.tags.matchesKey(record, key));
+    return { data: data.slice(offset, offset + limit), count: data.length, hasExactCount: true };
+  }
+
   async function slugExists(slug, excludeId = '') {
     const filters = { slug: { op: 'eq', value: slug } };
     if (excludeId) filters.id = { op: 'neq', value: excludeId };
@@ -266,6 +385,9 @@
       blogs: 'id,imgbb_delete_url,image_meta,inline_media,pdf_file_provider,pdf_storage_path,pdf_file_size_mb',
       submissions: 'id,inline_media'
     };
+    // Optional: tag endpoints from migration 013. Checked so Settings can show
+    // the upgrade hint; the dashboard falls back to client-side filtering.
+    probeTagEndpoints();
     const keys = Object.keys(tables);
     const results = await Promise.all(keys.map(async (key) => {
       try {
@@ -387,6 +509,7 @@
   NC.api = Object.freeze({
     ApiError, request, list, getById, count, insert, insertMany, update, upsert, remove,
     rpc, slugExists, searchAll, schemaProbe, uploadPdf, deleteStorageObject,
-    storagePublicUrl, attemptImgBBDelete, userMessage, tableName
+    storagePublicUrl, attemptImgBBDelete, userMessage, tableName,
+    tagIndex, issueYears, blogsByIssue, blogsByTag, tagEndpointsAvailable, probeTagEndpoints, arrayLiteral
   });
 })(window.NC);

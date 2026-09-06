@@ -5,25 +5,145 @@
   const state = new NC.crud.ListState('comments', { searchFields: ['name', 'email', 'content', 'blog_title'], sortKey: 'created_at' });
   let root;
   let blogs = [];
+  let authors = [];
+  const filterValues = { status: 'all', blog_id: 'all', author_id: 'all', commenter: 'all' };
 
   function blogTitle(record) {
     return blogs.find((item) => item.id === record.blog_id)?.title || record.blog_title || 'Unknown blog';
   }
 
+  function blogAuthorId(record) {
+    return blogs.find((item) => item.id === record.blog_id)?.author_id || '';
+  }
+
+  function blogAuthorName(record) {
+    const blog = blogs.find((item) => item.id === record.blog_id);
+    return authors.find((item) => item.id === blog?.author_id)?.title || blog?.author_name || '';
+  }
+
+  // Commenter identity: registered app users share a user_id; anonymous
+  // readers are grouped by lower-cased email, then by name.
+  function commenterKey(record) {
+    if (record.user_id) return `user:${record.user_id}`;
+    if (record.email) return `email:${String(record.email).trim().toLocaleLowerCase()}`;
+    return `name:${String(record.name || '').trim().toLocaleLowerCase()}`;
+  }
+
+  function hasActiveFilters() {
+    return Object.values(filterValues).some((value) => value && value !== 'all');
+  }
+
+  function syncStateFilters() {
+    state.setFilter('status', filterValues.status);
+    state.setFilter('blog_id', filterValues.blog_id);
+    state.setFilter('__author', filterValues.author_id !== 'all' ? (_, record) => blogAuthorId(record) === filterValues.author_id : 'all');
+    state.setFilter('__commenter', filterValues.commenter !== 'all' ? (_, record) => commenterKey(record) === filterValues.commenter : 'all');
+  }
+
+  function applyFilter(key, value) {
+    if (!(key in filterValues)) return;
+    filterValues[key] = value || 'all';
+    syncStateFilters();
+    syncFilterControls();
+    renderList();
+  }
+
+  function clearFilters() {
+    Object.keys(filterValues).forEach((key) => { filterValues[key] = 'all'; });
+    state.setQuery('');
+    const search = root.querySelector('[data-comment-search]');
+    if (search) search.value = '';
+    syncStateFilters();
+    syncFilterControls();
+    renderList();
+  }
+
+  function syncFilterControls() {
+    [['[data-comment-status]', 'status'], ['[data-comment-blog]', 'blog_id'], ['[data-comment-author]', 'author_id'], ['[data-comment-commenter]', 'commenter']].forEach(([selector, key]) => {
+      const select = root.querySelector(selector);
+      if (!select) return;
+      const value = String(filterValues[key]);
+      select.value = [...select.options].some((option) => option.value === value) ? value : 'all';
+    });
+  }
+
+  function renderFilterChips() {
+    const host = root.querySelector('[data-comment-active-filters]');
+    if (!host) return;
+    const commenter = filterValues.commenter !== 'all' ? commenterOptions().find((item) => item.value === filterValues.commenter) : null;
+    NC.crud.renderActiveFilters(host, [
+      { key: 'status', label: 'Status', value: filterValues.status === 'Publish' ? 'Published' : (filterValues.status === 'Unpublish' ? 'Needs moderation' : '') },
+      { key: 'blog_id', label: 'Blog', value: filterValues.blog_id !== 'all' ? (blogs.find((item) => item.id === filterValues.blog_id)?.title || 'Unknown') : '' },
+      { key: 'author_id', label: 'Blog author', value: filterValues.author_id !== 'all' ? (authors.find((item) => item.id === filterValues.author_id)?.title || 'Unknown') : '' },
+      { key: 'commenter', label: 'Commenter', value: commenter ? commenter.label : '' }
+    ], { onRemove: (key) => applyFilter(key, 'all'), onClear: clearFilters });
+  }
+
+  function authorOptions() {
+    const counts = new Map();
+    state.records.forEach((record) => { const id = blogAuthorId(record); if (id) counts.set(id, (counts.get(id) || 0) + 1); });
+    return authors
+      .filter((author) => counts.has(author.id))
+      .map((author) => ({ value: author.id, label: author.title || 'Untitled', count: counts.get(author.id) || 0 }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'bn'));
+  }
+
+  function commenterOptions() {
+    const groups = new Map();
+    state.records.forEach((record) => {
+      const key = commenterKey(record);
+      const entry = groups.get(key) || { value: key, label: record.name || record.email || 'Anonymous', count: 0, registered: Boolean(record.user_id) };
+      entry.count += 1;
+      if (!entry.label && (record.name || record.email)) entry.label = record.name || record.email;
+      groups.set(key, entry);
+    });
+    return [...groups.values()]
+      .map((item) => ({ ...item, label: item.registered ? `${item.label} · app user` : item.label }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'bn'));
+  }
+
+  function blogOptions() {
+    const counts = new Map();
+    state.records.forEach((record) => { if (record.blog_id) counts.set(record.blog_id, (counts.get(record.blog_id) || 0) + 1); });
+    return blogs
+      .map((blog) => ({ value: blog.id, label: blog.title, count: counts.get(blog.id) || 0 }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'bn'));
+  }
+
+  function fillFilterSelects() {
+    const replace = (selector, options, placeholder, attr, label) => {
+      const current = root.querySelector(selector);
+      if (!current) return;
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = NC.crud.filterSelect(options, { attr, label, placeholder, wide: true });
+      const next = wrapper.firstElementChild;
+      current.replaceWith(next);
+    };
+    replace('[data-comment-blog]', blogOptions(), 'All blogs', 'data-comment-blog', 'Filter by blog');
+    replace('[data-comment-author]', authorOptions(), 'All blog authors', 'data-comment-author', 'Filter by blog author');
+    replace('[data-comment-commenter]', commenterOptions(), 'All commenters', 'data-comment-commenter', 'Filter by commenter');
+    root.querySelector('[data-comment-blog]').addEventListener('change', (event) => applyFilter('blog_id', event.target.value));
+    root.querySelector('[data-comment-author]').addEventListener('change', (event) => applyFilter('author_id', event.target.value));
+    root.querySelector('[data-comment-commenter]').addEventListener('change', (event) => applyFilter('commenter', event.target.value));
+    syncFilterControls();
+  }
+
   function renderList() {
     const content = root.querySelector('[data-comments-content]');
     const { rows, total } = state.paged();
+    renderFilterChips();
     if (!total) {
+      const filtered = Boolean(state.query) || hasActiveFilters();
       content.innerHTML = NC.components.emptyState({
-        icon: 'fa-comments', title: state.query ? 'No comments match your search' : 'No comments yet',
-        description: state.query ? 'Try a different name, article, or phrase.' : 'Reader feedback and moderation requests will appear here.',
-        action: state.query ? '' : '<button type="button" class="btn btn-primary" data-add-comment><i class="fa-regular fa-plus" aria-hidden="true"></i>Add comment</button>'
+        icon: 'fa-comments', title: filtered ? 'No comments match your search or filters' : 'No comments yet',
+        description: filtered ? 'Try a different name, article, author, or phrase.' : 'Reader feedback and moderation requests will appear here.',
+        action: filtered ? '<button type="button" class="btn btn-secondary" data-clear-comment-filters><i class="fa-regular fa-filter-slash" aria-hidden="true"></i>Clear filters</button>' : '<button type="button" class="btn btn-primary" data-add-comment><i class="fa-regular fa-plus" aria-hidden="true"></i>Add comment</button>'
       }); bindListEvents(content); return;
     }
     const body = rows.map((record) => `
       <tr>
-        <td data-label="Comment"><div class="comment-cell"><strong>${escapeHTML(record.name || 'Anonymous')}</strong><p>${escapeHTML(NC.utils.truncate(record.content, 110))}</p><small>${escapeHTML(record.email || record.phone || 'No contact details')}</small></div></td>
-        <td data-label="Blog">${NC.auth.canAccess('blogs') ? `<button type="button" class="table-link line-clamp-2" data-open-blog="${escapeHTML(record.blog_id)}">${escapeHTML(blogTitle(record))}</button>` : `<span class="line-clamp-2">${escapeHTML(blogTitle(record))}</span>`}</td>
+        <td data-label="Comment"><div class="comment-cell"><button type="button" class="table-link" data-filter-commenter="${escapeHTML(commenterKey(record))}" title="Show every comment by this reader">${escapeHTML(record.name || 'Anonymous')}</button><p>${escapeHTML(NC.utils.truncate(record.content, 110))}</p><small>${escapeHTML(record.email || record.phone || 'No contact details')}</small></div></td>
+        <td data-label="Blog"><div class="stacked-cell">${NC.auth.canAccess('blogs') ? `<button type="button" class="table-link line-clamp-2" data-open-blog="${escapeHTML(record.blog_id)}">${escapeHTML(blogTitle(record))}</button>` : `<span class="line-clamp-2">${escapeHTML(blogTitle(record))}</span>`}${blogAuthorName(record) ? `<span>${blogAuthorId(record) ? `<button type="button" class="table-link" style="font-weight:600;font-size:inherit;color:inherit" data-filter-author="${escapeHTML(blogAuthorId(record))}" title="Show comments on this author’s blogs"><i class="fa-regular fa-user-pen" aria-hidden="true"></i> ${escapeHTML(blogAuthorName(record))}</button>` : escapeHTML(blogAuthorName(record))}</span>` : ''}</div></td>
         <td data-label="Status">${NC.components.statusBadge(record.status || 'Unpublish')}</td>
         <td data-label="Received"><time datetime="${escapeHTML(record.created_at || '')}">${escapeHTML(formatDateTime(record.created_at))}</time></td>
         <td data-label="Actions" class="text-right">${NC.components.rowActions([
@@ -41,6 +161,9 @@
   }
 
   function bindListEvents(scope = root) {
+    scope.querySelectorAll('[data-clear-comment-filters]').forEach((button) => button.addEventListener('click', () => clearFilters()));
+    scope.querySelectorAll('[data-filter-commenter]').forEach((button) => button.addEventListener('click', () => applyFilter('commenter', button.dataset.filterCommenter)));
+    scope.querySelectorAll('[data-filter-author]').forEach((button) => button.addEventListener('click', () => applyFilter('author_id', button.dataset.filterAuthor)));
     scope.querySelectorAll('[data-add-comment]').forEach((button) => button.addEventListener('click', () => openForm()));
     scope.querySelectorAll('[data-open-blog]').forEach((button) => button.addEventListener('click', () => NC.utils.routeTo('blogs', { action: 'view', id: button.dataset.openBlog })));
     scope.querySelectorAll('[data-action]').forEach((button) => button.addEventListener('click', () => {
@@ -122,12 +245,14 @@
   async function load(context = {}) {
     const content = root.querySelector('[data-comments-content]'); content.innerHTML = NC.components.skeleton(7, 5);
     try {
-      const [commentsResult, blogsResult] = await Promise.all([
+      const [commentsResult, blogsResult, authorsResult] = await Promise.all([
         NC.api.list('comments', { select: '*', order: 'created_at.desc', limit: 3000 }),
-        NC.api.list('blogs', { select: 'id,title,status', order: 'title.asc', limit: 3000 })
+        NC.api.list('blogs', { select: 'id,title,status,author_id,author_name', order: 'title.asc', limit: 3000 }),
+        NC.api.list('authors', { select: 'id,title', order: 'title.asc', limit: 2000 }).catch(() => ({ data: [] }))
       ]);
       if (NC.crud.isStaleNavigation(context)) return;
-      blogs = blogsResult.data; state.setRecords(commentsResult.data); renderList();
+      blogs = blogsResult.data; authors = authorsResult.data; state.setRecords(commentsResult.data);
+      syncStateFilters(); fillFilterSelects(); renderList();
       const action = context.params?.get('action'), id = context.params?.get('id');
       if (action === 'new') openForm();
       if (id && ['view', 'edit'].includes(action)) { const record = state.records.find((item) => item.id === id); if (record) action === 'view' ? openView(record) : openForm(record); }
@@ -136,22 +261,25 @@
 
   function render(container, context = {}) {
     root = container;
-    const initialStatus = context.params?.get('filter') || 'all';
-    state.setFilter('status', ['Publish', 'Unpublish'].includes(initialStatus) ? initialStatus : 'all');
+    const params = context.params || new URLSearchParams();
+    const initialStatus = params.get('filter') || 'all';
+    filterValues.status = ['Publish', 'Unpublish'].includes(initialStatus) ? initialStatus : 'all';
+    filterValues.blog_id = params.get('blog') || 'all';
+    filterValues.author_id = params.get('author') || 'all';
+    filterValues.commenter = params.get('user') ? `user:${params.get('user')}` : (params.get('commenter') || 'all');
+    syncStateFilters();
     root.innerHTML = `
       ${NC.components.pageHeader({ eyebrow: 'Community', title: 'Comments', description: 'Review reader feedback and control what appears publicly.', breadcrumb: [{ label: 'Comments' }], actions: `${NC.importer.bulkButton('comments')}<button type="button" class="btn btn-primary" data-add-comment><i class="fa-regular fa-plus" aria-hidden="true"></i>Add comment</button>` })}
-      <section class="surface"><div class="list-toolbar"><label class="search-field"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><span class="sr-only">Search comments</span><input type="search" placeholder="Search comments…" data-comment-search></label><select class="form-select toolbar-select" data-comment-status aria-label="Filter comment status"><option value="all">All statuses</option><option value="Unpublish">Needs moderation</option><option value="Publish">Published</option></select><select class="form-select toolbar-select" data-comment-blog aria-label="Filter by blog"><option value="all">All blogs</option></select></div><div data-comments-content>${NC.components.skeleton(7, 5)}</div></section>`;
+      <section class="surface"><div class="list-toolbar"><label class="search-field"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><span class="sr-only">Search comments</span><input type="search" placeholder="Search comments…" data-comment-search></label><select class="form-select toolbar-select" data-comment-status aria-label="Filter comment status"><option value="all">All statuses</option><option value="Unpublish">Needs moderation</option><option value="Publish">Published</option></select><select class="form-select toolbar-select toolbar-select-wide" data-comment-blog aria-label="Filter by blog"><option value="all">All blogs</option></select><select class="form-select toolbar-select toolbar-select-wide" data-comment-author aria-label="Filter by blog author"><option value="all">All blog authors</option></select><select class="form-select toolbar-select toolbar-select-wide" data-comment-commenter aria-label="Filter by commenter"><option value="all">All commenters</option></select></div><div class="active-filters hidden" data-comment-active-filters></div><div data-comments-content>${NC.components.skeleton(7, 5)}</div></section>`;
     root.querySelector('[data-add-comment]').addEventListener('click', () => openForm());
     root.querySelector('[data-comment-search]').addEventListener('input', debounce((event) => { state.setQuery(event.target.value); renderList(); }, 220));
-    const status = root.querySelector('[data-comment-status]'); status.value = ['Publish', 'Unpublish'].includes(initialStatus) ? initialStatus : 'all';
-    status.addEventListener('change', (event) => { state.setFilter('status', event.target.value); renderList(); });
-    root.querySelector('[data-comment-blog]').addEventListener('change', (event) => { state.setFilter('blog_id', event.target.value); renderList(); });
+    const status = root.querySelector('[data-comment-status]'); status.value = filterValues.status;
+    status.addEventListener('change', (event) => applyFilter('status', event.target.value));
+    root.querySelector('[data-comment-blog]').addEventListener('change', (event) => applyFilter('blog_id', event.target.value));
+    root.querySelector('[data-comment-author]').addEventListener('change', (event) => applyFilter('author_id', event.target.value));
+    root.querySelector('[data-comment-commenter]').addEventListener('change', (event) => applyFilter('commenter', event.target.value));
     NC.importer.bindBulk(root, { type: 'comments', onComplete: () => load(context) });
-    return load(context).then(() => {
-      if (NC.crud.isStaleNavigation(context)) return;
-      const select = root.querySelector('[data-comment-blog]');
-      if (select) select.innerHTML = `<option value="all">All blogs</option>${blogs.map((blog) => `<option value="${escapeHTML(blog.id)}">${escapeHTML(blog.title)}</option>`).join('')}`;
-    });
+    return load(context);
   }
 
   NC.views.comments = { render };

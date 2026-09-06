@@ -6,6 +6,7 @@
   let root;
   let authors = [];
   let categories = [];
+  let tagIndex = { issues: [], tags: [], source: 'client' };
   let editorController = null;
   let heroUploader = null;
   let pdfUploader = null;
@@ -30,17 +31,19 @@
     const content = root.querySelector('[data-blogs-content]');
     if (!content) return;
     const { rows, total } = state.paged();
+    renderFilterChips();
     if (!total) {
+      const filtered = Boolean(state.query) || hasActiveFilters();
       content.innerHTML = NC.components.emptyState({
-        icon: 'fa-newspaper', title: state.query ? 'No blogs match your search' : 'Write your first article',
-        description: state.query ? 'Try changing the search or filters.' : 'Draft, preview, and publish magazine articles from one focused editor.',
-        action: state.query ? '' : '<button type="button" class="btn btn-primary" data-add-blog><i class="fa-regular fa-plus" aria-hidden="true"></i>Add blog</button>'
+        icon: 'fa-newspaper', title: filtered ? 'No blogs match your search or filters' : 'Write your first article',
+        description: filtered ? 'Try changing the search, author, issue, or tag filters.' : 'Draft, preview, and publish magazine articles from one focused editor.',
+        action: filtered ? '<button type="button" class="btn btn-secondary" data-clear-blog-filters><i class="fa-regular fa-filter-slash" aria-hidden="true"></i>Clear filters</button>' : '<button type="button" class="btn btn-primary" data-add-blog><i class="fa-regular fa-plus" aria-hidden="true"></i>Add blog</button>'
       });
       bindListEvents(content); return;
     }
     const body = rows.map((record) => `
       <tr>
-        <td data-label="Article"><div class="article-cell">${record.image ? `<img src="${escapeHTML(safeImage(record.image))}" alt="" loading="lazy" referrerpolicy="no-referrer" data-image-fallback>` : '<span class="article-thumb-placeholder"><i class="fa-regular fa-image" aria-hidden="true"></i></span>'}<div><strong>${escapeHTML(record.title)}</strong><small>/${escapeHTML(record.slug || 'no-slug')}</small></div></div></td>
+        <td data-label="Article"><div class="article-cell">${record.image ? `<img src="${escapeHTML(safeImage(record.image))}" alt="" loading="lazy" referrerpolicy="no-referrer" data-image-fallback>` : '<span class="article-thumb-placeholder"><i class="fa-regular fa-image" aria-hidden="true"></i></span>'}<div><strong>${escapeHTML(record.title)}</strong><small>/${escapeHTML(record.slug || 'no-slug')}</small>${NC.crud.tagChips(record.tags, { max: 3 })}</div></div></td>
         <td data-label="Author & Category"><div class="stacked-cell"><strong>${escapeHTML(authorName(record))}</strong><span>${escapeHTML(categoryName(record))}</span></div></td>
         <td data-label="Status"><div class="flex flex-wrap gap-1.5">${NC.components.statusBadge(record.status || 'Draft')}</div></td>
         <td data-label="Placement"><div class="badge-wrap">${featureBadges(record)}</div></td>
@@ -62,6 +65,13 @@
 
   function bindListEvents(scope = root) {
     scope.querySelectorAll('[data-add-blog]').forEach((button) => button.addEventListener('click', () => renderEditor()));
+    scope.querySelectorAll('[data-clear-blog-filters]').forEach((button) => button.addEventListener('click', () => clearFilters()));
+    scope.querySelectorAll('[data-tag-filter]').forEach((button) => button.addEventListener('click', () => {
+      const key = button.dataset.tagFilter;
+      const issue = tagIndex.issues.find((item) => item.key === key);
+      if (issue) applyFilter('issue', String(issue.year));
+      else applyFilter('tag', key);
+    }));
     scope.querySelectorAll('[data-action]').forEach((button) => button.addEventListener('click', () => {
       const record = state.records.find((item) => item.id === button.dataset.id);
       if (!record) return;
@@ -71,6 +81,105 @@
     }));
     NC.crud.bindPagination(root, state, renderList);
     NC.crud.bindSort(root, state, renderList);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Filters: status, category, author, annual issue ("নিংশিং চে-YYYY"), other tag
+  // ---------------------------------------------------------------------------
+  const filterValues = { status: 'all', category_id: 'all', author_id: 'all', issue: 'all', tag: 'all' };
+
+  function hasActiveFilters() {
+    return Object.values(filterValues).some((value) => value && value !== 'all');
+  }
+
+  function syncStateFilters() {
+    state.setFilter('status', filterValues.status);
+    state.setFilter('category_id', filterValues.category_id);
+    state.setFilter('author_id', filterValues.author_id);
+    const issue = filterValues.issue !== 'all' ? NC.tags.parseIssueParam(filterValues.issue) : null;
+    state.setFilter('__issue', issue ? (_, record) => NC.tags.matchesIssue(record, issue) : 'all');
+    const tag = filterValues.tag !== 'all' ? filterValues.tag : '';
+    state.setFilter('__tag', tag ? (_, record) => NC.tags.matchesKey(record, tag) : 'all');
+  }
+
+  function applyFilter(key, value) {
+    if (!(key in filterValues)) return;
+    filterValues[key] = value || 'all';
+    syncStateFilters();
+    syncFilterControls();
+    syncFilterUrl();
+    renderList();
+  }
+
+  function clearFilters() {
+    Object.keys(filterValues).forEach((key) => { filterValues[key] = 'all'; });
+    state.setQuery('');
+    const search = root.querySelector('[data-blog-search]');
+    if (search) search.value = '';
+    syncStateFilters();
+    syncFilterControls();
+    syncFilterUrl();
+    renderList();
+  }
+
+  function syncFilterControls() {
+    const set = (selector, value) => {
+      const select = root.querySelector(selector);
+      if (!select) return;
+      const exists = [...select.options].some((option) => option.value === String(value));
+      select.value = exists ? String(value) : 'all';
+    };
+    set('[data-blog-status]', filterValues.status);
+    set('[data-blog-category]', filterValues.category_id);
+    set('[data-blog-author]', filterValues.author_id);
+    set('[data-blog-issue]', filterValues.issue);
+    set('[data-blog-tag]', filterValues.tag);
+  }
+
+  // Keep the hash in sync so a filtered list can be bookmarked or shared
+  // (#/blogs?issue=2025&author=<id>&tag=<key>) without triggering navigation.
+  function syncFilterUrl() {
+    const { route, params } = NC.utils.getHashRoute();
+    if (route !== 'blogs') return;
+    const next = new URLSearchParams();
+    if (filterValues.status !== 'all') next.set('filter', filterValues.status);
+    if (filterValues.category_id !== 'all') next.set('category', filterValues.category_id);
+    if (filterValues.author_id !== 'all') next.set('author', filterValues.author_id);
+    if (filterValues.issue !== 'all') next.set('issue', filterValues.issue);
+    if (filterValues.tag !== 'all') next.set('tag', filterValues.tag);
+    if (next.toString() === params.toString()) return;
+    const hash = `#/blogs${next.toString() ? `?${next}` : ''}`;
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`);
+  }
+
+  function renderFilterChips() {
+    const host = root.querySelector('[data-blog-active-filters]');
+    if (!host) return;
+    const issue = filterValues.issue !== 'all' ? NC.tags.parseIssueParam(filterValues.issue) : null;
+    const tag = filterValues.tag !== 'all' ? tagIndex.tags.find((item) => item.key === filterValues.tag) : null;
+    NC.crud.renderActiveFilters(host, [
+      { key: 'status', label: 'Status', value: filterValues.status !== 'all' ? (filterValues.status === 'Publish' ? 'Published' : filterValues.status) : '' },
+      { key: 'category_id', label: 'Category', value: filterValues.category_id !== 'all' ? (categories.find((item) => item.id === filterValues.category_id)?.title || 'Unknown') : '' },
+      { key: 'author_id', label: 'Author', value: filterValues.author_id !== 'all' ? (authors.find((item) => item.id === filterValues.author_id)?.title || 'Unknown') : '' },
+      { key: 'issue', label: 'Issue', value: issue ? NC.tags.issueLabel(issue) : '' },
+      { key: 'tag', label: 'Tag', value: filterValues.tag !== 'all' ? `#${tag?.label || filterValues.tag}` : '' }
+    ], { onRemove: (key) => applyFilter(key, 'all'), onClear: clearFilters });
+  }
+
+  function authorOptions() {
+    const counts = new Map();
+    state.records.forEach((record) => { if (record.author_id) counts.set(record.author_id, (counts.get(record.author_id) || 0) + 1); });
+    return authors
+      .map((author) => ({ value: author.id, label: author.title || 'Untitled', count: counts.get(author.id) || 0 }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'bn'));
+  }
+
+  function issueOptions() {
+    return tagIndex.issues.map((issue) => ({ value: String(issue.year), label: issue.label, count: issue.count }));
+  }
+
+  function otherTagOptions() {
+    return tagIndex.tags.map((tag) => ({ value: tag.key, label: `#${tag.label}`, count: tag.count }));
   }
 
   function articlePreviewMarkup(data) {
@@ -137,6 +246,16 @@
     return items.map((item) => `<option value="${escapeHTML(item.id)}" ${item.id === selected ? 'selected' : ''}>${escapeHTML(item[labelKey] || 'Untitled')}</option>`).join('');
   }
 
+  function issueYearChoices(record) {
+    const current = NC.tags.tagsOf(record?.tags || []).map(NC.tags.issueYear).find(Boolean) || null;
+    const years = new Map();
+    tagIndex.issues.forEach((issue) => years.set(issue.year, issue.count));
+    const thisYear = new Date().getFullYear();
+    [thisYear, thisYear + 1].forEach((year) => { if (!years.has(year)) years.set(year, 0); });
+    if (current && !years.has(current)) years.set(current, 0);
+    return [...years.entries()].sort((a, b) => b[0] - a[0]).map(([year, count]) => ({ year, count, label: NC.tags.issueLabel(year), selected: year === current }));
+  }
+
   function renderEditor(record = null) {
     const isEdit = Boolean(record?.id);
     editorCleanup?.();
@@ -164,7 +283,8 @@
             <div class="field"><label class="field-label" for="blog-status">Status</label><select class="form-select" id="blog-status" name="status"><option value="Draft" ${record?.status !== 'Publish' ? 'selected' : ''}>Draft</option><option value="Publish" ${record?.status === 'Publish' ? 'selected' : ''}>Publish</option></select></div>
             <div class="field"><label class="field-label" for="blog-category">Category <span aria-hidden="true">*</span></label><select class="form-select" id="blog-category" name="category_id" required><option value="">Choose a category</option>${selectOptions(categories, record?.category_id)}</select><p class="field-error hidden" data-field-error="category_id"></p></div>
             <div class="field"><label class="field-label" for="blog-author">Author <span aria-hidden="true">*</span></label><select class="form-select" id="blog-author" name="author_id" required><option value="">Choose an author</option>${selectOptions(authors, record?.author_id)}</select><p class="field-error hidden" data-field-error="author_id"></p></div>
-            <div class="field"><label class="field-label" for="blog-tags">Tags</label><input class="form-input" id="blog-tags" name="tags" value="${escapeHTML(Array.isArray(record?.tags) ? record.tags.join(', ') : record?.tags || '')}" placeholder="culture, language, literature"><span class="field-hint">Separate with commas or double spaces.</span></div>
+            <div class="field"><label class="field-label" for="blog-issue">নিংশিং চে issue</label><select class="form-select" id="blog-issue" name="issue_year"><option value="">Not part of an annual issue</option>${issueYearChoices(record).map((item) => `<option value="${item.year}" ${item.selected ? 'selected' : ''}>${escapeHTML(item.label)}${item.count ? ` (${item.count})` : ''}</option>`).join('')}<option value="__custom__">Another year…</option></select><input class="form-input mt-2 hidden" id="blog-issue-custom" name="issue_year_custom" inputmode="numeric" placeholder="Year, e.g. 2027 or ২০২৭" maxlength="4"><p class="field-error hidden" data-field-error="issue_year_custom"></p><span class="field-hint">Adds the “নিংশিং চে-YYYY” tag the app and website use for annual issues.</span></div>
+            <div class="field"><label class="field-label" for="blog-tags">Other tags</label><input class="form-input" id="blog-tags" name="tags" value="${escapeHTML(NC.tags.tagsOf(record?.tags || []).filter((tag) => !NC.tags.isIssue(tag)).join(', '))}" placeholder="culture, language, literature" list="blog-tag-suggestions"><datalist id="blog-tag-suggestions">${tagIndex.tags.slice(0, 60).map((tag) => `<option value="${escapeHTML(tag.label)}"></option>`).join('')}</datalist><span class="field-hint">Separate with commas or double spaces.</span></div>
             <div class="field"><div class="field-heading"><label class="field-label" for="blog-slug">Slug <span aria-hidden="true">*</span></label><button type="button" class="field-action" data-generate-blog-slug><i class="fa-regular fa-wand-magic-sparkles" aria-hidden="true"></i>Generate</button></div><input class="form-input" id="blog-slug" name="slug" value="${escapeHTML(record?.slug || '')}" placeholder="article-url-slug"><div class="slug-feedback" data-slug-feedback></div><p class="field-error hidden" data-field-error="slug"></p></div>
             <fieldset class="field"><legend class="field-label">Homepage placement</legend><div class="check-list"><label class="check-row"><input type="checkbox" name="is_slider" ${record?.is_slider ? 'checked' : ''}><span class="check-control"><i class="fa-solid fa-check" aria-hidden="true"></i></span><span>Hero slider</span></label><label class="check-row"><input type="checkbox" name="is_feature" ${record?.is_feature ? 'checked' : ''}><span class="check-control"><i class="fa-solid fa-check" aria-hidden="true"></i></span><span>Featured article</span></label><label class="check-row"><input type="checkbox" name="is_special_article" ${record?.is_special_article ? 'checked' : ''}><span class="check-control"><i class="fa-solid fa-check" aria-hidden="true"></i></span><span>Special article</span></label></div></fieldset>
           </section>
@@ -218,6 +338,13 @@
     });
     const title = form.elements.title;
     const slug = form.elements.slug;
+    const issueSelect = form.elements.issue_year;
+    const issueCustom = form.elements.issue_year_custom;
+    issueSelect.addEventListener('change', () => {
+      const custom = issueSelect.value === '__custom__';
+      issueCustom.classList.toggle('hidden', !custom);
+      if (custom) issueCustom.focus();
+    });
     let slugTouched = Boolean(record?.slug);
     function updateWordCount(changedHtml) {
       const html = typeof changedHtml === 'string'
@@ -258,6 +385,12 @@
       }
     });
 
+    function selectedIssueYear(data) {
+      const raw = data.issue_year === '__custom__' ? data.issue_year_custom : data.issue_year;
+      const year = NC.tags.parseIssueParam(raw);
+      return year && year >= 1990 && year <= 2100 ? year : null;
+    }
+
     function collectData(statusOverride) {
       const data = formData(form);
       const category = categories.find((item) => item.id === data.category_id);
@@ -279,7 +412,7 @@
         author_name: author?.title || record?.author_name || '',
         author_image: author?.image || record?.author_image || '',
         status: statusOverride || data.status || 'Draft',
-        tags: parseTags(data.tags),
+        tags: NC.tags.withIssue(parseTags(data.tags), selectedIssueYear(data), tagIndex),
         seo_title: data.seo_title,
         seo_description: data.seo_description,
         video_link: data.video_link,
@@ -336,6 +469,7 @@
         category_id: payload.category_id ? '' : 'Choose a category.',
         author_id: payload.author_id ? '' : 'Choose an author.',
         slug: payload.slug ? '' : 'Generate or enter a valid slug.',
+        issue_year_custom: form.elements.issue_year.value === '__custom__' && !selectedIssueYear(formData(form)) ? 'Enter a four-digit year.' : '',
         video_link: payload.video_link && !NC.utils.isValidUrl(payload.video_link, { allowEmpty: false }) ? 'Enter a valid video URL.' : ''
       };
       const valid = validateFields(form, errors) && editorController.validate() && heroUploader.validate() && pdfUploader.validate();
@@ -424,11 +558,27 @@
   function renderListShell() {
     root.innerHTML = `
       ${NC.components.pageHeader({ eyebrow: 'Editorial content', title: 'Blogs', description: 'Draft, review, preview, and publish magazine articles.', breadcrumb: [{ label: 'Blogs' }], actions: `${NC.importer.bulkButton('blogs')}<button type="button" class="btn btn-primary" data-add-blog><i class="fa-regular fa-plus" aria-hidden="true"></i>Add blog</button>` })}
-      <section class="surface"><div class="list-toolbar"><label class="search-field"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><span class="sr-only">Search blogs</span><input type="search" placeholder="Search title, author, category, tag…" data-blog-search></label><select class="form-select toolbar-select" data-blog-status aria-label="Filter by status"><option value="all">All statuses</option><option value="Publish">Published</option><option value="Draft">Draft</option></select><select class="form-select toolbar-select" data-blog-category aria-label="Filter by category"><option value="all">All categories</option>${categories.map((item) => `<option value="${escapeHTML(item.id)}">${escapeHTML(item.title)}</option>`).join('')}</select></div><div data-blogs-content>${NC.components.skeleton(7, 6)}</div></section>`;
+      <section class="surface">
+        <div class="list-toolbar">
+          <label class="search-field"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><span class="sr-only">Search blogs</span><input type="search" placeholder="Search title, author, category, tag…" data-blog-search></label>
+          <select class="form-select toolbar-select" data-blog-status aria-label="Filter by status"><option value="all">All statuses</option><option value="Publish">Published</option><option value="Draft">Draft</option></select>
+          ${NC.crud.filterSelect(categories.map((item) => ({ value: item.id, label: item.title })), { attr: 'data-blog-category', label: 'Filter by category', placeholder: 'All categories' })}
+          ${NC.crud.filterSelect(authorOptions(), { attr: 'data-blog-author', label: 'Filter by author', placeholder: 'All authors', wide: true })}
+          ${NC.crud.filterSelect(issueOptions(), { attr: 'data-blog-issue', label: 'Filter by নিংশিং চে annual issue', placeholder: 'All নিংশিং চে issues', wide: true })}
+          ${NC.crud.filterSelect(otherTagOptions(), { attr: 'data-blog-tag', label: 'Filter by tag', placeholder: 'All other tags' })}
+        </div>
+        <div class="active-filters hidden" data-blog-active-filters></div>
+        ${NC.api.tagEndpointsAvailable() === false ? '<p class="migration-hint"><i class="fa-regular fa-circle-info" aria-hidden="true"></i>Issue and tag filters run in the browser. Install <code>supabase/migrations/013_blog_tags.sql</code> to enable the server-side tag endpoints.</p>' : ''}
+        <div data-blogs-content>${NC.components.skeleton(7, 6)}</div>
+      </section>`;
     root.querySelector('[data-add-blog]').addEventListener('click', () => renderEditor());
     root.querySelector('[data-blog-search]').addEventListener('input', debounce((event) => { state.setQuery(event.target.value); renderList(); }, 220));
-    root.querySelector('[data-blog-status]').addEventListener('change', (event) => { state.setFilter('status', event.target.value); renderList(); });
-    root.querySelector('[data-blog-category]').addEventListener('change', (event) => { state.setFilter('category_id', event.target.value); renderList(); });
+    root.querySelector('[data-blog-status]').addEventListener('change', (event) => applyFilter('status', event.target.value));
+    root.querySelector('[data-blog-category]').addEventListener('change', (event) => applyFilter('category_id', event.target.value));
+    root.querySelector('[data-blog-author]').addEventListener('change', (event) => applyFilter('author_id', event.target.value));
+    root.querySelector('[data-blog-issue]').addEventListener('change', (event) => applyFilter('issue', event.target.value));
+    root.querySelector('[data-blog-tag]').addEventListener('change', (event) => applyFilter('tag', event.target.value));
+    syncFilterControls();
     NC.importer.bindBulk(root, { type: 'blogs', onComplete: () => load() });
   }
 
@@ -446,13 +596,19 @@
       ]);
       if (NC.crud.isStaleNavigation(context)) return;
       authors = authorsResult.data; categories = categoriesResult.data; state.setRecords(blogsResult.data);
-      const statusFilter = context.params?.get('filter') || 'all';
-      const categoryFilter = context.params?.get('category') || 'all';
-      state.setFilter('status', ['Publish', 'Draft'].includes(statusFilter) ? statusFilter : 'all');
-      state.setFilter('category_id', categoryFilter);
+      tagIndex = NC.tags.index(blogsResult.data);
+      const params = context.params || new URLSearchParams();
+      const statusFilter = params.get('filter') || 'all';
+      const issueParam = NC.tags.parseIssueParam(params.get('issue') || params.get('year') || '');
+      const tagParam = params.get('tag') || '';
+      filterValues.status = ['Publish', 'Draft'].includes(statusFilter) ? statusFilter : 'all';
+      filterValues.category_id = params.get('category') || 'all';
+      filterValues.author_id = params.get('author') || 'all';
+      filterValues.issue = issueParam ? String(issueParam) : 'all';
+      filterValues.tag = tagParam ? (NC.tags.issueYear(tagParam) ? 'all' : NC.tags.keyOf(tagParam)) : 'all';
+      if (tagParam && NC.tags.issueYear(tagParam) && !issueParam) filterValues.issue = String(NC.tags.issueYear(tagParam));
+      syncStateFilters();
       renderListShell();
-      root.querySelector('[data-blog-status]').value = ['Publish', 'Draft'].includes(statusFilter) ? statusFilter : 'all';
-      if (categories.some((item) => item.id === categoryFilter)) root.querySelector('[data-blog-category]').value = categoryFilter;
       renderList();
       const action = context.params?.get('action');
       const id = editId || context.params?.get('id');
