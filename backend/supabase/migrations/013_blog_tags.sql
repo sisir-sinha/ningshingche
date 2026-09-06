@@ -157,7 +157,7 @@ with exploded as (
   select
     b.id,
     b.status,
-    btrim(t.tag) as spelling,
+    regexp_replace(regexp_replace(btrim(t.tag), '^#+', ''), '\s+', ' ', 'g') as spelling,
     public.blog_tag_key(t.tag) as tag_key,
     public.blog_tag_issue_year(t.tag) as issue_year
   from public.blogs b

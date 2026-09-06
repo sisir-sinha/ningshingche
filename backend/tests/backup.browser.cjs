@@ -65,6 +65,9 @@ async function fixture(browser, base, { permissions = allPermissions, legacy = f
         return json(permissions.includes(key) && !(mode.revoke && key === 'blogs'));
       }
       const table = url.pathname.split('/').pop();
+      // Newer dashboard modules probe these on start-up; they are outside the backup scope.
+      if (request.method() === 'GET' && ['profiles', 'user_notifications', 'admin_messages'].includes(table)) return json([], { 'content-range': '*/0' });
+      if (request.method() === 'GET' && table === 'blog_tag_counts') return json({ code: 'PGRST205', message: 'Could not find the table' }, {}, 404);
       if (request.method() === 'POST' && table === 'settings') {
         mode.savePayloads.push(request.postDataJSON());
         return json([request.postDataJSON()]);
