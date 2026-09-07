@@ -393,7 +393,7 @@ private fun HomeContent(
                     onAction = onSeeAllLatest
                 )
             }
-            items(feed.latest, key = { it.id }) { article ->
+            items(feed.latest.take(5), key = { it.id }) { article ->
                 ArticleRow(article = article, onClick = { onArticleClick(article.id) })
                 Hairline(modifier = Modifier.padding(horizontal = EditorialSpace.gutter))
             }
@@ -469,6 +469,8 @@ private fun HomeContent(
         if (feed.authors.isNotEmpty()) {
             item { AuthorRail(authors = feed.authors, onAuthorClick = onAuthorClick) }
         }
+
+        item { Spacer(Modifier.height(EditorialSpace.xl)) }
 
         item {
             EditorialFooter(

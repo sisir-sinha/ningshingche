@@ -1151,22 +1151,21 @@ fun AuthorChip(author: AuthorRef, onClick: () -> Unit) {
         onClick = onClick,
         shape = RoundedCornerShape(EditorialShape.card),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.width(168.dp).height(200.dp)
+        modifier = Modifier.width(136.dp)
     ) {
         Column(
-            modifier = Modifier.padding(EditorialSpace.md),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box {
                 EditorialImage(
                     url = author.imageUrl,
                     contentDescription = author.name,
-                    modifier = Modifier.size(64.dp),
+                    modifier = Modifier.size(52.dp),
                     shape = CircleShape
                 )
             }
-            Spacer(Modifier.height(EditorialSpace.sm))
+            Spacer(Modifier.height(EditorialSpace.xs))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,

@@ -76,7 +76,7 @@ class PortalRepository(
                 val hero = async { heroArticles().getOrNull().orEmpty() }
                 val featured = async { featuredArticles().getOrNull().orEmpty() }
                 val special = async { specialArticles().getOrNull().orEmpty() }
-                val latest = async { latestArticles(limit = 12).getOrNull() }
+                val latest = async { latestArticles(limit = 5).getOrNull() }
                 val categories = async { categories().getOrNull().orEmpty() }
                 val authors = async { authors(limit = 16).getOrNull().orEmpty() }
                 val gallery = async { galleries(limit = 12).getOrNull()?.items.orEmpty() }
