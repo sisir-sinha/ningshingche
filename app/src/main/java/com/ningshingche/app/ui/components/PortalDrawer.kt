@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Groups
@@ -89,7 +90,9 @@ fun PortalDrawerContent(
     onExploreTab: (ExploreTab) -> Unit,
     onCycleTheme: () -> Unit,
     onShareApp: () -> Unit,
-    onCloseDrawer: () -> Unit
+    onCloseDrawer: () -> Unit,
+    isSignedIn: Boolean = false,
+    dashboardUnreadCount: Int = 0
 ) {
     val exploreRoute = Screen.Explore.route
     val onExploreRoute = currentRoute.startsWith(exploreRoute)
@@ -105,7 +108,11 @@ fun PortalDrawerContent(
         DrawerHeader(
             isDark = isDark,
             themeMode = themeMode,
-            onCycleTheme = onCycleTheme
+            onCycleTheme = onCycleTheme,
+            showDashboard = isSignedIn,
+            dashboardSelected = currentRoute == Screen.UserDashboard.route,
+            dashboardUnreadCount = dashboardUnreadCount,
+            onOpenDashboard = { onCloseDrawer(); onNavigate(Screen.UserDashboard.route) }
         )
 
         Column(
@@ -172,7 +179,11 @@ fun PortalDrawerContent(
 private fun DrawerHeader(
     isDark: Boolean,
     themeMode: AppThemeMode,
-    onCycleTheme: () -> Unit
+    onCycleTheme: () -> Unit,
+    showDashboard: Boolean = false,
+    dashboardSelected: Boolean = false,
+    dashboardUnreadCount: Int = 0,
+    onOpenDashboard: () -> Unit = {}
 ) {
     val headerColor by animateColorAsState(
         targetValue = if (isDark) PortalDarkBg else PortalMaroon,
@@ -216,6 +227,40 @@ private fun DrawerHeader(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+        }
+        // Signed-in readers get a shortcut to their dashboard, left of the theme button.
+        if (showDashboard) {
+            Surface(
+                shape = CircleShape,
+                color = if (dashboardSelected) PortalSaffron.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.14f)
+            ) {
+                Box {
+                    IconButton(
+                        onClick = onOpenDashboard,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .testTag("drawer_dashboard_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Dashboard,
+                            contentDescription = "ড্যাশবোর্ড",
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    if (dashboardUnreadCount > 0) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(top = 6.dp, end = 6.dp)
+                                .size(9.dp)
+                                .clip(CircleShape)
+                                .background(PortalSaffron)
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.width(8.dp))
         }
         Surface(
             shape = CircleShape,

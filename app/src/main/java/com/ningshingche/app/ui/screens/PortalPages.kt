@@ -15,8 +15,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import kotlinx.coroutines.launch
+import com.ningshingche.app.ui.components.categoryIconFor
+import com.ningshingche.app.data.model.Article
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.Tab
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -37,9 +46,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -70,6 +77,22 @@ import com.ningshingche.app.ui.reader.SocialUiState
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.HomeViewModel
 
+/** One swipeable tab on the Featured page: "সব" or a single category. */
+private data class FeaturedTab(
+    val key: String,
+    val title: String,
+    val iconName: String?,
+    val articles: List<Article>
+)
+
+/**
+ * "ফিচার্ড প্রবন্ধসমূহ" — featured + editor's-pick articles.
+ *
+ * Same layout language as Explore: a pinned top bar, a pinned icon tab strip
+ * ("সব" followed by one tab per category that has featured articles) and a
+ * [HorizontalPager] so the reader can swipe left/right between categories.
+ * Pull-to-refresh re-syncs the catalogue.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeaturedScreen(
@@ -79,53 +102,132 @@ fun FeaturedScreen(
 ) {
     val articles by viewModel.allArticles.collectAsStateWithLifecycle()
     val syncState by viewModel.syncState.collectAsStateWithLifecycle()
-    var selectedCategory by remember { mutableStateOf("সব") }
 
     val featuredArticles = remember(articles) {
         val filtered = articles.filter { it.isFeatured || it.isEditorialPick }
         if (filtered.isNotEmpty()) filtered else articles
     }
 
-    val displayArticles = remember(featuredArticles, selectedCategory) {
-        if (selectedCategory == "সব") featuredArticles
-        else featuredArticles.filter { it.category == selectedCategory || it.categorySlug.contains(selectedCategory, ignoreCase = true) }
+    val tabs = remember(featuredArticles) {
+        val byCategory = featuredArticles
+            .filter { it.category.isNotBlank() }
+            .groupBy { it.categorySlug.ifBlank { it.category } }
+            .map { (slug, items) ->
+                FeaturedTab(
+                    key = slug,
+                    title = items.first().category,
+                    iconName = null,
+                    articles = items
+                )
+            }
+            .sortedWith(compareByDescending<FeaturedTab> { it.articles.size }.thenBy { it.title })
+        listOf(FeaturedTab(key = "all", title = "সব", iconName = "star", articles = featuredArticles)) + byCategory
     }
 
-    val categories = remember(featuredArticles) {
-        listOf("সব") + featuredArticles.map { it.category }.filter { it.isNotBlank() }.distinct()
+    val pagerState = rememberPagerState(pageCount = { tabs.size })
+    val coroutineScope = rememberCoroutineScope()
+
+    // If the data set shrinks (e.g. after a refresh) keep the pager in range.
+    LaunchedEffect(tabs.size) {
+        if (pagerState.currentPage >= tabs.size && tabs.isNotEmpty()) {
+            pagerState.scrollToPage(tabs.lastIndex)
+        }
     }
 
     Scaffold(
+        modifier = Modifier.testTag("featured_screen"),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Text(
-                        text = "ফিচার্ড প্রবন্ধসমূহ",
-                        fontFamily = Kalpurush,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "পেছনে",
-                            tint = MaterialTheme.colorScheme.onSurface
+            Column(modifier = Modifier.fillMaxWidth()) {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            text = "ফিচার্ড প্রবন্ধসমূহ",
+                            fontFamily = Kalpurush,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
-                    }
-                },
-                actions = {
-                    NingshingCheBrandLogo(
-                        size = 28.dp,
-                        modifier = Modifier.padding(end = 12.dp)
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBackClick, modifier = Modifier.testTag("featured_back_button")) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "পেছনে",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    },
+                    actions = {
+                        NingshingCheBrandLogo(
+                            size = 28.dp,
+                            modifier = Modifier.padding(end = 12.dp)
+                        )
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface
                     )
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
                 )
-            )
+                if (tabs.size > 1) {
+                    ScrollableTabRow(
+                        selectedTabIndex = pagerState.currentPage.coerceIn(0, tabs.lastIndex),
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        edgePadding = 12.dp,
+                        indicator = { tabPositions ->
+                            val index = pagerState.currentPage
+                            if (index in tabPositions.indices) {
+                                TabRowDefaults.SecondaryIndicator(
+                                    modifier = Modifier.tabIndicatorOffset(tabPositions[index]),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    height = 3.dp
+                                )
+                            }
+                        },
+                        divider = { Hairline() }
+                    ) {
+                        tabs.forEachIndexed { index, tab ->
+                            val isSelected = pagerState.currentPage == index
+                            val tint = if (isSelected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                            Tab(
+                                selected = isSelected,
+                                onClick = { coroutineScope.launch { pagerState.animateScrollToPage(index) } },
+                                modifier = Modifier.testTag("featured_tab_${tab.key}"),
+                                text = {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (tab.key == "all") Icons.Default.Star
+                                            else categoryIconFor(tab.iconName, tab.title),
+                                            contentDescription = null,
+                                            tint = tint,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Text(
+                                            text = tab.title,
+                                            fontFamily = Kalpurush,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            color = tint,
+                                            fontSize = 14.sp,
+                                            maxLines = 1
+                                        )
+                                        if (tab.key != "all") {
+                                            Text(
+                                                text = IssueTags.toBengaliDigits(tab.articles.size),
+                                                fontFamily = Kalpurush,
+                                                fontSize = 11.sp,
+                                                color = tint.copy(alpha = 0.8f)
+                                            )
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            }
         }
     ) { padding ->
         PullToRefreshBox(
@@ -135,45 +237,28 @@ fun FeaturedScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background)
-            ) {
-                // Category Filter Chips
-                if (categories.size > 1) {
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(categories) { cat ->
-                            val isSelected = cat == selectedCategory
-                            Surface(
-                                shape = RoundedCornerShape(16.dp),
-                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                                modifier = Modifier.clickable { selectedCategory = cat }
-                            ) {
-                                Text(
-                                    text = cat,
-                                    fontFamily = Kalpurush,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    fontSize = 13.sp,
-                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                                )
-                            }
-                        }
-                    }
+            if (tabs.isEmpty() || featuredArticles.isEmpty()) {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    item { EmptyState(message = "কোনো ফিচার্ড প্রবন্ধ পাওয়া যায়নি।") }
                 }
-
-                if (displayArticles.isEmpty()) {
-                    EmptyState(message = "কোনো ফিচার্ড প্রবন্ধ পাওয়া যায়নি।")
-                } else {
+            } else {
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("featured_pager"),
+                    beyondViewportPageCount = 1,
+                    key = { tabs[it].key }
+                ) { page ->
+                    val tab = tabs[page]
                     LazyColumn(
                         contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("featured_list_${tab.key}")
                     ) {
-                        items(displayArticles, key = { it.id }) { article ->
+                        items(tab.articles, key = { it.id }) { article ->
                             ArticleListItemCard(article, onClick = { onArticleClick(article.id) })
                         }
                     }

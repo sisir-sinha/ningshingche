@@ -313,7 +313,9 @@ fun CategoryPill(
 fun HeroArticleCard(
     article: ArticleSummary,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Width / height of the image panel; smaller = taller card. */
+    aspectRatio: Float = 16f / 10f
 ) {
     val tokens = LocalEditorialTokens.current
     Card(
@@ -327,7 +329,7 @@ fun HeroArticleCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(16f / 10f)
+                .aspectRatio(aspectRatio)
         ) {
             PortalAsyncImage(
                 url = article.imageUrl,
@@ -838,13 +840,16 @@ fun CategoryRail(
     categories: List<CategoryRef>,
     articles: List<ArticleSummary> = emptyList(),
     selectedSlug: String? = null,
-    onSelect: (CategoryRef) -> Unit
+    onSelect: (CategoryRef) -> Unit,
+    onSeeAll: (() -> Unit)? = null
 ) {
     if (categories.isEmpty()) return
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(
-            title = "বিষয় ও বিভাগ",
-            subtitle = "বিষ্ণুপ্রিয়া মণিপুরি সাহিত্য ও সাংস্কৃতিক ধারা"
+            title = "বিষয় ও বিভাগসমূহ",
+            subtitle = "বিষ্ণুপ্রিয়া মণিপুরি সাহিত্য ও সাংস্কৃতিক ধারা",
+            actionLabel = if (onSeeAll != null) "সব" else null,
+            onAction = onSeeAll
         )
         LazyRow(
             contentPadding = PaddingValues(horizontal = EditorialSpace.gutter),

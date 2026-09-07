@@ -60,6 +60,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.ningshingche.app.ui.theme.Kalpurush
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
 import com.ningshingche.app.data.portal.ArticleSummary
 import com.ningshingche.app.data.portal.AuthorRef
 import com.ningshingche.app.data.portal.CategoryRef
@@ -69,7 +74,6 @@ import com.ningshingche.app.data.portal.VideoItem
 import com.ningshingche.app.ui.editorial.EditorialFooter
 import com.ningshingche.app.ui.components.AccountHeaderButton
 import com.ningshingche.app.ui.components.HomeSkeletonLayout
-import com.ningshingche.app.ui.components.NingshingCheBrandLogo
 import com.ningshingche.app.ui.editorial.AiAssistantHomeBanner
 import com.ningshingche.app.ui.editorial.AnimatedHamburgerIcon
 import com.ningshingche.app.ui.editorial.ArticleRail
@@ -119,6 +123,8 @@ fun HomeScreen(
     onPdfClick: (PdfBook) -> Unit,
     onSeeAllLatest: () -> Unit,
     onSeeAllFeatured: () -> Unit = {},
+    onSeeAllCategories: (() -> Unit)? = null,
+    onSeeAllSpecial: (() -> Unit)? = null,
     onMenuClick: () -> Unit = {},
     onAiClick: () -> Unit = {},
     onLoginClick: () -> Unit = {},
@@ -164,16 +170,26 @@ fun HomeScreen(
                         ) {
                             AnimatedHamburgerIcon(tint = MaterialTheme.colorScheme.onSurface)
                         }
-                        NingshingCheBrandLogo(
-                            size = 32.dp,
+                        // Brand wordmark (text, not the logo image). Tapping it
+                        // scrolls the feed back to the top.
+                        Text(
+                            text = "নিংশিং চে",
+                            fontFamily = Kalpurush,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 21.sp,
+                            lineHeight = 24.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                             modifier = Modifier
-                                .clip(CircleShape)
+                                .clip(RoundedCornerShape(8.dp))
                                 .clickable {
                                     coroutineScope.launch {
                                         listState.animateScrollToItem(0)
                                     }
                                 }
-                                .testTag("brand_logo_home_button")
+                                .padding(horizontal = 6.dp, vertical = 4.dp)
+                                .testTag("brand_wordmark_home_button")
                         )
                     }
                 },
@@ -231,6 +247,8 @@ fun HomeScreen(
                     onPdfClick = onPdfClick,
                     onSeeAllLatest = onSeeAllLatest,
                     onSeeAllFeatured = onSeeAllFeatured,
+                    onSeeAllCategories = onSeeAllCategories,
+                    onSeeAllSpecial = onSeeAllSpecial,
                     onAiClick = onAiClick,
                     onNavigate = onNavigate,
                     onOpenLink = onOpenLink
@@ -251,6 +269,8 @@ private fun HomeContent(
     onPdfClick: (PdfBook) -> Unit,
     onSeeAllLatest: () -> Unit,
     onSeeAllFeatured: () -> Unit,
+    onSeeAllCategories: (() -> Unit)? = null,
+    onSeeAllSpecial: (() -> Unit)? = null,
     onAiClick: () -> Unit,
     onNavigate: (String) -> Unit = {},
     onOpenLink: (String) -> Unit = {}
@@ -340,7 +360,8 @@ private fun HomeContent(
                     categories = feed.categories,
                     articles = allArticles,
                     selectedSlug = null,
-                    onSelect = onCategoryClick
+                    onSelect = onCategoryClick,
+                    onSeeAll = onSeeAllCategories
                 )
                 Spacer(Modifier.height(EditorialSpace.sm))
                 Hairline()
@@ -363,7 +384,12 @@ private fun HomeContent(
         if (feed.special.isNotEmpty() && feed.settings.specialEnabled) {
             item {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    SectionHeader(title = "বিশেষ নির্বাচন", subtitle = "সম্পাদকের পছন্দ")
+                    SectionHeader(
+                        title = "বিশেষ নির্বাচন",
+                        subtitle = "সম্পাদকের পছন্দ",
+                        actionLabel = if (onSeeAllSpecial != null) "সব" else null,
+                        onAction = onSeeAllSpecial
+                    )
                     feed.special.forEachIndexed { index, article ->
                         NumberedArticleCard(
                             index = index + 1,
@@ -449,6 +475,9 @@ private fun HomeContent(
  * Editorial Hero Section.
  * Clean, user-driven carousel with smooth swiping and indicators.
  */
+/** Hero slides are a touch taller than the 16:10 default used elsewhere. */
+private const val HERO_ASPECT_RATIO = 4f / 3f
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HeroCarousel(
@@ -465,7 +494,8 @@ private fun HeroCarousel(
         ) {
             HeroArticleCard(
                 article = hero[0],
-                onClick = { onArticleClick(hero[0].id) }
+                onClick = { onArticleClick(hero[0].id) },
+                aspectRatio = HERO_ASPECT_RATIO
             )
         }
         return
@@ -483,7 +513,8 @@ private fun HeroCarousel(
         ) { page ->
             HeroArticleCard(
                 article = hero[page],
-                onClick = { onArticleClick(hero[page].id) }
+                onClick = { onArticleClick(hero[page].id) },
+                aspectRatio = HERO_ASPECT_RATIO
             )
         }
 

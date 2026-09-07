@@ -179,6 +179,17 @@ fun EditorialReaderApp(
     // Explore screen switches tabs even when it is already on top of the stack.
     var exploreTabRequest by remember { mutableStateOf<Pair<Int, ExploreTab>?>(null) }
 
+    // Explore is one destination; the `tab` argument selects the page.
+    // launchSingleTop + a changed argument (and the request nonce above)
+    // delivers the new tab even when Explore is already on top.
+    fun openExploreTab(tab: ExploreTab) {
+        exploreTabRequest = ((exploreTabRequest?.first ?: 0) + 1) to tab
+        navController.navigate(ReaderRoute.explore(tab)) {
+            popUpTo(ReaderRoute.Home) { saveState = true }
+            launchSingleTop = true
+        }
+    }
+
     // Swipe-to-open is enabled on every screen that shows the hamburger.
     val drawerGesturesEnabled = currentRoute == ReaderRoute.Home ||
         currentRoute == ReaderRoute.ExplorePattern ||
@@ -201,16 +212,9 @@ fun EditorialReaderApp(
                     }
                 },
                 onExploreTab = { tab ->
-                    exploreTabRequest = ((exploreTabRequest?.first ?: 0) + 1) to tab
                     coroutineScope.launch {
                         drawerState.close()
-                        // Explore is one destination; the `tab` argument selects
-                        // the page. launchSingleTop + a changed argument delivers
-                        // the new tab to the existing screen.
-                        navController.navigate(ReaderRoute.explore(tab)) {
-                            popUpTo(ReaderRoute.Home) { saveState = true }
-                            launchSingleTop = true
-                        }
+                        openExploreTab(tab)
                     }
                 },
                 onCycleTheme = onCycleTheme,
@@ -230,7 +234,9 @@ fun EditorialReaderApp(
                 },
                 onCloseDrawer = {
                     coroutineScope.launch { drawerState.close() }
-                }
+                },
+                isSignedIn = isSignedIn,
+                dashboardUnreadCount = unreadCount
             )
         }
     ) {
@@ -267,6 +273,8 @@ fun EditorialReaderApp(
                     onPdfClick = { book -> navController.navigate(ReaderRoute.pdfViewer(book.id)) },
                     onSeeAllLatest = { navController.navigate(ReaderRoute.Search) },
                     onSeeAllFeatured = { navController.navigate(ReaderRoute.Featured) },
+                    onSeeAllCategories = { openExploreTab(ExploreTab.Categories) },
+                    onSeeAllSpecial = { openExploreTab(ExploreTab.Popular) },
                     onMenuClick = {
                         coroutineScope.launch { drawerState.open() }
                     },
