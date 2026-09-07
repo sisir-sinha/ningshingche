@@ -13,6 +13,7 @@ import com.ningshingche.app.data.portal.AuthorRef
 import com.ningshingche.app.data.portal.CategoryRef
 import com.ningshingche.app.data.portal.CommentItem
 import com.ningshingche.app.data.portal.HomeFeed
+import com.ningshingche.app.data.portal.VideoItem
 import com.ningshingche.app.data.portal.Page
 import com.ningshingche.app.data.portal.PortalError
 import com.ningshingche.app.NinghsingCheApp
@@ -64,7 +65,28 @@ class HomeViewModel(private val repository: PortalRepository) : ViewModel() {
     private val _offlineNotice = MutableStateFlow<String?>(null)
     val offlineNotice: StateFlow<String?> = _offlineNotice.asStateFlow()
 
+    private val _videoCatalog = MutableStateFlow<List<VideoItem>>(emptyList())
+    val videoCatalog: StateFlow<List<VideoItem>> = _videoCatalog.asStateFlow()
+
+    private val _videosLoading = MutableStateFlow(false)
+    val videosLoading: StateFlow<Boolean> = _videosLoading.asStateFlow()
+
     init { load() }
+
+    fun loadVideoCatalog(force: Boolean = false) {
+        viewModelScope.launch {
+            _videosLoading.value = _videoCatalog.value.isEmpty()
+            repository.videos(limit = 40, forceRefresh = force)
+                .onSuccess { _videoCatalog.value = it }
+                .onFailure {
+                    if (_videoCatalog.value.isEmpty()) {
+                        _videoCatalog.value =
+                            (_state.value as? HomeUiState.Ready)?.feed?.videos.orEmpty()
+                    }
+                }
+            _videosLoading.value = false
+        }
+    }
 
     fun load(force: Boolean = false) {
         viewModelScope.launch {

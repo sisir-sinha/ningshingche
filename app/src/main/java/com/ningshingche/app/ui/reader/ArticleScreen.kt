@@ -7,8 +7,12 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
@@ -431,8 +435,17 @@ fun ArticleScreen(
                         )
                     }
 
-                    // Grounded Article AI Assistant Bottom Sheet
-                    if (showAiSheet) {
+                    AnimatedVisibility(
+                        visible = showAiSheet,
+                        enter = fadeIn(tween(220)) + slideInVertically(
+                            animationSpec = tween(340, easing = FastOutSlowInEasing),
+                            initialOffsetY = { it / 2 }
+                        ),
+                        exit = fadeOut(tween(180)) + slideOutVertically(
+                            animationSpec = tween(280, easing = FastOutSlowInEasing),
+                            targetOffsetY = { it / 2 }
+                        )
+                    ) {
                         ArticleAiAssistantBottomSheet(
                             article = current.article,
                             authorName = current.author?.name ?: current.article.summary.authorName,

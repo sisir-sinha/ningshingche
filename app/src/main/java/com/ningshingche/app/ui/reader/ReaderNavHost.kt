@@ -86,6 +86,7 @@ object ReaderRoute {
     const val ExplorePattern = "explore?tab={tab}"
     const val Issue = "issue/{year}"
     const val Featured = "featured"
+    const val Videos = "videos"
     const val About = "about"
     const val AuthorsDirectory = "authors_directory"
     const val SocialActivities = "social_activities"
@@ -271,10 +272,11 @@ fun EditorialReaderApp(
                     onAuthorClick = { navController.navigate(ReaderRoute.author(it.id)) },
                     onSearchClick = { navController.navigate(ReaderRoute.Search) },
                     onPdfClick = { book -> navController.navigate(ReaderRoute.pdfViewer(book.id)) },
-                    onSeeAllLatest = { navController.navigate(ReaderRoute.Search) },
+                    onSeeAllLatest = { navController.navigate(ReaderRoute.Featured) },
                     onSeeAllFeatured = { navController.navigate(ReaderRoute.Featured) },
                     onSeeAllCategories = { openExploreTab(ExploreTab.Categories) },
                     onSeeAllSpecial = { openExploreTab(ExploreTab.Popular) },
+                    onSeeAllVideos = { navController.navigate(ReaderRoute.Videos) },
                     onMenuClick = {
                         coroutineScope.launch { drawerState.open() }
                     },
@@ -541,6 +543,14 @@ fun EditorialReaderApp(
                     onCategoryClick = { navController.navigate(ReaderRoute.category(it)) },
                     onAuthorClick = { navController.navigate(ReaderRoute.author(it)) },
                     onIssueClick = { navController.navigate(ReaderRoute.issue(it)) }
+                )
+            }
+
+            composable(ReaderRoute.Videos) {
+                val homeViewModel: HomeViewModel = viewModel(factory = portalFactory)
+                VideosScreen(
+                    viewModel = homeViewModel,
+                    onBackClick = { navController.popBackStack() }
                 )
             }
 

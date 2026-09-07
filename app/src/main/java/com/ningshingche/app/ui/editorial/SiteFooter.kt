@@ -106,7 +106,7 @@ fun EditorialFooter(
         modifier = modifier
             .fillMaxWidth()
             .background(FooterBg)
-            .padding(horizontal = EditorialSpace.gutter, vertical = EditorialSpace.xl)
+            .padding(horizontal = EditorialSpace.gutter, vertical = 28.dp)
     ) {
         // --- Brand --------------------------------------------------------
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -128,12 +128,13 @@ fun EditorialFooter(
                     text = SiteContact.TAGLINE,
                     fontFamily = Kalpurush,
                     fontSize = 13.sp,
+                    lineHeight = 18.sp,
                     color = FooterAccent
                 )
             }
         }
 
-        Spacer(Modifier.height(EditorialSpace.lg))
+        Spacer(Modifier.height(22.dp))
 
         // --- Contact ------------------------------------------------------
         ContactRow(
@@ -149,12 +150,12 @@ fun EditorialFooter(
             onClick = { onOpenLink(info.emailUri) }
         )
 
-        Spacer(Modifier.height(EditorialSpace.lg))
+        Spacer(Modifier.height(18.dp))
         FooterDivider()
 
         // --- Quick links --------------------------------------------------
         FooterHeading("দ্রুত লিংকসমূহ")
-        Spacer(Modifier.height(EditorialSpace.sm))
+        Spacer(Modifier.height(10.dp))
         Row(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.weight(1f)) {
                 FooterLink("আমাদের সম্পর্কে") { onNavigate("about") }
@@ -169,12 +170,12 @@ fun EditorialFooter(
             }
         }
 
-        Spacer(Modifier.height(EditorialSpace.lg))
+        Spacer(Modifier.height(18.dp))
         FooterDivider()
 
         // --- Social -------------------------------------------------------
         FooterHeading("আমাদের অনুসরণ করুন")
-        Spacer(Modifier.height(EditorialSpace.sm))
+        Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(EditorialSpace.md)) {
             SocialButton(R.drawable.ic_social_facebook, "Facebook") {
                 onOpenLink(info.facebook)
@@ -187,12 +188,12 @@ fun EditorialFooter(
             }
         }
 
-        Spacer(Modifier.height(EditorialSpace.lg))
+        Spacer(Modifier.height(18.dp))
         FooterDivider()
 
         // --- Download -----------------------------------------------------
         FooterHeading("সর্বশেষ আপডেট পেতে আমাদের অ্যাপটি ডাউনলোড করুন")
-        Spacer(Modifier.height(EditorialSpace.sm))
+        Spacer(Modifier.height(12.dp))
         Surface(
             onClick = { onOpenLink(SiteContact.PLAY_STORE_URL) },
             shape = RoundedCornerShape(8.dp),
@@ -219,7 +220,7 @@ fun EditorialFooter(
             }
         }
 
-        Spacer(Modifier.height(EditorialSpace.lg))
+        Spacer(Modifier.height(18.dp))
         FooterDivider()
 
         // --- Credit -------------------------------------------------------
@@ -229,7 +230,7 @@ fun EditorialFooter(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "© ২০২৫ ${settings.title} | সাইট উন্নয়ন ",
+                text = "© ২০২৬ ${settings.title} | সাইট উন্নয়ন ",
                 fontFamily = Kalpurush,
                 fontSize = 12.sp,
                 color = FooterMuted,
@@ -257,7 +258,7 @@ private fun ContactRow(
         modifier = Modifier
             .fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(vertical = 4.dp),
+            .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (icon != null) {
@@ -272,7 +273,8 @@ private fun ContactRow(
         Text(
             text = text,
             fontFamily = Kalpurush,
-            fontSize = 13.sp,
+            fontSize = 14.sp,
+            lineHeight = 22.sp,
             color = FooterMuted
         )
     }
@@ -284,6 +286,7 @@ private fun FooterHeading(text: String) {
         text = text,
         fontFamily = Kalpurush,
         fontSize = 15.sp,
+        lineHeight = 22.sp,
         fontWeight = FontWeight.Bold,
         color = FooterText
     )
@@ -295,7 +298,7 @@ private fun FooterLink(label: String, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 5.dp),
+            .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
@@ -308,7 +311,8 @@ private fun FooterLink(label: String, onClick: () -> Unit) {
         Text(
             text = label,
             fontFamily = Kalpurush,
-            fontSize = 13.sp,
+            fontSize = 14.sp,
+            lineHeight = 22.sp,
             color = FooterMuted
         )
     }

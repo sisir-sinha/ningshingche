@@ -1305,11 +1305,17 @@ fun PdfRail(
 @Composable
 fun VideoRail(
     videos: List<VideoItem>,
-    onVideoClick: (VideoItem) -> Unit
+    onVideoClick: (VideoItem) -> Unit,
+    onSeeAll: (() -> Unit)? = null
 ) {
     if (videos.isEmpty()) return
     Column(modifier = Modifier.fillMaxWidth()) {
-        SectionHeader(title = "ভিডিও", subtitle = "নড়াচড়া ও কণ্ঠে সংস্কৃতি")
+        SectionHeader(
+            title = "ভিডিও",
+            subtitle = "নড়াচড়া ও কণ্ঠে সংস্কৃতি",
+            actionLabel = if (onSeeAll != null) "সব" else null,
+            onAction = onSeeAll
+        )
         LazyRow(
             contentPadding = PaddingValues(horizontal = EditorialSpace.gutter),
             horizontalArrangement = Arrangement.spacedBy(EditorialSpace.md)

@@ -96,6 +96,7 @@ internal fun ArticleList(
     onLoadMore: () -> Unit,
     modifier: Modifier = Modifier,
     onRetry: () -> Unit = { },
+    showEndMarker: Boolean = true,
     header: @Composable (() -> Unit)? = null
 ) {
     val listState = rememberLazyListState()
@@ -153,7 +154,7 @@ internal fun ArticleList(
                                 color = LocalEditorialTokens.current.accent
                             )
                         }
-                        state.endReached && state.articles.isNotEmpty() -> Text(
+                        state.endReached && state.articles.isNotEmpty() && showEndMarker -> Text(
                             text = "— শেষ —",
                             style = EditorialType.Caption,
                             color = LocalEditorialTokens.current.inkMuted,
@@ -310,7 +311,15 @@ fun CategoryScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text(category?.title ?: "বিভাগ", style = EditorialType.Title) },
+                title = {
+                    Text(
+                        text = category?.title ?: "বিভাগ",
+                        style = EditorialType.Title,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        softWrap = false
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "পেছনে")
@@ -327,26 +336,23 @@ fun CategoryScreen(
             onArticleClick = onArticleClick,
             onLoadMore = viewModel::loadMore,
             onRetry = { viewModel.load() },
-            modifier = Modifier.padding(padding)
+            modifier = Modifier.padding(padding),
+            showEndMarker = false
         ) {
             Column(modifier = Modifier.padding(horizontal = EditorialSpace.gutter, vertical = EditorialSpace.md)) {
+                Hairline()
+                Spacer(Modifier.height(EditorialSpace.md))
                 Text(
-                    text = category?.title.orEmpty(),
-                    style = EditorialType.Display,
-                    color = MaterialTheme.colorScheme.onSurface
+                    text = "ক্যাটাগরির প্রবন্ধহানি",
+                    style = EditorialType.Headline,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
-                if (!category?.subTitle.isNullOrBlank()) {
-                    Spacer(Modifier.height(EditorialSpace.xs))
-                    Text(
-                        text = category?.subTitle.orEmpty(),
-                        style = EditorialType.Body,
-                        color = LocalEditorialTokens.current.inkSoft
-                    )
-                }
                 if (state is ListUiState.Ready) {
                     val total = (state as ListUiState.Ready).total
                     if (total != null) {
-                        Spacer(Modifier.height(EditorialSpace.sm))
+                        Spacer(Modifier.height(EditorialSpace.xs))
                         Text(
                             text = "$total টি প্রবন্ধ",
                             style = EditorialType.Caption,

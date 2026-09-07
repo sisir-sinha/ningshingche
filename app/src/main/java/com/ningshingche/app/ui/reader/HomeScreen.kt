@@ -125,6 +125,7 @@ fun HomeScreen(
     onSeeAllFeatured: () -> Unit = {},
     onSeeAllCategories: (() -> Unit)? = null,
     onSeeAllSpecial: (() -> Unit)? = null,
+    onSeeAllVideos: () -> Unit = {},
     onMenuClick: () -> Unit = {},
     onAiClick: () -> Unit = {},
     onLoginClick: () -> Unit = {},
@@ -249,6 +250,7 @@ fun HomeScreen(
                     onSeeAllFeatured = onSeeAllFeatured,
                     onSeeAllCategories = onSeeAllCategories,
                     onSeeAllSpecial = onSeeAllSpecial,
+                    onSeeAllVideos = onSeeAllVideos,
                     onAiClick = onAiClick,
                     onNavigate = onNavigate,
                     onOpenLink = onOpenLink
@@ -271,6 +273,7 @@ private fun HomeContent(
     onSeeAllFeatured: () -> Unit,
     onSeeAllCategories: (() -> Unit)? = null,
     onSeeAllSpecial: (() -> Unit)? = null,
+    onSeeAllVideos: () -> Unit,
     onAiClick: () -> Unit,
     onNavigate: (String) -> Unit = {},
     onOpenLink: (String) -> Unit = {}
@@ -380,7 +383,27 @@ private fun HomeContent(
             }
         }
 
-        // 5. Special Curated Section
+        // 5. Latest articles — sits above বিশেষ নির্বাচন. "সব" opens the Featured page.
+        if (feed.latest.isNotEmpty()) {
+            item {
+                SectionHeader(
+                    title = "সাম্প্রতিক",
+                    subtitle = feed.settings.description,
+                    actionLabel = "সব",
+                    onAction = onSeeAllLatest
+                )
+            }
+            items(feed.latest, key = { it.id }) { article ->
+                ArticleRow(article = article, onClick = { onArticleClick(article.id) })
+                Hairline(modifier = Modifier.padding(horizontal = EditorialSpace.gutter))
+            }
+        } else {
+            item {
+                EmptyState(message = "এখনো কোনো প্রবন্ধ প্রকাশিত হয়নি।")
+            }
+        }
+
+        // 6. Special Curated Section
         if (feed.special.isNotEmpty() && feed.settings.specialEnabled) {
             item {
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -409,7 +432,7 @@ private fun HomeContent(
             }
         }
 
-        // 6. Photo Gallery (ছবি ঘর - In-App Modal Box)
+        // 7. Photo Gallery (ছবি ঘর - In-App Modal Box)
         if (feed.gallery.isNotEmpty()) {
             item {
                 GalleryGrid(
@@ -431,34 +454,20 @@ private fun HomeContent(
             }
         }
 
-        // 8. Video Rail
+        // 9. Video Rail
         if (feed.videos.isNotEmpty()) {
-            item { VideoRail(videos = feed.videos, onVideoClick = { selectedVideo = it }) }
-        }
-
-        // 9. Authors Rail
-        if (feed.authors.isNotEmpty()) {
-            item { AuthorRail(authors = feed.authors, onAuthorClick = onAuthorClick) }
-        }
-
-        // 10. Latest Articles Running Feed
-        if (feed.latest.isNotEmpty()) {
             item {
-                SectionHeader(
-                    title = "সাম্প্রতিক",
-                    subtitle = feed.settings.description,
-                    actionLabel = "সব",
-                    onAction = onSeeAllLatest
+                VideoRail(
+                    videos = feed.videos,
+                    onVideoClick = { selectedVideo = it },
+                    onSeeAll = onSeeAllVideos
                 )
             }
-            items(feed.latest, key = { it.id }) { article ->
-                ArticleRow(article = article, onClick = { onArticleClick(article.id) })
-                Hairline(modifier = Modifier.padding(horizontal = EditorialSpace.gutter))
-            }
-        } else {
-            item {
-                EmptyState(message = "এখনো কোনো প্রবন্ধ প্রকাশিত হয়নি।")
-            }
+        }
+
+        // 10. Authors Rail
+        if (feed.authors.isNotEmpty()) {
+            item { AuthorRail(authors = feed.authors, onAuthorClick = onAuthorClick) }
         }
 
         item {
