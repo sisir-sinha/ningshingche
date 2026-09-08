@@ -1356,6 +1356,34 @@ class SupabaseClient(private val context: Context) {
         }
     }
 
+    suspend fun insertMusicTrack(payload: JSONObject): Result<JSONObject> = withContext(Dispatchers.IO) {
+        val token = authToken
+        if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null) {
+            return@withContext Result.failure(Exception("সাইন ইন করা নেই।"))
+        }
+        try {
+            val url = "${SupabaseConfig.restBaseUrl}/music_tracks"
+            val request = createUserAuthedRequestBuilder(url, token)
+                .addHeader("Prefer", "return=representation")
+                .post(payload.toString().toRequestBody(jsonMediaType))
+                .build()
+            val response = httpClient.newCall(request).execute()
+            val body = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                return@withContext Result.failure(
+                    Exception("গান সংরক্ষণ যায়নি (${response.code})। SQL মাইগ্রেশন 016 চালান।")
+                )
+            }
+            if (body.startsWith("[")) {
+                val array = JSONArray(body)
+                if (array.length() > 0) return@withContext Result.success(array.getJSONObject(0))
+            }
+            Result.success(payload)
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
+    }
+
     // ==========================================
     // VIDEOS CRUD
     // ==========================================

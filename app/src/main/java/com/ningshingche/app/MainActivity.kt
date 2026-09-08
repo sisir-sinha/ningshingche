@@ -1,5 +1,6 @@
 package com.ningshingche.app
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -14,8 +15,10 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ningshingche.app.data.model.AppThemeMode
 import com.ningshingche.app.data.model.ReaderPreferences
+import com.ningshingche.app.notifications.routeFromLaunchIntent
 import com.ningshingche.app.ui.editorial.EditorialTheme
 import com.ningshingche.app.ui.reader.EditorialReaderApp
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -30,9 +33,12 @@ import kotlinx.coroutines.launch
  */
 class MainActivity : ComponentActivity() {
 
+    private val pendingRoute = MutableStateFlow<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        pendingRoute.value = routeFromLaunchIntent(intent)
 
         val app = (application as? NinghsingCheApp) ?: NinghsingCheApp.instance
 
@@ -53,6 +59,8 @@ class MainActivity : ComponentActivity() {
                         app = app,
                         isDark = darkTheme,
                         themeMode = preferences.appThemeMode,
+                        pendingRoute = pendingRoute,
+                        onPendingRouteConsumed = { pendingRoute.value = null },
                         onCycleTheme = {
                             // System (default) → Light → Dark → System …
                             coroutineScope.launch {
@@ -69,5 +77,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        pendingRoute.value = routeFromLaunchIntent(intent)
     }
 }

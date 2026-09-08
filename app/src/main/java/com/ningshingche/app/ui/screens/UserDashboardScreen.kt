@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -40,6 +41,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -77,7 +79,11 @@ fun UserDashboardScreen(
     onBackClick: () -> Unit,
     onCompleteProfile: () -> Unit,
     onNewArticle: () -> Unit,
-    onInboxClick: () -> Unit = {}
+    onNewMusic: () -> Unit = {},
+    onInboxClick: () -> Unit = {},
+    onOpenNotice: (UserNotificationRecord) -> Unit = {},
+    onOpenArticle: (SubmittedBlogRecord) -> Unit = {},
+    onOpenComment: (CommentRecord) -> Unit = {}
 ) {
     val user by viewModel.currentUser.collectAsStateWithLifecycle()
     val articles by viewModel.articles.collectAsStateWithLifecycle()
@@ -90,6 +96,7 @@ fun UserDashboardScreen(
     val saving by viewModel.isSaving.collectAsStateWithLifecycle()
     val status by viewModel.message.collectAsStateWithLifecycle()
     var tab by remember { mutableIntStateOf(0) }
+    var createChoice by remember { mutableStateOf(false) }
 
     LaunchedEffect(user?.id) {
         if (user != null) viewModel.refresh()
@@ -119,11 +126,11 @@ fun UserDashboardScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    if (user?.isProfileComplete == true) onNewArticle() else onCompleteProfile()
+                    if (user?.isProfileComplete == true) createChoice = true else onCompleteProfile()
                 },
                 modifier = Modifier.testTag("user_dashboard_new_article")
             ) {
-                Icon(Icons.Default.Add, contentDescription = "নতুন প্রবন্ধ")
+                Icon(Icons.Default.Add, contentDescription = "নতুন")
             }
         }
     ) { padding ->
@@ -211,7 +218,7 @@ fun UserDashboardScreen(
                             items(notifications, key = { "n-${it.id}" }) { notice ->
                                 NotificationCard(
                                     notice = notice,
-                                    onOpen = { viewModel.markNotificationRead(notice.id) }
+                                    onOpen = { onOpenNotice(notice) }
                                 )
                             }
                         }
@@ -240,7 +247,7 @@ fun UserDashboardScreen(
                             item { EmptyHint("এখনো কোনো প্রবন্ধ জমা দেননি।") }
                         } else {
                             items(articles, key = { "a-${it.id}" }) { article ->
-                                ArticleStatusCard(article)
+                                ArticleStatusCard(article, onOpen = { onOpenArticle(article) })
                             }
                         }
                     }
@@ -249,7 +256,7 @@ fun UserDashboardScreen(
                             item { EmptyHint("আপনার কোনো মন্তব্য পাওয়া যায়নি।") }
                         } else {
                             items(comments, key = { "c-${it.id}" }) { comment ->
-                                CommentStatusCard(comment)
+                                CommentStatusCard(comment, onOpen = { onOpenComment(comment) })
                             }
                         }
                     }
@@ -257,6 +264,26 @@ fun UserDashboardScreen(
                 item { Spacer(Modifier.height(72.dp)) }
             }
         }
+    }
+
+    if (createChoice) {
+        AlertDialog(
+            onDismissRequest = { createChoice = false },
+            title = { Text("নতুন কী যোগ করবেন?", fontFamily = Kalpurush, fontWeight = FontWeight.Bold) },
+            text = { Text("প্রবন্ধ লিখুন অথবা গান আপলোড করুন।", fontFamily = Kalpurush) },
+            confirmButton = {
+                TextButton(onClick = {
+                    createChoice = false
+                    onNewArticle()
+                }) { Text("নতুন প্রবন্ধ", fontFamily = Kalpurush, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    createChoice = false
+                    onNewMusic()
+                }) { Text("নতুন গান", fontFamily = Kalpurush, fontWeight = FontWeight.Bold) }
+            }
+        )
     }
 }
 
@@ -476,11 +503,14 @@ private fun AdminMessageComposer(
 }
 
 @Composable
-private fun ArticleStatusCard(article: SubmittedBlogRecord) {
+private fun ArticleStatusCard(article: SubmittedBlogRecord, onOpen: () -> Unit) {
     Surface(
         shape = RoundedCornerShape(14.dp),
         tonalElevation = 1.dp,
-        modifier = Modifier.fillMaxWidth().testTag("dashboard_article_${article.id}")
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpen)
+            .testTag("dashboard_article_${article.id}")
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(article.title, fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
@@ -495,11 +525,14 @@ private fun ArticleStatusCard(article: SubmittedBlogRecord) {
 }
 
 @Composable
-private fun CommentStatusCard(comment: CommentRecord) {
+private fun CommentStatusCard(comment: CommentRecord, onOpen: () -> Unit) {
     Surface(
         shape = RoundedCornerShape(14.dp),
         tonalElevation = 1.dp,
-        modifier = Modifier.fillMaxWidth().testTag("dashboard_comment_${comment.id}")
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpen)
+            .testTag("dashboard_comment_${comment.id}")
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             if (comment.blogTitle.isNotBlank()) {

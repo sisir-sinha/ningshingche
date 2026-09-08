@@ -66,7 +66,8 @@ private const val PAGE = 25
 @Composable
 fun UserInboxScreen(
     viewModel: ReaderWorkspaceViewModel,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    onOpenNotice: (UserNotificationRecord) -> Unit = {}
 ) {
     val user by viewModel.currentUser.collectAsStateWithLifecycle()
     val notifications by viewModel.notifications.collectAsStateWithLifecycle()

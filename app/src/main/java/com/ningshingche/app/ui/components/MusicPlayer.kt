@@ -8,6 +8,8 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import android.content.Intent
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -38,8 +40,10 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Lyrics
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -59,8 +63,6 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -83,6 +85,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -247,6 +250,14 @@ private fun FullMusicPlayer(
     var dragValue by remember { mutableFloatStateOf(0f) }
     var sheet by remember { mutableStateOf(PlayerSheet.None) }
     var offsetY by remember { mutableFloatStateOf(0f) }
+    var gestureHint by remember { mutableStateOf<String?>(null) }
+    var swipeAccum by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(gestureHint) {
+        if (gestureHint != null) {
+            delay(700)
+            gestureHint = null
+        }
+    }
     val duration = state.durationMs.coerceAtLeast(1L)
     val sliderValue = if (dragging) dragValue else state.positionMs.toFloat().coerceIn(0f, duration.toFloat())
     val playlists by controller.library.playlists().collectAsState(initial = emptyList())
@@ -333,8 +344,34 @@ private fun FullMusicPlayer(
                     .pointerInput(track.id) {
                         detectTapGestures(
                             onDoubleTap = { offset ->
-                                if (offset.x < size.width / 2f) controller.seekBy(-5_000L)
-                                else controller.seekBy(5_000L)
+                                val third = size.width / 3f
+                                when {
+                                    offset.x < third -> {
+                                        controller.seekBy(-5_000L)
+                                        gestureHint = "Backward -5s"
+                                    }
+                                    offset.x > third * 2f -> {
+                                        controller.seekBy(5_000L)
+                                        gestureHint = "Forward +5s"
+                                    }
+                                    else -> controller.togglePlayPause()
+                                }
+                            }
+                        )
+                    }
+                    .pointerInput(track.id) {
+                        detectHorizontalDragGestures(
+                            onDragStart = { swipeAccum = 0f },
+                            onHorizontalDrag = { change, amount ->
+                                change.consume()
+                                swipeAccum += amount
+                            },
+                            onDragEnd = {
+                                when {
+                                    swipeAccum > 80f -> controller.skipPrevious()
+                                    swipeAccum < -80f -> controller.skipNext()
+                                }
+                                swipeAccum = 0f
                             }
                         )
                     }
@@ -348,6 +385,22 @@ private fun FullMusicPlayer(
                             .align(Alignment.Center)
                             .size(36.dp)
                     )
+                }
+                gestureHint?.let { hint ->
+                    Surface(
+                        color = Color.Black.copy(alpha = 0.62f),
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier.align(Alignment.Center)
+                    ) {
+                        Text(
+                            text = hint,
+                            color = Color.White,
+                            fontFamily = Kalpurush,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                        )
+                    }
                 }
             }
 
@@ -398,10 +451,25 @@ private fun FullMusicPlayer(
                     label = "রিপিট"
                 ) { controller.cycleRepeat() }
                 PlayerIcon(
-                    icon = Icons.Default.Lyrics,
-                    tint = if (state.showLyrics) PortalSaffron else Color.White.copy(alpha = 0.7f),
-                    label = "লিরিক"
-                ) { controller.toggleLyrics() }
+                    icon = Icons.AutoMirrored.Filled.PlaylistPlay,
+                    tint = if (state.autoPlay) PortalSaffron else Color.White.copy(alpha = 0.7f),
+                    label = "অটোপ্লে"
+                ) { controller.toggleAutoPlay() }
+                PlayerIcon(
+                    icon = Icons.Default.PlaylistAdd,
+                    tint = Color.White.copy(alpha = 0.9f),
+                    label = "প্লেলিস্ট"
+                ) { sheet = PlayerSheet.Playlist }
+                PlayerIcon(
+                    icon = Icons.Default.Download,
+                    tint = if (state.offline) PortalSaffron else Color.White.copy(alpha = 0.7f),
+                    label = "ডাউনলোড"
+                ) { controller.saveCurrentOffline() }
+                PlayerIcon(
+                    icon = Icons.Default.Timer,
+                    tint = if (state.sleepUntilMs != null) PortalSaffron else Color.White.copy(alpha = 0.7f),
+                    label = "স্লিপ"
+                ) { sheet = PlayerSheet.Sleep }
             }
 
             Slider(
@@ -460,27 +528,6 @@ private fun FullMusicPlayer(
                         modifier = Modifier.size(36.dp)
                     )
                 }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "অটোপ্লে",
-                    fontFamily = Kalpurush,
-                    color = Color.White.copy(alpha = 0.85f),
-                    fontSize = 14.sp,
-                    modifier = Modifier.weight(1f)
-                )
-                Switch(
-                    checked = state.autoPlay,
-                    onCheckedChange = { controller.toggleAutoPlay() },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color(0xFF2A120E),
-                        checkedTrackColor = PortalSaffron
-                    )
-                )
             }
 
             state.error?.let { message ->
@@ -571,6 +618,7 @@ private fun PlayerSheets(
     controller: MusicController
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var newTitle by remember { mutableStateOf("") }
     Box(
         modifier = Modifier
@@ -712,8 +760,8 @@ private fun DetailLine(label: String, value: String) {
 
 @Composable
 private fun PlayerIcon(icon: ImageVector, tint: Color, label: String, onClick: () -> Unit) {
-    IconButton(onClick = onClick) {
-        Icon(icon, contentDescription = label, tint = tint)
+    IconButton(onClick = onClick, modifier = Modifier.size(40.dp)) {
+        Icon(icon, contentDescription = label, tint = tint, modifier = Modifier.size(22.dp))
     }
 }
 

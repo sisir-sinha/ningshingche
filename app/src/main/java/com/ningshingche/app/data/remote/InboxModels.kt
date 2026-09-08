@@ -110,7 +110,7 @@ object InboxSync {
                     kind = UserNotificationRecord.KIND_COMMENT,
                     title = "মন্তব্য প্রকাশিত হয়েছে",
                     body = comment.content.take(160),
-                    relatedId = comment.id
+                    relatedId = comment.blogId.ifBlank { comment.id }
                 )
             }
         }

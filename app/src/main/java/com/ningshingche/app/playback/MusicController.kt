@@ -17,6 +17,7 @@ import com.ningshingche.app.data.music.MusicLibraryStore
 import com.ningshingche.app.data.music.UserPlaylist
 import com.ningshingche.app.data.music.streamUrl
 import com.ningshingche.app.data.portal.MusicTrack
+import com.ningshingche.app.ui.components.AppToasts
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -214,9 +215,19 @@ class MusicController(
     }
 
     fun toggleShuffle() {
-        val next = !_state.value.shuffle
-        controller?.shuffleModeEnabled = next
-        _state.update { it.copy(shuffle = next) }
+        setShuffle(!_state.value.shuffle, announce = true)
+    }
+
+    fun setShuffle(enabled: Boolean, announce: Boolean = false) {
+        controller?.shuffleModeEnabled = enabled
+        _state.update { it.copy(shuffle = enabled) }
+        if (announce) {
+            if (enabled) {
+                AppToasts.undo("Shuffle Turned ON") { setShuffle(false, announce = false) }
+            } else {
+                AppToasts.show("Shuffle Turned OFF")
+            }
+        }
     }
 
     fun cycleRepeat() {
@@ -232,6 +243,14 @@ class MusicController(
     fun toggleAutoPlay() {
         val next = !_state.value.autoPlay
         _state.update { it.copy(autoPlay = next) }
+        if (next) {
+            AppToasts.undo("Autoplay Turned ON") {
+                controller?.pauseAtEndOfMediaItems = true
+                _state.update { it.copy(autoPlay = false) }
+            }
+        } else {
+            AppToasts.show("Autoplay Turned OFF")
+        }
     }
 
     fun toggleLyrics() {
@@ -242,11 +261,16 @@ class MusicController(
         val track = _state.value.track ?: return
         scope.launch {
             val liked = withContext(Dispatchers.IO) { library.toggleLoved(track) }
-            _state.update {
-                it.copy(
-                    liked = liked,
-                    statusMessage = if (liked) "পছন্দের তালিকায় যোগ হয়েছে" else "পছন্দ থেকে সরানো হয়েছে"
-                )
+            _state.update { it.copy(liked = liked) }
+            if (liked) {
+                AppToasts.undo("Added to Liked Songs") {
+                    scope.launch {
+                        withContext(Dispatchers.IO) { library.toggleLoved(track) }
+                        _state.update { it.copy(liked = false) }
+                    }
+                }
+            } else {
+                AppToasts.show("Removed from Liked Songs")
             }
         }
     }
@@ -254,16 +278,26 @@ class MusicController(
     fun saveCurrentOffline() {
         val track = _state.value.track ?: return
         if (_state.value.downloading) return
-        _state.update { it.copy(downloading = true, statusMessage = "সংরক্ষণ হচ্ছে…", error = null) }
+        _state.update { it.copy(downloading = true, error = null) }
         scope.launch {
             val result = withContext(Dispatchers.IO) { library.download(track) }
+            val saved = result.isSuccess || library.isOfflineFile(track.id)
             _state.update {
                 it.copy(
                     downloading = false,
-                    offline = result.isSuccess || library.isOfflineFile(track.id),
-                    statusMessage = if (result.isSuccess) "গান অ্যাপে সংরক্ষিত হয়েছে" else null,
+                    offline = saved,
                     error = result.exceptionOrNull()?.message
                 )
+            }
+            if (saved) {
+                AppToasts.undo("Song downloaded for offline") {
+                    scope.launch {
+                        withContext(Dispatchers.IO) { library.removeOffline(track.id) }
+                        _state.update { it.copy(offline = false) }
+                    }
+                }
+            } else {
+                AppToasts.show(result.exceptionOrNull()?.message ?: "Download failed")
             }
         }
     }
@@ -272,7 +306,11 @@ class MusicController(
         val track = _state.value.track ?: return
         scope.launch {
             withContext(Dispatchers.IO) { library.addToPlaylist(playlistId, track) }
-            _state.update { it.copy(statusMessage = "প্লেলিস্টে যোগ হয়েছে") }
+            AppToasts.undo("Added to playlist") {
+                scope.launch {
+                    withContext(Dispatchers.IO) { library.removeFromPlaylist(playlistId, track.id) }
+                }
+            }
         }
     }
 

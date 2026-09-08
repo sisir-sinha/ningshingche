@@ -39,6 +39,7 @@ import com.ningshingche.app.ui.screens.ExploreScreen
 import com.ningshingche.app.ui.screens.FeaturedScreen
 import com.ningshingche.app.ui.screens.LoginScreen
 import com.ningshingche.app.ui.screens.NewArticleScreen
+import com.ningshingche.app.ui.screens.NewMusicScreen
 import com.ningshingche.app.ui.screens.PdfArchiveScreen
 import com.ningshingche.app.ui.screens.PdfViewerScreen
 import com.ningshingche.app.ui.screens.SettingsScreen
@@ -54,15 +55,23 @@ import com.ningshingche.app.ui.viewmodel.BookmarksViewModel
 import com.ningshingche.app.ui.viewmodel.SavedArticlesViewModel
 import com.ningshingche.app.ui.components.BookmarkController
 import com.ningshingche.app.ui.components.LocalBookmarkController
+import com.ningshingche.app.ui.components.AppToastHost
+import com.ningshingche.app.ui.components.AppToasts
 import com.ningshingche.app.ui.components.LocalMusicController
 import com.ningshingche.app.ui.components.MusicPlayerOverlay
+import com.ningshingche.app.ui.components.NetStatus
+import com.ningshingche.app.ui.components.connectivityStatus
+import com.ningshingche.app.data.remote.UserNotificationRecord
 import com.ningshingche.app.ui.viewmodel.PdfArchiveViewModel
 import com.ningshingche.app.ui.viewmodel.PdfViewerViewModel
 import com.ningshingche.app.ui.viewmodel.ReaderWorkspaceViewModel
 import com.ningshingche.app.ui.viewmodel.SettingsViewModel
 import com.ningshingche.app.ui.viewmodel.ViewModelFactory
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.net.URLEncoder
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 
 /**
  * Navigation routes for NingshingChe Portal.
@@ -83,6 +92,7 @@ object ReaderRoute {
     const val UserProfile = "user_profile"
     const val UserInbox = "user_inbox"
     const val NewArticle = "new_article"
+    const val NewMusic = "new_music"
     const val Bookmarks = "bookmarks"
     const val PdfArchive = "pdf_archive"
     const val PdfViewer = "pdf_viewer/{pdfId}"
@@ -123,6 +133,8 @@ fun EditorialReaderApp(
     isDark: Boolean,
     themeMode: AppThemeMode,
     onCycleTheme: () -> Unit,
+    pendingRoute: StateFlow<String?>? = null,
+    onPendingRouteConsumed: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val navController = rememberNavController()
@@ -170,6 +182,60 @@ fun EditorialReaderApp(
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: ReaderRoute.Home
+    val pendingHolder = remember { kotlinx.coroutines.flow.MutableStateFlow<String?>(null) }
+    val launchRoute by (pendingRoute ?: pendingHolder).collectAsState()
+    val playerUi by app.musicController.state.collectAsState()
+
+    val openUserNotice: (UserNotificationRecord) -> Unit = { notice ->
+        workspaceViewModel.markNotificationRead(notice.id)
+        coroutineScope.launch {
+            when {
+                notice.isAdminMessage || notice.kind == "staff_notice" ->
+                    navController.navigate(ReaderRoute.UserInbox)
+                notice.isComment && notice.relatedId.isNotBlank() ->
+                    navController.navigate(ReaderRoute.article(notice.relatedId))
+                else -> {
+                    val target = notice.relatedId.ifBlank { notice.body }
+                    val direct = if (target.isNotBlank()) app.portalRepository.article(target) else null
+                    if (direct?.isSuccess == true) {
+                        navController.navigate(ReaderRoute.article(target))
+                    } else {
+                        val q = notice.body.ifBlank { notice.title }
+                        val hit = app.portalRepository.searchArticles(q, limit = 1)
+                            .getOrNull()?.items?.firstOrNull()
+                        if (hit != null) navController.navigate(ReaderRoute.article(hit.id))
+                        else if (target.isNotBlank()) navController.navigate(ReaderRoute.article(target))
+                    }
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(launchRoute, currentRoute) {
+        val route = launchRoute ?: return@LaunchedEffect
+        val blocked = currentRoute == ReaderRoute.Splash ||
+            currentRoute == ReaderRoute.WelcomeLogin ||
+            currentRoute == ReaderRoute.WelcomeNotifications
+        if (blocked) return@LaunchedEffect
+        navController.navigate(route)
+        onPendingRouteConsumed()
+    }
+
+    LaunchedEffect(Unit) {
+        var last: NetStatus? = null
+        connectivityStatus(context).collect { status ->
+            val previous = last
+            last = status
+            if (previous == null && status == NetStatus.Online) return@collect
+            when (status) {
+                NetStatus.Offline -> AppToasts.openSettings("You are in Offline")
+                NetStatus.Weak -> if (previous != NetStatus.Weak) {
+                    AppToasts.show("Your internet connection is weak")
+                }
+                NetStatus.Online -> Unit
+            }
+        }
+    }
 
     // Top-level destinations reached from the drawer: single instance each,
     // state saved/restored so switching back keeps scroll positions.
@@ -470,7 +536,33 @@ fun EditorialReaderApp(
                     onBackClick = { navController.popBackStack() },
                     onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) },
                     onNewArticle = { navController.navigate(ReaderRoute.NewArticle) },
-                    onInboxClick = { navController.navigate(ReaderRoute.UserInbox) }
+                    onNewMusic = { navController.navigate(ReaderRoute.NewMusic) },
+                    onInboxClick = { navController.navigate(ReaderRoute.UserInbox) },
+                    onOpenNotice = openUserNotice,
+                    onOpenArticle = { article ->
+                        coroutineScope.launch {
+                            val published = article.status.equals("Published", true) ||
+                                article.status.equals("Approved", true)
+                            if (!published) {
+                                AppToasts.show("এই প্রবন্ধ এখনো পর্যালোচনায় আছে।")
+                                return@launch
+                            }
+                            val direct = app.portalRepository.article(article.id)
+                            if (direct.isSuccess) {
+                                navController.navigate(ReaderRoute.article(article.id))
+                            } else {
+                                val hit = app.portalRepository.searchArticles(article.title, limit = 1)
+                                    .getOrNull()?.items?.firstOrNull()
+                                if (hit != null) navController.navigate(ReaderRoute.article(hit.id))
+                                else AppToasts.show("প্রকাশিত প্রবন্ধ খোলা যায়নি।")
+                            }
+                        }
+                    },
+                    onOpenComment = { comment ->
+                        if (comment.blogId.isNotBlank()) {
+                            navController.navigate(ReaderRoute.article(comment.blogId))
+                        }
+                    }
                 )
             }
 
@@ -484,12 +576,21 @@ fun EditorialReaderApp(
             composable(ReaderRoute.UserInbox) {
                 UserInboxScreen(
                     viewModel = workspaceViewModel,
-                    onBackClick = { navController.popBackStack() }
+                    onBackClick = { navController.popBackStack() },
+                    onOpenNotice = openUserNotice
                 )
             }
 
             composable(ReaderRoute.NewArticle) {
                 NewArticleScreen(
+                    viewModel = workspaceViewModel,
+                    onBackClick = { navController.popBackStack() },
+                    onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) }
+                )
+            }
+
+            composable(ReaderRoute.NewMusic) {
+                NewMusicScreen(
                     viewModel = workspaceViewModel,
                     onBackClick = { navController.popBackStack() },
                     onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) }
@@ -611,6 +712,11 @@ fun EditorialReaderApp(
         }
     }
     MusicPlayerOverlay(controller = app.musicController)
+    AppToastHost(
+        modifier = Modifier.padding(
+            bottom = if (playerUi.visible && !playerUi.expanded) 72.dp else 0.dp
+        )
+    )
     }
     }
 }
