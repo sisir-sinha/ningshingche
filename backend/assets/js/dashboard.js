@@ -18,6 +18,7 @@
     ['books', 'PDF Books', 'fa-books', 'orange'],
     ['submissions', 'Submitted Blogs', 'fa-file-pen', 'cyan'],
     ['videos', 'Videos', 'fa-video', 'pink'],
+    ['music', 'Music', 'fa-music', 'rose'],
     ['profiles', 'Registered users', 'fa-user-group', 'teal']
   ]);
 
@@ -50,6 +51,7 @@
       ['books', 'id,title,created_at'],
       ['submissions', 'id,title,writer_name,status,created_at'],
       ['videos', 'id,title,created_at'],
+      ['music', 'id,title,created_at'],
       ['profiles', 'id,name,email,created_at']
     ];
     const canAnalyze = NC.auth.canAccess('analytics');
@@ -102,7 +104,8 @@
       ['galleries', 'new', 'Add Gallery', 'fa-image-polaroid', ''],
       ['books', 'new', 'Add Book', 'fa-book-circle-plus', ''],
       ['submissions', '', 'Review Submissions', 'fa-file-magnifying-glass', ''],
-      ['videos', 'new', 'Add Video', 'fa-video-plus', '']
+      ['videos', 'new', 'Add Video', 'fa-video-plus', ''],
+      ['music', 'new', 'Add Track', 'fa-music', '']
     ].filter(([route]) => NC.auth.canAccess(route));
     if (!actions.length) return emptyState({ icon: 'fa-shield-lock', title: 'No content actions assigned', description: 'A Super Admin can add content menus to your role.' });
     return `<div class="quick-actions">${actions.map(([route, action, label, icon, tone]) => `
@@ -117,7 +120,8 @@
       ['comments', 'Comment', 'comments', (item) => item.blog_title || item.name, (item) => item.status],
       ['submissions', 'Submission', 'file-pen', (item) => item.title, (item) => item.status],
       ['books', 'PDF Book', 'books', (item) => item.title, () => 'Added'],
-      ['videos', 'Video', 'video', (item) => item.title, () => 'Added']
+      ['videos', 'Video', 'video', (item) => item.title, () => 'Added'],
+      ['music', 'Music', 'music', (item) => item.title, () => 'Added']
     ].filter(([key]) => NC.auth.canAccess(key));
     return map.flatMap(([key, type, icon, title, status]) => (data[key] || []).slice(0, 8).map((item) => ({
       id: item.id, route: key, type, icon, title: title(item) || 'Untitled', status: status(item), created_at: item.created_at
@@ -185,7 +189,7 @@
     const brand = '#8b5cf6';
     const distributionItems = [
       ['Blogs', 'blogs', brand], ['Authors', 'authors', '#22c55e'], ['Categories', 'categories', '#38bdf8'],
-      ['Galleries', 'galleries', '#d946ef'], ['Books', 'books', '#f97316'], ['Videos', 'videos', '#ec4899'], ['Comments', 'comments', '#6366f1']
+      ['Galleries', 'galleries', '#d946ef'], ['Books', 'books', '#f97316'], ['Videos', 'videos', '#ec4899'], ['Music', 'music', '#f43f5e'], ['Comments', 'comments', '#6366f1']
     ].filter(([, route]) => NC.auth.canAccess('analytics') || NC.auth.canAccess(route));
     const months = groupMonthly(data.blogs).map((item) => item.label);
     const common = {
@@ -233,7 +237,7 @@
     const chartCards = [
       (['blogs', 'authors', 'comments', 'submissions'].some(canSee) ? chartCard('Content growth', 'Permitted content records over six months.', 'chart-growth', 'chart-wide') : ''),
       (canSee('blogs') ? chartCard('Blog status', 'Published content compared with drafts.', 'chart-status') : ''),
-      (['blogs', 'authors', 'categories', 'galleries', 'books', 'videos', 'comments'].some(canSee) ? chartCard('Content distribution', 'Current permitted records by content type.', 'chart-distribution', 'chart-full') : '')
+      (['blogs', 'authors', 'categories', 'galleries', 'books', 'videos', 'music', 'comments'].some(canSee) ? chartCard('Content distribution', 'Current permitted records by content type.', 'chart-distribution', 'chart-full') : '')
     ].join('');
     container.innerHTML = `
       ${pageHeader({

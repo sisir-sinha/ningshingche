@@ -107,6 +107,22 @@ data class VideoDto(
 )
 
 @JsonClass(generateAdapter = true)
+data class MusicDto(
+    val id: String,
+    val title: String,
+    val artist: String? = null,
+    val album: String? = null,
+    val genre: String? = null,
+    val description: String? = null,
+    @Json(name = "thumbnail_url") val thumbnailUrl: String? = null,
+    @Json(name = "audio_url") val audioUrl: String,
+    @Json(name = "duration_seconds") val durationSeconds: Int? = null,
+    @Json(name = "file_size_mb") val fileSizeMb: Double? = null,
+    @Json(name = "sort_order") val sortOrder: Int? = null,
+    @Json(name = "created_at") val createdAt: String? = null
+)
+
+@JsonClass(generateAdapter = true)
 data class CommentDto(
     val id: String,
     @Json(name = "blog_id") val blogId: String,

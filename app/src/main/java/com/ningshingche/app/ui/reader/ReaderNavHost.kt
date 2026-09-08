@@ -2,6 +2,8 @@ package com.ningshingche.app.ui.reader
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.rememberDrawerState
@@ -52,6 +54,8 @@ import com.ningshingche.app.ui.viewmodel.BookmarksViewModel
 import com.ningshingche.app.ui.viewmodel.SavedArticlesViewModel
 import com.ningshingche.app.ui.components.BookmarkController
 import com.ningshingche.app.ui.components.LocalBookmarkController
+import com.ningshingche.app.ui.components.LocalMusicController
+import com.ningshingche.app.ui.components.MusicPlayerOverlay
 import com.ningshingche.app.ui.viewmodel.PdfArchiveViewModel
 import com.ningshingche.app.ui.viewmodel.PdfViewerViewModel
 import com.ningshingche.app.ui.viewmodel.ReaderWorkspaceViewModel
@@ -87,6 +91,7 @@ object ReaderRoute {
     const val Issue = "issue/{year}"
     const val Featured = "featured"
     const val Videos = "videos"
+    const val Music = "music"
     const val About = "about"
     const val AuthorsDirectory = "authors_directory"
     const val SocialActivities = "social_activities"
@@ -197,7 +202,11 @@ fun EditorialReaderApp(
         currentRoute == ReaderRoute.ExplorePattern ||
         currentRoute == ReaderRoute.Explore
 
-    CompositionLocalProvider(LocalBookmarkController provides bookmarkController) {
+    CompositionLocalProvider(
+        LocalBookmarkController provides bookmarkController,
+        LocalMusicController provides app.musicController
+    ) {
+    Box(Modifier.fillMaxSize()) {
     ModalNavigationDrawer(
         modifier = modifier,
         drawerState = drawerState,
@@ -278,6 +287,7 @@ fun EditorialReaderApp(
                     onSeeAllCategories = { openExploreTab(ExploreTab.Categories) },
                     onSeeAllSpecial = { openExploreTab(ExploreTab.Popular) },
                     onSeeAllVideos = { navController.navigate(ReaderRoute.Videos) },
+                    onSeeAllMusic = { navController.navigate(ReaderRoute.Music) },
                     onMenuClick = {
                         coroutineScope.launch { drawerState.open() }
                     },
@@ -555,6 +565,14 @@ fun EditorialReaderApp(
                 )
             }
 
+            composable(ReaderRoute.Music) {
+                val homeViewModel: HomeViewModel = viewModel(factory = portalFactory)
+                MusicScreen(
+                    viewModel = homeViewModel,
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+
             // Featured Articles Screen
             composable(ReaderRoute.Featured) {
                 val homeViewModel: com.ningshingche.app.ui.viewmodel.HomeViewModel = viewModel(factory = mainFactory)
@@ -591,6 +609,8 @@ fun EditorialReaderApp(
             }
 
         }
+    }
+    MusicPlayerOverlay(controller = app.musicController)
     }
     }
 }

@@ -32,7 +32,9 @@
       restPath: '/rest/v1',
       storagePath: '/storage/v1',
       pdfBucket: 'pdf-books',
-      pdfMaxBytes: 32 * 1024 * 1024
+      pdfMaxBytes: 32 * 1024 * 1024,
+      musicBucket: 'music',
+      musicMaxBytes: 32 * 1024 * 1024
     }),
 
     imgbb: Object.freeze({
@@ -63,6 +65,7 @@
       books: 'pdf_books',
       submissions: 'submitted_blogs',
       videos: 'videos',
+      music: 'music_tracks',
       settings: 'settings',
       profiles: 'profiles',
       notifications: 'user_notifications',
@@ -85,6 +88,7 @@
       { id: 'books', label: 'PDF Books', icon: 'fa-books', group: 'content' },
       { id: 'submissions', label: 'Submit Blogs', icon: 'fa-file-pen', group: 'content' },
       { id: 'videos', label: 'Videos', icon: 'fa-video', group: 'content' },
+      { id: 'music', label: 'Music', icon: 'fa-music', group: 'content' },
       { id: 'analytics', label: 'Analytics', icon: 'fa-chart-mixed', group: 'system' },
       { id: 'settings', label: 'Settings', icon: 'fa-gear', group: 'system' },
       { id: 'access-control', label: 'Users & Roles', icon: 'fa-user-shield', group: 'system' }

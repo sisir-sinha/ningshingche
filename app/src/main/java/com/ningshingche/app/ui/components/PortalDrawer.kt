@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Search
@@ -132,6 +133,9 @@ fun PortalDrawerContent(
             }
             DrawerRow("PDF আর্কাইভ", Icons.Default.PictureAsPdf, currentRoute == Screen.PdfArchive.route) {
                 onCloseDrawer(); onNavigate(Screen.PdfArchive.route)
+            }
+            DrawerRow("সঙ্গীত", Icons.Default.LibraryMusic, currentRoute == Screen.Music.route) {
+                onCloseDrawer(); onNavigate(Screen.Music.route)
             }
             DrawerRow("অনুসন্ধান", Icons.Default.Search, currentRoute == Screen.Search.route) {
                 onCloseDrawer(); onNavigate(Screen.Search.route)

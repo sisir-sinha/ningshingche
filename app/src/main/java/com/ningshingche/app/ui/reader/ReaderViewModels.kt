@@ -13,6 +13,7 @@ import com.ningshingche.app.data.portal.AuthorRef
 import com.ningshingche.app.data.portal.CategoryRef
 import com.ningshingche.app.data.portal.CommentItem
 import com.ningshingche.app.data.portal.HomeFeed
+import com.ningshingche.app.data.portal.MusicTrack
 import com.ningshingche.app.data.portal.VideoItem
 import com.ningshingche.app.data.portal.Page
 import com.ningshingche.app.data.portal.PortalError
@@ -71,6 +72,12 @@ class HomeViewModel(private val repository: PortalRepository) : ViewModel() {
     private val _videosLoading = MutableStateFlow(false)
     val videosLoading: StateFlow<Boolean> = _videosLoading.asStateFlow()
 
+    private val _musicCatalog = MutableStateFlow<List<MusicTrack>>(emptyList())
+    val musicCatalog: StateFlow<List<MusicTrack>> = _musicCatalog.asStateFlow()
+
+    private val _musicLoading = MutableStateFlow(false)
+    val musicLoading: StateFlow<Boolean> = _musicLoading.asStateFlow()
+
     init { load() }
 
     fun loadVideoCatalog(force: Boolean = false) {
@@ -85,6 +92,21 @@ class HomeViewModel(private val repository: PortalRepository) : ViewModel() {
                     }
                 }
             _videosLoading.value = false
+        }
+    }
+
+    fun loadMusicCatalog(force: Boolean = false) {
+        viewModelScope.launch {
+            _musicLoading.value = _musicCatalog.value.isEmpty()
+            repository.musicTracks(limit = 200, forceRefresh = force)
+                .onSuccess { _musicCatalog.value = it }
+                .onFailure {
+                    if (_musicCatalog.value.isEmpty()) {
+                        _musicCatalog.value =
+                            (_state.value as? HomeUiState.Ready)?.feed?.music.orEmpty()
+                    }
+                }
+            _musicLoading.value = false
         }
     }
 

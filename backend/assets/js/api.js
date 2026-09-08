@@ -366,6 +366,7 @@
       ['books', 'PDF Books', 'books', ['title', 'author_or_editor']],
       ['submissions', 'Submit Blogs', 'file-pen', ['title', 'writer_name', 'content_title']],
       ['videos', 'Videos', 'video', ['title', 'description']],
+      ['music', 'Music', 'music', ['title', 'artist', 'album']],
       ['profiles', 'Registered users', 'user-group', ['name', 'email', 'phone', 'first_name', 'last_name']]
     ];
     const accessible = definitions.filter(([table]) => {
@@ -460,6 +461,54 @@
     };
   }
 
+  async function uploadAudio(file, onProgress) {
+    if (!(file instanceof File)) throw new ApiError('Choose an audio file first.', { code: 'NO_FILE' });
+    const name = file.name.toLowerCase();
+    const allowedExt = ['.mp3', '.m4a', '.aac', '.ogg', '.wav', '.flac', '.webm'];
+    const looksAudio = (file.type || '').startsWith('audio/') || allowedExt.some((ext) => name.endsWith(ext));
+    if (!looksAudio) {
+      throw new ApiError('Only MP3 and other audio files can be uploaded to the music library.', { code: 'INVALID_FILE' });
+    }
+    if (file.size > supabase.musicMaxBytes) {
+      throw new ApiError('The audio file is larger than the 32 MB upload limit.', { code: 'FILE_TOO_LARGE' });
+    }
+    const safeName = file.name.normalize('NFKD').replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/-+/g, '-');
+    const path = `${new Date().getUTCFullYear()}/${NC.utils.uuid()}-${safeName}`;
+    const mime = file.type || 'audio/mpeg';
+    const responseBody = await new Promise((resolve, reject) => {
+      const upload = new XMLHttpRequest();
+      upload.open('POST', storageObjectUrl(supabase.musicBucket, path));
+      upload.timeout = 120000;
+      upload.responseType = 'json';
+      Object.entries({ ...authHeaders(), 'Content-Type': mime, 'x-upsert': 'false' })
+        .forEach(([header, value]) => upload.setRequestHeader(header, value));
+      upload.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable) onProgress?.(Math.round((event.loaded / event.total) * 100));
+      });
+      upload.addEventListener('load', () => {
+        const body = upload.response || {};
+        if (upload.status >= 200 && upload.status < 300) { onProgress?.(100); resolve(body); return; }
+        reject(new ApiError(body.message || body.error || 'Supabase Storage could not upload this audio file.', {
+          status: upload.status,
+          code: body.error || body.statusCode || 'STORAGE_UPLOAD_ERROR',
+          body
+        }));
+      });
+      upload.addEventListener('error', () => reject(new ApiError('The audio upload failed. Check your connection and try again.', { code: 'NETWORK_ERROR' })));
+      upload.addEventListener('timeout', () => reject(new ApiError('The audio upload timed out. Please try again.', { code: 'TIMEOUT' })));
+      upload.send(file);
+    });
+    return {
+      url: storagePublicUrl(supabase.musicBucket, path),
+      path,
+      provider: 'supabase-storage',
+      size: file.size,
+      filename: file.name,
+      mime,
+      response: responseBody
+    };
+  }
+
   async function deleteStorageObject(bucket, path) {
     if (!path) return { ok: true, skipped: true };
     try {
@@ -508,7 +557,7 @@
 
   NC.api = Object.freeze({
     ApiError, request, list, getById, count, insert, insertMany, update, upsert, remove,
-    rpc, slugExists, searchAll, schemaProbe, uploadPdf, deleteStorageObject,
+    rpc, slugExists, searchAll, schemaProbe, uploadPdf, uploadAudio, deleteStorageObject,
     storagePublicUrl, attemptImgBBDelete, userMessage, tableName,
     tagIndex, issueYears, blogsByIssue, blogsByTag, tagEndpointsAvailable, probeTagEndpoints, arrayLiteral
   });

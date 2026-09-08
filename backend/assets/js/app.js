@@ -88,7 +88,7 @@
   function syncPermissionControls() {
     qsa('[data-user-settings-link]').forEach((link) => { link.hidden = !NC.auth.canAccess('settings'); });
     const searchButton = qs('[data-search-open]');
-    const searchableRoutes = ['authors', 'blogs', 'categories', 'comments', 'galleries', 'books', 'submissions', 'videos'];
+    const searchableRoutes = ['authors', 'blogs', 'categories', 'comments', 'galleries', 'books', 'submissions', 'videos', 'music'];
     if (searchButton) searchButton.hidden = !searchableRoutes.some((route) => NC.auth.canAccess(route));
   }
 
@@ -260,7 +260,7 @@
   }
 
   function openGlobalSearch() {
-    const searchableRoutes = ['authors', 'blogs', 'categories', 'comments', 'galleries', 'books', 'submissions', 'videos'];
+    const searchableRoutes = ['authors', 'blogs', 'categories', 'comments', 'galleries', 'books', 'submissions', 'videos', 'music'];
     if (!NC.auth.isAuthenticated() || !searchableRoutes.some((route) => NC.auth.canAccess(route))) return;
     const root = qs('#global-search');
     root.classList.remove('hidden');

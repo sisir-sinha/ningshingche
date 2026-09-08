@@ -113,6 +113,19 @@ data class VideoItem(
     val thumbnailUrl: String
 )
 
+data class MusicTrack(
+    val id: String,
+    val title: String,
+    val artist: String,
+    val album: String,
+    val genre: String,
+    val description: String,
+    val thumbnailUrl: String,
+    val audioUrl: String,
+    val durationSeconds: Int,
+    val fileSizeMb: Double
+)
+
 data class CommentItem(
     val id: String,
     val name: String,
@@ -193,6 +206,7 @@ data class HomeFeed(
     val gallery: List<GalleryItem>,
     val pdfBooks: List<PdfBook>,
     val videos: List<VideoItem>,
+    val music: List<MusicTrack>,
     val settings: SiteSettings
 )
 
@@ -318,6 +332,19 @@ internal fun PdfBookDto.toModel(): PdfBook {
         isHostedInStorage = fileProvider == "supabase-storage"
     )
 }
+
+internal fun MusicDto.toItem(): MusicTrack = MusicTrack(
+    id = id,
+    title = title.trim(),
+    artist = artist.orEmpty().trim(),
+    album = album.orEmpty().trim(),
+    genre = genre.orEmpty().trim(),
+    description = description.orEmpty(),
+    thumbnailUrl = thumbnailUrl.orEmpty(),
+    audioUrl = audioUrl.trim(),
+    durationSeconds = (durationSeconds ?: 0).coerceAtLeast(0),
+    fileSizeMb = fileSizeMb ?: 0.0
+)
 
 internal fun VideoDto.toItem(): VideoItem = VideoItem(
     id = id,

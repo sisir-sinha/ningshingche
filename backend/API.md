@@ -43,7 +43,7 @@ Browser (backend/index.html)
 │
 ├── NC.api        → Supabase PostgREST   /rest/v1/<table>          CRUD on 9 content tables
 │                 → Supabase PostgREST   /rest/v1/rpc/<fn>         10 RPC functions
-│                 → Supabase Storage     /storage/v1/object/...    PDF upload/delete (bucket: pdf-books)
+│                 → Supabase Storage     /storage/v1/object/...    PDF (bucket: pdf-books) and MP3 (bucket: music)
 │
 ├── NC.media      → ImgBB                /1/upload                 Image hosting (hero, avatar, gallery)
 │
@@ -166,16 +166,16 @@ Valid menu permissions (`dashboard_valid_permissions()`), also the route IDs:
 
 ```
 dashboard  authors  blogs  categories  comments  galleries
-books      submissions  videos  analytics  settings  access-control
+books      submissions  videos  music  analytics  settings  access-control
 ```
 
 Seeded roles:
 
 | Role | Slug | Permissions | System |
 | --- | --- | --- | --- |
-| Super Admin | `super-admin` | All 12 (always recomputed server-side) | ✅ protected |
+| Super Admin | `super-admin` | All 13 (always recomputed server-side) | ✅ protected |
 | Administrator | `administrator` | All except `access-control` | ✅ |
-| Editor | `editor` | `dashboard, authors, blogs, categories, galleries, books, submissions, videos` | ✅ |
+| Editor | `editor` | `dashboard, authors, blogs, categories, galleries, books, submissions, videos, music` | ✅ |
 | Moderator | `moderator` | `dashboard, comments, submissions` | ✅ |
 | Analyzer | `analyzer` | `dashboard, analytics` | ✅ |
 
@@ -431,6 +431,24 @@ reading time as `ceil(words / 220)`.
 | `description` | text | |
 | `thumbnail_url` | text | Derived for known platforms |
 
+### `music_tracks` (alias `music`)
+Public library of MP3/audio tracks for the Android player (migration `014_music_tracks.sql`).
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | uuid PK | |
+| `title` | text | Required, non-blank |
+| `artist`, `album`, `genre`, `description` | text | Defaults `''` |
+| `thumbnail_url` | text | Cover art (ImgBB) |
+| `imgbb_delete_url` | text | |
+| `image_meta` | jsonb | `{ display_url, filename, size, mime, provider, uploaded_at }` |
+| `audio_url` | text | Required public URL |
+| `file_provider` | text | `url` \\| `supabase-storage` |
+| `file_storage_path` | text | Set when uploaded to the `music` bucket |
+| `duration_seconds` | integer | ≥ 0 |
+| `file_size_mb` | numeric(8,2) | |
+| `sort_order` | integer | Default `0` |
+
 ### `settings`
 Single row, `id = 'site_settings'`.
 
@@ -476,6 +494,7 @@ Table name mapping lives in `NC_CONFIG.tables`:
 | `books` | `pdf_books` | `book_published_date.desc.nullslast,created_at.desc` | 10 |
 | `submissions` | `submitted_blogs` | `created_at.desc` | 10 |
 | `videos` | `videos` | `created_at.desc` | 10 |
+| `music` | `music_tracks` | `sort_order.asc,created_at.desc` | 10 |
 | `settings` | `settings` | `id=eq.site_settings` | 1 |
 | `profiles` | `profiles` | `created_at.desc` | 10 (Registered users) |
 | `submissions` (app articles) | `submitted_blogs` | `created_at.desc` | 10 (Registered users › Articles) |
@@ -498,11 +517,11 @@ Granted by `schema.sql` so the website and Android app can read content directly
 
 | Table | Public policy |
 | --- | --- |
-| `authors`, `categories`, `galleries`, `pdf_books`, `videos`, `settings` | `SELECT` — all rows |
+| `authors`, `categories`, `galleries`, `pdf_books`, `videos`, `music_tracks`, `settings` | `SELECT` — all rows |
 | `blogs` | `SELECT` — only `status = 'Publish'` |
 | `comments` | `SELECT` — only `status = 'Publish'`; `INSERT` allowed (visitor comments) |
 | `submitted_blogs` | `INSERT` allowed (public article submission) |
-| `storage.objects` (`pdf-books`) | `SELECT` — public read |
+| `storage.objects` (`pdf-books`, `music`) | `SELECT` — public read |
 
 Write access to everything else requires a dashboard session whose role carries the matching menu
 permission (migration 004 creates per-menu policies).
@@ -846,6 +865,19 @@ Body: { "prefixes": ["2026/<uuid>-file.pdf"] }
 Never throws: `deleteStorageObject()` resolves `{ ok: false, error }` and the UI warns that the file
 must be removed manually from Supabase Storage.
 
+### Audio / MP3 (`music` bucket)
+
+Bucket: **`music`** — public, 32 MB, MIME `audio/mpeg` and related audio types (migration 014).
+
+```
+POST /storage/v1/object/music/{yyyy}/{uuid}-{safeName}
+Content-Type: audio/mpeg
+```
+
+`NC.api.uploadAudio(file, onProgress)` mirrors `uploadPdf` (XHR progress, 32 MB cap, MP3/audio
+extensions). Store `path` in `music_tracks.file_storage_path` and `file_provider = 'supabase-storage'`.
+Write policies require the `music` menu permission.
+
 **Storage RLS:** insert/update/delete require the `blogs` **or** `books` menu permission
 (`dashboard_has_any_permission(array['blogs','books'])`), falling back to `is_dashboard_request()`
 on pre-004 installs. Public `SELECT` is always allowed.
@@ -921,6 +953,7 @@ GET /rest/v1/<table>?select=*&or=(<f1>.ilike.*term*,<f2>.ilike.*term*)&order=cre
 | `pdf_books` | `title`, `author_or_editor` |
 | `submitted_blogs` | `title`, `writer_name`, `content_title` |
 | `videos` | `title`, `description` |
+| `music_tracks` | `title`, `artist`, `album` |
 
 Requests run in parallel via `Promise.allSettled`; tables the user may not access are skipped and
 individual failures are dropped. Results are flattened to

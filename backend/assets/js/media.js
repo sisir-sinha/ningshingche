@@ -418,8 +418,134 @@
       </div>`;
   }
 
+  function audioUploaderHTML({ id = uuid(), label = 'MP3 / audio file' } = {}) {
+    return `
+      <div class="pdf-uploader" data-audio-uploader id="${escapeHTML(id)}">
+        <div class="field-heading">
+          <label class="field-label" for="${escapeHTML(id)}-url">${escapeHTML(label)} <span aria-hidden="true">*</span></label>
+          <span class="field-hint">Upload an MP3 (or M4A/AAC/OGG/WAV) up to 32 MB, or paste a direct audio URL.</span>
+        </div>
+        <div class="grid gap-3 sm:grid-cols-[1fr_auto]">
+          <input type="url" class="form-input" id="${escapeHTML(id)}-url" data-audio-url placeholder="https://example.com/song.mp3">
+          <label class="btn btn-secondary cursor-pointer justify-center">
+            <i class="fa-regular fa-file-music" aria-hidden="true"></i><span>Upload MP3</span>
+            <input type="file" class="sr-only" accept="audio/*,.mp3,.m4a,.aac,.ogg,.wav,.flac" data-audio-file>
+          </label>
+        </div>
+        <div class="upload-progress hidden mt-3" data-audio-progress-wrap aria-live="polite">
+          <div class="upload-progress-track"><span data-audio-progress></span></div>
+          <span data-audio-percent>0%</span>
+        </div>
+        <div class="uploader-meta hidden mt-3" data-audio-meta></div>
+        <audio class="hidden" data-audio-preview controls preload="metadata"></audio>
+        <div class="mt-3 flex flex-wrap gap-2 hidden" data-audio-actions>
+          <button type="button" class="btn btn-secondary btn-sm" data-open-audio><i class="fa-regular fa-arrow-up-right-from-square" aria-hidden="true"></i>Open file</button>
+          <button type="button" class="btn btn-ghost-danger btn-sm" data-remove-audio><i class="fa-regular fa-trash" aria-hidden="true"></i>Remove</button>
+        </div>
+        <p class="field-error hidden" data-audio-error role="alert"></p>
+      </div>`;
+  }
+
+  function mountAudioUploader(root, options = {}) {
+    const element = root?.matches?.('[data-audio-uploader]') ? root : qs('[data-audio-uploader]', root);
+    if (!element) throw new Error('Audio uploader element was not found.');
+    const urlInput = qs('[data-audio-url]', element);
+    const fileInput = qs('[data-audio-file]', element);
+    const progressWrap = qs('[data-audio-progress-wrap]', element);
+    const progress = qs('[data-audio-progress]', element);
+    const percent = qs('[data-audio-percent]', element);
+    const meta = qs('[data-audio-meta]', element);
+    const actions = qs('[data-audio-actions]', element);
+    const preview = qs('[data-audio-preview]', element);
+    const errorNode = qs('[data-audio-error]', element);
+    let value = {
+      url: options.initial?.url || options.initial?.audio_url || '',
+      path: options.initial?.path || options.initial?.file_storage_path || '',
+      provider: options.initial?.provider || options.initial?.file_provider || 'url',
+      size: Number(options.initial?.size || (options.initial?.file_size_mb || 0) * 1024 * 1024 || 0),
+      filename: options.initial?.filename || '',
+      duration: Number(options.initial?.duration_seconds || 0)
+    };
+    let uploading = false;
+
+    function setError(message = '') {
+      errorNode.textContent = message;
+      errorNode.classList.toggle('hidden', !message);
+    }
+    function probeDuration(url) {
+      if (!url || !preview) return;
+      preview.classList.remove('hidden');
+      preview.src = url;
+      preview.onloadedmetadata = () => {
+        const seconds = Number.isFinite(preview.duration) ? Math.round(preview.duration) : 0;
+        if (seconds > 0) {
+          value = { ...value, duration: seconds };
+          render();
+          emit(value);
+        }
+      };
+    }
+    function render() {
+      urlInput.value = value.url || '';
+      const hasUrl = Boolean(safeExternalUrl(value.url));
+      actions.classList.toggle('hidden', !hasUrl);
+      meta.classList.toggle('hidden', !hasUrl);
+      if (hasUrl) {
+        const durationLabel = value.duration ? `${Math.floor(value.duration / 60)}:${String(value.duration % 60).padStart(2, '0')}` : '';
+        meta.innerHTML = `<i class="fa-regular fa-music" aria-hidden="true"></i><span>${[value.filename || 'Audio link', value.size ? bytes(value.size) : '', durationLabel, value.provider === 'supabase-storage' ? 'Supabase Storage' : 'Direct URL'].filter(Boolean).map(escapeHTML).join(' · ')}</span>`;
+        if (preview && preview.src !== value.url) probeDuration(value.url);
+      } else if (preview) {
+        preview.classList.add('hidden');
+        preview.removeAttribute('src');
+      }
+    }
+    function emit(previous) { options.onChange?.({ ...value }, previous ? { ...previous } : null); }
+    function applyUrl() {
+      const url = urlInput.value.trim();
+      if (url && !isValidUrl(url, { allowEmpty: false })) { setError('Enter a complete http:// or https:// audio URL.'); return; }
+      const previous = value;
+      value = { url, path: '', provider: 'url', size: 0, filename: url ? url.split('/').pop().split('?')[0] : '', duration: 0 };
+      setError(''); render(); emit(previous);
+    }
+    async function handleFile(file) {
+      if (!file || uploading) return;
+      uploading = true; setError(''); progressWrap.classList.remove('hidden');
+      const previous = value;
+      try {
+        const result = await NC.api.uploadAudio(file, (amount) => {
+          progress.style.width = `${amount}%`; percent.textContent = `${amount}%`;
+        });
+        value = { ...result, duration: 0 };
+        render(); emit(previous);
+        NC.components.toast('Audio uploaded successfully.', 'success');
+      } catch (error) {
+        setError(NC.api.userMessage(error, 'Unable to upload the audio file.'));
+      } finally {
+        uploading = false; progressWrap.classList.add('hidden'); fileInput.value = '';
+      }
+    }
+    urlInput.addEventListener('change', applyUrl);
+    fileInput.addEventListener('change', () => handleFile(fileInput.files[0]));
+    qs('[data-open-audio]', element).addEventListener('click', () => {
+      const url = safeExternalUrl(value.url); if (url) window.open(url, '_blank', 'noopener,noreferrer');
+    });
+    qs('[data-remove-audio]', element).addEventListener('click', () => {
+      const previous = value; value = { url: '', path: '', provider: 'url', size: 0, filename: '', duration: 0 }; render(); emit(previous);
+    });
+    render();
+    return Object.freeze({
+      getValue: () => ({ ...value }),
+      isUploading: () => uploading,
+      validate: () => {
+        if (!safeExternalUrl(value.url)) { setError('An MP3 file or audio URL is required.'); return false; }
+        return true;
+      }
+    });
+  }
+
   NC.media = Object.freeze({
     uploadImage, imageUploaderHTML, mountImageUploader,
-    pdfUploaderHTML, mountPdfUploader, detectVideoProvider, videoPreviewHTML
+    pdfUploaderHTML, mountPdfUploader, detectVideoProvider, videoPreviewHTML,
+    audioUploaderHTML, mountAudioUploader
   });
 })(window.NC);

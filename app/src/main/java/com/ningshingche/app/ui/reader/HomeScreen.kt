@@ -71,6 +71,7 @@ import com.ningshingche.app.data.portal.CategoryRef
 import com.ningshingche.app.data.portal.GalleryItem
 import com.ningshingche.app.data.portal.PdfBook
 import com.ningshingche.app.data.portal.VideoItem
+import com.ningshingche.app.ui.components.LocalMusicController
 import com.ningshingche.app.ui.editorial.EditorialFooter
 import com.ningshingche.app.ui.components.AccountHeaderButton
 import com.ningshingche.app.ui.components.HomeSkeletonLayout
@@ -93,6 +94,7 @@ import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.editorial.NumberedArticleCard
 import com.ningshingche.app.ui.editorial.PdfRail
 import com.ningshingche.app.ui.editorial.SectionHeader
+import com.ningshingche.app.ui.editorial.MusicRail
 import com.ningshingche.app.ui.editorial.VideoRail
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -126,6 +128,7 @@ fun HomeScreen(
     onSeeAllCategories: (() -> Unit)? = null,
     onSeeAllSpecial: (() -> Unit)? = null,
     onSeeAllVideos: () -> Unit = {},
+    onSeeAllMusic: () -> Unit = {},
     onMenuClick: () -> Unit = {},
     onAiClick: () -> Unit = {},
     onLoginClick: () -> Unit = {},
@@ -251,6 +254,7 @@ fun HomeScreen(
                     onSeeAllCategories = onSeeAllCategories,
                     onSeeAllSpecial = onSeeAllSpecial,
                     onSeeAllVideos = onSeeAllVideos,
+                    onSeeAllMusic = onSeeAllMusic,
                     onAiClick = onAiClick,
                     onNavigate = onNavigate,
                     onOpenLink = onOpenLink
@@ -274,11 +278,13 @@ private fun HomeContent(
     onSeeAllCategories: (() -> Unit)? = null,
     onSeeAllSpecial: (() -> Unit)? = null,
     onSeeAllVideos: () -> Unit,
+    onSeeAllMusic: () -> Unit,
     onAiClick: () -> Unit,
     onNavigate: (String) -> Unit = {},
     onOpenLink: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
+    val musicController = LocalMusicController.current
     // Index (not the item) so the viewer can page through the whole gallery.
     var selectedGalleryIndex by remember { mutableStateOf<Int?>(null) }
     var selectedVideo by remember { mutableStateOf<VideoItem?>(null) }
@@ -461,6 +467,16 @@ private fun HomeContent(
                     videos = feed.videos,
                     onVideoClick = { selectedVideo = it },
                     onSeeAll = onSeeAllVideos
+                )
+            }
+        }
+
+        if (feed.music.isNotEmpty()) {
+            item {
+                MusicRail(
+                    tracks = feed.music,
+                    onTrackClick = { musicController.play(it, feed.music, expand = true) },
+                    onSeeAll = onSeeAllMusic
                 )
             }
         }

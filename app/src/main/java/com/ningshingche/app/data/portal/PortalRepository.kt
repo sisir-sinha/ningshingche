@@ -46,6 +46,7 @@ class PortalRepository(
     private val authorsCache = mutableMapOf<String, CacheEntry<List<AuthorRef>>>()
     private val pdfCache = mutableMapOf<String, CacheEntry<List<PdfBook>>>()
     private val videoCache = mutableMapOf<String, CacheEntry<List<VideoItem>>>()
+    private val musicCache = mutableMapOf<String, CacheEntry<List<MusicTrack>>>()
     private val settingsCache = mutableMapOf<String, CacheEntry<SiteSettings>>()
     private val facetsCache = mutableMapOf<String, CacheEntry<List<BlogFacet>>>()
     private val issuesCache = mutableMapOf<String, CacheEntry<List<IssueSummary>>>()
@@ -82,6 +83,7 @@ class PortalRepository(
                 val gallery = async { galleries(limit = 12).getOrNull()?.items.orEmpty() }
                 val pdfs = async { pdfBooks().getOrNull().orEmpty() }
                 val videos = async { videos(limit = 8).getOrNull().orEmpty() }
+                val music = async { musicTracks(limit = 8).getOrNull().orEmpty() }
                 val settings = async { settings().getOrNull() ?: SiteSettings.DEFAULT }
 
                 val latestPage = latest.await()
@@ -104,6 +106,7 @@ class PortalRepository(
                     gallery = gallery.await(),
                     pdfBooks = pdfs.await(),
                     videos = videos.await(),
+                    music = music.await(),
                     settings = settings.await()
                 )
             }
@@ -502,6 +505,15 @@ class PortalRepository(
         withContext(Dispatchers.IO) {
             cached("videos-$limit", videoCache, TTL_REFERENCE, forceRefresh) {
                 callList { api.videos(limit = limit) }.getOrThrow().map { it.toItem() }
+            }
+        }
+
+    suspend fun musicTracks(limit: Int = 50, forceRefresh: Boolean = false): Result<List<MusicTrack>> =
+        withContext(Dispatchers.IO) {
+            cached("music-$limit", musicCache, TTL_REFERENCE, forceRefresh) {
+                callList { api.musicTracks(limit = limit) }.getOrThrow()
+                    .map { it.toItem() }
+                    .filter { it.audioUrl.isNotBlank() }
             }
         }
 

@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BrokenImage
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material.icons.outlined.BookmarkBorder
@@ -88,6 +89,7 @@ import com.ningshingche.app.data.portal.AuthorRef
 import com.ningshingche.app.data.portal.CategoryRef
 import com.ningshingche.app.data.portal.GalleryItem
 import com.ningshingche.app.data.portal.PdfBook
+import com.ningshingche.app.data.portal.MusicTrack
 import com.ningshingche.app.data.portal.VideoItem
 import com.ningshingche.app.data.portal.excerptOf
 import com.ningshingche.app.data.portal.stripHtml
@@ -415,9 +417,7 @@ fun HeroArticleCard(
                         Text(
                             text = "•  ${article.readingTimeMinutes} মি.",
                             style = EditorialType.Caption,
-                            color = Color.White.copy(alpha = 0.75f)
-                        )
-                    }
+                            color = Col                   }
                 }
             }
         }
@@ -1435,6 +1435,81 @@ fun VideoRail(
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(EditorialSpace.md)
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MusicRail(
+    tracks: List<MusicTrack>,
+    onTrackClick: (MusicTrack) -> Unit,
+    onSeeAll: (() -> Unit)? = null
+) {
+    if (tracks.isEmpty()) return
+    Column(modifier = Modifier.fillMaxWidth()) {
+        SectionHeader(
+            title = "সঙ্গীত",
+            subtitle = "কণ্ঠে বিষ্ণুপ্রিয়া মণিপুরি সংস্কৃতি",
+            actionLabel = if (onSeeAll != null) "সব" else null,
+            onAction = onSeeAll
+        )
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = EditorialSpace.gutter),
+            horizontalArrangement = Arrangement.spacedBy(EditorialSpace.md)
+        ) {
+            items(tracks, key = { it.id }) { track ->
+                Card(
+                    onClick = { onTrackClick(track) },
+                    shape = RoundedCornerShape(EditorialShape.card),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    modifier = Modifier.width(168.dp)
+                ) {
+                    Column {
+                        Box {
+                            EditorialImage(
+                                url = track.thumbnailUrl,
+                                contentDescription = track.title,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(1f)
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(999.dp),
+                                color = LocalEditorialTokens.current.accent.copy(alpha = 0.92f),
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(EditorialSpace.sm)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PlayArrow,
+                                    contentDescription = "চালান",
+                                    tint = Color.White,
+                                    modifier = Modifier.padding(8.dp)
+                                )
+                            }
+                        }
+                        Column(Modifier.padding(EditorialSpace.md)) {
+                            Text(
+                                text = track.title,
+                                style = EditorialType.Subtitle,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (track.artist.isNotBlank()) {
+                                Text(
+                                    text = track.artist,
+                                    style = EditorialType.Caption,
+                                    color = LocalEditorialTokens.current.inkMuted,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.padding(top = 2.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
