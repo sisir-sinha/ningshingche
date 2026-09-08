@@ -28,7 +28,7 @@ data class UserPlaylist(
     val kind: String,
     val trackIds: List<String>
 ) {
-    val isLoved: Boolean get() = kind == KIND_LOVED
+    val isLoved: Boolean get() = kind == MusicLibraryStore.KIND_LOVED
 }
 
 class MusicLibraryStore(

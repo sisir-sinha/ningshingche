@@ -231,7 +231,6 @@ class MusicController(
 
     fun toggleAutoPlay() {
         val next = !_state.value.autoPlay
-        controller?.pauseAtEndOfMediaItems = !next
         _state.update { it.copy(autoPlay = next) }
     }
 
@@ -315,12 +314,17 @@ class MusicController(
         val current = _state.value
         player.shuffleModeEnabled = current.shuffle
         player.repeatMode = current.repeatMode.toPlayerRepeat()
-        player.pauseAtEndOfMediaItems = !current.autoPlay
     }
 
     private val listener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) {
             syncFromPlayer()
+        }
+
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && !_state.value.autoPlay) {
+                controller?.pause()
+            }
         }
 
         override fun onPlayerError(error: PlaybackException) {

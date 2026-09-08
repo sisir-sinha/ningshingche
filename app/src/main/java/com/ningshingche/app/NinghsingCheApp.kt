@@ -61,6 +61,9 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
     lateinit var contentUpdateNotifier: ContentUpdateNotifier
         private set
 
+    lateinit var musicLibraryStore: MusicLibraryStore
+        private set
+
     lateinit var musicController: MusicController
         private set
 
@@ -133,7 +136,9 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
         googleAuthRepository = GoogleAuthRepository(supabaseClient)
         articleRepository = ArticleRepository(database, supabaseClient, websiteClient)
         portalRepository = PortalProvider.repository()
-        musicController = MusicController(this)
+        val musicStore = MusicLibraryStore(this, database, supabaseClient)
+        musicLibraryStore = musicStore
+        musicController = MusicController(this, musicStore)
         aiAssistant = NinghsingCheAiAssistant(articleRepository, portalRepository)
         appNotificationManager = AppNotificationManager(this).also { it.createChannels() }
         contentUpdateNotifier = ContentUpdateNotifier(
