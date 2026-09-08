@@ -115,7 +115,7 @@ data class MusicDto(
     val genre: String? = null,
     val description: String? = null,
     @Json(name = "thumbnail_url") val thumbnailUrl: String? = null,
-    @Json(name = "audio_url") val audioUrl: String,
+    @Json(name = "audio_url") val audioUrl: String? = null,
     @Json(name = "duration_seconds") val durationSeconds: Int? = null,
     @Json(name = "file_size_mb") val fileSizeMb: Double? = null,
     @Json(name = "sort_order") val sortOrder: Int? = null,

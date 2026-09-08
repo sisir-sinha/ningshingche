@@ -190,10 +190,10 @@ interface PortalApi {
 
     // ------------------------------------------------------------------ music
 
-    @GET("music")
+    @GET("music_tracks")
     suspend fun musicTracks(
         @Query("select") select: String = MUSIC_COLUMNS,
-        @Query("order") order: String = "sort_order.asc.nullslast,created_at.desc",
+        @Query("order") order: String = "sort_order.asc,created_at.desc",
         @Query("limit") limit: Int? = null
     ): Response<List<MusicDto>>
 

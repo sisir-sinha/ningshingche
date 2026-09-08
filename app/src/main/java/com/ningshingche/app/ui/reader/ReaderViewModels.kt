@@ -78,6 +78,9 @@ class HomeViewModel(private val repository: PortalRepository) : ViewModel() {
     private val _musicLoading = MutableStateFlow(false)
     val musicLoading: StateFlow<Boolean> = _musicLoading.asStateFlow()
 
+    private val _musicError = MutableStateFlow<String?>(null)
+    val musicError: StateFlow<String?> = _musicError.asStateFlow()
+
     init { load() }
 
     fun loadVideoCatalog(force: Boolean = false) {
@@ -98,12 +101,19 @@ class HomeViewModel(private val repository: PortalRepository) : ViewModel() {
     fun loadMusicCatalog(force: Boolean = false) {
         viewModelScope.launch {
             _musicLoading.value = _musicCatalog.value.isEmpty()
+            _musicError.value = null
             repository.musicTracks(limit = 200, forceRefresh = force)
-                .onSuccess { _musicCatalog.value = it }
-                .onFailure {
+                .onSuccess {
+                    _musicCatalog.value = it
+                    _musicError.value = null
+                }
+                .onFailure { error ->
                     if (_musicCatalog.value.isEmpty()) {
                         _musicCatalog.value =
                             (_state.value as? HomeUiState.Ready)?.feed?.music.orEmpty()
+                    }
+                    if (_musicCatalog.value.isEmpty()) {
+                        _musicError.value = (error as? PortalError).message()
                     }
                 }
             _musicLoading.value = false

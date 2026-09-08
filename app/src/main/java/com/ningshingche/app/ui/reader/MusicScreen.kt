@@ -58,9 +58,10 @@ fun MusicScreen(
 ) {
     val tracks by viewModel.musicCatalog.collectAsState()
     val loading by viewModel.musicLoading.collectAsState()
+    val error by viewModel.musicError.collectAsState()
     val player = LocalMusicController.current
 
-    LaunchedEffect(Unit) { viewModel.loadMusicCatalog() }
+    LaunchedEffect(Unit) { viewModel.loadMusicCatalog(force = true) }
 
     Scaffold(
         modifier = modifier,
@@ -97,6 +98,11 @@ fun MusicScreen(
                     strokeWidth = 2.dp
                 )
             }
+            tracks.isEmpty() && !error.isNullOrBlank() -> ErrorState(
+                message = error.orEmpty(),
+                onRetry = { viewModel.loadMusicCatalog(force = true) },
+                modifier = Modifier.padding(padding)
+            )
             tracks.isEmpty() -> EmptyState(
                 message = "এখনো কোনো গান যোগ করা হয়নি।",
                 modifier = Modifier.padding(padding)

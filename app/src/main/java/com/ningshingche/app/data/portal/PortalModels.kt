@@ -341,7 +341,7 @@ internal fun MusicDto.toItem(): MusicTrack = MusicTrack(
     genre = genre.orEmpty().trim(),
     description = description.orEmpty(),
     thumbnailUrl = thumbnailUrl.orEmpty(),
-    audioUrl = audioUrl.trim(),
+    audioUrl = audioUrl.orEmpty().trim(),
     durationSeconds = (durationSeconds ?: 0).coerceAtLeast(0),
     fileSizeMb = fileSizeMb ?: 0.0
 )
