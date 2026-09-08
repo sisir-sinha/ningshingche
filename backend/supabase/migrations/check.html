@@ -1,35 +1,71 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Wapka API Audio Upload Tester</title>
+    <title>Catbox MP3 Uploader</title>
 
     <style>
         * {
             box-sizing: border-box;
         }
 
+        :root {
+            --bg: #f5f7fb;
+            --card: #ffffff;
+            --border: #e5e7eb;
+            --text: #111827;
+            --muted: #6b7280;
+            --primary: #111827;
+            --primary-hover: #374151;
+            --success-bg: #ecfdf5;
+            --success-text: #047857;
+            --error-bg: #fef2f2;
+            --error-text: #b91c1c;
+            --info-bg: #eff6ff;
+            --info-text: #1d4ed8;
+        }
+
         body {
             margin: 0;
             padding: 40px 20px;
-            font-family: Arial, sans-serif;
-            background: #f5f7fa;
-            color: #1f2937;
+            background: var(--bg);
+            color: var(--text);
+            font-family:
+                Inter,
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                Roboto,
+                Arial,
+                sans-serif;
         }
 
         .container {
-            max-width: 760px;
-            margin: auto;
-            background: #fff;
-            padding: 30px;
-            border-radius: 14px;
-            box-shadow: 0 8px 30px rgba(0,0,0,.08);
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px;
+            box-shadow: 0 10px 35px rgba(0, 0, 0, 0.06);
         }
 
         h1 {
-            margin-top: 0;
+            margin: 0 0 8px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            margin: 0 0 28px;
+            color: var(--muted);
+            line-height: 1.6;
         }
 
         .field {
@@ -42,97 +78,262 @@
             font-weight: 600;
         }
 
-        input[type="text"],
         input[type="password"],
-        input[type="number"],
         input[type="file"] {
             width: 100%;
             padding: 12px;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            background: #fff;
             font-size: 14px;
+        }
+
+        input[type="file"] {
+            cursor: pointer;
+        }
+
+        .help {
+            margin: 7px 0 0;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 24px;
         }
 
         button {
             border: 0;
-            border-radius: 8px;
-            padding: 12px 20px;
-            font-size: 15px;
+            border-radius: 9px;
+            padding: 12px 18px;
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
+            transition: 0.15s ease;
         }
 
-        #uploadBtn {
-            background: #111827;
-            color: white;
-        }
-
-        #uploadBtn:disabled {
-            opacity: .5;
+        button:disabled {
+            opacity: 0.5;
             cursor: not-allowed;
         }
 
+        .btn-primary {
+            background: var(--primary);
+            color: #fff;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--primary-hover);
+        }
+
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #111827;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #e5e7eb;
+        }
+
         .status {
-            margin-top: 20px;
-            padding: 14px;
-            border-radius: 8px;
             display: none;
+            margin-top: 22px;
+            padding: 14px 16px;
+            border-radius: 9px;
             white-space: pre-wrap;
-        }
-
-        .success {
-            display: block;
-            background: #ecfdf5;
-            color: #065f46;
-            border: 1px solid #a7f3d0;
-        }
-
-        .error {
-            display: block;
-            background: #fef2f2;
-            color: #991b1b;
-            border: 1px solid #fecaca;
-        }
-
-        .info {
-            display: block;
-            background: #eff6ff;
-            color: #1e40af;
-            border: 1px solid #bfdbfe;
-        }
-
-        pre {
-            margin-top: 20px;
-            padding: 18px;
-            background: #111827;
-            color: #e5e7eb;
-            border-radius: 8px;
-            overflow: auto;
-            font-size: 13px;
             line-height: 1.5;
+            font-size: 14px;
         }
 
-        .url-box {
-            margin-top: 20px;
-            padding: 18px;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            display: none;
+        .status.info {
+            display: block;
+            background: var(--info-bg);
+            color: var(--info-text);
         }
 
-        .url-box a {
+        .status.success {
+            display: block;
+            background: var(--success-bg);
+            color: var(--success-text);
+        }
+
+        .status.error {
+            display: block;
+            background: var(--error-bg);
+            color: var(--error-text);
+        }
+
+        .file-list {
+            margin-top: 24px;
+            display: grid;
+            gap: 14px;
+        }
+
+        .file-item {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            background: #fff;
+        }
+
+        .file-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 15px;
+        }
+
+        .file-name {
+            font-weight: 600;
+            word-break: break-word;
+        }
+
+        .file-size {
+            color: var(--muted);
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .file-status {
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .progress {
+            width: 100%;
+            height: 8px;
+            margin-top: 14px;
+            overflow: hidden;
+            background: #e5e7eb;
+            border-radius: 99px;
+        }
+
+        .progress-bar {
+            width: 0%;
+            height: 100%;
+            background: #111827;
+            transition: width 0.15s ease;
+        }
+
+        .result {
+            margin-top: 14px;
+            padding: 14px;
+            background: #f9fafb;
+            border: 1px solid var(--border);
+            border-radius: 9px;
+        }
+
+        .result-label {
+            font-size: 12px;
+            color: var(--muted);
+            margin-bottom: 5px;
+        }
+
+        .url-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .url {
+            flex: 1;
+            min-width: 0;
+            padding: 9px 10px;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            font-size: 13px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .copy-btn {
+            padding: 9px 12px;
+            flex-shrink: 0;
+        }
+
+        .result a {
+            color: #2563eb;
             word-break: break-all;
         }
 
         audio {
+            display: block;
             width: 100%;
-            margin-top: 15px;
+            margin-top: 14px;
         }
 
-        .note {
+        .json-section {
+            margin-top: 28px;
+        }
+
+        .json-section h2 {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        pre {
+            margin: 0;
+            padding: 16px;
+            background: #111827;
+            color: #e5e7eb;
+            border-radius: 10px;
+            overflow: auto;
+            font-size: 12px;
+            line-height: 1.6;
+            min-height: 80px;
+        }
+
+        .security-note {
+            margin-top: 22px;
+            padding: 14px 16px;
+            border-radius: 9px;
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            color: #9a3412;
             font-size: 13px;
-            color: #6b7280;
-            line-height: 1.5;
+            line-height: 1.6;
+        }
+
+        .empty {
+            color: var(--muted);
+            text-align: center;
+            padding: 25px;
+            border: 1px dashed var(--border);
+            border-radius: 10px;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 20px 12px;
+            }
+
+            .card {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 23px;
+            }
+
+            .file-header {
+                flex-direction: column;
+            }
+
+            .url-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .copy-btn {
+                width: 100%;
+            }
         }
     </style>
 </head>
@@ -141,233 +342,727 @@
 
 <div class="container">
 
-    <h1>Wapka API Audio Upload Tester</h1>
+    <div class="card">
 
-    <p class="note">
-        Test the Wapka REST API by uploading an MP3/audio file.
-        Your API token is used only by this page.
-    </p>
+        <h1>🎵 Catbox MP3 Uploader</h1>
 
-    <div class="field">
-        <label for="token">Wapka API Token</label>
-
-        <input
-            type="password"
-            id="token"
-            placeholder="Paste your Bearer token here"
-            autocomplete="off"
-        >
-    </div>
-
-    <div class="field">
-        <label for="folderId">Folder ID</label>
-
-        <input
-            type="number"
-            id="folderId"
-            value="0"
-            min="0"
-        >
-
-        <p class="note">
-            Use 0 for the root folder.
-        </p>
-    </div>
-
-    <div class="field">
-        <label for="audioFile">Audio File</label>
-
-        <input
-            type="file"
-            id="audioFile"
-            accept="audio/*,.mp3,.m4a,.wav,.ogg,.aac"
-        >
-    </div>
-
-    <button id="uploadBtn">
-        Upload Audio
-    </button>
-
-    <div id="status" class="status"></div>
-
-    <div id="resultBox" class="url-box">
-
-        <strong>Returned File URL</strong>
-
-        <p>
-            <a id="fileUrl" href="#" target="_blank"></a>
+        <p class="subtitle">
+            Upload MP3 and other audio files directly to Catbox and
+            receive a direct file URL.
         </p>
 
-        <strong>CDN URL</strong>
 
-        <p>
-            <a id="cdnUrl" href="#" target="_blank"></a>
-        </p>
+        <!-- Optional Userhash -->
 
-        <audio
-            id="audioPlayer"
-            controls
-            preload="metadata">
-        </audio>
+        <div class="field">
+
+            <label for="userhash">
+                Catbox Userhash
+                <span style="font-weight:400;color:#6b7280;">
+                    (optional)
+                </span>
+            </label>
+
+            <input
+                type="password"
+                id="userhash"
+                placeholder="Leave empty for anonymous upload"
+                autocomplete="off"
+            >
+
+            <p class="help">
+                Anonymous uploads work without a userhash.
+                Only enter your userhash if you specifically need
+                account-level file management.
+            </p>
+
+        </div>
+
+
+        <!-- File -->
+
+        <div class="field">
+
+            <label for="audioFiles">
+                Select Audio Files
+            </label>
+
+            <input
+                type="file"
+                id="audioFiles"
+                accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.flac"
+                multiple
+            >
+
+            <p class="help">
+                MP3 is recommended for normal web/app playback.
+            </p>
+
+        </div>
+
+
+        <!-- Actions -->
+
+        <div class="actions">
+
+            <button
+                id="uploadBtn"
+                class="btn-primary"
+            >
+                Upload to Catbox
+            </button>
+
+            <button
+                id="clearBtn"
+                class="btn-secondary"
+            >
+                Clear
+            </button>
+
+        </div>
+
+
+        <!-- Status -->
+
+        <div
+            id="status"
+            class="status">
+        </div>
+
+
+        <!-- Uploaded files -->
+
+        <div
+            id="fileList"
+            class="file-list">
+
+            <div class="empty">
+                Select one or more audio files to begin.
+            </div>
+
+        </div>
+
+
+        <!-- API response -->
+
+        <div class="json-section">
+
+            <h2>Last API Response</h2>
+
+            <pre id="apiResponse">No upload performed yet.</pre>
+
+        </div>
+
+
+        <!-- Security -->
+
+        <div class="security-note">
+
+            <strong>Security:</strong>
+            This page sends the optional userhash directly to Catbox.
+            For testing, running this HTML locally is fine.
+            Do not publish your personal userhash inside a public
+            website or application JavaScript.
+
+        </div>
 
     </div>
-
-    <h3>API Response</h3>
-
-    <pre id="response">No request made yet.</pre>
 
 </div>
 
 
 <script>
 
-const uploadBtn = document.getElementById("uploadBtn");
-
-const tokenInput = document.getElementById("token");
-const folderInput = document.getElementById("folderId");
-const fileInput = document.getElementById("audioFile");
-
-const statusBox = document.getElementById("status");
-const responseBox = document.getElementById("response");
-
-const resultBox = document.getElementById("resultBox");
-
-const fileUrlElement = document.getElementById("fileUrl");
-const cdnUrlElement = document.getElementById("cdnUrl");
-
-const audioPlayer = document.getElementById("audioPlayer");
+const API_URL =
+    "https://catbox.moe/user/api.php";
 
 
-function showStatus(message, type) {
+const userhashInput =
+    document.getElementById("userhash");
 
-    statusBox.className = "status " + type;
-    statusBox.textContent = message;
+const audioFilesInput =
+    document.getElementById("audioFiles");
 
-}
+const uploadBtn =
+    document.getElementById("uploadBtn");
 
+const clearBtn =
+    document.getElementById("clearBtn");
 
-function clearResult() {
+const statusBox =
+    document.getElementById("status");
 
-    resultBox.style.display = "none";
+const fileList =
+    document.getElementById("fileList");
 
-    fileUrlElement.textContent = "";
-    fileUrlElement.href = "#";
-
-    cdnUrlElement.textContent = "";
-    cdnUrlElement.href = "#";
-
-    audioPlayer.removeAttribute("src");
-    audioPlayer.load();
-
-}
+const apiResponse =
+    document.getElementById("apiResponse");
 
 
-uploadBtn.addEventListener("click", async () => {
+/*
+ * Maximum file size.
+ *
+ * Catbox currently documents a 200 MB
+ * maximum file size for uploads.
+ */
 
-    clearResult();
+const MAX_FILE_SIZE =
+    200 * 1024 * 1024;
 
-    const token = tokenInput.value.trim();
-    const folderId = folderInput.value.trim();
-    const file = fileInput.files[0];
 
-    if (!token) {
+/*
+ * Allowed audio extensions.
+ */
 
-        showStatus(
-            "Please enter your Wapka API token.",
-            "error"
-        );
+const AUDIO_EXTENSIONS = [
+    "mp3",
+    "m4a",
+    "aac",
+    "wav",
+    "ogg",
+    "flac"
+];
 
-        return;
+
+/*
+ * Format bytes.
+ */
+
+function formatBytes(bytes) {
+
+    if (bytes === 0) {
+        return "0 Bytes";
     }
 
-    if (!file) {
+    const units = [
+        "Bytes",
+        "KB",
+        "MB",
+        "GB"
+    ];
 
-        showStatus(
-            "Please select an audio file.",
-            "error"
+    const i =
+        Math.floor(
+            Math.log(bytes) /
+            Math.log(1024)
         );
 
-        return;
-    }
-
-
-    /*
-     * Basic audio validation
-     */
-
-    if (
-        !file.type.startsWith("audio/") &&
-        !/\.(mp3|m4a|wav|ogg|aac)$/i.test(file.name)
-    ) {
-
-        showStatus(
-            "Please select a valid audio file.",
-            "error"
-        );
-
-        return;
-    }
-
-
-    const formData = new FormData();
-
-    formData.append("file", file);
-    formData.append("folderid", folderId || "0");
-
-
-    uploadBtn.disabled = true;
-
-    showStatus(
-        "Uploading " + file.name + "...",
-        "info"
+    return (
+        (bytes / Math.pow(1024, i))
+            .toFixed(i === 0 ? 0 : 2)
+        + " "
+        + units[i]
     );
+}
 
-    responseBox.textContent = "Waiting for API response...";
 
+/*
+ * Get file extension.
+ */
+
+function getExtension(filename) {
+
+    const parts =
+        filename.toLowerCase().split(".");
+
+    return parts.length > 1
+        ? parts.pop()
+        : "";
+}
+
+
+/*
+ * Check audio file.
+ */
+
+function isAudioFile(file) {
+
+    const extension =
+        getExtension(file.name);
+
+    return (
+        file.type.startsWith("audio/") ||
+        AUDIO_EXTENSIONS.includes(extension)
+    );
+}
+
+
+/*
+ * Set status.
+ */
+
+function setStatus(message, type) {
+
+    statusBox.className =
+        "status " + type;
+
+    statusBox.textContent =
+        message;
+}
+
+
+/*
+ * Reset file list.
+ */
+
+function resetFileList() {
+
+    fileList.innerHTML = `
+        <div class="empty">
+            Select one or more audio files to begin.
+        </div>
+    `;
+}
+
+
+/*
+ * Create file item.
+ */
+
+function createFileItem(file, index) {
+
+    const item =
+        document.createElement("div");
+
+    item.className =
+        "file-item";
+
+    item.dataset.index =
+        index;
+
+    item.innerHTML = `
+
+        <div class="file-header">
+
+            <div>
+
+                <div class="file-name">
+                    ${escapeHtml(file.name)}
+                </div>
+
+                <div class="file-size">
+                    ${formatBytes(file.size)}
+                </div>
+
+            </div>
+
+            <div
+                class="file-status"
+                id="file-status-${index}">
+                Waiting
+            </div>
+
+        </div>
+
+
+        <div class="progress">
+
+            <div
+                class="progress-bar"
+                id="progress-${index}">
+            </div>
+
+        </div>
+
+
+        <div
+            id="result-${index}">
+        </div>
+    `;
+
+    fileList.appendChild(item);
+
+    return item;
+}
+
+
+/*
+ * Escape HTML.
+ */
+
+function escapeHtml(value) {
+
+    return value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+
+/*
+ * Update progress.
+ */
+
+function updateProgress(index, percent) {
+
+    const bar =
+        document.getElementById(
+            "progress-" + index
+        );
+
+    if (bar) {
+        bar.style.width =
+            percent + "%";
+    }
+}
+
+
+/*
+ * Update file status.
+ */
+
+function updateFileStatus(index, text) {
+
+    const element =
+        document.getElementById(
+            "file-status-" + index
+        );
+
+    if (element) {
+        element.textContent =
+            text;
+    }
+}
+
+
+/*
+ * Add successful result.
+ */
+
+function showResult(index, url) {
+
+    const result =
+        document.getElementById(
+            "result-" + index
+        );
+
+    if (!result) {
+        return;
+    }
+
+
+    result.innerHTML = `
+
+        <div class="result">
+
+            <div class="result-label">
+                Direct URL
+            </div>
+
+            <div class="url-row">
+
+                <input
+                    class="url"
+                    type="text"
+                    readonly
+                    value="${escapeHtml(url)}"
+                    id="url-${index}"
+                >
+
+                <button
+                    class="btn-secondary copy-btn"
+                    onclick="copyUrl(${index})">
+                    Copy
+                </button>
+
+            </div>
+
+
+            <p style="margin:12px 0 0;">
+
+                <a
+                    href="${escapeHtml(url)}"
+                    target="_blank"
+                    rel="noopener">
+                    Open direct file
+                </a>
+
+            </p>
+
+
+            <audio
+                controls
+                preload="metadata"
+                src="${escapeHtml(url)}">
+            </audio>
+
+        </div>
+    `;
+}
+
+
+/*
+ * Copy URL.
+ */
+
+async function copyUrl(index) {
+
+    const input =
+        document.getElementById(
+            "url-" + index
+        );
+
+    if (!input) {
+        return;
+    }
 
     try {
 
-        const response = await fetch(
-            "https://api.wapka.org/v1/files/upload",
-            {
-                method: "POST",
+        await navigator.clipboard.writeText(
+            input.value
+        );
 
-                headers: {
-                    "Authorization": "Bearer " + token
-                },
+        const button =
+            input.parentElement
+                .querySelector("button");
 
-                body: formData
-            }
+        const oldText =
+            button.textContent;
+
+        button.textContent =
+            "Copied!";
+
+        setTimeout(() => {
+            button.textContent =
+                oldText;
+        }, 1500);
+
+    } catch {
+
+        input.select();
+
+        document.execCommand("copy");
+
+        setStatus(
+            "URL copied to clipboard.",
+            "success"
+        );
+    }
+}
+
+
+/*
+ * Upload a single file.
+ *
+ * XMLHttpRequest is intentionally used
+ * instead of fetch because it allows us
+ * to show upload progress.
+ */
+
+function uploadFile(file, index, userhash) {
+
+    return new Promise((resolve, reject) => {
+
+        const xhr =
+            new XMLHttpRequest();
+
+
+        xhr.open(
+            "POST",
+            API_URL,
+            true
         );
 
 
-        const text = await response.text();
+        /*
+         * Upload progress.
+         */
 
-        let data;
+        xhr.upload.onprogress =
+            function(event) {
 
-        try {
+                if (event.lengthComputable) {
 
-            data = JSON.parse(text);
+                    const percent =
+                        Math.round(
+                            (event.loaded /
+                             event.total) * 100
+                        );
 
-        } catch {
+                    updateProgress(
+                        index,
+                        percent
+                    );
 
-            data = {
-                raw_response: text
+                    updateFileStatus(
+                        index,
+                        percent + "%"
+                    );
+                }
             };
 
+
+        /*
+         * Request finished.
+         */
+
+        xhr.onload =
+            function() {
+
+                const responseText =
+                    xhr.responseText.trim();
+
+
+                if (
+                    xhr.status >= 200 &&
+                    xhr.status < 300
+                ) {
+
+                    /*
+                     * Catbox's file upload API
+                     * normally returns the direct
+                     * URL as plain text.
+                     */
+
+                    if (
+                        responseText.startsWith(
+                            "https://"
+                        )
+                    ) {
+
+                        updateProgress(
+                            index,
+                            100
+                        );
+
+                        updateFileStatus(
+                            index,
+                            "Uploaded"
+                        );
+
+                        showResult(
+                            index,
+                            responseText
+                        );
+
+
+                        resolve({
+                            file: file.name,
+                            url: responseText
+                        });
+
+                    } else {
+
+                        updateFileStatus(
+                            index,
+                            "Unexpected response"
+                        );
+
+                        reject(
+                            new Error(
+                                responseText ||
+                                "Empty response"
+                            )
+                        );
+                    }
+
+                } else {
+
+                    updateFileStatus(
+                        index,
+                        "Failed"
+                    );
+
+                    reject(
+                        new Error(
+                            "HTTP " +
+                            xhr.status +
+                            ": " +
+                            responseText
+                        )
+                    );
+                }
+            };
+
+
+        /*
+         * Network error.
+         */
+
+        xhr.onerror =
+            function() {
+
+                updateFileStatus(
+                    index,
+                    "Network error"
+                );
+
+                reject(
+                    new Error(
+                        "Network error while uploading."
+                    )
+                );
+            };
+
+
+        /*
+         * Build multipart form.
+         */
+
+        const formData =
+            new FormData();
+
+
+        formData.append(
+            "reqtype",
+            "fileupload"
+        );
+
+
+        /*
+         * Optional account userhash.
+         */
+
+        if (userhash) {
+
+            formData.append(
+                "userhash",
+                userhash
+            );
         }
 
 
-        responseBox.textContent =
-            JSON.stringify(data, null, 2);
+        formData.append(
+            "fileToUpload",
+            file
+        );
 
 
-        if (!response.ok) {
+        /*
+         * Start upload.
+         */
 
-            showStatus(
-                "Upload failed.\n\nHTTP Status: " +
-                response.status +
-                "\n\nCheck the API response below.",
+        updateFileStatus(
+            index,
+            "Uploading..."
+        );
+
+        xhr.send(formData);
+
+    });
+}
+
+
+/*
+ * Upload all selected files.
+ */
+
+uploadBtn.addEventListener(
+    "click",
+    async function() {
+
+        const files =
+            Array.from(
+                audioFilesInput.files
+            );
+
+
+        if (!files.length) {
+
+            setStatus(
+                "Please select at least one audio file.",
                 "error"
             );
 
@@ -376,96 +1071,241 @@ uploadBtn.addEventListener("click", async () => {
 
 
         /*
-         * Wapka documentation returns file metadata.
-         *
-         * Depending on the API response structure,
-         * locate the returned file object.
+         * Validate files.
          */
 
-        const fileData =
-            data.data ||
-            data.file ||
-            data;
+        for (const file of files) {
+
+            if (!isAudioFile(file)) {
+
+                setStatus(
+                    file.name +
+                    " does not appear to be an audio file.",
+                    "error"
+                );
+
+                return;
+            }
 
 
-        const fileUrl =
-            fileData.url ||
-            null;
+            if (
+                file.size >
+                MAX_FILE_SIZE
+            ) {
 
-        const cdnUrl =
-            fileData.cdn_url ||
-            null;
+                setStatus(
+                    file.name +
+                    " is larger than 200 MB.",
+                    "error"
+                );
 
-
-        if (fileUrl) {
-
-            fileUrlElement.textContent = fileUrl;
-            fileUrlElement.href = fileUrl;
-
+                return;
+            }
         }
 
 
-        if (cdnUrl) {
+        /*
+         * Get optional userhash.
+         */
 
-            cdnUrlElement.textContent = cdnUrl;
-            cdnUrlElement.href = cdnUrl;
+        const userhash =
+            userhashInput.value.trim();
 
-            /*
-             * Prefer CDN URL for audio playback.
-             */
 
-            audioPlayer.src = cdnUrl;
+        /*
+         * Prepare UI.
+         */
 
-        } else if (fileUrl) {
+        fileList.innerHTML = "";
 
-            audioPlayer.src = fileUrl;
+        files.forEach(
+            createFileItem
+        );
 
+
+        uploadBtn.disabled = true;
+        clearBtn.disabled = true;
+
+
+        setStatus(
+            "Starting upload...",
+            "info"
+        );
+
+
+        apiResponse.textContent =
+            "Uploading...";
+
+
+        const results = [];
+        const errors = [];
+
+
+        /*
+         * Upload sequentially.
+         *
+         * This is intentionally sequential
+         * to avoid sending many large files
+         * simultaneously.
+         */
+
+        for (
+            let index = 0;
+            index < files.length;
+            index++
+        ) {
+
+            const file =
+                files[index];
+
+
+            try {
+
+                const result =
+                    await uploadFile(
+                        file,
+                        index,
+                        userhash
+                    );
+
+
+                results.push(result);
+
+
+            } catch (error) {
+
+                errors.push({
+                    file: file.name,
+                    error: error.message
+                });
+
+            }
         }
 
 
-        if (fileUrl || cdnUrl) {
+        /*
+         * API response summary.
+         */
 
-            resultBox.style.display = "block";
+        apiResponse.textContent =
+            JSON.stringify(
+                {
+                    successful: results,
+                    failed: errors
+                },
+                null,
+                2
+            );
 
-            showStatus(
-                "Upload successful!",
+
+        /*
+         * Final status.
+         */
+
+        if (
+            results.length === files.length
+        ) {
+
+            setStatus(
+                "All " +
+                results.length +
+                " file(s) uploaded successfully.",
                 "success"
+            );
+
+        } else if (
+            results.length > 0
+        ) {
+
+            setStatus(
+                results.length +
+                " file(s) uploaded successfully. " +
+                errors.length +
+                " failed.",
+                "info"
             );
 
         } else {
 
-            showStatus(
-                "Upload succeeded, but no file URL was found in the response.",
-                "info"
+            setStatus(
+                "All uploads failed. Check the API response.",
+                "error"
             );
-
         }
 
-    } catch (error) {
-
-        responseBox.textContent =
-            error.stack || error.toString();
-
-        showStatus(
-            "Request failed.\n\n" +
-            error.message +
-            "\n\nPossible causes:\n" +
-            "• CORS restriction\n" +
-            "• Network error\n" +
-            "• Invalid API endpoint\n" +
-            "• Invalid authentication",
-            "error"
-        );
-
-    } finally {
 
         uploadBtn.disabled = false;
+        clearBtn.disabled = false;
 
     }
+);
 
-});
+
+/*
+ * Clear everything.
+ */
+
+clearBtn.addEventListener(
+    "click",
+    function() {
+
+        audioFilesInput.value = "";
+
+        resetFileList();
+
+        apiResponse.textContent =
+            "No upload performed yet.";
+
+        statusBox.className =
+            "status";
+
+        statusBox.textContent = "";
+
+    }
+);
+
+
+/*
+ * Show selected files immediately.
+ */
+
+audioFilesInput.addEventListener(
+    "change",
+    function() {
+
+        const files =
+            Array.from(
+                audioFilesInput.files
+            );
+
+
+        if (!files.length) {
+
+            resetFileList();
+
+            return;
+        }
+
+
+        fileList.innerHTML = "";
+
+
+        files.forEach(
+            createFileItem
+        );
+
+
+        setStatus(
+            files.length +
+            " audio file(s) selected.",
+            "info"
+        );
+
+    }
+);
 
 </script>
 
 </body>
 </html>
+```
