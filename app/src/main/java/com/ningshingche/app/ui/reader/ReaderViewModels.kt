@@ -387,7 +387,9 @@ class ArticleViewModel(
                     email = email,
                     phone = phone,
                     content = form.content,
-                    address = address
+                    address = address,
+                    avatarUrl = avatarUrl,
+                    userId = account?.id
                 ).onSuccess {
                     val details = CommenterDetails(name.trim(), email.trim(), phone.trim())
                     // Clear the draft ONLY after the server confirms the insert.
@@ -397,6 +399,7 @@ class ArticleViewModel(
                             email = details.email,
                             phone = details.phone,
                             address = address,
+                            avatarUrl = avatarUrl,
                             content = "",
                             isError = false,
                             identityFromAccount = account != null

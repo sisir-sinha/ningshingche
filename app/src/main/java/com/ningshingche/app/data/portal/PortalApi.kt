@@ -51,6 +51,7 @@ interface PortalApi {
                 "file_provider,file_storage_path,duration_seconds,file_size_mb,sort_order,created_at"
         const val MUSIC_COLUMNS_WITH_LYRICS = "$MUSIC_COLUMNS,lyrics"
         const val COMMENT_COLUMNS = "id,blog_id,blog_title,name,address,content,status,created_at,avatar_url,user_id"
+        const val COMMENT_COLUMNS_WITHOUT_AVATAR = "id,blog_id,blog_title,name,address,content,status,created_at"
         const val SETTINGS_COLUMNS =
             "id,site_title,site_description,logo_url,contact_email,contact_phone," +
                 "facebook_url,youtube_url,instagram_url,hero_slider_enabled," +

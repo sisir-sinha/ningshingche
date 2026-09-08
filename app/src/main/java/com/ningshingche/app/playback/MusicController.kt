@@ -100,9 +100,9 @@ class MusicController(
                     startTicker()
                 }.onFailure {
                     controllerFuture = null
-                    _state.update {
-                        it.copy(error = "প্লেয়ার চালু হয়নি। আবার চেষ্টা করুন।")
-                    }
+                    val message = "প্লেয়ার চালু হয়নি। আবার চেষ্টা করুন।"
+                    _state.update { it.copy(error = message) }
+                    AppToasts.show(message)
                 }
             },
             ContextCompat.getMainExecutor(appContext)
@@ -122,6 +122,7 @@ class MusicController(
                     error = "এই গানের অডিও ফাইল নেই।"
                 )
             }
+            AppToasts.show("এই গানের অডিও ফাইল নেই।")
             return
         }
         val index = list.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
@@ -386,6 +387,7 @@ class MusicController(
                 else -> "গান বাজানো যায়নি। ফাইল লিংক যাচাই করুন।"
             }
             _state.update { it.copy(isPlaying = false, isBuffering = false, error = message) }
+            AppToasts.show(message)
         }
     }
 

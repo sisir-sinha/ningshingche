@@ -536,9 +536,28 @@ class PortalRepository(
     // ------------------------------------------------------------- comments
 
     suspend fun comments(blogId: String): Result<List<CommentItem>> = withContext(Dispatchers.IO) {
-        callList {
-            api.comments(blogId = "eq.$blogId", status = "eq.Publish", limit = 100)
-        }.map { list -> list.map { it.toItem() } }
+        val withAvatar = callList {
+            api.comments(
+                select = PortalApi.COMMENT_COLUMNS,
+                blogId = "eq.$blogId",
+                status = "eq.Publish",
+                limit = 100
+            )
+        }
+        if (withAvatar.isSuccess) {
+            return@withContext withAvatar.map { list -> list.map { it.toItem() } }
+        }
+        if (withAvatar.exceptionOrNull() is PortalError.SchemaMissing) {
+            return@withContext callList {
+                api.comments(
+                    select = PortalApi.COMMENT_COLUMNS_WITHOUT_AVATAR,
+                    blogId = "eq.$blogId",
+                    status = "eq.Publish",
+                    limit = 100
+                )
+            }.map { list -> list.map { it.toItem() } }
+        }
+        withAvatar.map { list -> list.map { it.toItem() } }
     }
 
     /**

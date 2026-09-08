@@ -1160,50 +1160,57 @@ fun AuthorChip(author: AuthorRef, onClick: () -> Unit) {
         onClick = onClick,
         shape = RoundedCornerShape(EditorialShape.card),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.width(136.dp)
+        modifier = Modifier
+            .width(148.dp)
+            .height(196.dp)
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 10.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Box {
-                EditorialImage(
-                    url = author.imageUrl,
-                    contentDescription = author.name,
-                    modifier = Modifier.size(52.dp),
-                    shape = CircleShape
-                )
-            }
-            Spacer(Modifier.height(EditorialSpace.xs))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = author.name,
-                    style = EditorialType.Subtitle,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center
-                )
-                if (isVerified) {
-                    Spacer(Modifier.width(4.dp))
-                    com.ningshingche.app.ui.components.VerifiedBadge(size = 14.dp)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box {
+                    EditorialImage(
+                        url = author.imageUrl,
+                        contentDescription = author.name,
+                        modifier = Modifier.size(56.dp),
+                        shape = CircleShape
+                    )
+                }
+                Spacer(Modifier.height(EditorialSpace.xs))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = author.name,
+                        style = EditorialType.Subtitle,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                        minLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (isVerified) {
+                        Spacer(Modifier.width(4.dp))
+                        com.ningshingche.app.ui.components.VerifiedBadge(size = 14.dp)
+                    }
                 }
             }
-            if (author.designation.isNotBlank()) {
-                Text(
-                    text = author.designation,
-                    style = EditorialType.Caption,
-                    color = LocalEditorialTokens.current.inkMuted,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-            }
+            Text(
+                text = author.designation.ifBlank { " " },
+                style = EditorialType.Caption,
+                color = LocalEditorialTokens.current.inkMuted,
+                maxLines = 2,
+                minLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
