@@ -78,6 +78,7 @@
         ${NC.media.imageUploaderHTML({ id: 'track-cover', label: 'Cover / thumbnail', hint: 'Square artwork looks best in the mini player and notification.' })}
         ${NC.media.audioUploaderHTML({ id: 'track-audio', label: 'MP3 file' })}
         <div class="field"><label class="field-label" for="track-description">Description</label><textarea class="form-textarea min-h-28" id="track-description" name="description">${escapeHTML(record?.description || '')}</textarea></div>
+        <div class="field"><label class="field-label" for="track-lyrics">Lyrics</label><textarea class="form-textarea min-h-40" id="track-lyrics" name="lyrics" placeholder="Optional. Shown in the app player.">${escapeHTML(record?.lyrics || '')}</textarea></div>
       </form>`,
       footer: `<button type="button" class="btn btn-secondary" data-modal-close>Cancel</button><button type="submit" form="music-form" class="btn btn-primary" data-save-track><i class="fa-regular fa-floppy-disk" aria-hidden="true"></i>${record ? 'Save changes' : 'Add track'}</button>`,
       onOpen: (modalRoot) => {
@@ -108,6 +109,7 @@
               album: data.album,
               genre: data.genre,
               description: data.description,
+              lyrics: data.lyrics || '',
               thumbnail_url: image.url || '',
               imgbb_delete_url: image.delete_url || '',
               image_meta: {

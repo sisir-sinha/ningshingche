@@ -8,6 +8,8 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -25,29 +27,50 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Lyrics
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.RepeatOne
+import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
@@ -56,23 +79,32 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ningshingche.app.data.music.UserPlaylist
 import com.ningshingche.app.data.portal.MusicTrack
 import com.ningshingche.app.playback.MusicController
 import com.ningshingche.app.playback.MusicPlayerUiState
+import com.ningshingche.app.playback.RepeatMode
 import com.ningshingche.app.ui.editorial.EditorialImage
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.theme.PortalMaroon
 import com.ningshingche.app.ui.theme.PortalSaffron
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 val LocalMusicController = staticCompositionLocalOf<MusicController> {
     error("MusicController is not provided")
 }
+
+private enum class PlayerSheet { None, Menu, Playlist, Details, Sleep, NewPlaylist }
 
 @Composable
 fun BoxScope.MusicPlayerOverlay(
@@ -81,22 +113,20 @@ fun BoxScope.MusicPlayerOverlay(
     val state by controller.state.collectAsState()
     if (!state.visible || state.track == null) return
 
+    LaunchedEffect(state.statusMessage) {
+        if (!state.statusMessage.isNullOrBlank()) {
+            delay(2800)
+            controller.clearStatus()
+        }
+    }
+
     AnimatedVisibility(
         visible = state.expanded,
         enter = fadeIn() + slideInVertically { it / 6 },
         exit = fadeOut() + slideOutVertically { it / 6 },
         modifier = Modifier.fillMaxSize()
     ) {
-        FullMusicPlayer(
-            state = state,
-            onCollapse = controller::collapse,
-            onDismiss = controller::dismiss,
-            onToggle = controller::togglePlayPause,
-            onNext = controller::skipNext,
-            onPrevious = controller::skipPrevious,
-            onSeek = controller::seekTo,
-            onQueueItem = controller::playQueueItem
-        )
+        FullMusicPlayer(controller = controller, state = state)
     }
     AnimatedVisibility(
         visible = !state.expanded,
@@ -207,26 +237,24 @@ private fun MiniMusicPlayer(
 
 @Composable
 private fun FullMusicPlayer(
-    state: MusicPlayerUiState,
-    onCollapse: () -> Unit,
-    onDismiss: () -> Unit,
-    onToggle: () -> Unit,
-    onNext: () -> Unit,
-    onPrevious: () -> Unit,
-    onSeek: (Long) -> Unit,
-    onQueueItem: (MusicTrack) -> Unit
+    controller: MusicController,
+    state: MusicPlayerUiState
 ) {
     val track = state.track ?: return
-    BackHandler(onBack = onCollapse)
+    BackHandler(onBack = controller::collapse)
 
     var dragging by remember { mutableStateOf(false) }
     var dragValue by remember { mutableFloatStateOf(0f) }
+    var sheet by remember { mutableStateOf(PlayerSheet.None) }
+    var offsetY by remember { mutableFloatStateOf(0f) }
     val duration = state.durationMs.coerceAtLeast(1L)
     val sliderValue = if (dragging) dragValue else state.positionMs.toFloat().coerceIn(0f, duration.toFloat())
+    val playlists by controller.library.playlists().collectAsState(initial = emptyList())
 
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .graphicsLayer { translationY = offsetY }
             .background(
                 Brush.verticalGradient(
                     listOf(Color(0xFF2A120E), PortalMaroon, Color(0xFF120806))
@@ -240,52 +268,96 @@ private fun FullMusicPlayer(
                 .navigationBarsPadding()
                 .padding(horizontal = 22.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .pointerInput(Unit) {
+                        detectVerticalDragGestures(
+                            onDragEnd = {
+                                if (offsetY > 120f) controller.collapse()
+                                offsetY = 0f
+                            },
+                            onVerticalDrag = { change, amount ->
+                                change.consume()
+                                offsetY = (offsetY + amount).coerceAtLeast(0f)
+                            }
+                        )
+                    },
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                IconButton(onClick = onCollapse) {
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowDown,
-                        contentDescription = "ছোট করুন",
-                        tint = Color.White
-                    )
-                }
-                Spacer(Modifier.weight(1f))
-                Text(
-                    text = "এখন বাজছে",
-                    fontFamily = Kalpurush,
-                    color = PortalSaffron,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold
+                Box(
+                    modifier = Modifier
+                        .padding(top = 8.dp, bottom = 4.dp)
+                        .width(42.dp)
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(99.dp))
+                        .background(Color.White.copy(alpha = 0.35f))
                 )
-                Spacer(Modifier.weight(1f))
-                IconButton(onClick = onDismiss) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "বন্ধ করুন",
-                        tint = Color.White.copy(alpha = 0.85f)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = controller::collapse) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = "ছোট করুন",
+                            tint = Color.White
+                        )
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        text = "এখন বাজছে",
+                        fontFamily = Kalpurush,
+                        color = PortalSaffron,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
                     )
+                    Spacer(Modifier.weight(1f))
+                    IconButton(onClick = { sheet = PlayerSheet.Menu }) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "আরও",
+                            tint = Color.White.copy(alpha = 0.9f)
+                        )
+                    }
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
-            CoverArt(
-                url = track.thumbnailUrl,
+            Spacer(Modifier.height(8.dp))
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 18.dp)
                     .aspectRatio(1f)
-                    .shadow(28.dp, RoundedCornerShape(28.dp)),
-                corner = 28.dp
-            )
-            Spacer(Modifier.height(28.dp))
+                    .shadow(28.dp, RoundedCornerShape(28.dp))
+                    .pointerInput(track.id) {
+                        detectTapGestures(
+                            onDoubleTap = { offset ->
+                                if (offset.x < size.width / 2f) controller.seekBy(-5_000L)
+                                else controller.seekBy(5_000L)
+                            }
+                        )
+                    }
+            ) {
+                CoverArt(url = track.thumbnailUrl, modifier = Modifier.fillMaxSize(), corner = 28.dp)
+                if (state.isBuffering) {
+                    CircularProgressIndicator(
+                        color = PortalSaffron,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .size(36.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
             Text(
                 text = track.title,
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
-                fontSize = 26.sp,
-                lineHeight = 34.sp,
+                fontSize = 24.sp,
+                lineHeight = 32.sp,
                 color = Color.White,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
@@ -300,19 +372,38 @@ private fun FullMusicPlayer(
                 color = Color.White.copy(alpha = 0.78f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 6.dp)
+                modifier = Modifier.padding(top = 4.dp)
             )
-            if (track.genre.isNotBlank()) {
-                Text(
-                    text = track.genre,
-                    fontFamily = Kalpurush,
-                    fontSize = 13.sp,
-                    color = PortalSaffron,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                PlayerIcon(
+                    icon = if (state.liked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    tint = if (state.liked) Color(0xFFFF6B81) else Color.White,
+                    label = "পছন্দ"
+                ) { controller.toggleLike() }
+                PlayerIcon(
+                    icon = Icons.Default.Shuffle,
+                    tint = if (state.shuffle) PortalSaffron else Color.White.copy(alpha = 0.7f),
+                    label = "শাফেল"
+                ) { controller.toggleShuffle() }
+                PlayerIcon(
+                    icon = if (state.repeatMode == RepeatMode.ONE) Icons.Default.RepeatOne else Icons.Default.Repeat,
+                    tint = if (state.repeatMode == RepeatMode.OFF) Color.White.copy(alpha = 0.7f) else PortalSaffron,
+                    label = "রিপিট"
+                ) { controller.cycleRepeat() }
+                PlayerIcon(
+                    icon = Icons.Default.Lyrics,
+                    tint = if (state.showLyrics) PortalSaffron else Color.White.copy(alpha = 0.7f),
+                    label = "লিরিক"
+                ) { controller.toggleLyrics() }
             }
 
-            Spacer(Modifier.height(18.dp))
             Slider(
                 value = sliderValue,
                 onValueChange = {
@@ -321,7 +412,7 @@ private fun FullMusicPlayer(
                 },
                 onValueChangeFinished = {
                     dragging = false
-                    onSeek(dragValue.toLong())
+                    controller.seekTo(dragValue.toLong())
                 },
                 valueRange = 0f..duration.toFloat(),
                 colors = SliderDefaults.colors(
@@ -338,22 +429,16 @@ private fun FullMusicPlayer(
                 Text(formatMs(duration), color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
             }
 
-            Spacer(Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = onPrevious, modifier = Modifier.size(56.dp)) {
-                    Icon(
-                        imageVector = Icons.Default.SkipPrevious,
-                        contentDescription = "আগের গান",
-                        tint = Color.White,
-                        modifier = Modifier.size(36.dp)
-                    )
+                IconButton(onClick = controller::skipPrevious, modifier = Modifier.size(56.dp)) {
+                    Icon(Icons.Default.SkipPrevious, "আগের গান", tint = Color.White, modifier = Modifier.size(36.dp))
                 }
                 Surface(
-                    onClick = onToggle,
+                    onClick = controller::togglePlayPause,
                     shape = CircleShape,
                     color = PortalSaffron,
                     modifier = Modifier.size(76.dp)
@@ -367,70 +452,309 @@ private fun FullMusicPlayer(
                         )
                     }
                 }
-                IconButton(onClick = onNext, enabled = state.hasNext, modifier = Modifier.size(56.dp)) {
+                IconButton(onClick = controller::skipNext, enabled = state.hasNext, modifier = Modifier.size(56.dp)) {
                     Icon(
-                        imageVector = Icons.Default.SkipNext,
-                        contentDescription = "পরের গান",
+                        Icons.Default.SkipNext,
+                        "পরের গান",
                         tint = if (state.hasNext) Color.White else Color.White.copy(alpha = 0.3f),
                         modifier = Modifier.size(36.dp)
                     )
                 }
             }
 
-            if (state.queue.size > 1) {
-                Spacer(Modifier.height(18.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = "তালিকা",
+                    text = "অটোপ্লে",
                     fontFamily = Kalpurush,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White.copy(alpha = 0.9f),
-                    fontSize = 15.sp
+                    color = Color.White.copy(alpha = 0.85f),
+                    fontSize = 14.sp,
+                    modifier = Modifier.weight(1f)
                 )
-                Spacer(Modifier.height(8.dp))
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Switch(
+                    checked = state.autoPlay,
+                    onCheckedChange = { controller.toggleAutoPlay() },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color(0xFF2A120E),
+                        checkedTrackColor = PortalSaffron
+                    )
+                )
+            }
+
+            state.error?.let { message ->
+                Text(
+                    text = message,
+                    fontFamily = Kalpurush,
+                    color = Color(0xFFFFC4C4),
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+            }
+            state.statusMessage?.let { message ->
+                Text(
+                    text = message,
+                    fontFamily = Kalpurush,
+                    color = PortalSaffron,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+            }
+            state.sleepUntilMs?.let { until ->
+                val left = ((until - System.currentTimeMillis()) / 60_000L).coerceAtLeast(0L)
+                Text(
+                    text = "স্লিপ টাইমার · ${bengaliDigits(left)} মিনিট বাকি",
+                    fontFamily = Kalpurush,
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 12.sp
+                )
+            }
+
+            Spacer(Modifier.height(6.dp))
+            if (state.showLyrics) {
+                Text("লিরিক", fontFamily = Kalpurush, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = track.lyrics.ifBlank { "এই গানের লিরিক এখনো যোগ করা হয়নি।" },
+                    fontFamily = Kalpurush,
+                    color = Color.White.copy(alpha = 0.86f),
+                    fontSize = 15.sp,
+                    lineHeight = 24.sp,
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                )
+            } else if (state.queue.size > 1) {
+                Text("তালিকা", fontFamily = Kalpurush, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
+                Spacer(Modifier.height(6.dp))
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     items(state.queue, key = { it.id }) { item ->
-                        val selected = item.id == track.id
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (selected) Color.White.copy(alpha = 0.12f) else Color.Transparent)
-                                .clickable { onQueueItem(item) }
-                                .padding(horizontal = 10.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            CoverArt(url = item.thumbnailUrl, modifier = Modifier.size(40.dp), corner = 8.dp)
-                            Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    text = item.title,
-                                    fontFamily = Kalpurush,
-                                    color = Color.White,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
-                                )
-                                Text(
-                                    text = item.artist.ifBlank { "নিংশিং চে" },
-                                    fontFamily = Kalpurush,
-                                    color = Color.White.copy(alpha = 0.65f),
-                                    fontSize = 12.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                            if (selected && state.isPlaying) {
-                                Icon(
-                                    imageVector = Icons.Default.MusicNote,
-                                    contentDescription = null,
-                                    tint = PortalSaffron,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
+                        QueueRow(
+                            item = item,
+                            selected = item.id == track.id,
+                            playing = state.isPlaying,
+                            onClick = { controller.playQueueItem(item) }
+                        )
                     }
                 }
+            } else {
+                Spacer(Modifier.weight(1f))
             }
+        }
+
+        if (sheet != PlayerSheet.None) {
+            PlayerSheets(
+                sheet = sheet,
+                track = track,
+                state = state,
+                playlists = playlists,
+                onClose = { sheet = PlayerSheet.None },
+                onOpen = { sheet = it },
+                controller = controller
+            )
+        }
+    }
+}
+
+@Composable
+private fun PlayerSheets(
+    sheet: PlayerSheet,
+    track: MusicTrack,
+    state: MusicPlayerUiState,
+    playlists: List<UserPlaylist>,
+    onClose: () -> Unit,
+    onOpen: (PlayerSheet) -> Unit,
+    controller: MusicController
+) {
+    val scope = rememberCoroutineScope()
+    var newTitle by remember { mutableStateOf("") }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.45f))
+            .clickable(onClick = onClose)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
+            color = Color(0xFF1C0E0C),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .clickable(enabled = false) {}
+        ) {
+            Column(
+                modifier = Modifier
+                    .navigationBarsPadding()
+                    .padding(horizontal = 18.dp, vertical = 16.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .width(40.dp)
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(99.dp))
+                        .background(Color.White.copy(alpha = 0.28f))
+                )
+                Spacer(Modifier.height(14.dp))
+                when (sheet) {
+                    PlayerSheet.Menu -> {
+                        SheetRow(Icons.Default.PlaylistAdd, "প্লেলিস্টে যোগ করুন") { onOpen(PlayerSheet.Playlist) }
+                        SheetRow(Icons.Default.Info, "গানের বিবরণ") { onOpen(PlayerSheet.Details) }
+                        SheetRow(
+                            Icons.Default.Download,
+                            if (state.offline) "অফলাইনে সংরক্ষিত" else "অ্যাপে MP3 সংরক্ষণ"
+                        ) {
+                            controller.saveCurrentOffline()
+                            onClose()
+                        }
+                        SheetRow(Icons.Default.Timer, "স্লিপ টাইমার") { onOpen(PlayerSheet.Sleep) }
+                    }
+                    PlayerSheet.Playlist -> {
+                        Text("প্লেলিস্টে যোগ করুন", fontFamily = Kalpurush, color = Color.White, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(10.dp))
+                        playlists.filter { !it.isLoved }.forEach { playlist ->
+                            SheetRow(Icons.Default.MusicNote, playlist.title) {
+                                controller.addCurrentToPlaylist(playlist.id)
+                                onClose()
+                            }
+                        }
+                        SheetRow(Icons.Default.PlaylistAdd, "নতুন প্লেলিস্ট") { onOpen(PlayerSheet.NewPlaylist) }
+                    }
+                    PlayerSheet.NewPlaylist -> {
+                        Text("নতুন প্লেলিস্ট", fontFamily = Kalpurush, color = Color.White, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(10.dp))
+                        OutlinedTextField(
+                            value = newTitle,
+                            onValueChange = { newTitle = it },
+                            placeholder = { Text("নাম লিখুন", fontFamily = Kalpurush) },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = PortalSaffron,
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.3f)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        TextButton(onClick = {
+                            scope.launch {
+                                val created = controller.createPlaylist(newTitle)
+                                controller.addCurrentToPlaylist(created.id)
+                                onClose()
+                            }
+                        }) {
+                            Text("তৈরি করুন", fontFamily = Kalpurush, color = PortalSaffron)
+                        }
+                    }
+                    PlayerSheet.Details -> {
+                        Text(track.title, fontFamily = Kalpurush, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                        Spacer(Modifier.height(8.dp))
+                        DetailLine("শিল্পী", track.artist.ifBlank { "নিংশিং চে" })
+                        if (track.album.isNotBlank()) DetailLine("অ্যালবাম", track.album)
+                        if (track.genre.isNotBlank()) DetailLine("ধরন", track.genre)
+                        if (track.durationSeconds > 0) DetailLine("সময়", formatMs(track.durationSeconds * 1000L))
+                        if (track.description.isNotBlank()) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(track.description, fontFamily = Kalpurush, color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
+                        }
+                    }
+                    PlayerSheet.Sleep -> {
+                        Text("স্লিপ টাইমার", fontFamily = Kalpurush, color = Color.White, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(8.dp))
+                        listOf(5, 15, 30, 45, 60).forEach { minutes ->
+                            SheetRow(Icons.Default.Timer, "$minutes মিনিট") {
+                                controller.setSleepTimer(minutes)
+                                onClose()
+                            }
+                        }
+                        SheetRow(Icons.Default.Close, "বন্ধ করুন") {
+                            controller.setSleepTimer(0)
+                            onClose()
+                        }
+                    }
+                    PlayerSheet.None -> Unit
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SheetRow(icon: ImageVector, label: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, tint = PortalSaffron, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.width(14.dp))
+        Text(label, fontFamily = Kalpurush, color = Color.White, fontSize = 16.sp)
+    }
+}
+
+@Composable
+private fun DetailLine(label: String, value: String) {
+    Text(
+        text = "$label · $value",
+        fontFamily = Kalpurush,
+        color = Color.White.copy(alpha = 0.82f),
+        fontSize = 14.sp,
+        modifier = Modifier.padding(vertical = 2.dp)
+    )
+}
+
+@Composable
+private fun PlayerIcon(icon: ImageVector, tint: Color, label: String, onClick: () -> Unit) {
+    IconButton(onClick = onClick) {
+        Icon(icon, contentDescription = label, tint = tint)
+    }
+}
+
+@Composable
+private fun QueueRow(
+    item: MusicTrack,
+    selected: Boolean,
+    playing: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (selected) Color.White.copy(alpha = 0.12f) else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        CoverArt(url = item.thumbnailUrl, modifier = Modifier.size(40.dp), corner = 8.dp)
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = item.title,
+                fontFamily = Kalpurush,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+            )
+            Text(
+                text = item.artist.ifBlank { "নিংশিং চে" },
+                fontFamily = Kalpurush,
+                color = Color.White.copy(alpha = 0.65f),
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        if (selected && playing) {
+            Icon(Icons.Default.MusicNote, null, tint = PortalSaffron, modifier = Modifier.size(16.dp))
         }
     }
 }

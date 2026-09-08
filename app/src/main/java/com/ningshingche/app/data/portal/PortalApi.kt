@@ -48,7 +48,8 @@ interface PortalApi {
         const val VIDEO_COLUMNS = "id,title,video_link,platform,description,thumbnail_url,created_at"
         const val MUSIC_COLUMNS =
             "id,title,artist,album,genre,description,thumbnail_url,audio_url," +
-                "duration_seconds,file_size_mb,sort_order,created_at"
+                "file_provider,file_storage_path,duration_seconds,file_size_mb,sort_order,created_at"
+        const val MUSIC_COLUMNS_WITH_LYRICS = "$MUSIC_COLUMNS,lyrics"
         const val COMMENT_COLUMNS = "id,blog_id,blog_title,name,address,content,status,created_at,avatar_url,user_id"
         const val SETTINGS_COLUMNS =
             "id,site_title,site_description,logo_url,contact_email,contact_phone," +

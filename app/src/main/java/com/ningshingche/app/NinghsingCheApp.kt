@@ -20,6 +20,7 @@ import com.ningshingche.app.notifications.AppNotificationManager
 import com.ningshingche.app.notifications.ContentCheckWorker
 import com.ningshingche.app.notifications.ContentUpdateNotifier
 import com.ningshingche.app.notifications.SeenContentStore
+import com.ningshingche.app.data.music.MusicLibraryStore
 import com.ningshingche.app.playback.MusicController
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit

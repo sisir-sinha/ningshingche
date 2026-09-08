@@ -131,3 +131,39 @@ interface ChatDao {
     @Query("DELETE FROM ai_chat_messages")
     suspend fun clearAll()
 }
+
+@Dao
+interface MusicLibraryDao {
+    @Query("SELECT * FROM music_playlists WHERE userId = :userId ORDER BY kind DESC, createdAt DESC")
+    fun playlists(userId: String): Flow<List<MusicPlaylistEntity>>
+
+    @Query("SELECT * FROM music_playlists WHERE userId = :userId ORDER BY kind DESC, createdAt DESC")
+    suspend fun playlistsOnce(userId: String): List<MusicPlaylistEntity>
+
+    @Query("SELECT * FROM music_playlists WHERE id = :id LIMIT 1")
+    suspend fun playlistById(id: String): MusicPlaylistEntity?
+
+    @Query("SELECT * FROM music_playlists WHERE userId = :userId AND kind = 'loved' LIMIT 1")
+    suspend fun lovedPlaylist(userId: String): MusicPlaylistEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertPlaylist(playlist: MusicPlaylistEntity)
+
+    @Query("DELETE FROM music_playlists WHERE id = :id AND userId = :userId")
+    suspend fun deletePlaylist(id: String, userId: String)
+
+    @Query("SELECT * FROM music_offline ORDER BY savedAt DESC")
+    fun offline(): Flow<List<MusicOfflineEntity>>
+
+    @Query("SELECT * FROM music_offline ORDER BY savedAt DESC")
+    suspend fun offlineOnce(): List<MusicOfflineEntity>
+
+    @Query("SELECT * FROM music_offline WHERE trackId = :trackId LIMIT 1")
+    suspend fun offlineById(trackId: String): MusicOfflineEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertOffline(item: MusicOfflineEntity)
+
+    @Query("DELETE FROM music_offline WHERE trackId = :trackId")
+    suspend fun deleteOffline(trackId: String)
+}

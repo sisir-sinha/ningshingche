@@ -11,9 +11,11 @@ import androidx.room.RoomDatabase
         BookmarkEntity::class,
         HistoryEntity::class,
         SearchHistoryEntity::class,
-        ChatMessageEntity::class
+        ChatMessageEntity::class,
+        MusicPlaylistEntity::class,
+        MusicOfflineEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -22,6 +24,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun historyDao(): HistoryDao
     abstract fun searchDao(): SearchDao
     abstract fun chatDao(): ChatDao
+    abstract fun musicLibraryDao(): MusicLibraryDao
 
     companion object {
         @Volatile

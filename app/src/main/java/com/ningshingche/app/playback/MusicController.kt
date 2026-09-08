@@ -2,15 +2,20 @@ package com.ningshingche.app.playback
 
 import android.content.ComponentName
 import android.content.Context
+import android.net.Uri
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
+import com.ningshingche.app.data.music.MusicLibraryStore
+import com.ningshingche.app.data.music.UserPlaylist
+import com.ningshingche.app.data.music.streamUrl
 import com.ningshingche.app.data.portal.MusicTrack
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +28,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+enum class RepeatMode { OFF, ALL, ONE }
 
 data class MusicPlayerUiState(
     val visible: Boolean = false,
@@ -34,10 +42,23 @@ data class MusicPlayerUiState(
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
     val hasNext: Boolean = false,
-    val hasPrevious: Boolean = false
+    val hasPrevious: Boolean = false,
+    val shuffle: Boolean = false,
+    val repeatMode: RepeatMode = RepeatMode.OFF,
+    val autoPlay: Boolean = true,
+    val liked: Boolean = false,
+    val offline: Boolean = false,
+    val downloading: Boolean = false,
+    val showLyrics: Boolean = false,
+    val sleepUntilMs: Long? = null,
+    val statusMessage: String? = null,
+    val error: String? = null
 )
 
-class MusicController(context: Context) {
+class MusicController(
+    context: Context,
+    val library: MusicLibraryStore
+) {
 
     private val appContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -45,13 +66,20 @@ class MusicController(context: Context) {
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
     private var ticker: Job? = null
+    private var sleepJob: Job? = null
     private var pending: (() -> Unit)? = null
+    private var retriedStorage = false
 
     private val _state = MutableStateFlow(MusicPlayerUiState())
     val state: StateFlow<MusicPlayerUiState> = _state.asStateFlow()
 
     fun ensureConnected() {
-        if (controller != null || controllerFuture != null) return
+        if (controller != null) return
+        val existing = controllerFuture
+        if (existing != null && !existing.isDone) return
+        if (existing != null && existing.isDone && controller == null) {
+            controllerFuture = null
+        }
         val token = SessionToken(
             appContext,
             ComponentName(appContext, MusicPlaybackService::class.java)
@@ -64,10 +92,16 @@ class MusicController(context: Context) {
                     val ready = future.get()
                     controller = ready
                     ready.addListener(listener)
+                    applyPlaybackFlags(ready)
                     pending?.invoke()
                     pending = null
                     syncFromPlayer()
                     startTicker()
+                }.onFailure {
+                    controllerFuture = null
+                    _state.update {
+                        it.copy(error = "প্লেয়ার চালু হয়নি। আবার চেষ্টা করুন।")
+                    }
                 }
             },
             ContextCompat.getMainExecutor(appContext)
@@ -75,23 +109,31 @@ class MusicController(context: Context) {
     }
 
     fun play(track: MusicTrack, queue: List<MusicTrack>, expand: Boolean = true) {
-        val list = queue.filter { it.audioUrl.isNotBlank() }.ifEmpty { listOf(track) }
+        val list = queue.filter { it.hasPlayableSource() }.ifEmpty {
+            listOf(track).filter { it.hasPlayableSource() }
+        }
+        if (list.isEmpty()) {
+            _state.update {
+                it.copy(
+                    visible = true,
+                    expanded = expand,
+                    track = track,
+                    error = "এই গানের অডিও ফাইল নেই।"
+                )
+            }
+            return
+        }
         val index = list.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
+        retriedStorage = false
         ensureConnected()
         val start = {
             val player = controller
             if (player != null) {
-                player.setMediaItems(list.map { it.toMediaItem() }, index, 0L)
+                applyPlaybackFlags(player)
+                player.setMediaItems(list.map { it.toMediaItem(library) }, index, 0L)
                 player.prepare()
+                player.playWhenReady = true
                 player.play()
-                _state.update {
-                    it.copy(
-                        visible = true,
-                        expanded = expand,
-                        track = list.getOrNull(index) ?: track,
-                        queue = list
-                    )
-                }
             }
         }
         if (controller != null) start() else pending = start
@@ -100,9 +142,13 @@ class MusicController(context: Context) {
                 visible = true,
                 expanded = expand,
                 track = list.getOrNull(index) ?: track,
-                queue = list
+                queue = list,
+                error = null,
+                statusMessage = null,
+                showLyrics = false
             )
         }
+        refreshTrackFlags(list.getOrNull(index) ?: track)
     }
 
     fun togglePlayPause() {
@@ -128,6 +174,14 @@ class MusicController(context: Context) {
         _state.update { it.copy(positionMs = positionMs.coerceAtLeast(0L)) }
     }
 
+    fun seekBy(deltaMs: Long) {
+        val player = controller ?: return
+        val duration = player.duration.takeIf { it != C.TIME_UNSET && it > 0 } ?: _state.value.durationMs
+        val next = (player.currentPosition + deltaMs).coerceIn(0L, duration.coerceAtLeast(0L))
+        player.seekTo(next)
+        _state.update { it.copy(positionMs = next) }
+    }
+
     fun expand() {
         if (_state.value.visible) _state.update { it.copy(expanded = true) }
     }
@@ -137,6 +191,7 @@ class MusicController(context: Context) {
     }
 
     fun dismiss() {
+        clearSleepTimer()
         controller?.run {
             pause()
             stop()
@@ -151,15 +206,145 @@ class MusicController(context: Context) {
         if (index >= 0) {
             controller?.seekToDefaultPosition(index)
             controller?.play()
-            _state.update { it.copy(track = track, expanded = true) }
+            _state.update { it.copy(track = track, expanded = true, error = null) }
+            refreshTrackFlags(track)
         } else {
             play(track, queue.ifEmpty { listOf(track) })
         }
     }
 
+    fun toggleShuffle() {
+        val next = !_state.value.shuffle
+        controller?.shuffleModeEnabled = next
+        _state.update { it.copy(shuffle = next) }
+    }
+
+    fun cycleRepeat() {
+        val next = when (_state.value.repeatMode) {
+            RepeatMode.OFF -> RepeatMode.ALL
+            RepeatMode.ALL -> RepeatMode.ONE
+            RepeatMode.ONE -> RepeatMode.OFF
+        }
+        controller?.repeatMode = next.toPlayerRepeat()
+        _state.update { it.copy(repeatMode = next) }
+    }
+
+    fun toggleAutoPlay() {
+        val next = !_state.value.autoPlay
+        controller?.pauseAtEndOfMediaItems = !next
+        _state.update { it.copy(autoPlay = next) }
+    }
+
+    fun toggleLyrics() {
+        _state.update { it.copy(showLyrics = !it.showLyrics) }
+    }
+
+    fun toggleLike() {
+        val track = _state.value.track ?: return
+        scope.launch {
+            val liked = withContext(Dispatchers.IO) { library.toggleLoved(track) }
+            _state.update {
+                it.copy(
+                    liked = liked,
+                    statusMessage = if (liked) "পছন্দের তালিকায় যোগ হয়েছে" else "পছন্দ থেকে সরানো হয়েছে"
+                )
+            }
+        }
+    }
+
+    fun saveCurrentOffline() {
+        val track = _state.value.track ?: return
+        if (_state.value.downloading) return
+        _state.update { it.copy(downloading = true, statusMessage = "সংরক্ষণ হচ্ছে…", error = null) }
+        scope.launch {
+            val result = withContext(Dispatchers.IO) { library.download(track) }
+            _state.update {
+                it.copy(
+                    downloading = false,
+                    offline = result.isSuccess || library.isOfflineFile(track.id),
+                    statusMessage = if (result.isSuccess) "গান অ্যাপে সংরক্ষিত হয়েছে" else null,
+                    error = result.exceptionOrNull()?.message
+                )
+            }
+        }
+    }
+
+    fun addCurrentToPlaylist(playlistId: String) {
+        val track = _state.value.track ?: return
+        scope.launch {
+            withContext(Dispatchers.IO) { library.addToPlaylist(playlistId, track) }
+            _state.update { it.copy(statusMessage = "প্লেলিস্টে যোগ হয়েছে") }
+        }
+    }
+
+    suspend fun createPlaylist(title: String): UserPlaylist =
+        withContext(Dispatchers.IO) { library.createPlaylist(title) }
+
+    fun setSleepTimer(minutes: Int) {
+        sleepJob?.cancel()
+        if (minutes <= 0) {
+            _state.update { it.copy(sleepUntilMs = null, statusMessage = "স্লিপ টাইমার বন্ধ") }
+            return
+        }
+        val until = System.currentTimeMillis() + minutes * 60_000L
+        _state.update { it.copy(sleepUntilMs = until, statusMessage = "স্লিপ টাইমার $minutes মিনিট") }
+        sleepJob = scope.launch {
+            delay(minutes * 60_000L)
+            controller?.pause()
+            _state.update { it.copy(sleepUntilMs = null, statusMessage = "স্লিপ টাইমার শেষ") }
+        }
+    }
+
+    fun clearStatus() {
+        _state.update { it.copy(statusMessage = null) }
+    }
+
+    private fun refreshTrackFlags(track: MusicTrack) {
+        scope.launch {
+            val liked = withContext(Dispatchers.IO) { library.isLoved(track.id) }
+            _state.update {
+                it.copy(
+                    liked = liked,
+                    offline = library.isOfflineFile(track.id)
+                )
+            }
+        }
+    }
+
+    private fun applyPlaybackFlags(player: Player) {
+        val current = _state.value
+        player.shuffleModeEnabled = current.shuffle
+        player.repeatMode = current.repeatMode.toPlayerRepeat()
+        player.pauseAtEndOfMediaItems = !current.autoPlay
+    }
+
     private val listener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) {
             syncFromPlayer()
+        }
+
+        override fun onPlayerError(error: PlaybackException) {
+            val track = _state.value.track
+            val player = controller
+            if (!retriedStorage && track != null && player != null && track.storagePath.isNotBlank()) {
+                retriedStorage = true
+                val index = player.currentMediaItemIndex.coerceAtLeast(0)
+                player.replaceMediaItem(index, track.toMediaItem(library, preferStorage = true))
+                player.prepare()
+                player.play()
+                return
+            }
+            val detail = (error.cause?.message ?: error.message).orEmpty()
+            val message = when {
+                detail.contains("403") || detail.contains("401") ||
+                    detail.contains("Permission") || detail.contains("403 Forbidden") ->
+                    "গানের লিংক মেয়াদ শেষ বা বন্ধ। ড্যাশবোর্ড থেকে MP3 আবার আপলোড করুন।"
+                detail.contains("404") -> "গানের ফাইল পাওয়া যায়নি।"
+                detail.contains("Unable to connect", true) || detail.contains("UnknownHost") ->
+                    "ইন্টারনেট সংযোগ নেই।"
+                else -> "গান বাজানো যায়নি। ফাইল লিংক যাচাই করুন।"
+            }
+            _state.update { it.copy(isPlaying = false, isBuffering = false, error = message) }
         }
     }
 
@@ -170,6 +355,7 @@ class MusicController(context: Context) {
         val track = queue.firstOrNull { it.id == mediaId } ?: _state.value.track
         val duration = player.duration.takeIf { it != C.TIME_UNSET && it > 0 }
             ?: ((track?.durationSeconds ?: 0) * 1000L)
+        val previousId = _state.value.track?.id
         _state.update {
             it.copy(
                 isPlaying = player.isPlaying,
@@ -179,8 +365,15 @@ class MusicController(context: Context) {
                 durationMs = duration.coerceAtLeast(0L),
                 hasNext = player.hasNextMediaItem(),
                 hasPrevious = player.hasPreviousMediaItem() || player.currentPosition > 0L,
-                visible = it.visible || player.mediaItemCount > 0
+                visible = it.visible || player.mediaItemCount > 0,
+                shuffle = player.shuffleModeEnabled,
+                repeatMode = player.repeatMode.toUiRepeat(),
+                error = if (player.playerError == null) it.error else it.error
             )
+        }
+        if (track != null && track.id != previousId) {
+            retriedStorage = false
+            refreshTrackFlags(track)
         }
     }
 
@@ -205,12 +398,26 @@ class MusicController(context: Context) {
             }
         }
     }
+
+    private fun clearSleepTimer() {
+        sleepJob?.cancel()
+        sleepJob = null
+    }
 }
 
-internal fun MusicTrack.toMediaItem(): MediaItem {
+internal fun MusicTrack.toMediaItem(
+    library: MusicLibraryStore,
+    preferStorage: Boolean = false
+): MediaItem {
+    val local = library.offlineFile(id)
+    val uri: Uri = if (local.exists() && local.length() > 0L) {
+        Uri.fromFile(local)
+    } else {
+        streamUrl(preferStorage).toUri()
+    }
     return MediaItem.Builder()
         .setMediaId(id)
-        .setUri(audioUrl)
+        .setUri(uri)
         .setMediaMetadata(
             MediaMetadata.Builder()
                 .setTitle(title)
@@ -222,4 +429,16 @@ internal fun MusicTrack.toMediaItem(): MediaItem {
                 .build()
         )
         .build()
+}
+
+private fun RepeatMode.toPlayerRepeat(): Int = when (this) {
+    RepeatMode.OFF -> Player.REPEAT_MODE_OFF
+    RepeatMode.ALL -> Player.REPEAT_MODE_ALL
+    RepeatMode.ONE -> Player.REPEAT_MODE_ONE
+}
+
+private fun Int.toUiRepeat(): RepeatMode = when (this) {
+    Player.REPEAT_MODE_ONE -> RepeatMode.ONE
+    Player.REPEAT_MODE_ALL -> RepeatMode.ALL
+    else -> RepeatMode.OFF
 }

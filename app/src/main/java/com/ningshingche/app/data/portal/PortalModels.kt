@@ -122,9 +122,14 @@ data class MusicTrack(
     val description: String,
     val thumbnailUrl: String,
     val audioUrl: String,
+    val fileProvider: String = "",
+    val storagePath: String = "",
+    val lyrics: String = "",
     val durationSeconds: Int,
     val fileSizeMb: Double
-)
+) {
+    fun hasPlayableSource(): Boolean = audioUrl.isNotBlank() || storagePath.isNotBlank()
+}
 
 data class CommentItem(
     val id: String,
@@ -342,6 +347,9 @@ internal fun MusicDto.toItem(): MusicTrack = MusicTrack(
     description = description.orEmpty(),
     thumbnailUrl = thumbnailUrl.orEmpty(),
     audioUrl = audioUrl.orEmpty().trim(),
+    fileProvider = fileProvider.orEmpty().trim(),
+    storagePath = fileStoragePath.orEmpty().trim(),
+    lyrics = lyrics.orEmpty(),
     durationSeconds = (durationSeconds ?: 0).coerceAtLeast(0),
     fileSizeMb = fileSizeMb ?: 0.0
 )

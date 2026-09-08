@@ -64,3 +64,29 @@ data class ChatMessageEntity(
     /** Empty for the global assistant; article id for per-article chats. */
     val articleId: String = ""
 )
+
+@Entity(tableName = "music_playlists")
+data class MusicPlaylistEntity(
+    @PrimaryKey val id: String,
+    val userId: String,
+    val title: String,
+    val kind: String,
+    val trackIdsCsv: String = "",
+    val createdAt: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "music_offline")
+data class MusicOfflineEntity(
+    @PrimaryKey val trackId: String,
+    val localPath: String,
+    val title: String,
+    val artist: String,
+    val album: String,
+    val genre: String,
+    val description: String,
+    val thumbnailUrl: String,
+    val audioUrl: String,
+    val lyrics: String,
+    val durationSeconds: Int,
+    val savedAt: Long = System.currentTimeMillis()
+)
