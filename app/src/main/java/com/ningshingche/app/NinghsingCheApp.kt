@@ -132,6 +132,7 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
         googleAuthRepository = GoogleAuthRepository(supabaseClient)
         articleRepository = ArticleRepository(database, supabaseClient, websiteClient)
         portalRepository = PortalProvider.repository()
+        musicController = MusicController(this)
         aiAssistant = NinghsingCheAiAssistant(articleRepository, portalRepository)
         appNotificationManager = AppNotificationManager(this).also { it.createChannels() }
         contentUpdateNotifier = ContentUpdateNotifier(
