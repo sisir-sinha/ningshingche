@@ -46,6 +46,7 @@ import com.ningshingche.app.ui.editorial.EditorialShape
 import com.ningshingche.app.ui.editorial.EditorialSpace
 import com.ningshingche.app.ui.editorial.EditorialType
 import com.ningshingche.app.ui.editorial.EmptyState
+import com.ningshingche.app.ui.editorial.ErrorState
 import com.ningshingche.app.ui.editorial.Hairline
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 
