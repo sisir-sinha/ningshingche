@@ -6,9 +6,6 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.Typeface
-import android.graphics.pdf.PdfDocument
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.Build
@@ -19,214 +16,76 @@ import androidx.core.content.FileProvider
 import com.ningshingche.app.data.model.PdfDocument as NinghsingPdfDocument
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
-import java.net.HttpURLConnection
-import java.net.URL
+import java.io.IOException
+import java.util.concurrent.TimeUnit
 
 object PdfHelper {
 
-    suspend fun getOrGeneratePdfFile(context: Context, doc: NinghsingPdfDocument): File = withContext(Dispatchers.IO) {
+    private val http = OkHttpClient.Builder()
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(120, TimeUnit.SECONDS)
+        .followRedirects(true)
+        .followSslRedirects(true)
+        .build()
+
+    suspend fun getOrGeneratePdfFile(context: Context, doc: NinghsingPdfDocument): File =
+        downloadPdfFile(context, doc)
+
+    suspend fun downloadPdfFile(context: Context, doc: NinghsingPdfDocument): File = withContext(Dispatchers.IO) {
         val cacheDir = File(context.cacheDir, "pdf_cache").apply { mkdirs() }
         val targetFile = File(cacheDir, "${doc.id}_${doc.year}.pdf")
-
-        if (targetFile.exists() && targetFile.length() > 1024) {
+        if (targetFile.exists() && targetFile.length() > 2048 && looksLikePdf(targetFile)) {
             return@withContext targetFile
         }
+        if (targetFile.exists()) targetFile.delete()
 
-        // Try downloading remote if accessible, otherwise generate high-fidelity publication PDF
-        val downloaded = tryDownloadPdf(doc.pdfUrl, targetFile)
-        if (downloaded && targetFile.exists() && targetFile.length() > 1024) {
-            return@withContext targetFile
+        val url = doc.pdfUrl.ifBlank { doc.downloadUrl }
+        if (url.isBlank()) throw IOException("পিডিএফ লিংক পাওয়া যায়নি।")
+
+        val request = Request.Builder()
+            .url(url)
+            .header("User-Agent", "NingshingCheApp/1.0")
+            .header("Accept", "application/pdf,*/*")
+            .build()
+        http.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw IOException("পিডিএফ ডাউনলোড হয়নি (${response.code})")
+            }
+            val body = response.body ?: throw IOException("পিডিএফ খালি এসেছে।")
+            FileOutputStream(targetFile).use { output ->
+                body.byteStream().copyTo(output)
+            }
         }
-
-        // Generate authentic publication PDF archive with rich editorial layout
-        generateAuthenticPublicationPdf(context, doc, targetFile)
+        if (!looksLikePdf(targetFile)) {
+            targetFile.delete()
+            throw IOException("ফাইলটি একটি বৈধ পিডিএফ নয়।")
+        }
         targetFile
     }
 
-    private fun tryDownloadPdf(pdfUrl: String, destFile: File): Boolean {
-        return try {
-            val url = URL(pdfUrl)
-            val connection = url.openConnection() as HttpURLConnection
-            connection.connectTimeout = 20000
-            connection.readTimeout = 60000
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0 NingshingCheApp/1.0")
-            connection.requestMethod = "GET"
-            connection.connect()
+    fun openSession(file: File): PdfSession = PdfSession(file)
 
-            if (connection.responseCode == HttpURLConnection.HTTP_OK) {
-                connection.inputStream.use { input ->
-                    FileOutputStream(destFile).use { output ->
-                        input.copyTo(output)
-                    }
-                }
-                true
-            } else {
-                false
+    private fun looksLikePdf(file: File): Boolean {
+        if (!file.exists() || file.length() < 8) return false
+        return try {
+            FileInputStream(file).use { input ->
+                val header = ByteArray(5)
+                if (input.read(header) < 5) return false
+                header.decodeToString() == "%PDF-"
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             false
         }
     }
 
-    private fun generateAuthenticPublicationPdf(context: Context, doc: NinghsingPdfDocument, targetFile: File) {
-        val document = PdfDocument()
-        val pageWidth = 595 // Standard A4 points (approx)
-        val pageHeight = 842
-
-        val titlePaint = Paint().apply {
-            color = Color.parseColor("#451A03")
-            textSize = 22f
-            isFakeBoldText = true
-            isAntiAlias = true
-        }
-
-        val subPaint = Paint().apply {
-            color = Color.parseColor("#78350F")
-            textSize = 14f
-            isAntiAlias = true
-        }
-
-        val bodyPaint = Paint().apply {
-            color = Color.parseColor("#1C1917")
-            textSize = 12f
-            isAntiAlias = true
-        }
-
-        val borderPaint = Paint().apply {
-            color = Color.parseColor("#D97706")
-            style = Paint.Style.STROKE
-            strokeWidth = 2f
-        }
-
-        val headerPaint = Paint().apply {
-            color = Color.parseColor("#FEF3C7")
-            style = Paint.Style.FILL
-        }
-
-        // Generate 3 authentic pages for preview & reading
-        for (pageIndex in 1..3) {
-            val pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageIndex).create()
-            val page = document.startPage(pageInfo)
-            val canvas = page.canvas
-
-            // Background & Border
-            canvas.drawColor(Color.parseColor("#FFFDF9"))
-            canvas.drawRect(24f, 24f, pageWidth - 24f, pageHeight - 24f, borderPaint)
-
-            // Header Banner
-            canvas.drawRect(30f, 30f, pageWidth - 30f, 100f, headerPaint)
-            titlePaint.textSize = 18f
-            canvas.drawText("নিংশিং চে — বিষ্ণুপ্রিয়া মণিপুরি ডিজিটাল আর্কাইভ", 44f, 65f, titlePaint)
-            subPaint.textSize = 11f
-            canvas.drawText("সংস্করণ: ${doc.edition}  |  বছর: ${doc.year}  |  পৃষ্ঠা: $pageIndex / 3", 44f, 85f, subPaint)
-
-            if (pageIndex == 1) {
-                // Cover Page Layout
-                titlePaint.textSize = 24f
-                canvas.drawText(doc.title, 44f, 160f, titlePaint)
-
-                subPaint.textSize = 14f
-                canvas.drawText("বিষয়শ্রেণী: ${doc.category}", 44f, 195f, subPaint)
-                canvas.drawText("লেখক ও গবেষক: ${doc.authorOrEditor}", 44f, 220f, subPaint)
-
-                bodyPaint.textSize = 13f
-                var yPos = 270f
-                val descLines = listOf(
-                    "সংক্ষিপ্ত বিবরণ ও ভূমিকা:",
-                    doc.description,
-                    "",
-                    "১. বিষ্ণুপ্রিয়া মণিপুরি সাহিত্যের অমূল্য দলিল ও প্রামাণ্য সংরক্ষণ।",
-                    "২. লোকসংস্কৃতি, ভাষা আন্দোলন ও গবেষণার প্রামাণিক উপাদান।",
-                    "৩. নিংশিং চে তথ্যকোষ কর্তৃক ডিজিটালাইজড ও সংরক্ষিত।"
-                )
-                for (line in descLines) {
-                    canvas.drawText(line, 44f, yPos, bodyPaint)
-                    yPos += 26f
-                }
-
-                // Decorative cultural stamp box
-                val stampPaint = Paint().apply {
-                    color = Color.parseColor("#78350F")
-                    style = Paint.Style.STROKE
-                    strokeWidth = 1.5f
-                }
-                canvas.drawRoundRect(44f, pageHeight - 160f, pageWidth - 44f, pageHeight - 60f, 12f, 12f, stampPaint)
-                val stampTextPaint = Paint().apply {
-                    color = Color.parseColor("#78350F")
-                    textSize = 11f
-                    isFakeBoldText = true
-                }
-                canvas.drawText("★ নিংশিং চে অফিশিয়াল ডিজিটাল আর্কাইভ প্রকাশনা ★", 64f, pageHeight - 120f, stampTextPaint)
-                canvas.drawText("ওয়েবসাইট: https://ningshingche.com  |  কপিরাইট © নিংশিং চে পর্ষদ", 64f, pageHeight - 95f, bodyPaint)
-
-            } else {
-                // Inner Content Pages
-                titlePaint.textSize = 18f
-                canvas.drawText("নিবন্ধ ও ঐতিহাসিক গবেষণা অংশ ($pageIndex)", 44f, 140f, titlePaint)
-
-                var yPos = 180f
-                val contentParagraphs = listOf(
-                    "বিষ্ণুপ্রিয়া মণিপুরি সমাজ ও সাহিত্যের প্রাচীন ইতিহাস অত্যন্ত সুপ্রাচীন ও সমৃদ্ধ।",
-                    "১৯৫৫ সালের ভাষা আন্দোলনের ধারাবাহিকতায় এই প্রকাশনায় অন্তর্ভুক্ত হয়েছে বহু",
-                    "বিরল পাণ্ডুলিপি, লোকগাথা ও সমাজসংস্কারের তথ্য।",
-                    "",
-                    "লোকনৃত্য, রাস উৎসব এবং গীতিসংকলন:",
-                    "ঐতিহ্যবাহী মণিপুরি নৃত্যের তাল ও লয়ের সাথে আধ্যাত্মিক ভাবের অপূর্ব মেলবন্ধন ঘটেছে।",
-                    "প্রতিটি রাসলীলায় ব্যবহৃত পোশাক, খোল ও করতাল আমাদের নিজস্ব ঐতিহ্যের স্মারক।",
-                    "",
-                    "ডিজিটাল মাধ্যমে ভবিষ্যৎ প্রজন্মের জন্য সংরক্ষণ:",
-                    "নিংশিং চে আর্কাইভ প্রতিটি মুদ্রিত সংখ্যাকে ইউনিকোড ও পিডিএফ ফরম্যাটে রূপান্তর করে",
-                    "সবার জন্য উন্মুক্ত করছে।",
-                    "",
-                    "— নিংশিং চে গবেষণা ও সংকলন পরিষদ"
-                )
-
-                for (paragraph in contentParagraphs) {
-                    canvas.drawText(paragraph, 44f, yPos, bodyPaint)
-                    yPos += 24f
-                }
-            }
-
-            document.finishPage(page)
-        }
-
-        FileOutputStream(targetFile).use { out ->
-            document.writeTo(out)
-        }
-        document.close()
-    }
-
-    suspend fun renderPdfPages(file: File): List<Bitmap> = withContext(Dispatchers.IO) {
-        val bitmaps = mutableListOf<Bitmap>()
-        try {
-            val pfd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
-            val renderer = PdfRenderer(pfd)
-
-            for (i in 0 until renderer.pageCount) {
-                val page = renderer.openPage(i)
-                val width = page.width * 2 // Higher density
-                val height = page.height * 2
-                val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-                val canvas = Canvas(bitmap)
-                canvas.drawColor(Color.WHITE)
-                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                page.close()
-                bitmaps.add(bitmap)
-            }
-            renderer.close()
-            pfd.close()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        bitmaps
-    }
-
     suspend fun savePdfToDownloads(context: Context, doc: NinghsingPdfDocument): Result<String> = withContext(Dispatchers.IO) {
         try {
-            val sourceFile = getOrGeneratePdfFile(context, doc)
+            val sourceFile = downloadPdfFile(context, doc)
             val targetFileName = "${doc.title.replace(" ", "_")}_v${doc.year}.pdf"
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -243,7 +102,7 @@ object PdfHelper {
 
                 if (uri != null) {
                     resolver.openOutputStream(uri).use { outStream ->
-                        if (outStream == null) throw Exception("Failed to open output stream")
+                        if (outStream == null) throw IOException("Failed to open output stream")
                         FileInputStream(sourceFile).use { inStream ->
                             inStream.copyTo(outStream)
                         }
@@ -257,7 +116,6 @@ object PdfHelper {
                 }
             }
 
-            // Fallback
             val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
             val destDir = File(downloadsDir, "Ningshingche_PDFs").apply { mkdirs() }
             val destFile = File(destDir, targetFileName)
@@ -300,6 +158,60 @@ object PdfHelper {
         } catch (e: Exception) {
             e.printStackTrace()
             false
+        }
+    }
+
+    fun openInExternalApp(context: Context, file: File): Boolean {
+        return try {
+            val pdfUri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.provider",
+                file
+            )
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(pdfUri, "application/pdf")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(Intent.createChooser(intent, "পিডিএফ খুলুন"))
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+}
+
+/** Thread-safe on-demand page renderer. Close when the viewer leaves. */
+class PdfSession(file: File) : AutoCloseable {
+    private val lock = Any()
+    private val pfd: ParcelFileDescriptor =
+        ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+    private val renderer: PdfRenderer = PdfRenderer(pfd)
+    val pageCount: Int = renderer.pageCount
+
+    fun render(pageIndex: Int, widthPx: Int): Bitmap {
+        synchronized(lock) {
+            val page = renderer.openPage(pageIndex)
+            try {
+                val targetWidth = widthPx.coerceIn(320, 2400)
+                val targetHeight = ((page.height.toFloat() / page.width) * targetWidth)
+                    .toInt()
+                    .coerceAtLeast(1)
+                val bitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
+                Canvas(bitmap).drawColor(Color.WHITE)
+                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                return bitmap
+            } finally {
+                page.close()
+            }
+        }
+    }
+
+    override fun close() {
+        synchronized(lock) {
+            runCatching { renderer.close() }
+            runCatching { pfd.close() }
         }
     }
 }

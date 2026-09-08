@@ -76,7 +76,7 @@ class HomeViewModel(private val repository: PortalRepository) : ViewModel() {
     fun loadVideoCatalog(force: Boolean = false) {
         viewModelScope.launch {
             _videosLoading.value = _videoCatalog.value.isEmpty()
-            repository.videos(limit = 40, forceRefresh = force)
+            repository.videos(limit = 200, forceRefresh = force)
                 .onSuccess { _videoCatalog.value = it }
                 .onFailure {
                     if (_videoCatalog.value.isEmpty()) {

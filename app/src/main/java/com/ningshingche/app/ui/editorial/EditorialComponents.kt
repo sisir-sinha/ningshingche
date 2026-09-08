@@ -52,17 +52,24 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlin.math.absoluteValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.util.lerp
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -1205,43 +1212,113 @@ fun GalleryGrid(
     onItemClick: (GalleryItem) -> Unit
 ) {
     if (items.isEmpty()) return
+    val pagerState = rememberPagerState(pageCount = { items.size })
+    val tokens = LocalEditorialTokens.current
+
+    LaunchedEffect(pagerState, items.size) {
+        if (items.size < 2) return@LaunchedEffect
+        snapshotFlow { pagerState.currentPage to pagerState.isScrollInProgress }
+            .collectLatest { (_, scrolling) ->
+                if (scrolling) return@collectLatest
+                kotlinx.coroutines.delay(4200)
+                val next = (pagerState.currentPage + 1) % items.size
+                pagerState.animateScrollToPage(
+                    next,
+                    animationSpec = tween(durationMillis = 720, easing = FastOutSlowInEasing)
+                )
+            }
+    }
+
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(title = "ছবি ঘর", subtitle = "ইতিহাস ও সংস্কৃতির দৃশ্যপট")
-        LazyRow(
+        HorizontalPager(
+            state = pagerState,
             contentPadding = PaddingValues(horizontal = EditorialSpace.gutter),
-            horizontalArrangement = Arrangement.spacedBy(EditorialSpace.sm)
-        ) {
-            items(items, key = { it.id }) { item ->
-                Card(
-                    onClick = { onItemClick(item) },
-                    shape = RoundedCornerShape(EditorialShape.card),
-                    colors = CardDefaults.cardColors(containerColor = LocalEditorialTokens.current.surfaceSunken),
-                    modifier = Modifier.width(180.dp)
-                ) {
-                    Box {
-                        EditorialImage(
-                            url = item.imageUrl,
-                            contentDescription = item.title,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(3f / 4f)
-                        )
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomStart)
-                                .fillMaxWidth()
-                                .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xCC1A1512))))
-                                .padding(EditorialSpace.sm)
-                        ) {
-                            Text(
-                                text = item.title,
-                                style = EditorialType.Caption,
-                                color = Color.White,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
+            pageSpacing = EditorialSpace.sm,
+            modifier = Modifier.fillMaxWidth()
+        ) { page ->
+            val item = items[page]
+            val pageOffset = ((pagerState.currentPage - page) + pagerState.currentPageOffsetFraction).absoluteValue
+            val scale = lerp(0.94f, 1f, 1f - pageOffset.coerceIn(0f, 1f))
+            val alpha = lerp(0.62f, 1f, 1f - pageOffset.coerceIn(0f, 1f))
+            Card(
+                onClick = { onItemClick(item) },
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = tokens.surfaceSunken),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        this.alpha = alpha
                     }
+            ) {
+                Box {
+                    EditorialImage(
+                        url = item.imageUrl,
+                        contentDescription = item.title,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(4f / 3f)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(Color.Transparent, Color(0xCC140D08), Color(0xF2140D08))
+                                )
+                            )
+                    )
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 12.dp)
+                    ) {
+                        if (item.category.isNotBlank()) {
+                            Surface(
+                                shape = RoundedCornerShape(EditorialShape.chip),
+                                color = tokens.accent.copy(alpha = 0.92f)
+                            ) {
+                                Text(
+                                    text = item.category,
+                                    style = EditorialType.Caption.copy(fontWeight = FontWeight.Bold),
+                                    color = Color.White,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+                            Spacer(Modifier.height(6.dp))
+                        }
+                        Text(
+                            text = item.title,
+                            style = EditorialType.Title,
+                            color = Color.White,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+        if (items.size > 1) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = EditorialSpace.sm, bottom = EditorialSpace.xs),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                items.forEachIndexed { index, _ ->
+                    val selected = pagerState.currentPage == index
+                    Box(
+                        modifier = Modifier
+                            .padding(horizontal = 3.dp)
+                            .height(6.dp)
+                            .width(if (selected) 18.dp else 6.dp)
+                            .clip(CircleShape)
+                            .background(if (selected) tokens.accent else tokens.ruleStrong.copy(alpha = 0.55f))
+                    )
                 }
             }
         }

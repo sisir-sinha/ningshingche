@@ -1,38 +1,45 @@
 package com.ningshingche.app.ui.screens
 
+import android.graphics.Bitmap
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.NavigateBefore
-import androidx.compose.material.icons.filled.NavigateNext
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -40,7 +47,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
@@ -52,11 +58,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.ningshingche.app.ui.components.PdfViewerSkeletonLayout
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.theme.PortalSaffron
 import com.ningshingche.app.ui.viewmodel.PdfViewerViewModel
 import kotlinx.coroutines.launch
+
+private val ReaderCanvas = Color(0xFF1A1410)
+private val ReaderBar = Color(0xFF241A16)
+private val PagePaper = Color(0xFFFFFBF5)
 
 @Composable
 fun PdfViewerScreen(
@@ -70,8 +79,9 @@ fun PdfViewerScreen(
     LaunchedEffect(pdfId) { viewModel.loadPdf(pdfId) }
 
     val pdfDocument by viewModel.pdfDocument.collectAsState()
-    val pages by viewModel.pages.collectAsState()
+    val pageCount by viewModel.pageCount.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
     val downloadStatus by viewModel.downloadStatus.collectAsState()
 
     LaunchedEffect(downloadStatus) {
@@ -81,22 +91,25 @@ fun PdfViewerScreen(
         }
     }
 
-    val pageCount = if (pages.isNotEmpty()) pages.size else 1
-    val pagerState = rememberPagerState(initialPage = 0, pageCount = { pageCount })
+    val listState = rememberLazyListState()
+    val currentPage by remember {
+        derivedStateOf { listState.firstVisibleItemIndex.coerceAtLeast(0) }
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0xFF140A07), Color(0xFF2B1610), Color(0xFF0E0705))))
+            .background(ReaderCanvas)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 6.dp, vertical = 8.dp),
+                .background(ReaderBar)
+                .padding(horizontal = 4.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onNavigateBack, modifier = Modifier.testTag("pdf_viewer_back_button")) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color(0xFFFFF3D6))
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "পেছনে", tint = Color(0xFFFFF3D6))
             }
             Column(Modifier.weight(1f)) {
                 Text(
@@ -108,125 +121,193 @@ fun PdfViewerScreen(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                val subtitle = when {
+                    pageCount > 0 -> "পৃষ্ঠা ${currentPage + 1} / $pageCount"
+                    !pdfDocument?.edition.isNullOrBlank() -> pdfDocument?.edition.orEmpty()
+                    else -> "পিডিএফ পাঠক"
+                }
                 Text(
-                    if (pages.isNotEmpty()) "পৃষ্ঠা ${pagerState.currentPage + 1} / $pageCount" else (pdfDocument?.edition ?: ""),
+                    subtitle,
                     fontFamily = Kalpurush,
                     color = PortalSaffron,
                     fontSize = 12.sp
                 )
             }
-            IconButton(onClick = { viewModel.sharePdf() }) {
-                Icon(Icons.Default.Share, contentDescription = "Share", tint = PortalSaffron)
+            IconButton(
+                onClick = { viewModel.openExternally() },
+                enabled = pageCount > 0
+            ) {
+                Icon(Icons.Default.OpenInNew, contentDescription = "অন্য অ্যাপে খুলুন", tint = PortalSaffron)
             }
-            IconButton(onClick = { viewModel.downloadPdf() }) {
-                Icon(Icons.Default.Download, contentDescription = "Download", tint = PortalSaffron)
+            IconButton(onClick = { viewModel.sharePdf() }, enabled = pageCount > 0) {
+                Icon(Icons.Default.Share, contentDescription = "শেয়ার", tint = PortalSaffron)
+            }
+            IconButton(onClick = { viewModel.downloadPdf() }, enabled = pdfDocument != null) {
+                Icon(Icons.Default.Download, contentDescription = "ডাউনলোড", tint = PortalSaffron)
             }
         }
 
-        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
             when {
-                isLoading -> PdfViewerSkeletonLayout()
-                pages.isEmpty() -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.PictureAsPdf, null, tint = PortalSaffron, modifier = Modifier.size(56.dp))
-                    Text("বইটি খোলা যায়নি", fontFamily = Kalpurush, color = Color(0xFFFFF3D6))
+                isLoading -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(color = PortalSaffron, strokeWidth = 2.dp)
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        "পিডিএফ খোলা হচ্ছে…",
+                        fontFamily = Kalpurush,
+                        color = Color(0xFFFFF3D6),
+                        fontSize = 14.sp
+                    )
                 }
-                else -> HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { pageIndex ->
-                    var scale by remember { mutableFloatStateOf(1f) }
-                    var offsetX by remember { mutableFloatStateOf(0f) }
-                    var offsetY by remember { mutableFloatStateOf(0f) }
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 18.dp, vertical = 10.dp),
-                        contentAlignment = Alignment.Center
+                errorMessage != null -> Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(32.dp)
+                ) {
+                    Icon(Icons.Default.PictureAsPdf, null, tint = PortalSaffron, modifier = Modifier.size(56.dp))
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        errorMessage ?: "বইটি খোলা যায়নি",
+                        fontFamily = Kalpurush,
+                        color = Color(0xFFFFF3D6),
+                        fontSize = 15.sp
+                    )
+                    TextButton(onClick = { viewModel.loadPdf(pdfId) }) {
+                        Text("আবার চেষ্টা করুন", fontFamily = Kalpurush, color = PortalSaffron)
+                    }
+                }
+                pageCount > 0 -> {
+                    val pageWidthPx = with(density) {
+                        (LocalContext.current.resources.displayMetrics.widthPixels)
+                    }.coerceAtLeast(720)
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .shadow(18.dp, RoundedCornerShape(2.dp))
-                                .clip(RoundedCornerShape(2.dp))
-                                .background(Color(0xFFFFF8EC))
-                                .border(1.dp, Color(0xFFD7B48A), RoundedCornerShape(2.dp))
-                                .pointerInput(Unit) {
-                                    detectTransformGestures { _, pan, zoom, _ ->
-                                        scale = (scale * zoom).coerceIn(1f, 3.5f)
-                                        if (scale > 1f) {
-                                            offsetX += pan.x
-                                            offsetY += pan.y
-                                        } else {
-                                            offsetX = 0f
-                                            offsetY = 0f
-                                        }
-                                    }
-                                }
-                        ) {
-                            Box(
-                                Modifier
-                                    .align(Alignment.CenterStart)
-                                    .fillMaxWidth(0.03f)
-                                    .height(10000.dp)
-                                    .background(Brush.horizontalGradient(listOf(Color(0x332A140E), Color.Transparent)))
+                        items(pageCount, key = { it }) { index ->
+                            PdfPageCard(
+                                pageIndex = index,
+                                pageCount = pageCount,
+                                widthPx = pageWidthPx,
+                                viewModel = viewModel
                             )
-                            if (pageIndex < pages.size) {
-                                Image(
-                                    bitmap = pages[pageIndex].asImageBitmap(),
-                                    contentDescription = "পৃষ্ঠা ${pageIndex + 1}",
-                                    contentScale = ContentScale.Fit,
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(10.dp)
-                                        .graphicsLayer(
-                                            scaleX = scale,
-                                            scaleY = scale,
-                                            translationX = offsetX,
-                                            translationY = offsetY
-                                        )
-                                )
-                            }
                         }
                     }
                 }
             }
         }
 
-        if (pages.isNotEmpty()) {
-            Row(
+        if (pageCount > 0) {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 14.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .background(ReaderBar)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                IconButton(
-                    onClick = {
-                        if (pagerState.currentPage > 0) scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) }
-                    },
-                    enabled = pagerState.currentPage > 0,
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF3B2418))
-                ) {
-                    Icon(Icons.Default.NavigateBefore, null, tint = PortalSaffron)
+                if (pageCount > 1) {
+                    Slider(
+                        value = currentPage.toFloat(),
+                        onValueChange = { value ->
+                            scope.launch { listState.scrollToItem(value.toInt().coerceIn(0, pageCount - 1)) }
+                        },
+                        valueRange = 0f..(pageCount - 1).toFloat(),
+                        steps = (pageCount - 2).coerceAtLeast(0),
+                        colors = SliderDefaults.colors(
+                            thumbColor = PortalSaffron,
+                            activeTrackColor = PortalSaffron,
+                            inactiveTrackColor = Color(0xFF5A4034)
+                        )
+                    )
                 }
                 Text(
-                    "পৃষ্ঠা ${pagerState.currentPage + 1} / $pageCount",
+                    "পৃষ্ঠা ${currentPage + 1} / $pageCount  ·  চিমটি করে জুম, দুবার ট্যাপ করে বড়",
                     fontFamily = Kalpurush,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFFFF3D6)
+                    color = Color(0xCCFFF3D6),
+                    fontSize = 11.sp,
+                    modifier = Modifier.fillMaxWidth(),
                 )
-                IconButton(
-                    onClick = {
-                        if (pagerState.currentPage < pageCount - 1) scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
-                    },
-                    enabled = pagerState.currentPage < pageCount - 1,
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF3B2418))
-                ) {
-                    Icon(Icons.Default.NavigateNext, null, tint = PortalSaffron)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PdfPageCard(
+    pageIndex: Int,
+    pageCount: Int,
+    widthPx: Int,
+    viewModel: PdfViewerViewModel
+) {
+    var bitmap by remember(pageIndex, widthPx) { mutableStateOf<Bitmap?>(null) }
+    var scale by remember(pageIndex) { mutableFloatStateOf(1f) }
+    var offsetX by remember(pageIndex) { mutableFloatStateOf(0f) }
+    var offsetY by remember(pageIndex) { mutableFloatStateOf(0f) }
+
+    LaunchedEffect(pageIndex, widthPx) {
+        bitmap = viewModel.renderPage(pageIndex, widthPx)
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(8.dp, RoundedCornerShape(6.dp))
+            .clip(RoundedCornerShape(6.dp))
+            .background(PagePaper)
+            .pointerInput(pageIndex) {
+                detectTransformGestures { _, pan, zoom, _ ->
+                    scale = (scale * zoom).coerceIn(1f, 4f)
+                    if (scale > 1f) {
+                        offsetX += pan.x
+                        offsetY += pan.y
+                    } else {
+                        offsetX = 0f
+                        offsetY = 0f
+                    }
                 }
+            }
+            .pointerInput(pageIndex) {
+                detectTapGestures(
+                    onDoubleTap = {
+                        if (scale > 1.15f) {
+                            scale = 1f
+                            offsetX = 0f
+                            offsetY = 0f
+                        } else {
+                            scale = 2.2f
+                        }
+                    }
+                )
+            }
+    ) {
+        val page = bitmap
+        if (page != null) {
+            Image(
+                bitmap = page.asImageBitmap(),
+                contentDescription = "পৃষ্ঠা ${pageIndex + 1} / $pageCount",
+                contentScale = ContentScale.FillWidth,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer(
+                        scaleX = scale,
+                        scaleY = scale,
+                        translationX = offsetX,
+                        translationY = offsetY
+                    )
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(420.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = PortalSaffron, strokeWidth = 2.dp, modifier = Modifier.size(28.dp))
             }
         }
     }

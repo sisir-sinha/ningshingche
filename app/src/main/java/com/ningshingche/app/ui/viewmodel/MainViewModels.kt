@@ -23,8 +23,11 @@ import com.ningshingche.app.data.model.ReaderPreferences
 import com.ningshingche.app.data.model.ReadingHistory
 import com.ningshingche.app.data.model.YearArchive
 import com.ningshingche.app.data.preferences.UserPreferencesRepository
+import com.ningshingche.app.data.portal.PdfBook
+import com.ningshingche.app.data.portal.PortalRepository
 import com.ningshingche.app.data.repository.ArticleRepository
 import com.ningshingche.app.data.repository.WebsiteSyncState
+import com.ningshingche.app.util.PdfSession
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -406,51 +409,93 @@ class PdfArchiveViewModel(
     }
 }
 
+private fun PdfBook.toPdfDocument(): com.ningshingche.app.data.model.PdfDocument =
+    com.ningshingche.app.data.model.PdfDocument(
+        id = id,
+        title = title,
+        edition = edition,
+        category = category,
+        categorySlug = category,
+        year = year,
+        authorOrEditor = authorOrEditor,
+        pageCount = pageCount,
+        fileSizeMb = fileSizeMb.toFloat(),
+        pdfUrl = fileUrl,
+        coverImageUrl = coverUrl,
+        description = description
+    )
+
 // PDF Viewer ViewModel
 class PdfViewerViewModel(
     private val repository: ArticleRepository,
+    private val portalRepository: PortalRepository,
     private val context: Context
 ) : ViewModel() {
     private val _pdfDocument = MutableStateFlow<com.ningshingche.app.data.model.PdfDocument?>(null)
     val pdfDocument: StateFlow<com.ningshingche.app.data.model.PdfDocument?> = _pdfDocument.asStateFlow()
 
-    private val _pages = MutableStateFlow<List<android.graphics.Bitmap>>(emptyList())
-    val pages: StateFlow<List<android.graphics.Bitmap>> = _pages.asStateFlow()
-
-    private val _currentPage = MutableStateFlow(0)
-    val currentPage: StateFlow<Int> = _currentPage.asStateFlow()
+    private val _pageCount = MutableStateFlow(0)
+    val pageCount: StateFlow<Int> = _pageCount.asStateFlow()
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
     private val _downloadStatus = MutableStateFlow<String?>(null)
     val downloadStatus: StateFlow<String?> = _downloadStatus.asStateFlow()
 
     private var localPdfFile: java.io.File? = null
+    private var session: PdfSession? = null
+    private val pageCache = android.util.LruCache<Int, android.graphics.Bitmap>(6)
 
     fun loadPdf(pdfId: String) {
         _isLoading.value = true
+        _errorMessage.value = null
+        _pageCount.value = 0
+        pageCache.evictAll()
+        session?.close()
+        session = null
         viewModelScope.launch {
-            val doc = repository.getPdfDocumentById(pdfId)
+            val decoded = runCatching { java.net.URLDecoder.decode(pdfId, "UTF-8") }.getOrDefault(pdfId)
+            var doc = repository.getPdfDocumentById(decoded) ?: repository.getPdfDocumentById(pdfId)
+            if (doc == null) {
+                val books = portalRepository.pdfBooks().getOrNull().orEmpty()
+                val book = books.find { it.id == decoded || it.id == pdfId }
+                if (book != null) doc = book.toPdfDocument()
+            }
             _pdfDocument.value = doc
-            if (doc != null) {
-                try {
-                    val file = com.ningshingche.app.util.PdfHelper.getOrGeneratePdfFile(context, doc)
-                    localPdfFile = file
-                    val bitmaps = com.ningshingche.app.util.PdfHelper.renderPdfPages(file)
-                    _pages.value = bitmaps
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
+            if (doc == null) {
+                _errorMessage.value = "বইটি খোলা যায়নি।"
+                _isLoading.value = false
+                return@launch
+            }
+            if (doc.pdfUrl.isBlank() && doc.downloadUrl.isBlank()) {
+                _errorMessage.value = "এই বইয়ের পিডিএফ লিংক নেই।"
+                _isLoading.value = false
+                return@launch
+            }
+            try {
+                val file = com.ningshingche.app.util.PdfHelper.downloadPdfFile(context, doc)
+                localPdfFile = file
+                val opened = com.ningshingche.app.util.PdfHelper.openSession(file)
+                session = opened
+                _pageCount.value = opened.pageCount
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "পিডিএফ খোলা যায়নি।"
             }
             _isLoading.value = false
         }
     }
 
-    fun setPage(pageIndex: Int) {
-        if (pageIndex in 0 until (_pages.value.size)) {
-            _currentPage.value = pageIndex
+    suspend fun renderPage(pageIndex: Int, widthPx: Int): android.graphics.Bitmap? {
+        pageCache.get(pageIndex)?.let { return it }
+        val rendered = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching { session?.render(pageIndex, widthPx) }.getOrNull()
         }
+        if (rendered != null) pageCache.put(pageIndex, rendered)
+        return rendered
     }
 
     fun downloadPdf() {
@@ -468,8 +513,20 @@ class PdfViewerViewModel(
         com.ningshingche.app.util.PdfHelper.sharePdfFile(context, doc, file)
     }
 
+    fun openExternally() {
+        val file = localPdfFile ?: return
+        com.ningshingche.app.util.PdfHelper.openInExternalApp(context, file)
+    }
+
     fun clearStatus() {
         _downloadStatus.value = null
+    }
+
+    override fun onCleared() {
+        session?.close()
+        session = null
+        pageCache.evictAll()
+        super.onCleared()
     }
 }
 
@@ -480,7 +537,8 @@ class ViewModelFactory(
     private val aiAssistant: NinghsingCheAiAssistant,
     private val googleAuthRepository: GoogleAuthRepository,
     private val context: Context,
-    private val supabaseClient: SupabaseClient
+    private val supabaseClient: SupabaseClient,
+    private val portalRepository: PortalRepository
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -494,7 +552,7 @@ class ViewModelFactory(
             ) as T
             modelClass.isAssignableFrom(SettingsViewModel::class.java) -> SettingsViewModel(preferencesRepository, repository, googleAuthRepository, supabaseClient) as T
             modelClass.isAssignableFrom(PdfArchiveViewModel::class.java) -> PdfArchiveViewModel(repository) as T
-            modelClass.isAssignableFrom(PdfViewerViewModel::class.java) -> PdfViewerViewModel(repository, context) as T
+            modelClass.isAssignableFrom(PdfViewerViewModel::class.java) -> PdfViewerViewModel(repository, portalRepository, context) as T
             modelClass.isAssignableFrom(ReaderWorkspaceViewModel::class.java) -> ReaderWorkspaceViewModel(googleAuthRepository, supabaseClient) as T
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }

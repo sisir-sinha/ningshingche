@@ -136,7 +136,8 @@ fun EditorialReaderApp(
         aiAssistant = app.aiAssistant,
         googleAuthRepository = app.googleAuthRepository,
         context = context,
-        supabaseClient = app.supabaseClient
+        supabaseClient = app.supabaseClient,
+        portalRepository = app.portalRepository
     )
     val workspaceViewModel: ReaderWorkspaceViewModel = viewModel(factory = mainFactory)
     val savedArticlesViewModel: SavedArticlesViewModel = viewModel(factory = mainFactory)
