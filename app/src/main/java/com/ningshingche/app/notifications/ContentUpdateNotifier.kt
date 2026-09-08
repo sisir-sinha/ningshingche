@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import com.ningshingche.app.data.model.ReaderPreferences
 import com.ningshingche.app.data.portal.HomeFeed
+import com.ningshingche.app.data.portal.permalinkOf
 import com.ningshingche.app.data.preferences.UserPreferencesRepository
 import com.ningshingche.app.data.remote.AdminMessageRecord
 import com.ningshingche.app.data.remote.UserNotificationRecord

@@ -245,7 +245,6 @@ class MusicController(
         _state.update { it.copy(autoPlay = next) }
         if (next) {
             AppToasts.undo("Autoplay Turned ON") {
-                controller?.pauseAtEndOfMediaItems = true
                 _state.update { it.copy(autoPlay = false) }
             }
         } else {
