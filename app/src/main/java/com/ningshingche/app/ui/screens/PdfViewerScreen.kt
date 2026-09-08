@@ -181,9 +181,8 @@ fun PdfViewerScreen(
                     }
                 }
                 pageCount > 0 -> {
-                    val pageWidthPx = with(density) {
-                        (LocalContext.current.resources.displayMetrics.widthPixels)
-                    }.coerceAtLeast(720)
+                    val context = LocalContext.current
+                    val pageWidthPx = context.resources.displayMetrics.widthPixels.coerceAtLeast(720)
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),

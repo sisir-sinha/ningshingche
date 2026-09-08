@@ -188,6 +188,15 @@ interface PortalApi {
         @Query("limit") limit: Int? = null
     ): Response<List<VideoDto>>
 
+    // ------------------------------------------------------------------ music
+
+    @GET("music")
+    suspend fun musicTracks(
+        @Query("select") select: String = MUSIC_COLUMNS,
+        @Query("order") order: String = "sort_order.asc.nullslast,created_at.desc",
+        @Query("limit") limit: Int? = null
+    ): Response<List<MusicDto>>
+
     // --------------------------------------------------------------- comments
 
     @GET("comments")

@@ -417,7 +417,9 @@ fun HeroArticleCard(
                         Text(
                             text = "•  ${article.readingTimeMinutes} মি.",
                             style = EditorialType.Caption,
-                            color = Col                   }
+                            color = Color.White.copy(alpha = 0.75f)
+                        )
+                    }
                 }
             }
         }

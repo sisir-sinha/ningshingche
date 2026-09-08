@@ -79,17 +79,19 @@ class MusicController(context: Context) {
         val index = list.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
         ensureConnected()
         val start = {
-            val player = controller ?: return@start
-            player.setMediaItems(list.map { it.toMediaItem() }, index, 0L)
-            player.prepare()
-            player.play()
-            _state.update {
-                it.copy(
-                    visible = true,
-                    expanded = expand,
-                    track = list.getOrNull(index) ?: track,
-                    queue = list
-                )
+            val player = controller
+            if (player != null) {
+                player.setMediaItems(list.map { it.toMediaItem() }, index, 0L)
+                player.prepare()
+                player.play()
+                _state.update {
+                    it.copy(
+                        visible = true,
+                        expanded = expand,
+                        track = list.getOrNull(index) ?: track,
+                        queue = list
+                    )
+                }
             }
         }
         if (controller != null) start() else pending = start
