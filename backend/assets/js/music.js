@@ -65,7 +65,7 @@
   function openForm(record = null) {
     NC.components.openModal({
       title: record ? 'Edit track' : 'Add track', eyebrow: 'Music library', size: 'xl',
-      description: 'Upload an MP3 so the Ningshing Che app can play it with lock-screen and notification controls.',
+      description: 'Upload an MP3 via Catbox so the app gets a lasting public URL (not a 15-minute signed link).',
       content: `<form id="music-form" class="form-stack" novalidate>
         <div class="form-grid-2">
           <div class="field"><label class="field-label" for="track-title">Title <span aria-hidden="true">*</span></label><input class="form-input" id="track-title" name="title" value="${escapeHTML(record?.title || '')}" autofocus><p class="field-error hidden" data-field-error="title"></p></div>

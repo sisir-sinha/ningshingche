@@ -9,8 +9,8 @@ import com.ningshingche.app.data.auth.GoogleAuthMapper
 import com.ningshingche.app.data.auth.GoogleAuthRepository
 import com.ningshingche.app.data.remote.AdminMessageRecord
 import com.ningshingche.app.data.remote.CommentRecord
-import com.ningshingche.app.data.remote.AudioStorageUploader
 import com.ningshingche.app.data.remote.ImgBbUploader
+import com.ningshingche.app.data.remote.KatboxUploader
 import com.ningshingche.app.data.remote.InboxSync
 import com.ningshingche.app.data.remote.SubmittedBlogRecord
 import com.ningshingche.app.data.remote.SupabaseClient
@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import java.util.UUID
 
 data class ReaderMetrics(
@@ -353,9 +354,9 @@ class ReaderWorkspaceViewModel(
         viewModelScope.launch {
             _isSaving.value = true
             _message.value = null
-            val audio = AudioStorageUploader.uploadMp3(context, audioUri, user.id, token).getOrElse {
+            val audio = KatboxUploader.uploadFromUri(context, audioUri).getOrElse {
                 _isSaving.value = false
-                _message.value = it.message ?: "অডিও আপলোড যায়নি।"
+                _message.value = it.message ?: "Catbox-এ অডিও আপলোড যায়নি।"
                 return@launch
             }
             var thumbnail = ""
@@ -380,7 +381,7 @@ class ReaderWorkspaceViewModel(
                 put("thumbnail_url", thumbnail)
                 put("imgbb_delete_url", deleteUrl)
                 put("audio_url", audio.url)
-                put("file_provider", "supabase-storage")
+                put("file_provider", "url")
                 put("file_storage_path", audio.path)
                 put("duration_seconds", audio.durationSeconds)
                 put("file_size_mb", (audio.sizeBytes / 1024.0 / 1024.0).let { kotlin.math.round(it * 100.0) / 100.0 })

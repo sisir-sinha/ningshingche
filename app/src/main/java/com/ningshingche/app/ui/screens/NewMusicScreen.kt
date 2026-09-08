@@ -120,7 +120,7 @@ fun NewMusicScreen(
             }
 
             Text(
-                "শিরোনাম, MP3 ও ঐচ্ছিক কভার/লিরিক জমা দিন। সম্পাদকীয় পর্যালোচনার পর ক্যাটালগে দেখাবে — অথবা অনুমতি থাকলে সঙ্গে সঙ্গে প্রকাশিত হবে।",
+                "MP3 Catbox (katbox API)-এ আপলোড হয়, তাই প্লেয়ারের লিংক মেয়াদ শেষ হয় না। সর্বোচ্চ ২০০ MB।",
                 fontFamily = Kalpurush,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -173,7 +173,10 @@ fun NewMusicScreen(
                 }
             }
             OutlinedButton(onClick = { audioPicker.launch("audio/*") }, modifier = Modifier.fillMaxWidth()) {
-                Text(if (audio == null) "MP3 ফাইল নির্বাচন *" else "MP3 বদলান", fontFamily = Kalpurush)
+                Text(
+                    if (audio == null) "MP3 / অডিও নির্বাচন * (Catbox)" else "অডিও বদলান",
+                    fontFamily = Kalpurush
+                )
             }
             OutlinedTextField(
                 value = description,
