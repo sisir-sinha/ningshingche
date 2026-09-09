@@ -5,24 +5,19 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ningshingche.app.NinghsingCheApp
-import com.ningshingche.app.data.auth.GoogleAuthMapper
 import com.ningshingche.app.data.auth.GoogleAuthRepository
 import com.ningshingche.app.data.remote.AdminMessageRecord
 import com.ningshingche.app.data.remote.CommentRecord
-import com.ningshingche.app.data.remote.AudioStorageUploader
 import com.ningshingche.app.data.remote.ImgBbUploader
 import com.ningshingche.app.data.remote.InboxSync
 import com.ningshingche.app.data.remote.SubmittedBlogRecord
 import com.ningshingche.app.data.remote.SupabaseClient
 import com.ningshingche.app.data.remote.UserNotificationRecord
 import com.ningshingche.app.data.remote.UserProfile
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.json.JSONObject
 import java.util.UUID
 
 data class ReaderMetrics(
@@ -330,106 +325,6 @@ class ReaderWorkspaceViewModel(
             }.onFailure {
                 _message.value = it.message ?: "লেখা জমা যায়নি।"
             }
-            _isSaving.value = false
-        }
-    }
-
-    fun submitMusic(
-        context: Context,
-        title: String,
-        artist: String,
-        album: String,
-        genre: String,
-        description: String,
-        lyrics: String,
-        videoLink: String = "",
-        coverUri: Uri?,
-        audioUri: Uri?
-    ) {
-        val user = currentUser.value ?: return
-        if (!user.isProfileComplete) {
-            _message.value = "গান আপলোড করতে আগে প্রোফাইল সম্পূর্ণ করুন।"
-            return
-        }
-        if (title.isBlank() || audioUri == null) {
-            _message.value = "শিরোনাম ও MP3 ফাইল আবশ্যক।"
-            return
-        }
-        viewModelScope.launch {
-            _isSaving.value = true
-            _message.value = null
-            val token = withContext(Dispatchers.IO) {
-                supabaseClient.validUserJwt()
-                    ?: supabaseClient.getAuthToken()?.takeIf { GoogleAuthMapper.isSupabaseJwt(it) }
-            }
-            if (token.isNullOrBlank() || !GoogleAuthMapper.isSupabaseJwt(token)) {
-                _isSaving.value = false
-                _message.value = "গান আপলোড করতে Google দিয়ে সাইন ইন করুন।"
-                return@launch
-            }
-            val effectiveUserId = GoogleAuthMapper.jwtPayload(token)?.optString("sub")?.takeIf { it.isNotBlank() }
-                ?: user.id
-            val audio = AudioStorageUploader.uploadMp3(
-                context = context,
-                uri = audioUri,
-                userId = effectiveUserId,
-                accessToken = token,
-                refreshAccessToken = { supabaseClient.validUserJwt(force = true) }
-            ).getOrElse {
-                _isSaving.value = false
-                _message.value = GoogleAuthMapper.userFacingJwtError(it.message)
-                    ?: it.message
-                    ?: "Supabase-এ অডিও আপলোড যায়নি।"
-                return@launch
-            }
-            var thumbnail = ""
-            var deleteUrl = ""
-            if (coverUri != null) {
-                val image = ImgBbUploader.uploadFromUri(context, coverUri, "music_${System.currentTimeMillis()}")
-                    .getOrElse {
-                        _isSaving.value = false
-                        _message.value = it.message ?: "কভার আপলোড যায়নি।"
-                        return@launch
-                    }
-                thumbnail = image.displayUrl.ifBlank { image.url }
-                deleteUrl = image.deleteUrl
-            }
-            val trimmedVideo = videoLink.trim()
-            val payload = JSONObject().apply {
-                put("title", title.trim())
-                put("artist", artist.trim())
-                put("album", album.trim())
-                put("genre", genre.trim())
-                put("description", description.trim())
-                put("lyrics", lyrics.trim())
-                if (trimmedVideo.isNotBlank()) put("video_link", trimmedVideo)
-                put("thumbnail_url", thumbnail)
-                put("imgbb_delete_url", deleteUrl)
-                put("audio_url", audio.url)
-                put("file_provider", "supabase-storage")
-                put("file_storage_path", audio.path)
-                put("duration_seconds", audio.durationSeconds)
-                put("file_size_mb", (audio.sizeBytes / 1024.0 / 1024.0).let { kotlin.math.round(it * 100.0) / 100.0 })
-                if (effectiveUserId.length == 36 && runCatching { UUID.fromString(effectiveUserId) }.isSuccess) {
-                    put("user_id", effectiveUserId)
-                }
-            }
-            var result = supabaseClient.insertMusicTrack(payload)
-            if (result.isFailure) {
-                val err = result.exceptionOrNull()?.message.orEmpty().lowercase()
-                listOf("video_link", "user_id", "lyrics").forEach { key ->
-                    if (payload.has(key) && err.contains("column") && err.contains(key)) {
-                        payload.remove(key)
-                        result = supabaseClient.insertMusicTrack(payload)
-                    }
-                }
-            }
-            result
-                .onSuccess {
-                    _message.value = "গান জমা হয়েছে।"
-                    refresh()
-                }
-                .onFailure { _message.value = it.message ?: "গান জমা যায়নি।" }
             _isSaving.value = false
         }
     }

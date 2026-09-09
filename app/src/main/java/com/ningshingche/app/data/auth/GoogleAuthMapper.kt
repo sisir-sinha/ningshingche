@@ -124,26 +124,6 @@ object GoogleAuthMapper {
         }
     }
 
-    fun sessionExpiredMessage(): String =
-        "সেশন শেষ হয়েছে। Google দিয়ে আবার সাইন ইন করে গান আপলোড করুন।"
-
-    fun userFacingJwtError(raw: String?): String? {
-        val text = raw.orEmpty()
-        if (text.contains("exp claim", ignoreCase = true) ||
-            text.contains("iat claim", ignoreCase = true) ||
-            text.contains("nbf claim", ignoreCase = true) ||
-            text.contains("invalid JWT", ignoreCase = true) ||
-            text.contains("jwt expired", ignoreCase = true) ||
-            text.contains("token is expired", ignoreCase = true) ||
-            text.contains("invalid token", ignoreCase = true) ||
-            text.contains("jwt malformed", ignoreCase = true) ||
-            text.contains("JWS Protected Header is invalid", ignoreCase = true)
-        ) {
-            return sessionExpiredMessage()
-        }
-        return null
-    }
-
     fun profileFromAuthUser(user: JSONObject): UserProfile {
         val metadata = user.optJSONObject("user_metadata") ?: JSONObject()
         val email = firstNonBlank(

@@ -40,7 +40,6 @@ import com.ningshingche.app.ui.screens.FeaturedScreen
 import com.ningshingche.app.ui.screens.LoginScreen
 import com.ningshingche.app.ui.screens.NewArticleScreen
 import com.ningshingche.app.data.music.MusicShelfKind
-import com.ningshingche.app.ui.screens.NewMusicScreen
 import com.ningshingche.app.ui.screens.PdfArchiveScreen
 import com.ningshingche.app.ui.screens.PdfViewerScreen
 import com.ningshingche.app.ui.screens.SettingsScreen
@@ -93,7 +92,6 @@ object ReaderRoute {
     const val UserProfile = "user_profile"
     const val UserInbox = "user_inbox"
     const val NewArticle = "new_article"
-    const val NewMusic = "new_music"
     const val Bookmarks = "bookmarks"
     const val PdfArchive = "pdf_archive"
     const val PdfViewer = "pdf_viewer/{pdfId}"
@@ -546,7 +544,6 @@ fun EditorialReaderApp(
                     onBackClick = { navController.popBackStack() },
                     onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) },
                     onNewArticle = { navController.navigate(ReaderRoute.NewArticle) },
-                    onNewMusic = { navController.navigate(ReaderRoute.NewMusic) },
                     onInboxClick = { navController.navigate(ReaderRoute.UserInbox) },
                     onOpenNotice = openUserNotice,
                     onOpenArticle = { article ->
@@ -593,14 +590,6 @@ fun EditorialReaderApp(
 
             composable(ReaderRoute.NewArticle) {
                 NewArticleScreen(
-                    viewModel = workspaceViewModel,
-                    onBackClick = { navController.popBackStack() },
-                    onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) }
-                )
-            }
-
-            composable(ReaderRoute.NewMusic) {
-                NewMusicScreen(
                     viewModel = workspaceViewModel,
                     onBackClick = { navController.popBackStack() },
                     onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) }

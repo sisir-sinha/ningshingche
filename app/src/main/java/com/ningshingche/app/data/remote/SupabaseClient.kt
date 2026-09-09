@@ -134,33 +134,6 @@ class SupabaseClient(private val context: Context) {
 
     fun getAuthToken(): String? = authToken
 
-    /**
-     * User JWT for Storage. Prefer the signed-in access token while it is still
-     * valid. Refresh only when it is near expiry, or force refresh if requested.
-     * A failed refresh does not count as signed-out — the current session token is returned instead.
-     */
-    @Synchronized
-    fun validUserJwt(force: Boolean = false): String? {
-        val current = authToken
-        if (force || current == null || !GoogleAuthMapper.isSupabaseJwt(current)) {
-            val refreshed = refreshAccessTokenLocked()
-            if (refreshed != null) return refreshed
-            if (!force && current != null && GoogleAuthMapper.isSupabaseJwt(current)) return current
-            return null
-        }
-        val jwtExp = jwtExpiryMillis(current)
-        val expiry = when {
-            jwtExp > 0L -> jwtExp
-            expiresAtMillis > 0L -> expiresAtMillis
-            else -> 0L
-        }
-        val nearExpiry = expiry > 0L && System.currentTimeMillis() >= expiry - 120_000L
-        if (nearExpiry) {
-            refreshAccessTokenLocked()?.let { return it }
-        }
-        return current
-    }
-
     @Synchronized
     private fun sessionBearer(): String {
         val key = SupabaseConfig.supabaseKey
@@ -172,7 +145,7 @@ class SupabaseClient(private val context: Context) {
             expiresAtMillis > 0L -> expiresAtMillis
             else -> 0L
         }
-        // Refresh two minutes early so a slow upload still has a valid exp.
+        // Refresh two minutes early so a slow request still has a valid exp.
         if (expiry <= 0L || System.currentTimeMillis() >= expiry - 120_000L) {
             refreshAccessTokenLocked()?.let { return it }
             if (expiry > 0L && System.currentTimeMillis() >= expiry) return key
@@ -1438,58 +1411,6 @@ class SupabaseClient(private val context: Context) {
             sum
         } catch (_: Exception) {
             0
-        }
-    }
-
-    suspend fun insertMusicTrack(payload: JSONObject): Result<JSONObject> = withContext(Dispatchers.IO) {
-        var token = validUserJwt() ?: authToken
-        if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null) {
-            return@withContext Result.failure(Exception("গান আপলোড করতে Google দিয়ে সাইন ইন করুন।"))
-        }
-        try {
-            val url = "${SupabaseConfig.restBaseUrl}/music_tracks"
-            var request = createUserAuthedRequestBuilder(url, token)
-                .addHeader("Prefer", "return=representation")
-                .post(payload.toString().toRequestBody(jsonMediaType))
-                .build()
-            var response = httpClient.newCall(request).execute()
-            var body = response.body?.string().orEmpty()
-
-            if (response.code == 401) {
-                val refreshed = validUserJwt(force = true)
-                if (!refreshed.isNullOrBlank() && refreshed != token) {
-                    token = refreshed
-                    request = createUserAuthedRequestBuilder(url, token)
-                        .addHeader("Prefer", "return=representation")
-                        .post(payload.toString().toRequestBody(jsonMediaType))
-                        .build()
-                    response = httpClient.newCall(request).execute()
-                    body = response.body?.string().orEmpty()
-                }
-            }
-
-            if (!response.isSuccessful) {
-                val parsed = runCatching { JSONObject(body) }.getOrNull()
-                val rawMsg = parsed?.optString("message").orEmpty()
-                val rawDetails = parsed?.optString("details").orEmpty()
-                val combined = "$rawMsg $rawDetails $body"
-                val jwtErr = GoogleAuthMapper.userFacingJwtError(combined)
-                val errorMessage = when {
-                    jwtErr != null -> jwtErr
-                    combined.contains("row-level security", ignoreCase = true) ->
-                        "গান জমা দিতে অনুমতি মেলেনি (RLS)। আবার সাইন ইন করুন।"
-                    rawMsg.isNotBlank() -> "গান সংরক্ষণ যায়নি (${response.code}): $rawMsg"
-                    else -> "গান সংরক্ষণ যায়নি (${response.code})।"
-                }
-                return@withContext Result.failure(Exception(errorMessage))
-            }
-            if (body.startsWith("[")) {
-                val array = JSONArray(body)
-                if (array.length() > 0) return@withContext Result.success(array.getJSONObject(0))
-            }
-            Result.success(payload)
-        } catch (error: Exception) {
-            Result.failure(error)
         }
     }
 

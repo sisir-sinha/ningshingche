@@ -25,7 +25,6 @@ import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -41,7 +40,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -79,7 +77,6 @@ fun UserDashboardScreen(
     onBackClick: () -> Unit,
     onCompleteProfile: () -> Unit,
     onNewArticle: () -> Unit,
-    onNewMusic: () -> Unit = {},
     onInboxClick: () -> Unit = {},
     onOpenNotice: (UserNotificationRecord) -> Unit = {},
     onOpenArticle: (SubmittedBlogRecord) -> Unit = {},
@@ -96,7 +93,6 @@ fun UserDashboardScreen(
     val saving by viewModel.isSaving.collectAsStateWithLifecycle()
     val status by viewModel.message.collectAsStateWithLifecycle()
     var tab by remember { mutableIntStateOf(0) }
-    var createChoice by remember { mutableStateOf(false) }
 
     LaunchedEffect(user?.id) {
         if (user != null) viewModel.refresh()
@@ -126,11 +122,11 @@ fun UserDashboardScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    if (user?.isProfileComplete == true) createChoice = true else onCompleteProfile()
+                    if (user?.isProfileComplete == true) onNewArticle() else onCompleteProfile()
                 },
                 modifier = Modifier.testTag("user_dashboard_new_article")
             ) {
-                Icon(Icons.Default.Add, contentDescription = "নতুন")
+                Icon(Icons.Default.Add, contentDescription = "নতুন প্রবন্ধ")
             }
         }
     ) { padding ->
@@ -266,25 +262,6 @@ fun UserDashboardScreen(
         }
     }
 
-    if (createChoice) {
-        AlertDialog(
-            onDismissRequest = { createChoice = false },
-            title = { Text("নতুন কী যোগ করবেন?", fontFamily = Kalpurush, fontWeight = FontWeight.Bold) },
-            text = { Text("প্রবন্ধ লিখুন অথবা গান আপলোড করুন।", fontFamily = Kalpurush) },
-            confirmButton = {
-                TextButton(onClick = {
-                    createChoice = false
-                    onNewArticle()
-                }) { Text("নতুন প্রবন্ধ", fontFamily = Kalpurush, fontWeight = FontWeight.Bold) }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    createChoice = false
-                    onNewMusic()
-                }) { Text("নতুন গান", fontFamily = Kalpurush, fontWeight = FontWeight.Bold) }
-            }
-        )
-    }
 }
 
 @Composable
