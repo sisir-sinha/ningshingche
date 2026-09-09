@@ -7,8 +7,12 @@ import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.Renderer
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.video.VideoRendererEventListener
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.ningshingche.app.MainActivity
@@ -27,7 +31,22 @@ class MusicPlaybackService : MediaSessionService() {
     @OptIn(UnstableApi::class)
     override fun onCreate() {
         super.onCreate()
-        val player = ExoPlayer.Builder(this)
+        val renderersFactory = object : DefaultRenderersFactory(this) {
+            override fun buildVideoRenderers(
+                context: android.content.Context,
+                extensionRendererMode: Int,
+                mediaCodecSelector: MediaCodecSelector,
+                enableDecoderFallback: Boolean,
+                eventHandler: android.os.Handler,
+                eventListener: VideoRendererEventListener,
+                allowedVideoJoiningTimeMs: Long,
+                out: java.util.ArrayList<Renderer>
+            ) {
+                // Audio-only service: avoid querying video codec interfaces
+            }
+        }.setEnableDecoderFallback(true)
+
+        val player = ExoPlayer.Builder(this, renderersFactory)
             .setMediaSourceFactory(
                 DefaultMediaSourceFactory(this).setDataSourceFactory(MusicStreamCache.dataSourceFactory(this))
             )
