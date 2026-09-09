@@ -392,7 +392,23 @@
         thumbnail: ''
       };
     }
-    return { provider: 'Video Link', url, id: '', embedUrl: '', thumbnail: '' };
+    if (host.endsWith('vimeo.com')) {
+      const id = parsed.pathname.match(/(?:video\/)?(\d+)/)?.[1] || '';
+      return {
+        provider: 'Vimeo', url, id,
+        embedUrl: id ? `https://player.vimeo.com/video/${encodeURIComponent(id)}` : '',
+        thumbnail: ''
+      };
+    }
+    if (host.endsWith('dailymotion.com')) {
+      const id = parsed.pathname.match(/(?:embed\/)?video\/([A-Za-z0-9]+)/)?.[1] || '';
+      return {
+        provider: 'Dailymotion', url, id,
+        embedUrl: id ? `https://www.dailymotion.com/embed/video/${encodeURIComponent(id)}` : '',
+        thumbnail: ''
+      };
+    }
+    return { provider: 'Video Link', url, id: '', embedUrl: url, thumbnail: '' };
   }
 
   function videoPreviewHTML(value, options = {}) {

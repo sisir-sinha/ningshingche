@@ -511,15 +511,24 @@ class PortalRepository(
     suspend fun musicTracks(limit: Int = 50, forceRefresh: Boolean = false): Result<List<MusicTrack>> =
         withContext(Dispatchers.IO) {
             cached("music-$limit", musicCache, TTL_REFERENCE, forceRefresh) {
-                val withLyrics = callList {
-                    api.musicTracks(select = PortalApi.MUSIC_COLUMNS_WITH_LYRICS, limit = limit)
+                val withVideo = callList {
+                    api.musicTracks(select = PortalApi.MUSIC_COLUMNS_WITH_VIDEO, limit = limit)
                 }
-                val rows = if (withLyrics.isSuccess) {
-                    withLyrics.getOrThrow()
-                } else if (withLyrics.exceptionOrNull() is PortalError.SchemaMissing) {
-                    callList { api.musicTracks(limit = limit) }.getOrThrow()
+                val rows = if (withVideo.isSuccess) {
+                    withVideo.getOrThrow()
+                } else if (withVideo.exceptionOrNull() is PortalError.SchemaMissing) {
+                    val withLyrics = callList {
+                        api.musicTracks(select = PortalApi.MUSIC_COLUMNS_WITH_LYRICS, limit = limit)
+                    }
+                    if (withLyrics.isSuccess) {
+                        withLyrics.getOrThrow()
+                    } else if (withLyrics.exceptionOrNull() is PortalError.SchemaMissing) {
+                        callList { api.musicTracks(limit = limit) }.getOrThrow()
+                    } else {
+                        throw withLyrics.exceptionOrNull() ?: PortalError.Unknown()
+                    }
                 } else {
-                    throw withLyrics.exceptionOrNull() ?: PortalError.Unknown()
+                    throw withVideo.exceptionOrNull() ?: PortalError.Unknown()
                 }
                 rows.map { it.toItem() }.filter { it.hasPlayableSource() }
             }

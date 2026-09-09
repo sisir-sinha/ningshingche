@@ -2,7 +2,7 @@
   'use strict';
 
   const { escapeHTML, formatDate, formData, validateFields, debounce, safeImage } = NC.utils;
-  const state = new NC.crud.ListState('music', { searchFields: ['title', 'artist', 'album', 'genre', 'description'], sortKey: 'created_at' });
+  const state = new NC.crud.ListState('music', { searchFields: ['title', 'artist', 'album', 'genre', 'description', 'video_link'], sortKey: 'created_at' });
   let root;
 
   function durationLabel(seconds) {
@@ -56,7 +56,7 @@
   function openView(record) {
     NC.components.openModal({
       title: record.title, eyebrow: [record.artist, record.album].filter(Boolean).join(' · ') || 'Music', size: 'lg',
-      content: `${record.thumbnail_url ? `<img src="${escapeHTML(record.thumbnail_url)}" alt="" style="width:120px;height:120px;object-fit:cover;border-radius:16px;margin-bottom:16px;" referrerpolicy="no-referrer">` : ''}<audio controls preload="metadata" src="${escapeHTML(record.audio_url)}" style="width:100%"></audio>${record.description ? `<div class="prose-content mt-5"><p>${escapeHTML(record.description)}</p></div>` : ''}`,
+      content: `${record.thumbnail_url ? `<img src="${escapeHTML(record.thumbnail_url)}" alt="" style="width:120px;height:120px;object-fit:cover;border-radius:16px;margin-bottom:16px;" referrerpolicy="no-referrer">` : ''}<audio controls preload="metadata" src="${escapeHTML(record.audio_url)}" style="width:100%"></audio>${record.video_link ? `<div class="mt-5">${NC.media.videoPreviewHTML(record.video_link, { title: record.title })}</div>` : ''}${record.description ? `<div class="prose-content mt-5"><p>${escapeHTML(record.description)}</p></div>` : ''}`,
       footer: '<button type="button" class="btn btn-secondary" data-modal-close>Close</button><button type="button" class="btn btn-primary" data-track-edit><i class="fa-regular fa-pen" aria-hidden="true"></i>Edit track</button>',
       onOpen: (modalRoot) => modalRoot.querySelector('[data-track-edit]').addEventListener('click', () => { NC.components.closeModal(); window.setTimeout(() => openForm(record), 180); })
     });
@@ -77,6 +77,8 @@
         </div>
         ${NC.media.imageUploaderHTML({ id: 'track-cover', label: 'Cover / thumbnail', hint: 'Square artwork looks best in the mini player and notification.' })}
         ${NC.media.audioUploaderHTML({ id: 'track-audio', label: 'MP3 file' })}
+        <div class="field"><label class="field-label" for="track-video">Video link</label><input class="form-input" type="url" id="track-video" name="video_link" value="${escapeHTML(record?.video_link || '')}" placeholder="https://www.youtube.com/watch?v=…"><p class="field-error hidden" data-field-error="video_link"></p><span class="field-hint">Optional. YouTube, Facebook, Instagram, Vimeo, or any iframe embed URL. The app shows a video icon on the thumbnail.</span></div>
+        <div data-track-video-preview class="mt-2">${record?.video_link ? NC.media.videoPreviewHTML(record.video_link, { title: record.title }) : ''}</div>
         <div class="field"><label class="field-label" for="track-description">Description</label><textarea class="form-textarea min-h-28" id="track-description" name="description">${escapeHTML(record?.description || '')}</textarea></div>
         <div class="field"><label class="field-label" for="track-lyrics">Lyrics</label><textarea class="form-textarea min-h-40" id="track-lyrics" name="lyrics" placeholder="Optional. Shown in the app player.">${escapeHTML(record?.lyrics || '')}</textarea></div>
       </form>`,
@@ -89,12 +91,23 @@
         const audio = NC.media.mountAudioUploader(modalRoot, {
           initial: record ? { url: record.audio_url, path: record.file_storage_path, provider: record.file_provider, size: Number(record.file_size_mb || 0) * 1024 * 1024, duration_seconds: record.duration_seconds } : null
         });
+        const videoInput = modalRoot.querySelector('#track-video');
+        const videoPreview = modalRoot.querySelector('[data-track-video-preview]');
+        const refreshVideoPreview = () => {
+          const link = (videoInput?.value || '').trim();
+          if (!videoPreview) return;
+          videoPreview.innerHTML = link ? NC.media.videoPreviewHTML(link, { title: form.querySelector('#track-title')?.value || 'Video' }) : '';
+        };
+        videoInput?.addEventListener('input', debounce(refreshVideoPreview, 280));
+        videoInput?.addEventListener('change', refreshVideoPreview);
         form.addEventListener('submit', async (event) => {
           event.preventDefault();
           const data = formData(form);
           const audioValue = audio.getValue();
+          const videoLink = (data.video_link || '').trim();
           const errors = {
-            title: data.title ? '' : 'Track title is required.'
+            title: data.title ? '' : 'Track title is required.',
+            video_link: videoLink && !NC.utils.isValidUrl(videoLink, { allowEmpty: false }) ? 'Enter a valid video URL.' : ''
           };
           if (!validateFields(form, errors) || !audio.validate() || cover.isUploading() || audio.isUploading()) {
             if (cover.isUploading() || audio.isUploading()) NC.components.toast('Wait for all uploads to finish.', 'warning');
@@ -110,6 +123,7 @@
               genre: data.genre,
               description: data.description,
               lyrics: data.lyrics || '',
+              video_link: videoLink,
               thumbnail_url: image.url || '',
               imgbb_delete_url: image.delete_url || '',
               image_meta: {

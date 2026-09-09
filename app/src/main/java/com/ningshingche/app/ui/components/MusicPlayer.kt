@@ -2,6 +2,9 @@ package com.ningshingche.app.ui.components
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -59,6 +62,7 @@ import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -93,6 +97,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -104,6 +109,7 @@ import com.ningshingche.app.playback.MusicPlayerUiState
 import com.ningshingche.app.playback.RepeatMode
 import com.ningshingche.app.ui.editorial.EditorialImage
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
+import com.ningshingche.app.ui.editorial.SocialEmbedPlayer
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.theme.PortalMaroon
 import com.ningshingche.app.ui.theme.PortalSaffron
@@ -378,6 +384,7 @@ private fun FullMusicPlayer(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
+                userScrollEnabled = !state.showVideo,
                 beyondViewportPageCount = 1
             ) { page ->
                 val pageTrack = queue.getOrNull(page) ?: track
@@ -416,82 +423,14 @@ private fun FullMusicPlayer(
                             modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
                         )
                     }
-                    Box(
-                        modifier = Modifier
-                            .padding(horizontal = 28.dp)
-                            .fillMaxWidth()
-                            .aspectRatio(1f)
-                            .shadow(24.dp, RoundedCornerShape(28.dp))
-                            .pointerInput(pageTrack.id) {
-                                detectTapGestures(
-                                    onDoubleTap = { offset ->
-                                        val third = size.width / 3f
-                                        when {
-                                            offset.x < third -> {
-                                                controller.seekBy(-5_000L)
-                                                gestureHint = "Backward -5s"
-                                            }
-                                            offset.x > third * 2f -> {
-                                                controller.seekBy(5_000L)
-                                                gestureHint = "Forward +5s"
-                                            }
-                                            else -> controller.togglePlayPause()
-                                        }
-                                    }
-                                )
-                            }
-                    ) {
-                        CoverArt(
-                            url = pageTrack.thumbnailUrl,
-                            modifier = Modifier.fillMaxSize(),
-                            corner = 28.dp
-                        )
-                        if (state.showLyrics && pageTrack.id == track.id) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(RoundedCornerShape(28.dp))
-                                    .background(Color(0x99000000))
-                                    .padding(16.dp)
-                            ) {
-                                Text(
-                                    text = pageTrack.lyrics.ifBlank { "এই গানের লিরিক এখনো যোগ করা হয়নি।" },
-                                    fontFamily = Kalpurush,
-                                    color = Color.White,
-                                    fontSize = 16.sp,
-                                    lineHeight = 26.sp,
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .verticalScroll(rememberScrollState())
-                                )
-                            }
-                        }
-                        if (state.isBuffering && pageTrack.id == track.id) {
-                            CircularProgressIndicator(
-                                color = PortalSaffron,
-                                strokeWidth = 2.dp,
-                                modifier = Modifier
-                                    .align(Alignment.Center)
-                                    .size(36.dp)
-                            )
-                        }
-                        gestureHint?.let { hint ->
-                            Surface(
-                                color = Color.Black.copy(alpha = 0.62f),
-                                shape = RoundedCornerShape(20.dp),
-                                modifier = Modifier.align(Alignment.Center)
-                            ) {
-                                Text(
-                                    text = hint,
-                                    color = Color.White,
-                                    fontFamily = Kalpurush,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
-                                )
-                            }
-                        }
-                    }
+                    TrackCoverCanvas(
+                        pageTrack = pageTrack,
+                        isCurrent = pageTrack.id == track.id,
+                        state = state,
+                        controller = controller,
+                        gestureHint = gestureHint,
+                        onGestureHint = { gestureHint = it }
+                    )
                 }
             }
 
@@ -870,6 +809,7 @@ private fun PlayerSheets(
                         DetailLine("শিল্পী", track.artist.ifBlank { "নিংশিং চে" })
                         if (track.album.isNotBlank()) DetailLine("অ্যালবাম", track.album)
                         if (track.genre.isNotBlank()) DetailLine("ধরন", track.genre)
+                        if (track.videoLink.isNotBlank()) DetailLine("ভিডিও", track.videoLink)
                         if (track.durationSeconds > 0) DetailLine("সময়", formatMs(track.durationSeconds * 1000L))
                         if (track.description.isNotBlank()) {
                             Spacer(Modifier.height(8.dp))
@@ -969,6 +909,164 @@ private fun QueueRow(
         }
         if (selected && playing) {
             Icon(Icons.Default.MusicNote, null, tint = PortalSaffron, modifier = Modifier.size(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun TrackCoverCanvas(
+    pageTrack: MusicTrack,
+    isCurrent: Boolean,
+    state: MusicPlayerUiState,
+    controller: MusicController,
+    gestureHint: String?,
+    onGestureHint: (String) -> Unit
+) {
+    val showVideo = isCurrent && state.showVideo && pageTrack.hasVideo()
+    val rotation by animateFloatAsState(
+        targetValue = if (showVideo) 180f else 0f,
+        animationSpec = tween(durationMillis = 520, easing = FastOutSlowInEasing),
+        label = "coverFlip"
+    )
+    val density = LocalDensity.current.density
+    val camera = 18f * density
+    var keepVideo by remember(pageTrack.id) { mutableStateOf(false) }
+    LaunchedEffect(showVideo) {
+        if (showVideo) keepVideo = true
+    }
+    LaunchedEffect(rotation, showVideo) {
+        if (!showVideo && rotation < 2f) keepVideo = false
+    }
+
+    Box(
+        modifier = Modifier
+            .padding(horizontal = 28.dp)
+            .fillMaxWidth()
+            .aspectRatio(1f)
+            .shadow(24.dp, RoundedCornerShape(28.dp))
+            .clip(RoundedCornerShape(28.dp))
+            .pointerInput(pageTrack.id, showVideo) {
+                if (showVideo) return@pointerInput
+                detectTapGestures(
+                    onDoubleTap = { offset ->
+                        val third = size.width / 3f
+                        when {
+                            offset.x < third -> {
+                                controller.seekBy(-5_000L)
+                                onGestureHint("Backward -5s")
+                            }
+                            offset.x > third * 2f -> {
+                                controller.seekBy(5_000L)
+                                onGestureHint("Forward +5s")
+                            }
+                            else -> controller.togglePlayPause()
+                        }
+                    }
+                )
+            }
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    rotationY = rotation
+                    cameraDistance = camera
+                    alpha = if (rotation <= 90f) 1f else 0f
+                }
+        ) {
+            CoverArt(
+                url = pageTrack.thumbnailUrl,
+                modifier = Modifier.fillMaxSize(),
+                corner = 28.dp
+            )
+            if (state.showLyrics && isCurrent && !showVideo) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(28.dp))
+                        .background(Color(0x99000000))
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = pageTrack.lyrics.ifBlank { "এই গানের লিরিক এখনো যোগ করা হয়নি।" },
+                        fontFamily = Kalpurush,
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        lineHeight = 26.sp,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                    )
+                }
+            }
+        }
+
+        if (keepVideo || rotation > 90f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        rotationY = rotation - 180f
+                        cameraDistance = camera
+                        alpha = if (rotation > 90f) 1f else 0f
+                    }
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(Color.Black)
+            ) {
+                if (keepVideo || showVideo) {
+                    SocialEmbedPlayer(
+                        url = pageTrack.videoLink,
+                        modifier = Modifier.fillMaxSize(),
+                        autoplay = true
+                    )
+                }
+            }
+        }
+
+        if (state.isBuffering && isCurrent && !showVideo) {
+            CircularProgressIndicator(
+                color = PortalSaffron,
+                strokeWidth = 2.dp,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(36.dp)
+            )
+        }
+        gestureHint?.takeIf { isCurrent && !showVideo }?.let { hint ->
+            Surface(
+                color = Color.Black.copy(alpha = 0.62f),
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier.align(Alignment.Center)
+            ) {
+                Text(
+                    text = hint,
+                    color = Color.White,
+                    fontFamily = Kalpurush,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                )
+            }
+        }
+        if (pageTrack.hasVideo() && isCurrent) {
+            Surface(
+                onClick = controller::toggleVideo,
+                shape = CircleShape,
+                color = Color.Black.copy(alpha = 0.55f),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(12.dp)
+                    .size(44.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = if (showVideo) Icons.Default.MusicNote else Icons.Default.Videocam,
+                        contentDescription = if (showVideo) "অডিওতে ফিরুন" else "ভিডিও চালান",
+                        tint = PortalSaffron,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
         }
     }
 }

@@ -53,6 +53,7 @@ data class MusicPlayerUiState(
     val offline: Boolean = false,
     val downloading: Boolean = false,
     val showLyrics: Boolean = false,
+    val showVideo: Boolean = false,
     val sleepUntilMs: Long? = null,
     val statusMessage: String? = null,
     val error: String? = null
@@ -72,6 +73,7 @@ class MusicController(
     private var sleepJob: Job? = null
     private var pending: (() -> Unit)? = null
     private var retriedStorage = false
+    private var resumeAfterVideo = false
 
     private val _state = MutableStateFlow(MusicPlayerUiState())
     val state: StateFlow<MusicPlayerUiState> = _state.asStateFlow()
@@ -149,7 +151,8 @@ class MusicController(
                 queue = list,
                 error = null,
                 statusMessage = null,
-                showLyrics = false
+                showLyrics = false,
+                showVideo = false
             )
         }
         refreshTrackFlags(list.getOrNull(index) ?: track)
@@ -170,15 +173,21 @@ class MusicController(
     }
 
     fun togglePlayPause() {
+        if (_state.value.showVideo) {
+            hideVideo(resumeAudio = true)
+            return
+        }
         val player = controller ?: return
         if (player.isPlaying) player.pause() else player.play()
     }
 
     fun skipNext() {
+        hideVideo(resumeAudio = false)
         controller?.seekToNextMediaItem()
     }
 
     fun skipPrevious() {
+        hideVideo(resumeAudio = false)
         val player = controller ?: return
         if (player.currentPosition > 3_000L) {
             player.seekTo(0L)
@@ -222,9 +231,10 @@ class MusicController(
         val queue = _state.value.queue
         val index = queue.indexOfFirst { it.id == track.id }
         if (index >= 0) {
+            hideVideo(resumeAudio = false)
             controller?.seekToDefaultPosition(index)
             controller?.play()
-            _state.update { it.copy(track = track, expanded = true, error = null) }
+            _state.update { it.copy(track = track, expanded = true, error = null, showVideo = false) }
             refreshTrackFlags(track)
         } else {
             play(track, queue.ifEmpty { listOf(track) })
@@ -270,7 +280,28 @@ class MusicController(
     }
 
     fun toggleLyrics() {
+        if (_state.value.showVideo) hideVideo(resumeAudio = false)
         _state.update { it.copy(showLyrics = !it.showLyrics) }
+    }
+
+    fun toggleVideo() {
+        val track = _state.value.track ?: return
+        if (track.videoLink.isBlank()) return
+        if (_state.value.showVideo) {
+            hideVideo(resumeAudio = true)
+            return
+        }
+        resumeAfterVideo = _state.value.isPlaying
+        controller?.pause()
+        _state.update { it.copy(showVideo = true, showLyrics = false) }
+    }
+
+    fun hideVideo(resumeAudio: Boolean = false) {
+        if (!_state.value.showVideo) return
+        val shouldResume = resumeAudio && resumeAfterVideo
+        resumeAfterVideo = false
+        _state.update { it.copy(showVideo = false) }
+        if (shouldResume) controller?.play()
     }
 
     fun toggleLike() {

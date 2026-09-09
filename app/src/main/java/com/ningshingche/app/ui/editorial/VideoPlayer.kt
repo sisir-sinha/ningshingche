@@ -51,37 +51,45 @@ import java.net.URLEncoder
 
 /** Matches the video id in every YouTube URL shape we store: watch?v=, /shorts/, /embed/, youtu.be/, /live/. */
 private val YOUTUBE_ID = Regex("""(?:v=|/shorts/|/embed/|/live/|youtu\.be/)([A-Za-z0-9_-]{11})""")
+private val VIMEO_ID = Regex("""(?:vimeo\.com/(?:video/)?|player\.vimeo\.com/video/)(\d+)""")
+private val DAILYMOTION_ID = Regex("""dailymotion\.com/(?:embed/)?video/([A-Za-z0-9]+)""")
 
 /**
- * Builds the embeddable player URL for a stored video.
- *
- * YouTube links are rewritten to the `/embed/<id>` iframe endpoint, which is the only
- * form that plays inline in a WebView. Facebook has no direct video file endpoint, so its
- * official `plugins/video.php` embed is used instead.
- *
- * Note: Facebook deliberately degrades inside embedded browsers and may show a login
- * wall. That is a Facebook policy, not a bug here — hence the "open in browser" affordance
- * in [VideoPlayerDialog].
+ * Builds the embeddable iframe URL for a social video link (YouTube, Facebook,
+ * Instagram, Vimeo, Dailymotion, or any host that already serves an embed page).
  */
-internal fun embedUrlFor(video: VideoItem): String {
-    val isYouTube = video.platform.contains("youtube", ignoreCase = true) ||
-        video.url.contains("youtube", ignoreCase = true) ||
-        video.url.contains("youtu.be", ignoreCase = true)
+internal fun embedUrlFor(url: String, autoplay: Boolean = true): String {
+    val trimmed = url.trim()
+    if (trimmed.isBlank()) return trimmed
+    val autoFlag = if (autoplay) "1" else "0"
 
-    if (isYouTube) {
-        val id = YOUTUBE_ID.find(video.url)?.groupValues?.getOrNull(1)
-        if (id != null) {
-            // playsinline=1 keeps playback in the page instead of handing off to the
-            // YouTube app; fs=1 keeps the fullscreen control usable.
-            return "https://www.youtube.com/embed/$id" +
-                "?autoplay=1&rel=0&playsinline=1&modestbranding=1&fs=1"
+    YOUTUBE_ID.find(trimmed)?.groupValues?.getOrNull(1)?.let { id ->
+        return "https://www.youtube.com/embed/$id" +
+            "?autoplay=$autoFlag&rel=0&playsinline=1&modestbranding=1&fs=1"
+    }
+    VIMEO_ID.find(trimmed)?.groupValues?.getOrNull(1)?.let { id ->
+        return "https://player.vimeo.com/video/$id?autoplay=$autoFlag&playsinline=1"
+    }
+    DAILYMOTION_ID.find(trimmed)?.groupValues?.getOrNull(1)?.let { id ->
+        return "https://www.dailymotion.com/embed/video/$id?autoplay=$autoFlag"
+    }
+    if (trimmed.contains("instagram.com", ignoreCase = true)) {
+        val path = trimmed.substringAfter("instagram.com").substringBefore("?").trimEnd('/')
+        return if (path.endsWith("/embed")) {
+            "https://www.instagram.com$path/"
+        } else {
+            "https://www.instagram.com$path/embed/"
         }
     }
-
-    val encoded = URLEncoder.encode(video.url, "UTF-8")
-    return "https://www.facebook.com/plugins/video.php" +
-        "?href=$encoded&show_text=false&autoplay=true&mute=0&width=560"
+    if (trimmed.contains("facebook.com", ignoreCase = true) || trimmed.contains("fb.watch", ignoreCase = true)) {
+        val encoded = URLEncoder.encode(trimmed, "UTF-8")
+        return "https://www.facebook.com/plugins/video.php" +
+            "?href=$encoded&show_text=false&autoplay=${if (autoplay) "true" else "false"}&mute=0&width=560"
+    }
+    return trimmed
 }
+
+internal fun embedUrlFor(video: VideoItem): String = embedUrlFor(video.url, autoplay = true)
 
 private fun playerHtml(src: String): String = """
     <!DOCTYPE html>
@@ -120,15 +128,73 @@ private const val PLAYER_UA =
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
+fun SocialEmbedPlayer(
+    url: String,
+    modifier: Modifier = Modifier,
+    autoplay: Boolean = true
+) {
+    val html = remember(url, autoplay) { playerHtml(embedUrlFor(url, autoplay)) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var webView: WebView? by remember { mutableStateOf(null) }
+
+    AndroidView(
+        factory = { context ->
+            WebView(context).apply {
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+                setBackgroundColor(AndroidColor.BLACK)
+                settings.apply {
+                    javaScriptEnabled = true
+                    domStorageEnabled = true
+                    mediaPlaybackRequiresUserGesture = false
+                    useWideViewPort = true
+                    loadWithOverviewMode = true
+                    builtInZoomControls = false
+                    displayZoomControls = false
+                    mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                    userAgentString = PLAYER_UA
+                }
+                webViewClient = WebViewClient()
+                webChromeClient = WebChromeClient()
+                loadDataWithBaseURL("https://ningshingche.com/", html, "text/html", "utf-8", null)
+                webView = this
+            }
+        },
+        modifier = modifier,
+        onRelease = { view ->
+            view.stopLoading()
+            view.loadUrl("about:blank")
+            view.webChromeClient = null
+            view.destroy()
+            webView = null
+        }
+    )
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_PAUSE -> webView?.onPause()
+                Lifecycle.Event.ON_RESUME -> webView?.onResume()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            webView?.onPause()
+        }
+    }
+}
+
+@SuppressLint("SetJavaScriptEnabled")
+@Composable
 fun VideoPlayerDialog(
     video: VideoItem,
     onDismiss: () -> Unit,
     onOpenExternal: (String) -> Unit
 ) {
-    val html = remember(video.id) { playerHtml(embedUrlFor(video)) }
-    val lifecycleOwner = LocalLifecycleOwner.current
-    var webView: WebView? by remember { mutableStateOf(null) }
-
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
@@ -138,52 +204,11 @@ fun VideoPlayerDialog(
         )
     ) {
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-            AndroidView(
-                factory = { context ->
-                    WebView(context).apply {
-                        layoutParams = ViewGroup.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
-                        )
-                        setBackgroundColor(AndroidColor.BLACK)
-                        settings.apply {
-                            javaScriptEnabled = true
-                            domStorageEnabled = true
-                            // Required for the autoplay=1 query parameter to take effect.
-                            mediaPlaybackRequiresUserGesture = false
-                            useWideViewPort = true
-                            loadWithOverviewMode = true
-                            builtInZoomControls = false
-                            displayZoomControls = false
-                            mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-                            userAgentString = PLAYER_UA
-                        }
-                        webViewClient = WebViewClient()
-                        // Needed so the iframe can go fullscreen.
-                        webChromeClient = WebChromeClient()
-                        loadDataWithBaseURL("https://ningshingche.com/", html, "text/html", "utf-8", null)
-                        webView = this
-                    }
-                },
+            SocialEmbedPlayer(
+                url = video.url,
                 modifier = Modifier.fillMaxSize(),
-                onRelease = { view ->
-                    view.stopLoading()
-                    view.webChromeClient = null
-                    view.destroy()
-                }
+                autoplay = true
             )
-
-            DisposableEffect(lifecycleOwner) {
-                val observer = LifecycleEventObserver { _, event ->
-                    when (event) {
-                        Lifecycle.Event.ON_PAUSE -> webView?.onPause()
-                        Lifecycle.Event.ON_RESUME -> webView?.onResume()
-                        else -> Unit
-                    }
-                }
-                lifecycleOwner.lifecycle.addObserver(observer)
-                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-            }
 
             // Header: title with a close button and a manual escape hatch to the browser.
             Row(
