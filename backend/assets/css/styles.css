@@ -208,6 +208,41 @@ a { color: inherit; }
 .input-prefix > span { display: inline-flex; align-items: center; border: 1px solid var(--border-strong); border-right: 0; border-radius: 11px 0 0 11px; padding: 0 11px; background: var(--surface-subtle); color: var(--muted-foreground); font-size: .82rem; }
 .input-prefix .form-input { border-radius: 0 11px 11px 0 !important; }
 .input-with-action { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.combo-box { position: relative; }
+.combo-box-shell {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  min-height: 44px; border: 1px solid var(--border-strong); border-radius: 11px;
+  padding: 6px 10px; background: var(--input); cursor: text;
+}
+.combo-box-shell:hover { border-color: var(--faint); }
+.combo-box-shell.is-open, .combo-box-shell:focus-within {
+  border-color: var(--brand); outline: 0; box-shadow: 0 0 0 3px rgba(139, 92, 246, .14);
+}
+.combo-chip {
+  display: inline-flex; align-items: center; gap: 4px; max-width: 100%;
+  border: 1px solid var(--border); border-radius: 999px; padding: 3px 6px 3px 10px;
+  background: var(--brand-soft); color: var(--brand); font-size: .74rem; font-weight: 650;
+}
+.combo-chip button {
+  display: inline-grid; width: 18px; height: 18px; place-items: center;
+  border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer;
+}
+.combo-chip button:hover { background: color-mix(in srgb, var(--brand) 16%, transparent); }
+.combo-box-shell input {
+  flex: 1 1 140px; min-width: 96px; min-height: 28px; border: 0; padding: 4px 0;
+  background: transparent; color: var(--foreground); outline: 0; box-shadow: none;
+}
+.combo-menu {
+  position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px);
+  max-height: 240px; overflow: auto; border: 1px solid var(--border);
+  border-radius: 11px; background: var(--surface-raised); box-shadow: var(--shadow-md);
+}
+.combo-option {
+  display: block; width: 100%; border: 0; padding: 9px 12px; background: transparent;
+  color: var(--foreground); font-size: .82rem; text-align: left; cursor: pointer;
+}
+.combo-option:hover, .combo-option.is-active { background: var(--brand-soft); color: var(--brand); }
+.combo-option:disabled { opacity: .45; cursor: default; }
 .simple-checkbox { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; color: var(--muted-foreground); font-size: .82rem; }
 .simple-checkbox input { width: 16px; height: 16px; border-color: var(--border-strong); border-radius: 5px; color: var(--brand-strong); }
 .check-card, .check-row { display: flex; align-items: flex-start; gap: 11px; cursor: pointer; }

@@ -3,7 +3,144 @@
 
   const { escapeHTML, formatDate, formData, validateFields, debounce, safeImage } = NC.utils;
   const state = new NC.crud.ListState('music', { searchFields: ['title', 'artist', 'album', 'genre', 'description', 'video_link'], sortKey: 'created_at' });
+  const GENRES = [
+    'লোকগীতি', 'প্রেম', 'বিরহ', 'নৃত্য', 'পালা-কীর্তন', 'ভজন',
+    'রাস', 'রাখুয়াল', 'আরতী', 'সরাত', 'ধ্রুমেল', 'হোলি কীর্তন',
+    'পল্লী', 'আধ্যাত্মিক', 'উৎসব', 'দেশাত্মবোধক', 'শিশু',
+    'ঐতিহ্যবাহী', 'আধুনিক', 'চলচ্চিত্র', 'ফোক-ফিউশন', 'রিমিক্স',
+    'বাদ্যযন্ত্র', 'রক'
+  ];
   let root;
+
+  function parseGenres(value) {
+    return String(value || '').split(/[,،;\t\n]+/).map((item) => item.trim()).filter(Boolean)
+      .filter((item, index, list) => list.findIndex((other) => other.toLowerCase() === item.toLowerCase()) === index);
+  }
+
+  function genreBadges(value) {
+    const items = parseGenres(value);
+    if (!items.length) return '—';
+    return `<div class="badge-wrap">${items.map((item) => NC.components.statusBadge(item)).join('')}</div>`;
+  }
+
+  function mountGenreCombobox(root, initial) {
+    const box = root.querySelector('[data-genre-combo]');
+    if (!box) return { getValue: () => '' };
+    const hidden = box.querySelector('[data-genre-value]');
+    const shell = box.querySelector('[data-genre-shell]');
+    const input = box.querySelector('.combo-query');
+    const menu = box.querySelector('[data-genre-menu]');
+    let selected = parseGenres(initial);
+    let active = -1;
+
+    function syncHidden() {
+      hidden.value = selected.join(', ');
+    }
+
+    function renderChips() {
+      shell.querySelectorAll('.combo-chip').forEach((node) => node.remove());
+      selected.forEach((genre, index) => {
+        const chip = document.createElement('span');
+        chip.className = 'combo-chip';
+        chip.innerHTML = `${escapeHTML(genre)}<button type="button" aria-label="Remove ${escapeHTML(genre)}">&times;</button>`;
+        chip.querySelector('button').addEventListener('click', (event) => {
+          event.preventDefault();
+          selected.splice(index, 1);
+          syncHidden(); renderChips(); renderMenu();
+          input.focus();
+        });
+        shell.insertBefore(chip, input);
+      });
+      syncHidden();
+    }
+
+    function addToken(raw) {
+      parseGenres(raw).forEach((item) => {
+        if (!selected.some((genre) => genre.toLowerCase() === item.toLowerCase())) selected.push(item);
+      });
+      input.value = '';
+      active = -1;
+      renderChips();
+      renderMenu();
+    }
+
+    function filtered() {
+      const needle = input.value.trim().toLowerCase();
+      return GENRES.filter((item) =>
+        !selected.some((genre) => genre.toLowerCase() === item.toLowerCase()) &&
+        (!needle || item.toLowerCase().includes(needle))
+      );
+    }
+
+    function renderMenu() {
+      const options = filtered();
+      if (!options.length) {
+        menu.classList.add('hidden');
+        menu.innerHTML = '';
+        shell.classList.remove('is-open');
+        return;
+      }
+      menu.innerHTML = options.map((item, index) =>
+        `<button type="button" class="combo-option${index === active ? ' is-active' : ''}" role="option">${escapeHTML(item)}</button>`
+      ).join('');
+      menu.classList.remove('hidden');
+      shell.classList.add('is-open');
+      menu.querySelectorAll('.combo-option').forEach((button) => {
+        button.addEventListener('mousedown', (event) => event.preventDefault());
+        button.addEventListener('click', () => addToken(button.textContent || ''));
+      });
+    }
+
+    input.addEventListener('focus', renderMenu);
+    input.addEventListener('input', () => {
+      const value = input.value;
+      if (/[,،;\t\n]/.test(value)) addToken(value);
+      else { active = -1; renderMenu(); }
+    });
+    input.addEventListener('keydown', (event) => {
+      const options = filtered();
+      if (event.key === 'Tab' || event.key === 'Enter' || event.key === ',') {
+        event.preventDefault();
+        if (active >= 0 && options[active]) addToken(options[active]);
+        else addToken(input.value);
+        return;
+      }
+      if (event.key === 'Backspace' && !input.value && selected.length) {
+        selected.pop();
+        syncHidden(); renderChips(); renderMenu();
+        return;
+      }
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        active = Math.min(active + 1, options.length - 1);
+        renderMenu();
+      }
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        active = Math.max(active - 1, 0);
+        renderMenu();
+      }
+      if (event.key === 'Escape') {
+        menu.classList.add('hidden');
+        shell.classList.remove('is-open');
+      }
+    });
+    input.addEventListener('blur', () => {
+      window.setTimeout(() => {
+        if (input.value.trim()) addToken(input.value);
+        menu.classList.add('hidden');
+        shell.classList.remove('is-open');
+      }, 120);
+    });
+    shell.addEventListener('click', () => input.focus());
+    renderChips();
+    return {
+      getValue() {
+        if (input.value.trim()) addToken(input.value);
+        return hidden.value;
+      }
+    };
+  }
 
   function durationLabel(seconds) {
     const total = Number(seconds) || 0;
@@ -28,7 +165,7 @@
       return `
         <tr>
           <td data-label="Track"><div class="video-cell">${thumbnail ? `<img src="${escapeHTML(thumbnail)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-image-fallback>` : `<span><i class="fa-regular fa-music" aria-hidden="true"></i></span>`}<div><strong>${escapeHTML(record.title)}</strong><small>${escapeHTML([record.artist, record.album].filter(Boolean).join(' · ') || record.description || '')}</small></div></div></td>
-          <td data-label="Genre">${record.genre ? NC.components.statusBadge(record.genre) : '—'}</td>
+          <td data-label="Genre">${genreBadges(record.genre)}</td>
           <td data-label="Length">${escapeHTML(durationLabel(record.duration_seconds))}</td>
           <td data-label="Added">${escapeHTML(formatDate(record.created_at))}</td>
           <td data-label="Actions" class="text-right">${NC.components.rowActions([
@@ -73,7 +210,17 @@
         </div>
         <div class="form-grid-2">
           <div class="field"><label class="field-label" for="track-album">Album</label><input class="form-input" id="track-album" name="album" value="${escapeHTML(record?.album || '')}"></div>
-          <div class="field"><label class="field-label" for="track-genre">Genre / category</label><input class="form-input" id="track-genre" name="genre" value="${escapeHTML(record?.genre || '')}" placeholder="Folk, Ras, Language movement…"></div>
+        </div>
+        <div class="field">
+          <label class="field-label" for="track-genre-query">Genre / category</label>
+          <div class="combo-box" data-genre-combo>
+            <input type="hidden" name="genre" data-genre-value value="${escapeHTML(record?.genre || '')}">
+            <div class="combo-box-shell" data-genre-shell>
+              <input class="combo-query" id="track-genre-query" type="text" autocomplete="off" placeholder="Choose or type, then comma / tab">
+            </div>
+            <div class="combo-menu hidden" data-genre-menu role="listbox"></div>
+          </div>
+          <span class="field-hint">Pick from the list or type. Comma or Tab creates a chip. Multiple genres are allowed.</span>
         </div>
         ${NC.media.imageUploaderHTML({ id: 'track-cover', label: 'Cover / thumbnail', hint: 'Square artwork looks best in the mini player and notification.' })}
         ${NC.media.audioUploaderHTML({ id: 'track-audio', label: 'MP3 file' })}
@@ -91,6 +238,7 @@
         const audio = NC.media.mountAudioUploader(modalRoot, {
           initial: record ? { url: record.audio_url, path: record.file_storage_path, provider: record.file_provider, size: Number(record.file_size_mb || 0) * 1024 * 1024, duration_seconds: record.duration_seconds } : null
         });
+        const genres = mountGenreCombobox(modalRoot, record?.genre || '');
         const videoInput = modalRoot.querySelector('#track-video');
         const videoPreview = modalRoot.querySelector('[data-track-video-preview]');
         const refreshVideoPreview = () => {
@@ -120,7 +268,7 @@
               title: data.title,
               artist: data.artist,
               album: data.album,
-              genre: data.genre,
+              genre: genres.getValue() || data.genre || '',
               description: data.description,
               lyrics: data.lyrics || '',
               video_link: videoLink,

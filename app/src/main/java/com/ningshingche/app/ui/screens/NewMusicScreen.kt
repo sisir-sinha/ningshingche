@@ -47,7 +47,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.ningshingche.app.data.music.MusicGenres
 import com.ningshingche.app.ui.components.AppToasts
+import com.ningshingche.app.ui.components.GenreCombobox
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.ReaderWorkspaceViewModel
 
@@ -65,7 +67,7 @@ fun NewMusicScreen(
     var title by remember { mutableStateOf("") }
     var artist by remember { mutableStateOf("") }
     var album by remember { mutableStateOf("") }
-    var genre by remember { mutableStateOf("") }
+    var genres by remember { mutableStateOf<List<String>>(emptyList()) }
     var description by remember { mutableStateOf("") }
     var lyrics by remember { mutableStateOf("") }
     var videoLink by remember { mutableStateOf("") }
@@ -77,7 +79,7 @@ fun NewMusicScreen(
         if (text.isBlank()) return@LaunchedEffect
         AppToasts.show(text)
         if (text.contains("জমা")) {
-            title = ""; artist = ""; album = ""; genre = ""
+            title = ""; artist = ""; album = ""; genres = emptyList()
             description = ""; lyrics = ""; videoLink = ""; cover = null; audio = null
         }
         viewModel.clearMessage()
@@ -143,11 +145,9 @@ fun NewMusicScreen(
                 label = { Text("অ্যালবাম", fontFamily = Kalpurush) },
                 modifier = Modifier.fillMaxWidth()
             )
-            OutlinedTextField(
-                value = genre,
-                onValueChange = { genre = it },
-                label = { Text("ধরন / ক্যাটাগরি", fontFamily = Kalpurush) },
-                modifier = Modifier.fillMaxWidth()
+            GenreCombobox(
+                selected = genres,
+                onSelectedChange = { genres = it }
             )
             OutlinedButton(onClick = { coverPicker.launch("image/*") }, modifier = Modifier.fillMaxWidth()) {
                 Text(if (cover == null) "কভার ছবি (ঐচ্ছিক)" else "কভার ছবি বদলান", fontFamily = Kalpurush)
@@ -213,7 +213,7 @@ fun NewMusicScreen(
                         title = title,
                         artist = artist,
                         album = album,
-                        genre = genre,
+                        genre = MusicGenres.join(genres),
                         description = description,
                         lyrics = lyrics,
                         videoLink = videoLink,
