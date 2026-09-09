@@ -28,7 +28,9 @@ data class ReaderMetrics(
     val pendingArticles: Int = 0,
     val publishedArticles: Int = 0,
     val rejectedArticles: Int = 0,
-    val comments: Int = 0
+    val comments: Int = 0,
+    val songs: Int = 0,
+    val articleViews: Int = 0
 )
 
 class ReaderWorkspaceViewModel(
@@ -76,6 +78,8 @@ class ReaderWorkspaceViewModel(
             val commentResult = supabaseClient.getMyComments(user.id, user.email)
             val articles = articleResult.getOrDefault(emptyList())
             val comments = commentResult.getOrDefault(emptyList())
+            val songs = supabaseClient.countMyMusicTracks(user.id)
+            val articleViews = supabaseClient.sumBlogViewsForAuthor(user.composedFullName())
             _articles.value = articles
             _comments.value = comments
             _metrics.value = ReaderMetrics(
@@ -85,7 +89,9 @@ class ReaderWorkspaceViewModel(
                     it.status.equals("Published", true) || it.status.equals("Approved", true)
                 },
                 rejectedArticles = articles.count { it.status.equals("Rejected", true) },
-                comments = comments.size
+                comments = comments.size,
+                songs = songs,
+                articleViews = articleViews
             )
             articleResult.exceptionOrNull()?.message?.let { _message.value = it }
             commentResult.exceptionOrNull()?.message?.let { if (_message.value == null) _message.value = it }
@@ -380,7 +386,7 @@ class ReaderWorkspaceViewModel(
                 put("genre", genre.trim())
                 put("description", description.trim())
                 put("lyrics", lyrics.trim())
-                put("video_link", trimmedVideo)
+                if (trimmedVideo.isNotBlank()) put("video_link", trimmedVideo)
                 put("thumbnail_url", thumbnail)
                 put("imgbb_delete_url", deleteUrl)
                 put("audio_url", audio.url)
@@ -388,18 +394,20 @@ class ReaderWorkspaceViewModel(
                 put("file_storage_path", audio.path)
                 put("duration_seconds", audio.durationSeconds)
                 put("file_size_mb", (audio.sizeBytes / 1024.0 / 1024.0).let { kotlin.math.round(it * 100.0) / 100.0 })
+                put("user_id", user.id)
             }
             var result = supabaseClient.insertMusicTrack(payload)
-            if (result.isFailure && payload.has("video_link")) {
-                payload.remove("video_link")
-                result = supabaseClient.insertMusicTrack(payload)
-            }
-            if (result.isFailure && payload.has("lyrics")) {
-                payload.remove("lyrics")
-                result = supabaseClient.insertMusicTrack(payload)
+            listOf("video_link", "user_id", "lyrics").forEach { key ->
+                if (result.isFailure && payload.has(key)) {
+                    payload.remove(key)
+                    result = supabaseClient.insertMusicTrack(payload)
+                }
             }
             result
-                .onSuccess { _message.value = "গান জমা হয়েছে।" }
+                .onSuccess {
+                    _message.value = "গান জমা হয়েছে।"
+                    refresh()
+                }
                 .onFailure { _message.value = it.message ?: "গান জমা যায়নি।" }
             _isSaving.value = false
         }
@@ -413,6 +421,7 @@ class ReaderWorkspaceViewModel(
             _notifications.value = emptyList()
             _adminMessages.value = emptyList()
             _unreadCount.value = 0
+            _metrics.value = ReaderMetrics()
         }
     }
 }

@@ -1356,6 +1356,50 @@ class SupabaseClient(private val context: Context) {
         }
     }
 
+    private fun parseContentRangeTotal(response: okhttp3.Response): Int {
+        val range = response.header("Content-Range").orEmpty()
+        val total = range.substringAfterLast("/", "").trim()
+        if (total.isBlank() || total == "*") return 0
+        return total.toIntOrNull() ?: 0
+    }
+
+    suspend fun countMyMusicTracks(userId: String): Int = withContext(Dispatchers.IO) {
+        if (userId.isBlank()) return@withContext 0
+        try {
+            val url = "${SupabaseConfig.restBaseUrl}/music_tracks?select=id&user_id=eq.$userId"
+            val request = createBaseRequestBuilder(url)
+                .header("Prefer", "count=exact")
+                .header("Range", "0-0")
+                .get()
+                .build()
+            val response = httpClient.newCall(request).execute()
+            response.body?.close()
+            if (!response.isSuccessful) 0 else parseContentRangeTotal(response)
+        } catch (_: Exception) {
+            0
+        }
+    }
+
+    suspend fun sumBlogViewsForAuthor(authorName: String): Int = withContext(Dispatchers.IO) {
+        if (authorName.isBlank()) return@withContext 0
+        try {
+            val encoded = java.net.URLEncoder.encode(authorName, "UTF-8")
+            val url = "${SupabaseConfig.restBaseUrl}/blogs?select=views_count&author_name=eq.$encoded&limit=1000"
+            val request = createBaseRequestBuilder(url).get().build()
+            val response = httpClient.newCall(request).execute()
+            val body = response.body?.string().orEmpty()
+            if (!response.isSuccessful || body.isBlank()) return@withContext 0
+            val array = JSONArray(body)
+            var sum = 0
+            for (i in 0 until array.length()) {
+                sum += array.getJSONObject(i).optInt("views_count", 0)
+            }
+            sum
+        } catch (_: Exception) {
+            0
+        }
+    }
+
     suspend fun insertMusicTrack(payload: JSONObject): Result<JSONObject> = withContext(Dispatchers.IO) {
         val token = authToken
         if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null) {

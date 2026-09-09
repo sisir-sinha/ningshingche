@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
@@ -48,8 +49,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.ningshingche.app.data.music.MusicGenres
+import com.ningshingche.app.data.portal.thumbnailOf
 import com.ningshingche.app.ui.components.AppToasts
 import com.ningshingche.app.ui.components.GenreCombobox
+import com.ningshingche.app.ui.editorial.SocialEmbedPlayer
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.ReaderWorkspaceViewModel
 
@@ -122,11 +125,6 @@ fun NewMusicScreen(
                 return@Column
             }
 
-            Text(
-                "MP3 Catbox (katbox API)-এ আপলোড হয়, তাই প্লেয়ারের লিংক মেয়াদ শেষ হয় না। সর্বোচ্চ ২০০ MB।",
-                fontFamily = Kalpurush,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
@@ -175,7 +173,7 @@ fun NewMusicScreen(
             }
             OutlinedButton(onClick = { audioPicker.launch("audio/*") }, modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    if (audio == null) "MP3 / অডিও নির্বাচন * (Catbox)" else "অডিও বদলান",
+                    if (audio == null) "MP3 Audio নির্বাচন *" else "অডিও বদলান",
                     fontFamily = Kalpurush
                 )
             }
@@ -183,15 +181,37 @@ fun NewMusicScreen(
                 value = videoLink,
                 onValueChange = { videoLink = it },
                 label = { Text("ভিডিও লিংক", fontFamily = Kalpurush) },
-                placeholder = { Text("YouTube, Facebook, Instagram…", fontFamily = Kalpurush) },
+                placeholder = { Text("YouTube, Facebook, Veome Video Link Here", fontFamily = Kalpurush) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
-            Text(
-                "ঐচ্ছিক। iframe সাপোর্ট করা সামাজিক ভিডিও লিংক দিলে প্লেয়ারের থাম্বনেইলে ভিডিও আইকন দেখাবে।",
-                fontFamily = Kalpurush,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            val previewUrl = videoLink.trim()
+            if (previewUrl.startsWith("http://", ignoreCase = true) ||
+                previewUrl.startsWith("https://", ignoreCase = true)
+            ) {
+                val thumb = thumbnailOf(previewUrl)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(16f / 9f)
+                        .clip(RoundedCornerShape(12.dp))
+                ) {
+                    if (thumb.isNotBlank()) {
+                        AsyncImage(
+                            model = thumb,
+                            contentDescription = "ভিডিও প্রিভিউ",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        SocialEmbedPlayer(
+                            url = previewUrl,
+                            modifier = Modifier.fillMaxSize(),
+                            autoplay = false
+                        )
+                    }
+                }
+            }
             OutlinedTextField(
                 value = description,
                 onValueChange = { description = it },

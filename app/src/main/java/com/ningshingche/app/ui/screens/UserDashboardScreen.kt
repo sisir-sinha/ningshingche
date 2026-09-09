@@ -344,11 +344,15 @@ private fun MetricsGrid(metrics: ReaderMetrics, unread: Int, messageCount: Int) 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag("dashboard_metrics")) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             MetricCard("প্রবন্ধ", metrics.totalArticles.toString(), Modifier.weight(1f))
-            MetricCard("প্রকাশিত", metrics.publishedArticles.toString(), Modifier.weight(1f))
-            MetricCard("মন্তব্য", metrics.comments.toString(), Modifier.weight(1f))
+            MetricCard("গান", metrics.songs.toString(), Modifier.weight(1f))
+            MetricCard("ভিউ", metrics.articleViews.toString(), Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            MetricCard("প্রকাশিত", metrics.publishedArticles.toString(), Modifier.weight(1f))
+            MetricCard("মন্তব্য", metrics.comments.toString(), Modifier.weight(1f))
             MetricCard("অপেক্ষমাণ", metrics.pendingArticles.toString(), Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             MetricCard("বিজ্ঞপ্তি", unread.toString(), Modifier.weight(1f))
             MetricCard("বার্তা", messageCount.toString(), Modifier.weight(1f))
         }

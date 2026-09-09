@@ -212,19 +212,23 @@
           <div class="field"><label class="field-label" for="track-album">Album</label><input class="form-input" id="track-album" name="album" value="${escapeHTML(record?.album || '')}"></div>
         </div>
         <div class="field">
-          <label class="field-label" for="track-genre-query">Genre / category</label>
-          <div class="combo-box" data-genre-combo>
+          <label class="field-label" for="track-genre-select">Genre / category</label>
+          <select class="form-input" id="track-genre-select" data-genre-select>
+            <option value="">Select a genre…</option>
+            ${GENRES.map((item) => `<option value="${escapeHTML(item)}">${escapeHTML(item)}</option>`).join('')}
+          </select>
+          <div class="combo-box mt-3" data-genre-combo>
             <input type="hidden" name="genre" data-genre-value value="${escapeHTML(record?.genre || '')}">
             <div class="combo-box-shell" data-genre-shell>
-              <input class="combo-query" id="track-genre-query" type="text" autocomplete="off" placeholder="Choose or type, then comma / tab">
+              <input class="combo-query" id="track-genre-query" type="text" autocomplete="off" placeholder="Or type another genre, then comma / tab">
             </div>
             <div class="combo-menu hidden" data-genre-menu role="listbox"></div>
           </div>
-          <span class="field-hint">Pick from the list or type. Comma or Tab creates a chip. Multiple genres are allowed.</span>
+          <span class="field-hint">Use the select or type. Comma or Tab creates a chip. Multiple genres are allowed.</span>
         </div>
         ${NC.media.imageUploaderHTML({ id: 'track-cover', label: 'Cover / thumbnail', hint: 'Square artwork looks best in the mini player and notification.' })}
         ${NC.media.audioUploaderHTML({ id: 'track-audio', label: 'MP3 file' })}
-        <div class="field"><label class="field-label" for="track-video">Video link</label><input class="form-input" type="url" id="track-video" name="video_link" value="${escapeHTML(record?.video_link || '')}" placeholder="https://www.youtube.com/watch?v=…"><p class="field-error hidden" data-field-error="video_link"></p><span class="field-hint">Optional. YouTube, Facebook, Instagram, Vimeo, or any iframe embed URL. The app shows a video icon on the thumbnail.</span></div>
+        <div class="field"><label class="field-label" for="track-video">Video link</label><input class="form-input" type="url" id="track-video" name="video_link" value="${escapeHTML(record?.video_link || '')}" placeholder="YouTube, Facebook, Veome Video Link Here"><p class="field-error hidden" data-field-error="video_link"></p><span class="field-hint">Optional. YouTube, Facebook, or Vimeo. Paste a URL to preview it below.</span></div>
         <div data-track-video-preview class="mt-2">${record?.video_link ? NC.media.videoPreviewHTML(record.video_link, { title: record.title }) : ''}</div>
         <div class="field"><label class="field-label" for="track-description">Description</label><textarea class="form-textarea min-h-28" id="track-description" name="description">${escapeHTML(record?.description || '')}</textarea></div>
         <div class="field"><label class="field-label" for="track-lyrics">Lyrics</label><textarea class="form-textarea min-h-40" id="track-lyrics" name="lyrics" placeholder="Optional. Shown in the app player.">${escapeHTML(record?.lyrics || '')}</textarea></div>
