@@ -107,7 +107,7 @@ import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.theme.PortalMaroon
 import com.ningshingche.app.ui.theme.PortalSaffron
-import kotlinx.coroutines.flow.snapshotFlow
+import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlinx.coroutines.launch
