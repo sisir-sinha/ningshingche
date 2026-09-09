@@ -80,18 +80,16 @@ object GoogleAuthMapper {
         if (token.count { it == '.' } < 2 || token.length <= 40) return false
         val payload = jwtPayload(token) ?: return true
         val iss = payload.optString("iss")
-<<<<<<< HEAD
-        val aud = payload.optString("aud")
-        if (iss.contains("google", ignoreCase = true)) return false
-        return role == "authenticated" || aud == "authenticated" || iss.contains("supabase", ignoreCase = true)
-=======
-        if (iss.contains("accounts.google.com", ignoreCase = true)) return false
+        if (iss.contains("accounts.google.com", ignoreCase = true) ||
+            iss.contains("google", ignoreCase = true)
+        ) {
+            return false
+        }
         val role = payload.optString("role")
         val aud = payload.optString("aud")
         return role == "authenticated" ||
             aud == "authenticated" ||
             iss.contains("supabase", ignoreCase = true)
->>>>>>> 902cba1 (Use the signed-in session JWT for song upload when it is still valid.)
     }
 
     fun jwtPayload(token: String): JSONObject? {
