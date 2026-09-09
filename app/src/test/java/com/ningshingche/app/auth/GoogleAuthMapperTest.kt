@@ -103,6 +103,11 @@ class GoogleAuthMapperTest {
                 fakeIdToken(mapOf("sub" to "1234567890", "iss" to "https://xyz.supabase.co/auth/v1"))
             )
         )
+        assertTrue(
+            GoogleAuthMapper.isSupabaseJwt(
+                fakeIdToken(mapOf("sub" to "11111111-1111-1111-1111-111111111111"))
+            )
+        )
     }
 
     @Test

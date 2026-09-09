@@ -358,8 +358,11 @@ class ReaderWorkspaceViewModel(
         viewModelScope.launch {
             _isSaving.value = true
             _message.value = null
-            val token = supabaseClient.validUserJwt()
-            if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null) {
+            val token = withContext(Dispatchers.IO) {
+                supabaseClient.validUserJwt()
+                    ?: supabaseClient.getAuthToken()?.takeIf { GoogleAuthMapper.isSupabaseJwt(it) }
+            }
+            if (token.isNullOrBlank() || !GoogleAuthMapper.isSupabaseJwt(token)) {
                 _isSaving.value = false
                 _message.value = "গান আপলোড করতে Google দিয়ে সাইন ইন করুন।"
                 return@launch

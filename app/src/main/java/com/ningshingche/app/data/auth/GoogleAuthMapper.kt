@@ -79,17 +79,35 @@ object GoogleAuthMapper {
         if (token.isNullOrBlank()) return false
         if (token.count { it == '.' } < 2 || token.length <= 40) return false
         val payload = jwtPayload(token) ?: return true
-        val iss = payload.optString("iss")
-        if (iss.contains("accounts.google.com", ignoreCase = true) ||
-            iss.contains("google", ignoreCase = true)
-        ) {
-            return false
-        }
-        val role = payload.optString("role")
-        val aud = payload.optString("aud")
-        return role == "authenticated" ||
-            aud == "authenticated" ||
+        val iss = jwtClaim(payload, "iss")
+        if (iss.contains("accounts.google.com", ignoreCase = true)) return false
+        val role = jwtClaim(payload, "role")
+        val aud = jwtClaim(payload, "aud")
+        if (role == "authenticated" ||
+            aud.contains("authenticated") ||
             iss.contains("supabase", ignoreCase = true)
+        ) {
+            return true
+        }
+        // Signed-in GoTrue tokens always have a user `sub`. Do not treat an
+        // unusual iss/aud shape as a missing Google session.
+        return jwtClaim(payload, "sub").isNotBlank() &&
+            !iss.contains("google.com", ignoreCase = true)
+    }
+
+    private fun jwtClaim(payload: JSONObject, key: String): String {
+        if (!payload.has(key) || payload.isNull(key)) return ""
+        return try {
+            when (val value = payload.get(key)) {
+                is String -> value.trim()
+                is org.json.JSONArray -> (0 until value.length()).joinToString(",") {
+                    value.optString(it)
+                }
+                else -> value.toString()
+            }
+        } catch (_: Exception) {
+            payload.optString(key).orEmpty()
+        }
     }
 
     fun jwtPayload(token: String): JSONObject? {
