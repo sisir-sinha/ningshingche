@@ -16,10 +16,12 @@ import com.ningshingche.app.data.remote.SubmittedBlogRecord
 import com.ningshingche.app.data.remote.SupabaseClient
 import com.ningshingche.app.data.remote.UserNotificationRecord
 import com.ningshingche.app.data.remote.UserProfile
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.util.UUID
 
@@ -353,14 +355,15 @@ class ReaderWorkspaceViewModel(
             _message.value = "শিরোনাম ও MP3 ফাইল আবশ্যক।"
             return
         }
-        val token = supabaseClient.getAuthToken()
-        if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null) {
-            _message.value = "গান আপলোড করতে Google দিয়ে সাইন ইন করুন।"
-            return
-        }
         viewModelScope.launch {
             _isSaving.value = true
             _message.value = null
+            val token = supabaseClient.validUserJwt()
+            if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null) {
+                _isSaving.value = false
+                _message.value = "গান আপলোড করতে Google দিয়ে সাইন ইন করুন।"
+                return@launch
+            }
             val audio = AudioStorageUploader.uploadMp3(
                 context = context,
                 uri = audioUri,

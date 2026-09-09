@@ -57,10 +57,16 @@ object AudioStorageUploader {
             http.newCall(request).execute().use { response ->
                 val body = response.body?.string().orEmpty()
                 if (!response.isSuccessful) {
-                    val detail = runCatching { JSONObject(body).optString("message") }.getOrNull()
-                    return@withContext Result.failure(
-                        Exception(detail?.takeIf { it.isNotBlank() } ?: "অডিও আপলোড যায়নি (${response.code})।")
-                    )
+                    val detail = runCatching { JSONObject(body).optString("message") }.getOrNull().orEmpty()
+                    val combined = "$detail $body"
+                    val message = when {
+                        combined.contains("exp claim", ignoreCase = true) ||
+                            combined.contains("invalid JWT", ignoreCase = true) ||
+                            response.code == 401 ->
+                            "সেশন শেষ হয়েছে। Google দিয়ে আবার সাইন ইন করে গান আপলোড করুন।"
+                        else -> detail.takeIf { it.isNotBlank() } ?: "অডিও আপলোড যায়নি (${response.code})।"
+                    }
+                    return@withContext Result.failure(Exception(message))
                 }
             }
             val publicUrl =

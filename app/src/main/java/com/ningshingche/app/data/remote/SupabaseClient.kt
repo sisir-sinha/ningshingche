@@ -134,15 +134,35 @@ class SupabaseClient(private val context: Context) {
 
     fun getAuthToken(): String? = authToken
 
+    /**
+     * Fresh user JWT for Storage uploads. Always tries refresh first so an
+     * hour-old session is not sent and rejected as "exp claim timestamp check failed".
+     */
+    @Synchronized
+    fun validUserJwt(): String? {
+        refreshAccessTokenLocked()?.let { return it }
+        val token = authToken
+        if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null) return null
+        val exp = jwtExpiryMillis(token)
+        if (exp > 0L && System.currentTimeMillis() >= exp) return null
+        return token
+    }
+
     @Synchronized
     private fun sessionBearer(): String {
         val key = SupabaseConfig.supabaseKey
         val token = authToken
         if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null) return key
-        val expiry = if (expiresAtMillis > 0L) expiresAtMillis else jwtExpiryMillis(token)
-        if (expiry > 0L && System.currentTimeMillis() >= expiry - 30_000L) {
+        val jwtExp = jwtExpiryMillis(token)
+        val expiry = when {
+            jwtExp > 0L -> jwtExp
+            expiresAtMillis > 0L -> expiresAtMillis
+            else -> 0L
+        }
+        // Refresh two minutes early so a slow upload still has a valid exp.
+        if (expiry <= 0L || System.currentTimeMillis() >= expiry - 120_000L) {
             refreshAccessTokenLocked()?.let { return it }
-            return key
+            if (expiry > 0L && System.currentTimeMillis() >= expiry) return key
         }
         return token
     }
