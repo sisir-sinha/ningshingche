@@ -65,7 +65,7 @@ object AudioStorageUploader {
                 if (code in 200..299) break
                 val detail = storageErrorMessage(body, code)
                 val expired = GoogleAuthMapper.userFacingJwtError("$detail $body") != null ||
-                    code == 401 || code == 403
+                    code == 401
                 if (expired && attempt == 0) {
                     val next = refreshAccessToken?.invoke()
                     if (!next.isNullOrBlank() && next != token) {
