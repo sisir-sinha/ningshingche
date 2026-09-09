@@ -334,6 +334,7 @@ class ReaderWorkspaceViewModel(
         genre: String,
         description: String,
         lyrics: String,
+        videoLink: String = "",
         coverUri: Uri?,
         audioUri: Uri?
     ) {
@@ -371,6 +372,7 @@ class ReaderWorkspaceViewModel(
                 thumbnail = image.displayUrl.ifBlank { image.url }
                 deleteUrl = image.deleteUrl
             }
+            val trimmedVideo = videoLink.trim()
             val payload = JSONObject().apply {
                 put("title", title.trim())
                 put("artist", artist.trim())
