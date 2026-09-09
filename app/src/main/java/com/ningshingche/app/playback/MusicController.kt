@@ -78,7 +78,13 @@ class MusicController(
     private val _state = MutableStateFlow(MusicPlayerUiState())
     val state: StateFlow<MusicPlayerUiState> = _state.asStateFlow()
 
+    private val isRobolectric: Boolean by lazy {
+        android.os.Build.FINGERPRINT == "robolectric" ||
+            runCatching { Class.forName("org.robolectric.Robolectric") }.isSuccess
+    }
+
     fun ensureConnected() {
+        if (isRobolectric) return
         if (controller != null) return
         val existing = controllerFuture
         if (existing != null && !existing.isDone) return

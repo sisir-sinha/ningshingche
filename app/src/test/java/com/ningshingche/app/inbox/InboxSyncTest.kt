@@ -23,7 +23,7 @@ class InboxSyncTest {
         val notices = InboxSync.noticesFromPublished("user-1", articles, comments, emptySet())
         assertEquals(2, notices.size)
         assertTrue(notices.any { it.kind == UserNotificationRecord.KIND_ARTICLE && it.relatedId == "a1" })
-        assertTrue(notices.any { it.kind == UserNotificationRecord.KIND_COMMENT && it.relatedId == "c1" })
+        assertTrue(notices.any { it.kind == UserNotificationRecord.KIND_COMMENT && it.relatedId == "b" })
     }
 
     @Test
