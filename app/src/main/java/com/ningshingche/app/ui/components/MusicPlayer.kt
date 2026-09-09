@@ -381,13 +381,44 @@ private fun FullMusicPlayer(
                 beyondViewportPageCount = 1
             ) { page ->
                 val pageTrack = queue.getOrNull(page) ?: track
-                Box(
+                val artistLine = pageTrack.artist.ifBlank { "নিংশিং চে" }
+                val singerAlbum = if (pageTrack.album.isNotBlank()) {
+                    "$artistLine  ·  ${pageTrack.album}"
+                } else {
+                    artistLine
+                }
+                Column(
                     modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 28.dp)
+                    ) {
+                        Text(
+                            text = pageTrack.title,
+                            fontFamily = Kalpurush,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 22.sp,
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = singerAlbum,
+                            fontFamily = Kalpurush,
+                            fontSize = 14.sp,
+                            color = Color.White.copy(alpha = 0.88f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+                        )
+                    }
                     Box(
                         modifier = Modifier
-                            .padding(horizontal = 28.dp, vertical = 8.dp)
+                            .padding(horizontal = 28.dp)
                             .fillMaxWidth()
                             .aspectRatio(1f)
                             .shadow(24.dp, RoundedCornerShape(28.dp))
@@ -415,62 +446,13 @@ private fun FullMusicPlayer(
                             modifier = Modifier.fillMaxSize(),
                             corner = 28.dp
                         )
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .align(Alignment.TopCenter)
-                                .height(110.dp)
-                                .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                                .background(
-                                    Brush.verticalGradient(
-                                        listOf(Color(0xCC120806), Color.Transparent)
-                                    )
-                                )
-                        )
-                        Column(
-                            modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 14.dp)
-                        ) {
-                            Text(
-                                text = pageTrack.title,
-                                fontFamily = Kalpurush,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 20.sp,
-                                lineHeight = 26.sp,
-                                color = Color.White,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                text = pageTrack.artist.ifBlank { "নিংশিং চে" },
-                                fontFamily = Kalpurush,
-                                fontSize = 14.sp,
-                                color = Color.White.copy(alpha = 0.92f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(top = 4.dp)
-                            )
-                            if (pageTrack.album.isNotBlank()) {
-                                Text(
-                                    text = pageTrack.album,
-                                    fontFamily = Kalpurush,
-                                    fontSize = 13.sp,
-                                    color = PortalSaffron,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.padding(top = 2.dp)
-                                )
-                            }
-                        }
                         if (state.showLyrics && pageTrack.id == track.id) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .clip(RoundedCornerShape(28.dp))
                                     .background(Color(0x99000000))
-                                    .padding(start = 16.dp, end = 16.dp, top = 108.dp, bottom = 16.dp)
+                                    .padding(16.dp)
                             ) {
                                 Text(
                                     text = pageTrack.lyrics.ifBlank { "এই গানের লিরিক এখনো যোগ করা হয়নি।" },
