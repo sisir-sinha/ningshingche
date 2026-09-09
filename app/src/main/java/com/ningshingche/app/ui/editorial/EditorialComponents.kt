@@ -1160,56 +1160,50 @@ fun AuthorChip(author: AuthorRef, onClick: () -> Unit) {
         onClick = onClick,
         shape = RoundedCornerShape(EditorialShape.card),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier
-            .width(148.dp)
-            .height(196.dp)
+        modifier = Modifier.width(132.dp)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 10.dp, vertical = 10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Box {
-                    EditorialImage(
-                        url = author.imageUrl,
-                        contentDescription = author.name,
-                        modifier = Modifier.size(56.dp),
-                        shape = CircleShape
+            EditorialImage(
+                url = author.imageUrl,
+                contentDescription = author.name,
+                modifier = Modifier.size(56.dp),
+                shape = CircleShape
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = author.name,
+                    style = EditorialType.Subtitle,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                if (isVerified) {
+                    Spacer(Modifier.width(4.dp))
+                    com.ningshingche.app.ui.components.VerifiedBadge(
+                        size = 14.dp,
+                        animated = false
                     )
-                }
-                Spacer(Modifier.height(EditorialSpace.xs))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = author.name,
-                        style = EditorialType.Subtitle,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 2,
-                        minLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                    if (isVerified) {
-                        Spacer(Modifier.width(4.dp))
-                        com.ningshingche.app.ui.components.VerifiedBadge(size = 14.dp)
-                    }
                 }
             }
             Text(
                 text = author.designation.ifBlank { " " },
                 style = EditorialType.Caption,
                 color = LocalEditorialTokens.current.inkMuted,
+                minLines = 1,
                 maxLines = 2,
-                minLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 2.dp)
             )
         }
     }
@@ -1410,9 +1404,11 @@ fun VideoRail(
                     onClick = { onVideoClick(video) },
                     shape = RoundedCornerShape(EditorialShape.card),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    modifier = Modifier.width(252.dp)
+                    modifier = Modifier
+                        .width(252.dp)
+                        .height(236.dp)
                 ) {
-                    Column {
+                    Column(modifier = Modifier.fillMaxSize()) {
                         Box {
                             EditorialImage(
                                 url = video.thumbnailUrl,
@@ -1440,9 +1436,12 @@ fun VideoRail(
                             text = video.title,
                             style = EditorialType.Subtitle,
                             color = MaterialTheme.colorScheme.onSurface,
+                            minLines = 2,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(EditorialSpace.md)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(EditorialSpace.md)
                         )
                     }
                 }
@@ -1474,9 +1473,11 @@ fun MusicRail(
                     onClick = { onTrackClick(track) },
                     shape = RoundedCornerShape(EditorialShape.card),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    modifier = Modifier.width(168.dp)
+                    modifier = Modifier
+                        .width(168.dp)
+                        .height(268.dp)
                 ) {
-                    Column {
+                    Column(modifier = Modifier.fillMaxSize()) {
                         Box {
                             EditorialImage(
                                 url = track.thumbnailUrl,
@@ -1500,24 +1501,28 @@ fun MusicRail(
                                 )
                             }
                         }
-                        Column(Modifier.padding(EditorialSpace.md)) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(EditorialSpace.md)
+                        ) {
                             Text(
                                 text = track.title,
                                 style = EditorialType.Subtitle,
                                 color = MaterialTheme.colorScheme.onSurface,
+                                minLines = 2,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
                             )
-                            if (track.artist.isNotBlank()) {
-                                Text(
-                                    text = track.artist,
-                                    style = EditorialType.Caption,
-                                    color = LocalEditorialTokens.current.inkMuted,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.padding(top = 2.dp)
-                                )
-                            }
+                            Text(
+                                text = track.artist.ifBlank { " " },
+                                style = EditorialType.Caption,
+                                color = LocalEditorialTokens.current.inkMuted,
+                                minLines = 1,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
                         }
                     }
                 }

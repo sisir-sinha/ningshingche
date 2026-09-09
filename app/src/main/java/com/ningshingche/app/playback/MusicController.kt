@@ -166,6 +166,7 @@ class MusicController(
     }
 
     fun prefetchCatalog(tracks: List<MusicTrack>) {
+        library.seedLoveCounts(tracks)
         prefetch(tracks, MusicStreamCache.HEAD_BYTES, limit = 12)
     }
 
@@ -312,14 +313,22 @@ class MusicController(
 
     fun toggleLike() {
         val track = _state.value.track ?: return
+        toggleLikeFor(track)
+    }
+
+    fun toggleLikeFor(track: MusicTrack) {
         scope.launch {
             val liked = withContext(Dispatchers.IO) { library.toggleLoved(track) }
-            _state.update { it.copy(liked = liked) }
+            if (_state.value.track?.id == track.id) {
+                _state.update { it.copy(liked = liked) }
+            }
             if (liked) {
                 AppToasts.undo("Added to Liked Songs") {
                     scope.launch {
                         withContext(Dispatchers.IO) { library.toggleLoved(track) }
-                        _state.update { it.copy(liked = false) }
+                        if (_state.value.track?.id == track.id) {
+                            _state.update { it.copy(liked = false) }
+                        }
                     }
                 }
             } else {

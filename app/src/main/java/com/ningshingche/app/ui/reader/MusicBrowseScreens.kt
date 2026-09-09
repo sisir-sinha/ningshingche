@@ -24,6 +24,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
@@ -65,6 +67,7 @@ import com.ningshingche.app.ui.editorial.EmptyState
 import com.ningshingche.app.ui.editorial.ErrorState
 import com.ningshingche.app.ui.editorial.Hairline
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
+import com.ningshingche.app.ui.editorial.toBengaliNumeral
 import com.ningshingche.app.ui.theme.Kalpurush
 
 @Composable
@@ -108,7 +111,7 @@ internal fun MusicTrackList(
     }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 96.dp)
+        contentPadding = PaddingValues(bottom = 24.dp)
     ) {
         item {
             Column(
@@ -159,7 +162,7 @@ internal fun MusicShelfGrid(
             start = EditorialSpace.gutter,
             end = EditorialSpace.gutter,
             top = EditorialSpace.md,
-            bottom = 96.dp
+            bottom = 24.dp
         ),
         horizontalArrangement = Arrangement.spacedBy(EditorialSpace.md),
         verticalArrangement = Arrangement.spacedBy(EditorialSpace.md)
@@ -294,6 +297,23 @@ internal fun MusicCatalogCard(
                     }
                 }
             }
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(start = 4.dp)
+            ) {
+                IconButton(onClick = { player.toggleLikeFor(track) }) {
+                    Icon(
+                        imageVector = if (loved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = "পছন্দ",
+                        tint = if (loved) Color(0xFFE53935) else tokens.inkMuted
+                    )
+                }
+                Text(
+                    text = toBengaliNumeral(loveCount),
+                    style = EditorialType.Caption,
+                    color = tokens.inkMuted
+                )
+            }
         }
     }
 }
@@ -372,7 +392,7 @@ fun MusicEntityScreen(
                 val round = kind == MusicShelfKind.Artist
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(padding),
-                    contentPadding = PaddingValues(bottom = 96.dp)
+                    contentPadding = PaddingValues(bottom = 24.dp)
                 ) {
                     item {
                         Column(

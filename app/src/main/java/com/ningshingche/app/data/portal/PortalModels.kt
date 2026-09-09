@@ -131,10 +131,20 @@ data class MusicTrack(
     val albumImage: String = "",
     val albumDescription: String = "",
     val durationSeconds: Int,
-    val fileSizeMb: Double
+    val fileSizeMb: Double,
+    val loveCount: Int = 0
 ) {
     fun hasPlayableSource(): Boolean = audioUrl.isNotBlank() || storagePath.isNotBlank()
     fun hasVideo(): Boolean = videoLink.isNotBlank()
+
+    fun playerCreditLine(): String {
+        val singer = artist.ifBlank { "নিংশিং চে" }
+        return buildString {
+            append("Singer: $singer")
+            if (album.isNotBlank()) append(" ◻ Album: $album")
+            if (genre.isNotBlank()) append(" ◻ Genre: $genre")
+        }
+    }
 }
 
 data class CommentItem(
@@ -362,7 +372,8 @@ internal fun MusicDto.toItem(): MusicTrack = MusicTrack(
     albumImage = albumImage.orEmpty().trim(),
     albumDescription = albumDescription.orEmpty().trim(),
     durationSeconds = (durationSeconds ?: 0).coerceAtLeast(0),
-    fileSizeMb = fileSizeMb ?: 0.0
+    fileSizeMb = fileSizeMb ?: 0.0,
+    loveCount = (loveCount ?: 0).coerceAtLeast(0)
 )
 
 internal fun VideoDto.toItem(): VideoItem = VideoItem(

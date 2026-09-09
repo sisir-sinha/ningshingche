@@ -53,6 +53,7 @@ interface PortalApi {
         const val MUSIC_COLUMNS_WITH_VIDEO = "$MUSIC_COLUMNS_WITH_LYRICS,video_link"
         const val MUSIC_COLUMNS_WITH_META =
             "$MUSIC_COLUMNS_WITH_VIDEO,artist_image,artist_description,album_image,album_description"
+        const val MUSIC_COLUMNS_WITH_LOVE = "$MUSIC_COLUMNS_WITH_META,love_count"
         const val COMMENT_COLUMNS = "id,blog_id,blog_title,name,address,content,status,created_at,avatar_url,user_id"
         const val COMMENT_COLUMNS_WITHOUT_AVATAR = "id,blog_id,blog_title,name,address,content,status,created_at"
         const val SETTINGS_COLUMNS =

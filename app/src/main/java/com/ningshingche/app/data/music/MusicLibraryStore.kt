@@ -10,8 +10,12 @@ import com.ningshingche.app.data.remote.SupabaseClient
 import com.ningshingche.app.data.remote.SupabaseConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -62,6 +66,20 @@ class MusicLibraryStore(
             lists.firstOrNull { it.isLoved }?.trackIds?.toSet().orEmpty()
         }
 
+    private val _loveCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
+    val loveCounts: StateFlow<Map<String, Int>> = _loveCounts.asStateFlow()
+
+    fun seedLoveCounts(tracks: List<MusicTrack>) {
+        if (tracks.isEmpty()) return
+        _loveCounts.update { current ->
+            current.toMutableMap().apply {
+                tracks.forEach { track ->
+                    put(track.id, maxOf(this[track.id] ?: 0, track.loveCount))
+                }
+            }
+        }
+    }
+
     fun offlineFile(trackId: String): File {
         val dir = File(appContext.filesDir, "music")
         if (!dir.exists()) dir.mkdirs()
@@ -89,6 +107,8 @@ class MusicLibraryStore(
             true
         }
         savePlaylist(loved.copy(trackIds = ids.distinct()))
+        bumpLoveCount(track.id, nowLoved, track.loveCount)
+        syncLoveRemote(track.id, nowLoved)
         nowLoved
     }
 
@@ -214,6 +234,31 @@ class MusicLibraryStore(
             )
         )
         syncPlaylistRemote(playlist, userId)
+    }
+
+    private fun bumpLoveCount(trackId: String, liked: Boolean, fallback: Int) {
+        _loveCounts.update { map ->
+            val current = map[trackId] ?: fallback.coerceAtLeast(0)
+            val next = if (liked) current + 1 else (current - 1).coerceAtLeast(0)
+            map + (trackId to next)
+        }
+    }
+
+    private fun syncLoveRemote(trackId: String, liked: Boolean) {
+        val userId = ownerId()
+        if (!canSync(userId)) return
+        try {
+            if (liked) {
+                remoteUpsert(
+                    "music_loves",
+                    JSONObject().put("track_id", trackId).put("user_id", userId)
+                )
+            } else {
+                remoteDelete("music_loves?track_id=eq.$trackId&user_id=eq.$userId")
+            }
+        } catch (_: Exception) {
+            // Local playlist is enough when the loves table is missing.
+        }
     }
 
     private fun canSync(userId: String): Boolean {

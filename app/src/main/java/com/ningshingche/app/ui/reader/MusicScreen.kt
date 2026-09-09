@@ -3,6 +3,8 @@ package com.ningshingche.app.ui.reader
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -81,11 +83,15 @@ fun MusicScreen(
     val playlists by player.library.playlists().collectAsState(initial = emptyList())
     val lovedIds by player.library.lovedIds().collectAsState(initial = emptySet())
     val offline by player.library.offlineTracks().collectAsState(initial = emptyList())
-    var tab by remember { mutableStateOf(MusicTab.All) }
+    val pagerState = rememberPagerState(pageCount = { MusicTab.entries.size })
+    val tab = MusicTab.entries[pagerState.currentPage]
     var query by remember { mutableStateOf("") }
     var creating by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+    fun goToTab(target: MusicTab) {
+        scope.launch { pagerState.animateScrollToPage(target.ordinal) }
+    }
 
     LaunchedEffect(Unit) { viewModel.loadMusicCatalog(force = true) }
     LaunchedEffect(tracks) {
@@ -154,13 +160,13 @@ fun MusicScreen(
                 contentPadding = PaddingValues(horizontal = EditorialSpace.gutter),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                item { MusicTabChip("সব", tab == MusicTab.All) { tab = MusicTab.All } }
-                item { MusicTabChip("ধরন", tab == MusicTab.Genres) { tab = MusicTab.Genres } }
-                item { MusicTabChip("শিল্পী", tab == MusicTab.Artists) { tab = MusicTab.Artists } }
-                item { MusicTabChip("অ্যালবাম", tab == MusicTab.Albums) { tab = MusicTab.Albums } }
-                item { MusicTabChip("প্লেলিস্ট", tab == MusicTab.Playlists) { tab = MusicTab.Playlists } }
-                item { MusicTabChip("পছন্দ", tab == MusicTab.Loved) { tab = MusicTab.Loved } }
-                item { MusicTabChip("অফলাইন", tab == MusicTab.Offline) { tab = MusicTab.Offline } }
+                item { MusicTabChip("সব", tab == MusicTab.All) { goToTab(MusicTab.All) } }
+                item { MusicTabChip("ধরন", tab == MusicTab.Genres) { goToTab(MusicTab.Genres) } }
+                item { MusicTabChip("শিল্পী", tab == MusicTab.Artists) { goToTab(MusicTab.Artists) } }
+                item { MusicTabChip("অ্যালবাম", tab == MusicTab.Albums) { goToTab(MusicTab.Albums) } }
+                item { MusicTabChip("প্লেলিস্ট", tab == MusicTab.Playlists) { goToTab(MusicTab.Playlists) } }
+                item { MusicTabChip("পছন্দ", tab == MusicTab.Loved) { goToTab(MusicTab.Loved) } }
+                item { MusicTabChip("অফলাইন", tab == MusicTab.Offline) { goToTab(MusicTab.Offline) } }
             }
 
             if (tab in setOf(MusicTab.All, MusicTab.Genres, MusicTab.Artists, MusicTab.Albums)) {
@@ -311,7 +317,7 @@ private fun PlaylistPane(
     }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 96.dp, top = EditorialSpace.md)
+        contentPadding = PaddingValues(bottom = 24.dp, top = EditorialSpace.md)
     ) {
         items(playlists, key = { it.id }) { playlist ->
             Card(

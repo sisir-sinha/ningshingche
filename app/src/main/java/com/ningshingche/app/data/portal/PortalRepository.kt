@@ -512,6 +512,7 @@ class PortalRepository(
         withContext(Dispatchers.IO) {
             cached("music-$limit", musicCache, TTL_REFERENCE, forceRefresh) {
                 val selects = listOf(
+                    PortalApi.MUSIC_COLUMNS_WITH_LOVE,
                     PortalApi.MUSIC_COLUMNS_WITH_META,
                     PortalApi.MUSIC_COLUMNS_WITH_VIDEO,
                     PortalApi.MUSIC_COLUMNS_WITH_LYRICS,

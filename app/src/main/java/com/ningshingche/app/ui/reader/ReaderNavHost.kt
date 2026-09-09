@@ -3,6 +3,7 @@ package com.ningshingche.app.ui.reader
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalNavigationDrawer
@@ -58,7 +59,8 @@ import com.ningshingche.app.ui.components.LocalBookmarkController
 import com.ningshingche.app.ui.components.AppToastHost
 import com.ningshingche.app.ui.components.AppToasts
 import com.ningshingche.app.ui.components.LocalMusicController
-import com.ningshingche.app.ui.components.MusicPlayerOverlay
+import com.ningshingche.app.ui.components.MusicFullPlayerOverlay
+import com.ningshingche.app.ui.components.MusicMiniPlayerBar
 import com.ningshingche.app.ui.components.NetStatus
 import com.ningshingche.app.ui.components.connectivityStatus
 import com.ningshingche.app.data.remote.UserNotificationRecord
@@ -322,10 +324,11 @@ fun EditorialReaderApp(
             )
         }
     ) {
+        Column(modifier = Modifier.fillMaxSize()) {
         NavHost(
             navController = navController,
             startDestination = ReaderRoute.Splash,
-            modifier = Modifier
+            modifier = Modifier.weight(1f)
         ) {
             // Splash Screen
             composable(ReaderRoute.Splash) {
@@ -760,8 +763,10 @@ fun EditorialReaderApp(
             }
 
         }
+        MusicMiniPlayerBar(controller = app.musicController)
+        }
     }
-    MusicPlayerOverlay(controller = app.musicController)
+    MusicFullPlayerOverlay(controller = app.musicController)
     AppToastHost(
         modifier = Modifier.padding(
             bottom = if (playerUi.visible && !playerUi.expanded) 72.dp else 0.dp

@@ -18,7 +18,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -125,9 +124,20 @@ val LocalMusicController = staticCompositionLocalOf<MusicController> {
 private enum class PlayerSheet { None, Menu, Playlist, Details, Sleep, NewPlaylist }
 
 @Composable
-fun BoxScope.MusicPlayerOverlay(
-    controller: MusicController
-) {
+fun MusicMiniPlayerBar(controller: MusicController) {
+    val state by controller.state.collectAsState()
+    if (!state.visible || state.expanded || state.track == null) return
+    MiniMusicPlayer(
+        state = state,
+        onExpand = controller::expand,
+        onToggle = controller::togglePlayPause,
+        onNext = controller::skipNext,
+        onDismiss = controller::dismiss
+    )
+}
+
+@Composable
+fun MusicFullPlayerOverlay(controller: MusicController) {
     val state by controller.state.collectAsState()
     if (!state.visible || state.track == null) return
 
@@ -145,20 +155,6 @@ fun BoxScope.MusicPlayerOverlay(
         modifier = Modifier.fillMaxSize()
     ) {
         FullMusicPlayer(controller = controller, state = state)
-    }
-    AnimatedVisibility(
-        visible = !state.expanded,
-        enter = slideInVertically { it } + fadeIn(),
-        exit = slideOutVertically { it } + fadeOut(),
-        modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-    ) {
-        MiniMusicPlayer(
-            state = state,
-            onExpand = controller::expand,
-            onToggle = controller::togglePlayPause,
-            onNext = controller::skipNext,
-            onDismiss = controller::dismiss
-        )
     }
 }
 
@@ -388,12 +384,6 @@ private fun FullMusicPlayer(
                 beyondViewportPageCount = 1
             ) { page ->
                 val pageTrack = queue.getOrNull(page) ?: track
-                val artistLine = pageTrack.artist.ifBlank { "নিংশিং চে" }
-                val singerAlbum = if (pageTrack.album.isNotBlank()) {
-                    "$artistLine  ·  ${pageTrack.album}"
-                } else {
-                    artistLine
-                }
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -414,7 +404,7 @@ private fun FullMusicPlayer(
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = singerAlbum,
+                            text = pageTrack.playerCreditLine(),
                             fontFamily = Kalpurush,
                             fontSize = 14.sp,
                             color = Color.White.copy(alpha = 0.88f),

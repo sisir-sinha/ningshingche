@@ -5,7 +5,7 @@ import android.content.Intent
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.DataSourceBitmapLoader
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
@@ -16,7 +16,6 @@ import androidx.media3.exoplayer.video.VideoRendererEventListener
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.ningshingche.app.MainActivity
-import com.ningshingche.app.data.music.MusicLibraryStore
 
 /**
  * Foreground [MediaSessionService] that owns the ExoPlayer instance.
@@ -86,6 +85,7 @@ class MusicPlaybackService : MediaSessionService() {
 
         mediaSession = MediaSession.Builder(this, player)
             .setSessionActivity(sessionActivity)
+            .setBitmapLoader(CacheBitmapLoader(DataSourceBitmapLoader(this)))
             .build()
     }
 

@@ -127,6 +127,7 @@ data class MusicDto(
     @Json(name = "duration_seconds") val durationSeconds: Int? = null,
     @Json(name = "file_size_mb") val fileSizeMb: Double? = null,
     @Json(name = "sort_order") val sortOrder: Int? = null,
+    @Json(name = "love_count") val loveCount: Int? = null,
     @Json(name = "created_at") val createdAt: String? = null
 )
 
