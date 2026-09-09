@@ -378,6 +378,7 @@ class ReaderWorkspaceViewModel(
                 put("genre", genre.trim())
                 put("description", description.trim())
                 put("lyrics", lyrics.trim())
+                put("video_link", trimmedVideo)
                 put("thumbnail_url", thumbnail)
                 put("imgbb_delete_url", deleteUrl)
                 put("audio_url", audio.url)
@@ -386,11 +387,15 @@ class ReaderWorkspaceViewModel(
                 put("duration_seconds", audio.durationSeconds)
                 put("file_size_mb", (audio.sizeBytes / 1024.0 / 1024.0).let { kotlin.math.round(it * 100.0) / 100.0 })
             }
-            val first = supabaseClient.insertMusicTrack(payload)
-            val result = if (first.isFailure && payload.has("lyrics")) {
+            var result = supabaseClient.insertMusicTrack(payload)
+            if (result.isFailure && payload.has("video_link")) {
+                payload.remove("video_link")
+                result = supabaseClient.insertMusicTrack(payload)
+            }
+            if (result.isFailure && payload.has("lyrics")) {
                 payload.remove("lyrics")
-                supabaseClient.insertMusicTrack(payload)
-            } else first
+                result = supabaseClient.insertMusicTrack(payload)
+            }
             result
                 .onSuccess { _message.value = "গান জমা হয়েছে।" }
                 .onFailure { _message.value = it.message ?: "গান জমা যায়নি।" }

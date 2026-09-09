@@ -68,6 +68,7 @@ fun NewMusicScreen(
     var genre by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var lyrics by remember { mutableStateOf("") }
+    var videoLink by remember { mutableStateOf("") }
     var cover by remember { mutableStateOf<Uri?>(null) }
     var audio by remember { mutableStateOf<Uri?>(null) }
 
@@ -77,7 +78,7 @@ fun NewMusicScreen(
         AppToasts.show(text)
         if (text.contains("জমা")) {
             title = ""; artist = ""; album = ""; genre = ""
-            description = ""; lyrics = ""; cover = null; audio = null
+            description = ""; lyrics = ""; videoLink = ""; cover = null; audio = null
         }
         viewModel.clearMessage()
     }
@@ -179,6 +180,19 @@ fun NewMusicScreen(
                 )
             }
             OutlinedTextField(
+                value = videoLink,
+                onValueChange = { videoLink = it },
+                label = { Text("ভিডিও লিংক", fontFamily = Kalpurush) },
+                placeholder = { Text("YouTube, Facebook, Instagram…", fontFamily = Kalpurush) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                "ঐচ্ছিক। iframe সাপোর্ট করা সামাজিক ভিডিও লিংক দিলে প্লেয়ারের থাম্বনেইলে ভিডিও আইকন দেখাবে।",
+                fontFamily = Kalpurush,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            OutlinedTextField(
                 value = description,
                 onValueChange = { description = it },
                 label = { Text("বিবরণ", fontFamily = Kalpurush) },
@@ -202,6 +216,7 @@ fun NewMusicScreen(
                         genre = genre,
                         description = description,
                         lyrics = lyrics,
+                        videoLink = videoLink,
                         coverUri = cover,
                         audioUri = audio
                     )
