@@ -78,19 +78,30 @@ object GoogleAuthMapper {
     fun isSupabaseJwt(token: String?): Boolean {
         if (token.isNullOrBlank()) return false
         if (token.count { it == '.' } < 2 || token.length <= 40) return false
-        val payload = jwtPayload(token) ?: return false
-        val role = payload.optString("role")
+        val payload = jwtPayload(token) ?: return true
         val iss = payload.optString("iss")
+<<<<<<< HEAD
         val aud = payload.optString("aud")
         if (iss.contains("google", ignoreCase = true)) return false
         return role == "authenticated" || aud == "authenticated" || iss.contains("supabase", ignoreCase = true)
+=======
+        if (iss.contains("accounts.google.com", ignoreCase = true)) return false
+        val role = payload.optString("role")
+        val aud = payload.optString("aud")
+        return role == "authenticated" ||
+            aud == "authenticated" ||
+            iss.contains("supabase", ignoreCase = true)
+>>>>>>> 902cba1 (Use the signed-in session JWT for song upload when it is still valid.)
     }
 
     fun jwtPayload(token: String): JSONObject? {
         return try {
             val payload = token.split('.').getOrNull(1) ?: return null
             val padded = payload + "=".repeat((4 - payload.length % 4) % 4)
-            val decoded = Base64.getUrlDecoder().decode(padded)
+            val decoded = android.util.Base64.decode(
+                padded,
+                android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP
+            )
             JSONObject(String(decoded, Charsets.UTF_8))
         } catch (_: Exception) {
             null

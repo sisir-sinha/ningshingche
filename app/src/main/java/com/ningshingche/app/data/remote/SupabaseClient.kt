@@ -177,32 +177,37 @@ class SupabaseClient(private val context: Context) {
     @Synchronized
     private fun refreshAccessTokenLocked(): String? {
         val refresh = refreshToken ?: return null
-        return try {
-            val url = "${SupabaseConfig.authBaseUrl}/token?grant_type=refresh_token"
-            val payload = JSONObject().put("refresh_token", refresh).toString()
-            val request = createAuthRequestBuilder(url)
-                .post(payload.toRequestBody(jsonMediaType))
-                .build()
-            val response = httpClient.newCall(request).execute()
-            val body = response.body?.string().orEmpty()
-            if (!response.isSuccessful || body.isBlank()) return null
-            val json = JSONObject(body)
-            val token = json.optString("access_token", "")
-            if (!GoogleAuthMapper.isSupabaseJwt(token)) return null
-            val nextRefresh = json.optString("refresh_token", refresh)
-            val expiresAt = System.currentTimeMillis() + json.optLong("expires_in", 3600L) * 1000L - 30_000L
-            val profile = _currentUser.value
-            if (profile != null) {
-                saveSession(token, profile, nextRefresh.ifBlank { refresh }, expiresAt)
-            } else {
-                authToken = token
-                refreshToken = nextRefresh.ifBlank { refresh }
-                expiresAtMillis = expiresAt
+        val url = "${SupabaseConfig.authBaseUrl}/token?grant_type=refresh_token"
+        val payload = JSONObject().put("refresh_token", refresh).toString()
+        val bearers = listOfNotNull(SupabaseConfig.supabaseKey, authToken).distinct()
+        for (bearer in bearers) {
+            try {
+                val request = createAuthRequestBuilder(url, bearer = bearer)
+                    .post(payload.toRequestBody(jsonMediaType))
+                    .build()
+                httpClient.newCall(request).execute().use { response ->
+                    val body = response.body?.string().orEmpty()
+                    if (!response.isSuccessful || body.isBlank()) return@use
+                    val json = JSONObject(body)
+                    val token = json.optString("access_token", "")
+                    if (token.count { it == '.' } < 2) return@use
+                    val nextRefresh = json.optString("refresh_token", refresh)
+                    val expiresAt = System.currentTimeMillis() + json.optLong("expires_in", 3600L) * 1000L - 30_000L
+                    val profile = _currentUser.value
+                    if (profile != null) {
+                        saveSession(token, profile, nextRefresh.ifBlank { refresh }, expiresAt)
+                    } else {
+                        authToken = token
+                        refreshToken = nextRefresh.ifBlank { refresh }
+                        expiresAtMillis = expiresAt
+                    }
+                    return token
+                }
+            } catch (_: Exception) {
+                // Try the next Authorization value.
             }
-            token
-        } catch (_: Exception) {
-            null
         }
+        return null
     }
 
     private fun createBaseRequestBuilder(url: String): Request.Builder {
