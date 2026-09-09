@@ -285,6 +285,9 @@ private fun HomeContent(
 ) {
     val context = LocalContext.current
     val musicController = LocalMusicController.current
+    LaunchedEffect(feed.music) {
+        if (feed.music.isNotEmpty()) musicController.prefetchCatalog(feed.music)
+    }
     // Index (not the item) so the viewer can page through the whole gallery.
     var selectedGalleryIndex by remember { mutableStateOf<Int?>(null) }
     var selectedVideo by remember { mutableStateOf<VideoItem?>(null) }

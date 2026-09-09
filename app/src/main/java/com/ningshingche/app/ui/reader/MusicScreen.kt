@@ -85,6 +85,9 @@ fun MusicScreen(
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) { viewModel.loadMusicCatalog(force = true) }
+    LaunchedEffect(tracks) {
+        if (tracks.isNotEmpty()) player.prefetchCatalog(tracks)
+    }
 
     val byId = remember(tracks, offline) {
         (tracks + offline).associateBy { it.id }
