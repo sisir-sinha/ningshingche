@@ -133,7 +133,11 @@ object GoogleAuthMapper {
             text.contains("iat claim", ignoreCase = true) ||
             text.contains("nbf claim", ignoreCase = true) ||
             text.contains("invalid JWT", ignoreCase = true) ||
-            text.contains("jwt expired", ignoreCase = true)
+            text.contains("jwt expired", ignoreCase = true) ||
+            text.contains("token is expired", ignoreCase = true) ||
+            text.contains("invalid token", ignoreCase = true) ||
+            text.contains("jwt malformed", ignoreCase = true) ||
+            text.contains("JWS Protected Header is invalid", ignoreCase = true)
         ) {
             return sessionExpiredMessage()
         }

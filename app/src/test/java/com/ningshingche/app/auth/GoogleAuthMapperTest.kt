@@ -111,6 +111,17 @@ class GoogleAuthMapperTest {
     }
 
     @Test
+    fun userFacingJwtErrorRecognizesExpirationAndMalformedTokens() {
+        val expiredMsg = GoogleAuthMapper.sessionExpiredMessage()
+        assertEquals(expiredMsg, GoogleAuthMapper.userFacingJwtError("exp claim timestamp check failed"))
+        assertEquals(expiredMsg, GoogleAuthMapper.userFacingJwtError("JWS Protected Header is invalid"))
+        assertEquals(expiredMsg, GoogleAuthMapper.userFacingJwtError("token is expired"))
+        assertEquals(expiredMsg, GoogleAuthMapper.userFacingJwtError("jwt malformed"))
+        assertNull(GoogleAuthMapper.userFacingJwtError("network timeout"))
+        assertNull(GoogleAuthMapper.userFacingJwtError(null))
+    }
+
+    @Test
     fun userMessagesNeverExposeTokens() {
         val network = GoogleAuthMapper.userMessage(UnknownHostException("host"))
         assertEquals(

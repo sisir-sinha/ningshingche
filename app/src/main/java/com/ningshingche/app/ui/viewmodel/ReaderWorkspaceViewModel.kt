@@ -367,12 +367,14 @@ class ReaderWorkspaceViewModel(
                 _message.value = "গান আপলোড করতে Google দিয়ে সাইন ইন করুন।"
                 return@launch
             }
+            val effectiveUserId = GoogleAuthMapper.jwtPayload(token)?.optString("sub")?.takeIf { it.isNotBlank() }
+                ?: user.id
             val audio = AudioStorageUploader.uploadMp3(
                 context = context,
                 uri = audioUri,
-                userId = user.id,
+                userId = effectiveUserId,
                 accessToken = token,
-                refreshAccessToken = { supabaseClient.validUserJwt() }
+                refreshAccessToken = { supabaseClient.validUserJwt(force = true) }
             ).getOrElse {
                 _isSaving.value = false
                 _message.value = GoogleAuthMapper.userFacingJwtError(it.message)
@@ -408,13 +410,18 @@ class ReaderWorkspaceViewModel(
                 put("file_storage_path", audio.path)
                 put("duration_seconds", audio.durationSeconds)
                 put("file_size_mb", (audio.sizeBytes / 1024.0 / 1024.0).let { kotlin.math.round(it * 100.0) / 100.0 })
-                put("user_id", user.id)
+                if (effectiveUserId.length == 36 && runCatching { UUID.fromString(effectiveUserId) }.isSuccess) {
+                    put("user_id", effectiveUserId)
+                }
             }
             var result = supabaseClient.insertMusicTrack(payload)
-            listOf("video_link", "user_id", "lyrics").forEach { key ->
-                if (result.isFailure && payload.has(key)) {
-                    payload.remove(key)
-                    result = supabaseClient.insertMusicTrack(payload)
+            if (result.isFailure) {
+                val err = result.exceptionOrNull()?.message.orEmpty().lowercase()
+                listOf("video_link", "user_id", "lyrics").forEach { key ->
+                    if (payload.has(key) && err.contains("column") && err.contains(key)) {
+                        payload.remove(key)
+                        result = supabaseClient.insertMusicTrack(payload)
+                    }
                 }
             }
             result

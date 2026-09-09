@@ -136,15 +136,17 @@ class SupabaseClient(private val context: Context) {
 
     /**
      * User JWT for Storage. Prefer the signed-in access token while it is still
-     * valid. Refresh only when it is near expiry. A failed refresh does not
-     * count as signed-out — the current session token is returned instead.
+     * valid. Refresh only when it is near expiry, or force refresh if requested.
+     * A failed refresh does not count as signed-out — the current session token is returned instead.
      */
     @Synchronized
-    fun validUserJwt(): String? {
+    fun validUserJwt(force: Boolean = false): String? {
         val current = authToken
-        if (current == null || !GoogleAuthMapper.isSupabaseJwt(current)) {
-            val refreshed = refreshAccessTokenLocked() ?: return null
-            return refreshed.takeIf { GoogleAuthMapper.isSupabaseJwt(it) || it.count { ch -> ch == '.' } >= 2 }
+        if (force || current == null || !GoogleAuthMapper.isSupabaseJwt(current)) {
+            val refreshed = refreshAccessTokenLocked()
+            if (refreshed != null) return refreshed
+            if (!force && current != null && GoogleAuthMapper.isSupabaseJwt(current)) return current
+            return null
         }
         val jwtExp = jwtExpiryMillis(current)
         val expiry = when {
@@ -1400,9 +1402,12 @@ class SupabaseClient(private val context: Context) {
     }
 
     suspend fun countMyMusicTracks(userId: String): Int = withContext(Dispatchers.IO) {
-        if (userId.isBlank()) return@withContext 0
+        val clean = userId.trim()
+        if (clean.isBlank() || clean.length != 36 || runCatching { java.util.UUID.fromString(clean) }.isFailure) {
+            return@withContext 0
+        }
         try {
-            val url = "${SupabaseConfig.restBaseUrl}/music_tracks?select=id&user_id=eq.$userId"
+            val url = "${SupabaseConfig.restBaseUrl}/music_tracks?select=id&user_id=eq.$clean"
             val request = createBaseRequestBuilder(url)
                 .header("Prefer", "count=exact")
                 .header("Range", "0-0")
@@ -1437,22 +1442,46 @@ class SupabaseClient(private val context: Context) {
     }
 
     suspend fun insertMusicTrack(payload: JSONObject): Result<JSONObject> = withContext(Dispatchers.IO) {
-        val token = authToken
+        var token = validUserJwt() ?: authToken
         if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null) {
-            return@withContext Result.failure(Exception("সাইন ইন করা নেই।"))
+            return@withContext Result.failure(Exception("গান আপলোড করতে Google দিয়ে সাইন ইন করুন।"))
         }
         try {
             val url = "${SupabaseConfig.restBaseUrl}/music_tracks"
-            val request = createUserAuthedRequestBuilder(url, token)
+            var request = createUserAuthedRequestBuilder(url, token)
                 .addHeader("Prefer", "return=representation")
                 .post(payload.toString().toRequestBody(jsonMediaType))
                 .build()
-            val response = httpClient.newCall(request).execute()
-            val body = response.body?.string().orEmpty()
+            var response = httpClient.newCall(request).execute()
+            var body = response.body?.string().orEmpty()
+
+            if (response.code == 401) {
+                val refreshed = validUserJwt(force = true)
+                if (!refreshed.isNullOrBlank() && refreshed != token) {
+                    token = refreshed
+                    request = createUserAuthedRequestBuilder(url, token)
+                        .addHeader("Prefer", "return=representation")
+                        .post(payload.toString().toRequestBody(jsonMediaType))
+                        .build()
+                    response = httpClient.newCall(request).execute()
+                    body = response.body?.string().orEmpty()
+                }
+            }
+
             if (!response.isSuccessful) {
-                return@withContext Result.failure(
-                    Exception("গান সংরক্ষণ যায়নি (${response.code})। SQL মাইগ্রেশন 016 চালান।")
-                )
+                val parsed = runCatching { JSONObject(body) }.getOrNull()
+                val rawMsg = parsed?.optString("message").orEmpty()
+                val rawDetails = parsed?.optString("details").orEmpty()
+                val combined = "$rawMsg $rawDetails $body"
+                val jwtErr = GoogleAuthMapper.userFacingJwtError(combined)
+                val errorMessage = when {
+                    jwtErr != null -> jwtErr
+                    combined.contains("row-level security", ignoreCase = true) ->
+                        "গান জমা দিতে অনুমতি মেলেনি (RLS)। আবার সাইন ইন করুন।"
+                    rawMsg.isNotBlank() -> "গান সংরক্ষণ যায়নি (${response.code}): $rawMsg"
+                    else -> "গান সংরক্ষণ যায়নি (${response.code})।"
+                }
+                return@withContext Result.failure(Exception(errorMessage))
             }
             if (body.startsWith("[")) {
                 val array = JSONArray(body)
