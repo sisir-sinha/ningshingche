@@ -81,8 +81,9 @@ object GoogleAuthMapper {
         val payload = jwtPayload(token) ?: return false
         val role = payload.optString("role")
         val iss = payload.optString("iss")
+        val aud = payload.optString("aud")
         if (iss.contains("google", ignoreCase = true)) return false
-        return role == "authenticated" || iss.contains("supabase", ignoreCase = true)
+        return role == "authenticated" || aud == "authenticated" || iss.contains("supabase", ignoreCase = true)
     }
 
     fun jwtPayload(token: String): JSONObject? {

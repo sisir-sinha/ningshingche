@@ -88,9 +88,19 @@ class GoogleAuthMapperTest {
     fun jwtDetectionRejectsLocalAdminTokens() {
         assertFalse(GoogleAuthMapper.isSupabaseJwt("admin_auth_token"))
         assertFalse(GoogleAuthMapper.isSupabaseJwt(null))
+        assertFalse(
+            GoogleAuthMapper.isSupabaseJwt(
+                fakeIdToken(mapOf("sub" to "1234567890", "iss" to "https://accounts.google.com"))
+            )
+        )
         assertTrue(
             GoogleAuthMapper.isSupabaseJwt(
-                "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.suffixvalue"
+                fakeIdToken(mapOf("sub" to "1234567890", "role" to "authenticated"))
+            )
+        )
+        assertTrue(
+            GoogleAuthMapper.isSupabaseJwt(
+                fakeIdToken(mapOf("sub" to "1234567890", "iss" to "https://xyz.supabase.co/auth/v1"))
             )
         )
     }
