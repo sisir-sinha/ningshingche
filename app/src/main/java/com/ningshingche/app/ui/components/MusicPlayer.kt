@@ -302,11 +302,7 @@ private fun FullMusicPlayer(
         modifier = Modifier
             .fillMaxSize()
             .graphicsLayer { translationY = offsetY }
-            .background(
-                Brush.verticalGradient(
-                    listOf(Color(0xFF2A120E), PortalMaroon, Color(0xFF120806))
-                )
-            )
+            .background(Color(0xFF120806))
             .pointerInput(showQueue) {
                 if (showQueue) return@pointerInput
                 detectVerticalDragGestures(
@@ -323,15 +319,155 @@ private fun FullMusicPlayer(
                 )
             }
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .padding(horizontal = 22.dp)
-        ) {
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize(),
+            beyondViewportPageCount = 1
+        ) { page ->
+            val pageTrack = queue.getOrNull(page) ?: track
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(pageTrack.id) {
+                        detectTapGestures(
+                            onDoubleTap = { offset ->
+                                val third = size.width / 3f
+                                when {
+                                    offset.x < third -> {
+                                        controller.seekBy(-5_000L)
+                                        gestureHint = "Backward -5s"
+                                    }
+                                    offset.x > third * 2f -> {
+                                        controller.seekBy(5_000L)
+                                        gestureHint = "Forward +5s"
+                                    }
+                                    else -> controller.togglePlayPause()
+                                }
+                            }
+                        )
+                    }
+            ) {
+                CoverArt(url = pageTrack.thumbnailUrl, modifier = Modifier.fillMaxSize(), corner = 0.dp)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.TopCenter)
+                        .height(220.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color(0xCC120806), Color.Transparent)
+                            )
+                        )
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomCenter)
+                        .height(280.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color.Transparent, Color(0xF2120806))
+                            )
+                        )
+                )
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(start = 22.dp, end = 22.dp, top = 64.dp)
+                ) {
+                    Text(
+                        text = pageTrack.title,
+                        fontFamily = Kalpurush,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 26.sp,
+                        lineHeight = 34.sp,
+                        color = Color.White,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = pageTrack.artist.ifBlank { "নিংশিং চে" },
+                        fontFamily = Kalpurush,
+                        fontSize = 16.sp,
+                        color = Color.White.copy(alpha = 0.92f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 6.dp)
+                    )
+                    if (pageTrack.album.isNotBlank()) {
+                        Text(
+                            text = pageTrack.album,
+                            fontFamily = Kalpurush,
+                            fontSize = 14.sp,
+                            color = PortalSaffron,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+                }
+                if (state.showLyrics && pageTrack.id == track.id) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = 188.dp, bottom = 268.dp, start = 22.dp, end = 22.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Color(0x99000000))
+                                .padding(14.dp)
+                        ) {
+                            Text(
+                                text = pageTrack.lyrics.ifBlank { "এই গানের লিরিক এখনো যোগ করা হয়নি।" },
+                                fontFamily = Kalpurush,
+                                color = Color.White,
+                                fontSize = 17.sp,
+                                lineHeight = 28.sp,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(rememberScrollState())
+                            )
+                        }
+                    }
+                }
+                if (state.isBuffering && pageTrack.id == track.id) {
+                    CircularProgressIndicator(
+                        color = PortalSaffron,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .size(36.dp)
+                    )
+                }
+                gestureHint?.let { hint ->
+                    Surface(
+                        color = Color.Black.copy(alpha = 0.62f),
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier.align(Alignment.Center)
+                    ) {
+                        Text(
+                            text = hint,
+                            color = Color.White,
+                            fontFamily = Kalpurush,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        Column(modifier = Modifier.fillMaxSize()) {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(
@@ -372,94 +508,15 @@ private fun FullMusicPlayer(
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
-            HorizontalPager(
-                state = pagerState,
+            Spacer(Modifier.weight(1f))
+
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f, fill = false),
-                beyondViewportPageCount = 1
-            ) { page ->
-                val pageTrack = queue.getOrNull(page) ?: track
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 18.dp)
-                            .aspectRatio(1f)
-                            .shadow(28.dp, RoundedCornerShape(28.dp))
-                            .pointerInput(pageTrack.id) {
-                                detectTapGestures(
-                                    onDoubleTap = { offset ->
-                                        val third = size.width / 3f
-                                        when {
-                                            offset.x < third -> {
-                                                controller.seekBy(-5_000L)
-                                                gestureHint = "Backward -5s"
-                                            }
-                                            offset.x > third * 2f -> {
-                                                controller.seekBy(5_000L)
-                                                gestureHint = "Forward +5s"
-                                            }
-                                            else -> controller.togglePlayPause()
-                                        }
-                                    }
-                                )
-                            }
-                    ) {
-                        CoverArt(url = pageTrack.thumbnailUrl, modifier = Modifier.fillMaxSize(), corner = 28.dp)
-                        if (state.isBuffering && pageTrack.id == track.id) {
-                            CircularProgressIndicator(
-                                color = PortalSaffron,
-                                strokeWidth = 2.dp,
-                                modifier = Modifier
-                                    .align(Alignment.Center)
-                                    .size(36.dp)
-                            )
-                        }
-                        gestureHint?.let { hint ->
-                            Surface(
-                                color = Color.Black.copy(alpha = 0.62f),
-                                shape = RoundedCornerShape(20.dp),
-                                modifier = Modifier.align(Alignment.Center)
-                            ) {
-                                Text(
-                                    text = hint,
-                                    color = Color.White,
-                                    fontFamily = Kalpurush,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
-                                )
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(20.dp))
-                    Text(
-                        text = pageTrack.title,
-                        fontFamily = Kalpurush,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 24.sp,
-                        lineHeight = 32.sp,
-                        color = Color.White,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = buildString {
-                            append(pageTrack.artist.ifBlank { "নিংশিং চে" })
-                            if (pageTrack.album.isNotBlank()) append("  ·  ${pageTrack.album}")
-                        },
-                        fontFamily = Kalpurush,
-                        fontSize = 15.sp,
-                        color = Color.White.copy(alpha = 0.78f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                }
-            }
-
+                    .navigationBarsPadding()
+                    .padding(horizontal = 22.dp)
+                    .padding(bottom = 10.dp)
+            ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -587,23 +644,6 @@ private fun FullMusicPlayer(
                     )
                 }
             }
-
-            if (state.showLyrics) {
-                Spacer(Modifier.height(8.dp))
-                Text("লিরিক", fontFamily = Kalpurush, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = track.lyrics.ifBlank { "এই গানের লিরিক এখনো যোগ করা হয়নি।" },
-                    fontFamily = Kalpurush,
-                    color = Color.White.copy(alpha = 0.86f),
-                    fontSize = 15.sp,
-                    lineHeight = 24.sp,
-                    modifier = Modifier
-                        .weight(1f)
-                        .verticalScroll(rememberScrollState())
-                )
-            } else {
-                Spacer(Modifier.weight(1f))
             }
         }
 
