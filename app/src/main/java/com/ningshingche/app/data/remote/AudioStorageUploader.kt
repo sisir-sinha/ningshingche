@@ -3,6 +3,7 @@ package com.ningshingche.app.data.remote
 import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import com.ningshingche.app.data.auth.GoogleAuthMapper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -33,7 +34,8 @@ object AudioStorageUploader {
         context: Context,
         uri: Uri,
         userId: String,
-        accessToken: String
+        accessToken: String,
+        refreshAccessToken: (() -> String?)? = null
     ): Result<UploadedAudio> = withContext(Dispatchers.IO) {
         try {
             val resolver = context.contentResolver
@@ -47,27 +49,34 @@ object AudioStorageUploader {
             val year = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
             val path = "user/$userId/$year/${UUID.randomUUID()}.mp3"
             val url = "${SupabaseConfig.supabaseUrl.trimEnd('/')}/storage/v1/object/music/$path"
-            val request = Request.Builder()
-                .url(url)
-                .addHeader("apikey", SupabaseConfig.supabaseKey)
-                .addHeader("Authorization", "Bearer $accessToken")
-                .addHeader("x-upsert", "false")
-                .put(bytes.toRequestBody(mime.toMediaType()))
-                .build()
-            http.newCall(request).execute().use { response ->
-                val body = response.body?.string().orEmpty()
-                if (!response.isSuccessful) {
-                    val detail = runCatching { JSONObject(body).optString("message") }.getOrNull().orEmpty()
-                    val combined = "$detail $body"
-                    val message = when {
-                        combined.contains("exp claim", ignoreCase = true) ||
-                            combined.contains("invalid JWT", ignoreCase = true) ||
-                            response.code == 401 ->
-                            "সেশন শেষ হয়েছে। Google দিয়ে আবার সাইন ইন করে গান আপলোড করুন।"
-                        else -> detail.takeIf { it.isNotBlank() } ?: "অডিও আপলোড যায়নি (${response.code})।"
-                    }
-                    return@withContext Result.failure(Exception(message))
+            var token = accessToken
+            var attempt = 0
+            while (true) {
+                val request = Request.Builder()
+                    .url(url)
+                    .addHeader("apikey", SupabaseConfig.supabaseKey)
+                    .addHeader("Authorization", "Bearer $token")
+                    .addHeader("x-upsert", "false")
+                    .put(bytes.toRequestBody(mime.toMediaType()))
+                    .build()
+                val (code, body) = http.newCall(request).execute().use { response ->
+                    response.code to response.body?.string().orEmpty()
                 }
+                if (code in 200..299) break
+                val detail = storageErrorMessage(body, code)
+                val expired = GoogleAuthMapper.userFacingJwtError("$detail $body") != null ||
+                    code == 401 || code == 403
+                if (expired && attempt == 0) {
+                    val next = refreshAccessToken?.invoke()
+                    if (!next.isNullOrBlank() && next != token) {
+                        token = next
+                        attempt += 1
+                        continue
+                    }
+                }
+                return@withContext Result.failure(
+                    Exception(GoogleAuthMapper.userFacingJwtError("$detail $body") ?: detail)
+                )
             }
             val publicUrl =
                 "${SupabaseConfig.supabaseUrl.trimEnd('/')}/storage/v1/object/public/music/$path"
@@ -81,8 +90,25 @@ object AudioStorageUploader {
                 )
             )
         } catch (error: Exception) {
-            Result.failure(error)
+            Result.failure(
+                Exception(
+                    GoogleAuthMapper.userFacingJwtError(error.message)
+                        ?: error.message
+                        ?: "অডিও আপলোড যায়নি।"
+                )
+            )
         }
+    }
+
+    private fun storageErrorMessage(body: String, code: Int): String {
+        val parsed = runCatching { JSONObject(body) }.getOrNull()
+        val detail = listOf("message", "error_description", "msg", "error")
+            .map { parsed?.optString(it).orEmpty().trim() }
+            .firstOrNull { it.isNotBlank() && it != "null" }
+            .orEmpty()
+        return GoogleAuthMapper.userFacingJwtError("$detail $body")
+            ?: detail.takeIf { it.isNotBlank() }
+            ?: "অডিও আপলোড যায়নি ($code)।"
     }
 
     private fun durationSeconds(context: Context, uri: Uri): Int {

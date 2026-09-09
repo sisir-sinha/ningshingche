@@ -77,7 +77,39 @@ object GoogleAuthMapper {
 
     fun isSupabaseJwt(token: String?): Boolean {
         if (token.isNullOrBlank()) return false
-        return token.count { it == '.' } >= 2 && token.length > 40
+        if (token.count { it == '.' } < 2 || token.length <= 40) return false
+        val payload = jwtPayload(token) ?: return false
+        val role = payload.optString("role")
+        val iss = payload.optString("iss")
+        if (iss.contains("google", ignoreCase = true)) return false
+        return role == "authenticated" || iss.contains("supabase", ignoreCase = true)
+    }
+
+    fun jwtPayload(token: String): JSONObject? {
+        return try {
+            val payload = token.split('.').getOrNull(1) ?: return null
+            val padded = payload + "=".repeat((4 - payload.length % 4) % 4)
+            val decoded = Base64.getUrlDecoder().decode(padded)
+            JSONObject(String(decoded, Charsets.UTF_8))
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun sessionExpiredMessage(): String =
+        "সেশন শেষ হয়েছে। Google দিয়ে আবার সাইন ইন করে গান আপলোড করুন।"
+
+    fun userFacingJwtError(raw: String?): String? {
+        val text = raw.orEmpty()
+        if (text.contains("exp claim", ignoreCase = true) ||
+            text.contains("iat claim", ignoreCase = true) ||
+            text.contains("nbf claim", ignoreCase = true) ||
+            text.contains("invalid JWT", ignoreCase = true) ||
+            text.contains("jwt expired", ignoreCase = true)
+        ) {
+            return sessionExpiredMessage()
+        }
+        return null
     }
 
     fun profileFromAuthUser(user: JSONObject): UserProfile {

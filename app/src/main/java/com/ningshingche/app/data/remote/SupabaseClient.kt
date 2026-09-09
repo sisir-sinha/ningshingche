@@ -135,18 +135,11 @@ class SupabaseClient(private val context: Context) {
     fun getAuthToken(): String? = authToken
 
     /**
-     * Fresh user JWT for Storage uploads. Always tries refresh first so an
-     * hour-old session is not sent and rejected as "exp claim timestamp check failed".
+     * Fresh user JWT for Storage uploads. Never returns a cached access token:
+     * an hour-old JWT is rejected as "exp claim timestamp check failed".
      */
     @Synchronized
-    fun validUserJwt(): String? {
-        refreshAccessTokenLocked()?.let { return it }
-        val token = authToken
-        if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null) return null
-        val exp = jwtExpiryMillis(token)
-        if (exp > 0L && System.currentTimeMillis() >= exp) return null
-        return token
-    }
+    fun validUserJwt(): String? = refreshAccessTokenLocked()
 
     @Synchronized
     private fun sessionBearer(): String {

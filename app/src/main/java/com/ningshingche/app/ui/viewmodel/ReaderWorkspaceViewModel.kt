@@ -368,10 +368,13 @@ class ReaderWorkspaceViewModel(
                 context = context,
                 uri = audioUri,
                 userId = user.id,
-                accessToken = token
+                accessToken = token,
+                refreshAccessToken = { supabaseClient.validUserJwt() }
             ).getOrElse {
                 _isSaving.value = false
-                _message.value = it.message ?: "Supabase-এ অডিও আপলোড যায়নি।"
+                _message.value = GoogleAuthMapper.userFacingJwtError(it.message)
+                    ?: it.message
+                    ?: "Supabase-এ অডিও আপলোড যায়নি।"
                 return@launch
             }
             var thumbnail = ""
