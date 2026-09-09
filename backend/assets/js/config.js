@@ -77,6 +77,7 @@
       { id: 'registered-users', label: 'Registered users', icon: 'fa-user-group', group: 'community' },
       { id: 'ru-users', label: 'Users', icon: 'fa-users', group: 'community', parent: 'registered-users' },
       { id: 'ru-articles', label: 'Articles', icon: 'fa-file-pen', group: 'community', parent: 'registered-users' },
+      { id: 'ru-music', label: 'Music', icon: 'fa-music', group: 'community', parent: 'registered-users' },
       { id: 'ru-comments', label: 'Comments', icon: 'fa-comments', group: 'community', parent: 'registered-users' },
       { id: 'ru-messages', label: 'Messages', icon: 'fa-messages', group: 'community', parent: 'registered-users' },
       { id: 'ru-notifications', label: 'Notification', icon: 'fa-bell', group: 'community', parent: 'registered-users' },

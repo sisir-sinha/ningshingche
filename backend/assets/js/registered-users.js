@@ -9,7 +9,7 @@
   let articleEditorCleanup = null;
 
   function emptyCache() {
-    return { users: [], articles: [], comments: [], messages: [], notices: [], categories: [], authors: [], inboxReady: true };
+    return { users: [], articles: [], comments: [], messages: [], notices: [], tracks: [], categories: [], authors: [], inboxReady: true };
   }
 
   function destroyCharts() {
@@ -38,6 +38,27 @@
       || (user.email && String(item.email || '').toLowerCase() === String(user.email).toLowerCase()));
   }
 
+  function trackOwner(record) {
+    if (!record) return null;
+    if (record.user_id) {
+      const byId = userById(record.user_id);
+      if (byId) return byId;
+    }
+    const match = String(record.file_storage_path || '').match(/^user\/([^/]+)\//);
+    return match ? userById(match[1]) : null;
+  }
+
+  function relatedTracks(user) {
+    if (!user) return [];
+    return cache.tracks.filter((item) => trackOwner(item)?.id === user.id || item.user_id === user.id);
+  }
+
+  function isAppTrack(record) {
+    if (!record) return false;
+    if (record.user_id) return true;
+    return String(record.file_storage_path || '').startsWith('user/');
+  }
+
   function appArticles() {
     const emails = new Set(cache.users.map((item) => String(item.email || '').toLowerCase()).filter(Boolean));
     const ids = new Set(cache.users.map((item) => item.id));
@@ -48,6 +69,10 @@
     const emails = new Set(cache.users.map((item) => String(item.email || '').toLowerCase()).filter(Boolean));
     const ids = new Set(cache.users.map((item) => item.id));
     return cache.comments.filter((item) => ids.has(item.user_id) || emails.has(String(item.email || '').toLowerCase()));
+  }
+
+  function appTracks() {
+    return cache.tracks.filter(isAppTrack);
   }
 
   async function safeList(key, options) {
@@ -61,12 +86,13 @@
 
   async function loadCache(context = {}) {
     const optional = (key, options) => NC.api.list(key, options).catch(() => ({ data: [] }));
-    const [profilesResult, submissionsResult, commentsResult, messagesResult, noticesResult, categoriesResult, authorsResult] = await Promise.all([
+    const [profilesResult, submissionsResult, commentsResult, messagesResult, noticesResult, tracksResult, categoriesResult, authorsResult] = await Promise.all([
       NC.api.list('profiles', { select: '*', order: 'created_at.desc', limit: 3000 }),
       safeList('submissions', { select: '*', order: 'created_at.desc', limit: 3000 }),
       safeList('comments', { select: '*', order: 'created_at.desc', limit: 3000 }),
       safeList('messages', { select: '*', order: 'created_at.desc', limit: 3000 }),
       safeList('notifications', { select: '*', order: 'created_at.desc', limit: 3000 }),
+      safeList('music', { select: '*', order: 'created_at.desc', limit: 3000 }),
       optional('categories', { select: 'id,title,slug', order: 'title.asc', limit: 1000 }),
       optional('authors', { select: 'id,title,image', order: 'title.asc', limit: 2000 })
     ]);
@@ -77,6 +103,7 @@
       comments: commentsResult.data,
       messages: messagesResult.data,
       notices: noticesResult.data,
+      tracks: tracksResult.data,
       categories: categoriesResult.data,
       authors: authorsResult.data,
       inboxReady: !messagesResult.missing && !noticesResult.missing
@@ -145,6 +172,7 @@
   function metrics() {
     const articles = appArticles();
     const comments = appComments();
+    const tracks = appTracks();
     const published = articles.filter((item) => ['Published', 'Approved'].includes(item.status)).length;
     const pending = articles.filter((item) => item.status === 'Pending').length;
     const unreadNotices = cache.notices.filter((item) => !item.is_read).length;
@@ -155,6 +183,7 @@
       ['Articles', articles.length, 'fa-file-pen', 'brand'],
       ['Published', published, 'fa-circle-check', 'emerald'],
       ['Pending articles', pending, 'fa-clock', 'amber'],
+      ['Songs', tracks.length, 'fa-music', 'rose'],
       ['Comments', comments.length, 'fa-comments', 'indigo'],
       ['Messages', cache.messages.length, 'fa-messages', 'sky'],
       ['User messages', userMessages, 'fa-inbox', 'cyan'],
@@ -329,7 +358,7 @@
   function renderHome() {
     const articles = appArticles();
     const comments = appComments();
-    root.innerHTML = `${pageChrome('Dashboard', 'Users, articles, comments, messages, and notifications pushed from the Android app.')}
+    root.innerHTML = `${pageChrome('Dashboard', 'Users, articles, songs, comments, messages, and notifications pushed from the Android app.')}
       ${metrics()}
       <section class="ru-chart-grid mt-6" aria-label="Registered user charts">
         ${chartCard('Growth & activity', 'New sign-ups, articles, comments, and user messages per month.', 'ru-chart-growth', 'chart-wide')}
@@ -350,6 +379,13 @@
           meta: `${item.writer_name || 'Unknown writer'} · ${relativeTime(item.created_at)}`,
           status: item.status || 'Pending'
         })), 'No app articles yet', 'ru-articles')}
+      </section>
+      <section class="dashboard-columns mt-6">
+        ${recentBlock('Latest songs', appTracks().map((item) => ({
+          id: item.id, route: 'ru-music', icon: 'music', title: item.title || 'Untitled',
+          meta: `${trackOwner(item) ? displayName(trackOwner(item)) : (item.artist || 'App user')} · ${relativeTime(item.created_at)}`,
+          status: item.genre || 'Song'
+        })), 'No app songs yet', 'ru-music')}
       </section>
       <section class="dashboard-columns mt-6">
         ${recentBlock('Latest comments', comments.map((item) => ({
@@ -380,6 +416,7 @@
   function openUser(user) {
     const articles = relatedArticles(user);
     const comments = relatedComments(user);
+    const tracks = relatedTracks(user);
     const messages = cache.messages.filter((item) => item.user_id === user.id);
     const notices = cache.notices.filter((item) => item.user_id === user.id);
     NC.components.openModal({
@@ -396,9 +433,10 @@
           <div><dt>Profile</dt><dd>${user.profile_completed ? 'Complete' : 'Incomplete'}</dd></div>
         </dl>
         ${user.about ? `<p class="mt-4">${escapeHTML(user.about)}</p>` : ''}
-        <p class="mt-6 text-muted-foreground">${articles.length} articles · ${comments.length} comments · ${messages.length} messages · ${notices.length} notices</p>
+        <p class="mt-6 text-muted-foreground">${articles.length} articles · ${tracks.length} songs · ${comments.length} comments · ${messages.length} messages · ${notices.length} notices</p>
         <div class="button-row mt-4">
           <button type="button" class="btn btn-secondary" data-jump="ru-articles">Articles</button>
+          <button type="button" class="btn btn-secondary" data-jump="ru-music">Music</button>
           <button type="button" class="btn btn-secondary" data-jump="ru-comments">Comments</button>
           <button type="button" class="btn btn-secondary" data-jump="ru-messages">Messages</button>
           <button type="button" class="btn btn-primary" data-jump="ru-notifications">Send notification</button>
@@ -431,7 +469,7 @@
         body: rows.map((user) => `<tr>
           <td data-label="User"><div class="person-cell">${NC.utils.avatarHTML(displayName(user), user.avatar_url, 'person-avatar')}<div><strong>${escapeHTML(displayName(user))}</strong><span>${escapeHTML(user.email || 'No email')}</span></div></div></td>
           <td data-label="Profile">${NC.components.statusBadge(user.profile_completed ? 'Complete' : 'Incomplete')}</td>
-          <td data-label="App data"><small>${relatedArticles(user).length} articles · ${relatedComments(user).length} comments</small></td>
+          <td data-label="App data"><small>${relatedArticles(user).length} articles · ${relatedTracks(user).length} songs · ${relatedComments(user).length} comments</small></td>
           <td data-label="Joined">${escapeHTML(formatDateTime(user.created_at))}</td>
           <td data-label="Actions" class="text-right">${NC.components.rowActions([{ action: 'view', id: user.id, label: 'Open user', icon: 'fa-eye' }])}</td>
         </tr>`).join('')
@@ -1622,10 +1660,160 @@
     renderList();
   }
 
+
+  function durationLabel(seconds) {
+    const total = Number(seconds) || 0;
+    if (total <= 0) return '—';
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  function trackById(id) {
+    return cache.tracks.find((item) => item.id === id) || null;
+  }
+
+  function canManageMusic() {
+    return NC.auth.canAccess('music');
+  }
+
+  function openTrackView(record) {
+    const owner = trackOwner(record);
+    const thumbnail = safeImage(record.thumbnail_url);
+    NC.components.openModal({
+      title: record.title || 'Untitled',
+      eyebrow: [record.artist, record.album].filter(Boolean).join(' · ') || 'App song',
+      size: 'lg',
+      content: `
+        ${thumbnail ? `<img src="${escapeHTML(thumbnail)}" alt="" style="width:120px;height:120px;object-fit:cover;border-radius:16px;margin-bottom:16px;" referrerpolicy="no-referrer">` : ''}
+        <dl class="details-list">
+          <div><dt>Uploaded by</dt><dd>${escapeHTML(owner ? displayName(owner) : (record.user_id || 'App user'))}${owner?.email ? ` · ${escapeHTML(owner.email)}` : ''}</dd></div>
+          <div><dt>Genre</dt><dd>${escapeHTML(record.genre || '—')}</dd></div>
+          <div><dt>Length</dt><dd>${escapeHTML(durationLabel(record.duration_seconds))}</dd></div>
+          <div><dt>Added</dt><dd>${escapeHTML(formatDateTime(record.created_at))}</dd></div>
+        </dl>
+        <audio controls preload="metadata" src="${escapeHTML(record.audio_url || '')}" style="width:100%;margin-top:16px"></audio>
+        ${record.video_link ? `<div class="mt-5">${NC.media.videoPreviewHTML(record.video_link, { title: record.title })}</div>` : ''}
+        ${record.description ? `<div class="prose-content mt-5"><p>${escapeHTML(record.description)}</p></div>` : ''}`,
+      footer: `<button type="button" class="btn btn-secondary" data-modal-close>Close</button>${canManageMusic() ? '<button type="button" class="btn btn-primary" data-open-music><i class="fa-regular fa-music" aria-hidden="true"></i>Open in Music</button>' : ''}`,
+      onOpen: (modalRoot) => {
+        modalRoot.querySelector('[data-open-music]')?.addEventListener('click', () => {
+          NC.components.closeModal();
+          routeTo('music', { action: 'view', id: record.id });
+        });
+      }
+    });
+  }
+
+  async function deleteTrack(record, onDeleted) {
+    if (!canManageMusic()) {
+      NC.components.toast('Deleting songs requires Music library access.', 'warning');
+      return;
+    }
+    const deleted = await NC.crud.deleteRecord({
+      table: 'music',
+      record,
+      label: 'track',
+      remoteDeleteUrls: [record.imgbb_delete_url],
+      storageObjects: record.file_storage_path ? [{ bucket: NC_CONFIG.supabase.musicBucket, path: record.file_storage_path }] : []
+    });
+    if (deleted) await onDeleted();
+  }
+
+  function renderMusic(context = {}) {
+    const state = new NC.crud.ListState('tracks', { searchFields: ['title', 'artist', 'album', 'genre', 'description'], sortKey: 'created_at' });
+    const records = appTracks();
+    state.setRecords(records);
+    const reload = () => refreshScreen(renderMusic, context);
+    const params = context.params || new URLSearchParams();
+    const presetUser = params.get('user') || 'all';
+    const userOptions = cache.users
+      .map((user) => ({ value: user.id, label: `${displayName(user)}${user.email ? ` — ${user.email}` : ''}`, count: relatedTracks(user).length }))
+      .filter((item) => item.count > 0)
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'bn'));
+    root.innerHTML = `${pageChrome('Music', 'Songs uploaded from the Android app (নতুন গান). Editorial tracks stay in Content → Music.')}
+      <section class="surface">
+        <div class="list-toolbar">
+          <label class="search-field"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><span class="sr-only">Search songs</span><input type="search" placeholder="Search title, artist, or album…" data-ru-search></label>
+          ${NC.crud.filterSelect(userOptions, { attr: 'data-ru-user-filter', label: 'Filter by user', placeholder: 'All users', selected: presetUser, wide: true })}
+        </div>
+        <div class="active-filters hidden" data-ru-active-filters></div>
+        <div data-ru-table></div>
+      </section>`;
+    const renderList = () => {
+      const content = root.querySelector('[data-ru-table]');
+      const { rows, total } = state.paged();
+      if (!total) {
+        const filtered = Boolean(state.query) || root.querySelector('[data-ru-user-filter]')?.value !== 'all';
+        content.innerHTML = NC.components.emptyState({
+          icon: 'fa-music',
+          title: filtered ? 'No songs match' : 'No app songs yet',
+          description: filtered ? 'Try another user or search.' : 'Registered users upload MP3s from নতুন গান. They also appear in Content → Music.'
+        });
+        return;
+      }
+      content.innerHTML = `${NC.components.tableShell({
+        caption: 'App songs', minWidth: '1080px',
+        head: `<tr><th>Track</th><th>Uploaded by</th><th>Length</th><th><button type="button" data-sort="created_at">Added ${NC.crud.sortIcon(state, 'created_at')}</button></th><th class="text-right">Actions</th></tr>`,
+        body: rows.map((item) => {
+          const owner = trackOwner(item);
+          const thumbnail = safeImage(item.thumbnail_url);
+          const actions = [{ action: 'view', id: item.id, label: 'Preview track', icon: 'fa-play' }];
+          if (canManageMusic()) {
+            actions.push({ action: 'library', id: item.id, label: 'Open in Music', icon: 'fa-music' });
+            actions.push({ action: 'delete', id: item.id, label: 'Delete track', icon: 'fa-trash', danger: true });
+          }
+          return `<tr>
+            <td data-label="Track"><div class="video-cell">${thumbnail ? `<img src="${escapeHTML(thumbnail)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-image-fallback>` : `<span><i class="fa-regular fa-music" aria-hidden="true"></i></span>`}<div><strong>${escapeHTML(item.title || 'Untitled')}</strong><small>${escapeHTML([item.artist, item.album].filter(Boolean).join(' · ') || item.genre || '')}</small></div></div></td>
+            <td data-label="Uploaded by"><div class="person-cell compact">${NC.utils.avatarHTML(owner ? displayName(owner) : 'App user', owner?.avatar_url, 'person-avatar')}<div><strong>${escapeHTML(owner ? displayName(owner) : (item.user_id || 'Unknown user'))}</strong><span>${escapeHTML(owner?.email || '')}</span></div></div></td>
+            <td data-label="Length">${escapeHTML(durationLabel(item.duration_seconds))}</td>
+            <td data-label="Added">${escapeHTML(formatDateTime(item.created_at))}</td>
+            <td data-label="Actions" class="text-right">${NC.components.rowActions(actions)}</td>
+          </tr>`;
+        }).join('')
+      })}${NC.components.pagination({ page: state.page, pageSize: state.pageSize, total })}`;
+      NC.components.bindImageFallbacks(content);
+      content.querySelectorAll('[data-action]').forEach((button) => {
+        const record = trackById(button.dataset.id);
+        if (!record) return;
+        button.addEventListener('click', () => {
+          if (button.dataset.action === 'view') openTrackView(record);
+          if (button.dataset.action === 'library') routeTo('music', { action: 'view', id: record.id });
+          if (button.dataset.action === 'delete') deleteTrack(record, reload);
+        });
+      });
+      NC.crud.bindPagination(root, state, renderList);
+      NC.crud.bindSort(root, state, renderList);
+    };
+    bindList(state, renderList);
+    const userSelect = root.querySelector('[data-ru-user-filter]');
+    const applyUser = () => {
+      const value = userSelect?.value;
+      state.setFilter('__user', value && value !== 'all' ? (_, record) => (trackOwner(record)?.id === value || record.user_id === value) : 'all');
+      renderList();
+      NC.crud.renderActiveFilters(root.querySelector('[data-ru-active-filters]'), [
+        { key: 'user', label: 'User', value: value && value !== 'all' ? displayName(userById(value) || {}) : '' }
+      ], {
+        onRemove: (key) => { if (key === 'user' && userSelect) { userSelect.value = 'all'; applyUser(); } },
+        onClear: () => { if (userSelect) userSelect.value = 'all'; applyUser(); }
+      });
+    };
+    userSelect?.addEventListener('change', applyUser);
+    const openId = params.get('id');
+    if (presetUser !== 'all' && userSelect && [...userSelect.options].some((option) => option.value === presetUser)) {
+      userSelect.value = presetUser;
+    } else if (openId && userById(openId) && !trackById(openId) && userSelect) {
+      userSelect.value = openId;
+    }
+    applyUser();
+    if (openId && trackById(openId)) openTrackView(trackById(openId));
+  }
+
   const screens = {
     'registered-users': renderHome,
     'ru-users': renderUsers,
     'ru-articles': renderArticles,
+    'ru-music': renderMusic,
     'ru-comments': renderComments,
     'ru-messages': renderMessages,
     'ru-notifications': renderNotifications
