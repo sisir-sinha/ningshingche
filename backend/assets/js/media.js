@@ -439,7 +439,7 @@
       <div class="pdf-uploader" data-audio-uploader id="${escapeHTML(id)}">
         <div class="field-heading">
           <label class="field-label" for="${escapeHTML(id)}-url">${escapeHTML(label)} <span aria-hidden="true">*</span></label>
-          <span class="field-hint">Upload an MP3 to Catbox (durable public URL, up to 200 MB), or paste a direct audio URL.</span>
+          <span class="field-hint">Upload an MP3 to Supabase Storage (public URL, up to 32 MB), or paste a direct audio URL.</span>
         </div>
         <div class="grid gap-3 sm:grid-cols-[1fr_auto]">
           <input type="url" class="form-input" id="${escapeHTML(id)}-url" data-audio-url placeholder="https://example.com/song.mp3">
@@ -508,7 +508,7 @@
       meta.classList.toggle('hidden', !hasUrl);
       if (hasUrl) {
         const durationLabel = value.duration ? `${Math.floor(value.duration / 60)}:${String(value.duration % 60).padStart(2, '0')}` : '';
-        meta.innerHTML = `<i class="fa-regular fa-music" aria-hidden="true"></i><span>${[value.filename || 'Audio link', value.size ? bytes(value.size) : '', durationLabel, value.url && value.url.includes('catbox.moe') ? 'Catbox' : (value.provider === 'supabase-storage' ? 'Supabase Storage' : 'Direct URL')].filter(Boolean).map(escapeHTML).join(' · ')}</span>`;
+        meta.innerHTML = `<i class="fa-regular fa-music" aria-hidden="true"></i><span>${[value.filename || 'Audio link', value.size ? bytes(value.size) : '', durationLabel, value.provider === 'supabase-storage' ? 'Supabase Storage' : 'Direct URL'].filter(Boolean).map(escapeHTML).join(' · ')}</span>`;
         if (preview && preview.src !== value.url) probeDuration(value.url);
       } else if (preview) {
         preview.classList.add('hidden');

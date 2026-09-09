@@ -461,68 +461,7 @@
     };
   }
 
-  /**
-   * Permanent Catbox.moe host — same API as katbox
-   * (https://github.com/Olivki/katbox): reqtype=fileupload → public URL.
-   */
-  async function uploadAudioToCatbox(file, onProgress) {
-    if (!(file instanceof File)) throw new ApiError('Choose an audio file first.', { code: 'NO_FILE' });
-    const name = file.name.toLowerCase();
-    const allowedExt = ['.mp3', '.m4a', '.aac', '.ogg', '.wav', '.flac', '.webm'];
-    const looksAudio = (file.type || '').startsWith('audio/') || allowedExt.some((ext) => name.endsWith(ext));
-    if (!looksAudio) {
-      throw new ApiError('Only MP3 and other audio files can be uploaded.', { code: 'INVALID_FILE' });
-    }
-    if (file.size > 200 * 1024 * 1024) {
-      throw new ApiError('The audio file is larger than Catbox’s 200 MB limit.', { code: 'FILE_TOO_LARGE' });
-    }
-    const bodyText = await new Promise((resolve, reject) => {
-      const upload = new XMLHttpRequest();
-      upload.open('POST', 'https://catbox.moe/user/api.php');
-      upload.timeout = 180000;
-      upload.responseType = 'text';
-      upload.upload.addEventListener('progress', (event) => {
-        if (event.lengthComputable) onProgress?.(Math.round((event.loaded / event.total) * 100));
-      });
-      upload.addEventListener('load', () => {
-        const text = String(upload.response || '').trim();
-        if (upload.status >= 200 && upload.status < 300 && /https?:\/\/(?:files\.)?catbox\.moe\//i.test(text)) {
-          onProgress?.(100);
-          resolve(text);
-          return;
-        }
-        reject(new ApiError(text.slice(0, 180) || 'Catbox could not upload this audio file.', {
-          status: upload.status,
-          code: 'CATBOX_UPLOAD_ERROR'
-        }));
-      });
-      upload.addEventListener('error', () => reject(new ApiError('The Catbox upload failed. Check your connection and try again.', { code: 'NETWORK_ERROR' })));
-      upload.addEventListener('timeout', () => reject(new ApiError('The Catbox upload timed out. Please try again.', { code: 'TIMEOUT' })));
-      const form = new FormData();
-      form.append('reqtype', 'fileupload');
-      form.append('fileToUpload', file, file.name);
-      upload.send(form);
-    });
-    const urlMatch = bodyText.match(/https?:\/\/(?:files\.)?catbox\.moe\/\S+/i);
-    const url = (urlMatch ? urlMatch[0] : bodyText.split(/\s+/)[0]).replace(/^http:\/\//i, 'https://').replace(/[.,)]+$/, '');
-    return {
-      url,
-      path: url.split('/').pop() || '',
-      provider: 'url',
-      size: file.size,
-      filename: file.name,
-      mime: file.type || 'audio/mpeg'
-    };
-  }
-
   async function uploadAudio(file, onProgress) {
-    try {
-      return await uploadAudioToCatbox(file, onProgress);
-    } catch (catboxError) {
-      if (catboxError?.code === 'INVALID_FILE' || catboxError?.code === 'FILE_TOO_LARGE' || catboxError?.code === 'NO_FILE') {
-        throw catboxError;
-      }
-    }
     if (!(file instanceof File)) throw new ApiError('Choose an audio file first.', { code: 'NO_FILE' });
     const name = file.name.toLowerCase();
     const allowedExt = ['.mp3', '.m4a', '.aac', '.ogg', '.wav', '.flac', '.webm'];
@@ -618,7 +557,7 @@
 
   NC.api = Object.freeze({
     ApiError, request, list, getById, count, insert, insertMany, update, upsert, remove,
-    rpc, slugExists, searchAll, schemaProbe, uploadPdf, uploadAudio, uploadAudioToCatbox, deleteStorageObject,
+    rpc, slugExists, searchAll, schemaProbe, uploadPdf, uploadAudio, deleteStorageObject,
     storagePublicUrl, attemptImgBBDelete, userMessage, tableName,
     tagIndex, issueYears, blogsByIssue, blogsByTag, tagEndpointsAvailable, probeTagEndpoints, arrayLiteral
   });

@@ -133,6 +133,13 @@
       }, 120);
     });
     shell.addEventListener('click', () => input.focus());
+    const select = root.querySelector('[data-genre-select]');
+    select?.addEventListener('change', () => {
+      if (select.value) {
+        addToken(select.value);
+        select.selectedIndex = 0;
+      }
+    });
     renderChips();
     return {
       getValue() {
@@ -202,7 +209,7 @@
   function openForm(record = null) {
     NC.components.openModal({
       title: record ? 'Edit track' : 'Add track', eyebrow: 'Music library', size: 'xl',
-      description: 'Upload an MP3 via Catbox so the app gets a lasting public URL (not a 15-minute signed link).',
+      description: 'Upload an MP3 to Supabase Storage so the app streams a lasting public URL.',
       content: `<form id="music-form" class="form-stack" novalidate>
         <div class="form-grid-2">
           <div class="field"><label class="field-label" for="track-title">Title <span aria-hidden="true">*</span></label><input class="form-input" id="track-title" name="title" value="${escapeHTML(record?.title || '')}" autofocus><p class="field-error hidden" data-field-error="title"></p></div>
@@ -271,8 +278,8 @@
             title: data.title ? '' : 'Track title is required.',
             video_link: videoLink && !NC.utils.isValidUrl(videoLink, { allowEmpty: false }) ? 'Enter a valid video URL.' : ''
           };
-          if (!validateFields(form, errors) || !audio.validate() || cover.isUploading() || audio.isUploading()) {
-            if (cover.isUploading() || audio.isUploading()) NC.components.toast('Wait for all uploads to finish.', 'warning');
+          if (!validateFields(form, errors) || !audio.validate() || cover.isUploading() || audio.isUploading() || artistImage.isUploading() || albumImage.isUploading()) {
+            if (cover.isUploading() || audio.isUploading() || artistImage.isUploading() || albumImage.isUploading()) NC.components.toast('Wait for all uploads to finish.', 'warning');
             return;
           }
           const button = modalRoot.querySelector('[data-save-track]'); NC.utils.setButtonLoading(button, true, 'Saving…');
