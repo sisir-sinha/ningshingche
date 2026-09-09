@@ -227,6 +227,10 @@
           <span class="field-hint">Use the select or type. Comma or Tab creates a chip. Multiple genres are allowed.</span>
         </div>
         ${NC.media.imageUploaderHTML({ id: 'track-cover', label: 'Cover / thumbnail', hint: 'Square artwork looks best in the mini player and notification.' })}
+        ${NC.media.imageUploaderHTML({ id: 'track-artist-image', label: 'Artist image', hint: 'Shown on the artist page in the app. Falls back to the track cover if empty.' })}
+        <div class="field"><label class="field-label" for="track-artist-description">Artist description</label><textarea class="form-textarea min-h-28" id="track-artist-description" name="artist_description" placeholder="Short bio for the artist page.">${escapeHTML(record?.artist_description || '')}</textarea></div>
+        ${NC.media.imageUploaderHTML({ id: 'track-album-image', label: 'Album image', hint: 'Shown on the album page in the app. Falls back to the track cover if empty.' })}
+        <div class="field"><label class="field-label" for="track-album-description">Album description</label><textarea class="form-textarea min-h-28" id="track-album-description" name="album_description" placeholder="Notes for the album page.">${escapeHTML(record?.album_description || '')}</textarea></div>
         ${NC.media.audioUploaderHTML({ id: 'track-audio', label: 'MP3 file' })}
         <div class="field"><label class="field-label" for="track-video">Video link</label><input class="form-input" type="url" id="track-video" name="video_link" value="${escapeHTML(record?.video_link || '')}" placeholder="YouTube, Facebook, Veome Video Link Here"><p class="field-error hidden" data-field-error="video_link"></p><span class="field-hint">Optional. YouTube, Facebook, or Vimeo. Paste a URL to preview it below.</span></div>
         <div data-track-video-preview class="mt-2">${record?.video_link ? NC.media.videoPreviewHTML(record.video_link, { title: record.title }) : ''}</div>
@@ -236,8 +240,14 @@
       footer: `<button type="button" class="btn btn-secondary" data-modal-close>Cancel</button><button type="submit" form="music-form" class="btn btn-primary" data-save-track><i class="fa-regular fa-floppy-disk" aria-hidden="true"></i>${record ? 'Save changes' : 'Add track'}</button>`,
       onOpen: (modalRoot) => {
         const form = modalRoot.querySelector('#music-form');
-        const cover = NC.media.mountImageUploader(modalRoot, {
+        const cover = NC.media.mountImageUploader(modalRoot.querySelector('#track-cover'), {
           initial: record ? { url: record.thumbnail_url, delete_url: record.imgbb_delete_url, ...record.image_meta } : null
+        });
+        const artistImage = NC.media.mountImageUploader(modalRoot.querySelector('#track-artist-image'), {
+          initial: record?.artist_image ? { url: record.artist_image } : null
+        });
+        const albumImage = NC.media.mountImageUploader(modalRoot.querySelector('#track-album-image'), {
+          initial: record?.album_image ? { url: record.album_image } : null
         });
         const audio = NC.media.mountAudioUploader(modalRoot, {
           initial: record ? { url: record.audio_url, path: record.file_storage_path, provider: record.file_provider, size: Number(record.file_size_mb || 0) * 1024 * 1024, duration_seconds: record.duration_seconds } : null
@@ -276,6 +286,10 @@
               description: data.description,
               lyrics: data.lyrics || '',
               video_link: videoLink,
+              artist_image: artistImage.getValue().url || '',
+              artist_description: data.artist_description || '',
+              album_image: albumImage.getValue().url || '',
+              album_description: data.album_description || '',
               thumbnail_url: image.url || '',
               imgbb_delete_url: image.delete_url || '',
               image_meta: {

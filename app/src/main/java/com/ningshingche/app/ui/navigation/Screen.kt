@@ -28,6 +28,15 @@ sealed class Screen(val route: String) {
     data object NewArticle : Screen("new_article")
     data object PdfArchive : Screen("pdf_archive")
     data object Music : Screen("music")
+    data object MusicGenre : Screen("music_genre/{name}") {
+        fun createRoute(name: String) = "music_genre/${java.net.URLEncoder.encode(name, "UTF-8").replace("+", "%20")}"
+    }
+    data object MusicArtist : Screen("music_artist/{name}") {
+        fun createRoute(name: String) = "music_artist/${java.net.URLEncoder.encode(name, "UTF-8").replace("+", "%20")}"
+    }
+    data object MusicAlbum : Screen("music_album/{name}") {
+        fun createRoute(name: String) = "music_album/${java.net.URLEncoder.encode(name, "UTF-8").replace("+", "%20")}"
+    }
     data object Featured : Screen("featured")
     data object About : Screen("about")
     data object SocialActivities : Screen("social_activities")

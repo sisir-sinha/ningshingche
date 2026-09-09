@@ -126,7 +126,7 @@ internal fun ArticleList(
         )
 
         is ListUiState.Ready -> {
-            if (state.articles.isEmpty()) {
+            if (state.articles.isEmpty() && header == null) {
                 EmptyState(message = "এখানে কোনো প্রবন্ধ পাওয়া যায়নি।", modifier = modifier)
                 return
             }
@@ -136,6 +136,11 @@ internal fun ArticleList(
                 contentPadding = PaddingValues(bottom = EditorialSpace.xxl)
             ) {
                 if (header != null) item { header() }
+                if (state.articles.isEmpty()) {
+                    item {
+                        EmptyState(message = "এখানে কোনো প্রবন্ধ পাওয়া যায়নি।")
+                    }
+                }
                 items(state.articles, key = { it.id }) { article ->
                     ArticleRow(article = article, onClick = { onArticleClick(article.id) })
                     Hairline(modifier = Modifier.padding(horizontal = EditorialSpace.gutter))
@@ -182,11 +187,16 @@ fun SearchScreen(
     onBackClick: () -> Unit,
     onArticleClick: (String) -> Unit,
     onCategoryClick: (CategoryRef) -> Unit,
+    onMusicArtistClick: (String) -> Unit = {},
+    onMusicAlbumClick: (String) -> Unit = {},
+    onMusicGenreClick: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsState()
     val query by viewModel.query.collectAsState()
     val categories by viewModel.categories.collectAsState()
+    val songs by viewModel.songs.collectAsState()
+    val player = com.ningshingche.app.ui.components.LocalMusicController.current
     var field by remember { mutableStateOf(TextFieldValue(query)) }
 
     Scaffold(
@@ -240,6 +250,36 @@ fun SearchScreen(
                 message = "অন্তত দুই অক্ষর লিখুন। শিরোনাম, উপশিরোনাম ও স্লাগে খোঁজা হয়।",
                 modifier = Modifier.padding(padding)
             )
+        } else if (songs.isNotEmpty() && state is ListUiState.Loading) {
+            LazyColumn(
+                modifier = Modifier.padding(padding).fillMaxSize(),
+                contentPadding = PaddingValues(bottom = EditorialSpace.xxl)
+            ) {
+                item {
+                    SectionHeader(title = "গান", subtitle = "${songs.size}টি মিল")
+                }
+                items(songs, key = { "song-${it.id}" }) { track ->
+                    MusicCatalogCard(
+                        track = track,
+                        onClick = { player.play(track, songs, expand = true) },
+                        onArtistClick = onMusicArtistClick,
+                        onAlbumClick = onMusicAlbumClick,
+                        onGenreClick = onMusicGenreClick
+                    )
+                }
+                item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(EditorialSpace.lg),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            strokeWidth = 2.dp,
+                            color = LocalEditorialTokens.current.accent
+                        )
+                    }
+                }
+            }
         } else {
             ArticleList(
                 state = state,
@@ -273,7 +313,7 @@ private fun SearchField(
         onValueChange = onValueChange,
         singleLine = true,
         textStyle = EditorialType.Body,
-        placeholder = { Text("প্রবন্ধ খুঁজুন...", style = EditorialType.Body, color = tokens.inkMuted) },
+                    placeholder = { Text("প্রবন্ধ ও গান খুঁজুন...", style = EditorialType.Body, color = tokens.inkMuted) },
         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = tokens.inkMuted) },
         trailingIcon = {
             if (value.text.isNotEmpty()) {

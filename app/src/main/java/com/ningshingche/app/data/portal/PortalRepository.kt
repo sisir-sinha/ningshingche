@@ -511,26 +511,26 @@ class PortalRepository(
     suspend fun musicTracks(limit: Int = 50, forceRefresh: Boolean = false): Result<List<MusicTrack>> =
         withContext(Dispatchers.IO) {
             cached("music-$limit", musicCache, TTL_REFERENCE, forceRefresh) {
-                val withVideo = callList {
-                    api.musicTracks(select = PortalApi.MUSIC_COLUMNS_WITH_VIDEO, limit = limit)
-                }
-                val rows = if (withVideo.isSuccess) {
-                    withVideo.getOrThrow()
-                } else if (withVideo.exceptionOrNull() is PortalError.SchemaMissing) {
-                    val withLyrics = callList {
-                        api.musicTracks(select = PortalApi.MUSIC_COLUMNS_WITH_LYRICS, limit = limit)
+                val selects = listOf(
+                    PortalApi.MUSIC_COLUMNS_WITH_META,
+                    PortalApi.MUSIC_COLUMNS_WITH_VIDEO,
+                    PortalApi.MUSIC_COLUMNS_WITH_LYRICS,
+                    PortalApi.MUSIC_COLUMNS
+                )
+                var rows: List<MusicDto>? = null
+                var lastError: Throwable? = null
+                for (select in selects) {
+                    val attempt = callList { api.musicTracks(select = select, limit = limit) }
+                    if (attempt.isSuccess) {
+                        rows = attempt.getOrThrow()
+                        break
                     }
-                    if (withLyrics.isSuccess) {
-                        withLyrics.getOrThrow()
-                    } else if (withLyrics.exceptionOrNull() is PortalError.SchemaMissing) {
-                        callList { api.musicTracks(limit = limit) }.getOrThrow()
-                    } else {
-                        throw withLyrics.exceptionOrNull() ?: PortalError.Unknown()
-                    }
-                } else {
-                    throw withVideo.exceptionOrNull() ?: PortalError.Unknown()
+                    lastError = attempt.exceptionOrNull()
+                    if (lastError !is PortalError.SchemaMissing) break
                 }
-                rows.map { it.toItem() }.filter { it.hasPlayableSource() }
+                (rows ?: throw lastError ?: PortalError.Unknown())
+                    .map { it.toItem() }
+                    .filter { it.hasPlayableSource() }
             }
         }
 

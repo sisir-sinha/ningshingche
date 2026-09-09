@@ -39,6 +39,7 @@ import com.ningshingche.app.ui.screens.ExploreScreen
 import com.ningshingche.app.ui.screens.FeaturedScreen
 import com.ningshingche.app.ui.screens.LoginScreen
 import com.ningshingche.app.ui.screens.NewArticleScreen
+import com.ningshingche.app.data.music.MusicShelfKind
 import com.ningshingche.app.ui.screens.NewMusicScreen
 import com.ningshingche.app.ui.screens.PdfArchiveScreen
 import com.ningshingche.app.ui.screens.PdfViewerScreen
@@ -102,6 +103,9 @@ object ReaderRoute {
     const val Featured = "featured"
     const val Videos = "videos"
     const val Music = "music"
+    const val MusicGenre = "music_genre/{name}"
+    const val MusicArtist = "music_artist/{name}"
+    const val MusicAlbum = "music_album/{name}"
     const val About = "about"
     const val AuthorsDirectory = "authors_directory"
     const val SocialActivities = "social_activities"
@@ -112,6 +116,9 @@ object ReaderRoute {
     fun pdfViewer(pdfId: String) = "pdf_viewer/${encode(pdfId)}"
     fun explore(tab: ExploreTab) = "explore?tab=${tab.key}"
     fun issue(year: Int) = "issue/$year"
+    fun musicGenre(name: String) = "music_genre/${encode(name)}"
+    fun musicArtist(name: String) = "music_artist/${encode(name)}"
+    fun musicAlbum(name: String) = "music_album/${encode(name)}"
 
     /**
      * Where a tapped tag should go: annual-issue tags (`নিংশিং চে - ২০২৩`, any
@@ -380,7 +387,10 @@ fun EditorialReaderApp(
                     viewModel = searchViewModel,
                     onBackClick = { navController.popBackStack() },
                     onArticleClick = { navController.navigate(ReaderRoute.article(it)) },
-                    onCategoryClick = { navController.navigate(ReaderRoute.category(it.slug)) }
+                    onCategoryClick = { navController.navigate(ReaderRoute.category(it.slug)) },
+                    onMusicArtistClick = { navController.navigate(ReaderRoute.musicArtist(it)) },
+                    onMusicAlbumClick = { navController.navigate(ReaderRoute.musicAlbum(it)) },
+                    onMusicGenreClick = { navController.navigate(ReaderRoute.musicGenre(it)) }
                 )
             }
 
@@ -670,7 +680,58 @@ fun EditorialReaderApp(
                 val homeViewModel: HomeViewModel = viewModel(factory = portalFactory)
                 MusicScreen(
                     viewModel = homeViewModel,
-                    onBackClick = { navController.popBackStack() }
+                    onBackClick = { navController.popBackStack() },
+                    onGenreClick = { navController.navigate(ReaderRoute.musicGenre(it)) },
+                    onArtistClick = { navController.navigate(ReaderRoute.musicArtist(it)) },
+                    onAlbumClick = { navController.navigate(ReaderRoute.musicAlbum(it)) }
+                )
+            }
+
+            composable(
+                route = ReaderRoute.MusicGenre,
+                arguments = listOf(navArgument("name") { type = NavType.StringType })
+            ) { entry ->
+                val homeViewModel: HomeViewModel = viewModel(factory = portalFactory)
+                MusicEntityScreen(
+                    kind = MusicShelfKind.Genre,
+                    name = entry.arguments?.getString("name").orEmpty(),
+                    viewModel = homeViewModel,
+                    onBackClick = { navController.popBackStack() },
+                    onArtistClick = { navController.navigate(ReaderRoute.musicArtist(it)) },
+                    onAlbumClick = { navController.navigate(ReaderRoute.musicAlbum(it)) },
+                    onGenreClick = { navController.navigate(ReaderRoute.musicGenre(it)) }
+                )
+            }
+
+            composable(
+                route = ReaderRoute.MusicArtist,
+                arguments = listOf(navArgument("name") { type = NavType.StringType })
+            ) { entry ->
+                val homeViewModel: HomeViewModel = viewModel(factory = portalFactory)
+                MusicEntityScreen(
+                    kind = MusicShelfKind.Artist,
+                    name = entry.arguments?.getString("name").orEmpty(),
+                    viewModel = homeViewModel,
+                    onBackClick = { navController.popBackStack() },
+                    onArtistClick = { navController.navigate(ReaderRoute.musicArtist(it)) },
+                    onAlbumClick = { navController.navigate(ReaderRoute.musicAlbum(it)) },
+                    onGenreClick = { navController.navigate(ReaderRoute.musicGenre(it)) }
+                )
+            }
+
+            composable(
+                route = ReaderRoute.MusicAlbum,
+                arguments = listOf(navArgument("name") { type = NavType.StringType })
+            ) { entry ->
+                val homeViewModel: HomeViewModel = viewModel(factory = portalFactory)
+                MusicEntityScreen(
+                    kind = MusicShelfKind.Album,
+                    name = entry.arguments?.getString("name").orEmpty(),
+                    viewModel = homeViewModel,
+                    onBackClick = { navController.popBackStack() },
+                    onArtistClick = { navController.navigate(ReaderRoute.musicArtist(it)) },
+                    onAlbumClick = { navController.navigate(ReaderRoute.musicAlbum(it)) },
+                    onGenreClick = { navController.navigate(ReaderRoute.musicGenre(it)) }
                 )
             }
 

@@ -126,6 +126,10 @@ data class MusicTrack(
     val storagePath: String = "",
     val lyrics: String = "",
     val videoLink: String = "",
+    val artistImage: String = "",
+    val artistDescription: String = "",
+    val albumImage: String = "",
+    val albumDescription: String = "",
     val durationSeconds: Int,
     val fileSizeMb: Double
 ) {
@@ -353,6 +357,10 @@ internal fun MusicDto.toItem(): MusicTrack = MusicTrack(
     storagePath = fileStoragePath.orEmpty().trim(),
     lyrics = lyrics.orEmpty(),
     videoLink = videoLink.orEmpty().trim(),
+    artistImage = artistImage.orEmpty().trim(),
+    artistDescription = artistDescription.orEmpty().trim(),
+    albumImage = albumImage.orEmpty().trim(),
+    albumDescription = albumDescription.orEmpty().trim(),
     durationSeconds = (durationSeconds ?: 0).coerceAtLeast(0),
     fileSizeMb = fileSizeMb ?: 0.0
 )
