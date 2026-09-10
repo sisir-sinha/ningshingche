@@ -1627,7 +1627,3 @@ fun FontSizeControlBottomSheet(
         }
     }
 }
-  }
-        }
-    }
-}

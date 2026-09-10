@@ -335,6 +335,56 @@ class ReaderWorkspaceViewModel(
         }
     }
 
+    fun submitMusic(
+        title: String,
+        artist: String,
+        album: String,
+        genre: String,
+        audioUrl: String,
+        coverUri: Uri?,
+        context: Context
+    ) {
+        val user = currentUser.value ?: return
+        if (!user.isProfileComplete) {
+            _message.value = "নতুন গান জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।"
+            return
+        }
+        if (title.isBlank() || audioUrl.isBlank()) {
+            _message.value = "শিরোনাম ও অডিও লিংক আবশ্যক।"
+            return
+        }
+        viewModelScope.launch {
+            _isSaving.value = true
+            _message.value = null
+            var coverUrl = ""
+            if (coverUri != null) {
+                val upload = ImgBbUploader.uploadFromUri(context, coverUri, "music_${System.currentTimeMillis()}")
+                val image = upload.getOrElse {
+                    _isSaving.value = false
+                    _message.value = it.message ?: "ছবি আপলোড যায়নি।"
+                    return@launch
+                }
+                coverUrl = image.displayUrl.ifBlank { image.url }
+            }
+            val result = supabaseClient.submitReaderMusic(
+                title = title.trim(),
+                artist = artist.trim().ifBlank { user.composedFullName() },
+                album = album.trim(),
+                genre = genre.trim(),
+                audioUrl = audioUrl.trim(),
+                thumbnailUrl = coverUrl,
+                userId = user.id
+            )
+            result.onSuccess {
+                _message.value = "গান জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর যুক্ত হবে।"
+                refresh()
+            }.onFailure {
+                _message.value = it.message ?: "গান জমা যায়নি।"
+            }
+            _isSaving.value = false
+        }
+    }
+
     fun signOut() {
         viewModelScope.launch {
             googleAuthRepository.signOut()
