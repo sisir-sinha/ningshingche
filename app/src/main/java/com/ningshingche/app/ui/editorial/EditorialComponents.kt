@@ -646,11 +646,11 @@ fun AnimatedHamburgerIcon(
 @Composable
 fun AiAssistantHomeBanner(
     onAiClick: () -> Unit,
+    onPromptClick: (String) -> Unit = { onAiClick() },
     modifier: Modifier = Modifier
 ) {
     val tokens = LocalEditorialTokens.current
     Card(
-        onClick = onAiClick,
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (tokens.isDark) Color(0xFF261814) else Color(0xFFFBF4EC)
@@ -671,7 +671,8 @@ fun AiAssistantHomeBanner(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.clickable(onClick = onAiClick)
             ) {
                 Surface(
                     shape = CircleShape,
@@ -707,13 +708,14 @@ fun AiAssistantHomeBanner(
 
             Spacer(Modifier.height(10.dp))
 
-            // Quick suggestion chips
+            // Quick suggestion chips — tap sends the topic as a question to AI.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                listOf("ভাষা আন্দোলন", "ইমচৌঘর", "মিংকৌ প্রথা", "বিশু উৎসব").forEach { tag ->
+                listOf("সুদেষ্ণা সিংহ", "মিংকৌ প্রথা", "বিষু উৎসব").forEach { tag ->
                     Surface(
+                        onClick = { onPromptClick(tag) },
                         shape = RoundedCornerShape(16.dp),
                         color = if (tokens.isDark) Color(0xFF38231C) else Color(0xFFFFFFFF),
                         border = androidx.compose.foundation.BorderStroke(
@@ -728,12 +730,13 @@ fun AiAssistantHomeBanner(
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
                             color = tokens.accent,
-                            maxLines = 2,
+                            maxLines = 1,
+                            softWrap = false,
                             overflow = TextOverflow.Ellipsis,
                             textAlign = TextAlign.Center,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 6.dp, vertical = 6.dp)
+                                .padding(horizontal = 8.dp, vertical = 6.dp)
                         )
                     }
                 }
@@ -742,7 +745,9 @@ fun AiAssistantHomeBanner(
             Spacer(Modifier.height(10.dp))
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onAiClick),
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {

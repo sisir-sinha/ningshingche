@@ -87,6 +87,7 @@ object ReaderRoute {
     const val Category = "category/{categorySlug}"
     const val Author = "author/{authorId}"
     const val AiAssistant = "ai_assistant"
+    const val AiAssistantPattern = "ai_assistant?q={q}"
     const val Settings = "settings"
     const val Login = "login"
     const val WelcomeLogin = "welcome_login"
@@ -111,6 +112,10 @@ object ReaderRoute {
     const val About = "about"
     const val AuthorsDirectory = "authors_directory"
     const val SocialActivities = "social_activities"
+
+    fun ai(question: String = ""): String {
+        return if (question.isBlank()) AiAssistant else "ai_assistant?q=${encode(question)}"
+    }
 
     fun article(idOrSlug: String, focus: String = "") : String {
         val base = "article/${encode(idOrSlug)}"
@@ -378,6 +383,9 @@ fun EditorialReaderApp(
                     onAiClick = {
                         navController.navigate(ReaderRoute.AiAssistant)
                     },
+                    onAiPrompt = { question ->
+                        navController.navigate(ReaderRoute.ai(question))
+                    },
                     onLoginClick = { navController.navigate(ReaderRoute.Login) },
                     onDashboardClick = { navController.navigate(ReaderRoute.UserDashboard) },
                     onProfileClick = { navController.navigate(ReaderRoute.UserProfile) },
@@ -528,6 +536,28 @@ fun EditorialReaderApp(
                     onMenuClick = {
                         coroutineScope.launch { drawerState.open() }
                     }
+                )
+            }
+
+            composable(
+                route = ReaderRoute.AiAssistantPattern,
+                arguments = listOf(
+                    navArgument("q") { type = NavType.StringType; defaultValue = "" }
+                )
+            ) { entry ->
+                val aiViewModel: AiViewModel = viewModel(factory = mainFactory)
+                val question = java.net.URLDecoder.decode(
+                    entry.arguments?.getString("q").orEmpty(),
+                    "UTF-8"
+                )
+                AiAssistantScreen(
+                    viewModel = aiViewModel,
+                    onBackClick = { navController.popBackStack() },
+                    onArticleClick = { navController.navigate(ReaderRoute.article(it)) },
+                    onMenuClick = {
+                        coroutineScope.launch { drawerState.open() }
+                    },
+                    initialQuestion = question
                 )
             }
 

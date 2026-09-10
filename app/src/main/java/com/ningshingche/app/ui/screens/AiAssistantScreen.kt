@@ -85,15 +85,23 @@ fun AiAssistantScreen(
     viewModel: AiViewModel,
     onBackClick: () -> Unit,
     onArticleClick: (String) -> Unit,
-    onMenuClick: () -> Unit = {}
+    onMenuClick: () -> Unit = {},
+    initialQuestion: String = ""
 ) {
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
 
     var isSkeletonLoading by remember { mutableStateOf(true) }
+    var promptSent by rememberSaveable(initialQuestion) { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         delay(1000L) // Minimum 1 second skeleton view
         isSkeletonLoading = false
+    }
+    LaunchedEffect(initialQuestion) {
+        if (!promptSent && initialQuestion.isNotBlank()) {
+            promptSent = true
+            viewModel.sendQuestion(initialQuestion)
+        }
     }
 
     val initialRenderedIds = remember { messages.map { it.id }.toSet() }

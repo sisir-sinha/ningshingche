@@ -131,6 +131,7 @@ fun HomeScreen(
     onSeeAllMusic: () -> Unit = {},
     onMenuClick: () -> Unit = {},
     onAiClick: () -> Unit = {},
+    onAiPrompt: (String) -> Unit = {},
     onLoginClick: () -> Unit = {},
     onDashboardClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
@@ -256,6 +257,7 @@ fun HomeScreen(
                     onSeeAllVideos = onSeeAllVideos,
                     onSeeAllMusic = onSeeAllMusic,
                     onAiClick = onAiClick,
+                    onAiPrompt = onAiPrompt,
                     onNavigate = onNavigate,
                     onOpenLink = onOpenLink
                 )
@@ -280,6 +282,7 @@ private fun HomeContent(
     onSeeAllVideos: () -> Unit,
     onSeeAllMusic: () -> Unit,
     onAiClick: () -> Unit,
+    onAiPrompt: (String) -> Unit = {},
     onNavigate: (String) -> Unit = {},
     onOpenLink: (String) -> Unit = {}
 ) {
@@ -360,6 +363,7 @@ private fun HomeContent(
         item {
             AiAssistantHomeBanner(
                 onAiClick = onAiClick,
+                onPromptClick = onAiPrompt,
                 modifier = Modifier.padding(top = EditorialSpace.xs, bottom = EditorialSpace.xs)
             )
         }
