@@ -58,6 +58,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -191,33 +192,35 @@ fun UserDashboardScreen(
             )
         },
         floatingActionButton = {
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                AnimatedVisibility(visible = fabOpen, enter = fadeIn() + scaleIn(), exit = fadeOut() + scaleOut()) {
-                    Column(
-                        horizontalAlignment = Alignment.End,
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        SpeedDialItem("প্রবন্ধ যোগ", Icons.AutoMirrored.Filled.Article) {
-                            fabOpen = false
-                            if (user?.isProfileComplete == true) onNewArticle() else onCompleteProfile()
-                        }
-                        SpeedDialItem("গান যোগ", Icons.Default.LibraryMusic) {
-                            fabOpen = false
-                            if (user?.isProfileComplete == true) onNewMusic() else onCompleteProfile()
+            if (onContentTab) {
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    AnimatedVisibility(visible = fabOpen, enter = fadeIn() + scaleIn(), exit = fadeOut() + scaleOut()) {
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            SpeedDialItem("প্রবন্ধ যোগ", Icons.AutoMirrored.Filled.Article) {
+                                fabOpen = false
+                                if (user?.isProfileComplete == true) onNewArticle() else onCompleteProfile()
+                            }
+                            SpeedDialItem("গান যোগ", Icons.Default.LibraryMusic) {
+                                fabOpen = false
+                                if (user?.isProfileComplete == true) onNewMusic() else onCompleteProfile()
+                            }
                         }
                     }
-                }
-                FloatingActionButton(
-                    onClick = { fabOpen = !fabOpen },
-                    modifier = Modifier.testTag("user_dashboard_new_article")
-                ) {
-                    Icon(
-                        if (fabOpen) Icons.Default.Close else Icons.Default.Add,
-                        contentDescription = "যোগ করুন"
-                    )
+                    FloatingActionButton(
+                        onClick = { fabOpen = !fabOpen },
+                        modifier = Modifier.testTag("user_dashboard_new_article")
+                    ) {
+                        Icon(
+                            if (fabOpen) Icons.Default.Close else Icons.Default.Add,
+                            contentDescription = "যোগ করুন"
+                        )
+                    }
                 }
             }
         },
@@ -402,6 +405,8 @@ private fun NoticePane(
     }
 }
 
+private enum class ContentFilter { All, Articles, Songs }
+
 @Composable
 private fun ContentPane(
     articles: List<SubmittedBlogRecord>,
@@ -409,11 +414,16 @@ private fun ContentPane(
     onOpenArticle: (SubmittedBlogRecord) -> Unit
 ) {
     var limit by remember { mutableIntStateOf(PAGE_SIZE) }
-    val rows = remember(articles, tracks) {
-        val articleRows = articles.map { ContentRow(it.id, false, it.title, statusLabel(it.status), it.thumbnail, it, null, it.createdAt) }
-        val musicRows = tracks.map {
-            ContentRow(it.id, true, it.title, listOf(it.artist, it.album).filter { s -> s.isNotBlank() }.joinToString(" · ").ifBlank { "গান" }, it.thumbnailUrl, null, it, it.createdAt)
-        }
+    var filter by remember { mutableStateOf(ContentFilter.All) }
+    val rows = remember(articles, tracks, filter) {
+        val articleRows = if (filter != ContentFilter.Songs) {
+            articles.map { ContentRow(it.id, false, it.title, statusLabel(it.status), it.thumbnail, it, null, it.createdAt) }
+        } else emptyList()
+        val musicRows = if (filter != ContentFilter.Articles) {
+            tracks.map {
+                ContentRow(it.id, true, it.title, listOf(it.artist, it.album).filter { s -> s.isNotBlank() }.joinToString(" · ").ifBlank { "গান" }, it.thumbnailUrl, null, it, it.createdAt)
+            }
+        } else emptyList()
         (articleRows + musicRows).sortedByDescending { it.createdAt }
     }
     LazyColumn(
@@ -421,8 +431,44 @@ private fun ContentPane(
         verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier.fillMaxSize()
     ) {
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = filter == ContentFilter.All,
+                    onClick = { filter = ContentFilter.All; limit = PAGE_SIZE },
+                    label = { Text("সব", fontFamily = Kalpurush) }
+                )
+                FilterChip(
+                    selected = filter == ContentFilter.Articles,
+                    onClick = { filter = ContentFilter.Articles; limit = PAGE_SIZE },
+                    label = { Text("প্রবন্ধ", fontFamily = Kalpurush) },
+                    leadingIcon = {
+                        Icon(Icons.AutoMirrored.Filled.Article, contentDescription = null, modifier = Modifier.size(16.dp))
+                    }
+                )
+                FilterChip(
+                    selected = filter == ContentFilter.Songs,
+                    onClick = { filter = ContentFilter.Songs; limit = PAGE_SIZE },
+                    label = { Text("গান", fontFamily = Kalpurush) },
+                    leadingIcon = {
+                        Icon(Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(16.dp))
+                    }
+                )
+            }
+        }
         if (rows.isEmpty()) {
-            item { EmptyHint("এখনো কোনো প্রবন্ধ বা গান জমা দেননি।") }
+            item {
+                EmptyHint(
+                    when (filter) {
+                        ContentFilter.Articles -> "এখনো কোনো প্রবন্ধ জমা দেননি।"
+                        ContentFilter.Songs -> "এখনো কোনো গান জমা দেননি।"
+                        ContentFilter.All -> "এখনো কোনো প্রবন্ধ বা গান জমা দেননি।"
+                    }
+                )
+            }
         } else {
             items(rows.take(limit), key = { it.id }) { row ->
                 ContentCard(row, onOpen = {
