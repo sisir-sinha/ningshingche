@@ -1395,6 +1395,65 @@ class SupabaseClient(private val context: Context) {
             }
         }
 
+    data class MusicUpload(
+        val publicUrl: String,
+        val storagePath: String,
+        val sizeBytes: Long
+    )
+
+    suspend fun uploadUserMusicFile(context: Context, userId: String, uri: android.net.Uri): Result<MusicUpload> =
+        withContext(Dispatchers.IO) {
+            val token = authToken
+            if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null) {
+                return@withContext Result.failure(Exception("সাইন ইন করা নেই।"))
+            }
+            val resolver = context.contentResolver
+            val mime = resolver.getType(uri).orEmpty().ifBlank { "audio/mpeg" }
+            val ext = when {
+                mime.contains("wav", true) -> "wav"
+                mime.contains("ogg", true) -> "ogg"
+                mime.contains("aac", true) || mime.contains("m4a", true) || mime.contains("mp4", true) -> "m4a"
+                mime.contains("flac", true) -> "flac"
+                else -> "mp3"
+            }
+            val bytes = resolver.openInputStream(uri)?.use { it.readBytes() }
+                ?: return@withContext Result.failure(Exception("অডিও ফাইল পড়া যায়নি।"))
+            if (bytes.isEmpty()) {
+                return@withContext Result.failure(Exception("অডিও ফাইল খালি।"))
+            }
+            if (bytes.size > 32 * 1024 * 1024) {
+                return@withContext Result.failure(Exception("ফাইল ৩২ এমবি-র বেশি হতে পারবে না।"))
+            }
+            val path = "user/$userId/${UUID.randomUUID()}.$ext"
+            val url = "${SupabaseConfig.storageBaseUrl}/object/music/$path"
+            val client = httpClient.newBuilder()
+                .writeTimeout(180, TimeUnit.SECONDS)
+                .readTimeout(180, TimeUnit.SECONDS)
+                .build()
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("apikey", SupabaseConfig.supabaseKey)
+                .addHeader("Authorization", "Bearer ${sessionBearer()}")
+                .addHeader("Content-Type", mime)
+                .addHeader("x-upsert", "true")
+                .post(bytes.toRequestBody(mime.toMediaType()))
+                .build()
+            val response = client.newCall(request).execute()
+            val body = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                return@withContext Result.failure(
+                    Exception("অডিও আপলোড যায়নি (${response.code})। $body".trim())
+                )
+            }
+            Result.success(
+                MusicUpload(
+                    publicUrl = SupabaseConfig.musicPublicUrl(path),
+                    storagePath = path,
+                    sizeBytes = bytes.size.toLong()
+                )
+            )
+        }
+
     suspend fun submitReaderMusic(
         title: String,
         artist: String,
@@ -1402,7 +1461,10 @@ class SupabaseClient(private val context: Context) {
         genre: String,
         audioUrl: String,
         thumbnailUrl: String,
-        userId: String
+        userId: String,
+        storagePath: String = "",
+        durationSeconds: Int = 0,
+        fileSizeMb: Double = 0.0
     ): Result<SubmittedMusicRecord> = withContext(Dispatchers.IO) {
         try {
             val record = SubmittedMusicRecord(
@@ -1423,7 +1485,10 @@ class SupabaseClient(private val context: Context) {
                 put("thumbnail_url", record.thumbnailUrl)
                 put("audio_url", record.audioUrl)
                 put("user_id", userId)
-                put("file_provider", "url")
+                put("file_provider", if (storagePath.isNotBlank()) "supabase-storage" else "url")
+                put("file_storage_path", storagePath)
+                put("duration_seconds", durationSeconds.coerceAtLeast(0))
+                put("file_size_mb", fileSizeMb.coerceAtLeast(0.0))
             }
             val url = "${SupabaseConfig.restBaseUrl}/music_tracks"
             val request = createBaseRequestBuilder(url)

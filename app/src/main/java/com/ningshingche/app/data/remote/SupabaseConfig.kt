@@ -38,6 +38,14 @@ object SupabaseConfig {
     val authBaseUrl: String
         get() = "${supabaseUrl.trimEnd('/')}/auth/v1"
 
+    val storageBaseUrl: String
+        get() = "${supabaseUrl.trimEnd('/')}/storage/v1"
+
+    fun musicPublicUrl(storagePath: String): String {
+        val clean = storagePath.trim().trimStart('/')
+        return "${supabaseUrl.trimEnd('/')}/storage/v1/object/public/music/$clean"
+    }
+
     val imgbbUploadUrl: String
         get() = "https://api.imgbb.com/1/upload"
 }

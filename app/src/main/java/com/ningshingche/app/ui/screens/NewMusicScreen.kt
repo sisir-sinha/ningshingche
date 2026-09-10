@@ -1,17 +1,20 @@
 package com.ningshingche.app.ui.screens
 
+import android.media.MediaPlayer
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -19,6 +22,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,10 +36,12 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,6 +57,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.ningshingche.app.data.music.MusicGenres
+import com.ningshingche.app.ui.components.GenreCombobox
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.ReaderWorkspaceViewModel
 
@@ -67,8 +76,9 @@ fun NewMusicScreen(
     var title by remember { mutableStateOf("") }
     var artist by remember { mutableStateOf("") }
     var album by remember { mutableStateOf("") }
-    var genre by remember { mutableStateOf("") }
-    var audioUrl by remember { mutableStateOf("") }
+    var genres by remember { mutableStateOf(listOf<String>()) }
+    var audio by remember { mutableStateOf<Uri?>(null) }
+    var audioName by remember { mutableStateOf("") }
     var cover by remember { mutableStateOf<Uri?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -80,15 +90,20 @@ fun NewMusicScreen(
             title = ""
             artist = ""
             album = ""
-            genre = ""
-            audioUrl = ""
+            genres = emptyList()
+            audio = null
+            audioName = ""
             cover = null
         }
         viewModel.clearMessage()
     }
 
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         cover = uri
+    }
+    val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        audio = uri
+        audioName = uri?.lastPathSegment.orEmpty().substringAfterLast('/').ifBlank { "song.mp3" }
     }
 
     Scaffold(
@@ -124,11 +139,6 @@ fun NewMusicScreen(
                 return@Column
             }
 
-            Text(
-                "কভার ছবি ImgBB-তে আপলোড হয়। অডিও ফাইল সরাসরি আপলোড হয় না — একটি পাবলিক অডিও লিংক দিন।",
-                fontFamily = Kalpurush,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
@@ -148,19 +158,30 @@ fun NewMusicScreen(
                 label = { Text("অ্যালবাম", fontFamily = Kalpurush) },
                 modifier = Modifier.fillMaxWidth()
             )
-            OutlinedTextField(
-                value = genre,
-                onValueChange = { genre = it },
-                label = { Text("ধরন", fontFamily = Kalpurush) },
-                modifier = Modifier.fillMaxWidth()
+            GenreCombobox(
+                selected = genres,
+                onSelectedChange = { genres = it }
             )
-            OutlinedTextField(
-                value = audioUrl,
-                onValueChange = { audioUrl = it },
-                label = { Text("অডিও লিংক", fontFamily = Kalpurush) },
-                modifier = Modifier.fillMaxWidth().testTag("music_audio_url")
-            )
-            OutlinedButton(onClick = { picker.launch("image/*") }, modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(
+                onClick = { audioPicker.launch("audio/*") },
+                modifier = Modifier.fillMaxWidth().testTag("music_audio_pick")
+            ) {
+                Text(
+                    if (audio == null) "এমপি৩ নির্বাচন" else "এমপি৩ বদলান",
+                    fontFamily = Kalpurush
+                )
+            }
+            audio?.let { uri ->
+                SongPreview(
+                    uri = uri,
+                    name = audioName,
+                    onClear = {
+                        audio = null
+                        audioName = ""
+                    }
+                )
+            }
+            OutlinedButton(onClick = { coverPicker.launch("image/*") }, modifier = Modifier.fillMaxWidth()) {
                 Text(
                     if (cover == null) "কভার ছবি নির্বাচন (ঐচ্ছিক)" else "কভার ছবি বদলান",
                     fontFamily = Kalpurush
@@ -189,7 +210,15 @@ fun NewMusicScreen(
             }
             Button(
                 onClick = {
-                    viewModel.submitMusic(title, artist, album, genre, audioUrl, cover, context)
+                    viewModel.submitMusic(
+                        title = title,
+                        artist = artist,
+                        album = album,
+                        genre = MusicGenres.join(genres),
+                        audioUri = audio,
+                        coverUri = cover,
+                        context = context
+                    )
                 },
                 enabled = !saving,
                 modifier = Modifier.fillMaxWidth().height(48.dp).testTag("music_submit")
@@ -203,4 +232,77 @@ fun NewMusicScreen(
             Spacer(Modifier.height(24.dp))
         }
     }
+}
+
+@Composable
+private fun SongPreview(uri: Uri, name: String, onClear: () -> Unit) {
+    val context = LocalContext.current
+    var playing by remember(uri) { mutableStateOf(false) }
+    var durationMs by remember(uri) { mutableStateOf(0) }
+    val player = remember(uri) {
+        runCatching {
+            MediaPlayer().apply {
+                setDataSource(context, uri)
+                prepare()
+                setOnCompletionListener { playing = false }
+            }
+        }.getOrNull()
+    }
+    LaunchedEffect(player) {
+        durationMs = player?.duration ?: 0
+    }
+    DisposableEffect(player) {
+        onDispose {
+            playing = false
+            player?.release()
+        }
+    }
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        tonalElevation = 1.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            FilledTonalIconButton(
+                onClick = {
+                    val media = player ?: return@FilledTonalIconButton
+                    if (playing) {
+                        media.pause()
+                        playing = false
+                    } else {
+                        media.start()
+                        playing = true
+                    }
+                },
+                enabled = player != null
+            ) {
+                Icon(
+                    if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = if (playing) "থামান" else "শুনুন"
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(name.ifBlank { "গান" }, fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                Text(
+                    if (durationMs > 0) formatDuration(durationMs) else "প্রিভিউ",
+                    fontFamily = Kalpurush,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            IconButton(onClick = onClear, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.Close, contentDescription = "সরান")
+            }
+        }
+    }
+}
+
+private fun formatDuration(ms: Int): String {
+    val total = (ms / 1000).coerceAtLeast(0)
+    val m = total / 60
+    val s = total % 60
+    return "%d:%02d".format(m, s)
 }

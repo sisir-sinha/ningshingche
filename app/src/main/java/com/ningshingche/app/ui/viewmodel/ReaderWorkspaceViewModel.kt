@@ -340,7 +340,7 @@ class ReaderWorkspaceViewModel(
         artist: String,
         album: String,
         genre: String,
-        audioUrl: String,
+        audioUri: Uri?,
         coverUri: Uri?,
         context: Context
     ) {
@@ -349,13 +349,22 @@ class ReaderWorkspaceViewModel(
             _message.value = "নতুন গান জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।"
             return
         }
-        if (title.isBlank() || audioUrl.isBlank()) {
-            _message.value = "শিরোনাম ও অডিও লিংক আবশ্যক।"
+        if (title.isBlank()) {
+            _message.value = "শিরোনাম আবশ্যক।"
+            return
+        }
+        if (audioUri == null) {
+            _message.value = "এমপি৩ ফাইল নির্বাচন করুন।"
             return
         }
         viewModelScope.launch {
             _isSaving.value = true
             _message.value = null
+            val audio = supabaseClient.uploadUserMusicFile(context, user.id, audioUri).getOrElse {
+                _isSaving.value = false
+                _message.value = it.message ?: "অডিও আপলোড যায়নি।"
+                return@launch
+            }
             var coverUrl = ""
             if (coverUri != null) {
                 val upload = ImgBbUploader.uploadFromUri(context, coverUri, "music_${System.currentTimeMillis()}")
@@ -366,14 +375,24 @@ class ReaderWorkspaceViewModel(
                 }
                 coverUrl = image.displayUrl.ifBlank { image.url }
             }
+            val durationSec = runCatching {
+                val retriever = android.media.MediaMetadataRetriever()
+                retriever.setDataSource(context, audioUri)
+                val ms = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+                retriever.release()
+                (ms / 1000L).toInt()
+            }.getOrDefault(0)
             val result = supabaseClient.submitReaderMusic(
                 title = title.trim(),
                 artist = artist.trim().ifBlank { user.composedFullName() },
                 album = album.trim(),
                 genre = genre.trim(),
-                audioUrl = audioUrl.trim(),
+                audioUrl = audio.publicUrl,
                 thumbnailUrl = coverUrl,
-                userId = user.id
+                userId = user.id,
+                storagePath = audio.storagePath,
+                durationSeconds = durationSec,
+                fileSizeMb = audio.sizeBytes / 1_000_000.0
             )
             result.onSuccess {
                 _message.value = "গান জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর যুক্ত হবে।"
