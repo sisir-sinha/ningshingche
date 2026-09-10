@@ -192,11 +192,12 @@ fun UserDashboardScreen(
     // pushing a second dashboard screen on top.
     val openNotice: (UserNotificationRecord) -> Unit = { notice ->
         viewModel.markNotificationRead(notice.id)
-        when (val targetTab = when {
+        val targetTab = when {
             notice.isAdminMessage || notice.kind == "staff_notice" -> TAB_MESSAGES
             notice.isComment -> TAB_COMMENTS
             else -> TAB_CONTENT
-        }) {
+        }
+        when (targetTab) {
             TAB_MESSAGES -> messageFocus = notice.relatedId
             TAB_COMMENTS -> commentFocus = notice.relatedId
             else -> contentFocus = notice.relatedId
