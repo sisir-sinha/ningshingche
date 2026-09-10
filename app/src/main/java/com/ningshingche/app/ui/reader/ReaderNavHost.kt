@@ -208,28 +208,19 @@ fun EditorialReaderApp(
     val launchRoute by (pendingRoute ?: pendingHolder).collectAsState()
     val playerUi by app.musicController.state.collectAsState()
 
+    // Every notice opens its own dashboard tab (বার্তা / কন্টেন্ট / মন্তব্য) and
+    // focuses the matching card there. The user then acts on the card itself
+    // (open article, etc.) — notices no longer jump straight to an article
+    // page, which could be empty when the related id is a submission uuid.
     val openUserNotice: (UserNotificationRecord) -> Unit = { notice ->
         workspaceViewModel.markNotificationRead(notice.id)
-        coroutineScope.launch {
-            when {
-                notice.isAdminMessage || notice.kind == "staff_notice" ->
-                    navController.navigate(ReaderRoute.dashboard("messages", notice.relatedId))
-                notice.isComment && notice.relatedId.isNotBlank() ->
-                    navController.navigate(ReaderRoute.article(notice.relatedId, "comments"))
-                else -> {
-                    val target = notice.relatedId.ifBlank { notice.body }
-                    val direct = if (target.isNotBlank()) app.portalRepository.article(target) else null
-                    if (direct?.isSuccess == true) {
-                        navController.navigate(ReaderRoute.article(target))
-                    } else {
-                        val q = notice.body.ifBlank { notice.title }
-                        val hit = app.portalRepository.searchArticles(q, limit = 1)
-                            .getOrNull()?.items?.firstOrNull()
-                        if (hit != null) navController.navigate(ReaderRoute.article(hit.id))
-                        else if (target.isNotBlank()) navController.navigate(ReaderRoute.article(target))
-                    }
-                }
-            }
+        when {
+            notice.isAdminMessage || notice.kind == "staff_notice" ->
+                navController.navigate(ReaderRoute.dashboard("messages", notice.relatedId))
+            notice.isComment ->
+                navController.navigate(ReaderRoute.dashboard("comments", notice.relatedId))
+            else ->
+                navController.navigate(ReaderRoute.dashboard("content", notice.relatedId))
         }
     }
 
@@ -659,6 +650,9 @@ fun EditorialReaderApp(
                     "comments" -> 4
                     else -> 0
                 }
+                // The focus id only belongs to the tab it was created for
+                // (messages / content / comments); other tabs stay unfocused.
+                val focus = entry.arguments?.getString("focus").orEmpty()
                 UserDashboardScreen(
                     viewModel = workspaceViewModel,
                     onBackClick = { navController.popBackStack() },
@@ -691,7 +685,9 @@ fun EditorialReaderApp(
                         }
                     },
                     initialTab = tab,
-                    focusMessageId = entry.arguments?.getString("focus").orEmpty()
+                    focusMessageId = if (tabKey == "messages") focus else "",
+                    focusContentId = if (tabKey == "content") focus else "",
+                    focusCommentId = if (tabKey == "comments") focus else ""
                 )
             }
 

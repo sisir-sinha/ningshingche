@@ -129,6 +129,7 @@ import com.ningshingche.app.data.remote.shortDateTime
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.ReaderMetrics
 import com.ningshingche.app.ui.viewmodel.ReaderWorkspaceViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
@@ -153,7 +154,9 @@ fun UserDashboardScreen(
     onOpenArticle: (SubmittedBlogRecord) -> Unit = {},
     onOpenComment: (CommentRecord) -> Unit = {},
     initialTab: Int = 0,
-    focusMessageId: String = ""
+    focusMessageId: String = "",
+    focusContentId: String = "",
+    focusCommentId: String = ""
 ) {
     val user by viewModel.currentUser.collectAsStateWithLifecycle()
     val articles by viewModel.articles.collectAsStateWithLifecycle()
@@ -324,8 +327,17 @@ fun UserDashboardScreen(
                         onSend = { body -> viewModel.sendAdminMessage(body) },
                         onReload = { viewModel.refreshInbox(markSeen = false) }
                     )
-                    TAB_CONTENT -> ContentPane(articles, tracks, onOpenArticle)
-                    else -> CommentPane(comments, onOpenComment)
+                    TAB_CONTENT -> ContentPane(
+                        articles = articles,
+                        tracks = tracks,
+                        focusId = focusContentId,
+                        onOpenArticle = onOpenArticle
+                    )
+                    else -> CommentPane(
+                        comments = comments,
+                        focusId = focusCommentId,
+                        onOpen = onOpenComment
+                    )
                 }
             }
         }
@@ -467,6 +479,7 @@ private enum class ContentFilter { All, Articles, Songs }
 private fun ContentPane(
     articles: List<SubmittedBlogRecord>,
     tracks: List<SubmittedMusicRecord>,
+    focusId: String = "",
     onOpenArticle: (SubmittedBlogRecord) -> Unit
 ) {
     var limit by remember { mutableIntStateOf(PAGE_SIZE) }
@@ -482,7 +495,32 @@ private fun ContentPane(
         } else emptyList()
         (articleRows + musicRows).sortedByDescending { it.createdAt }
     }
+    val listState = rememberLazyListState()
+    // Highlight the focused card (opened from a notice) until it fades.
+    var highlightOn by remember(focusId) { mutableStateOf(focusId.isNotBlank()) }
+
+    // Widen the page window so the focused card is visible without
+    // tapping "আরও দেখুন" first.
+    LaunchedEffect(focusId, rows) {
+        if (focusId.isBlank()) return@LaunchedEffect
+        val idx = rows.indexOfFirst { it.id == focusId }
+        if (idx >= 0 && idx >= limit) limit = (idx + 1).coerceAtMost(rows.size)
+    }
+    // Scroll once the focused card is inside the rendered window.
+    LaunchedEffect(focusId, rows, limit) {
+        if (focusId.isBlank()) return@LaunchedEffect
+        val idx = rows.indexOfFirst { it.id == focusId }
+        if (idx in 0 until minOf(rows.size, limit)) {
+            listState.animateScrollToItem(idx)
+        }
+    }
+    LaunchedEffect(focusId) {
+        if (focusId.isBlank()) return@LaunchedEffect
+        delay(3000)
+        highlightOn = false
+    }
     LazyColumn(
+        state = listState,
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier.fillMaxSize()
@@ -527,9 +565,13 @@ private fun ContentPane(
             }
         } else {
             items(rows.take(limit), key = { it.id }) { row ->
-                ContentCard(row, onOpen = {
-                    row.article?.let(onOpenArticle)
-                })
+                ContentCard(
+                    row = row,
+                    highlighted = highlightOn && row.id == focusId,
+                    onOpen = {
+                        row.article?.let(onOpenArticle)
+                    }
+                )
             }
             if (limit < rows.size) {
                 item {
@@ -560,10 +602,42 @@ private data class ContentRow(
 @Composable
 private fun CommentPane(
     comments: List<CommentRecord>,
+    focusId: String = "",
     onOpen: (CommentRecord) -> Unit
 ) {
     var limit by remember { mutableIntStateOf(PAGE_SIZE) }
+    val listState = rememberLazyListState()
+    // Notice related ids may be the comment's own id (DB trigger) or the
+    // article's blog id (app-generated inbox sync) — accept both.
+    val focusedComment = remember(focusId, comments) {
+        if (focusId.isBlank()) null
+        else comments.firstOrNull { it.id == focusId || it.blogId == focusId }
+    }
+    // Highlight the focused card (opened from a notice) until it fades.
+    var highlightOn by remember(focusId) { mutableStateOf(focusId.isNotBlank()) }
+
+    // Widen the page window so the focused card is visible without
+    // tapping "আরও দেখুন" first.
+    LaunchedEffect(focusId, focusedComment, comments) {
+        if (focusedComment == null) return@LaunchedEffect
+        val idx = comments.indexOf(focusedComment)
+        if (idx >= 0 && idx >= limit) limit = (idx + 1).coerceAtMost(comments.size)
+    }
+    // Scroll once the focused card is inside the rendered window.
+    LaunchedEffect(focusId, focusedComment, comments, limit) {
+        if (focusedComment == null) return@LaunchedEffect
+        val idx = comments.indexOf(focusedComment)
+        if (idx in 0 until minOf(comments.size, limit)) {
+            listState.animateScrollToItem(idx)
+        }
+    }
+    LaunchedEffect(focusId) {
+        if (focusId.isBlank()) return@LaunchedEffect
+        delay(3000)
+        highlightOn = false
+    }
     LazyColumn(
+        state = listState,
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier.fillMaxSize()
@@ -572,7 +646,11 @@ private fun CommentPane(
             item { EmptyHint("আপনার কোনো মন্তব্য পাওয়া যায়নি।") }
         } else {
             items(comments.take(limit), key = { "c-${it.id}" }) { comment ->
-                CommentStatusCard(comment, onOpen = { onOpen(comment) })
+                CommentStatusCard(
+                    comment = comment,
+                    highlighted = highlightOn && focusedComment != null && comment.id == focusedComment.id,
+                    onOpen = { onOpen(comment) }
+                )
             }
             if (limit < comments.size) {
                 item {
@@ -1093,10 +1171,12 @@ private fun NotificationCard(
 }
 
 @Composable
-private fun ContentCard(row: ContentRow, onOpen: () -> Unit) {
+private fun ContentCard(row: ContentRow, highlighted: Boolean = false, onOpen: () -> Unit) {
     Surface(
         shape = RoundedCornerShape(14.dp),
-        tonalElevation = 1.dp,
+        color = if (highlighted) MaterialTheme.colorScheme.primaryContainer
+        else MaterialTheme.colorScheme.surface,
+        tonalElevation = if (highlighted) 3.dp else 1.dp,
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onOpen)
@@ -1138,10 +1218,12 @@ private fun ContentCard(row: ContentRow, onOpen: () -> Unit) {
 }
 
 @Composable
-private fun CommentStatusCard(comment: CommentRecord, onOpen: () -> Unit) {
+private fun CommentStatusCard(comment: CommentRecord, highlighted: Boolean = false, onOpen: () -> Unit) {
     Surface(
         shape = RoundedCornerShape(14.dp),
-        tonalElevation = 1.dp,
+        color = if (highlighted) MaterialTheme.colorScheme.primaryContainer
+        else MaterialTheme.colorScheme.surface,
+        tonalElevation = if (highlighted) 3.dp else 1.dp,
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onOpen)

@@ -244,7 +244,7 @@ about, phone, address, facebook id, avatar) before article/music submission —
 | Tab | Content |
 | --- | --- |
 | 0 Home | `UserInfoCard` + `MetricsGrid` (articles total/pending/published/rejected, comments, songs, article views via `sumBlogViewsForAuthor(name)`) + speed dial (new article / new music) |
-| 1 Notices | `user_notifications` (bell, read state, deep links into articles/messages) |
+| 1 Notices | `user_notifications` (bell, read state). Tapping a notice **routes to the matching bottom tab** — admin/staff → বার্তা (tab 2), comment-published → মন্তব্য (tab 4), article-published → কন্টেন্ট (tab 3) — and focuses/highlights the matching card there (`openUserNotice` → `ReaderRoute.dashboard(tab, focus)` → `focusMessageId`/`focusCommentId`/`focusContentId`). The user then acts on the card itself (e.g. open the article); notices never jump straight to an article page |
 | 2 Messages | `admin_messages` chat bubbles (user ↔ admin), image attachments parsed from body URLs, zoomable preview, mark-read |
 | 3 Content | own `submitted_blogs` + own `music_tracks` (status chips; opens published articles via portal fallback search) |
 | 4 Comments | own `comments` with status + link to `article/{blog_id}?focus=comments` |
