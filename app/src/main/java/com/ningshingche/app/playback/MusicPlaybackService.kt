@@ -85,7 +85,7 @@ class MusicPlaybackService : MediaSessionService() {
 
         mediaSession = MediaSession.Builder(this, player)
             .setSessionActivity(sessionActivity)
-            .setBitmapLoader(CacheBitmapLoader(DataSourceBitmapLoader(this)))
+            .setBitmapLoader(DataSourceBitmapLoader(this))
             .build()
     }
 

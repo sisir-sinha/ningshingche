@@ -218,6 +218,11 @@ internal fun MusicCatalogCard(
     onGenreClick: (String) -> Unit = {}
 ) {
     val tokens = LocalEditorialTokens.current
+    val player = LocalMusicController.current
+    val lovedIds by player.library.lovedIds().collectAsState(initial = emptySet())
+    val loved = track.id in lovedIds
+    val loveCounts by player.library.loveCounts.collectAsState()
+    val loveCount = loveCounts[track.id] ?: track.loveCount
     Card(
         onClick = onClick,
         shape = RoundedCornerShape(EditorialShape.card),
