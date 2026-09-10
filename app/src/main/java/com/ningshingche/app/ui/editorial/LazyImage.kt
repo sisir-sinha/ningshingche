@@ -20,33 +20,6 @@ import androidx.compose.ui.unit.dp
 import com.ningshingche.app.ui.components.PortalAsyncImage
 import com.ningshingche.app.ui.components.normalizePortalImageUrl
 
-/**
- * Direct image component for editorial and reader views.
- * Loads immediately via Coil without viewport gating or delay.
- */
-@Composable
-fun LazyImage(
-    url: String,
-    contentDescription: String?,
-    modifier: Modifier = Modifier,
-    contentScale: ContentScale = ContentScale.Crop,
-    shape: Shape = RoundedCornerShape(EditorialShape.thumb)
-) {
-    val cleaned = remember(url) { normalizePortalImageUrl(url) }
-    if (cleaned.isBlank()) {
-        ImagePlaceholder(modifier = modifier, shape = shape)
-        return
-    }
-
-    Box(modifier = modifier.clip(shape)) {
-        PortalAsyncImage(
-            url = cleaned,
-            contentDescription = contentDescription,
-            contentScale = contentScale,
-            modifier = Modifier.fillMaxSize()
-        )
-    }
-}
 
 @Composable
 fun ShimmerPlaceholder(modifier: Modifier = Modifier) {

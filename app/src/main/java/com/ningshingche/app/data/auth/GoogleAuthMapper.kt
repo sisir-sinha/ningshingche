@@ -221,6 +221,28 @@ object GoogleAuthMapper {
         return false
     }
 
+    /** Shown when the stored Supabase session/JWT can no longer be validated. */
+    fun sessionExpiredMessage(): String =
+        "সেশনের মেয়াদ শেষ হয়েছে। আবার প্রবেশ করুন।"
+
+    /**
+     * Maps raw Supabase JWT-validation failures to the session-expired message.
+     * Returns `null` for messages that are not JWT-validation problems
+     * (e.g. network errors), so callers can keep their own handling.
+     */
+    fun userFacingJwtError(message: String?): String? {
+        val m = message?.lowercase().orEmpty()
+        if (m.isEmpty()) return null
+        return when {
+            m.contains("exp claim") ||
+                m.contains("jws protected header") ||
+                m.contains("token is expired") ||
+                m.contains("jwt malformed") ||
+                m.contains("jwt expired") -> sessionExpiredMessage()
+            else -> null
+        }
+    }
+
     fun userMessage(error: Throwable): String {
         return when {
             isCancellation(error) -> ""

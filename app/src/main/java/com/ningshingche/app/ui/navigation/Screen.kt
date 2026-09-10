@@ -29,13 +29,10 @@ sealed class Screen(val route: String) {
     data object PdfArchive : Screen("pdf_archive")
     data object Music : Screen("music")
     data object MusicGenre : Screen("music_genre/{name}") {
-        fun createRoute(name: String) = "music_genre/${java.net.URLEncoder.encode(name, "UTF-8").replace("+", "%20")}"
     }
     data object MusicArtist : Screen("music_artist/{name}") {
-        fun createRoute(name: String) = "music_artist/${java.net.URLEncoder.encode(name, "UTF-8").replace("+", "%20")}"
     }
     data object MusicAlbum : Screen("music_album/{name}") {
-        fun createRoute(name: String) = "music_album/${java.net.URLEncoder.encode(name, "UTF-8").replace("+", "%20")}"
     }
     data object Featured : Screen("featured")
     data object About : Screen("about")
@@ -46,27 +43,21 @@ sealed class Screen(val route: String) {
     data object Explore : Screen("explore") {
         const val ARG_TAB = "tab"
         const val pattern = "explore?tab={tab}"
-        fun createRoute(tab: ExploreTab) = "explore?tab=${tab.key}"
     }
 
     data object PdfViewer : Screen("pdf_viewer/{pdfId}") {
-        fun createRoute(pdfId: String) = "pdf_viewer/$pdfId"
     }
 
     data object ArticleDetail : Screen("article/{articleId}") {
-        fun createRoute(articleId: String) = "article/$articleId"
     }
 
     data object CategoryDetail : Screen("category/{categorySlug}") {
-        fun createRoute(categorySlug: String) = "category/$categorySlug"
     }
 
     data object AuthorDetail : Screen("author/{authorId}") {
-        fun createRoute(authorId: String) = "author/$authorId"
     }
 
     /** Annual issue (`নিংশিং চে - YYYY` tag) listing. */
     data object IssueDetail : Screen("issue/{year}") {
-        fun createRoute(year: Int) = "issue/$year"
     }
 }

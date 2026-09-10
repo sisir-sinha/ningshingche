@@ -63,7 +63,6 @@ object AuthorProfiles {
             "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhGH7bQYuDSsEyRM4u9OVsnK8b7VibniG5uGqBLY2SN-4orEROolj7HY-kcdV-9eNaa6ICsI7g13K3vPlzT2nz9WopI3BkaC2s50qyfKS3RMk0KS7nb8NDwD2473n6zWadzZc3Zso0JKGnkY56Co6U188qVqVa1OGT5Jlcxr14m8hc4Q4Cj1vppLNIS6CvG/s265/sukanta-singha-profile.png"
     )
 
-    fun urlFor(fileName: String): String = official(fileName)
 
     fun resolve(name: String, existing: String = ""): String {
         val live = existing.replace(" ", "%20")

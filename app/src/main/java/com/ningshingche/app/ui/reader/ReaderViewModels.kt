@@ -432,10 +432,6 @@ class ArticleViewModel(
         }
     }
 
-    fun clearCommentStatus() {
-        _commentStatus.value = null
-        _commentForm.update { it.copy(isError = false) }
-    }
 
 }
 

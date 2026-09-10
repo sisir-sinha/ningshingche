@@ -249,57 +249,6 @@ class PortalRepository(
         }
     }
 
-    /**
-     * Articles carrying [tag] in any spelling. Annual-issue tags are routed to
-     * [articlesByIssue]; topic tags use `tag_keys` when available and otherwise
-     * an exact-spelling `tags=cs.{…}` query softened by a client-side key match.
-     */
-    suspend fun articlesByTag(
-        tag: String,
-        limit: Int = PortalConfig.PAGE_SIZE,
-        offset: Int = 0
-    ): Result<Page<ArticleSummary>> = withContext(Dispatchers.IO) {
-        IssueTags.issueYear(tag)?.let { return@withContext articlesByIssue(it, limit, offset) }
-        val cleaned = IssueTags.clean(tag)
-        if (cleaned.isBlank()) {
-            return@withContext Result.success(Page(emptyList(), total = 0, offset = offset, limit = limit))
-        }
-        val key = IssueTags.keyOf(cleaned)
-        if (tagEndpointsAvailable != false) {
-            val viaKeys = callPage {
-                api.blogs(
-                    status = "eq.Publish",
-                    tagKeys = "cs." + encodeArrayLiteral(listOf(key)),
-                    order = PortalApi.FEED_ORDER,
-                    limit = limit,
-                    offset = offset
-                )
-            }
-            if (viaKeys.isSuccess) {
-                tagEndpointsAvailable = true
-                return@withContext viaKeys.map { page -> page.mapItems { it.toSummary() } }
-            }
-            if (viaKeys.exceptionOrNull() !is PortalError.SchemaMissing) {
-                return@withContext viaKeys.map { page -> page.mapItems { it.toSummary() } }
-            }
-            tagEndpointsAvailable = false
-        }
-        // Without the generated column only exact spellings can be matched
-        // server-side; try the cleaned spelling and a `#`-prefixed variant.
-        callPage {
-            api.blogs(
-                status = "eq.Publish",
-                tags = "ov." + encodeArrayLiteral(listOf(cleaned, "#$cleaned")),
-                order = PortalApi.FEED_ORDER,
-                limit = limit,
-                offset = offset
-            )
-        }.map { page ->
-            page.mapItems { it.toSummary() }.let { mapped ->
-                mapped.copy(items = mapped.items.filter { IssueTags.matches(it.tags, cleaned) })
-            }
-        }
-    }
 
     /**
      * One row per annual issue that actually has published articles, newest

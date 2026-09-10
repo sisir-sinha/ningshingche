@@ -90,13 +90,6 @@ interface PortalApi {
         @Query("offset") offset: Int? = null
     ): Response<List<BlogDto>>
 
-    /** Lookup by UUID **or** slug — used by deep links and the reader. */
-    @GET("blogs")
-    suspend fun blogByIdOrSlug(
-        @Query("select") select: String = BLOG_DETAIL_COLUMNS,
-        @Query("or", encoded = true) or: String,
-        @Query("limit") limit: Int = 1
-    ): Response<List<BlogDto>>
 
     // ------------------------------------------------------------------- tags
 

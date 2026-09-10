@@ -585,24 +585,3 @@ private fun HeroCarousel(
     }
 }
 
-@Composable
-internal fun SeeAllButton(onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        shape = CircleShape,
-        color = Color.Transparent
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = EditorialSpace.md, vertical = EditorialSpace.xs),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("সব", style = EditorialType.Subtitle, color = LocalEditorialTokens.current.accent)
-            Icon(
-                Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = null,
-                modifier = Modifier.size(14.dp),
-                tint = LocalEditorialTokens.current.accent
-            )
-        }
-    }
-}

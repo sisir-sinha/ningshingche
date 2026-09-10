@@ -383,18 +383,12 @@ class ArticleRepository(
 
     fun getCategories(): List<Category> = _categories.value
 
-    fun getCategoryBySlug(slug: String): Category? =
-        _categories.value.find { it.slug == slug } ?: NinghsingCheContentData.categories.find { it.slug == slug }
 
     fun getAuthors(): List<Author> = _authors.value
 
-    fun getAuthorById(id: String): Author? =
-        _authors.value.find { it.id == id } ?: NinghsingCheContentData.authors.find { it.id == id }
 
     fun getYearArchives(): List<YearArchive> = _yearArchives.value
 
-    fun getYearArchiveByYear(year: Int): YearArchive? =
-        _yearArchives.value.find { it.year == year } ?: NinghsingCheContentData.yearArchives.find { it.year == year }
 
     fun getPdfCategories(): List<PdfCategory> = _pdfCategories.value
 
@@ -402,10 +396,6 @@ class ArticleRepository(
 
     fun getPdfDocumentById(id: String): PdfDocument? = _pdfDocuments.value.find { it.id == id }
 
-    fun getPdfDocumentsByCategory(categoryIdOrSlug: String): List<PdfDocument> {
-        if (categoryIdOrSlug == "pdf-cat-all" || categoryIdOrSlug.isBlank()) return _pdfDocuments.value
-        return _pdfDocuments.value.filter { it.categorySlug == categoryIdOrSlug || it.category == categoryIdOrSlug }
-    }
 
     fun getAllBookmarks(): Flow<List<Bookmark>> {
         return bookmarkDao.getAllBookmarks().map { entities ->
@@ -438,16 +428,6 @@ class ArticleRepository(
         }
     }
 
-    suspend fun saveReadingProgress(articleId: String, scrollPos: Int, progress: Float) {
-        historyDao.insertHistory(
-            HistoryEntity(
-                articleId = articleId,
-                readAtTimestamp = System.currentTimeMillis(),
-                scrollPosition = scrollPos,
-                progressPercent = progress
-            )
-        )
-    }
 
     suspend fun clearHistory() {
         historyDao.clearAll()
@@ -459,19 +439,8 @@ class ArticleRepository(
         }
     }
 
-    suspend fun recordSearch(query: String) {
-        if (query.isNotBlank()) {
-            searchDao.insertSearch(SearchHistoryEntity(query = query.trim()))
-        }
-    }
 
-    suspend fun removeSearch(query: String) {
-        searchDao.deleteSearch(query)
-    }
 
-    suspend fun clearSearchHistory() {
-        searchDao.clearAll()
-    }
 
     suspend fun clearAllCache() {
         articleDao.clearAll()

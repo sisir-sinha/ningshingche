@@ -330,14 +330,6 @@ private class HtmlBridge(
         emit(html)
     }
 
-    @JavascriptInterface
-    fun requestPaste() {
-        host.post {
-            val text = clipboardText(host.context)
-            if (text.isBlank()) return@post
-            host.evaluateJavascript("if(window.pasteText){window.pasteText(${JSONObject.quote(text)});}", null)
-        }
-    }
 }
 
 private fun clipboardText(context: Context): String {

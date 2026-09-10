@@ -185,9 +185,6 @@ class MusicLibraryStore(
         dao.deleteOffline(trackId)
     }
 
-    suspend fun offlineTrack(trackId: String): MusicTrack? = withContext(Dispatchers.IO) {
-        dao.offlineById(trackId)?.toTrack()
-    }
 
     private suspend fun rememberOffline(track: MusicTrack, file: File) {
         dao.upsertOffline(

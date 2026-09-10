@@ -184,17 +184,6 @@ class ReaderWorkspaceViewModel(
         }
     }
 
-    fun markInboxSeen() {
-        viewModelScope.launch {
-            supabaseClient.markAllNotificationsRead()
-            supabaseClient.markAdminMessagesRead()
-            _notifications.value = _notifications.value.map { it.copy(isRead = true) }
-            _adminMessages.value = _adminMessages.value.map { item ->
-                if (item.isFromAdmin) item.copy(isRead = true) else item
-            }
-            _unreadCount.value = 0
-        }
-    }
 
     fun sendAdminMessage(body: String) {
         if (body.isBlank()) {

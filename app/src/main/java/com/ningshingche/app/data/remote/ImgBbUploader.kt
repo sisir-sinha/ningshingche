@@ -160,17 +160,4 @@ object ImgBbUploader {
         }
     }
 
-    suspend fun attemptDeleteImage(deleteUrl: String): Boolean = withContext(Dispatchers.IO) {
-        if (deleteUrl.isBlank()) return@withContext false
-        try {
-            val request = Request.Builder()
-                .url(deleteUrl)
-                .get()
-                .build()
-            val response = client.newCall(request).execute()
-            response.isSuccessful
-        } catch (_: Exception) {
-            false
-        }
-    }
 }

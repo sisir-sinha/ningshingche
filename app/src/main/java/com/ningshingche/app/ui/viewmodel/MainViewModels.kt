@@ -74,9 +74,6 @@ class HomeViewModel(
     private val _scrollToTop = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val scrollToTop: SharedFlow<Unit> = _scrollToTop.asSharedFlow()
 
-    fun requestScrollToTop() {
-        _scrollToTop.tryEmit(Unit)
-    }
 
     fun refreshFromWebsite() {
         viewModelScope.launch {
@@ -319,9 +316,6 @@ class SettingsViewModel(
         }
     }
 
-    fun clearGoogleAuthMessage() {
-        _googleAuthMessage.value = null
-    }
 
     fun updateAppThemeMode(mode: AppThemeMode) {
         viewModelScope.launch {

@@ -102,23 +102,8 @@ class UserPreferencesRepository(private val context: Context) {
         )
     }
 
-    suspend fun updateFontSize(fontSize: Float) {
-        context.dataStore.edit { preferences ->
-            preferences[Keys.FONT_SIZE] = fontSize
-        }
-    }
 
-    suspend fun updateLineSpacing(spacing: Float) {
-        context.dataStore.edit { preferences ->
-            preferences[Keys.LINE_SPACING] = spacing
-        }
-    }
 
-    suspend fun updateThemeMode(mode: ReaderThemeMode) {
-        context.dataStore.edit { preferences ->
-            preferences[Keys.THEME_MODE] = mode.name
-        }
-    }
 
     suspend fun updateAppThemeMode(mode: AppThemeMode) {
         context.dataStore.edit { preferences ->
@@ -126,11 +111,6 @@ class UserPreferencesRepository(private val context: Context) {
         }
     }
 
-    suspend fun updateTtsSpeed(speed: Float) {
-        context.dataStore.edit { preferences ->
-            preferences[Keys.TTS_SPEED] = speed
-        }
-    }
 
     suspend fun updateNotificationsEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->

@@ -504,10 +504,6 @@ class NingshingCheWebsiteClient {
             return if (cleaned.isBlank()) "author-ningshingche" else "author-$cleaned"
         }
 
-        fun authorAvatarFromName(name: String): String {
-            val encoded = encodePath(name.trim())
-            return "https://surajit-singha-sisir.github.io/NingshingCheNew/profiles/$encoded Profile.png"
-        }
 
         fun categorySlugFromName(name: String): String {
             val n = name.trim()
@@ -553,7 +549,6 @@ class NingshingCheWebsiteClient {
 
         fun stripTags(html: String): String = html.replace(Regex("""<[^>]+>"""), " ")
 
-        fun htmlToParagraphs(html: String): String = htmlToPortalContent(html)
 
         fun htmlToPortalContent(fullHtml: String): String {
             val article = ARTICLE_BLOCK.find(fullHtml)?.groupValues?.get(1) ?: fullHtml

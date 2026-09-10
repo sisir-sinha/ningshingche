@@ -33,8 +33,6 @@ object PdfHelper {
         .followSslRedirects(true)
         .build()
 
-    suspend fun getOrGeneratePdfFile(context: Context, doc: NinghsingPdfDocument): File =
-        downloadPdfFile(context, doc)
 
     suspend fun downloadPdfFile(context: Context, doc: NinghsingPdfDocument): File = withContext(Dispatchers.IO) {
         val cacheDir = File(context.cacheDir, "pdf_cache").apply { mkdirs() }
@@ -68,7 +66,6 @@ object PdfHelper {
         targetFile
     }
 
-    fun openSession(file: File): PdfSession = PdfSession(file)
 
     private fun looksLikePdf(file: File): Boolean {
         if (!file.exists() || file.length() < 8) return false

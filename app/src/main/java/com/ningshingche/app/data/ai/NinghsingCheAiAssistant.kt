@@ -107,39 +107,6 @@ class NinghsingCheAiAssistant(
         )
     }
 
-    /**
-     * Web-grounded query for external or live updates.
-     */
-    suspend fun answerOnline(userQuestion: String): AiChatMessage = withContext(Dispatchers.IO) {
-        val query = userQuestion.trim()
-        val onlineAnswer = tryCallGeminiWebSearch(query)
-
-        val rawText = if (!onlineAnswer.isNullOrBlank()) {
-            onlineAnswer
-        } else {
-            "দুঃখিত, অনলাইন থেকে তথ্য আনা যায়নি (AI কী কনফিগার করা নেই বা সংযোগ ব্যর্থ হয়েছে)। অনুগ্রহ করে পুনরায় চেষ্টা করুন।"
-        }
-
-        val knowledge = loadKnowledge()
-        val tokens = tokenize(query)
-        val ranked = rank(query, tokens, knowledge)
-        val (finalAnswer, suggestedFollowUps) = extractAnswerAndQuestions(
-            rawText = rawText,
-            query = query,
-            ranked = ranked,
-            knowledge = knowledge
-        )
-
-        AiChatMessage(
-            id = UUID.randomUUID().toString(),
-            text = finalAnswer,
-            isUser = false,
-            timestamp = System.currentTimeMillis(),
-            citations = emptyList(),
-            offerOnline = false,
-            suggestedQuestions = suggestedFollowUps
-        )
-    }
 
     // ------------------------------------------------------------------ knowledge
 

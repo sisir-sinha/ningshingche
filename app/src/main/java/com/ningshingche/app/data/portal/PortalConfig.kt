@@ -102,7 +102,4 @@ object PortalConfig {
         .addConverterFactory(MoshiConverterFactory.create(moshi))
         .build()
 
-    /** `https://<project>/storage/v1/object/public/<bucket>/<path>` */
-    fun storagePublicUrl(bucket: String, path: String): String =
-        "$baseUrl/storage/v1/object/public/$bucket/${path.split('/').joinToString("/") { it }}"
 }

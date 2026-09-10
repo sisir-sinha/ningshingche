@@ -137,10 +137,6 @@ fun HeroCarouselSkeleton(modifier: Modifier = Modifier) {
     }
 }
 
-@Composable
-fun HeroCardSkeleton(modifier: Modifier = Modifier) {
-    HeroCarouselSkeleton(modifier = modifier)
-}
 
 @Composable
 fun ArticleCardSkeleton(modifier: Modifier = Modifier) {
@@ -306,29 +302,6 @@ fun ExploreSkeletonLayout() {
     }
 }
 
-@Composable
-fun PdfArchiveSkeletonLayout() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        ShimmerBox(modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(14.dp))
-
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(4) {
-                CategoryChipSkeleton()
-            }
-        }
-
-        repeat(4) {
-            PdfCardSkeleton()
-        }
-    }
-}
 
 @Composable
 fun AiAssistantSkeletonLayout() {
@@ -372,32 +345,4 @@ fun AiAssistantSkeletonLayout() {
     }
 }
 
-@Composable
-fun PdfViewerSkeletonLayout() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        ShimmerBox(modifier = Modifier.fillMaxWidth().height(44.dp), shape = RoundedCornerShape(10.dp))
-
-        ShimmerBox(
-            modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .aspectRatio(0.72f),
-            shape = RoundedCornerShape(16.dp)
-        )
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            ShimmerBox(modifier = Modifier.size(40.dp), shape = CircleShape)
-            ShimmerBox(modifier = Modifier.size(width = 100.dp, height = 24.dp))
-            ShimmerBox(modifier = Modifier.size(40.dp), shape = CircleShape)
-        }
-    }
-}
 

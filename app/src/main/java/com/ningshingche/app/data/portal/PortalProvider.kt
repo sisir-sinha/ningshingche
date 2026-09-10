@@ -18,10 +18,6 @@ object PortalProvider {
         repository ?: create().also { repository = it }
     }
 
-    /** Forces the next [repository] call to rebuild — used by Settings → refresh. */
-    fun invalidate() {
-        synchronized(this) { repository = null }
-    }
 
     private fun create(): PortalRepository {
         val client = PortalConfig.okHttpClient(debug = BuildConfig.DEBUG)
