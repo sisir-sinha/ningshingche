@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 
 package com.ningshingche.app.ui.screens
 
@@ -10,6 +10,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -477,7 +479,9 @@ private fun PdfReaderSettingsSheet(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FitChip("প্রস্থ", settings.fitMode == PdfFitMode.WIDTH) { onChange(settings.copy(fitMode = PdfFitMode.WIDTH)) }
             FitChip("উচ্চতা", settings.fitMode == PdfFitMode.HEIGHT) { onChange(settings.copy(fitMode = PdfFitMode.HEIGHT)) }
-            FitChip("দুটোই", settings.fitMode == PdfFitMode.BOTH) { onChange(settings.copy(fitMode = PdfFitMode.BOTH)) }
+            FitChip("প্রস্থ ও উচ্চতা দুটোই", settings.fitMode == PdfFitMode.BOTH) {
+                onChange(settings.copy(fitMode = PdfFitMode.BOTH))
+            }
         }
         if (!settings.bookView) {
             Spacer(Modifier.height(12.dp))

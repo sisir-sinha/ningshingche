@@ -186,9 +186,9 @@ class UserPreferencesRepository(private val context: Context) {
         }
         .map { preferences ->
             val fit = try {
-                PdfFitMode.valueOf(preferences[Keys.PDF_FIT] ?: PdfFitMode.HEIGHT.name)
+                PdfFitMode.valueOf(preferences[Keys.PDF_FIT] ?: PdfFitMode.BOTH.name)
             } catch (_: Exception) {
-                PdfFitMode.HEIGHT
+                PdfFitMode.BOTH
             }
             PdfReaderSettings(
                 bookView = preferences[Keys.PDF_BOOK_VIEW] ?: true,

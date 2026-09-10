@@ -112,7 +112,7 @@ data class PdfReaderSettings(
     val keepScreenOn: Boolean = true,
     val scrollHandle: Boolean = true,
     val spacingDp: Int = 8,
-    val fitMode: PdfFitMode = PdfFitMode.HEIGHT
+    val fitMode: PdfFitMode = PdfFitMode.BOTH
 )
 
 data class ReaderPreferences(
