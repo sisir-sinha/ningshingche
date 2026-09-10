@@ -121,6 +121,28 @@ fun PdfArchiveScreen(
                     )
                 }
             }
+            if (categories.isNotEmpty()) {
+                LazyRow(
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(categories, key = { it.id }) { category ->
+                        val selected = category.id == selectedCategoryId
+                        Text(
+                            text = category.name,
+                            fontFamily = Kalpurush,
+                            fontSize = 13.sp,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                            color = if (selected) Color(0xFF2A140E) else Color(0xFFFFF3D6),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(if (selected) PortalSaffron else Color(0x33FFF3D6))
+                                .clickable { viewModel.selectCategory(category.id) }
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+            }
         }
 
         LazyColumn(
