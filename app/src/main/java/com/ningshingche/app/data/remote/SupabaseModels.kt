@@ -627,27 +627,3 @@ data class SiteSettingsRecord(
         }
     }
 }
-
-data class DashboardSummaryStats(
-    val totalAuthors: Int = 0,
-    val totalBlogs: Int = 0,
-    val publishedBlogs: Int = 0,
-    val draftBlogs: Int = 0,
-    val pendingSubmittedBlogs: Int = 0,
-    val totalCategories: Int = 0,
-    val totalComments: Int = 0,
-    val publishedComments: Int = 0,
-    val totalGalleries: Int = 0,
-    val totalPdfBooks: Int = 0,
-    val totalVideos: Int = 0,
-    val totalViews: Int = 0
-)
-
-data class RecentActivityItem(
-    val id: String,
-    val title: String,
-    val subtitle: String,
-    val type: String, // "blog", "submission", "comment", "book", "gallery"
-    val timestamp: String,
-    val status: String = ""
-)
