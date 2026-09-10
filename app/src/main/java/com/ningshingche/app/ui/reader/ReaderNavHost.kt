@@ -691,7 +691,6 @@ fun EditorialReaderApp(
                         }
                     },
                     initialTab = tab,
-                    initialShowNotices = tabKey == "notices",
                     focusMessageId = entry.arguments?.getString("focus").orEmpty()
                 )
             }

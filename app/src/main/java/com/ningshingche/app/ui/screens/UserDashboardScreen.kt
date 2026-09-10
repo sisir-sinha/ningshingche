@@ -135,9 +135,10 @@ import kotlin.math.abs
 private const val PAGE_SIZE = 5
 private const val MESSAGE_WINDOW = 10
 private const val TAB_HOME = 0
-private const val TAB_MESSAGES = 1
-private const val TAB_CONTENT = 2
-private const val TAB_COMMENTS = 3
+private const val TAB_NOTICES = 1
+private const val TAB_MESSAGES = 2
+private const val TAB_CONTENT = 3
+private const val TAB_COMMENTS = 4
 private val TickGreen = Color(0xFF25D366)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -152,7 +153,6 @@ fun UserDashboardScreen(
     onOpenArticle: (SubmittedBlogRecord) -> Unit = {},
     onOpenComment: (CommentRecord) -> Unit = {},
     initialTab: Int = 0,
-    initialShowNotices: Boolean = false,
     focusMessageId: String = ""
 ) {
     val user by viewModel.currentUser.collectAsStateWithLifecycle()
@@ -168,12 +168,12 @@ fun UserDashboardScreen(
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(
         initialPage = initialTab.coerceIn(0, TAB_COMMENTS),
-        pageCount = { 4 }
+        pageCount = { 5 }
     )
     var fabOpen by remember { mutableStateOf(false) }
-    var showNotices by remember { mutableStateOf(initialShowNotices) }
     val noticeUnread = notifications.count { !it.isRead }
-    val onContentTab = !showNotices && pagerState.currentPage == TAB_CONTENT
+    val onNoticesTab = pagerState.currentPage == TAB_NOTICES
+    val onContentTab = pagerState.currentPage == TAB_CONTENT
 
     LaunchedEffect(user?.id) {
         if (user != null) viewModel.refresh()
@@ -181,13 +181,12 @@ fun UserDashboardScreen(
     LaunchedEffect(initialTab) {
         pagerState.scrollToPage(initialTab.coerceIn(0, TAB_COMMENTS))
     }
-    LaunchedEffect(initialShowNotices) {
-        if (initialShowNotices) showNotices = true
-    }
     LaunchedEffect(onContentTab) {
         if (!onContentTab) fabOpen = false
     }
-    BackHandler(enabled = showNotices) { showNotices = false }
+    BackHandler(enabled = onNoticesTab) {
+        scope.launch { pagerState.animateScrollToPage(TAB_HOME) }
+    }
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(status) {
@@ -218,7 +217,15 @@ fun UserDashboardScreen(
                                 .padding(start = 8.dp, end = 4.dp)
                         )
                         IconButton(
-                            onClick = { showNotices = !showNotices },
+                            onClick = {
+                                scope.launch {
+                                    if (pagerState.currentPage == TAB_NOTICES) {
+                                        pagerState.animateScrollToPage(TAB_HOME)
+                                    } else {
+                                        pagerState.animateScrollToPage(TAB_NOTICES)
+                                    }
+                                }
+                            },
                             modifier = Modifier.testTag("user_dashboard_notices")
                         ) {
                             BadgedBox(
@@ -281,11 +288,8 @@ fun UserDashboardScreen(
         },
         bottomBar = {
             DashboardBottomBar(
-                selected = if (showNotices) -1 else pagerState.currentPage,
-                onSelect = { page ->
-                    showNotices = false
-                    scope.launch { pagerState.animateScrollToPage(page) }
-                }
+                selected = pagerState.currentPage,
+                onSelect = { page -> scope.launch { pagerState.animateScrollToPage(page) } }
             )
         }
     ) { padding ->
@@ -297,31 +301,31 @@ fun UserDashboardScreen(
                 .padding(padding)
                 .imePadding()
         ) {
-            if (showNotices) {
-                NoticePane(notifications, onOpenNotice)
-            } else {
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.fillMaxSize()
-                ) { page ->
-                    when (page) {
-                        TAB_HOME -> HomePane(
-                            user = user,
-                            metrics = metrics,
-                            unread = noticeUnread,
-                            messageCount = messages.size,
-                            onEditProfile = onCompleteProfile
-                        )
-                        TAB_MESSAGES -> MessagePane(
-                            messages = messages,
-                            saving = saving,
-                            focusMessageId = focusMessageId,
-                            onSend = { body -> viewModel.sendAdminMessage(body) },
-                            onReload = { viewModel.refreshInbox(markSeen = false) }
-                        )
-                        TAB_CONTENT -> ContentPane(articles, tracks, onOpenArticle)
-                        else -> CommentPane(comments, onOpenComment)
-                    }
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize()
+            ) { page ->
+                when (page) {
+                    TAB_HOME -> HomePane(
+                        user = user,
+                        metrics = metrics,
+                        unread = noticeUnread,
+                        messageCount = messages.size,
+                        onEditProfile = onCompleteProfile,
+                        onOpenNotices = {
+                            scope.launch { pagerState.animateScrollToPage(TAB_NOTICES) }
+                        }
+                    )
+                    TAB_NOTICES -> NoticePane(notifications, onOpenNotice)
+                    TAB_MESSAGES -> MessagePane(
+                        messages = messages,
+                        saving = saving,
+                        focusMessageId = focusMessageId,
+                        onSend = { body -> viewModel.sendAdminMessage(body) },
+                        onReload = { viewModel.refreshInbox(markSeen = false) }
+                    )
+                    TAB_CONTENT -> ContentPane(articles, tracks, onOpenArticle)
+                    else -> CommentPane(comments, onOpenComment)
                 }
             }
         }
@@ -387,7 +391,8 @@ private fun HomePane(
     metrics: ReaderMetrics,
     unread: Int,
     messageCount: Int,
-    onEditProfile: () -> Unit
+    onEditProfile: () -> Unit,
+    onOpenNotices: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -414,7 +419,12 @@ private fun HomePane(
                 }
             }
         }
-        MetricsGrid(metrics = metrics, unread = unread, messageCount = messageCount)
+        MetricsGrid(
+            metrics = metrics,
+            unread = unread,
+            messageCount = messageCount,
+            onOpenNotices = onOpenNotices
+        )
         Spacer(Modifier.height(24.dp))
     }
 }
@@ -971,7 +981,12 @@ private fun UserInfoCard(
 }
 
 @Composable
-private fun MetricsGrid(metrics: ReaderMetrics, unread: Int, messageCount: Int) {
+private fun MetricsGrid(
+    metrics: ReaderMetrics,
+    unread: Int,
+    messageCount: Int,
+    onOpenNotices: () -> Unit = {}
+) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag("dashboard_metrics")) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             MetricCard("প্রবন্ধ", metrics.totalArticles.toString(), Icons.AutoMirrored.Filled.Article, Modifier.weight(1f))
@@ -984,7 +999,12 @@ private fun MetricsGrid(metrics: ReaderMetrics, unread: Int, messageCount: Int) 
             MetricCard("অপেক্ষমাণ", metrics.pendingArticles.toString(), Icons.Default.HourglassTop, Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            MetricCard("বিজ্ঞপ্তি", unread.toString(), Icons.Default.Notifications, Modifier.weight(1f))
+            MetricCard(
+                "বিজ্ঞপ্তি",
+                unread.toString(),
+                Icons.Default.Notifications,
+                Modifier.weight(1f).clickable(onClick = onOpenNotices)
+            )
             MetricCard("বার্তা", messageCount.toString(), Icons.Default.Mail, Modifier.weight(1f))
         }
     }
