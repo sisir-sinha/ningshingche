@@ -647,15 +647,16 @@ fun EditorialReaderApp(
             composable(
                 route = ReaderRoute.UserDashboardPattern,
                 arguments = listOf(
-                    navArgument("tab") { type = NavType.StringType; defaultValue = "notices" },
+                    navArgument("tab") { type = NavType.StringType; defaultValue = "home" },
                     navArgument("focus") { type = NavType.StringType; defaultValue = "" }
                 )
             ) { entry ->
                 val tabKey = entry.arguments?.getString("tab").orEmpty()
                 val tab = when (tabKey) {
-                    "messages" -> 1
-                    "content" -> 2
-                    "comments" -> 3
+                    "notices" -> 1
+                    "messages" -> 2
+                    "content" -> 3
+                    "comments" -> 4
                     else -> 0
                 }
                 UserDashboardScreen(

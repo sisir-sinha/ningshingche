@@ -6,12 +6,10 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,10 +24,8 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -49,6 +45,7 @@ import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LibraryMusic
@@ -117,6 +114,11 @@ import kotlinx.coroutines.launch
 
 private const val PAGE_SIZE = 5
 private const val MESSAGE_WINDOW = 10
+private const val TAB_HOME = 0
+private const val TAB_NOTICES = 1
+private const val TAB_MESSAGES = 2
+private const val TAB_CONTENT = 3
+private const val TAB_COMMENTS = 4
 private val TickGreen = Color(0xFF25D366)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -146,42 +148,20 @@ fun UserDashboardScreen(
     val status by viewModel.message.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(
-        initialPage = initialTab.coerceIn(0, 3),
-        pageCount = { 4 }
+        initialPage = initialTab.coerceIn(0, TAB_COMMENTS),
+        pageCount = { 5 }
     )
     var fabOpen by remember { mutableStateOf(false) }
-    val statsCollapsed = remember { mutableStateOf(false) }
-    val nestedScroll = remember(statsCollapsed) {
-        object : NestedScrollConnection {
-            private var accumulated = 0f
-            private fun consider(dy: Float) {
-                if (dy == 0f) return
-                if ((dy < 0f && accumulated > 0f) || (dy > 0f && accumulated < 0f)) accumulated = 0f
-                accumulated += dy
-                if (accumulated < -40f) {
-                    statsCollapsed.value = true
-                    accumulated = 0f
-                } else if (accumulated > 40f) {
-                    statsCollapsed.value = false
-                    accumulated = 0f
-                }
-            }
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                consider(available.y)
-                return Offset.Zero
-            }
-            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                consider(consumed.y)
-                return Offset.Zero
-            }
-        }
-    }
+    val onContentTab = pagerState.currentPage == TAB_CONTENT
 
     LaunchedEffect(user?.id) {
         if (user != null) viewModel.refresh()
     }
     LaunchedEffect(initialTab) {
-        pagerState.scrollToPage(initialTab.coerceIn(0, 3))
+        pagerState.scrollToPage(initialTab.coerceIn(0, TAB_COMMENTS))
+    }
+    LaunchedEffect(onContentTab) {
+        if (!onContentTab) fabOpen = false
     }
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -257,57 +237,28 @@ fun UserDashboardScreen(
                 .padding(padding)
                 .imePadding()
         ) {
-            Column(Modifier.fillMaxSize()) {
-                Column(
-                    Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    UserInfoCard(user = user, onEditProfile = onCompleteProfile)
-                    if (user?.isProfileComplete != true) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.errorContainer,
-                            shape = RoundedCornerShape(14.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(
-                                    "প্রোফাইল অসম্পূর্ণ। নতুন প্রবন্ধ বা গান জমা দিতে আগে প্রোফাইল পূরণ করুন।",
-                                    fontFamily = Kalpurush
-                                )
-                                Button(onClick = onCompleteProfile, modifier = Modifier.testTag("complete_profile_cta")) {
-                                    Text("প্রোফাইল সম্পাদনা", fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-                    AnimatedVisibility(
-                        visible = !statsCollapsed.value,
-                        enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
-                        exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut()
-                    ) {
-                        MetricsGrid(metrics = metrics, unread = unread, messageCount = messages.size)
-                    }
-                }
-
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .nestedScroll(nestedScroll)
-                ) { page ->
-                    when (page) {
-                        0 -> NoticePane(notifications, onOpenNotice)
-                        1 -> MessagePane(
-                            messages = messages,
-                            saving = saving,
-                            focusMessageId = focusMessageId,
-                            onSend = { body -> viewModel.sendAdminMessage(body) },
-                            onReload = { viewModel.refreshInbox(markSeen = false) }
-                        )
-                        2 -> ContentPane(articles, tracks, onOpenArticle)
-                        else -> CommentPane(comments, onOpenComment)
-                    }
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize()
+            ) { page ->
+                when (page) {
+                    TAB_HOME -> HomePane(
+                        user = user,
+                        metrics = metrics,
+                        unread = unread,
+                        messageCount = messages.size,
+                        onEditProfile = onCompleteProfile
+                    )
+                    TAB_NOTICES -> NoticePane(notifications, onOpenNotice)
+                    TAB_MESSAGES -> MessagePane(
+                        messages = messages,
+                        saving = saving,
+                        focusMessageId = focusMessageId,
+                        onSend = { body -> viewModel.sendAdminMessage(body) },
+                        onReload = { viewModel.refreshInbox(markSeen = false) }
+                    )
+                    TAB_CONTENT -> ContentPane(articles, tracks, onOpenArticle)
+                    else -> CommentPane(comments, onOpenComment)
                 }
             }
         }
@@ -342,8 +293,14 @@ private fun DashboardBottomBar(
 ) {
     NavigationBar {
         NavigationBarItem(
-            selected = selected == 0,
-            onClick = { onSelect(0) },
+            selected = selected == TAB_HOME,
+            onClick = { onSelect(TAB_HOME) },
+            icon = { Icon(Icons.Default.Home, contentDescription = null) },
+            label = { Text("ঘর", fontFamily = Kalpurush, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        )
+        NavigationBarItem(
+            selected = selected == TAB_NOTICES,
+            onClick = { onSelect(TAB_NOTICES) },
             icon = { Icon(Icons.Default.Notifications, contentDescription = null) },
             label = {
                 Text(
@@ -355,23 +312,61 @@ private fun DashboardBottomBar(
             }
         )
         NavigationBarItem(
-            selected = selected == 1,
-            onClick = { onSelect(1) },
+            selected = selected == TAB_MESSAGES,
+            onClick = { onSelect(TAB_MESSAGES) },
             icon = { Icon(Icons.Default.Mail, contentDescription = null) },
             label = { Text("বার্তা", fontFamily = Kalpurush, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         )
         NavigationBarItem(
-            selected = selected == 2,
-            onClick = { onSelect(2) },
+            selected = selected == TAB_CONTENT,
+            onClick = { onSelect(TAB_CONTENT) },
             icon = { Icon(Icons.AutoMirrored.Filled.Article, contentDescription = null) },
             label = { Text("কন্টেন্ট", fontFamily = Kalpurush, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         )
         NavigationBarItem(
-            selected = selected == 3,
-            onClick = { onSelect(3) },
+            selected = selected == TAB_COMMENTS,
+            onClick = { onSelect(TAB_COMMENTS) },
             icon = { Icon(Icons.Default.Comment, contentDescription = null) },
             label = { Text("মন্তব্য", fontFamily = Kalpurush, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         )
+    }
+}
+
+@Composable
+private fun HomePane(
+    user: UserProfile?,
+    metrics: ReaderMetrics,
+    unread: Int,
+    messageCount: Int,
+    onEditProfile: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        UserInfoCard(user = user, onEditProfile = onEditProfile)
+        if (user?.isProfileComplete != true) {
+            Surface(
+                color = MaterialTheme.colorScheme.errorContainer,
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "প্রোফাইল অসম্পূর্ণ। নতুন প্রবন্ধ বা গান জমা দিতে আগে প্রোফাইল পূরণ করুন।",
+                        fontFamily = Kalpurush
+                    )
+                    Button(onClick = onEditProfile, modifier = Modifier.testTag("complete_profile_cta")) {
+                        Text("প্রোফাইল সম্পাদনা", fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+        MetricsGrid(metrics = metrics, unread = unread, messageCount = messageCount)
+        Spacer(Modifier.height(24.dp))
     }
 }
 
