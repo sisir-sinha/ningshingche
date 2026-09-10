@@ -13,7 +13,7 @@ android {
   namespace = "com.ningshingche.app"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
-    defaultConfig {
+  defaultConfig {
     applicationId = "com.ningshingche.app"
     minSdk = 24
     targetSdk = 36
