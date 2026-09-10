@@ -150,7 +150,6 @@ fun UserDashboardScreen(
     onCompleteProfile: () -> Unit,
     onNewArticle: () -> Unit,
     onNewMusic: () -> Unit = {},
-    onOpenNotice: (UserNotificationRecord) -> Unit = {},
     onOpenArticle: (SubmittedBlogRecord) -> Unit = {},
     onOpenComment: (CommentRecord) -> Unit = {},
     initialTab: Int = 0,
@@ -173,6 +172,13 @@ fun UserDashboardScreen(
         initialPage = initialTab.coerceIn(0, TAB_COMMENTS),
         pageCount = { 5 }
     )
+    // Focus targets for the action tabs. Seeded from the navigation
+    // arguments when the dashboard is opened from another screen and
+    // updated by [openNotice] when a notice is tapped inside the
+    // dashboard itself.
+    var messageFocus by remember { mutableStateOf(focusMessageId) }
+    var contentFocus by remember { mutableStateOf(focusContentId) }
+    var commentFocus by remember { mutableStateOf(focusCommentId) }
     var fabOpen by remember { mutableStateOf(false) }
     val noticeUnread = notifications.count { !it.isRead }
     val onNoticesTab = pagerState.currentPage == TAB_NOTICES
@@ -180,6 +186,22 @@ fun UserDashboardScreen(
 
     LaunchedEffect(user?.id) {
         if (user != null) viewModel.refresh()
+    }
+    // A tapped notice slides the pager to its own tab (like a manual
+    // swipe) and focuses + highlights the matching card there instead of
+    // pushing a second dashboard screen on top.
+    val openNotice: (UserNotificationRecord) -> Unit = { notice ->
+        viewModel.markNotificationRead(notice.id)
+        when (val targetTab = when {
+            notice.isAdminMessage || notice.kind == "staff_notice" -> TAB_MESSAGES
+            notice.isComment -> TAB_COMMENTS
+            else -> TAB_CONTENT
+        }) {
+            TAB_MESSAGES -> messageFocus = notice.relatedId
+            TAB_COMMENTS -> commentFocus = notice.relatedId
+            else -> contentFocus = notice.relatedId
+        }
+        scope.launch { pagerState.animateScrollToPage(targetTab) }
     }
     LaunchedEffect(initialTab) {
         pagerState.scrollToPage(initialTab.coerceIn(0, TAB_COMMENTS))
@@ -319,23 +341,23 @@ fun UserDashboardScreen(
                             scope.launch { pagerState.animateScrollToPage(TAB_NOTICES) }
                         }
                     )
-                    TAB_NOTICES -> NoticePane(notifications, onOpenNotice)
+                    TAB_NOTICES -> NoticePane(notifications, openNotice)
                     TAB_MESSAGES -> MessagePane(
                         messages = messages,
                         saving = saving,
-                        focusMessageId = focusMessageId,
+                        focusMessageId = messageFocus,
                         onSend = { body -> viewModel.sendAdminMessage(body) },
                         onReload = { viewModel.refreshInbox(markSeen = false) }
                     )
                     TAB_CONTENT -> ContentPane(
                         articles = articles,
                         tracks = tracks,
-                        focusId = focusContentId,
+                        focusId = contentFocus,
                         onOpenArticle = onOpenArticle
                     )
                     else -> CommentPane(
                         comments = comments,
-                        focusId = focusCommentId,
+                        focusId = commentFocus,
                         onOpen = onOpenComment
                     )
                 }

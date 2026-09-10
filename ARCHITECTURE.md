@@ -189,6 +189,13 @@ authors_directory, social_activities.
   (http too); notification intents carry `EXTRA_ROUTE`/`EXTRA_TARGET_ID` and are resolved
   in `routeFromLaunchIntent`.
 - Top-level drawer navigation: `popUpTo(home){saveState}` + `launchSingleTop` + `restoreState`.
+- **Route transitions** (all 32 destinations): slide + fade via `navEnter`/`navExit`/
+  `navPopEnter`/`navPopExit` vals — 280 ms in, 240 ms out, combined with the `+` operator
+  on compose `EnterTransition`/`ExitTransition` (type:
+  `AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition`).
+- Notice taps are handled **inside** `UserDashboardScreen` (`openNotice`): the pager
+  animates to the target tab (like a manual swipe) and the focused card scrolls into
+  view + highlights; no second dashboard screen is pushed.
 - Global overlays at the root: `MusicMiniPlayerBar`, `MusicFullPlayerOverlay`
   (composition-local `LocalMusicController`), `AppToastHost`, connectivity toasts
   (offline/weak via `ConnectivityMonitor`).
@@ -244,7 +251,7 @@ about, phone, address, facebook id, avatar) before article/music submission —
 | Tab | Content |
 | --- | --- |
 | 0 Home | `UserInfoCard` + `MetricsGrid` (articles total/pending/published/rejected, comments, songs, article views via `sumBlogViewsForAuthor(name)`) + speed dial (new article / new music) |
-| 1 Notices | `user_notifications` (bell, read state). Tapping a notice **routes to the matching bottom tab** — admin/staff → বার্তা (tab 2), comment-published → মন্তব্য (tab 4), article-published → কন্টেন্ট (tab 3) — and focuses/highlights the matching card there (`openUserNotice` → `ReaderRoute.dashboard(tab, focus)` → `focusMessageId`/`focusCommentId`/`focusContentId`). The user then acts on the card itself (e.g. open the article); notices never jump straight to an article page |
+| 1 Notices | `user_notifications` (bell, read state). Tapping a notice sends the pager to the matching bottom tab — admin/staff → বার্তা (tab 2), comment-published → মন্তব্য (tab 4), article-published → কন্টেন্ট (tab 3) — with a smooth in-screen slide (internal `openNotice` in `UserDashboardScreen`), then focuses/highlights the matching card. Focus ids flow in via route args (`user_dashboard?tab=…&focus=…`) when the dashboard is opened from another screen. The user then acts on the card itself (e.g. open the article); notices never jump straight to an article page |
 | 2 Messages | `admin_messages` chat bubbles (user ↔ admin), image attachments parsed from body URLs, zoomable preview, mark-read |
 | 3 Content | own `submitted_blogs` + own `music_tracks` (status chips; opens published articles via portal fallback search) |
 | 4 Comments | own `comments` with status + link to `article/{blog_id}?focus=comments` |

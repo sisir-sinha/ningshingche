@@ -2,6 +2,15 @@ package com.ningshingche.app.ui.reader
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +29,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -64,7 +74,6 @@ import com.ningshingche.app.ui.components.MusicFullPlayerOverlay
 import com.ningshingche.app.ui.components.MusicMiniPlayerBar
 import com.ningshingche.app.ui.components.NetStatus
 import com.ningshingche.app.ui.components.connectivityStatus
-import com.ningshingche.app.data.remote.UserNotificationRecord
 import com.ningshingche.app.ui.viewmodel.PdfArchiveViewModel
 import com.ningshingche.app.ui.viewmodel.PdfViewerViewModel
 import com.ningshingche.app.ui.viewmodel.ReaderWorkspaceViewModel
@@ -149,6 +158,29 @@ object ReaderRoute {
         URLEncoder.encode(value, "UTF-8").replace("+", "%20")
 }
 
+/**
+ * Standard slide + fade route transitions applied to every destination so
+ * pushes (bell → dashboard, dashboard → article, …) and pops animate
+ * smoothly instead of switching instantly. Timing matches the old reader
+ * feel: 280 ms in, 240 ms out, both directions.
+ */
+private val navEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
+    slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(280, easing = FastOutSlowInEasing)) +
+        fadeIn(tween(280))
+}
+private val navExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
+    slideOutHorizontally(targetOffsetX = { it / 3 }, animationSpec = tween(240, easing = FastOutSlowInEasing)) +
+        fadeOut(tween(240))
+}
+private val navPopEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
+    slideInHorizontally(initialOffsetX = { -it / 3 }, animationSpec = tween(240, easing = FastOutSlowInEasing)) +
+        fadeIn(tween(240))
+}
+private val navPopExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
+    slideOutHorizontally(targetOffsetX = { -it }, animationSpec = tween(280, easing = FastOutSlowInEasing)) +
+        fadeOut(tween(280))
+}
+
 @Composable
 fun EditorialReaderApp(
     app: NinghsingCheApp,
@@ -207,22 +239,6 @@ fun EditorialReaderApp(
     val pendingHolder = remember { kotlinx.coroutines.flow.MutableStateFlow<String?>(null) }
     val launchRoute by (pendingRoute ?: pendingHolder).collectAsState()
     val playerUi by app.musicController.state.collectAsState()
-
-    // Every notice opens its own dashboard tab (বার্তা / কন্টেন্ট / মন্তব্য) and
-    // focuses the matching card there. The user then acts on the card itself
-    // (open article, etc.) — notices no longer jump straight to an article
-    // page, which could be empty when the related id is a submission uuid.
-    val openUserNotice: (UserNotificationRecord) -> Unit = { notice ->
-        workspaceViewModel.markNotificationRead(notice.id)
-        when {
-            notice.isAdminMessage || notice.kind == "staff_notice" ->
-                navController.navigate(ReaderRoute.dashboard("messages", notice.relatedId))
-            notice.isComment ->
-                navController.navigate(ReaderRoute.dashboard("comments", notice.relatedId))
-            else ->
-                navController.navigate(ReaderRoute.dashboard("content", notice.relatedId))
-        }
-    }
 
     LaunchedEffect(launchRoute, currentRoute) {
         val route = launchRoute ?: return@LaunchedEffect
@@ -337,7 +353,7 @@ fun EditorialReaderApp(
             modifier = Modifier.weight(1f)
         ) {
             // Splash Screen
-            composable(ReaderRoute.Splash) {
+            composable(ReaderRoute.Splash, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
                 SplashScreen(
                     onSplashComplete = {
                         val dest = when {
@@ -353,7 +369,7 @@ fun EditorialReaderApp(
             }
 
             // Home Front Page
-            composable(ReaderRoute.Home) {
+            composable(ReaderRoute.Home, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
                 val homeViewModel: HomeViewModel = viewModel(factory = portalFactory)
                 HomeScreen(
                     viewModel = homeViewModel,
@@ -391,7 +407,7 @@ fun EditorialReaderApp(
             }
 
             // Search Screen
-            composable(ReaderRoute.Search) {
+            composable(ReaderRoute.Search, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
                 val searchViewModel: SearchViewModel = viewModel(factory = portalFactory)
                 SearchScreen(
                     viewModel = searchViewModel,
@@ -405,6 +421,10 @@ fun EditorialReaderApp(
             }
 
             composable(
+                enterTransition = navEnter,
+                exitTransition = navExit,
+                popEnterTransition = navPopEnter,
+                popExitTransition = navPopExit,
                 route = "article/{articleId}?focus={focus}",
                 arguments = listOf(
                     navArgument("articleId") { type = NavType.StringType },
@@ -433,6 +453,10 @@ fun EditorialReaderApp(
 
             // Article Detail Screen
             composable(
+                enterTransition = navEnter,
+                exitTransition = navExit,
+                popEnterTransition = navPopEnter,
+                popExitTransition = navPopExit,
                 route = ReaderRoute.Article,
                 arguments = listOf(navArgument("articleId") { type = NavType.StringType }),
                 deepLinks = listOf(
@@ -470,6 +494,10 @@ fun EditorialReaderApp(
 
             // Category Articles Screen
             composable(
+                enterTransition = navEnter,
+                exitTransition = navExit,
+                popEnterTransition = navPopEnter,
+                popExitTransition = navPopExit,
                 route = ReaderRoute.Category,
                 arguments = listOf(navArgument("categorySlug") { type = NavType.StringType })
             ) { entry ->
@@ -486,6 +514,10 @@ fun EditorialReaderApp(
 
             // Annual issue (নিংশিং চে - YYYY) articles
             composable(
+                enterTransition = navEnter,
+                exitTransition = navExit,
+                popEnterTransition = navPopEnter,
+                popExitTransition = navPopExit,
                 route = ReaderRoute.Issue,
                 arguments = listOf(navArgument("year") { type = NavType.IntType })
             ) { entry ->
@@ -503,6 +535,10 @@ fun EditorialReaderApp(
 
             // Author Profile Screen
             composable(
+                enterTransition = navEnter,
+                exitTransition = navExit,
+                popEnterTransition = navPopEnter,
+                popExitTransition = navPopExit,
                 route = ReaderRoute.Author,
                 arguments = listOf(navArgument("authorId") { type = NavType.StringType })
             ) { entry ->
@@ -518,7 +554,7 @@ fun EditorialReaderApp(
             }
 
             // NingshingChe AI Assistant Screen
-            composable(ReaderRoute.AiAssistant) {
+            composable(ReaderRoute.AiAssistant, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
                 val aiViewModel: AiViewModel = viewModel(factory = mainFactory)
                 AiAssistantScreen(
                     viewModel = aiViewModel,
@@ -531,6 +567,10 @@ fun EditorialReaderApp(
             }
 
             composable(
+                enterTransition = navEnter,
+                exitTransition = navExit,
+                popEnterTransition = navPopEnter,
+                popExitTransition = navPopExit,
                 route = ReaderRoute.AiAssistantPattern,
                 arguments = listOf(
                     navArgument("q") { type = NavType.StringType; defaultValue = "" }
@@ -553,7 +593,7 @@ fun EditorialReaderApp(
             }
 
             // Settings Screen
-            composable(ReaderRoute.Settings) {
+            composable(ReaderRoute.Settings, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
                 val settingsViewModel: SettingsViewModel = viewModel(factory = mainFactory)
                 SettingsScreen(
                     viewModel = settingsViewModel,
@@ -561,7 +601,7 @@ fun EditorialReaderApp(
                 )
             }
 
-            composable(ReaderRoute.Login) {
+            composable(ReaderRoute.Login, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
                 val settingsViewModel: SettingsViewModel = viewModel(factory = mainFactory)
                 LoginScreen(
                     viewModel = settingsViewModel,
@@ -571,7 +611,7 @@ fun EditorialReaderApp(
             }
 
             // Onboarding Welcome Screens
-            composable(ReaderRoute.WelcomeLogin) {
+            composable(ReaderRoute.WelcomeLogin, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
                 val settingsViewModel: SettingsViewModel = viewModel(factory = mainFactory)
                 WelcomeLoginScreen(
                     viewModel = settingsViewModel,
@@ -588,7 +628,7 @@ fun EditorialReaderApp(
                 )
             }
 
-            composable(ReaderRoute.WelcomeNotifications) {
+            composable(ReaderRoute.WelcomeNotifications, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
                 val settingsViewModel: SettingsViewModel = viewModel(factory = mainFactory)
                 WelcomeNotificationsScreen(
                     viewModel = settingsViewModel,
@@ -600,14 +640,13 @@ fun EditorialReaderApp(
                 )
             }
 
-            composable(ReaderRoute.UserDashboard) {
+            composable(ReaderRoute.UserDashboard, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
                 UserDashboardScreen(
                     viewModel = workspaceViewModel,
                     onBackClick = { navController.popBackStack() },
                     onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) },
                     onNewArticle = { navController.navigate(ReaderRoute.NewArticle) },
                     onNewMusic = { navController.navigate(ReaderRoute.NewMusic) },
-                    onOpenNotice = openUserNotice,
                     onOpenArticle = { article ->
                         coroutineScope.launch {
                             val published = article.status.equals("Published", true) ||
@@ -636,6 +675,10 @@ fun EditorialReaderApp(
             }
 
             composable(
+                enterTransition = navEnter,
+                exitTransition = navExit,
+                popEnterTransition = navPopEnter,
+                popExitTransition = navPopExit,
                 route = ReaderRoute.UserDashboardPattern,
                 arguments = listOf(
                     navArgument("tab") { type = NavType.StringType; defaultValue = "home" },
@@ -659,7 +702,6 @@ fun EditorialReaderApp(
                     onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) },
                     onNewArticle = { navController.navigate(ReaderRoute.NewArticle) },
                     onNewMusic = { navController.navigate(ReaderRoute.NewMusic) },
-                    onOpenNotice = openUserNotice,
                     onOpenArticle = { article ->
                         coroutineScope.launch {
                             val published = article.status.equals("Published", true) ||
@@ -691,14 +733,14 @@ fun EditorialReaderApp(
                 )
             }
 
-            composable(ReaderRoute.UserProfile) {
+            composable(ReaderRoute.UserProfile, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
                 UserProfileScreen(
                     viewModel = workspaceViewModel,
                     onBackClick = { navController.popBackStack() }
                 )
             }
 
-            composable(ReaderRoute.NewArticle) {
+            composable(ReaderRoute.NewArticle, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
                 NewArticleScreen(
                     viewModel = workspaceViewModel,
                     onBackClick = { navController.popBackStack() },
@@ -706,7 +748,7 @@ fun EditorialReaderApp(
                 )
             }
 
-            composable(ReaderRoute.NewMusic) {
+            composable(ReaderRoute.NewMusic, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
                 NewMusicScreen(
                     viewModel = workspaceViewModel,
                     onBackClick = { navController.popBackStack() },
@@ -715,7 +757,7 @@ fun EditorialReaderApp(
             }
 
             // Bookmarks / Saved Screen
-            composable(ReaderRoute.Bookmarks) {
+            composable(ReaderRoute.Bookmarks, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
                 val bookmarksViewModel: BookmarksViewModel = viewModel(factory = mainFactory)
                 BookmarksScreen(
                     viewModel = bookmarksViewModel,
@@ -725,7 +767,7 @@ fun EditorialReaderApp(
             }
 
             // PDF Archive Screen
-            composable(ReaderRoute.PdfArchive) {
+            composable(ReaderRoute.PdfArchive, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
                 val pdfViewModel: PdfArchiveViewModel = viewModel(factory = mainFactory)
                 PdfArchiveScreen(
                     viewModel = pdfViewModel,
@@ -738,6 +780,10 @@ fun EditorialReaderApp(
 
             // PDF Viewer Screen
             composable(
+                enterTransition = navEnter,
+                exitTransition = navExit,
+                popEnterTransition = navPopEnter,
+                popExitTransition = navPopExit,
                 route = ReaderRoute.PdfViewer,
                 arguments = listOf(navArgument("pdfId") { type = NavType.StringType })
             ) { entry ->
@@ -752,6 +798,10 @@ fun EditorialReaderApp(
 
             // Explore: categories, authors, annual issues, popular
             composable(
+                enterTransition = navEnter,
+                exitTransition = navExit,
+                popEnterTransition = navPopEnter,
+                popExitTransition = navPopExit,
                 route = ReaderRoute.ExplorePattern,
                 arguments = listOf(
                     navArgument("tab") {
@@ -775,7 +825,7 @@ fun EditorialReaderApp(
                 )
             }
 
-            composable(ReaderRoute.Videos) {
+            composable(ReaderRoute.Videos, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
                 val homeViewModel: HomeViewModel = viewModel(factory = portalFactory)
                 VideosScreen(
                     viewModel = homeViewModel,
@@ -783,7 +833,7 @@ fun EditorialReaderApp(
                 )
             }
 
-            composable(ReaderRoute.Music) {
+            composable(ReaderRoute.Music, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
                 val homeViewModel: HomeViewModel = viewModel(factory = portalFactory)
                 MusicScreen(
                     viewModel = homeViewModel,
@@ -795,6 +845,10 @@ fun EditorialReaderApp(
             }
 
             composable(
+                enterTransition = navEnter,
+                exitTransition = navExit,
+                popEnterTransition = navPopEnter,
+                popExitTransition = navPopExit,
                 route = ReaderRoute.MusicGenre,
                 arguments = listOf(navArgument("name") { type = NavType.StringType })
             ) { entry ->
@@ -811,6 +865,10 @@ fun EditorialReaderApp(
             }
 
             composable(
+                enterTransition = navEnter,
+                exitTransition = navExit,
+                popEnterTransition = navPopEnter,
+                popExitTransition = navPopExit,
                 route = ReaderRoute.MusicArtist,
                 arguments = listOf(navArgument("name") { type = NavType.StringType })
             ) { entry ->
@@ -827,6 +885,10 @@ fun EditorialReaderApp(
             }
 
             composable(
+                enterTransition = navEnter,
+                exitTransition = navExit,
+                popEnterTransition = navPopEnter,
+                popExitTransition = navPopExit,
                 route = ReaderRoute.MusicAlbum,
                 arguments = listOf(navArgument("name") { type = NavType.StringType })
             ) { entry ->
@@ -843,7 +905,7 @@ fun EditorialReaderApp(
             }
 
             // Featured Articles Screen
-            composable(ReaderRoute.Featured) {
+            composable(ReaderRoute.Featured, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
                 val homeViewModel: com.ningshingche.app.ui.viewmodel.HomeViewModel = viewModel(factory = mainFactory)
                 FeaturedScreen(
                     viewModel = homeViewModel,
@@ -853,12 +915,12 @@ fun EditorialReaderApp(
             }
 
             // About Screen
-            composable(ReaderRoute.About) {
+            composable(ReaderRoute.About, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
                 AboutScreen(onBackClick = { navController.popBackStack() })
             }
 
             // Authors Directory Screen
-            composable(ReaderRoute.AuthorsDirectory) {
+            composable(ReaderRoute.AuthorsDirectory, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
                 val exploreViewModel: ExploreViewModel = viewModel(factory = portalFactory)
                 AuthorsDirectoryScreen(
                     viewModel = exploreViewModel,
@@ -868,7 +930,7 @@ fun EditorialReaderApp(
             }
 
             // Social Activities Screen
-            composable(ReaderRoute.SocialActivities) {
+            composable(ReaderRoute.SocialActivities, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
                 val exploreViewModel: ExploreViewModel = viewModel(factory = portalFactory)
                 SocialActivitiesScreen(
                     viewModel = exploreViewModel,
