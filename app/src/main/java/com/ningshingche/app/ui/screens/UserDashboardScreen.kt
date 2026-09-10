@@ -771,7 +771,8 @@ private fun ZoomableChatImage(url: String) {
                         if (!pastTouchSlop) {
                             zoom *= zoomChange
                             pan += panChange
-                            val zoomMotion = abs(1f - zoom) * size.minDimension
+                            val minDim = kotlin.math.min(size.width, size.height).toFloat()
+                            val zoomMotion = kotlin.math.abs(1f - zoom) * minDim
                             if (pinched || zoomMotion > touchSlop || pan.getDistance() > touchSlop) {
                                 pastTouchSlop = true
                             }
