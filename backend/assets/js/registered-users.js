@@ -1249,17 +1249,57 @@
     };
   }
 
+  function messageAttachmentUrls(body) {
+    const found = String(body || '').match(/https?:\/\/[^\s)]+/gi) || [];
+    return [...new Set(found.map((url) => url.replace(/[.,;]+$/, '')))].filter((url) => (
+      /i\.ibb\.co|imgbb\.com/i.test(url) || /\.(jpe?g|png|webp|gif)(\?|$)/i.test(url)
+    ));
+  }
+
+  function messagePlainText(body) {
+    let text = String(body || '');
+    messageAttachmentUrls(text).forEach((url) => { text = text.split(url).join(''); });
+    return text.replace(/\n{3,}/g, '\n\n').trim();
+  }
+
+  function openImageLightbox(url) {
+    if (!url) return;
+    document.getElementById('ru-image-lightbox')?.remove();
+    const layer = document.createElement('div');
+    layer.id = 'ru-image-lightbox';
+    layer.className = 'ru-image-lightbox';
+    layer.innerHTML = `<button type="button" class="ru-image-lightbox-close" aria-label="Close"><i class="fa-regular fa-xmark" aria-hidden="true"></i></button>
+      <img src="${escapeHTML(url)}" alt="" referrerpolicy="no-referrer">`;
+    const close = () => layer.remove();
+    layer.addEventListener('click', (event) => {
+      if (event.target === layer || event.target.closest('.ru-image-lightbox-close')) close();
+    });
+    document.addEventListener('keydown', function onKey(event) {
+      if (event.key === 'Escape') {
+        document.removeEventListener('keydown', onKey);
+        close();
+      }
+    });
+    document.body.appendChild(layer);
+  }
+
   function bubblesHTML(userId) {
     const { name } = chatIdentity(userId);
     const thread = threadFor(userId);
     if (!thread.length) {
       return '<p class="text-muted-foreground" style="padding:8px">No messages yet. Write the first reply below.</p>';
     }
-    return thread.map((item) => `
+    return thread.map((item) => {
+      const images = messageAttachmentUrls(item.body);
+      const text = messagePlainText(item.body);
+      const photos = images.map((url) => `<button type="button" class="ru-chat-photo" data-ru-lightbox="${escapeHTML(url)}"><img src="${escapeHTML(url)}" alt="" loading="lazy" referrerpolicy="no-referrer"></button>`).join('');
+      return `
       <article class="ru-bubble ${item.sender === 'admin' ? 'is-admin' : 'is-user'}">
         <header><strong>${item.sender === 'admin' ? 'Admin' : escapeHTML(name)}</strong><time>${escapeHTML(formatDateTime(item.created_at))}</time></header>
-        <p>${escapeHTML(item.body || '')}</p>
-      </article>`).join('');
+        ${text ? `<p>${escapeHTML(text)}</p>` : ''}
+        ${photos ? `<div class="ru-chat-photos">${photos}</div>` : ''}
+      </article>`;
+    }).join('');
   }
 
   function fromCell(userId) {
@@ -1396,6 +1436,13 @@
       pill.addEventListener('click', (event) => {
         if (event.target.closest('[data-ru-chat-close]')) return;
         openChat(pill.dataset.ruChatRestore);
+      });
+    });
+    dock.querySelectorAll('[data-ru-lightbox]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openImageLightbox(button.dataset.ruLightbox);
       });
     });
     dock.querySelectorAll('[data-ru-chat-form]').forEach((form) => {

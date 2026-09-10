@@ -10,6 +10,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -97,6 +99,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.ningshingche.app.data.remote.AdminMessageRecord
@@ -546,6 +550,7 @@ private fun MessagePane(
     var body by remember { mutableStateOf("") }
     var attaching by remember { mutableStateOf(false) }
     var pendingUrls by remember { mutableStateOf(listOf<String>()) }
+    var previewUrl by remember { mutableStateOf<String?>(null) }
     val ordered = remember(messages) { messages.sortedBy { it.createdAt } }
     var window by remember { mutableIntStateOf(MESSAGE_WINDOW) }
     val visible = remember(ordered, window) { ordered.takeLast(window.coerceAtMost(ordered.size.coerceAtLeast(0))) }
@@ -608,7 +613,7 @@ private fun MessagePane(
                     item { EmptyHint("অ্যাডমিনকে প্রশ্ন বা অনুরোধ পাঠান। উত্তর এখানে দেখাবে।") }
                 }
                 items(visible, key = { it.id }) { item ->
-                    ChatBubble(item)
+                    ChatBubble(item, onOpenImage = { previewUrl = it })
                 }
             }
             IconButton(
@@ -627,27 +632,29 @@ private fun MessagePane(
         }
 
         if (pendingUrls.isNotEmpty()) {
-            Row(
+            Column(
                 Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 pendingUrls.forEach { url ->
                     Box {
                         AsyncImage(
                             model = url,
                             contentDescription = null,
-                            contentScale = ContentScale.Crop,
+                            contentScale = ContentScale.Fit,
                             modifier = Modifier
-                                .size(56.dp)
-                                .clip(RoundedCornerShape(8.dp))
+                                .fillMaxWidth()
+                                .heightIn(min = 80.dp, max = 220.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable { previewUrl = url }
                         )
                         IconButton(
                             onClick = { pendingUrls = pendingUrls.filterNot { it == url } },
-                            modifier = Modifier.align(Alignment.TopEnd).size(20.dp)
+                            modifier = Modifier.align(Alignment.TopEnd).size(28.dp)
                         ) {
-                            Icon(Icons.Default.Close, contentDescription = "সরান", modifier = Modifier.size(14.dp))
+                            Icon(Icons.Default.Close, contentDescription = "সরান")
                         }
                     }
                 }
@@ -694,10 +701,49 @@ private fun MessagePane(
             }
         }
     }
+
+    val openPreview = previewUrl
+    if (openPreview != null) {
+        ImagePreviewDialog(url = openPreview, onDismiss = { previewUrl = null })
+    }
 }
 
 @Composable
-private fun ChatBubble(item: AdminMessageRecord) {
+private fun ImagePreviewDialog(url: String, onDismiss: () -> Unit) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.94f))
+                .clickable(onClick = onDismiss),
+            contentAlignment = Alignment.Center
+        ) {
+            AsyncImage(
+                model = url,
+                contentDescription = "ছবি",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp)
+                    .clickable(enabled = false) {}
+            )
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+            ) {
+                Icon(Icons.Default.Close, contentDescription = "বন্ধ", tint = Color.White)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChatBubble(item: AdminMessageRecord, onOpenImage: (String) -> Unit) {
     val fromAdmin = item.isFromAdmin
     val images = remember(item.body) { messageAttachmentUrls(item.body) }
     val text = images.fold(item.body) { acc, url -> acc.replace(url, "") }.trim()
@@ -729,11 +775,12 @@ private fun ChatBubble(item: AdminMessageRecord) {
                     AsyncImage(
                         model = url,
                         contentDescription = "সংযুক্তি",
-                        contentScale = ContentScale.Crop,
+                        contentScale = ContentScale.Fit,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(140.dp)
+                            .heightIn(min = 120.dp, max = 360.dp)
                             .clip(RoundedCornerShape(10.dp))
+                            .clickable { onOpenImage(url) }
                     )
                 }
                 Row(
