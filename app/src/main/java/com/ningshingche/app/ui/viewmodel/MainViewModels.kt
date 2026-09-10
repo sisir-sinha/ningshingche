@@ -19,6 +19,7 @@ import com.ningshingche.app.data.model.Bookmark
 import com.ningshingche.app.data.model.Category
 import com.ningshingche.app.data.model.PdfCategory
 import com.ningshingche.app.data.model.PdfDocument
+import com.ningshingche.app.data.model.PdfReaderSettings
 import com.ningshingche.app.data.model.ReaderPreferences
 import com.ningshingche.app.data.model.ReadingHistory
 import com.ningshingche.app.data.model.YearArchive
@@ -27,7 +28,7 @@ import com.ningshingche.app.data.portal.PdfBook
 import com.ningshingche.app.data.portal.PortalRepository
 import com.ningshingche.app.data.repository.ArticleRepository
 import com.ningshingche.app.data.repository.WebsiteSyncState
-import com.ningshingche.app.util.PdfSession
+import java.io.File
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -429,13 +430,17 @@ private fun PdfBook.toPdfDocument(): com.ningshingche.app.data.model.PdfDocument
 class PdfViewerViewModel(
     private val repository: ArticleRepository,
     private val portalRepository: PortalRepository,
-    private val context: Context
+    private val context: Context,
+    private val preferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
     private val _pdfDocument = MutableStateFlow<com.ningshingche.app.data.model.PdfDocument?>(null)
     val pdfDocument: StateFlow<com.ningshingche.app.data.model.PdfDocument?> = _pdfDocument.asStateFlow()
 
     private val _pageCount = MutableStateFlow(0)
     val pageCount: StateFlow<Int> = _pageCount.asStateFlow()
+
+    private val _currentPage = MutableStateFlow(0)
+    val currentPage: StateFlow<Int> = _currentPage.asStateFlow()
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -446,17 +451,19 @@ class PdfViewerViewModel(
     private val _downloadStatus = MutableStateFlow<String?>(null)
     val downloadStatus: StateFlow<String?> = _downloadStatus.asStateFlow()
 
-    private var localPdfFile: java.io.File? = null
-    private var session: PdfSession? = null
-    private val pageCache = android.util.LruCache<Int, android.graphics.Bitmap>(6)
+    private val _localFile = MutableStateFlow<File?>(null)
+    val localFile: StateFlow<File?> = _localFile.asStateFlow()
+
+    val readerSettings: StateFlow<PdfReaderSettings> = preferencesRepository.pdfReaderSettings
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PdfReaderSettings())
+
+    private var loadedPdfId: String = ""
 
     fun loadPdf(pdfId: String) {
         _isLoading.value = true
         _errorMessage.value = null
         _pageCount.value = 0
-        pageCache.evictAll()
-        session?.close()
-        session = null
+        _localFile.value = null
         viewModelScope.launch {
             val decoded = runCatching { java.net.URLDecoder.decode(pdfId, "UTF-8") }.getOrDefault(pdfId)
             var doc = repository.getPdfDocumentById(decoded) ?: repository.getPdfDocumentById(pdfId)
@@ -466,6 +473,7 @@ class PdfViewerViewModel(
                 if (book != null) doc = book.toPdfDocument()
             }
             _pdfDocument.value = doc
+            loadedPdfId = doc?.id.orEmpty()
             if (doc == null) {
                 _errorMessage.value = "বইটি খোলা যায়নি।"
                 _isLoading.value = false
@@ -476,26 +484,39 @@ class PdfViewerViewModel(
                 _isLoading.value = false
                 return@launch
             }
+            _currentPage.value = preferencesRepository.pdfLastPage(doc.id)
             try {
                 val file = com.ningshingche.app.util.PdfHelper.downloadPdfFile(context, doc)
-                localPdfFile = file
-                val opened = com.ningshingche.app.util.PdfHelper.openSession(file)
-                session = opened
-                _pageCount.value = opened.pageCount
+                _localFile.value = file
             } catch (e: Exception) {
                 _errorMessage.value = e.message ?: "পিডিএফ খোলা যায়নি।"
+                _isLoading.value = false
             }
-            _isLoading.value = false
         }
     }
 
-    suspend fun renderPage(pageIndex: Int, widthPx: Int): android.graphics.Bitmap? {
-        pageCache.get(pageIndex)?.let { return it }
-        val rendered = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            runCatching { session?.render(pageIndex, widthPx) }.getOrNull()
+    fun onDocumentLoaded(pages: Int) {
+        _pageCount.value = pages
+        _isLoading.value = false
+        if (_currentPage.value >= pages) _currentPage.value = (pages - 1).coerceAtLeast(0)
+    }
+
+    fun onPageChanged(page: Int, pages: Int) {
+        _currentPage.value = page.coerceAtLeast(0)
+        if (pages > 0) _pageCount.value = pages
+        val id = loadedPdfId
+        if (id.isNotBlank()) {
+            viewModelScope.launch { preferencesRepository.savePdfLastPage(id, page) }
         }
-        if (rendered != null) pageCache.put(pageIndex, rendered)
-        return rendered
+    }
+
+    fun onViewerError(message: String) {
+        _errorMessage.value = message.ifBlank { "পিডিএফ খোলা যায়নি।" }
+        _isLoading.value = false
+    }
+
+    fun updateSettings(settings: PdfReaderSettings) {
+        viewModelScope.launch { preferencesRepository.updatePdfReaderSettings(settings) }
     }
 
     fun downloadPdf() {
@@ -509,24 +530,17 @@ class PdfViewerViewModel(
 
     fun sharePdf() {
         val doc = _pdfDocument.value ?: return
-        val file = localPdfFile ?: return
+        val file = _localFile.value ?: return
         com.ningshingche.app.util.PdfHelper.sharePdfFile(context, doc, file)
     }
 
     fun openExternally() {
-        val file = localPdfFile ?: return
+        val file = _localFile.value ?: return
         com.ningshingche.app.util.PdfHelper.openInExternalApp(context, file)
     }
 
     fun clearStatus() {
         _downloadStatus.value = null
-    }
-
-    override fun onCleared() {
-        session?.close()
-        session = null
-        pageCache.evictAll()
-        super.onCleared()
     }
 }
 
@@ -552,7 +566,8 @@ class ViewModelFactory(
             ) as T
             modelClass.isAssignableFrom(SettingsViewModel::class.java) -> SettingsViewModel(preferencesRepository, repository, googleAuthRepository, supabaseClient) as T
             modelClass.isAssignableFrom(PdfArchiveViewModel::class.java) -> PdfArchiveViewModel(repository) as T
-            modelClass.isAssignableFrom(PdfViewerViewModel::class.java) -> PdfViewerViewModel(repository, portalRepository, context) as T
+            modelClass.isAssignableFrom(PdfViewerViewModel::class.java) ->
+                PdfViewerViewModel(repository, portalRepository, context, preferencesRepository) as T
             modelClass.isAssignableFrom(ReaderWorkspaceViewModel::class.java) -> ReaderWorkspaceViewModel(googleAuthRepository, supabaseClient) as T
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
