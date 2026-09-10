@@ -1269,18 +1269,112 @@
     layer.id = 'ru-image-lightbox';
     layer.className = 'ru-image-lightbox';
     layer.innerHTML = `<button type="button" class="ru-image-lightbox-close" aria-label="Close"><i class="fa-regular fa-xmark" aria-hidden="true"></i></button>
-      <img src="${escapeHTML(url)}" alt="" referrerpolicy="no-referrer">`;
+      <div class="ru-image-lightbox-stage"><img src="${escapeHTML(url)}" alt="" referrerpolicy="no-referrer" draggable="false"></div>`;
     const close = () => layer.remove();
-    layer.addEventListener('click', (event) => {
-      if (event.target === layer || event.target.closest('.ru-image-lightbox-close')) close();
-    });
     document.addEventListener('keydown', function onKey(event) {
       if (event.key === 'Escape') {
         document.removeEventListener('keydown', onKey);
         close();
       }
     });
+    bindLightboxZoom(layer, layer.querySelector('img'), close);
     document.body.appendChild(layer);
+  }
+
+  function bindLightboxZoom(layer, img, close) {
+    if (!img) return;
+    const MIN = 1;
+    const MAX = 6;
+    let scale = 1;
+    let x = 0;
+    let y = 0;
+    const pointers = new Map();
+    let pinchStartDist = 0;
+    let pinchStartScale = 1;
+    let lastTap = 0;
+    let moved = false;
+
+    const apply = () => {
+      img.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+    };
+    const reset = () => {
+      scale = 1;
+      x = 0;
+      y = 0;
+      apply();
+    };
+    const dist = () => {
+      const pts = [...pointers.values()];
+      if (pts.length < 2) return 0;
+      return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    };
+
+    layer.addEventListener('pointerdown', (event) => {
+      if (event.target.closest('.ru-image-lightbox-close')) return;
+      event.preventDefault();
+      layer.setPointerCapture?.(event.pointerId);
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      moved = false;
+      if (pointers.size === 2) {
+        pinchStartDist = dist();
+        pinchStartScale = scale;
+      }
+    });
+    layer.addEventListener('pointermove', (event) => {
+      if (!pointers.has(event.pointerId)) return;
+      event.preventDefault();
+      const prev = pointers.get(event.pointerId);
+      const dx = event.clientX - prev.x;
+      const dy = event.clientY - prev.y;
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (pointers.size === 2 && pinchStartDist > 0) {
+        scale = Math.min(MAX, Math.max(MIN, pinchStartScale * (dist() / pinchStartDist)));
+        if (scale <= 1.01) reset();
+        else apply();
+        moved = true;
+      } else if (pointers.size === 1 && scale > 1.01) {
+        if (Math.hypot(dx, dy) > 2) moved = true;
+        x += dx;
+        y += dy;
+        apply();
+      } else if (Math.hypot(dx, dy) > 8) {
+        moved = true;
+      }
+    });
+    const forget = (event) => {
+      pointers.delete(event.pointerId);
+      if (pointers.size < 2) pinchStartDist = 0;
+    };
+    layer.addEventListener('pointerup', (event) => {
+      const count = pointers.size;
+      const wasMoved = moved;
+      forget(event);
+      if (event.target.closest('.ru-image-lightbox-close')) {
+        close();
+        return;
+      }
+      if (count !== 1 || wasMoved) return;
+      const now = Date.now();
+      if (now - lastTap < 320) {
+        lastTap = 0;
+        if (scale > 1.05) reset();
+        else {
+          scale = 2.6;
+          apply();
+        }
+      } else {
+        lastTap = now;
+        if (event.target === layer && scale <= 1.01) close();
+      }
+    });
+    layer.addEventListener('pointercancel', forget);
+    layer.addEventListener('wheel', (event) => {
+      event.preventDefault();
+      scale = Math.min(MAX, Math.max(MIN, scale * (event.deltaY < 0 ? 1.12 : 0.9)));
+      if (scale <= 1.01) reset();
+      else apply();
+    }, { passive: false });
+    layer.addEventListener('dblclick', (event) => event.preventDefault());
   }
 
   function bubblesHTML(userId) {

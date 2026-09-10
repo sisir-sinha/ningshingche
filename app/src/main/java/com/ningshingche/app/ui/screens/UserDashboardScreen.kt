@@ -12,6 +12,10 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -82,7 +86,9 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -90,8 +96,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -116,6 +127,7 @@ import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.ReaderMetrics
 import com.ningshingche.app.ui.viewmodel.ReaderWorkspaceViewModel
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 private const val PAGE_SIZE = 5
 private const val MESSAGE_WINDOW = 10
@@ -712,24 +724,15 @@ private fun MessagePane(
 private fun ImagePreviewDialog(url: String, onDismiss: () -> Unit) {
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.94f))
-                .clickable(onClick = onDismiss),
+                .background(Color.Black.copy(alpha = 0.94f)),
             contentAlignment = Alignment.Center
         ) {
-            AsyncImage(
-                model = url,
-                contentDescription = "ছবি",
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp)
-                    .clickable(enabled = false) {}
-            )
+            ZoomableChatImage(url = url)
             IconButton(
                 onClick = onDismiss,
                 modifier = Modifier
@@ -739,6 +742,81 @@ private fun ImagePreviewDialog(url: String, onDismiss: () -> Unit) {
                 Icon(Icons.Default.Close, contentDescription = "বন্ধ", tint = Color.White)
             }
         }
+    }
+}
+
+@Composable
+private fun ZoomableChatImage(url: String) {
+    var scale by remember { mutableFloatStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+    var lastTapAt by remember { mutableLongStateOf(0L) }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clipToBounds()
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+                    val touchSlop = viewConfiguration.touchSlop
+                    var zoom = 1f
+                    var pan = Offset.Zero
+                    var pastTouchSlop = false
+                    var pinched = false
+                    do {
+                        val event = awaitPointerEvent()
+                        val zoomChange = event.calculateZoom()
+                        val panChange = event.calculatePan()
+                        val fingers = event.changes.count { it.pressed }
+                        if (fingers >= 2) pinched = true
+                        if (!pastTouchSlop) {
+                            zoom *= zoomChange
+                            pan += panChange
+                            val zoomMotion = abs(1f - zoom) * size.minDimension
+                            if (pinched || zoomMotion > touchSlop || pan.getDistance() > touchSlop) {
+                                pastTouchSlop = true
+                            }
+                        }
+                        if (pastTouchSlop) {
+                            val next = (scale * zoomChange).coerceIn(1f, 6f)
+                            scale = next
+                            offset = if (next <= 1.01f) Offset.Zero else offset + panChange
+                            event.changes.forEach { change ->
+                                if (change.positionChanged()) change.consume()
+                            }
+                        }
+                    } while (event.changes.any { it.pressed })
+                    if (!pastTouchSlop && !pinched) {
+                        val now = System.currentTimeMillis()
+                        if (now - lastTapAt < 300L) {
+                            lastTapAt = 0L
+                            if (scale > 1.05f) {
+                                scale = 1f
+                                offset = Offset.Zero
+                            } else {
+                                scale = 2.75f
+                            }
+                        } else {
+                            lastTapAt = now
+                        }
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        AsyncImage(
+            model = url,
+            contentDescription = "ছবি",
+            contentScale = ContentScale.Fit,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                    translationX = offset.x
+                    translationY = offset.y
+                }
+        )
     }
 }
 
