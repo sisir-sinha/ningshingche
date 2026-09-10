@@ -15,17 +15,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -64,31 +66,67 @@ fun PdfArchiveScreen(
     val pdfs by viewModel.filteredPdfs.collectAsState()
     val shelves = remember(pdfs) { pdfs.chunked(3).ifEmpty { listOf(emptyList()) } }
 
-    LazyColumn(
+    val libraryBg = Brush.verticalGradient(
+        listOf(Color(0xFF2A140E), Color(0xFF4A2216), Color(0xFF1A0C08))
+    )
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(Color(0xFF2A140E), Color(0xFF4A2216), Color(0xFF1A0C08))
-                )
-            ),
-        contentPadding = PaddingValues(bottom = 28.dp)
+            .background(libraryBg)
     ) {
-        item {
-            Column(Modifier.padding(horizontal = 20.dp, vertical = 18.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Icon(Icons.Default.AutoStories, null, tint = PortalSaffron, modifier = Modifier.size(28.dp))
-                    Text("ডিজিটাল গ্রন্থাগার", fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = 26.sp, color = Color(0xFFFFF3D6))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF2A140E))
+                .statusBarsPadding()
+                .padding(bottom = 10.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onNavigateBack) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "পেছনে",
+                        tint = Color(0xFFFFF3D6)
+                    )
                 }
-                Text(
-                    "নিংশিং চে মুদ্রিত সংখ্যা ও স্মারকপত্র — তাক থেকে একটি বই তুলুন",
-                    fontFamily = Kalpurush,
-                    color = Color(0xFFE7C9A0),
-                    fontSize = 14.sp
+                Icon(
+                    Icons.Default.AutoStories,
+                    contentDescription = null,
+                    tint = PortalSaffron,
+                    modifier = Modifier.size(24.dp)
                 )
+                Spacer(Modifier.width(8.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "ডিজিটাল গ্রন্থাগার",
+                        fontFamily = Kalpurush,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp,
+                        color = Color(0xFFFFF3D6),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        "নিংশিং চে মুদ্রিত সংখ্যা ও স্মারকপত্র",
+                        fontFamily = Kalpurush,
+                        color = Color(0xFFE7C9A0),
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
 
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(bottom = 28.dp)
+        ) {
         shelves.forEachIndexed { index, row ->
             item {
                 LibraryShelf(
@@ -104,6 +142,7 @@ fun PdfArchiveScreen(
                     }
                 )
             }
+        }
         }
     }
 }
