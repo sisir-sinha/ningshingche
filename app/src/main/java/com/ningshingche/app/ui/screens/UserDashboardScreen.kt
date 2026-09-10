@@ -6,10 +6,12 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +26,10 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -65,9 +71,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -144,6 +150,32 @@ fun UserDashboardScreen(
         pageCount = { 4 }
     )
     var fabOpen by remember { mutableStateOf(false) }
+    val statsCollapsed = remember { mutableStateOf(false) }
+    val nestedScroll = remember(statsCollapsed) {
+        object : NestedScrollConnection {
+            private var accumulated = 0f
+            private fun consider(dy: Float) {
+                if (dy == 0f) return
+                if ((dy < 0f && accumulated > 0f) || (dy > 0f && accumulated < 0f)) accumulated = 0f
+                accumulated += dy
+                if (accumulated < -40f) {
+                    statsCollapsed.value = true
+                    accumulated = 0f
+                } else if (accumulated > 40f) {
+                    statsCollapsed.value = false
+                    accumulated = 0f
+                }
+            }
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                consider(available.y)
+                return Offset.Zero
+            }
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                consider(consumed.y)
+                return Offset.Zero
+            }
+        }
+    }
 
     LaunchedEffect(user?.id) {
         if (user != null) viewModel.refresh()
@@ -208,6 +240,13 @@ fun UserDashboardScreen(
                     )
                 }
             }
+        },
+        bottomBar = {
+            DashboardBottomBar(
+                selected = pagerState.currentPage,
+                unread = unread,
+                onSelect = { page -> scope.launch { pagerState.animateScrollToPage(page) } }
+            )
         }
     ) { padding ->
         PullToRefreshBox(
@@ -241,30 +280,13 @@ fun UserDashboardScreen(
                             }
                         }
                     }
-                    MetricsGrid(metrics = metrics, unread = unread, messageCount = messages.size)
-                }
-
-                TabRow(selectedTabIndex = pagerState.currentPage) {
-                    DashboardTab(
-                        selected = pagerState.currentPage == 0,
-                        icon = Icons.Default.Notifications,
-                        label = if (unread > 0) "বিজ্ঞপ্তি ($unread)" else "বিজ্ঞপ্তি"
-                    ) { scope.launch { pagerState.animateScrollToPage(0) } }
-                    DashboardTab(
-                        selected = pagerState.currentPage == 1,
-                        icon = Icons.Default.Mail,
-                        label = "বার্তা"
-                    ) { scope.launch { pagerState.animateScrollToPage(1) } }
-                    DashboardTab(
-                        selected = pagerState.currentPage == 2,
-                        icon = Icons.AutoMirrored.Filled.Article,
-                        label = "কন্টেন্ট"
-                    ) { scope.launch { pagerState.animateScrollToPage(2) } }
-                    DashboardTab(
-                        selected = pagerState.currentPage == 3,
-                        icon = Icons.Default.Comment,
-                        label = "মন্তব্য"
-                    ) { scope.launch { pagerState.animateScrollToPage(3) } }
+                    AnimatedVisibility(
+                        visible = !statsCollapsed.value,
+                        enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
+                        exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut()
+                    ) {
+                        MetricsGrid(metrics = metrics, unread = unread, messageCount = messages.size)
+                    }
                 }
 
                 HorizontalPager(
@@ -272,6 +294,7 @@ fun UserDashboardScreen(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
+                        .nestedScroll(nestedScroll)
                 ) { page ->
                     when (page) {
                         0 -> NoticePane(notifications, onOpenNotice)
@@ -312,18 +335,44 @@ private fun SpeedDialItem(label: String, icon: ImageVector, onClick: () -> Unit)
 }
 
 @Composable
-private fun DashboardTab(
-    selected: Boolean,
-    icon: ImageVector,
-    label: String,
-    onClick: () -> Unit
+private fun DashboardBottomBar(
+    selected: Int,
+    unread: Int,
+    onSelect: (Int) -> Unit
 ) {
-    Tab(
-        selected = selected,
-        onClick = onClick,
-        icon = { Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp)) },
-        text = { Text(label, fontFamily = Kalpurush, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-    )
+    NavigationBar {
+        NavigationBarItem(
+            selected = selected == 0,
+            onClick = { onSelect(0) },
+            icon = { Icon(Icons.Default.Notifications, contentDescription = null) },
+            label = {
+                Text(
+                    if (unread > 0) "বিজ্ঞপ্তি ($unread)" else "বিজ্ঞপ্তি",
+                    fontFamily = Kalpurush,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        )
+        NavigationBarItem(
+            selected = selected == 1,
+            onClick = { onSelect(1) },
+            icon = { Icon(Icons.Default.Mail, contentDescription = null) },
+            label = { Text("বার্তা", fontFamily = Kalpurush, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        )
+        NavigationBarItem(
+            selected = selected == 2,
+            onClick = { onSelect(2) },
+            icon = { Icon(Icons.AutoMirrored.Filled.Article, contentDescription = null) },
+            label = { Text("কন্টেন্ট", fontFamily = Kalpurush, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        )
+        NavigationBarItem(
+            selected = selected == 3,
+            onClick = { onSelect(3) },
+            icon = { Icon(Icons.Default.Comment, contentDescription = null) },
+            label = { Text("মন্তব্য", fontFamily = Kalpurush, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        )
+    }
 }
 
 @Composable
