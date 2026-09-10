@@ -153,6 +153,16 @@ class SupabaseClient(private val context: Context) {
         return token
     }
 
+    /** User JWT only — never the publishable/anon key, which Storage treats as unauthenticated. */
+    private fun sessionUserJwt(): String? {
+        val refreshed = sessionBearer()
+        if (GoogleAuthMapper.isSupabaseJwt(refreshed)) return refreshed
+        return authToken.takeIf { GoogleAuthMapper.isSupabaseJwt(it) }
+    }
+
+    private fun jwtSubject(token: String): String =
+        GoogleAuthMapper.jwtPayload(token)?.optString("sub").orEmpty().trim()
+
     private fun jwtExpiryMillis(token: String): Long {
         return try {
             val payload = token.split('.').getOrNull(1) ?: return 0L
@@ -1403,18 +1413,27 @@ class SupabaseClient(private val context: Context) {
 
     suspend fun uploadUserMusicFile(context: Context, userId: String, uri: android.net.Uri): Result<MusicUpload> =
         withContext(Dispatchers.IO) {
-            val token = authToken
-            if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null) {
-                return@withContext Result.failure(Exception("সাইন ইন করা নেই।"))
+            val jwt = sessionUserJwt()
+                ?: return@withContext Result.failure(Exception("সাইন ইন করা নেই। আবার প্রবেশ করুন।"))
+            val uid = jwtSubject(jwt).ifBlank { userId.trim() }
+            if (uid.isBlank()) {
+                return@withContext Result.failure(Exception("সাইন ইন করা নেই। আবার প্রবেশ করুন।"))
             }
             val resolver = context.contentResolver
-            val mime = resolver.getType(uri).orEmpty().ifBlank { "audio/mpeg" }
+            val reported = resolver.getType(uri).orEmpty()
             val ext = when {
-                mime.contains("wav", true) -> "wav"
-                mime.contains("ogg", true) -> "ogg"
-                mime.contains("aac", true) || mime.contains("m4a", true) || mime.contains("mp4", true) -> "m4a"
-                mime.contains("flac", true) -> "flac"
+                reported.contains("wav", true) -> "wav"
+                reported.contains("ogg", true) -> "ogg"
+                reported.contains("aac", true) || reported.contains("m4a", true) || reported.contains("mp4", true) -> "m4a"
+                reported.contains("flac", true) -> "flac"
                 else -> "mp3"
+            }
+            val mime = when (ext) {
+                "wav" -> "audio/wav"
+                "ogg" -> "audio/ogg"
+                "m4a" -> "audio/mp4"
+                "flac" -> "audio/flac"
+                else -> "audio/mpeg"
             }
             val bytes = resolver.openInputStream(uri)?.use { it.readBytes() }
                 ?: return@withContext Result.failure(Exception("অডিও ফাইল পড়া যায়নি।"))
@@ -1424,8 +1443,11 @@ class SupabaseClient(private val context: Context) {
             if (bytes.size > 32 * 1024 * 1024) {
                 return@withContext Result.failure(Exception("ফাইল ৩২ এমবি-র বেশি হতে পারবে না।"))
             }
-            val path = "user/$userId/${UUID.randomUUID()}.$ext"
-            val url = "${SupabaseConfig.storageBaseUrl}/object/music/$path"
+            val path = "user/$uid/${UUID.randomUUID()}.$ext"
+            val encodedPath = path.split('/').joinToString("/") {
+                java.net.URLEncoder.encode(it, Charsets.UTF_8.name()).replace("+", "%20")
+            }
+            val url = "${SupabaseConfig.storageBaseUrl}/object/music/$encodedPath"
             val client = httpClient.newBuilder()
                 .writeTimeout(180, TimeUnit.SECONDS)
                 .readTimeout(180, TimeUnit.SECONDS)
@@ -1433,17 +1455,14 @@ class SupabaseClient(private val context: Context) {
             val request = Request.Builder()
                 .url(url)
                 .addHeader("apikey", SupabaseConfig.supabaseKey)
-                .addHeader("Authorization", "Bearer ${sessionBearer()}")
-                .addHeader("Content-Type", mime)
-                .addHeader("x-upsert", "true")
+                .addHeader("Authorization", "Bearer $jwt")
+                .addHeader("x-upsert", "false")
                 .post(bytes.toRequestBody(mime.toMediaType()))
                 .build()
             val response = client.newCall(request).execute()
             val body = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
-                return@withContext Result.failure(
-                    Exception("অডিও আপলোড যায়নি (${response.code})। $body".trim())
-                )
+                return@withContext Result.failure(Exception(storageUploadError(response.code, body)))
             }
             Result.success(
                 MusicUpload(
@@ -1453,6 +1472,20 @@ class SupabaseClient(private val context: Context) {
                 )
             )
         }
+
+    private fun storageUploadError(code: Int, body: String): String {
+        val lower = body.lowercase()
+        return when {
+            code == 401 || lower.contains("unauthorized") || lower.contains("accessdenied") ||
+                lower.contains("row-level security") ->
+                "অডিও আপলোডের অনুমতি নেই। আবার সাইন ইন করে চেষ্টা করুন।"
+            lower.contains("mime") || lower.contains("invalidrequest") ->
+                "এই অডিও ফর্ম্যাট সাপোর্টেড নয়। এমপি৩ নির্বাচন করুন।"
+            code == 413 || lower.contains("payload") || lower.contains("size") ->
+                "ফাইল ৩২ এমবি-র বেশি হতে পারবে না।"
+            else -> "অডিও আপলোড যায়নি ($code)।"
+        }
+    }
 
     suspend fun submitReaderMusic(
         title: String,
@@ -1466,6 +1499,9 @@ class SupabaseClient(private val context: Context) {
         durationSeconds: Int = 0,
         fileSizeMb: Double = 0.0
     ): Result<SubmittedMusicRecord> = withContext(Dispatchers.IO) {
+        val jwt = sessionUserJwt()
+            ?: return@withContext Result.failure(Exception("সাইন ইন করা নেই। আবার প্রবেশ করুন।"))
+        val ownerId = jwtSubject(jwt).ifBlank { userId.trim() }
         try {
             val record = SubmittedMusicRecord(
                 id = UUID.randomUUID().toString(),
@@ -1476,6 +1512,7 @@ class SupabaseClient(private val context: Context) {
                 thumbnailUrl = thumbnailUrl,
                 audioUrl = audioUrl.trim()
             )
+            val sizeMb = kotlin.math.round(fileSizeMb.coerceAtLeast(0.0) * 100.0) / 100.0
             val payload = JSONObject().apply {
                 put("id", record.id)
                 put("title", record.title)
@@ -1484,23 +1521,28 @@ class SupabaseClient(private val context: Context) {
                 put("genre", record.genre)
                 put("thumbnail_url", record.thumbnailUrl)
                 put("audio_url", record.audioUrl)
-                put("user_id", userId)
+                put("user_id", ownerId)
                 put("file_provider", if (storagePath.isNotBlank()) "supabase-storage" else "url")
                 put("file_storage_path", storagePath)
                 put("duration_seconds", durationSeconds.coerceAtLeast(0))
-                put("file_size_mb", fileSizeMb.coerceAtLeast(0.0))
+                put("file_size_mb", sizeMb)
             }
             val url = "${SupabaseConfig.restBaseUrl}/music_tracks"
-            val request = createBaseRequestBuilder(url)
+            val request = createUserAuthedRequestBuilder(url, jwt)
                 .addHeader("Prefer", "return=representation")
                 .post(payload.toString().toRequestBody(jsonMediaType))
                 .build()
             val response = httpClient.newCall(request).execute()
             val body = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
-                return@withContext Result.failure(
-                    Exception("গান জমা যায়নি (${response.code})। প্রোফাইল সম্পূর্ণ করে আবার চেষ্টা করুন।")
-                )
+                val denied = response.code == 401 || response.code == 403 ||
+                    body.contains("row-level security", ignoreCase = true)
+                val message = if (denied) {
+                    "গান জমা যায়নি। আবার সাইন ইন করে চেষ্টা করুন।"
+                } else {
+                    "গান জমা যায়নি (${response.code})। প্রোফাইল সম্পূর্ণ করে আবার চেষ্টা করুন।"
+                }
+                return@withContext Result.failure(Exception(message))
             }
             if (body.startsWith("[")) {
                 val array = JSONArray(body)
