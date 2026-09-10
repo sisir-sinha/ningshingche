@@ -64,6 +64,8 @@ fun PdfArchiveScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val pdfs by viewModel.filteredPdfs.collectAsState()
+    val categories by viewModel.categories.collectAsState()
+    val selectedCategoryId by viewModel.selectedCategoryId.collectAsState()
     val shelves = remember(pdfs) { pdfs.chunked(3).ifEmpty { listOf(emptyList()) } }
 
     val libraryBg = Brush.verticalGradient(
