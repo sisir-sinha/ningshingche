@@ -167,7 +167,6 @@ fun SettingsScreen(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontSize = 13.sp,
-                                letterSpacing = 0.3.sp
                             )
                         )
                     }
@@ -300,7 +299,6 @@ fun SettingsScreen(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontSize = 13.sp,
-                                letterSpacing = 0.3.sp
                             )
                         )
                     }
@@ -375,7 +373,6 @@ fun SettingsScreen(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontSize = 13.sp,
-                                letterSpacing = 0.3.sp
                             )
                         )
                     }

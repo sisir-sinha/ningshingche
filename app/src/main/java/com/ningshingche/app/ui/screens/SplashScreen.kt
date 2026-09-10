@@ -204,7 +204,6 @@ fun SplashScreen(
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
                 fontSize = 36.sp,
-                letterSpacing = (-0.5).sp,
                 color = if (isDark) Color(0xFFF7F2EA) else PortalMaroon,
                 textAlign = TextAlign.Center
             )

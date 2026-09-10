@@ -157,20 +157,35 @@ fun SectionHeader(
             Text(
                 text = title,
                 style = EditorialType.Headline,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
             if (!subtitle.isNullOrBlank()) {
                 Text(
                     text = subtitle,
                     style = EditorialType.Caption,
                     color = LocalEditorialTokens.current.inkMuted,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 2.dp)
                 )
             }
         }
         if (actionLabel != null && onAction != null) {
-            TextButton(onClick = onAction, contentPadding = PaddingValues(horizontal = 8.dp)) {
-                Text(actionLabel, style = EditorialType.Subtitle, color = LocalEditorialTokens.current.accent)
+            Row(
+                modifier = Modifier
+                    .clickable(onClick = onAction)
+                    .padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = actionLabel,
+                    style = EditorialType.Subtitle,
+                    color = LocalEditorialTokens.current.accent,
+                    maxLines = 1,
+                    softWrap = false
+                )
                 Spacer(Modifier.width(4.dp))
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowForward,
@@ -308,7 +323,9 @@ fun CategoryPill(
             fontWeight = FontWeight.Bold,
             color = content,
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
-            maxLines = 1
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            softWrap = false
         )
     }
 }
@@ -702,7 +719,8 @@ fun AiAssistantHomeBanner(
                         border = androidx.compose.foundation.BorderStroke(
                             1.dp,
                             if (tokens.isDark) Color(0xFF5A392F) else Color(0xFFE2CEBC)
-                        )
+                        ),
+                        modifier = Modifier.weight(1f)
                     ) {
                         Text(
                             text = tag,
@@ -710,7 +728,12 @@ fun AiAssistantHomeBanner(
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
                             color = tokens.accent,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 6.dp, vertical = 6.dp)
                         )
                     }
                 }

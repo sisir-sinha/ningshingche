@@ -6,7 +6,11 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontLoadingStrategy
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.Hyphens
+import androidx.compose.ui.text.style.LineBreak
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.TextUnit
 import com.ningshingche.app.R
 
 /**
@@ -34,95 +38,41 @@ val Kalpurush: FontFamily = FontFamily(
 val BengDefaultSerif: FontFamily = Kalpurush
 val BengDefaultSans: FontFamily = Kalpurush
 
+/**
+ * Bengali must not use Latin tracking or locale line-breaking. Negative
+ * letterSpacing and LineBreak.Paragraph split conjuncts onto new lines
+ * (e.g. "ফিচারড" → "ফিচা / ড", "সব" stacked vertically).
+ */
+internal fun bengaliTextStyle(
+    fontWeight: FontWeight = FontWeight.Normal,
+    fontSize: TextUnit,
+    lineHeight: TextUnit,
+    lineHeightStyle: LineHeightStyle? = null
+): TextStyle = TextStyle(
+    fontFamily = Kalpurush,
+    fontWeight = fontWeight,
+    fontSize = fontSize,
+    lineHeight = lineHeight,
+    letterSpacing = 0.sp,
+    lineBreak = LineBreak.Simple,
+    hyphens = Hyphens.None,
+    lineHeightStyle = lineHeightStyle
+)
+
 val EditorialTypography = Typography(
-    displayLarge = TextStyle(
-        fontFamily = Kalpurush,
-        fontWeight = FontWeight.Bold,
-        fontSize = 34.sp,
-        lineHeight = 42.sp
-    ),
-    displayMedium = TextStyle(
-        fontFamily = Kalpurush,
-        fontWeight = FontWeight.Bold,
-        fontSize = 30.sp,
-        lineHeight = 38.sp
-    ),
-    displaySmall = TextStyle(
-        fontFamily = Kalpurush,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 26.sp,
-        lineHeight = 34.sp
-    ),
-    headlineLarge = TextStyle(
-        fontFamily = Kalpurush,
-        fontWeight = FontWeight.Bold,
-        fontSize = 24.sp,
-        lineHeight = 32.sp
-    ),
-    headlineMedium = TextStyle(
-        fontFamily = Kalpurush,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 22.sp,
-        lineHeight = 30.sp
-    ),
-    headlineSmall = TextStyle(
-        fontFamily = Kalpurush,
-        fontWeight = FontWeight.Medium,
-        fontSize = 20.sp,
-        lineHeight = 28.sp
-    ),
-    titleLarge = TextStyle(
-        fontFamily = Kalpurush,
-        fontWeight = FontWeight.Bold,
-        fontSize = 20.sp,
-        lineHeight = 28.sp
-    ),
-    titleMedium = TextStyle(
-        fontFamily = Kalpurush,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 17.sp,
-        lineHeight = 24.sp
-    ),
-    titleSmall = TextStyle(
-        fontFamily = Kalpurush,
-        fontWeight = FontWeight.Medium,
-        fontSize = 15.sp,
-        lineHeight = 20.sp
-    ),
-    bodyLarge = TextStyle(
-        fontFamily = Kalpurush,
-        fontWeight = FontWeight.Normal,
-        fontSize = 18.sp,
-        lineHeight = 30.sp
-    ),
-    bodyMedium = TextStyle(
-        fontFamily = Kalpurush,
-        fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 26.sp
-    ),
-    bodySmall = TextStyle(
-        fontFamily = Kalpurush,
-        fontWeight = FontWeight.Normal,
-        fontSize = 14.sp,
-        lineHeight = 20.sp
-    ),
-    labelLarge = TextStyle(
-        fontFamily = Kalpurush,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 15.sp,
-        lineHeight = 20.sp
-    ),
-    labelMedium = TextStyle(
-        fontFamily = Kalpurush,
-        fontWeight = FontWeight.Medium,
-        fontSize = 13.sp,
-        lineHeight = 18.sp
-    ),
-    labelSmall = TextStyle(
-        fontFamily = Kalpurush,
-        fontWeight = FontWeight.Bold,
-        fontSize = 12.sp,
-        lineHeight = 16.sp
-    )
+    displayLarge = bengaliTextStyle(FontWeight.Bold, 34.sp, 42.sp),
+    displayMedium = bengaliTextStyle(FontWeight.Bold, 30.sp, 38.sp),
+    displaySmall = bengaliTextStyle(FontWeight.SemiBold, 26.sp, 34.sp),
+    headlineLarge = bengaliTextStyle(FontWeight.Bold, 24.sp, 32.sp),
+    headlineMedium = bengaliTextStyle(FontWeight.SemiBold, 22.sp, 30.sp),
+    headlineSmall = bengaliTextStyle(FontWeight.Medium, 20.sp, 28.sp),
+    titleLarge = bengaliTextStyle(FontWeight.Bold, 20.sp, 28.sp),
+    titleMedium = bengaliTextStyle(FontWeight.SemiBold, 17.sp, 24.sp),
+    titleSmall = bengaliTextStyle(FontWeight.Medium, 15.sp, 20.sp),
+    bodyLarge = bengaliTextStyle(FontWeight.Normal, 18.sp, 30.sp),
+    bodyMedium = bengaliTextStyle(FontWeight.Normal, 16.sp, 26.sp),
+    bodySmall = bengaliTextStyle(FontWeight.Normal, 14.sp, 20.sp),
+    labelLarge = bengaliTextStyle(FontWeight.SemiBold, 15.sp, 20.sp),
+    labelMedium = bengaliTextStyle(FontWeight.Medium, 13.sp, 18.sp),
+    labelSmall = bengaliTextStyle(FontWeight.Bold, 12.sp, 16.sp)
 )
