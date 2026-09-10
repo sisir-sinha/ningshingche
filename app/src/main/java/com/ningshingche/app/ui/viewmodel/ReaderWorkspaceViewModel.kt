@@ -11,6 +11,7 @@ import com.ningshingche.app.data.remote.CommentRecord
 import com.ningshingche.app.data.remote.ImgBbUploader
 import com.ningshingche.app.data.remote.InboxSync
 import com.ningshingche.app.data.remote.SubmittedBlogRecord
+import com.ningshingche.app.data.remote.SubmittedMusicRecord
 import com.ningshingche.app.data.remote.SupabaseClient
 import com.ningshingche.app.data.remote.UserNotificationRecord
 import com.ningshingche.app.data.remote.UserProfile
@@ -39,6 +40,9 @@ class ReaderWorkspaceViewModel(
 
     private val _articles = MutableStateFlow<List<SubmittedBlogRecord>>(emptyList())
     val articles: StateFlow<List<SubmittedBlogRecord>> = _articles.asStateFlow()
+
+    private val _tracks = MutableStateFlow<List<SubmittedMusicRecord>>(emptyList())
+    val tracks: StateFlow<List<SubmittedMusicRecord>> = _tracks.asStateFlow()
 
     private val _comments = MutableStateFlow<List<CommentRecord>>(emptyList())
     val comments: StateFlow<List<CommentRecord>> = _comments.asStateFlow()
@@ -75,9 +79,11 @@ class ReaderWorkspaceViewModel(
             val commentResult = supabaseClient.getMyComments(user.id, user.email)
             val articles = articleResult.getOrDefault(emptyList())
             val comments = commentResult.getOrDefault(emptyList())
-            val songs = supabaseClient.countMyMusicTracks(user.id)
+            val tracks = supabaseClient.getMyMusicTracks(user.id).getOrDefault(emptyList())
+            val songs = tracks.size.coerceAtLeast(supabaseClient.countMyMusicTracks(user.id))
             val articleViews = supabaseClient.sumBlogViewsForAuthor(user.composedFullName())
             _articles.value = articles
+            _tracks.value = tracks
             _comments.value = comments
             _metrics.value = ReaderMetrics(
                 totalArticles = articles.size,
@@ -333,6 +339,7 @@ class ReaderWorkspaceViewModel(
         viewModelScope.launch {
             googleAuthRepository.signOut()
             _articles.value = emptyList()
+            _tracks.value = emptyList()
             _comments.value = emptyList()
             _notifications.value = emptyList()
             _adminMessages.value = emptyList()

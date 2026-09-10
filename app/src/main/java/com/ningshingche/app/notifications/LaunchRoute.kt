@@ -17,7 +17,7 @@ fun routeFromLaunchIntent(intent: Intent?): String? {
             }
         AppNotificationManager.ROUTE_PDF ->
             if (target.isNotBlank()) return ReaderRoute.pdfViewer(target)
-        AppNotificationManager.ROUTE_INBOX -> return ReaderRoute.UserInbox
+        AppNotificationManager.ROUTE_INBOX -> return ReaderRoute.dashboard("messages")
         AppNotificationManager.ROUTE_SETTINGS -> return ReaderRoute.Settings
         AppNotificationManager.ROUTE_VIDEOS -> return ReaderRoute.Videos
         AppNotificationManager.ROUTE_MUSIC -> return ReaderRoute.Music

@@ -40,6 +40,7 @@ import com.ningshingche.app.ui.screens.ExploreScreen
 import com.ningshingche.app.ui.screens.FeaturedScreen
 import com.ningshingche.app.ui.screens.LoginScreen
 import com.ningshingche.app.ui.screens.NewArticleScreen
+import com.ningshingche.app.ui.screens.NewMusicScreen
 import com.ningshingche.app.data.music.MusicShelfKind
 import com.ningshingche.app.ui.screens.PdfArchiveScreen
 import com.ningshingche.app.ui.screens.PdfViewerScreen
@@ -47,7 +48,7 @@ import com.ningshingche.app.ui.screens.SettingsScreen
 import com.ningshingche.app.ui.screens.SocialActivitiesScreen
 import com.ningshingche.app.ui.screens.SplashScreen
 import com.ningshingche.app.ui.screens.UserDashboardScreen
-import com.ningshingche.app.ui.screens.UserInboxScreen
+
 import com.ningshingche.app.ui.screens.UserProfileScreen
 import com.ningshingche.app.ui.screens.WelcomeLoginScreen
 import com.ningshingche.app.ui.screens.WelcomeNotificationsScreen
@@ -91,9 +92,10 @@ object ReaderRoute {
     const val WelcomeLogin = "welcome_login"
     const val WelcomeNotifications = "welcome_notifications"
     const val UserDashboard = "user_dashboard"
+    const val UserDashboardPattern = "user_dashboard?tab={tab}&focus={focus}"
     const val UserProfile = "user_profile"
-    const val UserInbox = "user_inbox"
     const val NewArticle = "new_article"
+    const val NewMusic = "new_music"
     const val Bookmarks = "bookmarks"
     const val PdfArchive = "pdf_archive"
     const val PdfViewer = "pdf_viewer/{pdfId}"
@@ -110,7 +112,15 @@ object ReaderRoute {
     const val AuthorsDirectory = "authors_directory"
     const val SocialActivities = "social_activities"
 
-    fun article(idOrSlug: String) = "article/${encode(idOrSlug)}"
+    fun article(idOrSlug: String, focus: String = "") : String {
+        val base = "article/${encode(idOrSlug)}"
+        return if (focus.isBlank()) base else "$base?focus=${encode(focus)}"
+    }
+
+    fun dashboard(tab: String = "notices", focus: String = ""): String {
+        val safeTab = tab.ifBlank { "notices" }
+        return "user_dashboard?tab=$safeTab&focus=${encode(focus)}"
+    }
     fun category(slug: String) = "category/${encode(slug)}"
     fun author(id: String) = "author/${encode(id)}"
     fun pdfViewer(pdfId: String) = "pdf_viewer/${encode(pdfId)}"
@@ -198,9 +208,9 @@ fun EditorialReaderApp(
         coroutineScope.launch {
             when {
                 notice.isAdminMessage || notice.kind == "staff_notice" ->
-                    navController.navigate(ReaderRoute.UserInbox)
+                    navController.navigate(ReaderRoute.dashboard("messages", notice.relatedId))
                 notice.isComment && notice.relatedId.isNotBlank() ->
-                    navController.navigate(ReaderRoute.article(notice.relatedId))
+                    navController.navigate(ReaderRoute.article(notice.relatedId, "comments"))
                 else -> {
                     val target = notice.relatedId.ifBlank { notice.body }
                     val direct = if (target.isNotBlank()) app.portalRepository.article(target) else null
@@ -371,7 +381,7 @@ fun EditorialReaderApp(
                     onLoginClick = { navController.navigate(ReaderRoute.Login) },
                     onDashboardClick = { navController.navigate(ReaderRoute.UserDashboard) },
                     onProfileClick = { navController.navigate(ReaderRoute.UserProfile) },
-                    onNotificationsClick = { navController.navigate(ReaderRoute.UserInbox) },
+                    onNotificationsClick = { navController.navigate(ReaderRoute.dashboard("notices")) },
                     unreadCount = unreadCount,
                     onLogoutClick = { workspaceViewModel.signOut() },
                     isSignedIn = isSignedIn,
@@ -395,6 +405,33 @@ fun EditorialReaderApp(
                 )
             }
 
+            composable(
+                route = "article/{articleId}?focus={focus}",
+                arguments = listOf(
+                    navArgument("articleId") { type = NavType.StringType },
+                    navArgument("focus") { type = NavType.StringType; defaultValue = "" }
+                )
+            ) { entry ->
+                val articleId = entry.arguments?.getString("articleId").orEmpty()
+                val articleViewModel: ArticleViewModel = viewModel(factory = portalFactory)
+                LaunchedEffect(articleId) { articleViewModel.load(articleId) }
+                ArticleScreen(
+                    viewModel = articleViewModel,
+                    onBackClick = { navController.popBackStack() },
+                    onRelatedClick = { navController.navigate(ReaderRoute.article(it)) },
+                    scrollToComments = entry.arguments?.getString("focus") == "comments",
+                    onCategoryClick = { categorySlug ->
+                        if (categorySlug.isNotBlank()) navController.navigate(ReaderRoute.category(categorySlug))
+                    },
+                    onAuthorClick = { authorId ->
+                        if (authorId.isNotBlank()) navController.navigate(ReaderRoute.author(authorId))
+                    },
+                    onTagClick = { tag ->
+                        if (tag.isNotBlank()) navController.navigate(ReaderRoute.forTag(tag))
+                    }
+                )
+            }
+
             // Article Detail Screen
             composable(
                 route = ReaderRoute.Article,
@@ -413,6 +450,7 @@ fun EditorialReaderApp(
                     viewModel = articleViewModel,
                     onBackClick = { navController.popBackStack() },
                     onRelatedClick = { navController.navigate(ReaderRoute.article(it)) },
+                    scrollToComments = entry.arguments?.getString("focus") == "comments",
                     onCategoryClick = { categorySlug ->
                         if (categorySlug.isNotBlank()) {
                             navController.navigate(ReaderRoute.category(categorySlug))
@@ -547,7 +585,7 @@ fun EditorialReaderApp(
                     onBackClick = { navController.popBackStack() },
                     onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) },
                     onNewArticle = { navController.navigate(ReaderRoute.NewArticle) },
-                    onInboxClick = { navController.navigate(ReaderRoute.UserInbox) },
+                    onNewMusic = { navController.navigate(ReaderRoute.NewMusic) },
                     onOpenNotice = openUserNotice,
                     onOpenArticle = { article ->
                         coroutineScope.launch {
@@ -570,9 +608,59 @@ fun EditorialReaderApp(
                     },
                     onOpenComment = { comment ->
                         if (comment.blogId.isNotBlank()) {
-                            navController.navigate(ReaderRoute.article(comment.blogId))
+                            navController.navigate(ReaderRoute.article(comment.blogId, "comments"))
                         }
                     }
+                )
+            }
+
+            composable(
+                route = ReaderRoute.UserDashboardPattern,
+                arguments = listOf(
+                    navArgument("tab") { type = NavType.StringType; defaultValue = "notices" },
+                    navArgument("focus") { type = NavType.StringType; defaultValue = "" }
+                )
+            ) { entry ->
+                val tabKey = entry.arguments?.getString("tab").orEmpty()
+                val tab = when (tabKey) {
+                    "messages" -> 1
+                    "content" -> 2
+                    "comments" -> 3
+                    else -> 0
+                }
+                UserDashboardScreen(
+                    viewModel = workspaceViewModel,
+                    onBackClick = { navController.popBackStack() },
+                    onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) },
+                    onNewArticle = { navController.navigate(ReaderRoute.NewArticle) },
+                    onNewMusic = { navController.navigate(ReaderRoute.NewMusic) },
+                    onOpenNotice = openUserNotice,
+                    onOpenArticle = { article ->
+                        coroutineScope.launch {
+                            val published = article.status.equals("Published", true) ||
+                                article.status.equals("Approved", true)
+                            if (!published) {
+                                AppToasts.show("এই প্রবন্ধ এখনো পর্যালোচনায় আছে।")
+                                return@launch
+                            }
+                            val direct = app.portalRepository.article(article.id)
+                            if (direct.isSuccess) {
+                                navController.navigate(ReaderRoute.article(article.id))
+                            } else {
+                                val hit = app.portalRepository.searchArticles(article.title, limit = 1)
+                                    .getOrNull()?.items?.firstOrNull()
+                                if (hit != null) navController.navigate(ReaderRoute.article(hit.id))
+                                else AppToasts.show("প্রকাশিত প্রবন্ধ খোলা যায়নি।")
+                            }
+                        }
+                    },
+                    onOpenComment = { comment ->
+                        if (comment.blogId.isNotBlank()) {
+                            navController.navigate(ReaderRoute.article(comment.blogId, "comments"))
+                        }
+                    },
+                    initialTab = tab,
+                    focusMessageId = entry.arguments?.getString("focus").orEmpty()
                 )
             }
 
@@ -583,16 +671,16 @@ fun EditorialReaderApp(
                 )
             }
 
-            composable(ReaderRoute.UserInbox) {
-                UserInboxScreen(
+            composable(ReaderRoute.NewArticle) {
+                NewArticleScreen(
                     viewModel = workspaceViewModel,
                     onBackClick = { navController.popBackStack() },
-                    onOpenNotice = openUserNotice
+                    onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) }
                 )
             }
 
-            composable(ReaderRoute.NewArticle) {
-                NewArticleScreen(
+            composable(ReaderRoute.NewMusic) {
+                NewMusicScreen(
                     viewModel = workspaceViewModel,
                     onBackClick = { navController.popBackStack() },
                     onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) }

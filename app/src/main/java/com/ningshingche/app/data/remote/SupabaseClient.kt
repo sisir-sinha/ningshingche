@@ -1374,6 +1374,81 @@ class SupabaseClient(private val context: Context) {
         return total.toIntOrNull() ?: 0
     }
 
+    suspend fun getMyMusicTracks(userId: String): Result<List<SubmittedMusicRecord>> =
+        withContext(Dispatchers.IO) {
+            val clean = userId.trim()
+            if (clean.isBlank()) return@withContext Result.success(emptyList())
+            try {
+                val url = "${SupabaseConfig.restBaseUrl}/music_tracks?select=*&user_id=eq.$clean&order=created_at.desc"
+                val request = createBaseRequestBuilder(url).get().build()
+                val response = httpClient.newCall(request).execute()
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) return@withContext Result.success(emptyList())
+                val array = JSONArray(body.ifBlank { "[]" })
+                val list = mutableListOf<SubmittedMusicRecord>()
+                for (i in 0 until array.length()) {
+                    list.add(SubmittedMusicRecord.fromJson(array.getJSONObject(i)))
+                }
+                Result.success(list)
+            } catch (_: Exception) {
+                Result.success(emptyList())
+            }
+        }
+
+    suspend fun submitReaderMusic(
+        title: String,
+        artist: String,
+        album: String,
+        genre: String,
+        audioUrl: String,
+        thumbnailUrl: String,
+        userId: String
+    ): Result<SubmittedMusicRecord> = withContext(Dispatchers.IO) {
+        try {
+            val record = SubmittedMusicRecord(
+                id = UUID.randomUUID().toString(),
+                title = title.trim(),
+                artist = artist.trim(),
+                album = album.trim(),
+                genre = genre.trim(),
+                thumbnailUrl = thumbnailUrl,
+                audioUrl = audioUrl.trim()
+            )
+            val payload = JSONObject().apply {
+                put("id", record.id)
+                put("title", record.title)
+                put("artist", record.artist)
+                put("album", record.album)
+                put("genre", record.genre)
+                put("thumbnail_url", record.thumbnailUrl)
+                put("audio_url", record.audioUrl)
+                put("user_id", userId)
+                put("file_provider", "url")
+            }
+            val url = "${SupabaseConfig.restBaseUrl}/music_tracks"
+            val request = createBaseRequestBuilder(url)
+                .addHeader("Prefer", "return=representation")
+                .post(payload.toString().toRequestBody(jsonMediaType))
+                .build()
+            val response = httpClient.newCall(request).execute()
+            val body = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                return@withContext Result.failure(
+                    Exception("গান জমা যায়নি (${response.code})। প্রোফাইল সম্পূর্ণ করে আবার চেষ্টা করুন।")
+                )
+            }
+            if (body.startsWith("[")) {
+                val array = JSONArray(body)
+                if (array.length() > 0) {
+                    return@withContext Result.success(SubmittedMusicRecord.fromJson(array.getJSONObject(0)))
+                }
+            }
+            Result.success(record)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun countMyMusicTracks(userId: String): Int = withContext(Dispatchers.IO) {
         val clean = userId.trim()
         if (clean.isBlank() || clean.length != 36 || runCatching { java.util.UUID.fromString(clean) }.isFailure) {

@@ -183,6 +183,7 @@ fun ArticleScreen(
     onCategoryClick: (String) -> Unit = { },
     onAuthorClick: (String) -> Unit = { },
     onTagClick: (String) -> Unit = { },
+    scrollToComments: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsState()
@@ -470,6 +471,7 @@ private fun ArticleReaderContent(
     fontSizeSp: Float,
     lineSpacingMultiplier: Float,
     listState: LazyListState = rememberLazyListState(),
+    scrollToComments: Boolean = false,
     onRelatedClick: (String) -> Unit,
     onCategoryClick: (String) -> Unit,
     onAuthorClick: (String) -> Unit,
@@ -485,6 +487,21 @@ private fun ArticleReaderContent(
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     var enlargedHeroImageUrl by remember { mutableStateOf<String?>(null) }
+
+    val commentsIndex = remember(article.id, article.summary.imageUrl, article.summary.tags, article.videoLink, article.pdfLink) {
+        var index = 0
+        if (article.summary.imageUrl.isNotBlank()) index++
+        index++ // header
+        index++ // body
+        if (article.summary.tags.isNotEmpty()) index++
+        if (article.videoLink.isNotBlank() || article.pdfLink.isNotBlank()) index++
+        index
+    }
+    LaunchedEffect(scrollToComments, commentsIndex, article.id) {
+        if (!scrollToComments) return@LaunchedEffect
+        kotlinx.coroutines.delay(400)
+        listState.animateScrollToItem(commentsIndex.coerceAtLeast(0))
+    }
 
     LazyColumn(
         state = listState,
@@ -1607,6 +1624,10 @@ fun FontSizeControlBottomSheet(
                     )
                 }
             }
+        }
+    }
+}
+  }
         }
     }
 }
