@@ -1188,10 +1188,14 @@ fun AuthorChip(author: AuthorRef, onClick: () -> Unit) {
         onClick = onClick,
         shape = RoundedCornerShape(EditorialShape.card),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.width(132.dp)
+        modifier = Modifier
+            .width(136.dp)
+            .height(152.dp)
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 10.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             EditorialImage(
@@ -1227,11 +1231,14 @@ fun AuthorChip(author: AuthorRef, onClick: () -> Unit) {
                 text = author.designation.ifBlank { " " },
                 style = EditorialType.Caption,
                 color = LocalEditorialTokens.current.inkMuted,
-                minLines = 1,
+                minLines = 2,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 2.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp)
+                    .weight(1f)
             )
         }
     }

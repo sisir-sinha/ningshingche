@@ -100,9 +100,20 @@ class SavedArticlesViewModel(
         .map { bookmarks -> bookmarks.map { it.articleId }.toSet() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
-    fun toggle(articleId: String) {
+    fun toggle(articleId: String, announce: Boolean = true) {
         if (articleId.isBlank()) return
+        val wasSaved = articleId in savedIds.value
         viewModelScope.launch { repository.toggleBookmark(articleId) }
+        if (!announce) return
+        if (wasSaved) {
+            com.ningshingche.app.ui.components.AppToasts.undo("সংরক্ষণ সরানো হয়েছে") {
+                toggle(articleId, announce = false)
+            }
+        } else {
+            com.ningshingche.app.ui.components.AppToasts.undo("প্রবন্ধ সংরক্ষণ হয়েছে") {
+                toggle(articleId, announce = false)
+            }
+        }
     }
 }
 
@@ -163,9 +174,14 @@ class BookmarksViewModel(
         _selectedCategoryFilter.value = if (_selectedCategoryFilter.value == slug) null else slug
     }
 
-    fun removeBookmark(articleId: String) {
+    fun removeBookmark(articleId: String, announce: Boolean = true) {
         viewModelScope.launch {
             repository.toggleBookmark(articleId)
+        }
+        if (announce) {
+            com.ningshingche.app.ui.components.AppToasts.undo("সংরক্ষণ সরানো হয়েছে") {
+                removeBookmark(articleId, announce = false)
+            }
         }
     }
 }

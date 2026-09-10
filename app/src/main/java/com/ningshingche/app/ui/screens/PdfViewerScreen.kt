@@ -5,7 +5,7 @@ package com.ningshingche.app.ui.screens
 import android.app.Activity
 import android.graphics.Color as AndroidColor
 import android.view.WindowManager
-import android.widget.Toast
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -108,7 +109,7 @@ fun PdfViewerScreen(
 
     LaunchedEffect(downloadStatus) {
         downloadStatus?.let { msg ->
-            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+            com.ningshingche.app.ui.components.AppToasts.show(msg)
             viewModel.clearStatus()
         }
     }
@@ -135,7 +136,8 @@ fun PdfViewerScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(ReaderBar)
-                .padding(horizontal = 4.dp, vertical = 6.dp),
+                .statusBarsPadding()
+                .padding(horizontal = 4.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onNavigateBack, modifier = Modifier.testTag("pdf_viewer_back_button")) {
