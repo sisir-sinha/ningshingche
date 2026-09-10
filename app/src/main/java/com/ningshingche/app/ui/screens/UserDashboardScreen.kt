@@ -3,6 +3,7 @@ package com.ningshingche.app.ui.screens
 import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -62,6 +63,8 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Publish
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -132,10 +135,9 @@ import kotlin.math.abs
 private const val PAGE_SIZE = 5
 private const val MESSAGE_WINDOW = 10
 private const val TAB_HOME = 0
-private const val TAB_NOTICES = 1
-private const val TAB_MESSAGES = 2
-private const val TAB_CONTENT = 3
-private const val TAB_COMMENTS = 4
+private const val TAB_MESSAGES = 1
+private const val TAB_CONTENT = 2
+private const val TAB_COMMENTS = 3
 private val TickGreen = Color(0xFF25D366)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -150,6 +152,7 @@ fun UserDashboardScreen(
     onOpenArticle: (SubmittedBlogRecord) -> Unit = {},
     onOpenComment: (CommentRecord) -> Unit = {},
     initialTab: Int = 0,
+    initialShowNotices: Boolean = false,
     focusMessageId: String = ""
 ) {
     val user by viewModel.currentUser.collectAsStateWithLifecycle()
@@ -158,7 +161,6 @@ fun UserDashboardScreen(
     val comments by viewModel.comments.collectAsStateWithLifecycle()
     val notifications by viewModel.notifications.collectAsStateWithLifecycle()
     val messages by viewModel.adminMessages.collectAsStateWithLifecycle()
-    val unread by viewModel.unreadCount.collectAsStateWithLifecycle()
     val metrics by viewModel.metrics.collectAsStateWithLifecycle()
     val loading by viewModel.isLoading.collectAsStateWithLifecycle()
     val saving by viewModel.isSaving.collectAsStateWithLifecycle()
@@ -166,10 +168,12 @@ fun UserDashboardScreen(
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(
         initialPage = initialTab.coerceIn(0, TAB_COMMENTS),
-        pageCount = { 5 }
+        pageCount = { 4 }
     )
     var fabOpen by remember { mutableStateOf(false) }
-    val onContentTab = pagerState.currentPage == TAB_CONTENT
+    var showNotices by remember { mutableStateOf(initialShowNotices) }
+    val noticeUnread = notifications.count { !it.isRead }
+    val onContentTab = !showNotices && pagerState.currentPage == TAB_CONTENT
 
     LaunchedEffect(user?.id) {
         if (user != null) viewModel.refresh()
@@ -177,9 +181,13 @@ fun UserDashboardScreen(
     LaunchedEffect(initialTab) {
         pagerState.scrollToPage(initialTab.coerceIn(0, TAB_COMMENTS))
     }
+    LaunchedEffect(initialShowNotices) {
+        if (initialShowNotices) showNotices = true
+    }
     LaunchedEffect(onContentTab) {
         if (!onContentTab) fabOpen = false
     }
+    BackHandler(enabled = showNotices) { showNotices = false }
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(status) {
@@ -194,9 +202,40 @@ fun UserDashboardScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Icon(Icons.Default.Dashboard, contentDescription = null)
-                        Text("আমার ড্যাশবোর্ড", fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
+                        Text(
+                            "আমার ড্যাশবোর্ড",
+                            fontFamily = Kalpurush,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(start = 8.dp, end = 4.dp)
+                        )
+                        IconButton(
+                            onClick = { showNotices = !showNotices },
+                            modifier = Modifier.testTag("user_dashboard_notices")
+                        ) {
+                            BadgedBox(
+                                badge = {
+                                    if (noticeUnread > 0) {
+                                        Badge {
+                                            Text(
+                                                if (noticeUnread > 99) "99+" else noticeUnread.toString(),
+                                                fontSize = 10.sp
+                                            )
+                                        }
+                                    }
+                                }
+                            ) {
+                                Icon(Icons.Default.Notifications, contentDescription = "বিজ্ঞপ্তি")
+                            }
+                        }
                     }
                 },
                 navigationIcon = {
@@ -242,9 +281,11 @@ fun UserDashboardScreen(
         },
         bottomBar = {
             DashboardBottomBar(
-                selected = pagerState.currentPage,
-                unread = unread,
-                onSelect = { page -> scope.launch { pagerState.animateScrollToPage(page) } }
+                selected = if (showNotices) -1 else pagerState.currentPage,
+                onSelect = { page ->
+                    showNotices = false
+                    scope.launch { pagerState.animateScrollToPage(page) }
+                }
             )
         }
     ) { padding ->
@@ -256,28 +297,31 @@ fun UserDashboardScreen(
                 .padding(padding)
                 .imePadding()
         ) {
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxSize()
-            ) { page ->
-                when (page) {
-                    TAB_HOME -> HomePane(
-                        user = user,
-                        metrics = metrics,
-                        unread = unread,
-                        messageCount = messages.size,
-                        onEditProfile = onCompleteProfile
-                    )
-                    TAB_NOTICES -> NoticePane(notifications, onOpenNotice)
-                    TAB_MESSAGES -> MessagePane(
-                        messages = messages,
-                        saving = saving,
-                        focusMessageId = focusMessageId,
-                        onSend = { body -> viewModel.sendAdminMessage(body) },
-                        onReload = { viewModel.refreshInbox(markSeen = false) }
-                    )
-                    TAB_CONTENT -> ContentPane(articles, tracks, onOpenArticle)
-                    else -> CommentPane(comments, onOpenComment)
+            if (showNotices) {
+                NoticePane(notifications, onOpenNotice)
+            } else {
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize()
+                ) { page ->
+                    when (page) {
+                        TAB_HOME -> HomePane(
+                            user = user,
+                            metrics = metrics,
+                            unread = noticeUnread,
+                            messageCount = messages.size,
+                            onEditProfile = onCompleteProfile
+                        )
+                        TAB_MESSAGES -> MessagePane(
+                            messages = messages,
+                            saving = saving,
+                            focusMessageId = focusMessageId,
+                            onSend = { body -> viewModel.sendAdminMessage(body) },
+                            onReload = { viewModel.refreshInbox(markSeen = false) }
+                        )
+                        TAB_CONTENT -> ContentPane(articles, tracks, onOpenArticle)
+                        else -> CommentPane(comments, onOpenComment)
+                    }
                 }
             }
         }
@@ -307,7 +351,6 @@ private fun SpeedDialItem(label: String, icon: ImageVector, onClick: () -> Unit)
 @Composable
 private fun DashboardBottomBar(
     selected: Int,
-    unread: Int,
     onSelect: (Int) -> Unit
 ) {
     NavigationBar {
@@ -316,19 +359,6 @@ private fun DashboardBottomBar(
             onClick = { onSelect(TAB_HOME) },
             icon = { Icon(Icons.Default.Home, contentDescription = null) },
             label = { Text("ঘর", fontFamily = Kalpurush, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-        )
-        NavigationBarItem(
-            selected = selected == TAB_NOTICES,
-            onClick = { onSelect(TAB_NOTICES) },
-            icon = { Icon(Icons.Default.Notifications, contentDescription = null) },
-            label = {
-                Text(
-                    if (unread > 0) "বিজ্ঞপ্তি ($unread)" else "বিজ্ঞপ্তি",
-                    fontFamily = Kalpurush,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
         )
         NavigationBarItem(
             selected = selected == TAB_MESSAGES,
