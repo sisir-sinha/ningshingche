@@ -13,6 +13,7 @@ import com.ningshingche.app.data.remote.SupabaseClient
 import com.ningshingche.app.data.remote.UserProfile
 import com.ningshingche.app.data.model.AiChatMessage
 import com.ningshingche.app.data.model.AppThemeMode
+import com.ningshingche.app.data.model.ContentLanguage
 import com.ningshingche.app.data.model.Article
 import com.ningshingche.app.data.model.Author
 import com.ningshingche.app.data.model.Category
@@ -319,6 +320,13 @@ class SettingsViewModel(
     fun updateAppThemeMode(mode: AppThemeMode) {
         viewModelScope.launch {
             preferencesRepository.updateAppThemeMode(mode)
+        }
+    }
+
+    /** Switches the whole interface between Bengali and Bishnupriya Manipuri. */
+    fun updateContentLanguage(language: ContentLanguage) {
+        viewModelScope.launch {
+            preferencesRepository.updateContentLanguage(language)
         }
     }
 

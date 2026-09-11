@@ -11,6 +11,31 @@ holds the work queue and the vocabulary so the two halves can happen without gue
 | --- | --- |
 | `strings_inventory.csv` | Every user-visible string in `app/src/main/java`, one row per **distinct** string, with how often it is used and which screens use it. Fill the `bishnupriya` column. |
 | `refresh_inventory.py` | Regenerates the CSV from the sources (`python3 i18n/refresh_inventory.py`). `--check` fails if the file has gone stale. |
+| `generate_strings.py` | Turns the filled CSV into `ui/i18n/BishnupriyaStrings.kt` (`python3 i18n/generate_strings.py`). `--check` fails if that table is stale. |
+
+Both scripts run without a JVM, so the CSV can be filled and regenerated at any time; the table is
+a normal committed Kotlin file.
+
+## How it lands in the app
+
+The interface language is a preference (`ContentLanguage`: `BENGALI` / `BISHNUPRIYA`), chosen in
+**Settings → ভাষা**, and provided to every screen from `MainActivity` through
+`LocalContentLanguage`. Screens call `t("বাংলা লেখা")`; in Bishnupriya mode `t` looks the Bengali
+source string up in `BISHNUPRIYA` and returns the translation, or the Bengali original when that
+string has no translation yet. So:
+
+- an empty CSV means the app reads exactly as it always did;
+- a half-filled CSV means half the interface switches, which is a valid intermediate state;
+- nothing is guessed — a wrong translation is a CSV edit and a regenerate, never a code change.
+
+Strings with values use numbered slots so a translation can reorder them:
+
+```kotlin
+t("গান {1}টি", toBengaliNumeral(count))
+```
+
+The inventory already normalises every interpolation this way, so a CSV key is exactly what the
+call site passes.
 
 ## Size of the job
 
@@ -24,11 +49,21 @@ holds the work queue and the vocabulary so the two halves can happen without gue
 
 ## How a pass works
 
-1. Fill `bishnupriya` for the rows you want translated. Empty rows keep their Bengali text, so
-   the app stays usable at every step — a half-filled column is a valid state.
-2. Say the word and the Kotlin literals are replaced, file by file, matching the CSV. Strings
-   with `…` stand for a `${…}` value that stays in the code (`গান …টি` → the count is kept).
-3. Anything that reads wrong afterwards goes back into the CSV; the code is regenerated from it.
+1. Open `strings_inventory.csv` in a spreadsheet and fill the `bishnupriya` column. Leave a row
+   empty if you are unsure — it keeps its Bengali text. The `slots` column says how many `{1}`
+   values a string takes; keep every slot in the translation.
+2. Run `python3 i18n/generate_strings.py`. The app now switches that much of its interface.
+3. Anything that reads wrong goes back into the CSV and step 2 is repeated.
+
+The `screens` column tells you where a string appears, so the most visible ones can be done first.
+Screens that already call `t(...)` are listed below; the rest still print their Bengali literals
+directly and need the call-site wrap (a mechanical change, done screen by screen, no translation
+required for it to be safe).
+
+| Wrapped | Screens |
+| --- | --- |
+| ✅ | `NewMusicScreen.kt` (Add Song), the language row in `SettingsScreen.kt` |
+| ⏳ | everything else — 65 files, listed by frequency in the CSV |
 
 ## Vocabulary (started; confirm or correct each one)
 

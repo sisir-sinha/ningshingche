@@ -54,14 +54,25 @@ def is_ui_copy(value: str) -> bool:
     return True
 
 
-def normalise(value: str) -> str:
-    """`গান ${count}টি` and `গান ${total}টি` are one string to a translator."""
-    return INTERPOLATION.sub("…", value).strip()
+def normalise(value: str) -> tuple[str, str]:
+    """Rewrites interpolations as numbered slots.
+
+    `গান ${count}টি` and `গান ${total}টি` are one string to a translator, and it
+    becomes `গান {1}টি` — the same form `t()` fills at runtime, so the CSV key is
+    exactly what the call site passes.
+    """
+    counter = {"n": 0}
+
+    def slot(_match):
+        counter["n"] += 1
+        return "{" + str(counter["n"]) + "}"
+
+    return INTERPOLATION.sub(slot, value).strip(), counter["n"]
 
 
 def collect():
     entries: dict[str, dict] = defaultdict(
-        lambda: {"count": 0, "files": set(), "kind": "ui"}
+        lambda: {"count": 0, "files": set(), "kind": "ui", "slots": 0}
     )
     for path in sorted(SRC.rglob("*.kt")):
         text = path.read_text(encoding="utf-8")
@@ -69,12 +80,13 @@ def collect():
             value = raw.replace('\\"', '"').replace("\\n", " ").replace('\\$', '$')
             if not is_ui_copy(value):
                 continue
-            key = normalise(value)
+            key, slots = normalise(value)
             if not key:
                 continue
             bucket = entries[key]
             bucket["count"] += 1
             bucket["files"].add(path.name)
+            bucket["slots"] = max(bucket["slots"], slots)
             if path.name in CONTENT_FILES:
                 bucket["kind"] = "content"
     return entries
@@ -85,7 +97,7 @@ def write(entries) -> None:
     rows = sorted(entries.items(), key=lambda kv: (-kv[1]["count"], kv[0]))
     with OUT.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle)
-        writer.writerow(["bengali", "bishnupriya", "kind", "uses", "screens"])
+        writer.writerow(["bengali", "bishnupriya", "kind", "uses", "slots", "screens"])
         for key, meta in rows:
             writer.writerow(
                 [
@@ -93,6 +105,7 @@ def write(entries) -> None:
                     "",
                     meta["kind"],
                     meta["count"],
+                    meta["slots"],
                     ", ".join(sorted(meta["files"])),
                 ]
             )

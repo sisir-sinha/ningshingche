@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -81,6 +82,9 @@ import com.ningshingche.app.ui.components.GoogleSignInButton
 import com.ningshingche.app.ui.viewmodel.SettingsViewModel
 import com.ningshingche.app.util.ApkManager
 import kotlinx.coroutines.launch
+import com.ningshingche.app.data.model.ContentLanguage
+import com.ningshingche.app.ui.i18n.bishnupriyaCoverage
+import com.ningshingche.app.ui.i18n.t
 import com.ningshingche.app.ui.theme.Kalpurush
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -95,6 +99,8 @@ fun SettingsScreen(
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
     val googleAuthInProgress by viewModel.googleAuthInProgress.collectAsStateWithLifecycle()
     val googleAuthMessage by viewModel.googleAuthMessage.collectAsStateWithLifecycle()
+    // Translated-string count, shown so the reader knows the state of the work.
+    val coverage = remember { bishnupriyaCoverage() }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -346,6 +352,72 @@ fun SettingsScreen(
                                     isSelected = preferences.appThemeMode == AppThemeMode.SYSTEM,
                                     modifier = Modifier.weight(1f),
                                     onClick = { viewModel.updateAppThemeMode(AppThemeMode.SYSTEM) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 1b. Interface language (Bengali / Bishnupriya Manipuri)
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Translate,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = t("ভাষা"),
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 13.sp
+                            )
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text(
+                                text = t(
+                                    "ইন্টারফেসের ভাষা। বাকি লেখা বাংলাতেই থাকবে যতক্ষণ অনুবাদ না হয় ({1}/{2})।",
+                                    coverage.first, coverage.second
+                                ),
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 12.sp
+                                )
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                ThemeModeCard(
+                                    title = "বাংলা",
+                                    icon = Icons.Default.Translate,
+                                    isSelected = preferences.contentLanguage == ContentLanguage.BENGALI,
+                                    modifier = Modifier.weight(1f),
+                                    onClick = { viewModel.updateContentLanguage(ContentLanguage.BENGALI) }
+                                )
+                                ThemeModeCard(
+                                    title = "বিষ্ণুপ্রিয়া মণিপুরী",
+                                    icon = Icons.Default.Translate,
+                                    isSelected = preferences.contentLanguage == ContentLanguage.BISHNUPRIYA,
+                                    modifier = Modifier.weight(1f),
+                                    onClick = { viewModel.updateContentLanguage(ContentLanguage.BISHNUPRIYA) }
                                 )
                             }
                         }

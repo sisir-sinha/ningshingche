@@ -1,959 +1,962 @@
-bengali,bishnupriya,kind,uses,screens
-নিংশিং চে,,content,21,"AiAssistantScreen.kt, ContentUpdateNotifier.kt, HomeScreen.kt, IssueTags.kt, LoginScreen.kt, MusicController.kt, MusicPlayer.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt, PortalDrawer.kt, PortalModels.kt, SplashScreen.kt, SupabaseModels.kt, WelcomeOnboardingScreen.kt"
-সব,,ui,15,"BookmarksScreen.kt, EditorialComponents.kt, HomeScreen.kt, MusicScreen.kt, PortalPages.kt, Type.kt, UserDashboardScreen.kt"
-পেছনে,,ui,14,"ArticleScreen.kt, BookmarksScreen.kt, ListScreens.kt, MusicBrowseScreens.kt, MusicScreen.kt, PdfArchiveScreen.kt, PdfViewerScreen.kt, PortalPages.kt, SettingsScreen.kt, VideosScreen.kt"
-সাহিত্য,,content,11,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
-ইতিহাস,,content,10,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
-লেখক,,content,8,"EditorialComponents.kt, ListScreens.kt, NinghsingCheContentData.kt, PortalDrawer.kt, PortalPages.kt, SupabaseModels.kt"
-সমাজ ও সংস্কৃতি,,content,8,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt, PortalPages.kt, ReaderViewModels.kt"
-জীবনী,,content,7,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
-গান,,ui,6,"ListScreens.kt, NewMusicScreen.kt, UserDashboardCharts.kt, UserDashboardScreen.kt"
-পাঠক,,ui,6,"ArticleCommentForm.kt, ArticleRepository.kt, GoogleAuthMapper.kt, NingshingCheWebsiteClient.kt, SettingsScreen.kt, UserDashboardScreen.kt"
-বন্ধ করুন,,ui,6,"ArticleScreen.kt, EditorialComponents.kt, HtmlArticleRenderer.kt, MusicPlayer.kt, VideoPlayer.kt"
-সংস্কৃতি,,content,6,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
-সামাজিক কার্যকলাপ,,content,6,"NinghsingCheContentData.kt, PortalDrawer.kt, PortalPages.kt, ReaderViewModels.kt"
-অধ্যাপক বারীন্দ্র কুমার সিংহ,,content,5,NinghsingCheContentData.kt
-আরও দেখুন,,ui,5,UserDashboardScreen.kt
-কবিতা,,content,5,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
-চালান,,ui,5,"EditorialComponents.kt, MusicBrowseScreens.kt, MusicPlayer.kt, VideosScreen.kt"
-নতুন প্রবন্ধ,,ui,5,"AppNotificationManager.kt, ContentNotice.kt, NewArticleScreen.kt, SettingsScreen.kt, WelcomeOnboardingScreen.kt"
-নতুন প্লেলিস্ট,,ui,5,"MusicLibraryStore.kt, MusicPlayer.kt, MusicScreen.kt"
-প্রবন্ধ,,content,5,"NinghsingCheContentData.kt, UserDashboardCharts.kt, UserDashboardScreen.kt"
-ফিরুন,,ui,5,"LoginScreen.kt, NewArticleScreen.kt, NewMusicScreen.kt, UserDashboardScreen.kt, UserProfileScreen.kt"
-বাংলাদেশ / ভারত,,ui,5,"ArticleRepository.kt, Models.kt, NingshingCheWebsiteClient.kt, SupabaseModels.kt"
-বার্ষিক ও উৎসব সংখ্যা,,content,5,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
-বিজ্ঞান ও প্রযুক্তি,,content,5,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
-ভাষা আন্দোলন,,content,5,"NinghsingCheAiAssistant.kt, NinghsingCheContentData.kt"
-মন্তব্য,,ui,5,"ArticleScreen.kt, UserDashboardCharts.kt, UserDashboardScreen.kt"
-সিস্টেম আপডেট,,ui,5,"AppNotificationManager.kt, ContentNotice.kt, SettingsScreen.kt, WelcomeOnboardingScreen.kt"
-**লেখক:** …,,ui,4,NinghsingCheAiAssistant.kt
-অনুসন্ধান,,ui,4,"ExploreScreen.kt, HomeScreen.kt, ListScreens.kt, PortalDrawer.kt"
-অন্বেষণ ও সংগ্রহ,,ui,4,"ExploreScreen.kt, ReaderViewModels.kt, Screen.kt"
-অ্যালবাম,,ui,4,"MusicBrowseScreens.kt, MusicPlayer.kt, MusicScreen.kt, NewMusicScreen.kt"
-আমার সম্পর্কে,,ui,4,"PortalDrawer.kt, PortalPages.kt"
-ড. প্রদীপ সিংহ,,content,4,NinghsingCheContentData.kt
-নতুন PDF বই,,ui,4,"AppNotificationManager.kt, ContentNotice.kt, SettingsScreen.kt, WelcomeOnboardingScreen.kt"
-নতুন ভিডিও,,ui,4,"AppNotificationManager.kt, ContentNotice.kt, SettingsScreen.kt, WelcomeOnboardingScreen.kt"
-পর্যালোচনা,,content,4,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
-পৌরাণিক কাহিনী,,content,4,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
-প্রকাশিত,,ui,4,"UserDashboardCharts.kt, UserDashboardScreen.kt"
-বার্তা,,ui,4,UserDashboardScreen.kt
-বার্ষিক সংখ্যা,,content,4,"NinghsingCheContentData.kt, PortalDrawer.kt, ReaderNavHost.kt, Screen.kt"
-ভিডিও,,ui,4,"EditorialComponents.kt, MusicPlayer.kt, VideosScreen.kt"
-মুছুন,,ui,4,"BookmarksScreen.kt, ListScreens.kt, MusicBrowseScreens.kt, MusicScreen.kt"
-শিল্পী,,ui,4,"MusicBrowseScreens.kt, MusicPlayer.kt, MusicScreen.kt, NewMusicScreen.kt"
-সম্পাদকীয়,,content,4,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
-সাধারণ,,ui,4,"ArticleRepository.kt, NinghsingCheAiAssistant.kt, PortalModels.kt"
-স্মৃতিচারণ,,content,4,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
-**বিভাগ:** …,,ui,3,NinghsingCheAiAssistant.kt
-**শিরোনাম:** …,,ui,3,NinghsingCheAiAssistant.kt
-Google সাইন-ইন সময় শেষ হয়েছে। আবার চেষ্টা করুন।,,ui,3,"GoogleAuthMapper.kt, GoogleAuthRepository.kt"
-অপেক্ষমাণ,,ui,3,"UserDashboardCharts.kt, UserDashboardScreen.kt"
-অ্যাকাউন্ট,,ui,3,"AccountHeaderButton.kt, SettingsScreen.kt"
-অ্যাডমিনের বার্তা,,ui,3,"ContentNotice.kt, ContentUpdateNotifier.kt"
-ইঞ্চৌঘর,,content,3,"NinghsingCheAiAssistant.kt, NinghsingCheContentData.kt"
-উৎসব,,content,3,"MusicGenres.kt, NinghsingCheAiAssistant.kt, NinghsingCheContentData.kt"
-গবেষণা ও ভাষা আন্দোলন,,content,3,NinghsingCheContentData.kt
-ঘর,,ui,3,"NinghsingCheAiAssistant.kt, PortalDrawer.kt, UserDashboardScreen.kt"
-ছবি আপলোড যায়নি।,,ui,3,ReaderWorkspaceViewModel.kt
-ডাউনলোড,,ui,3,"MusicPlayer.kt, PdfArchiveScreen.kt, PdfViewerScreen.kt"
-ধরন,,ui,3,"MusicBrowseScreens.kt, MusicPlayer.kt, MusicScreen.kt"
-ধর্ম,,ui,3,"EditorialComponents.kt, NingshingCheWebsiteClient.kt"
-পছন্দ,,ui,3,"MusicBrowseScreens.kt, MusicPlayer.kt, MusicScreen.kt"
-পিডিএফ খোলা যায়নি।,,ui,3,"MainViewModels.kt, PdfViewerScreen.kt"
-পৌ,,ui,3,"EditorialComponents.kt, NingshingCheWebsiteClient.kt"
-ফিচার্ড,,ui,3,"ExploreScreen.kt, HomeScreen.kt, PortalDrawer.kt"
-বিজ্ঞপ্তি,,ui,3,"AccountHeaderButton.kt, UserDashboardScreen.kt"
-বিভাগসমূহ,,ui,3,"PortalDrawer.kt, ReaderNavHost.kt, Screen.kt"
-বিষ্ণুপ্রিয়া মণিপুরি ডিজিটাল সাংস্কৃতিক আর্কাইভ ও সাহিত্য পত্রিকা,,ui,3,"PortalModels.kt, SupabaseModels.kt"
-ভুমিকা,,ui,3,"EditorialComponents.kt, NingshingCheWebsiteClient.kt"
-রকমারি,,ui,3,"EditorialComponents.kt, NingshingCheWebsiteClient.kt"
-রাসলীলা,,content,3,"NinghsingCheAiAssistant.kt, NinghsingCheContentData.kt"
-লোকসংগীত,,content,3,NinghsingCheContentData.kt
-শেয়ার,,ui,3,"ArticleScreen.kt, HtmlArticleRenderer.kt, PdfViewerScreen.kt"
-সংরক্ষণ করুন,,ui,3,"ArticleScreen.kt, EditorialComponents.kt"
-সংরক্ষণ বাতিল করুন,,ui,3,"ArticleScreen.kt, EditorialComponents.kt"
-সঙ্গীত,,ui,3,"EditorialComponents.kt, MusicScreen.kt, PortalDrawer.kt"
-সমাজ,,ui,3,"EditorialComponents.kt, NingshingCheWebsiteClient.kt, ReaderViewModels.kt"
-সাইন ইন করা নেই।,,ui,3,"SupabaseClient.kt, UserProfileScreen.kt"
-সাইন ইন করা নেই। আবার প্রবেশ করুন।,,ui,3,SupabaseClient.kt
-সাহিত্য ও সংকলন,,content,3,NinghsingCheContentData.kt
-সুজিত সিংহ,,content,3,NinghsingCheContentData.kt
-সুদেষ্ণা সিংহ,,content,3,"EditorialComponents.kt, NinghsingCheContentData.kt"
-সুবর্ণ জয়ন্তী ও ইতিহাস,,content,3,NinghsingCheContentData.kt
-সেটিংস,,ui,3,"PdfViewerScreen.kt, PortalDrawer.kt, SettingsScreen.kt"
-স্থাপত্য,,content,3,NinghsingCheContentData.kt
-স্মৃতিকণা সিংহ,,content,3,NinghsingCheContentData.kt
-স্লিপ টাইমার,,ui,3,MusicPlayer.kt
-… টি প্রবন্ধ,,ui,3,ListScreens.kt
-…টি গান,,ui,3,"MusicBrowseScreens.kt, MusicScreen.kt"
-…টি প্রবন্ধ,,ui,3,"ExploreScreen.kt, PortalPages.kt"
-### মূল নিবন্ধের পাঠ্যাংশ:,,ui,2,NinghsingCheAiAssistant.kt
-Google দিয়ে প্রবেশ করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।,,ui,2,GoogleAuthMapper.kt
-Google সাইন-ইন খোলার জন্য অ্যাপ স্ক্রিন প্রয়োজন। আবার চেষ্টা করুন।,,ui,2,GoogleIdentityClient.kt
-অক্ষরের আকার,,ui,2,ArticleScreen.kt
-অন্যান্য,,ui,2,"AppNotificationManager.kt, SettingsScreen.kt"
-অফলাইন,,ui,2,MusicScreen.kt
-আবার চেষ্টা করুন,,ui,2,"EditorialComponents.kt, PdfViewerScreen.kt"
-এই গানের অডিও ফাইল নেই।,,ui,2,MusicController.kt
-এই প্রবন্ধ এখনো পর্যালোচনায় আছে।,,ui,2,ReaderNavHost.kt
-এখনো কোনো গান যোগ করা হয়নি।,,ui,2,MusicScreen.kt
-এখানে কোনো প্রবন্ধ পাওয়া যায়নি।,,ui,2,ListScreens.kt
-ঐতিহ্য,,content,2,NinghsingCheContentData.kt
-কভার ছবি,,ui,2,"NewArticleScreen.kt, NewMusicScreen.kt"
-কভার ছবি নির্বাচন (ঐচ্ছিক),,ui,2,"NewArticleScreen.kt, NewMusicScreen.kt"
-কভার ছবি বদলান,,ui,2,"NewArticleScreen.kt, NewMusicScreen.kt"
-কভার ছবি সরান,,ui,2,"NewArticleScreen.kt, NewMusicScreen.kt"
-কমল সিংহ বিষ্ণুপ্রিয়া,,content,2,NinghsingCheContentData.kt
-কোনো লেখক পাওয়া যায়নি।,,ui,2,"ExploreScreen.kt, PortalPages.kt"
-ছবি,,ui,2,"MarkdownText.kt, UserDashboardScreen.kt"
-ছবি ঘর,,ui,2,EditorialComponents.kt
-ছবি শেয়ার করুন,,ui,2,"HomeScreen.kt, HtmlArticleRenderer.kt"
-ছোট করুন,,ui,2,"ArticleScreen.kt, MusicPlayer.kt"
-জমা দিন,,ui,2,"NewArticleScreen.kt, NewMusicScreen.kt"
-ডাউনলোড ফোল্ডারে সংরক্ষিত হয়েছে: …,,ui,2,"ApkManager.kt, PdfHelper.kt"
-ডাউনলোড হচ্ছে...,,ui,2,"MainViewModels.kt, PdfArchiveScreen.kt"
-ডিজিটাল আর্কাইভ,,content,2,NinghsingCheContentData.kt
-ড্যাশবোর্ড,,ui,2,"AccountHeaderButton.kt, PortalDrawer.kt"
-তামকরিক,,ui,2,NingshingCheWebsiteClient.kt
-তালিকা,,ui,2,MusicPlayer.kt
-নতুন গান জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।,,ui,2,"NewMusicScreen.kt, ReaderWorkspaceViewModel.kt"
-নতুন প্রবন্ধ জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।,,ui,2,"NewArticleScreen.kt, ReaderWorkspaceViewModel.kt"
-নিংশিং চে AI সহকারী,,ui,2,"AiAssistantScreen.kt, EditorialComponents.kt"
-নিংশিং চে প্রকাশনা পর্ষদ,,content,2,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
-নিংশিং চে লেখক,,ui,2,"ArticleRepository.kt, NingshingCheWebsiteClient.kt"
-নিংশিং চে — বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ,,ui,2,"PortalPages.kt, SettingsScreen.kt"
-নিবন্ধ এআই সহায়িকা,,ui,2,ArticleScreen.kt
-নির্বাচিত প্রবন্ধ,,ui,2,"ContentNotice.kt, SettingsScreen.kt"
-নৃত্য,,ui,2,"MusicGenres.kt, NinghsingCheAiAssistant.kt"
-পছন্দের গান,,ui,2,"MusicLibraryStore.kt, MusicScreen.kt"
-পরের গান,,ui,2,MusicPlayer.kt
-পাঠান,,ui,2,"ArticleScreen.kt, UserDashboardScreen.kt"
-পৌরাণিক,,ui,2,NingshingCheWebsiteClient.kt
-প্রকাশিত প্রবন্ধ খোলা যায়নি।,,ui,2,ReaderNavHost.kt
-প্রত্যাখ্যাত,,ui,2,"UserDashboardCharts.kt, UserDashboardScreen.kt"
-প্রবন্ধ প্রকাশিত হয়েছে,,ui,2,"ContentUpdateNotifier.kt, InboxModels.kt"
-প্রোফাইল,,ui,2,"AccountHeaderButton.kt, UserProfileScreen.kt"
-প্রোফাইল ছবি,,ui,2,"UserDashboardScreen.kt, UserProfileScreen.kt"
-প্রোফাইল সম্পাদনা,,ui,2,UserDashboardScreen.kt
-প্রোফাইলে যান,,ui,2,"NewArticleScreen.kt, NewMusicScreen.kt"
-প্লেলিস্টে যোগ করুন,,ui,2,MusicPlayer.kt
-ফাইল ২০০ এমবি-র বেশি হতে পারে না।,,ui,2,SatoruUploadClient.kt
-ফাইল ৩২ এমবি-র বেশি হতে পারবে না।,,ui,2,SupabaseClient.kt
-ফিচার্ড প্রবন্ধসমূহ,,ui,2,PortalPages.kt
-বন্ধ,,ui,2,"PdfViewerScreen.kt, UserDashboardScreen.kt"
-বার্তা লিখুন।,,ui,2,"ReaderWorkspaceViewModel.kt, SupabaseClient.kt"
-বার্ষিক সংখ্যা • … সালে প্রকাশিত লেখাসমূহ,,ui,2,"ExploreScreen.kt, ListScreens.kt"
-বার্ষিক সাহিত্য সংকলন,,ui,2,SupabaseModels.kt
-বিজ্ঞপ্তি চালু করুন,,ui,2,WelcomeOnboardingScreen.kt
-বিরতি,,ui,2,MusicPlayer.kt
-বিশু,,content,2,"NinghsingCheAiAssistant.kt, NinghsingCheContentData.kt"
-বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ,,ui,2,"PortalDrawer.kt, SiteFooter.kt"
-বিষ্ণুপ্রিয়া মণিপুরি ভাষা আন্দোলনের ইতিহাস কী?,,ui,2,MainViewModels.kt
-ব্যবহারকারীর প্রশ্ন / নির্দেশ: …,,ui,2,NinghsingCheAiAssistant.kt
-ব্রাউজারে খুলুন,,ui,2,"HtmlArticleRenderer.kt, VideoPlayer.kt"
-ভূমিকা,,content,2,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
-মণিপুরি সমাজে 'মিংকৌ' নামপ্রথা কী?,,ui,2,MainViewModels.kt
-মণিপুরি সমাজের ঐতিহ্যবাহী 'ইঞ্চৌঘর' কী?,,ui,2,MainViewModels.kt
-মন্তব্য প্রকাশিত হয়েছে,,ui,2,"ContentUpdateNotifier.kt, InboxModels.kt"
-মিংকৌ,,content,2,"NinghsingCheAiAssistant.kt, NinghsingCheContentData.kt"
-রাস,,ui,2,"MusicGenres.kt, NinghsingCheAiAssistant.kt"
-লগ আউট,,ui,2,"AccountHeaderButton.kt, SettingsScreen.kt"
-লোকগাথা,,content,2,NinghsingCheContentData.kt
-শহীদ সুদেষ্ণা সিংহ,,content,2,NinghsingCheContentData.kt
-শিরোনাম,,ui,2,"NewArticleScreen.kt, NewMusicScreen.kt"
-শেয়ার করুন,,ui,2,"ArticleScreen.kt, EditorialComponents.kt"
-সংরক্ষণ সরানো হয়েছে,,ui,2,MainViewModels.kt
-সংরক্ষিত,,ui,2,"BookmarksScreen.kt, PortalDrawer.kt"
-সংস্কৃতি ও উৎসব,,ui,2,SupabaseModels.kt
-সকল PDF,,content,2,"ArticleRepository.kt, NinghsingCheContentData.kt"
-সব সংরক্ষিত,,ui,2,"Entities.kt, Models.kt"
-সম্পাদক,,ui,2,"NingshingCheWebsiteClient.kt, SupabaseModels.kt"
-সম্পাদকীয়,,ui,2,"EditorialComponents.kt, NinghsingCheAiAssistant.kt"
-সরান,,ui,2,"NewMusicScreen.kt, UserDashboardScreen.kt"
-সাইন ইন,,ui,2,"AccountHeaderButton.kt, LoginScreen.kt"
-সারসংক্ষেপ,,ui,2,NinghsingCheAiAssistant.kt
-স্মৃতি,,content,2,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
-১৬ই মার্চ,,content,2,NinghsingCheContentData.kt
-… বিষয়ে নিংশিং চে-তে প্রকাশিত প্রবন্ধসমূহ।,,ui,2,NingshingCheWebsiteClient.kt
-… মি.,,ui,2,EditorialComponents.kt
-… মিনিট,,ui,2,"EditorialComponents.kt, MusicPlayer.kt"
-### «…» — নিবন্ধ বিশ্লেষণ,,ui,1,NinghsingCheAiAssistant.kt
-### নিংশিং চে ডাটাবেজের প্রাসঙ্গিক নিবন্ধসমূহ:,,ui,1,NinghsingCheAiAssistant.kt
-### সংশ্লিষ্ট বই/ই-বুক তালিকা:,,ui,1,NinghsingCheAiAssistant.kt
-### সম্পর্কিত জিজ্ঞাসা:,,ui,1,NinghsingCheAiAssistant.kt
-### সম্পর্কিত প্রশ্ন:,,ui,1,NinghsingCheAiAssistant.kt
-### সম্পর্কিত প্রশ্নসমূহ:,,ui,1,NinghsingCheAiAssistant.kt
-### সম্পর্কিত লেখক পরিচিতি:,,ui,1,NinghsingCheAiAssistant.kt
-#### এই বিষয়ে আরও প্রাসঙ্গিক প্রবন্ধ:,,ui,1,NinghsingCheAiAssistant.kt
-(20\d{2}|২০\d{2}),,ui,1,NingshingCheWebsiteClient.kt
-"(?:জানুয়ারি|ফেব্রুয়ারি|মার্চ|এপ্রিল|মে|জুন|জুলাই|আগস্ট|সেপ্টেম্বর|অক্টোবর|নভেম্বর|ডিসেম্বর)[^<]{0,18}২০\d{2}",,ui,1,NingshingCheWebsiteClient.kt
-**গুরুত্বপূর্ণ অংশসমূহ:**,,ui,1,NinghsingCheAiAssistant.kt
-**ট্যাগ:** ${article.tags.joinToString(,,ui,1,NinghsingCheAiAssistant.kt
-**নিবন্ধ থেকে প্রাপ্ত প্রাসঙ্গিক অংশ:**,,ui,1,NinghsingCheAiAssistant.kt
-**নিবন্ধের মূল বার্তা ও সারসংক্ষেপ:**,,ui,1,NinghsingCheAiAssistant.kt
-**মূল পাঠ্যাংশ/সারসংক্ষেপ:** …,,ui,1,NinghsingCheAiAssistant.kt
-**লেখক:** … | **বিভাগ:** … | **প্রকাশকাল:** …,,ui,1,NinghsingCheAiAssistant.kt
-**সম্পর্কিত জিজ্ঞাসা:**,,ui,1,NinghsingCheAiAssistant.kt
-**সম্পর্কিত প্রশ্ন:**,,ui,1,NinghsingCheAiAssistant.kt
-"- **…** (লেখক/সম্পাদক: …, প্রকাশকাল: …)",,ui,1,NinghsingCheAiAssistant.kt
---- *তথ্যসূত্র: নিংশিং চে ডিজিটাল আর্কাইভের «…» নিবন্ধ*,,ui,1,NinghsingCheAiAssistant.kt
-AI বিশ্লেষণ ও উত্তর প্রস্তুত করা হচ্ছে...,,ui,1,AiAssistantScreen.kt
-AI সহকারী লুকান,,ui,1,AiAssistantScreen.kt
-AI সহকারীকে জিজ্ঞাসা করুন,,ui,1,EditorialComponents.kt
-APK শেয়ার করুন,,ui,1,SettingsScreen.kt
-APK শেয়ার প্রস্তুত করা সম্ভব হয়নি,,ui,1,SettingsScreen.kt
-APK সংরক্ষণ করুন,,ui,1,SettingsScreen.kt
-APK সংরক্ষণ ব্যর্থ হয়েছে,,ui,1,SettingsScreen.kt
-APK সফলভাবে ডাউনলোড ফোল্ডারে সংরক্ষিত হয়েছে!,,ui,1,SettingsScreen.kt
-Downloads/Ningshingche/… ফোল্ডারে সফলভাবে সংরক্ষিত হয়েছে!,,ui,1,ApkManager.kt
-Downloads/Ningshingche_PDFs/… ফোল্ডারে সংরক্ষিত হয়েছে!,,ui,1,PdfHelper.kt
-Facebook আইডি / লিংক,,ui,1,UserProfileScreen.kt
-Facebook আইডি দিন।,,ui,1,ReaderWorkspaceViewModel.kt
-Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন,,ui,1,LoginScreen.kt
-Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন। একবার সাইন-ইন করলে অ্যাপ বন্ধ করলেও সেশন থাকবে।,,ui,1,SettingsScreen.kt
-Google ও Supabase-এ Web Client ID মিলছে না। Dashboard → Authentication → Google-এ Web Client ID দিন।,,ui,1,SupabaseClient.kt
-Google কনসোলে এই অ্যাপের প্যাকেজ নাম (com.ningshingche.app) ও সাইনিং SHA-1 মিলছে না। Debug ও Release দুই SHA-1 Android OAuth ক্লায়েন্টে যোগ করুন।,,ui,1,GoogleAuthMapper.kt
-Google দিয়ে চালিয়ে যান,,ui,1,GoogleSignInButton.kt
-HTML লেখা,,ui,1,HtmlContentEditor.kt
-ImgBB API Key পাওয়া যায়নি। সেটিংস বা এনভায়রনমেন্ট কনফিগারেশন চেক করুন।,,ui,1,ImgBbUploader.kt
-ImgBB আপলোড ব্যর্থ হয়েছে: …,,ui,1,ImgBbUploader.kt
-ImgBB ত্রুটি: …,,ui,1,ImgBbUploader.kt
-PDF আর্কাইভ,,ui,1,PortalDrawer.kt
-PDF প্রকাশনা শেয়ার করুন,,ui,1,PdfHelper.kt
-Supabase-এ Google সাইন-ইন চালু নেই। Authentication → Providers → Google চালু করুন।,,ui,1,SupabaseClient.kt
-^(?:নিংশিংচে|ningshingche|ningshing-che)-?(\\d{4})$,,ui,1,IssueTags.kt
-_নিচে তথ্যসূত্র কার্ড থেকে মূল প্রবন্ধ পড়তে পারেন।_,,ui,1,NinghsingCheAiAssistant.kt
-ningshingche.com ওয়েবসাইটে যান,,ui,1,SettingsScreen.kt
-ningshingche.com • সংস্করণ ১.০,,ui,1,SplashScreen.kt
-© ২০২৬ … | সাইট উন্নয়ন,,ui,1,SiteFooter.kt
-«…» সম্পর্কে আরও বিস্তারিত তথ্য জানা যাবে কি?,,ui,1,NinghsingCheAiAssistant.kt
-· …টি গান,,ui,1,MusicBrowseScreens.kt
-অক্টো,,ui,1,UserDashboardCharts.kt
-অজানা ত্রুটি,,ui,1,ImgBbUploader.kt
-অটোপ্লে,,ui,1,MusicPlayer.kt
-অডিও আপলোড যায়নি (…)।,,ui,1,SupabaseClient.kt
-অডিও আপলোড যায়নি।,,ui,1,ReaderWorkspaceViewModel.kt
-অডিও আপলোডের অনুমতি নেই। আবার সাইন ইন করে চেষ্টা করুন।,,ui,1,SupabaseClient.kt
-অডিও ফাইল খালি।,,ui,1,SupabaseClient.kt
-অডিও ফাইল পড়া যায়নি।,,ui,1,SupabaseClient.kt
-অডিওতে ফিরুন,,ui,1,MusicPlayer.kt
-অধ্যাপক বারীন্দ্র কুমার সিংহ ও সম্পাদনা পরিষদ,,content,1,NinghsingCheContentData.kt
-"অনন্য রাগ, পাখোয়াজ ও করতাল সংবলিত মণিপুরি লোকসংগীতের গভীরতা, বৈষ্ণব পদাবলী এবং বাউলধারার সমন্বিত রূপ।",,content,1,NinghsingCheContentData.kt
-অনুমোদনের পর আপনার মন্তব্য এখানে প্রকাশিত হবে।,,ui,1,ArticleScreen.kt
-"অন্তত দুই অক্ষর লিখুন। শিরোনাম, উপশিরোনাম ও স্লাগে খোঁজা হয়।",,ui,1,ListScreens.kt
-অন্বেষণ,,ui,1,PortalDrawer.kt
-অন্য অ্যাপে খুলুন,,ui,1,PdfViewerScreen.kt
-অন্য ধরন লিখুন,,ui,1,GenreCombobox.kt
-অন্য শব্দ দিয়ে খুঁজুন বা বিভাগ ফিল্টার বদলান।,,ui,1,BookmarksScreen.kt
-অপর্ণা,,content,1,AuthorProfiles.kt
-অফলাইন ক্যাশ সিঙ্ক ও পরিষ্কার করুন,,ui,1,SettingsScreen.kt
-অফলাইন ক্যাশে …টি প্রবন্ধ,,ui,1,ArticleRepository.kt
-অফলাইনে পড়ার জন্য সংরক্ষিত লেখা,,ui,1,BookmarksScreen.kt
-অফলাইনে সংরক্ষিত,,ui,1,MusicPlayer.kt
-অরুন,,content,1,AuthorProfiles.kt
-অর্চনা,,content,1,AuthorProfiles.kt
-অ্যাডমিন,,ui,1,UserDashboardScreen.kt
-অ্যাডমিন নতুন বার্তা পাঠালে,,ui,1,AppNotificationManager.kt
-অ্যাডমিন বার্তা,,ui,1,AppNotificationManager.kt
-অ্যাডমিনকে প্রশ্ন বা অনুরোধ পাঠান। উত্তর এখানে দেখাবে।,,ui,1,UserDashboardScreen.kt
-অ্যানোটেশন দেখান,,ui,1,PdfViewerScreen.kt
-অ্যান্ড্রয়েড সিস্টেম নোটিফিকেশন চালু রাখুন,,ui,1,SettingsScreen.kt
-অ্যাপ আপডেট হয়েছে,,ui,1,ContentUpdateNotifier.kt
-অ্যাপ ও সাইট হালনাগাদ,,ui,1,AppNotificationManager.kt
-অ্যাপ থিম নির্বাচন,,ui,1,SettingsScreen.kt
-অ্যাপ শেয়ার করুন,,ui,1,PortalDrawer.kt
-অ্যাপ সংস্করণ ও সাইট হালনাগাদ,,ui,1,SettingsScreen.kt
-অ্যাপে MP3 সংরক্ষণ,,ui,1,MusicPlayer.kt
-আগস্ট,,ui,1,UserDashboardCharts.kt
-আগের কাজ,,ui,1,HtmlContentEditor.kt
-আগের গান,,ui,1,MusicPlayer.kt
-আগের ছবি,,ui,1,EditorialComponents.kt
-আগের পৃষ্ঠা,,ui,1,PdfViewerScreen.kt
-আগের বার্তা লোড করুন,,ui,1,UserDashboardScreen.kt
-আজ,,ui,1,ArticleRepository.kt
-আধুনিক,,ui,1,MusicGenres.kt
-"আধুনিক বিষ্ণুপ্রিয়া মণিপুরি প্রবন্ধ, কবিতা, ডিজিটাল সাহিত্য ও সমকালীন শিল্পভাবনার সংকলন।",,content,1,NinghsingCheContentData.kt
-আধুনিক বিষ্ণুপ্রিয়া মণিপুরি সাহিত্য ও ডিজিটাল তথ্য সংরক্ষণের বিশেষ সংখ্যা।,,content,1,NinghsingCheContentData.kt
-আধুনিক যুগে মণিপুরি ইঞ্চৌঘরের ঐতিহ্য কীভাবে সংরক্ষিত হচ্ছে?,,ui,1,NinghsingCheAiAssistant.kt
-আধুনিক সাহিত্য,,content,1,NinghsingCheContentData.kt
-আধ্যাত্মিক,,ui,1,MusicGenres.kt
-আপনার কোনো মন্তব্য পাওয়া যায়নি।,,ui,1,UserDashboardScreen.kt
-আপনার নাম *,,ui,1,ArticleCommentForm.kt
-আপনার পছন্দের প্রদর্শন শৈলী নির্বাচন করুন:,,ui,1,SettingsScreen.kt
-আপনার মন্তব্য সফলভাবে প্রকাশিত হয়েছে!,,ui,1,ArticleRepository.kt
-আপনার মূল্যবান মন্তব্য *,,ui,1,ArticleCommentForm.kt
-আপনার সংরক্ষিত প্লেলিস্ট,,ui,1,MusicScreen.kt
-আপনি,,ui,1,UserDashboardScreen.kt
-আপলোড সার্ভার এখন সাড়া দিচ্ছে না (…)।,,ui,1,SatoruUploadClient.kt
-আপলোড সার্ভার ঠিকানা দেয়নি।,,ui,1,SatoruUploadClient.kt
-আমাদের অনুসরণ করুন,,ui,1,SiteFooter.kt
-আমাদের সম্পর্কে,,ui,1,SiteFooter.kt
-আমার ড্যাশবোর্ড,,ui,1,UserDashboardScreen.kt
-আমি নিংশিং চে AI...,,ui,1,NinghsingCheAiAssistant.kt
-আরও,,ui,1,MusicPlayer.kt
-আরতী,,ui,1,MusicGenres.kt
-আর্কাইভ,,content,1,NinghsingCheContentData.kt
-"আসাম, ভারত",,content,1,NinghsingCheContentData.kt
-ইউনিকোড,,content,1,NinghsingCheContentData.kt
-ইঞ্চৌঘর ও মণিপুরি লোকস্থাপত্য সমীক্ষা,,content,1,NinghsingCheContentData.kt
-ইঞ্চৌঘরের স্থাপত্যরীতিতে বাঁশ ও কাঠের ব্যবহার কীভাবে হয়?,,ui,1,NinghsingCheAiAssistant.kt
-ইনস্টল্ড ডিভাইস থেকে সরাসরি সংগৃহীত অফিশিয়াল প্যাকেজ,,ui,1,SettingsScreen.kt
-ইন্টারনেট সংযোগ নেই।,,ui,1,MusicController.kt
-ইন্টারনেট সংযোগ নেই। সংরক্ষিত আর্কাইভ দেখানো হচ্ছে।,,ui,1,PortalModels.kt
-ইন্টারনেট সংযোগ যাচাই করে আবার চেষ্টা করুন। আপনার মন্তব্য মুছে ফেলা হয়নি।,,ui,1,ReaderViewModels.kt
-ইমন,,content,1,AuthorProfiles.kt
-ইমার,,ui,1,NingshingCheWebsiteClient.kt
-ইমার ঠারর এলা,,ui,1,NingshingCheWebsiteClient.kt
-ইমার-ঠারর-এলা,,ui,1,EditorialComponents.kt
-ইমেইল (ঐচ্ছিক),,ui,1,ArticleCommentForm.kt
-ইমেইল (পরিবর্তন করা যায় না),,ui,1,UserProfileScreen.kt
-উচ্চতা,,ui,1,PdfViewerScreen.kt
-উত্তম,,content,1,AuthorProfiles.kt
-উত্তর কপি করা হয়েছে,,ui,1,ArticleScreen.kt
-"উত্তর-পূর্ব ভারতের মণিপুরি জনজাতির বাস্তুসংস্থান, ইঞ্চৌঘরের স্থাপত্য ও পৌরাণিক লোকগাথা সংক্রান্ত গবেষণার জন্য সমাদৃত।",,content,1,NinghsingCheContentData.kt
-উপর-নিচ স্ক্রল করে পুরো বই পড়ুন।,,ui,1,PdfViewerScreen.kt
-এআই সহায়িকা,,ui,1,ArticleScreen.kt
-এই অডিও ফর্ম্যাট সাপোর্টেড নয়। এমপি৩ নির্বাচন করুন।,,ui,1,SupabaseClient.kt
-এই গানের লিরিক এখনো যোগ করা হয়নি।,,ui,1,MusicPlayer.kt
-এই ডিভাইসে কোনো Google অ্যাকাউন্ট পাওয়া যায়নি। একটি Google অ্যাকাউন্ট যোগ করে আবার চেষ্টা করুন।,,ui,1,GoogleAuthMapper.kt
-এই ডিভাইসে সংরক্ষিত MP3,,ui,1,MusicScreen.kt
-এই নিবন্ধ থেকে কী কী মূল বিষয় বা শিক্ষা পাওয়া যায়?,,ui,1,ArticleScreen.kt
-এই নিবন্ধ সম্পর্কে প্রশ্ন লিখুন...,,ui,1,ArticleScreen.kt
-এই নিবন্ধে এই বিষয়ে কোনো তথ্য উল্লেখ করা হয়নি। নিংশিং চে মূল এআই সহায়িকায় প্রশ্নটি জিজ্ঞাসা করতে পারেন।,,ui,1,NinghsingCheAiAssistant.kt
-এই নিবন্ধে লেখকের মূল বক্তব্য ও লক্ষ্য কী?,,ui,1,ArticleScreen.kt
-এই নিবন্ধের একটি সংক্ষিপ্ত ও গোছানো সারসংক্ষেপ দিন।,,ui,1,ArticleScreen.kt
-এই নিবন্ধের মূল বার্তা বা সিদ্ধান্ত কী?,,ui,1,NinghsingCheAiAssistant.kt
-এই প্রবন্ধে কোনো বিষয়বস্তু পাওয়া যায়নি।,,ui,1,HtmlArticleRenderer.kt
-এই বইয়ের পিডিএফ লিংক নেই।,,ui,1,MainViewModels.kt
-এই …-এ কোনো গান নেই।,,ui,1,MusicBrowseScreens.kt
-এক দশকের সাহিত্যিক অভিযাত্রা এবং ঐতিহাসিক গবেষণা সংকলন।,,content,1,NinghsingCheContentData.kt
-এক পাতায় একটি পৃষ্ঠা। বাঁদিকে/ডানদিকে সোয়াইপ করলে পাতা উল্টে।,,ui,1,PdfViewerScreen.kt
-"একটি সাংস্কৃতিক আন্দোলনের এক দশকের পথপরিক্রমা, প্রাপ্তি ও আগামী দিনের ডিজিটাল রূপকল্প।",,content,1,NinghsingCheContentData.kt
-এখন নয়,,ui,1,WelcomeOnboardingScreen.kt
-এখন বাজছে,,ui,1,MusicPlayer.kt
-এখনো কোনো গান জমা দেননি।,,ui,1,UserDashboardScreen.kt
-এখনো কোনো গান পছন্দ করা হয়নি।,,ui,1,MusicScreen.kt
-এখনো কোনো নির্বাচিত লেখা নেই।,,ui,1,ExploreScreen.kt
-এখনো কোনো প্রবন্ধ জমা দেওয়া হয়নি।,,ui,1,UserDashboardCharts.kt
-এখনো কোনো প্রবন্ধ জমা দেননি।,,ui,1,UserDashboardScreen.kt
-এখনো কোনো প্রবন্ধ প্রকাশিত হয়নি।,,ui,1,HomeScreen.kt
-এখনো কোনো প্রবন্ধ বা গান জমা দেননি।,,ui,1,UserDashboardScreen.kt
-এখনো কোনো বার্ষিক সংখ্যা প্রকাশিত হয়নি।,,ui,1,ExploreScreen.kt
-এখনো কোনো বিজ্ঞপ্তি নেই। প্রবন্ধ বা মন্তব্য প্রকাশিত হলে এখানে দেখাবে।,,ui,1,UserDashboardScreen.kt
-এখনো কোনো ভিডিও প্রকাশিত হয়নি।,,ui,1,VideosScreen.kt
-এখনো কোনো মন্তব্য নেই,,ui,1,ArticleScreen.kt
-এখনো কোনো সামাজিক কার্যকলাপের লেখা প্রকাশিত হয়নি।,,ui,1,PortalPages.kt
-এগুলোও পড়ুন,,ui,1,ArticleScreen.kt
-এপ্রিল,,ui,1,UserDashboardCharts.kt
-এমপি৩ ফাইল নির্বাচন করুন।,,ui,1,ReaderWorkspaceViewModel.kt
-এলাহান বরিক,,ui,1,NewMusicScreen.kt
-ঐতিহাসিক গবেষণা প্রকাশনা (২০২৩),,content,1,NinghsingCheContentData.kt
-ঐতিহাসিক ৩য় মুদ্রণ (২০১৬),,content,1,NinghsingCheContentData.kt
-"ঐতিহাসিক ৩য় মুদ্রণ সংখ্যা, প্রামাণ্য দলিল ও সমাজ সংস্কারের ইতিবৃত্ত।",,content,1,NinghsingCheContentData.kt
-ঐতিহ্যবাহী,,ui,1,MusicGenres.kt
-ঐতিহ্যবাহী ইঞ্চৌঘরের বিভিন্ন অংশের নাম ও সামাজিক তাৎপর্য কী?,,ui,1,NinghsingCheAiAssistant.kt
-"ঐতিহ্যবাহী মণিপুরি সমাজব্যবস্থা, লোকাচার, নৃত্যকলা, রাসলীলা, পোশাক-পরিচ্ছদ ও লোকসংগীত।",,content,1,NinghsingCheContentData.kt
-ওয়েবসাইট (ঐচ্ছিক),,ui,1,UserProfileScreen.kt
-কন্টেন্ট,,ui,1,UserDashboardScreen.kt
-কপি করুন,,ui,1,ArticleScreen.kt
-কপিরাইট © নিংশিং চে • সর্বস্বত্ব সংরক্ষিত,,ui,1,SettingsScreen.kt
-কবি ও জীবনীকার,,content,1,NinghsingCheContentData.kt
-"কবিতা, লোকগাথা, নাটক ও প্রাচীন পাণ্ডুলিপি সংকলন।",,content,1,NinghsingCheContentData.kt
-কমা বা ট্যাব চাপলে চিপ হবে,,ui,1,GenreCombobox.kt
-"করোনাকালের স্মৃতিচারণ, লোকঔষধ ও মণিপুরি লোকগাথার প্রামাণ্য রূপ।",,content,1,NinghsingCheContentData.kt
-কাজল,,content,1,AuthorProfiles.kt
-কাঞ্চন,,content,1,AuthorProfiles.kt
-কার্যক্রম,,ui,1,UserDashboardCharts.kt
-কুঙ্গ,,content,1,AuthorProfiles.kt
-কুমেই,,ui,1,NingshingCheWebsiteClient.kt
-কৃত্রিম বুদ্ধিমত্তা,,content,1,NinghsingCheContentData.kt
-কেহেম আইটি,,ui,1,SiteFooter.kt
-কোন মন্তব্য,,ui,1,NingshingCheWebsiteClient.kt
-কোনো অ্যালবাম নেই।,,ui,1,MusicScreen.kt
-কোনো অ্যালবাম মেলেনি।,,ui,1,MusicScreen.kt
-কোনো গান অ্যাপে সংরক্ষণ করা হয়নি।,,ui,1,MusicScreen.kt
-কোনো গান মেলেনি।,,ui,1,MusicScreen.kt
-কোনো তথ্য পাওয়া যায়নি।,,ui,1,PortalModels.kt
-কোনো ধরন নেই।,,ui,1,MusicScreen.kt
-কোনো ধরন মেলেনি।,,ui,1,MusicScreen.kt
-কোনো ফিচার্ড প্রবন্ধ পাওয়া যায়নি।,,ui,1,PortalPages.kt
-কোনো বিভাগ পাওয়া যায়নি।,,ui,1,ExploreScreen.kt
-কোনো মিল পাওয়া যায়নি,,ui,1,BookmarksScreen.kt
-কোনো শিল্পী নেই।,,ui,1,MusicScreen.kt
-কোনো শিল্পী মেলেনি।,,ui,1,MusicScreen.kt
-কোনো সংরক্ষিত প্রবন্ধ নেই,,ui,1,BookmarksScreen.kt
-ক্যাটাগরির প্রবন্ধহানি,,ui,1,ListScreens.kt
-ক্যাশ খালি করা হয়েছে এবং তথ্য হালনাগাদ করা হয়েছে,,ui,1,SettingsScreen.kt
-খোঁজার ফলাফল,,ui,1,MusicScreen.kt
-গবেষণা,,content,1,NinghsingCheContentData.kt
-গল্প,,content,1,NinghsingCheContentData.kt
-গান · …,,ui,1,UserDashboardScreen.kt
-গান আপলোড যায়নি (…)।,,ui,1,SatoruUploadClient.kt
-গান জমা যায়নি (…)। প্রোফাইল সম্পূর্ণ করে আবার চেষ্টা করুন।,,ui,1,SupabaseClient.kt
-গান জমা যায়নি।,,ui,1,ReaderWorkspaceViewModel.kt
-গান জমা যায়নি। আবার সাইন ইন করে চেষ্টা করুন।,,ui,1,SupabaseClient.kt
-গান জমা হয়েছে,,ui,1,NewMusicScreen.kt
-গান জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর যুক্ত হবে।,,ui,1,ReaderWorkspaceViewModel.kt
-গান বাজানো যায়নি। ফাইল লিংক যাচাই করুন।,,ui,1,MusicController.kt
-গান যোগ,,ui,1,UserDashboardScreen.kt
-"গান, শিল্পী, অ্যালবাম, ধরন…",,ui,1,MusicBrowseScreens.kt
-গানের ফাইল পাওয়া যায়নি।,,ui,1,MusicController.kt
-গানের ফাইল লিংক নেই।,,ui,1,MusicLibraryStore.kt
-গানের বিবরণ,,ui,1,MusicPlayer.kt
-গানের লিংক মেয়াদ শেষ বা বন্ধ। ড্যাশবোর্ড থেকে MP3 আবার আপলোড করুন।,,ui,1,MusicController.kt
-গাফফার,,content,1,AuthorProfiles.kt
-গীতশ্রী,,content,1,AuthorProfiles.kt
-গৃহ,,ui,1,NinghsingCheAiAssistant.kt
-গোকুলানন্দ গীতিস্বামী,,content,1,NinghsingCheContentData.kt
-গোত্র,,content,1,NinghsingCheContentData.kt
-গোপনীয়তা নীতি,,ui,1,SiteFooter.kt
-গ্যালারি ও অন্যান্য আপডেট,,ui,1,AppNotificationManager.kt
-গ্যালারি ও বাকি আপডেট,,ui,1,SettingsScreen.kt
-গ্রন্থাগার,,ui,1,PdfViewerScreen.kt
-চন্দ্র মোহন,,content,1,AuthorProfiles.kt
-চলচ্চিত্র,,ui,1,MusicGenres.kt
-চৈত্র সংক্রান্তি ও বৈশাখের মিলনে উদযাপিত বিষ্ণুপ্রিয়া মণিপুরিদের ঐতিহ্যবাহী 'বিশু' উৎসবের পুণ্য আচার ও সামাজিক মিলনমেলা।,,content,1,NinghsingCheContentData.kt
-ছবি আপডেট,,ui,1,UserProfileScreen.kt
-ছবি আপলোড হচ্ছে…,,ui,1,HtmlContentEditor.kt
-ছবি আপলোড হয়নি।,,ui,1,HtmlContentEditor.kt
-ছবি বা পিডিএফ,,ui,1,UserDashboardScreen.kt
-ছবি যোগ,,ui,1,HtmlContentEditor.kt
-ছবি লোড করা যায়নি,,ui,1,HtmlArticleRenderer.kt
-ছবি সংরক্ষণ যায়নি।,,ui,1,ReaderWorkspaceViewModel.kt
-ছবির আকার ৩২ মেগাবাইটের বেশি হতে পারবে না (Exceeds 32MB limit: …MB),,ui,1,ImgBbUploader.kt
-ছবির আকার ৩২ মেগাবাইটের বেশি হতে পারবে না (Image exceeds 32MB),,ui,1,ImgBbUploader.kt
-ছবির ফাইল পড়া যাচ্ছে না (Cannot read image file),,ui,1,ImgBbUploader.kt
-জনপ্রিয় ও নির্বাচিত,,ui,1,Screen.kt
-জানু,,ui,1,UserDashboardCharts.kt
-জিজ্ঞাসা করুন,,ui,1,AiAssistantScreen.kt
-জিতেন্দ্র,,content,1,AuthorProfiles.kt
-জুন,,ui,1,UserDashboardCharts.kt
-জুম করতে দুই আঙুল ব্যবহার করুন,,ui,1,HtmlArticleRenderer.kt
-জুম রিসেট করতে ট্যাপ করুন,,ui,1,HtmlArticleRenderer.kt
-জুলাই,,ui,1,UserDashboardCharts.kt
-জেলা / দেশ (ঐচ্ছিক),,ui,1,UserProfileScreen.kt
-"জ্ঞান, ইতিহাস ও সাহিত্যের মুক্ত তথ্যকোষ",,ui,1,SplashScreen.kt
-ট্যাগসমূহ,,ui,1,ArticleScreen.kt
-ঠার,,ui,1,NingshingCheWebsiteClient.kt
-ঠিকানা,,ui,1,UserProfileScreen.kt
-ঠিকানা দিন।,,ui,1,ReaderWorkspaceViewModel.kt
-"ঠিকানা: তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট",,ui,1,PortalPages.kt
-ড.,,content,1,AuthorProfiles.kt
-ড. প্রদীপ সিংহ ও সুজিত সিংহ,,content,1,NinghsingCheContentData.kt
-ডা.,,content,1,AuthorProfiles.kt
-ডাউনলোড ব্যর্থ হয়েছে: …,,ui,1,MainViewModels.kt
-ডাউনলোড হয়নি,,ui,1,PdfArchiveScreen.kt
-ডাকনাম,,ui,1,NinghsingCheAiAssistant.kt
-ডার্ক থিম,,ui,1,SettingsScreen.kt
-ডিজিটাল আর্কাইভ ও প্রযুক্তি সংগ্রাহক,,content,1,NinghsingCheContentData.kt
-ডিজিটাল গ্রন্থাগার,,ui,1,PdfArchiveScreen.kt
-ডিজিটাল বই ও পত্রিকা প্রকাশিত হলে,,ui,1,SettingsScreen.kt
-"ডিজিটাল মাধ্যমে বিষ্ণুপ্রিয়া মণিপুরি ইউনিকোড ফন্ট, তথ্যকোষ এবং অনলাইন লাইব্রেরি তৈরিতে গুরুত্বপূর্ণ অবদান রাখছেন।",,content,1,NinghsingCheContentData.kt
-ডিজিটাল যুগে ভাষা সংরক্ষণ: ইউনিকোড ও ওপেন নলেজ আর্কাইভ,,content,1,NinghsingCheContentData.kt
-ডিভাইসে সফলভাবে ডাউনলোড হয়েছে: …,,ui,1,ApkManager.kt
-ডিসে,,ui,1,UserDashboardCharts.kt
-ডেটাবেজ আপডেট প্রয়োজন।,,ui,1,PortalRepository.kt
-ডেটাবেজ টেবিল পাওয়া যায়নি। অনুগ্রহ করে সার্ভার কনফিগারেশন যাচাই করুন।,,ui,1,PortalRepository.kt
-ড্যাশবোর্ড ও নতুন প্রবন্ধ ব্যবহার করতে প্রোফাইলের সব আবশ্যক ঘর পূরণ করুন।,,ui,1,UserProfileScreen.kt
-"ঢাকা, বাংলাদেশ",,content,1,NinghsingCheContentData.kt
-তথ্য লোড করতে সমস্যা হয়েছে।,,ui,1,ReaderViewModels.kt
-তথ্য লোড করতে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।,,ui,1,PortalModels.kt
-"তথ্যকোষের উদ্দেশ্য, পরিকল্পনা ও বিষ্ণুপ্রিয়া মণিপুরি সাহিত্যের পটভূমি সংক্রান্ত সামগ্রিক ভূমিকা।",,content,1,NinghsingCheContentData.kt
-তথ্যসূত্র ও গবেষণা প্রবন্ধ:,,ui,1,AiAssistantScreen.kt
-তাক …,,ui,1,PdfArchiveScreen.kt
-"তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট",,ui,1,SiteFooter.kt
-তৈরি,,ui,1,MusicScreen.kt
-তৈরি করুন,,ui,1,MusicPlayer.kt
-"ত্রিপুরা, ভারত",,content,1,NinghsingCheContentData.kt
-থাঙ,,content,1,AuthorProfiles.kt
-থাবল চোংবা,,content,1,NinghsingCheContentData.kt
-থামান,,ui,1,NewMusicScreen.kt
-থিম: ডার্ক,,ui,1,PortalDrawer.kt
-থিম: লাইট,,ui,1,PortalDrawer.kt
-থিম: সিস্টেম (স্বয়ংক্রিয়),,ui,1,PortalDrawer.kt
-দিপা,,content,1,AuthorProfiles.kt
-"দুঃখিত, উত্তর তৈরি করতে সমস্যা হয়েছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।",,ui,1,ArticleScreen.kt
-"দুঃখিত, তথ্য সংগ্রহে একটি ত্রুটি দেখা দিয়েছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।",,ui,1,MainViewModels.kt
-দুবার ট্যাপে জুম,,ui,1,PdfViewerScreen.kt
-দৃশ্য,,ui,1,PdfViewerScreen.kt
-দেখা হয়েছে,,ui,1,UserDashboardScreen.kt
-দেবাঞ্জলি,,content,1,AuthorProfiles.kt
-দেশাত্মবোধক,,ui,1,MusicGenres.kt
-দ্বাদশ বর্ষ ১ম সংখ্যা (২০২৫),,content,1,NinghsingCheContentData.kt
-দ্রুত লিংকসমূহ,,ui,1,SiteFooter.kt
-ধরন / ক্যাটাগরি,,ui,1,GenreCombobox.kt
-ধ্রুমেল,,ui,1,MusicGenres.kt
-নতুন PDF বই প্রকাশিত হলে,,ui,1,AppNotificationManager.kt
-নতুন ও নির্বাচিত প্রবন্ধ প্রকাশিত হলে,,ui,1,AppNotificationManager.kt
-নতুন কিছু প্রকাশিত হলে অ্যান্ড্রয়েড নোটিফিকেশনে জানানো হবে।,,ui,1,WelcomeOnboardingScreen.kt
-নতুন গান,,ui,1,NewMusicScreen.kt
-নতুন ছবি,,ui,1,ContentNotice.kt
-নতুন প্রকাশিত প্রবন্ধ এলে জানান,,ui,1,SettingsScreen.kt
-নতুন প্রবন্ধসমূহ পুনরায় সিঙ্ক করবে,,ui,1,SettingsScreen.kt
-নতুন ভিডিও যোগ হলে,,ui,1,AppNotificationManager.kt
-নথি,,content,1,NinghsingCheContentData.kt
-নবকুমার,,content,1,AuthorProfiles.kt
-নববর্ষ,,content,1,NinghsingCheContentData.kt
-নভে,,ui,1,UserDashboardCharts.kt
-"নমস্কার! আমি এই নিবন্ধের এআই সহায়িকা।  📌 **""…""** নিবন্ধটির যেকোনো তথ্য, বিশ্লেষণ বা মূল ভাব সম্পর্কে জানতে নিচের দ্রুত প্রশ্ন বেছে নিন অথবা নিচে আপনার প্রশ্ন লিখুন।",,ui,1,ArticleScreen.kt
-"নমস্কার! আমি নিংশিং চে AI সহকারী। বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, ঐতিহ্য ও সাধারণ জ্ঞানের প্রবন্ধ বিশ্লেষণ করে আমি সঠিক তথ্য প্রদান করি। ইঞ্চৌঘর, মিংকৌ, ভাষা আন্দোলন বা যেকোনো বিষয়ে প্রশ্ন করতে পারেন।",,ui,1,MainViewModels.kt
-নাটক,,ui,1,EditorialComponents.kt
-নাম,,ui,1,NinghsingCheAiAssistant.kt
-নাম ও মন্তব্য আবশ্যক।,,ui,1,ReaderViewModels.kt
-নাম লিখুন,,ui,1,MusicPlayer.kt
-নামের প্রথম অংশ,,ui,1,UserProfileScreen.kt
-নামের প্রথম ও শেষ অংশ পূরণ করুন।,,ui,1,ReaderWorkspaceViewModel.kt
-নামের শেষ অংশ,,ui,1,UserProfileScreen.kt
-নিংশিং চে APK ডাউনলোড (সরাসরি লোকাল প্যাকেজ),,ui,1,SettingsScreen.kt
-নিংশিং চে APK ফাইল পাঠান / শেয়ার করুন,,ui,1,ApkManager.kt
-নিংশিং চে PDF …,,ui,1,NingshingCheWebsiteClient.kt
-নিংশিং চে অ্যাপ শেয়ার করুন,,ui,1,ReaderNavHost.kt
-নিংশিং চে ডিজিটাল আর্কাইভে এ বিষয়ে আর কী কী তথ্য আছে?,,ui,1,NinghsingCheAiAssistant.kt
-"নিংশিং চে তথ্যকোষে প্রকাশিত লেখক। … এর রচনাসমূহ ইতিহাস, সাহিত্য ও সংস্কৃতি বিষয়ে পাওয়া যায়।",,ui,1,NingshingCheWebsiteClient.kt
-নিংশিং চে তথ্যকোষের জন্মলগ্নের ঐতিহাসিক প্রথম প্রকাশনা ও প্রতিষ্ঠাতা রূপরেখা।,,content,1,NinghsingCheContentData.kt
-নিংশিং চে তথ্যকোষের লেখক ও গবেষকবৃন্দ,,ui,1,PortalPages.kt
-"নিংশিং চে বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, ইতিহাস ও সংস্কৃতির ডিজিটাল তথ্যকোষ। পোর্টালটি তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট থেকে পরিচালিত।",,ui,1,PortalPages.kt
-নিংশিং চে মুদ্রিত সংখ্যা ও স্মারকপত্র,,ui,1,PdfArchiveScreen.kt
-নিংশিং চে সাহিত্য পর্ষদ,,content,1,NinghsingCheContentData.kt
-নিংশিং চে — অষ্টম বর্ষ (২০২১),,content,1,NinghsingCheContentData.kt
-নিংশিং চে — একাদশ বর্ষ (২০২৪),,content,1,NinghsingCheContentData.kt
-নিংশিং চে — একাদশ বর্ষ শারদীয় সংখ্যা (২০২৪),,content,1,NinghsingCheContentData.kt
-নিংশিং চে — দশম বর্ষ (২০২৩),,content,1,NinghsingCheContentData.kt
-নিংশিং চে — দ্বাদশ বর্ষ (২০২৫),,content,1,NinghsingCheContentData.kt
-নিংশিং চে — দ্বাদশ বার্ষিক সংখ্যা (২০২৫),,content,1,NinghsingCheContentData.kt
-নিংশিং চে — নবম বর্ষ (২০২২),,content,1,NinghsingCheContentData.kt
-নিংশিং চে — পঞ্চম বর্ষ (২০১৮),,content,1,NinghsingCheContentData.kt
-নিংশিং চে — প্রারম্ভিক মুদ্রণ সংখ্যা (২০১৪),,content,1,NinghsingCheContentData.kt
-নিংশিং চে — প্রারম্ভিক সংখ্যা (২০১৪),,content,1,NinghsingCheContentData.kt
-নিংশিং চে — বিষ্ণুপ্রিয়া মণিপুরি ডিজিটাল তথ্যকোষ ও আর্কাইভ অ্যান্ড্রয়েড অ্যাপ (সংস্করণ …)। ইনস্টল করতে সরাসরি এই APK ফাইলটি ব্যবহার করুন।,,ui,1,ApkManager.kt
-নিংশিং চে — বিষ্ণুপ্রিয়া মণিপুরি সাহিত্য ও সংস্কৃতি পোর্টাল https://ningshingche.com,,ui,1,ReaderNavHost.kt
-নিংশিং চে — ষষ্ঠ বর্ষ (২০১৯),,content,1,NinghsingCheContentData.kt
-নিংশিং চে — সপ্তম বর্ষ (২০২০),,content,1,NinghsingCheContentData.kt
-নিংশিং চে — সুবর্ণ জয়ন্তী বিশেষ সংকলন,,content,1,NinghsingCheContentData.kt
-নিংশিং চে — ৩য় সংখ্যা (২০১৬),,content,1,NinghsingCheContentData.kt
-নিংশিং চে — ৩য় সংখ্যা মুদ্রণ সংস্করণ,,content,1,NinghsingCheContentData.kt
-নিংশিং চে — …,,ui,1,ArticleRepository.kt
-নিংশিং চে …,,ui,1,NingshingCheWebsiteClient.kt
-নিংশিং চে-তে … সালে প্রকাশিত প্রবন্ধ ও সংখ্যা।,,ui,1,ArticleRepository.kt
-"নিংশিং চে-র ঐতিহাসিক ৩য় মুদ্রণ সংখ্যা, যাতে স্থান পেয়েছিল বহু বিরল পাণ্ডুলিপি ও প্রাচীন কবিতা।",,content,1,NinghsingCheContentData.kt
-নিংশিং চে-র নতুন সংস্করণ ইনস্টল আছে।,,ui,1,ContentUpdateNotifier.kt
-"নিংশিং চে-র প্রথম পথচলা, তথ্যকোষের মূল রূপরেখা ও প্রতিষ্ঠাতা প্রবন্ধমালা।",,content,1,NinghsingCheContentData.kt
-"নিংশিং চে-র মূল ভাবনা, সাংস্কৃতিক পথপরিক্রমা এবং সমকালীন সমাজ ভাবনার সম্পাদকীয় প্রতিফলন।",,content,1,NinghsingCheContentData.kt
-নিংশিং চে-র সকল ডিজিটাল প্রকাশনা।,,ui,1,ArticleRepository.kt
-নিংশিং চে-র সকল প্রকাশিত ডিজিটাল ও মুদ্রিত পিডিএফ প্রকাশনা।,,content,1,NinghsingCheContentData.kt
-নিংশিং_চে_-_…,,ui,1,NingshingCheWebsiteClient.kt
-নিংশিংচে …,,ui,1,IssueTags.kt
-নিংশিংচে-,,ui,1,IssueTags.kt
-নিংশিংচে-…,,ui,1,IssueTags.kt
-নিংশিংচে.কম থেকে সংগৃহীত মূল ডিজিটাল সংস্করণ।,,ui,1,NingshingCheWebsiteClient.kt
-নিংশিংচে.কম থেকে …টি প্রবন্ধ হালনাগাদ হয়েছে,,ui,1,ArticleRepository.kt
-নিচে দাগ,,ui,1,HtmlContentEditor.kt
-নিচে যান,,ui,1,UserDashboardScreen.kt
-নিজস্ব প্রবন্ধ রচনা ও খসড়া সংরক্ষণ,,ui,1,SupabaseModels.kt
-নিজের সম্পর্কে,,ui,1,UserProfileScreen.kt
-নিজের সম্পর্কে সংক্ষিপ্ত পরিচিতি লিখুন।,,ui,1,ReaderWorkspaceViewModel.kt
-নিবন্ধ থেকে উত্তর তৈরি করা হচ্ছে...,,ui,1,ArticleScreen.kt
-নিবন্ধটিতে উল্লেখিত গুরুত্বপূর্ণ বিষয়গুলো সংক্ষেপে লিখুন,,ui,1,NinghsingCheAiAssistant.kt
-নিবন্ধটির সবচেয়ে গুরুত্বপূর্ণ ৩টি প্রশ্নোত্তর তৈরি করে দিন।,,ui,1,ArticleScreen.kt
-নিবন্ধিত পাঠক,,ui,1,ArticleCommentForm.kt
-নিবন্ধের প্রথম অংশ থেকে প্রাপ্ত সারসংক্ষেপ:,,ui,1,NinghsingCheAiAssistant.kt
-"নিয়মিত বার্ষিক সংখ্যা, শারদীয় ও বসন্ত উৎসব সংখ্যা।",,content,1,NinghsingCheContentData.kt
-নির্বাচিত,,ui,1,EditorialComponents.kt
-নির্বাচিত ফাইলটি কোনো বৈধ ছবি নয় (Not an image). Type: …,,ui,1,ImgBbUploader.kt
-নির্বাচিত লেখা,,ui,1,ExploreScreen.kt
-নুয়া লেখা,,ui,1,NingshingCheWebsiteClient.kt
-নৃতাত্ত্বিক ও লোকসাহিত্য বিশারদ,,content,1,NinghsingCheContentData.kt
-নৃত্যকলা,,content,1,NinghsingCheContentData.kt
-প,,ui,1,ArticleCommentForm.kt
-পঠন ইতিহাস মুছে ফেলা হয়েছে,,ui,1,SettingsScreen.kt
-পঠন ইতিহাস রিসেট করুন,,ui,1,SettingsScreen.kt
-পড়ার মতো কোনো লেখা পাওয়া যায়নি।,,ui,1,ArticleTtsPlayer.kt
-পড়ুন,,ui,1,EditorialComponents.kt
-পড়ে শোনানোর সময় ত্রুটি হয়েছে।,,ui,1,ArticleTtsPlayer.kt
-পদবি / পরিচয় (ঐচ্ছিক),,ui,1,UserProfileScreen.kt
-পরিবেশ,,content,1,NinghsingCheContentData.kt
-পরের ছবি,,ui,1,EditorialComponents.kt
-পরের পৃষ্ঠা,,ui,1,PdfViewerScreen.kt
-পর্যালোচনায়,,ui,1,UserDashboardScreen.kt
-পর্যালোচিত,,ui,1,UserDashboardScreen.kt
-পলাশ,,content,1,AuthorProfiles.kt
-পল্লী,,ui,1,MusicGenres.kt
-পাকরিক,,ui,1,PdfArchiveScreen.kt
-পাঠকের সেটিংস,,ui,1,PdfViewerScreen.kt
-পাঠানো হয়েছে,,ui,1,UserDashboardScreen.kt
-পাতা স্ন্যাপ,,ui,1,PdfViewerScreen.kt
-পাতার ফাঁক  ·  … dp,,ui,1,PdfViewerScreen.kt
-পালা-কীর্তন,,ui,1,MusicGenres.kt
-পিডিএফ খালি এসেছে।,,ui,1,PdfHelper.kt
-পিডিএফ খুলুন,,ui,1,PdfHelper.kt
-পিডিএফ খোলা হচ্ছে…,,ui,1,PdfViewerScreen.kt
-পিডিএফ ডাউনলোড হয়নি (…),,ui,1,PdfHelper.kt
-পিডিএফ পড়া যায়নি।,,ui,1,UserDashboardScreen.kt
-পিডিএফ পাঠক,,ui,1,PdfViewerScreen.kt
-পিডিএফ বই,,ui,1,ArticleScreen.kt
-পিডিএফ লিংক পাওয়া যায়নি।,,ui,1,PdfHelper.kt
-পূর্ণ আকারের ছবি,,ui,1,HtmlArticleRenderer.kt
-পৃষ্ঠা খোলা যায়নি,,ui,1,NingshingCheWebsiteClient.kt
-পৃষ্ঠা … / …,,ui,1,PdfViewerScreen.kt
-পৃষ্ঠায় যান,,ui,1,PdfViewerScreen.kt
-পেস্ট,,ui,1,HtmlContentEditor.kt
-পৌরাণিক লোকগাথা: মণিপুরের লোকতাক হ্রদ ও সৃষ্টির আখ্যান,,content,1,NinghsingCheContentData.kt
-পৌরাণিক-কাহিনী,,ui,1,EditorialComponents.kt
-"প্রকৃতির সাথে তাল মিলিয়ে নির্মিত পরিবেশবান্ধব বাঁশ, মাটি ও ছনের ঐতিহ্যবাহী ইঞ্চৌঘরের স্থাপত্য বিশ্লেষণ।",,content,1,NinghsingCheContentData.kt
-প্রকৃতির সাথে নিবিড় সম্পর্কের পরিচায়ক 'ইঞ্চৌঘর' ও মাটির তৈরি ভিটের বাস্তুসংস্থান ও নির্মাণ শৈলীর নান্দনিক পর্যালোচনা।,,content,1,NinghsingCheContentData.kt
-প্রতাপ,,content,1,AuthorProfiles.kt
-প্রতিষ্ঠা,,content,1,NinghsingCheContentData.kt
-প্রতিষ্ঠা ১ম সংখ্যা (২০১৪),,content,1,NinghsingCheContentData.kt
-প্রতিষ্ঠাতা সম্পাদক মণ্ডলী,,content,1,NinghsingCheContentData.kt
-প্রথম মন্তব্যটি আপনিই লিখুন।,,ui,1,ArticleScreen.kt
-প্রথম সংখ্যা,,content,1,NinghsingCheContentData.kt
-প্রথমবার খুললে সাইন-ইন প্রয়োজন। তারপর বিজ্ঞপ্তি চালু করতে পারবেন।,,ui,1,WelcomeOnboardingScreen.kt
-প্রধান প্রশাসক,,ui,1,SupabaseModels.kt
-প্রবন্ধ ও গান খুঁজুন...,,ui,1,ListScreens.kt
-প্রবন্ধ তালিকা লোড হয়নি (…),,ui,1,SupabaseClient.kt
-প্রবন্ধ যোগ,,ui,1,UserDashboardScreen.kt
-প্রবন্ধ সংরক্ষণ হয়েছে,,ui,1,MainViewModels.kt
-প্রবন্ধটি পাওয়া যায়নি।,,ui,1,ReaderViewModels.kt
-প্রবন্ধের অবস্থা,,ui,1,UserDashboardCharts.kt
-প্রবন্ধের ছবি,,ui,1,HtmlArticleRenderer.kt
-প্রবন্ধের শিরোনাম,,ui,1,NinghsingCheAiAssistant.kt
-প্রবেশ করা হচ্ছে...,,ui,1,GoogleSignInButton.kt
-প্রভাস,,content,1,AuthorProfiles.kt
-প্রস্তাবিত জিজ্ঞাসা:,,ui,1,AiAssistantScreen.kt
-প্রস্থ,,ui,1,PdfViewerScreen.kt
-প্রস্থ ও উচ্চতা দুটোই,,ui,1,PdfViewerScreen.kt
-"প্রাচীন লোকগাথা, বৈষ্ণব কাব্যানুবাদ, সেনাপতি রাজকুমার ও আধুনিক কবিদের লেখনীতে সমৃদ্ধ সাহিত্যধারার পরিক্রমা।",,content,1,NinghsingCheContentData.kt
-প্রাচীনকালের কিছু জনপ্রিয় ঐতিহাসিক মিংকৌ নাম কী কী?,,ui,1,NinghsingCheAiAssistant.kt
-প্রামাণ্য দলিল,,content,1,NinghsingCheContentData.kt
-প্রিভিউ,,ui,1,NewMusicScreen.kt
-প্রেম,,ui,1,MusicGenres.kt
-প্রোফাইল অসম্পূর্ণ। নতুন প্রবন্ধ বা গান জমা দিতে আগে প্রোফাইল পূরণ করুন।,,ui,1,UserDashboardScreen.kt
-প্রোফাইল ছবি (ImgBB),,ui,1,UserProfileScreen.kt
-প্রোফাইল ছবি আপডেট হয়েছে।,,ui,1,ReaderWorkspaceViewModel.kt
-প্রোফাইল ছবি আপলোড করুন।,,ui,1,ReaderWorkspaceViewModel.kt
-প্রোফাইল সংরক্ষণ করুন,,ui,1,UserProfileScreen.kt
-প্রোফাইল সংরক্ষণ যায়নি (…)। SQL মাইগ্রেশন 006 চালানো হয়েছে কি?,,ui,1,SupabaseClient.kt
-প্রোফাইল সংরক্ষণ যায়নি।,,ui,1,ReaderWorkspaceViewModel.kt
-প্রোফাইল সংরক্ষিত হয়েছে।,,ui,1,ReaderWorkspaceViewModel.kt
-প্লেয়ার চালু হয়নি। আবার চেষ্টা করুন।,,ui,1,MusicController.kt
-প্লেলিস্ট,,ui,1,MusicScreen.kt
-প্লেলিস্ট তৈরি করতে উপরের + চাপুন।,,ui,1,MusicScreen.kt
-প্লেলিস্টের নাম,,ui,1,MusicScreen.kt
-ফর্ম টোকেন পাওয়া যায়নি,,ui,1,NingshingCheWebsiteClient.kt
-ফলাফল,,ui,1,ListScreens.kt
-ফাইল খালি।,,ui,1,MusicLibraryStore.kt
-ফাইল খোলা যায়নি।,,ui,1,SatoruUploadClient.kt
-ফাইলটি একটি বৈধ পিডিএফ নয়।,,ui,1,PdfHelper.kt
-ফিচা / ড,,ui,1,Type.kt
-ফিচারড,,ui,1,Type.kt
-ফিচার্ড ও সম্পাদকীয় পছন্দ,,ui,1,SettingsScreen.kt
-ফেব,,ui,1,UserDashboardCharts.kt
-ফোক-ফিউশন,,ui,1,MusicGenres.kt
-ফোন (ঐচ্ছিক),,ui,1,ArticleCommentForm.kt
-ফোন নম্বর,,ui,1,UserProfileScreen.kt
-ফোন নম্বর দিন।,,ui,1,ReaderWorkspaceViewModel.kt
-ফোন: +880 9638-781890,,ui,1,PortalPages.kt
-ফ্রেমে মিল,,ui,1,PdfViewerScreen.kt
-বংশনাম,,content,1,NinghsingCheContentData.kt
-বই,,ui,1,PdfViewerScreen.kt
-বই ও সাময়িকী,,ui,1,EditorialComponents.kt
-বই দৃশ্য  ·  সোয়াইপ করে পাতা উল্টান,,ui,1,PdfViewerScreen.kt
-বইটি খোলা যায়নি,,ui,1,PdfViewerScreen.kt
-বইটি খোলা যায়নি।,,ui,1,MainViewModels.kt
-বড় করুন,,ui,1,ArticleScreen.kt
-বড় করে দেখুন,,ui,1,HtmlArticleRenderer.kt
-বর্মেন্দ্র,,content,1,AuthorProfiles.kt
-বর্ষপূর্তি,,content,1,NinghsingCheContentData.kt
-বাঁকা,,ui,1,HtmlContentEditor.kt
-বাংলাদেশ,,ui,1,NingshingCheWebsiteClient.kt
-বাড়ি,,ui,1,NinghsingCheAiAssistant.kt
-বাতিল,,ui,1,MusicScreen.kt
-বাদ্যযন্ত্র,,ui,1,MusicGenres.kt
-বার্তা পাঠানো যায়নি (…)। SQL মাইগ্রেশন 007 চালান।,,ui,1,SupabaseClient.kt
-বার্তা পাঠানো যায়নি।,,ui,1,ReaderWorkspaceViewModel.kt
-বাস্তুসংস্থান,,content,1,NinghsingCheContentData.kt
-বিজ্ঞপ্তি (…),,ui,1,AccountHeaderButton.kt
-বিজ্ঞপ্তি ও আপডেট,,ui,1,SettingsScreen.kt
-বিজ্ঞান,,ui,1,NingshingCheWebsiteClient.kt
-বিজ্ঞান-ও-প্রযুক্তি,,ui,1,EditorialComponents.kt
-বিভাগ,,ui,1,ListScreens.kt
-"বিভাগ, লেখক, বার্ষিক সংখ্যা ও নির্বাচিত লেখা",,ui,1,ExploreScreen.kt
-বিরল পাণ্ডুলিপি,,content,1,NinghsingCheContentData.kt
-বিরহ,,ui,1,MusicGenres.kt
-বিশু উৎসব কীভাবে পালিত হয়?,,ui,1,MainViewModels.kt
-বিশু উৎসব: মণিপুরি নববর্ষের প্রকৃতি ও আত্মশুদ্ধির আনন্দধারা,,content,1,NinghsingCheContentData.kt
-বিশু উৎসবে ঐতিহ্যবাহী খাদ্যাভ্যাস ও পোশাক কেমন হয়?,,ui,1,NinghsingCheAiAssistant.kt
-বিশু উৎসবের উৎপত্তি ও পৌরাণিক তাৎপর্য কী?,,ui,1,NinghsingCheAiAssistant.kt
-বিশেষ নির্বাচন,,ui,1,HomeScreen.kt
-"বিশ্বের একমাত্র ভাসমান হ্রদ লোকতাককে ঘিরে গড়ে ওঠা বিষ্ণুপ্রিয়া মণিপুরি লোকবিশ্বাস, নাগরাজ এবং প্রকৃতি বন্দনা।",,content,1,NinghsingCheContentData.kt
-বিষয় ও বিভাগসমূহ,,ui,1,EditorialComponents.kt
-বিষু উৎসব,,ui,1,EditorialComponents.kt
-বিষ্ণুপ্রিয়া মণিপুরি ইতিহাস ও সুবর্ণ জয়ন্তীর বিশেষ প্রকাশনা।,,content,1,NinghsingCheContentData.kt
-বিষ্ণুপ্রিয়া মণিপুরি ঐতিহ্য ও বিশ্ব জ্ঞানকোষ,,ui,1,AiAssistantScreen.kt
-"বিষ্ণুপ্রিয়া মণিপুরি ঐতিহ্যবাহী লোকসংগীত, রাস উৎসব এবং যুব সমাজের সাংস্কৃতিক বিকাশ নিয়ে নিয়মিত প্রবন্ধ রচনা করেন।",,content,1,NinghsingCheContentData.kt
-বিষ্ণুপ্রিয়া মণিপুরি কবি ও প্রাবন্ধিকদের নির্বাচিত শ্রেষ্ঠ রচনার সংকলন।,,content,1,NinghsingCheContentData.kt
-"বিষ্ণুপ্রিয়া মণিপুরি কাব্যধারা, গল্প, নাটক, সমালোচনা এবং আধুনিক সাহিত্য আন্দোলনের রূপরেখা।",,content,1,NinghsingCheContentData.kt
-"বিষ্ণুপ্রিয়া মণিপুরি গোত্র, বংশনাম এবং আত্মপরিচয়ের প্রতীক 'মিংকৌ' ব্যবস্থার উৎপত্তি ও আধুনিক সমাজের প্রাসঙ্গিকতা।",,content,1,NinghsingCheContentData.kt
-"বিষ্ণুপ্রিয়া মণিপুরি জাতির প্রাচীন উৎপত্তি, মণিপুরের লোকতাক হ্রদের ইতিহাস ও অভিবাসনের ধারাবাহিক প্রেক্ষাপট।",,content,1,NinghsingCheContentData.kt
-বিষ্ণুপ্রিয়া মণিপুরি ভাষা আন্দোলন এবং প্রাচীন লোকসংস্কৃতি নিয়ে দীর্ঘদিন ধরে গবেষণা ও লেখালেখি করছেন। নিংশিং চে তথ্যকোষের অন্যতম প্রধান উপদেষ্টা।,,content,1,NinghsingCheContentData.kt
-বিষ্ণুপ্রিয়া মণিপুরি ভাষা আন্দোলন প্রামাণ্য দলিল,,content,1,NinghsingCheContentData.kt
-বিষ্ণুপ্রিয়া মণিপুরি ভাষা আন্দোলনের সংক্ষিপ্ত ইতিহাস ও তাৎপর্য,,content,1,NinghsingCheContentData.kt
-বিষ্ণুপ্রিয়া মণিপুরি ভাষা ও সংস্কৃতির ডিজিটাল সংকলন — নিংশিং চে।,,ui,1,ArticleScreen.kt
-বিষ্ণুপ্রিয়া মণিপুরি ভাষা ও সাহিত্যের উৎপত্তি সম্পর্কে জানতে চাই,,ui,1,NinghsingCheAiAssistant.kt
-"বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, ইতিহাস, সংস্কৃতি ও ঐতিহ্যের একমাত্র প্রামাণ্য ও মুক্ত ডিজিটাল তথ্যকোষ ও আর্কাইভ।",,ui,1,SettingsScreen.kt
-"বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, সংস্কৃতি ও ইতিহাসের যে কোনো প্রশ্ন করুন",,ui,1,EditorialComponents.kt
-"বিষ্ণুপ্রিয়া মণিপুরি ভাষায় প্রকাশিত বই, সাময়িকী ও গবেষণাকর্মের নিরপেক্ষ বিশ্লেষণ ও গ্রন্থালোচনা।",,content,1,NinghsingCheContentData.kt
-বিষ্ণুপ্রিয়া মণিপুরি ভাষার নারী লেখক ও শহীদ সুদেষ্ণা সিংহের আত্মত্যাগের ঐতিহাসিক প্রেক্ষাপট নিয়ে তাৎপর্যপূর্ণ গ্রন্থ রচনা করেছেন।,,content,1,NinghsingCheContentData.kt
-"বিষ্ণুপ্রিয়া মণিপুরি ভাষার পঞ্চাশ বছরের সাহিত্য, সমাজবিকাশ ও সাংস্কৃতিক আন্দোলনের প্রামাণ্য সুবর্ণ জয়ন্তী সংকলন।",,content,1,NinghsingCheContentData.kt
-"বিষ্ণুপ্রিয়া মণিপুরি ভাষার প্রথিতযশা গবেষক, কবি ও লেখকদের পরিচিতি ও লেখনী।",,content,1,NinghsingCheContentData.kt
-বিষ্ণুপ্রিয়া মণিপুরি ভাষার সাংবিধানিক স্বীকৃতির ইতিহাস কী?,,ui,1,NinghsingCheAiAssistant.kt
-"বিষ্ণুপ্রিয়া মণিপুরি মাতৃভাষা আন্দোলনে প্রথম নারী শহীদ সুদেষ্ণা সিংহের সংগ্রামী জীবন, আত্মোৎসর্গ ও অমর স্মৃতিগাঁথা।",,content,1,NinghsingCheContentData.kt
-"বিষ্ণুপ্রিয়া মণিপুরি লোকবিশ্বাস, পৌরাণিক দেব-দেবী, লাই-হারাওবা এবং কিংবদন্তির আখ্যান।",,content,1,NinghsingCheContentData.kt
-"বিষ্ণুপ্রিয়া মণিপুরি লোকসংগীত, পৌরাণিক ঐতিহ্য ও সমাজসংস্কৃতি সংখ্যা।",,content,1,NinghsingCheContentData.kt
-বিষ্ণুপ্রিয়া মণিপুরি সমাজে মিংকৌ নাম রাখার নিয়মাবলী কী?,,ui,1,NinghsingCheAiAssistant.kt
-বিষ্ণুপ্রিয়া মণিপুরি সমাজের ঐতিহ্যবাহী লোকসংগীত ও রাগধারা,,content,1,NinghsingCheContentData.kt
-বিষ্ণুপ্রিয়া মণিপুরি সাহিত্য ও সংস্কৃতি পোর্টাল,,ui,1,SplashScreen.kt
-বিষ্ণুপ্রিয়া মণিপুরি সাহিত্যের আদিযুগ থেকে আধুনিক পর্ব,,content,1,NinghsingCheContentData.kt
-বিষ্ণুপ্রিয়া মণিপুরিদের অন্যান্য প্রধান সামাজিক ও ধর্মীয় উৎসব কী কী?,,ui,1,NinghsingCheAiAssistant.kt
-বিষ্ণুপ্রিয়া মণিপুরিদের ঐতিহ্যবাহী বসতবাড়ির স্থাপত্য: 'ইঞ্চৌঘর',,content,1,NinghsingCheContentData.kt
-বৈষ্ণব পদাবলী,,content,1,NinghsingCheContentData.kt
-ব্যবহারকারীর প্রশ্ন: …,,ui,1,NinghsingCheAiAssistant.kt
-ভজন,,ui,1,MusicGenres.kt
-ভয়েস ইঞ্জিন প্রস্তুত করা যায়নি।,,ui,1,ArticleTtsPlayer.kt
-ভয়েস থামান,,ui,1,ArticleScreen.kt
-ভয়েস পুনরায় চালু করুন,,ui,1,ArticleScreen.kt
-ভয়েস শুনুন,,ui,1,ArticleScreen.kt
-"ভাষা আন্দোলন, প্রামাণ্য দলিল ও নৃতাত্ত্বিক গবেষণা প্রবন্ধমালা।",,content,1,NinghsingCheContentData.kt
-ভাষা আন্দোলনের প্রেক্ষাপট ও প্রাচীন লোকনৃত্যের সমাজতাত্ত্বিক মূল্যায়ন।,,content,1,NinghsingCheContentData.kt
-ভাষা ও সংস্কৃতি গবেষক,,content,1,NinghsingCheContentData.kt
-ভাষা শহীদ,,content,1,NinghsingCheContentData.kt
-ভাষা শহীদ সুদেষ্ণা সিংহ স্মারক সংখ্যা ও সমাজ জাগরণের চালচিত্র।,,content,1,NinghsingCheContentData.kt
-ভাষা শহীদ সুদেষ্ণা সিংহ: অবিনাশী আত্মত্যাগ ও প্রেরণার শিখা,,content,1,NinghsingCheContentData.kt
-"ভাষা, সংস্কৃতি ও সমাজ বিকাশে বিভিন্ন সামাজিক ও সাংস্কৃতিক সংগঠনের নানামুখী উদ্যোগ।",,content,1,NinghsingCheContentData.kt
-ভিউ,,ui,1,UserDashboardScreen.kt
-ভিডিও আর্কাইভে নতুন সংযোজন,,ui,1,SettingsScreen.kt
-ভিডিও চালান,,ui,1,MusicPlayer.kt
-ভিডিও দেখুন,,ui,1,ArticleScreen.kt
-মডারেটর,,ui,1,SupabaseModels.kt
-মণিপুর,,content,1,NinghsingCheContentData.kt
-মণিপুরি রাসলীলায় গোপী ও কৃষ্ণের বেশভূষার বৈশিষ্ট্য কী?,,ui,1,NinghsingCheAiAssistant.kt
-"মণিপুরি লোকসংস্কৃতি, নৃত্যকলা ও গীতিসংকলন",,content,1,NinghsingCheContentData.kt
-মণিপুরি সমাজে 'মিংকৌ' বা নামপ্রথা: সাংস্কৃতিক তাৎপর্য ও ঐতিহ্য,,content,1,NinghsingCheContentData.kt
-মণিপুরের লোকতাক হ্রদের প্রাচীন ইতিহাস এবং ঐতিহ্যবাহী গৃহসংস্থান।,,content,1,NinghsingCheContentData.kt
-মন্তব্য আবশ্যক।,,ui,1,ReaderViewModels.kt
-মন্তব্য ও পাঠক রচনা পর্যালোচনা,,ui,1,SupabaseModels.kt
-মন্তব্য করিক,,ui,1,NingshingCheWebsiteClient.kt
-মন্তব্য করুন,,ui,1,ArticleCommentForm.kt
-মন্তব্য জমা দিন,,ui,1,ArticleCommentForm.kt
-মন্তব্য জমা হয়েছে। অনুমোদনের পর প্রকাশিত হবে।,,ui,1,ReaderViewModels.kt
-মন্তব্য জমা হয়েছে। অনুমোদনের পর প্রকাশিত হবে। তবে এই ডিভাইসে আপনার তথ্য মনে রাখা যায়নি।,,ui,1,ReaderViewModels.kt
-মন্তব্য তালিকা লোড হয়নি (…),,ui,1,SupabaseClient.kt
-মন্তব্য পাঠানি ইল। পর্যালোচনার পর প্রকাশ অইতই।,,ui,1,NingshingCheWebsiteClient.kt
-মন্তব্য পাঠানো হচ্ছে...,,ui,1,ReaderViewModels.kt
-মহারাস,,ui,1,NinghsingCheAiAssistant.kt
-মহারাস ও রাখাল রাসের বিশেষত্ব কী?,,ui,1,MainViewModels.kt
-"মহারাস, নিত্যরাস ও রাখাল রাসের মধ্যে পার্থক্য কী?",,ui,1,NinghsingCheAiAssistant.kt
-"মহারাস, বসন্তরাস, তাল-লয়, ঢাকের বোল এবং বিষ্ণুপ্রিয়া মণিপুরি ধ্রুপদী নৃত্যকলার পূর্ণাঙ্গ সচিত্র নির্দেশিকা।",,content,1,NinghsingCheContentData.kt
-"মাতৃভাষাকে ইন্টারনেটের আঙিনায় সমৃদ্ধ করতে ডিজিটাল লিপিকরণ, তথ্যকোষ নির্মাণ ও ভবিষ্যৎ প্রযুক্তির মেলবন্ধন।",,content,1,NinghsingCheContentData.kt
-"মাতৃভাষায় বিজ্ঞান চেতনা প্রসার, ডিজিটাল মাধ্যমে ভাষা সংরক্ষণ এবং আধুনিক প্রযুক্তির সংযোগ।",,content,1,NinghsingCheContentData.kt
-"মাতৃভাষার প্রথম নারী শহীদ সুদেষ্ণা সিংহের জীবন, আদর্শ ও ১৬ মার্চের আত্মদানের ইতিহাস।",,content,1,NinghsingCheContentData.kt
-মার্চ,,ui,1,UserDashboardCharts.kt
-মিংকৌ এবং মূল নামের মধ্যে সামাজিক পার্থক্য ও প্রয়োগ কী?,,ui,1,NinghsingCheAiAssistant.kt
-মিংকৌ প্রথা,,ui,1,EditorialComponents.kt
-মুদ্রিত সংখ্যা,,content,1,NinghsingCheContentData.kt
-মূল তাক,,ui,1,PdfArchiveScreen.kt
-মূল বিষয়,,ui,1,NinghsingCheAiAssistant.kt
-মূল লেখা,,ui,1,NewArticleScreen.kt
-মে,,ui,1,UserDashboardCharts.kt
-মেনু,,ui,1,AiAssistantScreen.kt
-মেমরি ও অফলাইন ক্যাশ ব্যবস্থাপনা,,ui,1,SettingsScreen.kt
-মোট …টি জমা,,ui,1,UserDashboardCharts.kt
-মোটা,,ui,1,HtmlContentEditor.kt
-"মৌলভীবাজার, বাংলাদেশ",,content,1,NinghsingCheContentData.kt
-যাচাইকৃত লেখক,,ui,1,VerifiedBadge.kt
-যান,,ui,1,PdfViewerScreen.kt
-যুব,,ui,1,NingshingCheWebsiteClient.kt
-যে কোনো প্রবন্ধের কার্ডে বা পড়ার সময় বুকমার্ক আইকনে চাপ দিলে তা এখানে সংরক্ষিত থাকবে।,,ui,1,BookmarksScreen.kt
-যেকোনো বিষয়ে প্রশ্ন করুন...,,ui,1,AiAssistantScreen.kt
-যোগ করুন,,ui,1,UserDashboardScreen.kt
-যোগাযোগ করুন,,ui,1,SiteFooter.kt
-রক,,ui,1,MusicGenres.kt
-রণজিত,,content,1,AuthorProfiles.kt
-রণজি্ত,,content,1,AuthorProfiles.kt
-রণজিৎ,,content,1,AuthorProfiles.kt
-রনি,,content,1,AuthorProfiles.kt
-রাখুয়াল,,ui,1,MusicGenres.kt
-রাতের মোড,,ui,1,PdfViewerScreen.kt
-রাস উৎসবে ব্যবহৃত মণিপুরি মৃদঙ্গ ও খোল বাদ্যযন্ত্রের বিশেষত্ব কী?,,ui,1,NinghsingCheAiAssistant.kt
-রিপিট,,ui,1,MusicPlayer.kt
-রিমিক্স,,ui,1,MusicGenres.kt
-রিলোড,,ui,1,UserDashboardScreen.kt
-রিসেট,,ui,1,ArticleScreen.kt
-লাইনের ফাঁক (Line Spacing),,ui,1,ArticleScreen.kt
-লাইভ প্রিভিউ (কালপুরুষ ফন্ট):,,ui,1,ArticleScreen.kt
-লিরিক,,ui,1,MusicPlayer.kt
-লেখক এখানে কোন কোন দিককে বেশি গুরুত্ব দিয়েছেন?,,ui,1,NinghsingCheAiAssistant.kt
-লেখক • নিংশিং চে,,ui,1,ArticleScreen.kt
-লেখক …-এর অন্যান্য উল্লেখযোগ্য প্রবন্ধ ও গ্রন্থ কী কী?,,ui,1,NinghsingCheAiAssistant.kt
-লেখকবৃন্দ,,ui,1,Screen.kt
-লেখকের রচনাবলী,,ui,1,ListScreens.kt
-লেখা জমা যায়নি (…)। প্রোফাইল সম্পূর্ণ করে আবার চেষ্টা করুন।,,ui,1,SupabaseClient.kt
-লেখা জমা যায়নি।,,ui,1,ReaderWorkspaceViewModel.kt
-লেখা জমা হয়েছে,,ui,1,NewArticleScreen.kt
-লেখা জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর প্রকাশিত হবে।,,ui,1,ReaderWorkspaceViewModel.kt
-লেখা জমাদান,,ui,1,SiteFooter.kt
-"লেখা নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি, কাট ও পেস্ট দেখাবে। ছবি ImgBB-তে আপলোড হয়।",,ui,1,HtmlContentEditor.kt
-লেখা সম্পাদকীয় পর্যালোচনার পর প্রকাশিত হবে। শিরোনাম ও মূল লেখা জমা দেওয়া পর্যন্ত সংরক্ষিত থাকবে।,,ui,1,NewArticleScreen.kt
-লেখাসমূহ,,ui,1,PortalPages.kt
-লোকউৎসব,,content,1,NinghsingCheContentData.kt
-লোকগীতি,,ui,1,MusicGenres.kt
-লোকতাক হ্রদ,,content,1,NinghsingCheContentData.kt
-লোকসংস্কৃতি,,content,1,NinghsingCheContentData.kt
-লোকসাহিত্য গবেষণা সংস্করণ (২০২২),,content,1,NinghsingCheContentData.kt
-শর্তাবলী,,ui,1,SiteFooter.kt
-শহীদ,,ui,1,NinghsingCheAiAssistant.kt
-শহীদ সুদেষ্ণা সিংহ ছাড়া আর কারা ভাষা আন্দোলনে ভূমিকা রেখেছিলেন?,,ui,1,NinghsingCheAiAssistant.kt
-শহীদ সুদেষ্ণা সিংহ স্মারক পত্রিকা,,content,1,NinghsingCheContentData.kt
-শহীদ সুদেষ্ণা সিংহের আত্মত্যাগ সম্পর্কে বলুন,,ui,1,MainViewModels.kt
-শহীদ স্মারক,,content,1,NinghsingCheContentData.kt
-শাফেল,,ui,1,MusicPlayer.kt
-"শারদীয় উৎসবের রঙে সাজানো বিষ্ণুপ্রিয়া মণিপুরি সাহিত্য, গল্প ও স্মৃতিকথা সংকলন।",,content,1,NinghsingCheContentData.kt
-শারদীয় বিশেষ সংখ্যা (২০২৪),,content,1,NinghsingCheContentData.kt
-শারদীয় সংখ্যা,,content,1,NinghsingCheContentData.kt
-শিক্ষা,,content,1,NinghsingCheContentData.kt
-শিরোনাম আবশ্যক।,,ui,1,ReaderWorkspaceViewModel.kt
-শিরোনাম ও লেখা আবশ্যক।,,ui,1,ReaderWorkspaceViewModel.kt
-শিশির,,content,1,AuthorProfiles.kt
-শিশু,,ui,1,MusicGenres.kt
-শুধুমাত্র এই নিবন্ধের তথ্যের ভিত্তিতে উত্তর প্রদান করা হয়,,ui,1,ArticleScreen.kt
-শুনুন,,ui,1,NewMusicScreen.kt
-শুভাশিস,,content,1,AuthorProfiles.kt
-শেষ ছয় মাসে কোনো কার্যক্রম নেই।,,ui,1,UserDashboardCharts.kt
-শেষ ৬ মাস,,ui,1,UserDashboardCharts.kt
-শেষ ৬ মাসে মোট …টি,,ui,1,UserDashboardCharts.kt
-শ্রী,,content,1,AuthorProfiles.kt
-সংকলন,,content,1,NinghsingCheContentData.kt
-সংক্রান্তি,,ui,1,NinghsingCheAiAssistant.kt
-সংক্ষেপ,,ui,1,NinghsingCheAiAssistant.kt
-সংযুক্তি,,ui,1,UserDashboardScreen.kt
-সংরক্ষণ ব্যর্থ: …,,ui,1,SettingsScreen.kt
-সংরক্ষণ যায়নি (…)। লিংক মেয়াদ শেষ হতে পারে।,,ui,1,MusicLibraryStore.kt
-সংরক্ষণ হচ্ছে...,,ui,1,SettingsScreen.kt
-সংরক্ষিত তথ্য লোড হচ্ছে...,,ui,1,ArticleCommentForm.kt
-সংরক্ষিত তালিকার মধ্যে খুঁজুন...,,ui,1,BookmarksScreen.kt
-সংরক্ষিত প্রবন্ধ,,ui,1,BookmarksScreen.kt
-সংস্করণ ১.০.০ (অফিশিয়াল সংস্করণ),,ui,1,SettingsScreen.kt
-সংস্করণ … • সাইজ: …,,ui,1,SettingsScreen.kt
-সংস্কৃতির আলোয় পথচলা…,,ui,1,SplashScreen.kt
-সকল কন্টেন্ট তৈরি ও সম্পাদনার অনুমতি,,ui,1,SupabaseModels.kt
-"সকল ক্ষমতা, সেটিংস ও মুছে ফেলার পূর্ণ নিয়ন্ত্রণ",,ui,1,SupabaseModels.kt
-সঠিক ইমেইল দিন অথবা ঐচ্ছিক ঘরটি খালি রাখুন।,,ui,1,ReaderViewModels.kt
-সতীর্থ,,content,1,AuthorProfiles.kt
-সব গান,,ui,1,MusicScreen.kt
-সব চালান,,ui,1,MusicBrowseScreens.kt
-সব বিজ্ঞপ্তি,,ui,1,SettingsScreen.kt
-সব ভিডিও,,ui,1,VideosScreen.kt
-সময়,,ui,1,MusicPlayer.kt
-সমাজ ও সংস্কৃতি বিভাগ থেকে,,ui,1,PortalPages.kt
-"সমাজ, সংগঠন ও সাংস্কৃতিক উদ্যোগ",,ui,1,PortalPages.kt
-সমাজ-ও-সংস্কৃতি,,ui,1,EditorialComponents.kt
-সমাজতত্ত্ব,,content,1,NinghsingCheContentData.kt
-"সমাজসংস্কারক, ভাষা সংগ্রামী, সাহিত্যিক ও বিশিষ্ট গুণীজনদের অনুপ্রেরণাদায়ী জীবনকথা।",,content,1,NinghsingCheContentData.kt
-সম্পর্কিত জিজ্ঞাসা (সরাসরি উত্তর জানতে ট্যাপ করুন):,,ui,1,AiAssistantScreen.kt
-সম্পর্কিত জিজ্ঞাসা:,,ui,1,NinghsingCheAiAssistant.kt
-সম্পর্কিত প্রশ্ন:,,ui,1,NinghsingCheAiAssistant.kt
-সম্পাদকীয়: নিংশিং চে-র দশম বর্ষপূর্তি ও আমাদের আগামী,,content,1,NinghsingCheContentData.kt
-সম্পাদনা পরিষদ,,content,1,NinghsingCheContentData.kt
-সরাত,,ui,1,MusicGenres.kt
-সর্বশেষ আপডেট পেতে আমাদের অ্যাপটি ডাউনলোড করুন,,ui,1,SiteFooter.kt
-সাংস্কৃতিক অভিযাত্রা,,content,1,NinghsingCheContentData.kt
-সাংস্কৃতিক কর্মী ও প্রাবন্ধিক,,content,1,NinghsingCheContentData.kt
-সাইট হালনাগাদ,,ui,1,ContentUpdateNotifier.kt
-সাইটম্যাপ,,ui,1,SiteFooter.kt
-সাইন-ইন ছাড়া এগিয়ে যান,,ui,1,WelcomeOnboardingScreen.kt
-সাদা / লাইট,,ui,1,SettingsScreen.kt
-সামাজিক নিয়ম,,content,1,NinghsingCheContentData.kt
-সাম্প্রতিক,,ui,1,HomeScreen.kt
-সাম্প্রতিক পঠিত তালিকা মুছে ফেলুন,,ui,1,SettingsScreen.kt
-সার্ভার জবাব: …,,ui,1,NingshingCheWebsiteClient.kt
-সার্ভার ত্রুটি (…),,ui,1,PortalRepository.kt
-সিঙ্ক সম্পন্ন: অফলাইন আর্কাইভ প্রস্তুত।,,ui,1,ArticleRepository.kt
-"সিলেট, বাংলাদেশ",,content,1,NinghsingCheContentData.kt
-সিস্টেম,,ui,1,SettingsScreen.kt
-সুকান্ত,,content,1,AuthorProfiles.kt
-সুজিত সিংহ ও স্মৃতিকণা সিংহ,,content,1,NinghsingCheContentData.kt
-সুজিতা,,content,1,AuthorProfiles.kt
-সুদেষ্ণা,,ui,1,NinghsingCheAiAssistant.kt
-সুপাবেজ (Supabase) এপিআই থেকে ডাটা লোড হচ্ছে...,,ui,1,ArticleRepository.kt
-সুপাবেজ (Supabase) থেকে …টি প্রবন্ধ সিঙ্ক সম্পন্ন,,ui,1,ArticleRepository.kt
-সুপাবেজে নতুন ডাটা পাওয়া যায়নি; অফলাইন ক্যাশ ব্যবহার করা হচ্ছে।,,ui,1,ArticleRepository.kt
-সুবর্ণ জয়ন্তী,,content,1,NinghsingCheContentData.kt
-সুবর্ণ জয়ন্তী সংস্করণ (২০২৪),,content,1,NinghsingCheContentData.kt
-সুরজিত,,content,1,AuthorProfiles.kt
-সেনাপতি রাজকুমার,,content,1,NinghsingCheContentData.kt
-সেপ্টে,,ui,1,UserDashboardCharts.kt
-সেশনের মেয়াদ শেষ হয়েছে। আবার প্রবেশ করুন।,,ui,1,GoogleAuthMapper.kt
-স্ক্রল,,ui,1,PdfViewerScreen.kt
-স্ক্রল দৃশ্য  ·  চিমটি করে জুম,,ui,1,PdfViewerScreen.kt
-স্ক্রল হ্যান্ডেল,,ui,1,PdfViewerScreen.kt
-স্ক্রিন জ্বালিয়ে রাখুন,,ui,1,PdfViewerScreen.kt
-স্থাপত্য গবেষণা গ্রন্থ (২০২১),,content,1,NinghsingCheContentData.kt
-স্বপন,,content,1,AuthorProfiles.kt
-স্বাগতম। Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন।,,ui,1,WelcomeOnboardingScreen.kt
-স্মারক,,ui,1,NingshingCheWebsiteClient.kt
-স্মারক ও উৎসব,,ui,1,NingshingCheWebsiteClient.kt
-স্মারক সংখ্যা (২০১৮),,content,1,NinghsingCheContentData.kt
-স্লিপ টাইমার বন্ধ,,ui,1,MusicController.kt
-স্লিপ টাইমার শেষ,,ui,1,MusicController.kt
-স্লিপ টাইমার … মিনিট,,ui,1,MusicController.kt
-হাব্বি মন্তব্যহানি,,ui,1,NingshingCheWebsiteClient.kt
-"হারিয়ে যাওয়া স্মৃতি, প্রাচীন পল্লীগ্রামের আখ্যান এবং সমাজজীবনের অমূল্য স্মৃতিকথা।",,content,1,NinghsingCheContentData.kt
-হিমাদ্র,,content,1,AuthorProfiles.kt
-হেমতা,,content,1,AuthorProfiles.kt
-হেমন্ত,,content,1,AuthorProfiles.kt
-হোলি কীর্তন,,ui,1,MusicGenres.kt
-০১ জানুয়ারি ২০২৫,,content,1,NinghsingCheContentData.kt
-০২ জানুয়ারি ২০২৫,,content,1,NinghsingCheContentData.kt
-০৫ জানুয়ারি ২০২৫,,content,1,NinghsingCheContentData.kt
-০৮ আগস্ট ২০২৪,,content,1,NinghsingCheContentData.kt
-১০ ফেব্রুয়ারি ২০২৫,,content,1,NinghsingCheContentData.kt
-১২ এপ্রিল ২০২৪,,content,1,NinghsingCheContentData.kt
-১৫ জানুয়ারি ২০২৫,,content,1,NinghsingCheContentData.kt
-১৬ মার্চ,,ui,1,NinghsingCheAiAssistant.kt
-১৬ মার্চ ২০২৪,,content,1,NinghsingCheContentData.kt
-"১৯৫৫ সালের ভাষা আন্দোলনের ঐতিহাসিক পটভূমি, মাতৃভাষার অধিকার রক্ষা এবং শহীদ সুদেষ্ণা সিংহের অসামান্য আত্মত্যাগের প্রামাণ্য ইতিহাস।",,content,1,NinghsingCheContentData.kt
-১৯৫৫ সালের ১৬ মার্চ থেকে শুরু করে মাতৃভাষা স্বীকৃতির দীর্ঘ ঐতিহাসিক সংগ্রামের পূর্ণাঙ্গ প্রামাণ্য নথি ও চিত্রাবলি।,,content,1,NinghsingCheContentData.kt
-১৯৯৬ সালের ১৬ মার্চের ভাষা আন্দোলনের পটভূমি কী ছিল?,,ui,1,NinghsingCheAiAssistant.kt
-১–…,,ui,1,PdfViewerScreen.kt
-২০ ডিসেম্বর ২০২৪,,content,1,NinghsingCheContentData.kt
-২৮ ডিসেম্বর ২০২৪,,content,1,NinghsingCheContentData.kt
-— শেষ —,,ui,1,ListScreens.kt
-•  … মি.,,ui,1,EditorialComponents.kt
-• **বিভাগ:** …,,ui,1,NinghsingCheAiAssistant.kt
-… (…) — বিষ্ণুপ্রিয়া মণিপুরি ডিজিটাল তথ্যকোষ 'নিংশিং চে' থেকে সংগৃহীত। https://ningshingche.com,,ui,1,PdfHelper.kt
-… কেবি,,ui,1,NewMusicScreen.kt
-… পৃ. • … MB,,ui,1,EditorialComponents.kt
-… বার পঠিত,,ui,1,ArticleScreen.kt
-… বিষয়ক অন্যান্য গবেষণা প্রবন্ধ কী কী আছে?,,ui,1,NinghsingCheAiAssistant.kt
-… বিষয়ে প্রকাশিত প্রবন্ধসমূহ,,ui,1,ExploreScreen.kt
-… মিনিট পাঠ,,ui,1,ArticleScreen.kt
-… — নিংশিং চে PDF আর্কাইভ,,ui,1,PdfHelper.kt
-… … …  নিংশিং চে,,ui,1,HomeScreen.kt
-….… এমবি,,ui,1,NewMusicScreen.kt
-…:…,,ui,1,MusicPlayer.kt
-…টি,,ui,1,ExploreScreen.kt
-…টি নতুন PDF বই,,ui,1,ContentNotice.kt
-…টি নতুন ছবি,,ui,1,ContentNotice.kt
-…টি নতুন প্রবন্ধ,,ui,1,ContentNotice.kt
-…টি নতুন বার্তা,,ui,1,ContentNotice.kt
-…টি নতুন ভিডিও,,ui,1,ContentNotice.kt
-…টি নির্বাচিত প্রবন্ধ,,ui,1,ContentNotice.kt
-…টি মন্তব্য,,ui,1,ArticleScreen.kt
-…টি মিল,,ui,1,ListScreens.kt
-…টি লেখা সংরক্ষিত,,ui,1,BookmarksScreen.kt
-❓ প্রশ্নোত্তর বিশ্লেষণ,,ui,1,ArticleScreen.kt
-🎯 লেখকের বক্তব্য,,ui,1,ArticleScreen.kt
-💡 মূল শিক্ষণীয় বিষয়,,ui,1,ArticleScreen.kt
-📌 সম্পূর্ণ সারসংক্ষেপ,,ui,1,ArticleScreen.kt
-📎 পিডিএফ সংযুক্ত,,ui,1,UserDashboardScreen.kt
+bengali,bishnupriya,kind,uses,slots,screens
+নিংশিং চে,,content,21,0,"AiAssistantScreen.kt, ContentUpdateNotifier.kt, HomeScreen.kt, IssueTags.kt, LoginScreen.kt, MusicController.kt, MusicPlayer.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt, PortalDrawer.kt, PortalModels.kt, SplashScreen.kt, SupabaseModels.kt, WelcomeOnboardingScreen.kt"
+সব,,ui,15,0,"BookmarksScreen.kt, EditorialComponents.kt, HomeScreen.kt, MusicScreen.kt, PortalPages.kt, Type.kt, UserDashboardScreen.kt"
+পেছনে,,ui,14,0,"ArticleScreen.kt, BookmarksScreen.kt, ListScreens.kt, MusicBrowseScreens.kt, MusicScreen.kt, PdfArchiveScreen.kt, PdfViewerScreen.kt, PortalPages.kt, SettingsScreen.kt, VideosScreen.kt"
+সাহিত্য,,content,11,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
+ইতিহাস,,content,10,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
+লেখক,,content,8,0,"EditorialComponents.kt, ListScreens.kt, NinghsingCheContentData.kt, PortalDrawer.kt, PortalPages.kt, SupabaseModels.kt"
+সমাজ ও সংস্কৃতি,,content,8,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt, PortalPages.kt, ReaderViewModels.kt"
+জীবনী,,content,7,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
+গান,,ui,6,0,"ListScreens.kt, NewMusicScreen.kt, UserDashboardCharts.kt, UserDashboardScreen.kt"
+পাঠক,,ui,6,0,"ArticleCommentForm.kt, ArticleRepository.kt, GoogleAuthMapper.kt, NingshingCheWebsiteClient.kt, SettingsScreen.kt, UserDashboardScreen.kt"
+বন্ধ করুন,,ui,6,0,"ArticleScreen.kt, EditorialComponents.kt, HtmlArticleRenderer.kt, MusicPlayer.kt, VideoPlayer.kt"
+সংস্কৃতি,,content,6,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
+সামাজিক কার্যকলাপ,,content,6,0,"NinghsingCheContentData.kt, PortalDrawer.kt, PortalPages.kt, ReaderViewModels.kt"
+অধ্যাপক বারীন্দ্র কুমার সিংহ,,content,5,0,NinghsingCheContentData.kt
+আরও দেখুন,,ui,5,0,UserDashboardScreen.kt
+কবিতা,,content,5,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
+চালান,,ui,5,0,"EditorialComponents.kt, MusicBrowseScreens.kt, MusicPlayer.kt, VideosScreen.kt"
+নতুন প্রবন্ধ,,ui,5,0,"AppNotificationManager.kt, ContentNotice.kt, NewArticleScreen.kt, SettingsScreen.kt, WelcomeOnboardingScreen.kt"
+নতুন প্লেলিস্ট,,ui,5,0,"MusicLibraryStore.kt, MusicPlayer.kt, MusicScreen.kt"
+প্রবন্ধ,,content,5,0,"NinghsingCheContentData.kt, UserDashboardCharts.kt, UserDashboardScreen.kt"
+ফিরুন,,ui,5,0,"LoginScreen.kt, NewArticleScreen.kt, NewMusicScreen.kt, UserDashboardScreen.kt, UserProfileScreen.kt"
+বাংলাদেশ / ভারত,,ui,5,0,"ArticleRepository.kt, Models.kt, NingshingCheWebsiteClient.kt, SupabaseModels.kt"
+বার্ষিক ও উৎসব সংখ্যা,,content,5,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
+বিজ্ঞান ও প্রযুক্তি,,content,5,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
+ভাষা আন্দোলন,,content,5,0,"NinghsingCheAiAssistant.kt, NinghsingCheContentData.kt"
+মন্তব্য,,ui,5,0,"ArticleScreen.kt, UserDashboardCharts.kt, UserDashboardScreen.kt"
+সিস্টেম আপডেট,,ui,5,0,"AppNotificationManager.kt, ContentNotice.kt, SettingsScreen.kt, WelcomeOnboardingScreen.kt"
+**লেখক:** {1},,ui,4,1,NinghsingCheAiAssistant.kt
+অনুসন্ধান,,ui,4,0,"ExploreScreen.kt, HomeScreen.kt, ListScreens.kt, PortalDrawer.kt"
+অন্বেষণ ও সংগ্রহ,,ui,4,0,"ExploreScreen.kt, ReaderViewModels.kt, Screen.kt"
+অ্যালবাম,,ui,4,0,"MusicBrowseScreens.kt, MusicPlayer.kt, MusicScreen.kt, NewMusicScreen.kt"
+আমার সম্পর্কে,,ui,4,0,"PortalDrawer.kt, PortalPages.kt"
+ড. প্রদীপ সিংহ,,content,4,0,NinghsingCheContentData.kt
+নতুন PDF বই,,ui,4,0,"AppNotificationManager.kt, ContentNotice.kt, SettingsScreen.kt, WelcomeOnboardingScreen.kt"
+নতুন ভিডিও,,ui,4,0,"AppNotificationManager.kt, ContentNotice.kt, SettingsScreen.kt, WelcomeOnboardingScreen.kt"
+পর্যালোচনা,,content,4,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
+পৌরাণিক কাহিনী,,content,4,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
+প্রকাশিত,,ui,4,0,"UserDashboardCharts.kt, UserDashboardScreen.kt"
+বার্তা,,ui,4,0,UserDashboardScreen.kt
+বার্ষিক সংখ্যা,,content,4,0,"NinghsingCheContentData.kt, PortalDrawer.kt, ReaderNavHost.kt, Screen.kt"
+ভিডিও,,ui,4,0,"EditorialComponents.kt, MusicPlayer.kt, VideosScreen.kt"
+মুছুন,,ui,4,0,"BookmarksScreen.kt, ListScreens.kt, MusicBrowseScreens.kt, MusicScreen.kt"
+শিল্পী,,ui,4,0,"MusicBrowseScreens.kt, MusicPlayer.kt, MusicScreen.kt, NewMusicScreen.kt"
+সম্পাদকীয়,,content,4,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
+সাধারণ,,ui,4,0,"ArticleRepository.kt, NinghsingCheAiAssistant.kt, PortalModels.kt"
+স্মৃতিচারণ,,content,4,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
+**বিভাগ:** {1},,ui,3,1,NinghsingCheAiAssistant.kt
+**শিরোনাম:** {1},,ui,3,1,NinghsingCheAiAssistant.kt
+Google সাইন-ইন সময় শেষ হয়েছে। আবার চেষ্টা করুন।,,ui,3,0,"GoogleAuthMapper.kt, GoogleAuthRepository.kt"
+{1} টি প্রবন্ধ,,ui,3,1,ListScreens.kt
+{1}টি গান,,ui,3,1,"MusicBrowseScreens.kt, MusicScreen.kt"
+{1}টি প্রবন্ধ,,ui,3,1,"ExploreScreen.kt, PortalPages.kt"
+অপেক্ষমাণ,,ui,3,0,"UserDashboardCharts.kt, UserDashboardScreen.kt"
+অ্যাকাউন্ট,,ui,3,0,"AccountHeaderButton.kt, SettingsScreen.kt"
+অ্যাডমিনের বার্তা,,ui,3,0,"ContentNotice.kt, ContentUpdateNotifier.kt"
+ইঞ্চৌঘর,,content,3,0,"NinghsingCheAiAssistant.kt, NinghsingCheContentData.kt"
+উৎসব,,content,3,0,"MusicGenres.kt, NinghsingCheAiAssistant.kt, NinghsingCheContentData.kt"
+গবেষণা ও ভাষা আন্দোলন,,content,3,0,NinghsingCheContentData.kt
+ঘর,,ui,3,0,"NinghsingCheAiAssistant.kt, PortalDrawer.kt, UserDashboardScreen.kt"
+ছবি আপলোড যায়নি।,,ui,3,0,ReaderWorkspaceViewModel.kt
+ডাউনলোড,,ui,3,0,"MusicPlayer.kt, PdfArchiveScreen.kt, PdfViewerScreen.kt"
+ধরন,,ui,3,0,"MusicBrowseScreens.kt, MusicPlayer.kt, MusicScreen.kt"
+ধর্ম,,ui,3,0,"EditorialComponents.kt, NingshingCheWebsiteClient.kt"
+পছন্দ,,ui,3,0,"MusicBrowseScreens.kt, MusicPlayer.kt, MusicScreen.kt"
+পিডিএফ খোলা যায়নি।,,ui,3,0,"MainViewModels.kt, PdfViewerScreen.kt"
+পৌ,,ui,3,0,"EditorialComponents.kt, NingshingCheWebsiteClient.kt"
+ফিচার্ড,,ui,3,0,"ExploreScreen.kt, HomeScreen.kt, PortalDrawer.kt"
+বিজ্ঞপ্তি,,ui,3,0,"AccountHeaderButton.kt, UserDashboardScreen.kt"
+বিভাগসমূহ,,ui,3,0,"PortalDrawer.kt, ReaderNavHost.kt, Screen.kt"
+বিষ্ণুপ্রিয়া মণিপুরি ডিজিটাল সাংস্কৃতিক আর্কাইভ ও সাহিত্য পত্রিকা,,ui,3,0,"PortalModels.kt, SupabaseModels.kt"
+ভুমিকা,,ui,3,0,"EditorialComponents.kt, NingshingCheWebsiteClient.kt"
+রকমারি,,ui,3,0,"EditorialComponents.kt, NingshingCheWebsiteClient.kt"
+রাসলীলা,,content,3,0,"NinghsingCheAiAssistant.kt, NinghsingCheContentData.kt"
+লোকসংগীত,,content,3,0,NinghsingCheContentData.kt
+শেয়ার,,ui,3,0,"ArticleScreen.kt, HtmlArticleRenderer.kt, PdfViewerScreen.kt"
+সংরক্ষণ করুন,,ui,3,0,"ArticleScreen.kt, EditorialComponents.kt"
+সংরক্ষণ বাতিল করুন,,ui,3,0,"ArticleScreen.kt, EditorialComponents.kt"
+সঙ্গীত,,ui,3,0,"EditorialComponents.kt, MusicScreen.kt, PortalDrawer.kt"
+সমাজ,,ui,3,0,"EditorialComponents.kt, NingshingCheWebsiteClient.kt, ReaderViewModels.kt"
+সাইন ইন করা নেই।,,ui,3,0,"SupabaseClient.kt, UserProfileScreen.kt"
+সাইন ইন করা নেই। আবার প্রবেশ করুন।,,ui,3,0,SupabaseClient.kt
+সাহিত্য ও সংকলন,,content,3,0,NinghsingCheContentData.kt
+সুজিত সিংহ,,content,3,0,NinghsingCheContentData.kt
+সুদেষ্ণা সিংহ,,content,3,0,"EditorialComponents.kt, NinghsingCheContentData.kt"
+সুবর্ণ জয়ন্তী ও ইতিহাস,,content,3,0,NinghsingCheContentData.kt
+সেটিংস,,ui,3,0,"PdfViewerScreen.kt, PortalDrawer.kt, SettingsScreen.kt"
+স্থাপত্য,,content,3,0,NinghsingCheContentData.kt
+স্মৃতিকণা সিংহ,,content,3,0,NinghsingCheContentData.kt
+স্লিপ টাইমার,,ui,3,0,MusicPlayer.kt
+### মূল নিবন্ধের পাঠ্যাংশ:,,ui,2,0,NinghsingCheAiAssistant.kt
+Google দিয়ে প্রবেশ করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।,,ui,2,0,GoogleAuthMapper.kt
+Google সাইন-ইন খোলার জন্য অ্যাপ স্ক্রিন প্রয়োজন। আবার চেষ্টা করুন।,,ui,2,0,GoogleIdentityClient.kt
+{1} বিষয়ে নিংশিং চে-তে প্রকাশিত প্রবন্ধসমূহ।,,ui,2,1,NingshingCheWebsiteClient.kt
+{1} মি.,,ui,2,1,EditorialComponents.kt
+{1} মিনিট,,ui,2,1,"EditorialComponents.kt, MusicPlayer.kt"
+অক্ষরের আকার,,ui,2,0,ArticleScreen.kt
+অন্যান্য,,ui,2,0,"AppNotificationManager.kt, SettingsScreen.kt"
+অফলাইন,,ui,2,0,MusicScreen.kt
+আবার চেষ্টা করুন,,ui,2,0,"EditorialComponents.kt, PdfViewerScreen.kt"
+এই গানের অডিও ফাইল নেই।,,ui,2,0,MusicController.kt
+এই প্রবন্ধ এখনো পর্যালোচনায় আছে।,,ui,2,0,ReaderNavHost.kt
+এখনো কোনো গান যোগ করা হয়নি।,,ui,2,0,MusicScreen.kt
+এখানে কোনো প্রবন্ধ পাওয়া যায়নি।,,ui,2,0,ListScreens.kt
+ঐতিহ্য,,content,2,0,NinghsingCheContentData.kt
+কভার ছবি,,ui,2,0,"NewArticleScreen.kt, NewMusicScreen.kt"
+কভার ছবি নির্বাচন (ঐচ্ছিক),,ui,2,0,"NewArticleScreen.kt, NewMusicScreen.kt"
+কভার ছবি বদলান,,ui,2,0,"NewArticleScreen.kt, NewMusicScreen.kt"
+কভার ছবি সরান,,ui,2,0,"NewArticleScreen.kt, NewMusicScreen.kt"
+কমল সিংহ বিষ্ণুপ্রিয়া,,content,2,0,NinghsingCheContentData.kt
+কোনো লেখক পাওয়া যায়নি।,,ui,2,0,"ExploreScreen.kt, PortalPages.kt"
+ছবি,,ui,2,0,"MarkdownText.kt, UserDashboardScreen.kt"
+ছবি ঘর,,ui,2,0,EditorialComponents.kt
+ছবি শেয়ার করুন,,ui,2,0,"HomeScreen.kt, HtmlArticleRenderer.kt"
+ছোট করুন,,ui,2,0,"ArticleScreen.kt, MusicPlayer.kt"
+জমা দিন,,ui,2,0,"NewArticleScreen.kt, NewMusicScreen.kt"
+ডাউনলোড ফোল্ডারে সংরক্ষিত হয়েছে: {1},,ui,2,1,"ApkManager.kt, PdfHelper.kt"
+ডাউনলোড হচ্ছে...,,ui,2,0,"MainViewModels.kt, PdfArchiveScreen.kt"
+ডিজিটাল আর্কাইভ,,content,2,0,NinghsingCheContentData.kt
+ড্যাশবোর্ড,,ui,2,0,"AccountHeaderButton.kt, PortalDrawer.kt"
+তামকরিক,,ui,2,0,NingshingCheWebsiteClient.kt
+তালিকা,,ui,2,0,MusicPlayer.kt
+নতুন গান জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।,,ui,2,0,"NewMusicScreen.kt, ReaderWorkspaceViewModel.kt"
+নতুন প্রবন্ধ জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।,,ui,2,0,"NewArticleScreen.kt, ReaderWorkspaceViewModel.kt"
+নিংশিং চে AI সহকারী,,ui,2,0,"AiAssistantScreen.kt, EditorialComponents.kt"
+নিংশিং চে প্রকাশনা পর্ষদ,,content,2,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
+নিংশিং চে লেখক,,ui,2,0,"ArticleRepository.kt, NingshingCheWebsiteClient.kt"
+নিংশিং চে — বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ,,ui,2,0,"PortalPages.kt, SettingsScreen.kt"
+নিবন্ধ এআই সহায়িকা,,ui,2,0,ArticleScreen.kt
+নির্বাচিত প্রবন্ধ,,ui,2,0,"ContentNotice.kt, SettingsScreen.kt"
+নৃত্য,,ui,2,0,"MusicGenres.kt, NinghsingCheAiAssistant.kt"
+পছন্দের গান,,ui,2,0,"MusicLibraryStore.kt, MusicScreen.kt"
+পরের গান,,ui,2,0,MusicPlayer.kt
+পাঠান,,ui,2,0,"ArticleScreen.kt, UserDashboardScreen.kt"
+পৌরাণিক,,ui,2,0,NingshingCheWebsiteClient.kt
+প্রকাশিত প্রবন্ধ খোলা যায়নি।,,ui,2,0,ReaderNavHost.kt
+প্রত্যাখ্যাত,,ui,2,0,"UserDashboardCharts.kt, UserDashboardScreen.kt"
+প্রবন্ধ প্রকাশিত হয়েছে,,ui,2,0,"ContentUpdateNotifier.kt, InboxModels.kt"
+প্রোফাইল,,ui,2,0,"AccountHeaderButton.kt, UserProfileScreen.kt"
+প্রোফাইল ছবি,,ui,2,0,"UserDashboardScreen.kt, UserProfileScreen.kt"
+প্রোফাইল সম্পাদনা,,ui,2,0,UserDashboardScreen.kt
+প্রোফাইলে যান,,ui,2,0,"NewArticleScreen.kt, NewMusicScreen.kt"
+প্লেলিস্টে যোগ করুন,,ui,2,0,MusicPlayer.kt
+ফাইল ২০০ এমবি-র বেশি হতে পারে না।,,ui,2,0,SatoruUploadClient.kt
+ফাইল ৩২ এমবি-র বেশি হতে পারবে না।,,ui,2,0,SupabaseClient.kt
+ফিচার্ড প্রবন্ধসমূহ,,ui,2,0,PortalPages.kt
+বন্ধ,,ui,2,0,"PdfViewerScreen.kt, UserDashboardScreen.kt"
+বার্তা লিখুন।,,ui,2,0,"ReaderWorkspaceViewModel.kt, SupabaseClient.kt"
+বার্ষিক সংখ্যা • {1} সালে প্রকাশিত লেখাসমূহ,,ui,2,1,"ExploreScreen.kt, ListScreens.kt"
+বার্ষিক সাহিত্য সংকলন,,ui,2,0,SupabaseModels.kt
+বিজ্ঞপ্তি চালু করুন,,ui,2,0,WelcomeOnboardingScreen.kt
+বিরতি,,ui,2,0,MusicPlayer.kt
+বিশু,,content,2,0,"NinghsingCheAiAssistant.kt, NinghsingCheContentData.kt"
+বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ,,ui,2,0,"PortalDrawer.kt, SiteFooter.kt"
+বিষ্ণুপ্রিয়া মণিপুরি ভাষা আন্দোলনের ইতিহাস কী?,,ui,2,0,MainViewModels.kt
+ব্যবহারকারীর প্রশ্ন / নির্দেশ: {1},,ui,2,1,NinghsingCheAiAssistant.kt
+ব্রাউজারে খুলুন,,ui,2,0,"HtmlArticleRenderer.kt, VideoPlayer.kt"
+ভূমিকা,,content,2,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
+মণিপুরি সমাজে 'মিংকৌ' নামপ্রথা কী?,,ui,2,0,MainViewModels.kt
+মণিপুরি সমাজের ঐতিহ্যবাহী 'ইঞ্চৌঘর' কী?,,ui,2,0,MainViewModels.kt
+মন্তব্য প্রকাশিত হয়েছে,,ui,2,0,"ContentUpdateNotifier.kt, InboxModels.kt"
+মিংকৌ,,content,2,0,"NinghsingCheAiAssistant.kt, NinghsingCheContentData.kt"
+রাস,,ui,2,0,"MusicGenres.kt, NinghsingCheAiAssistant.kt"
+লগ আউট,,ui,2,0,"AccountHeaderButton.kt, SettingsScreen.kt"
+লোকগাথা,,content,2,0,NinghsingCheContentData.kt
+শহীদ সুদেষ্ণা সিংহ,,content,2,0,NinghsingCheContentData.kt
+শিরোনাম,,ui,2,0,"NewArticleScreen.kt, NewMusicScreen.kt"
+শেয়ার করুন,,ui,2,0,"ArticleScreen.kt, EditorialComponents.kt"
+সংরক্ষণ সরানো হয়েছে,,ui,2,0,MainViewModels.kt
+সংরক্ষিত,,ui,2,0,"BookmarksScreen.kt, PortalDrawer.kt"
+সংস্কৃতি ও উৎসব,,ui,2,0,SupabaseModels.kt
+সকল PDF,,content,2,0,"ArticleRepository.kt, NinghsingCheContentData.kt"
+সব সংরক্ষিত,,ui,2,0,"Entities.kt, Models.kt"
+সম্পাদক,,ui,2,0,"NingshingCheWebsiteClient.kt, SupabaseModels.kt"
+সম্পাদকীয়,,ui,2,0,"EditorialComponents.kt, NinghsingCheAiAssistant.kt"
+সরান,,ui,2,0,"NewMusicScreen.kt, UserDashboardScreen.kt"
+সাইন ইন,,ui,2,0,"AccountHeaderButton.kt, LoginScreen.kt"
+সারসংক্ষেপ,,ui,2,0,NinghsingCheAiAssistant.kt
+স্মৃতি,,content,2,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
+১৬ই মার্চ,,content,2,0,NinghsingCheContentData.kt
+### «{1}» — নিবন্ধ বিশ্লেষণ,,ui,1,1,NinghsingCheAiAssistant.kt
+### নিংশিং চে ডাটাবেজের প্রাসঙ্গিক নিবন্ধসমূহ:,,ui,1,0,NinghsingCheAiAssistant.kt
+### সংশ্লিষ্ট বই/ই-বুক তালিকা:,,ui,1,0,NinghsingCheAiAssistant.kt
+### সম্পর্কিত জিজ্ঞাসা:,,ui,1,0,NinghsingCheAiAssistant.kt
+### সম্পর্কিত প্রশ্ন:,,ui,1,0,NinghsingCheAiAssistant.kt
+### সম্পর্কিত প্রশ্নসমূহ:,,ui,1,0,NinghsingCheAiAssistant.kt
+### সম্পর্কিত লেখক পরিচিতি:,,ui,1,0,NinghsingCheAiAssistant.kt
+#### এই বিষয়ে আরও প্রাসঙ্গিক প্রবন্ধ:,,ui,1,0,NinghsingCheAiAssistant.kt
+(20\d{2}|২০\d{2}),,ui,1,0,NingshingCheWebsiteClient.kt
+"(?:জানুয়ারি|ফেব্রুয়ারি|মার্চ|এপ্রিল|মে|জুন|জুলাই|আগস্ট|সেপ্টেম্বর|অক্টোবর|নভেম্বর|ডিসেম্বর)[^<]{0,18}২০\d{2}",,ui,1,0,NingshingCheWebsiteClient.kt
+**গুরুত্বপূর্ণ অংশসমূহ:**,,ui,1,0,NinghsingCheAiAssistant.kt
+**ট্যাগ:** ${article.tags.joinToString(,,ui,1,0,NinghsingCheAiAssistant.kt
+**নিবন্ধ থেকে প্রাপ্ত প্রাসঙ্গিক অংশ:**,,ui,1,0,NinghsingCheAiAssistant.kt
+**নিবন্ধের মূল বার্তা ও সারসংক্ষেপ:**,,ui,1,0,NinghsingCheAiAssistant.kt
+**মূল পাঠ্যাংশ/সারসংক্ষেপ:** {1},,ui,1,1,NinghsingCheAiAssistant.kt
+**লেখক:** {1} | **বিভাগ:** {2} | **প্রকাশকাল:** {3},,ui,1,3,NinghsingCheAiAssistant.kt
+**সম্পর্কিত জিজ্ঞাসা:**,,ui,1,0,NinghsingCheAiAssistant.kt
+**সম্পর্কিত প্রশ্ন:**,,ui,1,0,NinghsingCheAiAssistant.kt
+"- **{1}** (লেখক/সম্পাদক: {2}, প্রকাশকাল: {3})",,ui,1,3,NinghsingCheAiAssistant.kt
+--- *তথ্যসূত্র: নিংশিং চে ডিজিটাল আর্কাইভের «{1}» নিবন্ধ*,,ui,1,1,NinghsingCheAiAssistant.kt
+AI বিশ্লেষণ ও উত্তর প্রস্তুত করা হচ্ছে...,,ui,1,0,AiAssistantScreen.kt
+AI সহকারী লুকান,,ui,1,0,AiAssistantScreen.kt
+AI সহকারীকে জিজ্ঞাসা করুন,,ui,1,0,EditorialComponents.kt
+APK শেয়ার করুন,,ui,1,0,SettingsScreen.kt
+APK শেয়ার প্রস্তুত করা সম্ভব হয়নি,,ui,1,0,SettingsScreen.kt
+APK সংরক্ষণ করুন,,ui,1,0,SettingsScreen.kt
+APK সংরক্ষণ ব্যর্থ হয়েছে,,ui,1,0,SettingsScreen.kt
+APK সফলভাবে ডাউনলোড ফোল্ডারে সংরক্ষিত হয়েছে!,,ui,1,0,SettingsScreen.kt
+Downloads/Ningshingche/{1} ফোল্ডারে সফলভাবে সংরক্ষিত হয়েছে!,,ui,1,1,ApkManager.kt
+Downloads/Ningshingche_PDFs/{1} ফোল্ডারে সংরক্ষিত হয়েছে!,,ui,1,1,PdfHelper.kt
+Facebook আইডি / লিংক,,ui,1,0,UserProfileScreen.kt
+Facebook আইডি দিন।,,ui,1,0,ReaderWorkspaceViewModel.kt
+Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন,,ui,1,0,LoginScreen.kt
+Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন। একবার সাইন-ইন করলে অ্যাপ বন্ধ করলেও সেশন থাকবে।,,ui,1,0,SettingsScreen.kt
+Google ও Supabase-এ Web Client ID মিলছে না। Dashboard → Authentication → Google-এ Web Client ID দিন।,,ui,1,0,SupabaseClient.kt
+Google কনসোলে এই অ্যাপের প্যাকেজ নাম (com.ningshingche.app) ও সাইনিং SHA-1 মিলছে না। Debug ও Release দুই SHA-1 Android OAuth ক্লায়েন্টে যোগ করুন।,,ui,1,0,GoogleAuthMapper.kt
+Google দিয়ে চালিয়ে যান,,ui,1,0,GoogleSignInButton.kt
+HTML লেখা,,ui,1,0,HtmlContentEditor.kt
+ImgBB API Key পাওয়া যায়নি। সেটিংস বা এনভায়রনমেন্ট কনফিগারেশন চেক করুন।,,ui,1,0,ImgBbUploader.kt
+ImgBB আপলোড ব্যর্থ হয়েছে: {1},,ui,1,1,ImgBbUploader.kt
+ImgBB ত্রুটি: {1},,ui,1,1,ImgBbUploader.kt
+PDF আর্কাইভ,,ui,1,0,PortalDrawer.kt
+PDF প্রকাশনা শেয়ার করুন,,ui,1,0,PdfHelper.kt
+Supabase-এ Google সাইন-ইন চালু নেই। Authentication → Providers → Google চালু করুন।,,ui,1,0,SupabaseClient.kt
+^(?:নিংশিংচে|ningshingche|ningshing-che)-?(\\d{4})$,,ui,1,0,IssueTags.kt
+_নিচে তথ্যসূত্র কার্ড থেকে মূল প্রবন্ধ পড়তে পারেন।_,,ui,1,0,NinghsingCheAiAssistant.kt
+ningshingche.com ওয়েবসাইটে যান,,ui,1,0,SettingsScreen.kt
+ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
+{1} ({2}) — বিষ্ণুপ্রিয়া মণিপুরি ডিজিটাল তথ্যকোষ 'নিংশিং চে' থেকে সংগৃহীত। https://ningshingche.com,,ui,1,2,PdfHelper.kt
+{1} {2} {3}  নিংশিং চে,,ui,1,3,HomeScreen.kt
+{1} পৃ. • {2} MB,,ui,1,2,EditorialComponents.kt
+{1} বার পঠিত,,ui,1,1,ArticleScreen.kt
+{1} বিষয়ক অন্যান্য গবেষণা প্রবন্ধ কী কী আছে?,,ui,1,1,NinghsingCheAiAssistant.kt
+{1} বিষয়ে প্রকাশিত প্রবন্ধসমূহ,,ui,1,1,ExploreScreen.kt
+{1} মিনিট পাঠ,,ui,1,1,ArticleScreen.kt
+{1} — নিংশিং চে PDF আর্কাইভ,,ui,1,1,PdfHelper.kt
+{1}:{2},,ui,1,2,MusicPlayer.kt
+{1}টি,,ui,1,1,ExploreScreen.kt
+{1}টি নতুন PDF বই,,ui,1,1,ContentNotice.kt
+{1}টি নতুন ছবি,,ui,1,1,ContentNotice.kt
+{1}টি নতুন প্রবন্ধ,,ui,1,1,ContentNotice.kt
+{1}টি নতুন বার্তা,,ui,1,1,ContentNotice.kt
+{1}টি নতুন ভিডিও,,ui,1,1,ContentNotice.kt
+{1}টি নির্বাচিত প্রবন্ধ,,ui,1,1,ContentNotice.kt
+{1}টি মন্তব্য,,ui,1,1,ArticleScreen.kt
+{1}টি মিল,,ui,1,1,ListScreens.kt
+{1}টি লেখা সংরক্ষিত,,ui,1,1,BookmarksScreen.kt
+© ২০২৬ {1} | সাইট উন্নয়ন,,ui,1,1,SiteFooter.kt
+«{1}» সম্পর্কে আরও বিস্তারিত তথ্য জানা যাবে কি?,,ui,1,1,NinghsingCheAiAssistant.kt
+· {1}টি গান,,ui,1,1,MusicBrowseScreens.kt
+অক্টো,,ui,1,0,UserDashboardCharts.kt
+অজানা ত্রুটি,,ui,1,0,ImgBbUploader.kt
+অটোপ্লে,,ui,1,0,MusicPlayer.kt
+অডিও আপলোড যায়নি ({1})।,,ui,1,1,SupabaseClient.kt
+অডিও আপলোড যায়নি।,,ui,1,0,ReaderWorkspaceViewModel.kt
+অডিও আপলোডের অনুমতি নেই। আবার সাইন ইন করে চেষ্টা করুন।,,ui,1,0,SupabaseClient.kt
+অডিও ফাইল খালি।,,ui,1,0,SupabaseClient.kt
+অডিও ফাইল পড়া যায়নি।,,ui,1,0,SupabaseClient.kt
+অডিওতে ফিরুন,,ui,1,0,MusicPlayer.kt
+অধ্যাপক বারীন্দ্র কুমার সিংহ ও সম্পাদনা পরিষদ,,content,1,0,NinghsingCheContentData.kt
+"অনন্য রাগ, পাখোয়াজ ও করতাল সংবলিত মণিপুরি লোকসংগীতের গভীরতা, বৈষ্ণব পদাবলী এবং বাউলধারার সমন্বিত রূপ।",,content,1,0,NinghsingCheContentData.kt
+অনুমোদনের পর আপনার মন্তব্য এখানে প্রকাশিত হবে।,,ui,1,0,ArticleScreen.kt
+"অন্তত দুই অক্ষর লিখুন। শিরোনাম, উপশিরোনাম ও স্লাগে খোঁজা হয়।",,ui,1,0,ListScreens.kt
+অন্বেষণ,,ui,1,0,PortalDrawer.kt
+অন্য অ্যাপে খুলুন,,ui,1,0,PdfViewerScreen.kt
+অন্য ধরন লিখুন,,ui,1,0,GenreCombobox.kt
+অন্য শব্দ দিয়ে খুঁজুন বা বিভাগ ফিল্টার বদলান।,,ui,1,0,BookmarksScreen.kt
+অপর্ণা,,content,1,0,AuthorProfiles.kt
+অফলাইন ক্যাশ সিঙ্ক ও পরিষ্কার করুন,,ui,1,0,SettingsScreen.kt
+অফলাইন ক্যাশে {1}টি প্রবন্ধ,,ui,1,1,ArticleRepository.kt
+অফলাইনে পড়ার জন্য সংরক্ষিত লেখা,,ui,1,0,BookmarksScreen.kt
+অফলাইনে সংরক্ষিত,,ui,1,0,MusicPlayer.kt
+অরুন,,content,1,0,AuthorProfiles.kt
+অর্চনা,,content,1,0,AuthorProfiles.kt
+অ্যাডমিন,,ui,1,0,UserDashboardScreen.kt
+অ্যাডমিন নতুন বার্তা পাঠালে,,ui,1,0,AppNotificationManager.kt
+অ্যাডমিন বার্তা,,ui,1,0,AppNotificationManager.kt
+অ্যাডমিনকে প্রশ্ন বা অনুরোধ পাঠান। উত্তর এখানে দেখাবে।,,ui,1,0,UserDashboardScreen.kt
+অ্যানোটেশন দেখান,,ui,1,0,PdfViewerScreen.kt
+অ্যান্ড্রয়েড সিস্টেম নোটিফিকেশন চালু রাখুন,,ui,1,0,SettingsScreen.kt
+অ্যাপ আপডেট হয়েছে,,ui,1,0,ContentUpdateNotifier.kt
+অ্যাপ ও সাইট হালনাগাদ,,ui,1,0,AppNotificationManager.kt
+অ্যাপ থিম নির্বাচন,,ui,1,0,SettingsScreen.kt
+অ্যাপ শেয়ার করুন,,ui,1,0,PortalDrawer.kt
+অ্যাপ সংস্করণ ও সাইট হালনাগাদ,,ui,1,0,SettingsScreen.kt
+অ্যাপে MP3 সংরক্ষণ,,ui,1,0,MusicPlayer.kt
+আগস্ট,,ui,1,0,UserDashboardCharts.kt
+আগের কাজ,,ui,1,0,HtmlContentEditor.kt
+আগের গান,,ui,1,0,MusicPlayer.kt
+আগের ছবি,,ui,1,0,EditorialComponents.kt
+আগের পৃষ্ঠা,,ui,1,0,PdfViewerScreen.kt
+আগের বার্তা লোড করুন,,ui,1,0,UserDashboardScreen.kt
+আজ,,ui,1,0,ArticleRepository.kt
+আধুনিক,,ui,1,0,MusicGenres.kt
+"আধুনিক বিষ্ণুপ্রিয়া মণিপুরি প্রবন্ধ, কবিতা, ডিজিটাল সাহিত্য ও সমকালীন শিল্পভাবনার সংকলন।",,content,1,0,NinghsingCheContentData.kt
+আধুনিক বিষ্ণুপ্রিয়া মণিপুরি সাহিত্য ও ডিজিটাল তথ্য সংরক্ষণের বিশেষ সংখ্যা।,,content,1,0,NinghsingCheContentData.kt
+আধুনিক যুগে মণিপুরি ইঞ্চৌঘরের ঐতিহ্য কীভাবে সংরক্ষিত হচ্ছে?,,ui,1,0,NinghsingCheAiAssistant.kt
+আধুনিক সাহিত্য,,content,1,0,NinghsingCheContentData.kt
+আধ্যাত্মিক,,ui,1,0,MusicGenres.kt
+আপনার কোনো মন্তব্য পাওয়া যায়নি।,,ui,1,0,UserDashboardScreen.kt
+আপনার নাম *,,ui,1,0,ArticleCommentForm.kt
+আপনার পছন্দের প্রদর্শন শৈলী নির্বাচন করুন:,,ui,1,0,SettingsScreen.kt
+আপনার মন্তব্য সফলভাবে প্রকাশিত হয়েছে!,,ui,1,0,ArticleRepository.kt
+আপনার মূল্যবান মন্তব্য *,,ui,1,0,ArticleCommentForm.kt
+আপনার সংরক্ষিত প্লেলিস্ট,,ui,1,0,MusicScreen.kt
+আপনি,,ui,1,0,UserDashboardScreen.kt
+আপলোড সার্ভার এখন সাড়া দিচ্ছে না ({1})।,,ui,1,1,SatoruUploadClient.kt
+আপলোড সার্ভার ঠিকানা দেয়নি।,,ui,1,0,SatoruUploadClient.kt
+আমাদের অনুসরণ করুন,,ui,1,0,SiteFooter.kt
+আমাদের সম্পর্কে,,ui,1,0,SiteFooter.kt
+আমার ড্যাশবোর্ড,,ui,1,0,UserDashboardScreen.kt
+আমি নিংশিং চে AI...,,ui,1,0,NinghsingCheAiAssistant.kt
+আরও,,ui,1,0,MusicPlayer.kt
+আরতী,,ui,1,0,MusicGenres.kt
+আর্কাইভ,,content,1,0,NinghsingCheContentData.kt
+"আসাম, ভারত",,content,1,0,NinghsingCheContentData.kt
+ইউনিকোড,,content,1,0,NinghsingCheContentData.kt
+ইঞ্চৌঘর ও মণিপুরি লোকস্থাপত্য সমীক্ষা,,content,1,0,NinghsingCheContentData.kt
+ইঞ্চৌঘরের স্থাপত্যরীতিতে বাঁশ ও কাঠের ব্যবহার কীভাবে হয়?,,ui,1,0,NinghsingCheAiAssistant.kt
+ইনস্টল্ড ডিভাইস থেকে সরাসরি সংগৃহীত অফিশিয়াল প্যাকেজ,,ui,1,0,SettingsScreen.kt
+ইন্টারনেট সংযোগ নেই।,,ui,1,0,MusicController.kt
+ইন্টারনেট সংযোগ নেই। সংরক্ষিত আর্কাইভ দেখানো হচ্ছে।,,ui,1,0,PortalModels.kt
+ইন্টারনেট সংযোগ যাচাই করে আবার চেষ্টা করুন। আপনার মন্তব্য মুছে ফেলা হয়নি।,,ui,1,0,ReaderViewModels.kt
+ইন্টারফেসের ভাষা। বাকি লেখা বাংলাতেই থাকবে যতক্ষণ অনুবাদ না হয় ({1}/{2})।,,ui,1,0,SettingsScreen.kt
+ইমন,,content,1,0,AuthorProfiles.kt
+ইমার,,ui,1,0,NingshingCheWebsiteClient.kt
+ইমার ঠারর এলা,,ui,1,0,NingshingCheWebsiteClient.kt
+ইমার-ঠারর-এলা,,ui,1,0,EditorialComponents.kt
+ইমেইল (ঐচ্ছিক),,ui,1,0,ArticleCommentForm.kt
+ইমেইল (পরিবর্তন করা যায় না),,ui,1,0,UserProfileScreen.kt
+উচ্চতা,,ui,1,0,PdfViewerScreen.kt
+উত্তম,,content,1,0,AuthorProfiles.kt
+উত্তর কপি করা হয়েছে,,ui,1,0,ArticleScreen.kt
+"উত্তর-পূর্ব ভারতের মণিপুরি জনজাতির বাস্তুসংস্থান, ইঞ্চৌঘরের স্থাপত্য ও পৌরাণিক লোকগাথা সংক্রান্ত গবেষণার জন্য সমাদৃত।",,content,1,0,NinghsingCheContentData.kt
+উপর-নিচ স্ক্রল করে পুরো বই পড়ুন।,,ui,1,0,PdfViewerScreen.kt
+এআই সহায়িকা,,ui,1,0,ArticleScreen.kt
+এই {1}-এ কোনো গান নেই।,,ui,1,1,MusicBrowseScreens.kt
+এই অডিও ফর্ম্যাট সাপোর্টেড নয়। এমপি৩ নির্বাচন করুন।,,ui,1,0,SupabaseClient.kt
+এই গানের লিরিক এখনো যোগ করা হয়নি।,,ui,1,0,MusicPlayer.kt
+এই ডিভাইসে কোনো Google অ্যাকাউন্ট পাওয়া যায়নি। একটি Google অ্যাকাউন্ট যোগ করে আবার চেষ্টা করুন।,,ui,1,0,GoogleAuthMapper.kt
+এই ডিভাইসে সংরক্ষিত MP3,,ui,1,0,MusicScreen.kt
+এই নিবন্ধ থেকে কী কী মূল বিষয় বা শিক্ষা পাওয়া যায়?,,ui,1,0,ArticleScreen.kt
+এই নিবন্ধ সম্পর্কে প্রশ্ন লিখুন...,,ui,1,0,ArticleScreen.kt
+এই নিবন্ধে এই বিষয়ে কোনো তথ্য উল্লেখ করা হয়নি। নিংশিং চে মূল এআই সহায়িকায় প্রশ্নটি জিজ্ঞাসা করতে পারেন।,,ui,1,0,NinghsingCheAiAssistant.kt
+এই নিবন্ধে লেখকের মূল বক্তব্য ও লক্ষ্য কী?,,ui,1,0,ArticleScreen.kt
+এই নিবন্ধের একটি সংক্ষিপ্ত ও গোছানো সারসংক্ষেপ দিন।,,ui,1,0,ArticleScreen.kt
+এই নিবন্ধের মূল বার্তা বা সিদ্ধান্ত কী?,,ui,1,0,NinghsingCheAiAssistant.kt
+এই প্রবন্ধে কোনো বিষয়বস্তু পাওয়া যায়নি।,,ui,1,0,HtmlArticleRenderer.kt
+এই বইয়ের পিডিএফ লিংক নেই।,,ui,1,0,MainViewModels.kt
+এক দশকের সাহিত্যিক অভিযাত্রা এবং ঐতিহাসিক গবেষণা সংকলন।,,content,1,0,NinghsingCheContentData.kt
+এক পাতায় একটি পৃষ্ঠা। বাঁদিকে/ডানদিকে সোয়াইপ করলে পাতা উল্টে।,,ui,1,0,PdfViewerScreen.kt
+"একটি সাংস্কৃতিক আন্দোলনের এক দশকের পথপরিক্রমা, প্রাপ্তি ও আগামী দিনের ডিজিটাল রূপকল্প।",,content,1,0,NinghsingCheContentData.kt
+এখন নয়,,ui,1,0,WelcomeOnboardingScreen.kt
+এখন বাজছে,,ui,1,0,MusicPlayer.kt
+এখনো কোনো গান জমা দেননি।,,ui,1,0,UserDashboardScreen.kt
+এখনো কোনো গান পছন্দ করা হয়নি।,,ui,1,0,MusicScreen.kt
+এখনো কোনো নির্বাচিত লেখা নেই।,,ui,1,0,ExploreScreen.kt
+এখনো কোনো প্রবন্ধ জমা দেওয়া হয়নি।,,ui,1,0,UserDashboardCharts.kt
+এখনো কোনো প্রবন্ধ জমা দেননি।,,ui,1,0,UserDashboardScreen.kt
+এখনো কোনো প্রবন্ধ প্রকাশিত হয়নি।,,ui,1,0,HomeScreen.kt
+এখনো কোনো প্রবন্ধ বা গান জমা দেননি।,,ui,1,0,UserDashboardScreen.kt
+এখনো কোনো বার্ষিক সংখ্যা প্রকাশিত হয়নি।,,ui,1,0,ExploreScreen.kt
+এখনো কোনো বিজ্ঞপ্তি নেই। প্রবন্ধ বা মন্তব্য প্রকাশিত হলে এখানে দেখাবে।,,ui,1,0,UserDashboardScreen.kt
+এখনো কোনো ভিডিও প্রকাশিত হয়নি।,,ui,1,0,VideosScreen.kt
+এখনো কোনো মন্তব্য নেই,,ui,1,0,ArticleScreen.kt
+এখনো কোনো সামাজিক কার্যকলাপের লেখা প্রকাশিত হয়নি।,,ui,1,0,PortalPages.kt
+এগুলোও পড়ুন,,ui,1,0,ArticleScreen.kt
+এপ্রিল,,ui,1,0,UserDashboardCharts.kt
+এমপি৩ ফাইল নির্বাচন করুন।,,ui,1,0,ReaderWorkspaceViewModel.kt
+এলাহান বরিক,,ui,1,0,NewMusicScreen.kt
+ঐতিহাসিক গবেষণা প্রকাশনা (২০২৩),,content,1,0,NinghsingCheContentData.kt
+ঐতিহাসিক ৩য় মুদ্রণ (২০১৬),,content,1,0,NinghsingCheContentData.kt
+"ঐতিহাসিক ৩য় মুদ্রণ সংখ্যা, প্রামাণ্য দলিল ও সমাজ সংস্কারের ইতিবৃত্ত।",,content,1,0,NinghsingCheContentData.kt
+ঐতিহ্যবাহী,,ui,1,0,MusicGenres.kt
+ঐতিহ্যবাহী ইঞ্চৌঘরের বিভিন্ন অংশের নাম ও সামাজিক তাৎপর্য কী?,,ui,1,0,NinghsingCheAiAssistant.kt
+"ঐতিহ্যবাহী মণিপুরি সমাজব্যবস্থা, লোকাচার, নৃত্যকলা, রাসলীলা, পোশাক-পরিচ্ছদ ও লোকসংগীত।",,content,1,0,NinghsingCheContentData.kt
+ওয়েবসাইট (ঐচ্ছিক),,ui,1,0,UserProfileScreen.kt
+কন্টেন্ট,,ui,1,0,UserDashboardScreen.kt
+কপি করুন,,ui,1,0,ArticleScreen.kt
+কপিরাইট © নিংশিং চে • সর্বস্বত্ব সংরক্ষিত,,ui,1,0,SettingsScreen.kt
+কবি ও জীবনীকার,,content,1,0,NinghsingCheContentData.kt
+"কবিতা, লোকগাথা, নাটক ও প্রাচীন পাণ্ডুলিপি সংকলন।",,content,1,0,NinghsingCheContentData.kt
+কমা বা ট্যাব চাপলে চিপ হবে,,ui,1,0,GenreCombobox.kt
+"করোনাকালের স্মৃতিচারণ, লোকঔষধ ও মণিপুরি লোকগাথার প্রামাণ্য রূপ।",,content,1,0,NinghsingCheContentData.kt
+কাজল,,content,1,0,AuthorProfiles.kt
+কাঞ্চন,,content,1,0,AuthorProfiles.kt
+কার্যক্রম,,ui,1,0,UserDashboardCharts.kt
+কুঙ্গ,,content,1,0,AuthorProfiles.kt
+কুমেই,,ui,1,0,NingshingCheWebsiteClient.kt
+কৃত্রিম বুদ্ধিমত্তা,,content,1,0,NinghsingCheContentData.kt
+কেহেম আইটি,,ui,1,0,SiteFooter.kt
+কোন মন্তব্য,,ui,1,0,NingshingCheWebsiteClient.kt
+কোনো অ্যালবাম নেই।,,ui,1,0,MusicScreen.kt
+কোনো অ্যালবাম মেলেনি।,,ui,1,0,MusicScreen.kt
+কোনো গান অ্যাপে সংরক্ষণ করা হয়নি।,,ui,1,0,MusicScreen.kt
+কোনো গান মেলেনি।,,ui,1,0,MusicScreen.kt
+কোনো তথ্য পাওয়া যায়নি।,,ui,1,0,PortalModels.kt
+কোনো ধরন নেই।,,ui,1,0,MusicScreen.kt
+কোনো ধরন মেলেনি।,,ui,1,0,MusicScreen.kt
+কোনো ফিচার্ড প্রবন্ধ পাওয়া যায়নি।,,ui,1,0,PortalPages.kt
+কোনো বিভাগ পাওয়া যায়নি।,,ui,1,0,ExploreScreen.kt
+কোনো মিল পাওয়া যায়নি,,ui,1,0,BookmarksScreen.kt
+কোনো শিল্পী নেই।,,ui,1,0,MusicScreen.kt
+কোনো শিল্পী মেলেনি।,,ui,1,0,MusicScreen.kt
+কোনো সংরক্ষিত প্রবন্ধ নেই,,ui,1,0,BookmarksScreen.kt
+ক্যাটাগরির প্রবন্ধহানি,,ui,1,0,ListScreens.kt
+ক্যাশ খালি করা হয়েছে এবং তথ্য হালনাগাদ করা হয়েছে,,ui,1,0,SettingsScreen.kt
+খোঁজার ফলাফল,,ui,1,0,MusicScreen.kt
+গবেষণা,,content,1,0,NinghsingCheContentData.kt
+গল্প,,content,1,0,NinghsingCheContentData.kt
+গান {1}টি,,ui,1,0,Strings.kt
+গান · {1},,ui,1,1,UserDashboardScreen.kt
+গান আপলোড যায়নি ({1})।,,ui,1,1,SatoruUploadClient.kt
+গান জমা যায়নি ({1})। প্রোফাইল সম্পূর্ণ করে আবার চেষ্টা করুন।,,ui,1,1,SupabaseClient.kt
+গান জমা যায়নি।,,ui,1,0,ReaderWorkspaceViewModel.kt
+গান জমা যায়নি। আবার সাইন ইন করে চেষ্টা করুন।,,ui,1,0,SupabaseClient.kt
+গান জমা হয়েছে,,ui,1,0,NewMusicScreen.kt
+গান জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর যুক্ত হবে।,,ui,1,0,ReaderWorkspaceViewModel.kt
+গান বাজানো যায়নি। ফাইল লিংক যাচাই করুন।,,ui,1,0,MusicController.kt
+গান যোগ,,ui,1,0,UserDashboardScreen.kt
+"গান, শিল্পী, অ্যালবাম, ধরন…",,ui,1,0,MusicBrowseScreens.kt
+গানের ফাইল পাওয়া যায়নি।,,ui,1,0,MusicController.kt
+গানের ফাইল লিংক নেই।,,ui,1,0,MusicLibraryStore.kt
+গানের বিবরণ,,ui,1,0,MusicPlayer.kt
+গানের লিংক মেয়াদ শেষ বা বন্ধ। ড্যাশবোর্ড থেকে MP3 আবার আপলোড করুন।,,ui,1,0,MusicController.kt
+গাফফার,,content,1,0,AuthorProfiles.kt
+গীতশ্রী,,content,1,0,AuthorProfiles.kt
+গৃহ,,ui,1,0,NinghsingCheAiAssistant.kt
+গোকুলানন্দ গীতিস্বামী,,content,1,0,NinghsingCheContentData.kt
+গোত্র,,content,1,0,NinghsingCheContentData.kt
+গোপনীয়তা নীতি,,ui,1,0,SiteFooter.kt
+গ্যালারি ও অন্যান্য আপডেট,,ui,1,0,AppNotificationManager.kt
+গ্যালারি ও বাকি আপডেট,,ui,1,0,SettingsScreen.kt
+গ্রন্থাগার,,ui,1,0,PdfViewerScreen.kt
+চন্দ্র মোহন,,content,1,0,AuthorProfiles.kt
+চলচ্চিত্র,,ui,1,0,MusicGenres.kt
+চৈত্র সংক্রান্তি ও বৈশাখের মিলনে উদযাপিত বিষ্ণুপ্রিয়া মণিপুরিদের ঐতিহ্যবাহী 'বিশু' উৎসবের পুণ্য আচার ও সামাজিক মিলনমেলা।,,content,1,0,NinghsingCheContentData.kt
+ছবি আপডেট,,ui,1,0,UserProfileScreen.kt
+ছবি আপলোড হচ্ছে…,,ui,1,0,HtmlContentEditor.kt
+ছবি আপলোড হয়নি।,,ui,1,0,HtmlContentEditor.kt
+ছবি বা পিডিএফ,,ui,1,0,UserDashboardScreen.kt
+ছবি যোগ,,ui,1,0,HtmlContentEditor.kt
+ছবি লোড করা যায়নি,,ui,1,0,HtmlArticleRenderer.kt
+ছবি সংরক্ষণ যায়নি।,,ui,1,0,ReaderWorkspaceViewModel.kt
+ছবির আকার ৩২ মেগাবাইটের বেশি হতে পারবে না (Exceeds 32MB limit: {1}MB),,ui,1,1,ImgBbUploader.kt
+ছবির আকার ৩২ মেগাবাইটের বেশি হতে পারবে না (Image exceeds 32MB),,ui,1,0,ImgBbUploader.kt
+ছবির ফাইল পড়া যাচ্ছে না (Cannot read image file),,ui,1,0,ImgBbUploader.kt
+জনপ্রিয় ও নির্বাচিত,,ui,1,0,Screen.kt
+জানু,,ui,1,0,UserDashboardCharts.kt
+জিজ্ঞাসা করুন,,ui,1,0,AiAssistantScreen.kt
+জিতেন্দ্র,,content,1,0,AuthorProfiles.kt
+জুন,,ui,1,0,UserDashboardCharts.kt
+জুম করতে দুই আঙুল ব্যবহার করুন,,ui,1,0,HtmlArticleRenderer.kt
+জুম রিসেট করতে ট্যাপ করুন,,ui,1,0,HtmlArticleRenderer.kt
+জুলাই,,ui,1,0,UserDashboardCharts.kt
+জেলা / দেশ (ঐচ্ছিক),,ui,1,0,UserProfileScreen.kt
+"জ্ঞান, ইতিহাস ও সাহিত্যের মুক্ত তথ্যকোষ",,ui,1,0,SplashScreen.kt
+ট্যাগসমূহ,,ui,1,0,ArticleScreen.kt
+ঠার,,ui,1,0,NingshingCheWebsiteClient.kt
+ঠিকানা,,ui,1,0,UserProfileScreen.kt
+ঠিকানা দিন।,,ui,1,0,ReaderWorkspaceViewModel.kt
+"ঠিকানা: তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট",,ui,1,0,PortalPages.kt
+ড.,,content,1,0,AuthorProfiles.kt
+ড. প্রদীপ সিংহ ও সুজিত সিংহ,,content,1,0,NinghsingCheContentData.kt
+ডা.,,content,1,0,AuthorProfiles.kt
+ডাউনলোড ব্যর্থ হয়েছে: {1},,ui,1,1,MainViewModels.kt
+ডাউনলোড হয়নি,,ui,1,0,PdfArchiveScreen.kt
+ডাকনাম,,ui,1,0,NinghsingCheAiAssistant.kt
+ডার্ক থিম,,ui,1,0,SettingsScreen.kt
+ডিজিটাল আর্কাইভ ও প্রযুক্তি সংগ্রাহক,,content,1,0,NinghsingCheContentData.kt
+ডিজিটাল গ্রন্থাগার,,ui,1,0,PdfArchiveScreen.kt
+ডিজিটাল বই ও পত্রিকা প্রকাশিত হলে,,ui,1,0,SettingsScreen.kt
+"ডিজিটাল মাধ্যমে বিষ্ণুপ্রিয়া মণিপুরি ইউনিকোড ফন্ট, তথ্যকোষ এবং অনলাইন লাইব্রেরি তৈরিতে গুরুত্বপূর্ণ অবদান রাখছেন।",,content,1,0,NinghsingCheContentData.kt
+ডিজিটাল যুগে ভাষা সংরক্ষণ: ইউনিকোড ও ওপেন নলেজ আর্কাইভ,,content,1,0,NinghsingCheContentData.kt
+ডিভাইসে সফলভাবে ডাউনলোড হয়েছে: {1},,ui,1,1,ApkManager.kt
+ডিসে,,ui,1,0,UserDashboardCharts.kt
+ডেটাবেজ আপডেট প্রয়োজন।,,ui,1,0,PortalRepository.kt
+ডেটাবেজ টেবিল পাওয়া যায়নি। অনুগ্রহ করে সার্ভার কনফিগারেশন যাচাই করুন।,,ui,1,0,PortalRepository.kt
+ড্যাশবোর্ড ও নতুন প্রবন্ধ ব্যবহার করতে প্রোফাইলের সব আবশ্যক ঘর পূরণ করুন।,,ui,1,0,UserProfileScreen.kt
+"ঢাকা, বাংলাদেশ",,content,1,0,NinghsingCheContentData.kt
+তথ্য লোড করতে সমস্যা হয়েছে।,,ui,1,0,ReaderViewModels.kt
+তথ্য লোড করতে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।,,ui,1,0,PortalModels.kt
+"তথ্যকোষের উদ্দেশ্য, পরিকল্পনা ও বিষ্ণুপ্রিয়া মণিপুরি সাহিত্যের পটভূমি সংক্রান্ত সামগ্রিক ভূমিকা।",,content,1,0,NinghsingCheContentData.kt
+তথ্যসূত্র ও গবেষণা প্রবন্ধ:,,ui,1,0,AiAssistantScreen.kt
+তাক {1},,ui,1,1,PdfArchiveScreen.kt
+"তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট",,ui,1,0,SiteFooter.kt
+তৈরি,,ui,1,0,MusicScreen.kt
+তৈরি করুন,,ui,1,0,MusicPlayer.kt
+"ত্রিপুরা, ভারত",,content,1,0,NinghsingCheContentData.kt
+থাঙ,,content,1,0,AuthorProfiles.kt
+থাবল চোংবা,,content,1,0,NinghsingCheContentData.kt
+থামান,,ui,1,0,NewMusicScreen.kt
+থিম: ডার্ক,,ui,1,0,PortalDrawer.kt
+থিম: লাইট,,ui,1,0,PortalDrawer.kt
+থিম: সিস্টেম (স্বয়ংক্রিয়),,ui,1,0,PortalDrawer.kt
+দিপা,,content,1,0,AuthorProfiles.kt
+"দুঃখিত, উত্তর তৈরি করতে সমস্যা হয়েছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।",,ui,1,0,ArticleScreen.kt
+"দুঃখিত, তথ্য সংগ্রহে একটি ত্রুটি দেখা দিয়েছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।",,ui,1,0,MainViewModels.kt
+দুবার ট্যাপে জুম,,ui,1,0,PdfViewerScreen.kt
+দৃশ্য,,ui,1,0,PdfViewerScreen.kt
+দেখা হয়েছে,,ui,1,0,UserDashboardScreen.kt
+দেবাঞ্জলি,,content,1,0,AuthorProfiles.kt
+দেশাত্মবোধক,,ui,1,0,MusicGenres.kt
+দ্বাদশ বর্ষ ১ম সংখ্যা (২০২৫),,content,1,0,NinghsingCheContentData.kt
+দ্রুত লিংকসমূহ,,ui,1,0,SiteFooter.kt
+ধরন / ক্যাটাগরি,,ui,1,0,GenreCombobox.kt
+ধ্রুমেল,,ui,1,0,MusicGenres.kt
+নতুন PDF বই প্রকাশিত হলে,,ui,1,0,AppNotificationManager.kt
+নতুন ও নির্বাচিত প্রবন্ধ প্রকাশিত হলে,,ui,1,0,AppNotificationManager.kt
+নতুন কিছু প্রকাশিত হলে অ্যান্ড্রয়েড নোটিফিকেশনে জানানো হবে।,,ui,1,0,WelcomeOnboardingScreen.kt
+নতুন গান,,ui,1,0,NewMusicScreen.kt
+নতুন ছবি,,ui,1,0,ContentNotice.kt
+নতুন প্রকাশিত প্রবন্ধ এলে জানান,,ui,1,0,SettingsScreen.kt
+নতুন প্রবন্ধসমূহ পুনরায় সিঙ্ক করবে,,ui,1,0,SettingsScreen.kt
+নতুন ভিডিও যোগ হলে,,ui,1,0,AppNotificationManager.kt
+নথি,,content,1,0,NinghsingCheContentData.kt
+নবকুমার,,content,1,0,AuthorProfiles.kt
+নববর্ষ,,content,1,0,NinghsingCheContentData.kt
+নভে,,ui,1,0,UserDashboardCharts.kt
+"নমস্কার! আমি এই নিবন্ধের এআই সহায়িকা।  📌 **""{1}""** নিবন্ধটির যেকোনো তথ্য, বিশ্লেষণ বা মূল ভাব সম্পর্কে জানতে নিচের দ্রুত প্রশ্ন বেছে নিন অথবা নিচে আপনার প্রশ্ন লিখুন।",,ui,1,1,ArticleScreen.kt
+"নমস্কার! আমি নিংশিং চে AI সহকারী। বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, ঐতিহ্য ও সাধারণ জ্ঞানের প্রবন্ধ বিশ্লেষণ করে আমি সঠিক তথ্য প্রদান করি। ইঞ্চৌঘর, মিংকৌ, ভাষা আন্দোলন বা যেকোনো বিষয়ে প্রশ্ন করতে পারেন।",,ui,1,0,MainViewModels.kt
+নাটক,,ui,1,0,EditorialComponents.kt
+নাম,,ui,1,0,NinghsingCheAiAssistant.kt
+নাম ও মন্তব্য আবশ্যক।,,ui,1,0,ReaderViewModels.kt
+নাম লিখুন,,ui,1,0,MusicPlayer.kt
+নামের প্রথম অংশ,,ui,1,0,UserProfileScreen.kt
+নামের প্রথম ও শেষ অংশ পূরণ করুন।,,ui,1,0,ReaderWorkspaceViewModel.kt
+নামের শেষ অংশ,,ui,1,0,UserProfileScreen.kt
+নিংশিং চে APK ডাউনলোড (সরাসরি লোকাল প্যাকেজ),,ui,1,0,SettingsScreen.kt
+নিংশিং চে APK ফাইল পাঠান / শেয়ার করুন,,ui,1,0,ApkManager.kt
+নিংশিং চে PDF {1},,ui,1,1,NingshingCheWebsiteClient.kt
+নিংশিং চে {1},,ui,1,1,NingshingCheWebsiteClient.kt
+নিংশিং চে অ্যাপ শেয়ার করুন,,ui,1,0,ReaderNavHost.kt
+নিংশিং চে ডিজিটাল আর্কাইভে এ বিষয়ে আর কী কী তথ্য আছে?,,ui,1,0,NinghsingCheAiAssistant.kt
+"নিংশিং চে তথ্যকোষে প্রকাশিত লেখক। {1} এর রচনাসমূহ ইতিহাস, সাহিত্য ও সংস্কৃতি বিষয়ে পাওয়া যায়।",,ui,1,1,NingshingCheWebsiteClient.kt
+নিংশিং চে তথ্যকোষের জন্মলগ্নের ঐতিহাসিক প্রথম প্রকাশনা ও প্রতিষ্ঠাতা রূপরেখা।,,content,1,0,NinghsingCheContentData.kt
+নিংশিং চে তথ্যকোষের লেখক ও গবেষকবৃন্দ,,ui,1,0,PortalPages.kt
+"নিংশিং চে বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, ইতিহাস ও সংস্কৃতির ডিজিটাল তথ্যকোষ। পোর্টালটি তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট থেকে পরিচালিত।",,ui,1,0,PortalPages.kt
+নিংশিং চে মুদ্রিত সংখ্যা ও স্মারকপত্র,,ui,1,0,PdfArchiveScreen.kt
+নিংশিং চে সাহিত্য পর্ষদ,,content,1,0,NinghsingCheContentData.kt
+নিংশিং চে — {1},,ui,1,1,ArticleRepository.kt
+নিংশিং চে — অষ্টম বর্ষ (২০২১),,content,1,0,NinghsingCheContentData.kt
+নিংশিং চে — একাদশ বর্ষ (২০২৪),,content,1,0,NinghsingCheContentData.kt
+নিংশিং চে — একাদশ বর্ষ শারদীয় সংখ্যা (২০২৪),,content,1,0,NinghsingCheContentData.kt
+নিংশিং চে — দশম বর্ষ (২০২৩),,content,1,0,NinghsingCheContentData.kt
+নিংশিং চে — দ্বাদশ বর্ষ (২০২৫),,content,1,0,NinghsingCheContentData.kt
+নিংশিং চে — দ্বাদশ বার্ষিক সংখ্যা (২০২৫),,content,1,0,NinghsingCheContentData.kt
+নিংশিং চে — নবম বর্ষ (২০২২),,content,1,0,NinghsingCheContentData.kt
+নিংশিং চে — পঞ্চম বর্ষ (২০১৮),,content,1,0,NinghsingCheContentData.kt
+নিংশিং চে — প্রারম্ভিক মুদ্রণ সংখ্যা (২০১৪),,content,1,0,NinghsingCheContentData.kt
+নিংশিং চে — প্রারম্ভিক সংখ্যা (২০১৪),,content,1,0,NinghsingCheContentData.kt
+নিংশিং চে — বিষ্ণুপ্রিয়া মণিপুরি ডিজিটাল তথ্যকোষ ও আর্কাইভ অ্যান্ড্রয়েড অ্যাপ (সংস্করণ {1})। ইনস্টল করতে সরাসরি এই APK ফাইলটি ব্যবহার করুন।,,ui,1,1,ApkManager.kt
+নিংশিং চে — বিষ্ণুপ্রিয়া মণিপুরি সাহিত্য ও সংস্কৃতি পোর্টাল https://ningshingche.com,,ui,1,0,ReaderNavHost.kt
+নিংশিং চে — ষষ্ঠ বর্ষ (২০১৯),,content,1,0,NinghsingCheContentData.kt
+নিংশিং চে — সপ্তম বর্ষ (২০২০),,content,1,0,NinghsingCheContentData.kt
+নিংশিং চে — সুবর্ণ জয়ন্তী বিশেষ সংকলন,,content,1,0,NinghsingCheContentData.kt
+নিংশিং চে — ৩য় সংখ্যা (২০১৬),,content,1,0,NinghsingCheContentData.kt
+নিংশিং চে — ৩য় সংখ্যা মুদ্রণ সংস্করণ,,content,1,0,NinghsingCheContentData.kt
+নিংশিং চে-তে {1} সালে প্রকাশিত প্রবন্ধ ও সংখ্যা।,,ui,1,1,ArticleRepository.kt
+"নিংশিং চে-র ঐতিহাসিক ৩য় মুদ্রণ সংখ্যা, যাতে স্থান পেয়েছিল বহু বিরল পাণ্ডুলিপি ও প্রাচীন কবিতা।",,content,1,0,NinghsingCheContentData.kt
+নিংশিং চে-র নতুন সংস্করণ ইনস্টল আছে।,,ui,1,0,ContentUpdateNotifier.kt
+"নিংশিং চে-র প্রথম পথচলা, তথ্যকোষের মূল রূপরেখা ও প্রতিষ্ঠাতা প্রবন্ধমালা।",,content,1,0,NinghsingCheContentData.kt
+"নিংশিং চে-র মূল ভাবনা, সাংস্কৃতিক পথপরিক্রমা এবং সমকালীন সমাজ ভাবনার সম্পাদকীয় প্রতিফলন।",,content,1,0,NinghsingCheContentData.kt
+নিংশিং চে-র সকল ডিজিটাল প্রকাশনা।,,ui,1,0,ArticleRepository.kt
+নিংশিং চে-র সকল প্রকাশিত ডিজিটাল ও মুদ্রিত পিডিএফ প্রকাশনা।,,content,1,0,NinghsingCheContentData.kt
+নিংশিং_চে_-_{1},,ui,1,1,NingshingCheWebsiteClient.kt
+নিংশিংচে {1},,ui,1,1,IssueTags.kt
+নিংশিংচে-,,ui,1,0,IssueTags.kt
+নিংশিংচে-{1},,ui,1,1,IssueTags.kt
+নিংশিংচে.কম থেকে {1}টি প্রবন্ধ হালনাগাদ হয়েছে,,ui,1,1,ArticleRepository.kt
+নিংশিংচে.কম থেকে সংগৃহীত মূল ডিজিটাল সংস্করণ।,,ui,1,0,NingshingCheWebsiteClient.kt
+নিচে দাগ,,ui,1,0,HtmlContentEditor.kt
+নিচে যান,,ui,1,0,UserDashboardScreen.kt
+নিজস্ব প্রবন্ধ রচনা ও খসড়া সংরক্ষণ,,ui,1,0,SupabaseModels.kt
+নিজের সম্পর্কে,,ui,1,0,UserProfileScreen.kt
+নিজের সম্পর্কে সংক্ষিপ্ত পরিচিতি লিখুন।,,ui,1,0,ReaderWorkspaceViewModel.kt
+নিবন্ধ থেকে উত্তর তৈরি করা হচ্ছে...,,ui,1,0,ArticleScreen.kt
+নিবন্ধটিতে উল্লেখিত গুরুত্বপূর্ণ বিষয়গুলো সংক্ষেপে লিখুন,,ui,1,0,NinghsingCheAiAssistant.kt
+নিবন্ধটির সবচেয়ে গুরুত্বপূর্ণ ৩টি প্রশ্নোত্তর তৈরি করে দিন।,,ui,1,0,ArticleScreen.kt
+নিবন্ধিত পাঠক,,ui,1,0,ArticleCommentForm.kt
+নিবন্ধের প্রথম অংশ থেকে প্রাপ্ত সারসংক্ষেপ:,,ui,1,0,NinghsingCheAiAssistant.kt
+"নিয়মিত বার্ষিক সংখ্যা, শারদীয় ও বসন্ত উৎসব সংখ্যা।",,content,1,0,NinghsingCheContentData.kt
+নির্বাচিত,,ui,1,0,EditorialComponents.kt
+নির্বাচিত ফাইলটি কোনো বৈধ ছবি নয় (Not an image). Type: {1},,ui,1,1,ImgBbUploader.kt
+নির্বাচিত লেখা,,ui,1,0,ExploreScreen.kt
+নুয়া লেখা,,ui,1,0,NingshingCheWebsiteClient.kt
+নৃতাত্ত্বিক ও লোকসাহিত্য বিশারদ,,content,1,0,NinghsingCheContentData.kt
+নৃত্যকলা,,content,1,0,NinghsingCheContentData.kt
+প,,ui,1,0,ArticleCommentForm.kt
+পঠন ইতিহাস মুছে ফেলা হয়েছে,,ui,1,0,SettingsScreen.kt
+পঠন ইতিহাস রিসেট করুন,,ui,1,0,SettingsScreen.kt
+পড়ার মতো কোনো লেখা পাওয়া যায়নি।,,ui,1,0,ArticleTtsPlayer.kt
+পড়ুন,,ui,1,0,EditorialComponents.kt
+পড়ে শোনানোর সময় ত্রুটি হয়েছে।,,ui,1,0,ArticleTtsPlayer.kt
+পদবি / পরিচয় (ঐচ্ছিক),,ui,1,0,UserProfileScreen.kt
+পরিবেশ,,content,1,0,NinghsingCheContentData.kt
+পরের ছবি,,ui,1,0,EditorialComponents.kt
+পরের পৃষ্ঠা,,ui,1,0,PdfViewerScreen.kt
+পর্যালোচনায়,,ui,1,0,UserDashboardScreen.kt
+পর্যালোচিত,,ui,1,0,UserDashboardScreen.kt
+পলাশ,,content,1,0,AuthorProfiles.kt
+পল্লী,,ui,1,0,MusicGenres.kt
+পাকরিক,,ui,1,0,PdfArchiveScreen.kt
+পাঠকের সেটিংস,,ui,1,0,PdfViewerScreen.kt
+পাঠানো হয়েছে,,ui,1,0,UserDashboardScreen.kt
+পাতা স্ন্যাপ,,ui,1,0,PdfViewerScreen.kt
+পাতার ফাঁক  ·  {1} dp,,ui,1,1,PdfViewerScreen.kt
+পালা-কীর্তন,,ui,1,0,MusicGenres.kt
+পিডিএফ খালি এসেছে।,,ui,1,0,PdfHelper.kt
+পিডিএফ খুলুন,,ui,1,0,PdfHelper.kt
+পিডিএফ খোলা হচ্ছে…,,ui,1,0,PdfViewerScreen.kt
+পিডিএফ ডাউনলোড হয়নি ({1}),,ui,1,1,PdfHelper.kt
+পিডিএফ পড়া যায়নি।,,ui,1,0,UserDashboardScreen.kt
+পিডিএফ পাঠক,,ui,1,0,PdfViewerScreen.kt
+পিডিএফ বই,,ui,1,0,ArticleScreen.kt
+পিডিএফ লিংক পাওয়া যায়নি।,,ui,1,0,PdfHelper.kt
+পূর্ণ আকারের ছবি,,ui,1,0,HtmlArticleRenderer.kt
+পৃষ্ঠা {1} / {2},,ui,1,2,PdfViewerScreen.kt
+পৃষ্ঠা খোলা যায়নি,,ui,1,0,NingshingCheWebsiteClient.kt
+পৃষ্ঠায় যান,,ui,1,0,PdfViewerScreen.kt
+পেস্ট,,ui,1,0,HtmlContentEditor.kt
+পৌরাণিক লোকগাথা: মণিপুরের লোকতাক হ্রদ ও সৃষ্টির আখ্যান,,content,1,0,NinghsingCheContentData.kt
+পৌরাণিক-কাহিনী,,ui,1,0,EditorialComponents.kt
+"প্রকৃতির সাথে তাল মিলিয়ে নির্মিত পরিবেশবান্ধব বাঁশ, মাটি ও ছনের ঐতিহ্যবাহী ইঞ্চৌঘরের স্থাপত্য বিশ্লেষণ।",,content,1,0,NinghsingCheContentData.kt
+প্রকৃতির সাথে নিবিড় সম্পর্কের পরিচায়ক 'ইঞ্চৌঘর' ও মাটির তৈরি ভিটের বাস্তুসংস্থান ও নির্মাণ শৈলীর নান্দনিক পর্যালোচনা।,,content,1,0,NinghsingCheContentData.kt
+প্রতাপ,,content,1,0,AuthorProfiles.kt
+প্রতিষ্ঠা,,content,1,0,NinghsingCheContentData.kt
+প্রতিষ্ঠা ১ম সংখ্যা (২০১৪),,content,1,0,NinghsingCheContentData.kt
+প্রতিষ্ঠাতা সম্পাদক মণ্ডলী,,content,1,0,NinghsingCheContentData.kt
+প্রথম মন্তব্যটি আপনিই লিখুন।,,ui,1,0,ArticleScreen.kt
+প্রথম সংখ্যা,,content,1,0,NinghsingCheContentData.kt
+প্রথমবার খুললে সাইন-ইন প্রয়োজন। তারপর বিজ্ঞপ্তি চালু করতে পারবেন।,,ui,1,0,WelcomeOnboardingScreen.kt
+প্রধান প্রশাসক,,ui,1,0,SupabaseModels.kt
+প্রবন্ধ ও গান খুঁজুন...,,ui,1,0,ListScreens.kt
+প্রবন্ধ তালিকা লোড হয়নি ({1}),,ui,1,1,SupabaseClient.kt
+প্রবন্ধ যোগ,,ui,1,0,UserDashboardScreen.kt
+প্রবন্ধ সংরক্ষণ হয়েছে,,ui,1,0,MainViewModels.kt
+প্রবন্ধটি পাওয়া যায়নি।,,ui,1,0,ReaderViewModels.kt
+প্রবন্ধের অবস্থা,,ui,1,0,UserDashboardCharts.kt
+প্রবন্ধের ছবি,,ui,1,0,HtmlArticleRenderer.kt
+প্রবন্ধের শিরোনাম,,ui,1,0,NinghsingCheAiAssistant.kt
+প্রবেশ করা হচ্ছে...,,ui,1,0,GoogleSignInButton.kt
+প্রভাস,,content,1,0,AuthorProfiles.kt
+প্রস্তাবিত জিজ্ঞাসা:,,ui,1,0,AiAssistantScreen.kt
+প্রস্থ,,ui,1,0,PdfViewerScreen.kt
+প্রস্থ ও উচ্চতা দুটোই,,ui,1,0,PdfViewerScreen.kt
+"প্রাচীন লোকগাথা, বৈষ্ণব কাব্যানুবাদ, সেনাপতি রাজকুমার ও আধুনিক কবিদের লেখনীতে সমৃদ্ধ সাহিত্যধারার পরিক্রমা।",,content,1,0,NinghsingCheContentData.kt
+প্রাচীনকালের কিছু জনপ্রিয় ঐতিহাসিক মিংকৌ নাম কী কী?,,ui,1,0,NinghsingCheAiAssistant.kt
+প্রামাণ্য দলিল,,content,1,0,NinghsingCheContentData.kt
+প্রিভিউ,,ui,1,0,NewMusicScreen.kt
+প্রেম,,ui,1,0,MusicGenres.kt
+প্রোফাইল অসম্পূর্ণ। নতুন প্রবন্ধ বা গান জমা দিতে আগে প্রোফাইল পূরণ করুন।,,ui,1,0,UserDashboardScreen.kt
+প্রোফাইল ছবি (ImgBB),,ui,1,0,UserProfileScreen.kt
+প্রোফাইল ছবি আপডেট হয়েছে।,,ui,1,0,ReaderWorkspaceViewModel.kt
+প্রোফাইল ছবি আপলোড করুন।,,ui,1,0,ReaderWorkspaceViewModel.kt
+প্রোফাইল সংরক্ষণ করুন,,ui,1,0,UserProfileScreen.kt
+প্রোফাইল সংরক্ষণ যায়নি ({1})। SQL মাইগ্রেশন 006 চালানো হয়েছে কি?,,ui,1,1,SupabaseClient.kt
+প্রোফাইল সংরক্ষণ যায়নি।,,ui,1,0,ReaderWorkspaceViewModel.kt
+প্রোফাইল সংরক্ষিত হয়েছে।,,ui,1,0,ReaderWorkspaceViewModel.kt
+প্লেয়ার চালু হয়নি। আবার চেষ্টা করুন।,,ui,1,0,MusicController.kt
+প্লেলিস্ট,,ui,1,0,MusicScreen.kt
+প্লেলিস্ট তৈরি করতে উপরের + চাপুন।,,ui,1,0,MusicScreen.kt
+প্লেলিস্টের নাম,,ui,1,0,MusicScreen.kt
+ফর্ম টোকেন পাওয়া যায়নি,,ui,1,0,NingshingCheWebsiteClient.kt
+ফলাফল,,ui,1,0,ListScreens.kt
+ফাইল খালি।,,ui,1,0,MusicLibraryStore.kt
+ফাইল খোলা যায়নি।,,ui,1,0,SatoruUploadClient.kt
+ফাইলটি একটি বৈধ পিডিএফ নয়।,,ui,1,0,PdfHelper.kt
+ফিচা / ড,,ui,1,0,Type.kt
+ফিচারড,,ui,1,0,Type.kt
+ফিচার্ড ও সম্পাদকীয় পছন্দ,,ui,1,0,SettingsScreen.kt
+ফেব,,ui,1,0,UserDashboardCharts.kt
+ফোক-ফিউশন,,ui,1,0,MusicGenres.kt
+ফোন (ঐচ্ছিক),,ui,1,0,ArticleCommentForm.kt
+ফোন নম্বর,,ui,1,0,UserProfileScreen.kt
+ফোন নম্বর দিন।,,ui,1,0,ReaderWorkspaceViewModel.kt
+ফোন: +880 9638-781890,,ui,1,0,PortalPages.kt
+ফ্রেমে মিল,,ui,1,0,PdfViewerScreen.kt
+বংশনাম,,content,1,0,NinghsingCheContentData.kt
+বই,,ui,1,0,PdfViewerScreen.kt
+বই ও সাময়িকী,,ui,1,0,EditorialComponents.kt
+বই দৃশ্য  ·  সোয়াইপ করে পাতা উল্টান,,ui,1,0,PdfViewerScreen.kt
+বইটি খোলা যায়নি,,ui,1,0,PdfViewerScreen.kt
+বইটি খোলা যায়নি।,,ui,1,0,MainViewModels.kt
+বড় করুন,,ui,1,0,ArticleScreen.kt
+বড় করে দেখুন,,ui,1,0,HtmlArticleRenderer.kt
+বর্মেন্দ্র,,content,1,0,AuthorProfiles.kt
+বর্ষপূর্তি,,content,1,0,NinghsingCheContentData.kt
+বাঁকা,,ui,1,0,HtmlContentEditor.kt
+বাংলা,,ui,1,0,SettingsScreen.kt
+বাংলাদেশ,,ui,1,0,NingshingCheWebsiteClient.kt
+বাড়ি,,ui,1,0,NinghsingCheAiAssistant.kt
+বাতিল,,ui,1,0,MusicScreen.kt
+বাদ্যযন্ত্র,,ui,1,0,MusicGenres.kt
+বার্তা পাঠানো যায়নি ({1})। SQL মাইগ্রেশন 007 চালান।,,ui,1,1,SupabaseClient.kt
+বার্তা পাঠানো যায়নি।,,ui,1,0,ReaderWorkspaceViewModel.kt
+বাস্তুসংস্থান,,content,1,0,NinghsingCheContentData.kt
+বিজ্ঞপ্তি ({1}),,ui,1,1,AccountHeaderButton.kt
+বিজ্ঞপ্তি ও আপডেট,,ui,1,0,SettingsScreen.kt
+বিজ্ঞান,,ui,1,0,NingshingCheWebsiteClient.kt
+বিজ্ঞান-ও-প্রযুক্তি,,ui,1,0,EditorialComponents.kt
+বিভাগ,,ui,1,0,ListScreens.kt
+"বিভাগ, লেখক, বার্ষিক সংখ্যা ও নির্বাচিত লেখা",,ui,1,0,ExploreScreen.kt
+বিরল পাণ্ডুলিপি,,content,1,0,NinghsingCheContentData.kt
+বিরহ,,ui,1,0,MusicGenres.kt
+বিশু উৎসব কীভাবে পালিত হয়?,,ui,1,0,MainViewModels.kt
+বিশু উৎসব: মণিপুরি নববর্ষের প্রকৃতি ও আত্মশুদ্ধির আনন্দধারা,,content,1,0,NinghsingCheContentData.kt
+বিশু উৎসবে ঐতিহ্যবাহী খাদ্যাভ্যাস ও পোশাক কেমন হয়?,,ui,1,0,NinghsingCheAiAssistant.kt
+বিশু উৎসবের উৎপত্তি ও পৌরাণিক তাৎপর্য কী?,,ui,1,0,NinghsingCheAiAssistant.kt
+বিশেষ নির্বাচন,,ui,1,0,HomeScreen.kt
+"বিশ্বের একমাত্র ভাসমান হ্রদ লোকতাককে ঘিরে গড়ে ওঠা বিষ্ণুপ্রিয়া মণিপুরি লোকবিশ্বাস, নাগরাজ এবং প্রকৃতি বন্দনা।",,content,1,0,NinghsingCheContentData.kt
+বিষয় ও বিভাগসমূহ,,ui,1,0,EditorialComponents.kt
+বিষু উৎসব,,ui,1,0,EditorialComponents.kt
+বিষ্ণুপ্রিয়া মণিপুরি ইতিহাস ও সুবর্ণ জয়ন্তীর বিশেষ প্রকাশনা।,,content,1,0,NinghsingCheContentData.kt
+বিষ্ণুপ্রিয়া মণিপুরি ঐতিহ্য ও বিশ্ব জ্ঞানকোষ,,ui,1,0,AiAssistantScreen.kt
+"বিষ্ণুপ্রিয়া মণিপুরি ঐতিহ্যবাহী লোকসংগীত, রাস উৎসব এবং যুব সমাজের সাংস্কৃতিক বিকাশ নিয়ে নিয়মিত প্রবন্ধ রচনা করেন।",,content,1,0,NinghsingCheContentData.kt
+বিষ্ণুপ্রিয়া মণিপুরি কবি ও প্রাবন্ধিকদের নির্বাচিত শ্রেষ্ঠ রচনার সংকলন।,,content,1,0,NinghsingCheContentData.kt
+"বিষ্ণুপ্রিয়া মণিপুরি কাব্যধারা, গল্প, নাটক, সমালোচনা এবং আধুনিক সাহিত্য আন্দোলনের রূপরেখা।",,content,1,0,NinghsingCheContentData.kt
+"বিষ্ণুপ্রিয়া মণিপুরি গোত্র, বংশনাম এবং আত্মপরিচয়ের প্রতীক 'মিংকৌ' ব্যবস্থার উৎপত্তি ও আধুনিক সমাজের প্রাসঙ্গিকতা।",,content,1,0,NinghsingCheContentData.kt
+"বিষ্ণুপ্রিয়া মণিপুরি জাতির প্রাচীন উৎপত্তি, মণিপুরের লোকতাক হ্রদের ইতিহাস ও অভিবাসনের ধারাবাহিক প্রেক্ষাপট।",,content,1,0,NinghsingCheContentData.kt
+বিষ্ণুপ্রিয়া মণিপুরি ভাষা আন্দোলন এবং প্রাচীন লোকসংস্কৃতি নিয়ে দীর্ঘদিন ধরে গবেষণা ও লেখালেখি করছেন। নিংশিং চে তথ্যকোষের অন্যতম প্রধান উপদেষ্টা।,,content,1,0,NinghsingCheContentData.kt
+বিষ্ণুপ্রিয়া মণিপুরি ভাষা আন্দোলন প্রামাণ্য দলিল,,content,1,0,NinghsingCheContentData.kt
+বিষ্ণুপ্রিয়া মণিপুরি ভাষা আন্দোলনের সংক্ষিপ্ত ইতিহাস ও তাৎপর্য,,content,1,0,NinghsingCheContentData.kt
+বিষ্ণুপ্রিয়া মণিপুরি ভাষা ও সংস্কৃতির ডিজিটাল সংকলন — নিংশিং চে।,,ui,1,0,ArticleScreen.kt
+বিষ্ণুপ্রিয়া মণিপুরি ভাষা ও সাহিত্যের উৎপত্তি সম্পর্কে জানতে চাই,,ui,1,0,NinghsingCheAiAssistant.kt
+"বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, ইতিহাস, সংস্কৃতি ও ঐতিহ্যের একমাত্র প্রামাণ্য ও মুক্ত ডিজিটাল তথ্যকোষ ও আর্কাইভ।",,ui,1,0,SettingsScreen.kt
+"বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, সংস্কৃতি ও ইতিহাসের যে কোনো প্রশ্ন করুন",,ui,1,0,EditorialComponents.kt
+"বিষ্ণুপ্রিয়া মণিপুরি ভাষায় প্রকাশিত বই, সাময়িকী ও গবেষণাকর্মের নিরপেক্ষ বিশ্লেষণ ও গ্রন্থালোচনা।",,content,1,0,NinghsingCheContentData.kt
+বিষ্ণুপ্রিয়া মণিপুরি ভাষার নারী লেখক ও শহীদ সুদেষ্ণা সিংহের আত্মত্যাগের ঐতিহাসিক প্রেক্ষাপট নিয়ে তাৎপর্যপূর্ণ গ্রন্থ রচনা করেছেন।,,content,1,0,NinghsingCheContentData.kt
+"বিষ্ণুপ্রিয়া মণিপুরি ভাষার পঞ্চাশ বছরের সাহিত্য, সমাজবিকাশ ও সাংস্কৃতিক আন্দোলনের প্রামাণ্য সুবর্ণ জয়ন্তী সংকলন।",,content,1,0,NinghsingCheContentData.kt
+"বিষ্ণুপ্রিয়া মণিপুরি ভাষার প্রথিতযশা গবেষক, কবি ও লেখকদের পরিচিতি ও লেখনী।",,content,1,0,NinghsingCheContentData.kt
+বিষ্ণুপ্রিয়া মণিপুরি ভাষার সাংবিধানিক স্বীকৃতির ইতিহাস কী?,,ui,1,0,NinghsingCheAiAssistant.kt
+"বিষ্ণুপ্রিয়া মণিপুরি মাতৃভাষা আন্দোলনে প্রথম নারী শহীদ সুদেষ্ণা সিংহের সংগ্রামী জীবন, আত্মোৎসর্গ ও অমর স্মৃতিগাঁথা।",,content,1,0,NinghsingCheContentData.kt
+"বিষ্ণুপ্রিয়া মণিপুরি লোকবিশ্বাস, পৌরাণিক দেব-দেবী, লাই-হারাওবা এবং কিংবদন্তির আখ্যান।",,content,1,0,NinghsingCheContentData.kt
+"বিষ্ণুপ্রিয়া মণিপুরি লোকসংগীত, পৌরাণিক ঐতিহ্য ও সমাজসংস্কৃতি সংখ্যা।",,content,1,0,NinghsingCheContentData.kt
+বিষ্ণুপ্রিয়া মণিপুরি সমাজে মিংকৌ নাম রাখার নিয়মাবলী কী?,,ui,1,0,NinghsingCheAiAssistant.kt
+বিষ্ণুপ্রিয়া মণিপুরি সমাজের ঐতিহ্যবাহী লোকসংগীত ও রাগধারা,,content,1,0,NinghsingCheContentData.kt
+বিষ্ণুপ্রিয়া মণিপুরি সাহিত্য ও সংস্কৃতি পোর্টাল,,ui,1,0,SplashScreen.kt
+বিষ্ণুপ্রিয়া মণিপুরি সাহিত্যের আদিযুগ থেকে আধুনিক পর্ব,,content,1,0,NinghsingCheContentData.kt
+বিষ্ণুপ্রিয়া মণিপুরিদের অন্যান্য প্রধান সামাজিক ও ধর্মীয় উৎসব কী কী?,,ui,1,0,NinghsingCheAiAssistant.kt
+বিষ্ণুপ্রিয়া মণিপুরিদের ঐতিহ্যবাহী বসতবাড়ির স্থাপত্য: 'ইঞ্চৌঘর',,content,1,0,NinghsingCheContentData.kt
+বিষ্ণুপ্রিয়া মণিপুরী,,ui,1,0,SettingsScreen.kt
+বৈষ্ণব পদাবলী,,content,1,0,NinghsingCheContentData.kt
+ব্যবহারকারীর প্রশ্ন: {1},,ui,1,1,NinghsingCheAiAssistant.kt
+ভজন,,ui,1,0,MusicGenres.kt
+ভয়েস ইঞ্জিন প্রস্তুত করা যায়নি।,,ui,1,0,ArticleTtsPlayer.kt
+ভয়েস থামান,,ui,1,0,ArticleScreen.kt
+ভয়েস পুনরায় চালু করুন,,ui,1,0,ArticleScreen.kt
+ভয়েস শুনুন,,ui,1,0,ArticleScreen.kt
+ভাষা,,ui,1,0,SettingsScreen.kt
+"ভাষা আন্দোলন, প্রামাণ্য দলিল ও নৃতাত্ত্বিক গবেষণা প্রবন্ধমালা।",,content,1,0,NinghsingCheContentData.kt
+ভাষা আন্দোলনের প্রেক্ষাপট ও প্রাচীন লোকনৃত্যের সমাজতাত্ত্বিক মূল্যায়ন।,,content,1,0,NinghsingCheContentData.kt
+ভাষা ও সংস্কৃতি গবেষক,,content,1,0,NinghsingCheContentData.kt
+ভাষা শহীদ,,content,1,0,NinghsingCheContentData.kt
+ভাষা শহীদ সুদেষ্ণা সিংহ স্মারক সংখ্যা ও সমাজ জাগরণের চালচিত্র।,,content,1,0,NinghsingCheContentData.kt
+ভাষা শহীদ সুদেষ্ণা সিংহ: অবিনাশী আত্মত্যাগ ও প্রেরণার শিখা,,content,1,0,NinghsingCheContentData.kt
+"ভাষা, সংস্কৃতি ও সমাজ বিকাশে বিভিন্ন সামাজিক ও সাংস্কৃতিক সংগঠনের নানামুখী উদ্যোগ।",,content,1,0,NinghsingCheContentData.kt
+ভিউ,,ui,1,0,UserDashboardScreen.kt
+ভিডিও আর্কাইভে নতুন সংযোজন,,ui,1,0,SettingsScreen.kt
+ভিডিও চালান,,ui,1,0,MusicPlayer.kt
+ভিডিও দেখুন,,ui,1,0,ArticleScreen.kt
+মডারেটর,,ui,1,0,SupabaseModels.kt
+মণিপুর,,content,1,0,NinghsingCheContentData.kt
+মণিপুরি রাসলীলায় গোপী ও কৃষ্ণের বেশভূষার বৈশিষ্ট্য কী?,,ui,1,0,NinghsingCheAiAssistant.kt
+"মণিপুরি লোকসংস্কৃতি, নৃত্যকলা ও গীতিসংকলন",,content,1,0,NinghsingCheContentData.kt
+মণিপুরি সমাজে 'মিংকৌ' বা নামপ্রথা: সাংস্কৃতিক তাৎপর্য ও ঐতিহ্য,,content,1,0,NinghsingCheContentData.kt
+মণিপুরের লোকতাক হ্রদের প্রাচীন ইতিহাস এবং ঐতিহ্যবাহী গৃহসংস্থান।,,content,1,0,NinghsingCheContentData.kt
+মন্তব্য আবশ্যক।,,ui,1,0,ReaderViewModels.kt
+মন্তব্য ও পাঠক রচনা পর্যালোচনা,,ui,1,0,SupabaseModels.kt
+মন্তব্য করিক,,ui,1,0,NingshingCheWebsiteClient.kt
+মন্তব্য করুন,,ui,1,0,ArticleCommentForm.kt
+মন্তব্য জমা দিন,,ui,1,0,ArticleCommentForm.kt
+মন্তব্য জমা হয়েছে। অনুমোদনের পর প্রকাশিত হবে।,,ui,1,0,ReaderViewModels.kt
+মন্তব্য জমা হয়েছে। অনুমোদনের পর প্রকাশিত হবে। তবে এই ডিভাইসে আপনার তথ্য মনে রাখা যায়নি।,,ui,1,0,ReaderViewModels.kt
+মন্তব্য তালিকা লোড হয়নি ({1}),,ui,1,1,SupabaseClient.kt
+মন্তব্য পাঠানি ইল। পর্যালোচনার পর প্রকাশ অইতই।,,ui,1,0,NingshingCheWebsiteClient.kt
+মন্তব্য পাঠানো হচ্ছে...,,ui,1,0,ReaderViewModels.kt
+মহারাস,,ui,1,0,NinghsingCheAiAssistant.kt
+মহারাস ও রাখাল রাসের বিশেষত্ব কী?,,ui,1,0,MainViewModels.kt
+"মহারাস, নিত্যরাস ও রাখাল রাসের মধ্যে পার্থক্য কী?",,ui,1,0,NinghsingCheAiAssistant.kt
+"মহারাস, বসন্তরাস, তাল-লয়, ঢাকের বোল এবং বিষ্ণুপ্রিয়া মণিপুরি ধ্রুপদী নৃত্যকলার পূর্ণাঙ্গ সচিত্র নির্দেশিকা।",,content,1,0,NinghsingCheContentData.kt
+"মাতৃভাষাকে ইন্টারনেটের আঙিনায় সমৃদ্ধ করতে ডিজিটাল লিপিকরণ, তথ্যকোষ নির্মাণ ও ভবিষ্যৎ প্রযুক্তির মেলবন্ধন।",,content,1,0,NinghsingCheContentData.kt
+"মাতৃভাষায় বিজ্ঞান চেতনা প্রসার, ডিজিটাল মাধ্যমে ভাষা সংরক্ষণ এবং আধুনিক প্রযুক্তির সংযোগ।",,content,1,0,NinghsingCheContentData.kt
+"মাতৃভাষার প্রথম নারী শহীদ সুদেষ্ণা সিংহের জীবন, আদর্শ ও ১৬ মার্চের আত্মদানের ইতিহাস।",,content,1,0,NinghsingCheContentData.kt
+মার্চ,,ui,1,0,UserDashboardCharts.kt
+মিংকৌ এবং মূল নামের মধ্যে সামাজিক পার্থক্য ও প্রয়োগ কী?,,ui,1,0,NinghsingCheAiAssistant.kt
+মিংকৌ প্রথা,,ui,1,0,EditorialComponents.kt
+মুদ্রিত সংখ্যা,,content,1,0,NinghsingCheContentData.kt
+মূল তাক,,ui,1,0,PdfArchiveScreen.kt
+মূল বিষয়,,ui,1,0,NinghsingCheAiAssistant.kt
+মূল লেখা,,ui,1,0,NewArticleScreen.kt
+মে,,ui,1,0,UserDashboardCharts.kt
+মেনু,,ui,1,0,AiAssistantScreen.kt
+মেমরি ও অফলাইন ক্যাশ ব্যবস্থাপনা,,ui,1,0,SettingsScreen.kt
+মোট {1}টি জমা,,ui,1,1,UserDashboardCharts.kt
+মোটা,,ui,1,0,HtmlContentEditor.kt
+"মৌলভীবাজার, বাংলাদেশ",,content,1,0,NinghsingCheContentData.kt
+যাচাইকৃত লেখক,,ui,1,0,VerifiedBadge.kt
+যান,,ui,1,0,PdfViewerScreen.kt
+যুব,,ui,1,0,NingshingCheWebsiteClient.kt
+যে কোনো প্রবন্ধের কার্ডে বা পড়ার সময় বুকমার্ক আইকনে চাপ দিলে তা এখানে সংরক্ষিত থাকবে।,,ui,1,0,BookmarksScreen.kt
+যেকোনো বিষয়ে প্রশ্ন করুন...,,ui,1,0,AiAssistantScreen.kt
+যোগ করুন,,ui,1,0,UserDashboardScreen.kt
+যোগাযোগ করুন,,ui,1,0,SiteFooter.kt
+রক,,ui,1,0,MusicGenres.kt
+রণজিত,,content,1,0,AuthorProfiles.kt
+রণজি্ত,,content,1,0,AuthorProfiles.kt
+রণজিৎ,,content,1,0,AuthorProfiles.kt
+রনি,,content,1,0,AuthorProfiles.kt
+রাখুয়াল,,ui,1,0,MusicGenres.kt
+রাতের মোড,,ui,1,0,PdfViewerScreen.kt
+রাস উৎসবে ব্যবহৃত মণিপুরি মৃদঙ্গ ও খোল বাদ্যযন্ত্রের বিশেষত্ব কী?,,ui,1,0,NinghsingCheAiAssistant.kt
+রিপিট,,ui,1,0,MusicPlayer.kt
+রিমিক্স,,ui,1,0,MusicGenres.kt
+রিলোড,,ui,1,0,UserDashboardScreen.kt
+রিসেট,,ui,1,0,ArticleScreen.kt
+লাইনের ফাঁক (Line Spacing),,ui,1,0,ArticleScreen.kt
+লাইভ প্রিভিউ (কালপুরুষ ফন্ট):,,ui,1,0,ArticleScreen.kt
+লিরিক,,ui,1,0,MusicPlayer.kt
+লেখক {1}-এর অন্যান্য উল্লেখযোগ্য প্রবন্ধ ও গ্রন্থ কী কী?,,ui,1,1,NinghsingCheAiAssistant.kt
+লেখক এখানে কোন কোন দিককে বেশি গুরুত্ব দিয়েছেন?,,ui,1,0,NinghsingCheAiAssistant.kt
+লেখক • নিংশিং চে,,ui,1,0,ArticleScreen.kt
+লেখকবৃন্দ,,ui,1,0,Screen.kt
+লেখকের রচনাবলী,,ui,1,0,ListScreens.kt
+লেখা জমা যায়নি ({1})। প্রোফাইল সম্পূর্ণ করে আবার চেষ্টা করুন।,,ui,1,1,SupabaseClient.kt
+লেখা জমা যায়নি।,,ui,1,0,ReaderWorkspaceViewModel.kt
+লেখা জমা হয়েছে,,ui,1,0,NewArticleScreen.kt
+লেখা জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর প্রকাশিত হবে।,,ui,1,0,ReaderWorkspaceViewModel.kt
+লেখা জমাদান,,ui,1,0,SiteFooter.kt
+"লেখা নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি, কাট ও পেস্ট দেখাবে। ছবি ImgBB-তে আপলোড হয়।",,ui,1,0,HtmlContentEditor.kt
+লেখা সম্পাদকীয় পর্যালোচনার পর প্রকাশিত হবে। শিরোনাম ও মূল লেখা জমা দেওয়া পর্যন্ত সংরক্ষিত থাকবে।,,ui,1,0,NewArticleScreen.kt
+লেখাসমূহ,,ui,1,0,PortalPages.kt
+লোকউৎসব,,content,1,0,NinghsingCheContentData.kt
+লোকগীতি,,ui,1,0,MusicGenres.kt
+লোকতাক হ্রদ,,content,1,0,NinghsingCheContentData.kt
+লোকসংস্কৃতি,,content,1,0,NinghsingCheContentData.kt
+লোকসাহিত্য গবেষণা সংস্করণ (২০২২),,content,1,0,NinghsingCheContentData.kt
+শর্তাবলী,,ui,1,0,SiteFooter.kt
+শহীদ,,ui,1,0,NinghsingCheAiAssistant.kt
+শহীদ সুদেষ্ণা সিংহ ছাড়া আর কারা ভাষা আন্দোলনে ভূমিকা রেখেছিলেন?,,ui,1,0,NinghsingCheAiAssistant.kt
+শহীদ সুদেষ্ণা সিংহ স্মারক পত্রিকা,,content,1,0,NinghsingCheContentData.kt
+শহীদ সুদেষ্ণা সিংহের আত্মত্যাগ সম্পর্কে বলুন,,ui,1,0,MainViewModels.kt
+শহীদ স্মারক,,content,1,0,NinghsingCheContentData.kt
+শাফেল,,ui,1,0,MusicPlayer.kt
+"শারদীয় উৎসবের রঙে সাজানো বিষ্ণুপ্রিয়া মণিপুরি সাহিত্য, গল্প ও স্মৃতিকথা সংকলন।",,content,1,0,NinghsingCheContentData.kt
+শারদীয় বিশেষ সংখ্যা (২০২৪),,content,1,0,NinghsingCheContentData.kt
+শারদীয় সংখ্যা,,content,1,0,NinghsingCheContentData.kt
+শিক্ষা,,content,1,0,NinghsingCheContentData.kt
+শিরোনাম আবশ্যক।,,ui,1,0,ReaderWorkspaceViewModel.kt
+শিরোনাম ও লেখা আবশ্যক।,,ui,1,0,ReaderWorkspaceViewModel.kt
+শিশির,,content,1,0,AuthorProfiles.kt
+শিশু,,ui,1,0,MusicGenres.kt
+শুধুমাত্র এই নিবন্ধের তথ্যের ভিত্তিতে উত্তর প্রদান করা হয়,,ui,1,0,ArticleScreen.kt
+শুনুন,,ui,1,0,NewMusicScreen.kt
+শুভাশিস,,content,1,0,AuthorProfiles.kt
+শেষ ছয় মাসে কোনো কার্যক্রম নেই।,,ui,1,0,UserDashboardCharts.kt
+শেষ ৬ মাস,,ui,1,0,UserDashboardCharts.kt
+শেষ ৬ মাসে মোট {1}টি,,ui,1,1,UserDashboardCharts.kt
+শ্রী,,content,1,0,AuthorProfiles.kt
+সংকলন,,content,1,0,NinghsingCheContentData.kt
+সংক্রান্তি,,ui,1,0,NinghsingCheAiAssistant.kt
+সংক্ষেপ,,ui,1,0,NinghsingCheAiAssistant.kt
+সংযুক্তি,,ui,1,0,UserDashboardScreen.kt
+সংরক্ষণ ব্যর্থ: {1},,ui,1,1,SettingsScreen.kt
+সংরক্ষণ যায়নি ({1})। লিংক মেয়াদ শেষ হতে পারে।,,ui,1,1,MusicLibraryStore.kt
+সংরক্ষণ হচ্ছে...,,ui,1,0,SettingsScreen.kt
+সংরক্ষিত তথ্য লোড হচ্ছে...,,ui,1,0,ArticleCommentForm.kt
+সংরক্ষিত তালিকার মধ্যে খুঁজুন...,,ui,1,0,BookmarksScreen.kt
+সংরক্ষিত প্রবন্ধ,,ui,1,0,BookmarksScreen.kt
+সংস্করণ {1} • সাইজ: {2},,ui,1,2,SettingsScreen.kt
+সংস্করণ ১.০.০ (অফিশিয়াল সংস্করণ),,ui,1,0,SettingsScreen.kt
+সংস্কৃতির আলোয় পথচলা…,,ui,1,0,SplashScreen.kt
+সকল কন্টেন্ট তৈরি ও সম্পাদনার অনুমতি,,ui,1,0,SupabaseModels.kt
+"সকল ক্ষমতা, সেটিংস ও মুছে ফেলার পূর্ণ নিয়ন্ত্রণ",,ui,1,0,SupabaseModels.kt
+সঠিক ইমেইল দিন অথবা ঐচ্ছিক ঘরটি খালি রাখুন।,,ui,1,0,ReaderViewModels.kt
+সতীর্থ,,content,1,0,AuthorProfiles.kt
+সব গান,,ui,1,0,MusicScreen.kt
+সব চালান,,ui,1,0,MusicBrowseScreens.kt
+সব বিজ্ঞপ্তি,,ui,1,0,SettingsScreen.kt
+সব ভিডিও,,ui,1,0,VideosScreen.kt
+সময়,,ui,1,0,MusicPlayer.kt
+সমাজ ও সংস্কৃতি বিভাগ থেকে,,ui,1,0,PortalPages.kt
+"সমাজ, সংগঠন ও সাংস্কৃতিক উদ্যোগ",,ui,1,0,PortalPages.kt
+সমাজ-ও-সংস্কৃতি,,ui,1,0,EditorialComponents.kt
+সমাজতত্ত্ব,,content,1,0,NinghsingCheContentData.kt
+"সমাজসংস্কারক, ভাষা সংগ্রামী, সাহিত্যিক ও বিশিষ্ট গুণীজনদের অনুপ্রেরণাদায়ী জীবনকথা।",,content,1,0,NinghsingCheContentData.kt
+সম্পর্কিত জিজ্ঞাসা (সরাসরি উত্তর জানতে ট্যাপ করুন):,,ui,1,0,AiAssistantScreen.kt
+সম্পর্কিত জিজ্ঞাসা:,,ui,1,0,NinghsingCheAiAssistant.kt
+সম্পর্কিত প্রশ্ন:,,ui,1,0,NinghsingCheAiAssistant.kt
+সম্পাদকীয়: নিংশিং চে-র দশম বর্ষপূর্তি ও আমাদের আগামী,,content,1,0,NinghsingCheContentData.kt
+সম্পাদনা পরিষদ,,content,1,0,NinghsingCheContentData.kt
+সরাত,,ui,1,0,MusicGenres.kt
+সর্বশেষ আপডেট পেতে আমাদের অ্যাপটি ডাউনলোড করুন,,ui,1,0,SiteFooter.kt
+সাংস্কৃতিক অভিযাত্রা,,content,1,0,NinghsingCheContentData.kt
+সাংস্কৃতিক কর্মী ও প্রাবন্ধিক,,content,1,0,NinghsingCheContentData.kt
+সাইট হালনাগাদ,,ui,1,0,ContentUpdateNotifier.kt
+সাইটম্যাপ,,ui,1,0,SiteFooter.kt
+সাইন-ইন ছাড়া এগিয়ে যান,,ui,1,0,WelcomeOnboardingScreen.kt
+সাদা / লাইট,,ui,1,0,SettingsScreen.kt
+সামাজিক নিয়ম,,content,1,0,NinghsingCheContentData.kt
+সাম্প্রতিক,,ui,1,0,HomeScreen.kt
+সাম্প্রতিক পঠিত তালিকা মুছে ফেলুন,,ui,1,0,SettingsScreen.kt
+সার্ভার জবাব: {1},,ui,1,1,NingshingCheWebsiteClient.kt
+সার্ভার ত্রুটি ({1}),,ui,1,1,PortalRepository.kt
+সিঙ্ক সম্পন্ন: অফলাইন আর্কাইভ প্রস্তুত।,,ui,1,0,ArticleRepository.kt
+"সিলেট, বাংলাদেশ",,content,1,0,NinghsingCheContentData.kt
+সিস্টেম,,ui,1,0,SettingsScreen.kt
+সুকান্ত,,content,1,0,AuthorProfiles.kt
+সুজিত সিংহ ও স্মৃতিকণা সিংহ,,content,1,0,NinghsingCheContentData.kt
+সুজিতা,,content,1,0,AuthorProfiles.kt
+সুদেষ্ণা,,ui,1,0,NinghsingCheAiAssistant.kt
+সুপাবেজ (Supabase) এপিআই থেকে ডাটা লোড হচ্ছে...,,ui,1,0,ArticleRepository.kt
+সুপাবেজ (Supabase) থেকে {1}টি প্রবন্ধ সিঙ্ক সম্পন্ন,,ui,1,1,ArticleRepository.kt
+সুপাবেজে নতুন ডাটা পাওয়া যায়নি; অফলাইন ক্যাশ ব্যবহার করা হচ্ছে।,,ui,1,0,ArticleRepository.kt
+সুবর্ণ জয়ন্তী,,content,1,0,NinghsingCheContentData.kt
+সুবর্ণ জয়ন্তী সংস্করণ (২০২৪),,content,1,0,NinghsingCheContentData.kt
+সুরজিত,,content,1,0,AuthorProfiles.kt
+সেনাপতি রাজকুমার,,content,1,0,NinghsingCheContentData.kt
+সেপ্টে,,ui,1,0,UserDashboardCharts.kt
+সেশনের মেয়াদ শেষ হয়েছে। আবার প্রবেশ করুন।,,ui,1,0,GoogleAuthMapper.kt
+স্ক্রল,,ui,1,0,PdfViewerScreen.kt
+স্ক্রল দৃশ্য  ·  চিমটি করে জুম,,ui,1,0,PdfViewerScreen.kt
+স্ক্রল হ্যান্ডেল,,ui,1,0,PdfViewerScreen.kt
+স্ক্রিন জ্বালিয়ে রাখুন,,ui,1,0,PdfViewerScreen.kt
+স্থাপত্য গবেষণা গ্রন্থ (২০২১),,content,1,0,NinghsingCheContentData.kt
+স্বপন,,content,1,0,AuthorProfiles.kt
+স্বাগতম। Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন।,,ui,1,0,WelcomeOnboardingScreen.kt
+স্মারক,,ui,1,0,NingshingCheWebsiteClient.kt
+স্মারক ও উৎসব,,ui,1,0,NingshingCheWebsiteClient.kt
+স্মারক সংখ্যা (২০১৮),,content,1,0,NinghsingCheContentData.kt
+স্লিপ টাইমার {1} মিনিট,,ui,1,1,MusicController.kt
+স্লিপ টাইমার বন্ধ,,ui,1,0,MusicController.kt
+স্লিপ টাইমার শেষ,,ui,1,0,MusicController.kt
+হাব্বি মন্তব্যহানি,,ui,1,0,NingshingCheWebsiteClient.kt
+"হারিয়ে যাওয়া স্মৃতি, প্রাচীন পল্লীগ্রামের আখ্যান এবং সমাজজীবনের অমূল্য স্মৃতিকথা।",,content,1,0,NinghsingCheContentData.kt
+হিমাদ্র,,content,1,0,AuthorProfiles.kt
+হেমতা,,content,1,0,AuthorProfiles.kt
+হেমন্ত,,content,1,0,AuthorProfiles.kt
+হোলি কীর্তন,,ui,1,0,MusicGenres.kt
+০১ জানুয়ারি ২০২৫,,content,1,0,NinghsingCheContentData.kt
+০২ জানুয়ারি ২০২৫,,content,1,0,NinghsingCheContentData.kt
+০৫ জানুয়ারি ২০২৫,,content,1,0,NinghsingCheContentData.kt
+০৮ আগস্ট ২০২৪,,content,1,0,NinghsingCheContentData.kt
+১০ ফেব্রুয়ারি ২০২৫,,content,1,0,NinghsingCheContentData.kt
+১২ এপ্রিল ২০২৪,,content,1,0,NinghsingCheContentData.kt
+১৫ জানুয়ারি ২০২৫,,content,1,0,NinghsingCheContentData.kt
+১৬ মার্চ,,ui,1,0,NinghsingCheAiAssistant.kt
+১৬ মার্চ ২০২৪,,content,1,0,NinghsingCheContentData.kt
+"১৯৫৫ সালের ভাষা আন্দোলনের ঐতিহাসিক পটভূমি, মাতৃভাষার অধিকার রক্ষা এবং শহীদ সুদেষ্ণা সিংহের অসামান্য আত্মত্যাগের প্রামাণ্য ইতিহাস।",,content,1,0,NinghsingCheContentData.kt
+১৯৫৫ সালের ১৬ মার্চ থেকে শুরু করে মাতৃভাষা স্বীকৃতির দীর্ঘ ঐতিহাসিক সংগ্রামের পূর্ণাঙ্গ প্রামাণ্য নথি ও চিত্রাবলি।,,content,1,0,NinghsingCheContentData.kt
+১৯৯৬ সালের ১৬ মার্চের ভাষা আন্দোলনের পটভূমি কী ছিল?,,ui,1,0,NinghsingCheAiAssistant.kt
+১–{1},,ui,1,1,PdfViewerScreen.kt
+২০ ডিসেম্বর ২০২৪,,content,1,0,NinghsingCheContentData.kt
+২৮ ডিসেম্বর ২০২৪,,content,1,0,NinghsingCheContentData.kt
+— শেষ —,,ui,1,0,ListScreens.kt
+•  {1} মি.,,ui,1,1,EditorialComponents.kt
+• **বিভাগ:** {1},,ui,1,1,NinghsingCheAiAssistant.kt
+❓ প্রশ্নোত্তর বিশ্লেষণ,,ui,1,0,ArticleScreen.kt
+🎯 লেখকের বক্তব্য,,ui,1,0,ArticleScreen.kt
+💡 মূল শিক্ষণীয় বিষয়,,ui,1,0,ArticleScreen.kt
+📌 সম্পূর্ণ সারসংক্ষেপ,,ui,1,0,ArticleScreen.kt
+📎 পিডিএফ সংযুক্ত,,ui,1,0,UserDashboardScreen.kt

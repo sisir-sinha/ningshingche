@@ -60,6 +60,7 @@ import coil.compose.AsyncImage
 import com.ningshingche.app.data.music.MusicGenres
 import com.ningshingche.app.data.remote.SatoruUploadClient
 import com.ningshingche.app.ui.editorial.toBengaliNumeral
+import com.ningshingche.app.ui.i18n.t
 import com.ningshingche.app.ui.components.GenreCombobox
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.ReaderWorkspaceViewModel
@@ -123,11 +124,11 @@ fun NewMusicScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text("নতুন গান", fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
+                    Text(t("নতুন গান"), fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "ফিরুন")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t("ফিরুন"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -144,9 +145,9 @@ fun NewMusicScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             if (user?.isProfileComplete != true) {
-                Text("নতুন গান জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।", fontFamily = Kalpurush)
+                Text(t("নতুন গান জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।"), fontFamily = Kalpurush)
                 Button(onClick = onCompleteProfile) {
-                    Text("প্রোফাইলে যান", fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
+                    Text(t("প্রোফাইলে যান"), fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
                 }
                 return@Column
             }
@@ -154,20 +155,20 @@ fun NewMusicScreen(
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
-                label = { Text("শিরোনাম", fontFamily = Kalpurush) },
+                label = { Text(t("শিরোনাম"), fontFamily = Kalpurush) },
                 modifier = Modifier.fillMaxWidth().testTag("music_title"),
                 leadingIcon = { Icon(Icons.Default.LibraryMusic, contentDescription = null) }
             )
             OutlinedTextField(
                 value = artist,
                 onValueChange = { artist = it },
-                label = { Text("শিল্পী", fontFamily = Kalpurush) },
+                label = { Text(t("শিল্পী"), fontFamily = Kalpurush) },
                 modifier = Modifier.fillMaxWidth()
             )
             OutlinedTextField(
                 value = album,
                 onValueChange = { album = it },
-                label = { Text("অ্যালবাম", fontFamily = Kalpurush) },
+                label = { Text(t("অ্যালবাম"), fontFamily = Kalpurush) },
                 modifier = Modifier.fillMaxWidth()
             )
             GenreCombobox(
@@ -183,7 +184,7 @@ fun NewMusicScreen(
                     // Bishnupriya Manipuri, as used by the community for the
                     // song file itself; the language is the same for picking and
                     // re-picking, the card below shows what is chosen.
-                    "এলাহান বরিক",
+                    t("এলাহান বরিক"),
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -202,7 +203,11 @@ fun NewMusicScreen(
             }
             OutlinedButton(onClick = { coverPicker.launch("image/*") }, modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    if (cover == null) "কভার ছবি নির্বাচন (ঐচ্ছিক)" else "কভার ছবি বদলান",
+                    if (cover == null) {
+                        t("কভার ছবি নির্বাচন (ঐচ্ছিক)")
+                    } else {
+                        t("কভার ছবি বদলান")
+                    },
                     fontFamily = Kalpurush
                 )
             }
@@ -215,7 +220,7 @@ fun NewMusicScreen(
                 ) {
                     AsyncImage(
                         model = cover,
-                        contentDescription = "কভার ছবি",
+                        contentDescription = t("কভার ছবি"),
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -223,7 +228,7 @@ fun NewMusicScreen(
                         onClick = { cover = null },
                         modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)
                     ) {
-                        Icon(Icons.Default.Close, contentDescription = "কভার ছবি সরান")
+                        Icon(Icons.Default.Close, contentDescription = t("কভার ছবি সরান"))
                     }
                 }
             }
@@ -245,7 +250,7 @@ fun NewMusicScreen(
                 if (saving) {
                     CircularProgressIndicator(modifier = Modifier.height(18.dp), strokeWidth = 2.dp)
                 } else {
-                    Text("জমা দিন", fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
+                    Text(t("জমা দিন"), fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
                 }
             }
             Spacer(Modifier.height(24.dp))
@@ -301,14 +306,14 @@ private fun SongPreview(uri: Uri, name: String, sizeBytes: Long, onClear: () -> 
             ) {
                 Icon(
                     if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = if (playing) "থামান" else "শুনুন"
+                    contentDescription = if (playing) t("থামান") else t("শুনুন")
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text(name.ifBlank { "গান" }, fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                Text(name.ifBlank { t("গান") }, fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold, maxLines = 1)
                 Text(
                     listOf(
-                        if (durationMs > 0) formatDuration(durationMs) else "প্রিভিউ",
+                        if (durationMs > 0) formatDuration(durationMs) else t("প্রিভিউ"),
                         if (sizeBytes > 0) fileSizeLabel(sizeBytes) else ""
                     ).filter { it.isNotBlank() }.joinToString(" • "),
                     fontFamily = Kalpurush,
@@ -316,7 +321,7 @@ private fun SongPreview(uri: Uri, name: String, sizeBytes: Long, onClear: () -> 
                 )
             }
             IconButton(onClick = onClear, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.Default.Close, contentDescription = "সরান")
+                Icon(Icons.Default.Close, contentDescription = t("সরান"))
             }
         }
     }
@@ -331,9 +336,9 @@ private fun fileSizeLabel(bytes: Long): String {
     return if (bytes >= 1_000_000) {
         val whole = bytes / 1_000_000
         val tenth = (bytes % 1_000_000) / 100_000
-        "${toBengaliNumeral(whole)}.${toBengaliNumeral(tenth)} এমবি"
+        "${toBengaliNumeral(whole)}.${toBengaliNumeral(tenth)} ${t("এমবি")}"
     } else {
-        "${toBengaliNumeral(bytes / 1000)} কেবি"
+        "${toBengaliNumeral(bytes / 1000)} ${t("কেবি")}"
     }
 }
 
