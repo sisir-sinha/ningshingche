@@ -1,6 +1,7 @@
 package com.ningshingche.app.data.music
 
 import android.content.Context
+import android.provider.Settings
 import com.ningshingche.app.data.auth.GoogleAuthMapper
 import com.ningshingche.app.data.local.AppDatabase
 import com.ningshingche.app.data.local.MusicOfflineEntity
@@ -8,10 +9,17 @@ import com.ningshingche.app.data.local.MusicPlaylistEntity
 import com.ningshingche.app.data.portal.MusicTrack
 import com.ningshingche.app.data.remote.SupabaseClient
 import com.ningshingche.app.data.remote.SupabaseConfig
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -39,6 +47,7 @@ class MusicLibraryStore(
     private val appContext = context.applicationContext
     private val dao = database.musicLibraryDao()
     private val jsonType = "application/json; charset=utf-8".toMediaType()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val http = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
@@ -61,6 +70,23 @@ class MusicLibraryStore(
         playlists().map { lists ->
             lists.firstOrNull { it.isLoved }?.trackIds?.toSet().orEmpty()
         }
+
+    private val _loveCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
+    val loveCounts: StateFlow<Map<String, Int>> = _loveCounts.asStateFlow()
+
+    fun seedLoveCounts(tracks: List<MusicTrack>) {
+        if (tracks.isEmpty()) return
+        _loveCounts.update { current ->
+            current.toMutableMap().apply {
+                tracks.forEach { track ->
+                    put(track.id, maxOf(this[track.id] ?: 0, track.loveCount))
+                }
+            }
+        }
+        // The catalog only loads when there is a connection, which makes this a
+        // good moment to push loves that were tapped while offline.
+        flushPendingLoves()
+    }
 
     fun offlineFile(trackId: String): File {
         val dir = File(appContext.filesDir, "music")
@@ -89,6 +115,8 @@ class MusicLibraryStore(
             true
         }
         savePlaylist(loved.copy(trackIds = ids.distinct()))
+        bumpLoveCount(track.id, nowLoved, track.loveCount)
+        syncLoveRemote(track.id, nowLoved)
         nowLoved
     }
 
@@ -165,9 +193,6 @@ class MusicLibraryStore(
         dao.deleteOffline(trackId)
     }
 
-    suspend fun offlineTrack(trackId: String): MusicTrack? = withContext(Dispatchers.IO) {
-        dao.offlineById(trackId)?.toTrack()
-    }
 
     private suspend fun rememberOffline(track: MusicTrack, file: File) {
         dao.upsertOffline(
@@ -216,6 +241,90 @@ class MusicLibraryStore(
         syncPlaylistRemote(playlist, userId)
     }
 
+    private fun bumpLoveCount(trackId: String, liked: Boolean, fallback: Int) {
+        _loveCounts.update { map ->
+            val current = map[trackId] ?: fallback.coerceAtLeast(0)
+            val next = if (liked) current + 1 else (current - 1).coerceAtLeast(0)
+            map + (trackId to next)
+        }
+    }
+
+    /**
+     * The love react is public, so it works without an account: the write goes
+     * through the `toggle_music_love` RPC, which resolves a signed-in listener
+     * from their token and a guest from [deviceId]. The RPC returns the track's
+     * fresh, trigger-computed `love_count`, so the number in the UI is the
+     * number in the database.
+     */
+    private fun syncLoveRemote(trackId: String, liked: Boolean) {
+        val count = remoteLove(trackId, liked)
+        if (count == null) {
+            // No connection (or the function is not deployed yet): keep it and
+            // replay it the next time the catalog loads.
+            rememberPendingLove(trackId, liked)
+            return
+        }
+        forgetPendingLove(trackId)
+        applyRemoteLoveCount(trackId, count)
+    }
+
+    /** Returns the new public count, or null when the call did not go through. */
+    private fun remoteLove(trackId: String, liked: Boolean): Int? {
+        val payload = JSONObject()
+            .put("p_track_id", trackId)
+            .put("p_device_id", deviceId)
+            .put("p_loved", liked)
+        return remoteRpc(RPC_TOGGLE_LOVE, payload)
+    }
+
+    private fun applyRemoteLoveCount(trackId: String, count: Int) {
+        _loveCounts.update { map -> map + (trackId to count.coerceAtLeast(0)) }
+    }
+
+    private fun lovePrefs() =
+        appContext.getSharedPreferences(DEVICE_PREFS, Context.MODE_PRIVATE)
+
+    private fun rememberPendingLove(trackId: String, liked: Boolean) {
+        lovePrefs().edit().putBoolean(LOVE_PREFIX + trackId, liked).apply()
+    }
+
+    private fun forgetPendingLove(trackId: String) {
+        lovePrefs().edit().remove(LOVE_PREFIX + trackId).apply()
+    }
+
+    private fun flushPendingLoves() {
+        val prefs = lovePrefs()
+        val pending = prefs.all.filterKeys { it.startsWith(LOVE_PREFIX) }
+        if (pending.isEmpty()) return
+        scope.launch {
+            pending.forEach { (key, value) ->
+                val liked = value as? Boolean ?: return@forEach
+                val trackId = key.removePrefix(LOVE_PREFIX)
+                val count = remoteLove(trackId, liked) ?: return@forEach
+                prefs.edit().remove(key).apply()
+                applyRemoteLoveCount(trackId, count)
+            }
+        }
+    }
+
+    /**
+     * Stable id for this install. ANDROID_ID is per app signing key + user, so
+     * it survives restarts and updates; if a device cannot report one, a random
+     * id is generated once and kept in preferences.
+     */
+    private val deviceId: String by lazy {
+        val prefs = lovePrefs()
+        prefs.getString(KEY_DEVICE_ID, null)?.takeIf { it.isNotBlank() } ?: run {
+            val androidId = runCatching {
+                Settings.Secure.getString(appContext.contentResolver, Settings.Secure.ANDROID_ID)
+            }.getOrNull()
+            val value = androidId?.takeIf { it.isNotBlank() && it != LEGACY_ANDROID_ID }
+                ?: UUID.randomUUID().toString()
+            prefs.edit().putString(KEY_DEVICE_ID, value).apply()
+            value
+        }
+    }
+
     private fun canSync(userId: String): Boolean {
         if (userId == GUEST) return false
         return GoogleAuthMapper.isSupabaseJwt(supabase.getAuthToken())
@@ -240,6 +349,32 @@ class MusicLibraryStore(
             }
         } catch (_: Exception) {
             // Room is the working copy; cloud tables may not exist yet.
+        }
+    }
+
+    /**
+     * Calls a PostgREST RPC. Signed in, the listener's JWT identifies them;
+     * signed out, the publishable key is sent as the bearer, which PostgREST
+     * resolves to the `anon` role — the only way a guest's love can be written.
+     */
+    private fun remoteRpc(name: String, payload: JSONObject): Int? {
+        val token = supabase.getAuthToken()?.takeIf { GoogleAuthMapper.isSupabaseJwt(it) }
+        val request = Request.Builder()
+            .url("${SupabaseConfig.restBaseUrl}/rpc/$name")
+            .addHeader("apikey", SupabaseConfig.supabaseKey)
+            .addHeader("Authorization", "Bearer ${token ?: SupabaseConfig.supabaseKey}")
+            .addHeader("Content-Type", "application/json")
+            .post(payload.toString().toRequestBody(jsonType))
+            .build()
+        return try {
+            http.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return null
+                // A scalar-returning function yields a bare number; tolerate a
+                // one-element array just in case.
+                response.body?.string()?.trim()?.trim('[', ']')?.toIntOrNull()
+            }
+        } catch (_: Exception) {
+            null
         }
     }
 
@@ -276,6 +411,15 @@ class MusicLibraryStore(
         const val KIND_CUSTOM = "custom"
         const val LOVED_TITLE = "পছন্দের গান"
         const val USER_AGENT = "NingshingChe/1.0 (Android Music)"
+
+        /** Migration 022 — loves a track for a guest as well as a signed-in user. */
+        private const val RPC_TOGGLE_LOVE = "toggle_music_love"
+        private const val DEVICE_PREFS = "ningshingche_device"
+        private const val KEY_DEVICE_ID = "device_id"
+        private const val LOVE_PREFIX = "love_pending:"
+
+        /** The emulator/older builds' shared ANDROID_ID is not unique; ignore it. */
+        private const val LEGACY_ANDROID_ID = "9774d56d682e549c"
     }
 }
 

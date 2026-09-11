@@ -139,6 +139,9 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
         val musicStore = MusicLibraryStore(this, database, supabaseClient)
         musicLibraryStore = musicStore
         musicController = MusicController(this, musicStore)
+        if (android.os.Build.FINGERPRINT != "robolectric") {
+            musicController.ensureConnected()
+        }
         aiAssistant = NinghsingCheAiAssistant(articleRepository, portalRepository)
         appNotificationManager = AppNotificationManager(this).also { it.createChannels() }
         contentUpdateNotifier = ContentUpdateNotifier(

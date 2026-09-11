@@ -4,13 +4,18 @@ import android.app.PendingIntent
 import android.content.Intent
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
-import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DataSourceBitmapLoader
+import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.Renderer
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.video.VideoRendererEventListener
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.ningshingche.app.MainActivity
-import com.ningshingche.app.data.music.MusicLibraryStore
 
 /**
  * Foreground [MediaSessionService] that owns the ExoPlayer instance.
@@ -22,16 +27,39 @@ class MusicPlaybackService : MediaSessionService() {
 
     private var mediaSession: MediaSession? = null
 
+    @androidx.annotation.OptIn(UnstableApi::class)
     override fun onCreate() {
         super.onCreate()
-        val http = DefaultHttpDataSource.Factory()
-            .setUserAgent(MusicLibraryStore.USER_AGENT)
-            .setAllowCrossProtocolRedirects(true)
-            .setConnectTimeoutMs(20_000)
-            .setReadTimeoutMs(20_000)
-            .setKeepPostFor302Redirects(true)
-        val player = ExoPlayer.Builder(this)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(this).setDataSourceFactory(http))
+        val renderersFactory = object : DefaultRenderersFactory(this) {
+            override fun buildVideoRenderers(
+                context: android.content.Context,
+                extensionRendererMode: Int,
+                mediaCodecSelector: MediaCodecSelector,
+                enableDecoderFallback: Boolean,
+                eventHandler: android.os.Handler,
+                eventListener: VideoRendererEventListener,
+                allowedVideoJoiningTimeMs: Long,
+                out: java.util.ArrayList<Renderer>
+            ) {
+                // Audio-only service: avoid querying video codec interfaces
+            }
+        }.setEnableDecoderFallback(true)
+
+        val player = ExoPlayer.Builder(this, renderersFactory)
+            .setMediaSourceFactory(
+                DefaultMediaSourceFactory(this).setDataSourceFactory(MusicStreamCache.dataSourceFactory(this))
+            )
+            .setLoadControl(
+                DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(
+                        /* minBufferMs = */ 15_000,
+                        /* maxBufferMs = */ 50_000,
+                        /* bufferForPlaybackMs = */ 700,
+                        /* bufferForPlaybackAfterRebufferMs = */ 1_500
+                    )
+                    .setPrioritizeTimeOverSizeThresholds(true)
+                    .build()
+            )
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(C.USAGE_MEDIA)
@@ -42,6 +70,9 @@ class MusicPlaybackService : MediaSessionService() {
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
+        player.setPreloadConfiguration(
+            ExoPlayer.PreloadConfiguration(/* targetPreloadDurationUs = */ 15_000_000L)
+        )
 
         val sessionActivity = PendingIntent.getActivity(
             this,
@@ -54,6 +85,7 @@ class MusicPlaybackService : MediaSessionService() {
 
         mediaSession = MediaSession.Builder(this, player)
             .setSessionActivity(sessionActivity)
+            .setBitmapLoader(DataSourceBitmapLoader(this))
             .build()
     }
 

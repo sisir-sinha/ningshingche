@@ -4,8 +4,6 @@ import android.annotation.SuppressLint
 import android.content.ClipboardManager
 import android.content.Context
 import android.view.ActionMode
-import android.view.Menu
-import android.view.MenuItem
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
@@ -330,14 +328,6 @@ private class HtmlBridge(
         emit(html)
     }
 
-    @JavascriptInterface
-    fun requestPaste() {
-        host.post {
-            val text = clipboardText(host.context)
-            if (text.isBlank()) return@post
-            host.evaluateJavascript("if(window.pasteText){window.pasteText(${JSONObject.quote(text)});}", null)
-        }
-    }
 }
 
 private fun clipboardText(context: Context): String {

@@ -392,7 +392,23 @@
         thumbnail: ''
       };
     }
-    return { provider: 'Video Link', url, id: '', embedUrl: '', thumbnail: '' };
+    if (host.endsWith('vimeo.com')) {
+      const id = parsed.pathname.match(/(?:video\/)?(\d+)/)?.[1] || '';
+      return {
+        provider: 'Vimeo', url, id,
+        embedUrl: id ? `https://player.vimeo.com/video/${encodeURIComponent(id)}` : '',
+        thumbnail: ''
+      };
+    }
+    if (host.endsWith('dailymotion.com')) {
+      const id = parsed.pathname.match(/(?:embed\/)?video\/([A-Za-z0-9]+)/)?.[1] || '';
+      return {
+        provider: 'Dailymotion', url, id,
+        embedUrl: id ? `https://www.dailymotion.com/embed/video/${encodeURIComponent(id)}` : '',
+        thumbnail: ''
+      };
+    }
+    return { provider: 'Video Link', url, id: '', embedUrl: url, thumbnail: '' };
   }
 
   function videoPreviewHTML(value, options = {}) {
@@ -423,7 +439,7 @@
       <div class="pdf-uploader" data-audio-uploader id="${escapeHTML(id)}">
         <div class="field-heading">
           <label class="field-label" for="${escapeHTML(id)}-url">${escapeHTML(label)} <span aria-hidden="true">*</span></label>
-          <span class="field-hint">Upload an MP3 (or M4A/AAC/OGG/WAV) up to 32 MB, or paste a direct audio URL.</span>
+          <span class="field-hint">Upload an MP3 to Supabase Storage (public URL, up to 32 MB), or paste a direct audio URL.</span>
         </div>
         <div class="grid gap-3 sm:grid-cols-[1fr_auto]">
           <input type="url" class="form-input" id="${escapeHTML(id)}-url" data-audio-url placeholder="https://example.com/song.mp3">

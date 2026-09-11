@@ -1,3 +1,5 @@
+@file:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.ningshingche.app.playback
 
 import android.content.ComponentName
@@ -17,6 +19,7 @@ import com.ningshingche.app.data.music.MusicLibraryStore
 import com.ningshingche.app.data.music.UserPlaylist
 import com.ningshingche.app.data.music.streamUrl
 import com.ningshingche.app.data.portal.MusicTrack
+import com.ningshingche.app.ui.components.AppToasts
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -50,6 +53,7 @@ data class MusicPlayerUiState(
     val offline: Boolean = false,
     val downloading: Boolean = false,
     val showLyrics: Boolean = false,
+    val showVideo: Boolean = false,
     val sleepUntilMs: Long? = null,
     val statusMessage: String? = null,
     val error: String? = null
@@ -69,11 +73,18 @@ class MusicController(
     private var sleepJob: Job? = null
     private var pending: (() -> Unit)? = null
     private var retriedStorage = false
+    private var resumeAfterVideo = false
 
     private val _state = MutableStateFlow(MusicPlayerUiState())
     val state: StateFlow<MusicPlayerUiState> = _state.asStateFlow()
 
+    private val isRobolectric: Boolean by lazy {
+        android.os.Build.FINGERPRINT == "robolectric" ||
+            runCatching { Class.forName("org.robolectric.Robolectric") }.isSuccess
+    }
+
     fun ensureConnected() {
+        if (isRobolectric) return
         if (controller != null) return
         val existing = controllerFuture
         if (existing != null && !existing.isDone) return
@@ -99,9 +110,9 @@ class MusicController(
                     startTicker()
                 }.onFailure {
                     controllerFuture = null
-                    _state.update {
-                        it.copy(error = "প্লেয়ার চালু হয়নি। আবার চেষ্টা করুন।")
-                    }
+                    val message = "প্লেয়ার চালু হয়নি। আবার চেষ্টা করুন।"
+                    _state.update { it.copy(error = message) }
+                    AppToasts.show(message)
                 }
             },
             ContextCompat.getMainExecutor(appContext)
@@ -121,6 +132,7 @@ class MusicController(
                     error = "এই গানের অডিও ফাইল নেই।"
                 )
             }
+            AppToasts.show("এই গানের অডিও ফাইল নেই।")
             return
         }
         val index = list.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
@@ -145,22 +157,44 @@ class MusicController(
                 queue = list,
                 error = null,
                 statusMessage = null,
-                showLyrics = false
+                showLyrics = false,
+                showVideo = false
             )
         }
         refreshTrackFlags(list.getOrNull(index) ?: track)
+        prefetch(list.drop(index).take(3), MusicStreamCache.NEXT_BYTES)
+    }
+
+    fun prefetchCatalog(tracks: List<MusicTrack>) {
+        library.seedLoveCounts(tracks)
+        prefetch(tracks, MusicStreamCache.HEAD_BYTES, limit = 12)
+    }
+
+    private fun prefetch(tracks: List<MusicTrack>, bytes: Long, limit: Int = tracks.size) {
+        if (tracks.isEmpty()) return
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                MusicStreamCache.prefetch(appContext, tracks, library, bytes = bytes, limit = limit)
+            }
+        }
     }
 
     fun togglePlayPause() {
+        if (_state.value.showVideo) {
+            hideVideo(resumeAudio = true)
+            return
+        }
         val player = controller ?: return
         if (player.isPlaying) player.pause() else player.play()
     }
 
     fun skipNext() {
+        hideVideo(resumeAudio = false)
         controller?.seekToNextMediaItem()
     }
 
     fun skipPrevious() {
+        hideVideo(resumeAudio = false)
         val player = controller ?: return
         if (player.currentPosition > 3_000L) {
             player.seekTo(0L)
@@ -204,9 +238,10 @@ class MusicController(
         val queue = _state.value.queue
         val index = queue.indexOfFirst { it.id == track.id }
         if (index >= 0) {
+            hideVideo(resumeAudio = false)
             controller?.seekToDefaultPosition(index)
             controller?.play()
-            _state.update { it.copy(track = track, expanded = true, error = null) }
+            _state.update { it.copy(track = track, expanded = true, error = null, showVideo = false) }
             refreshTrackFlags(track)
         } else {
             play(track, queue.ifEmpty { listOf(track) })
@@ -214,9 +249,19 @@ class MusicController(
     }
 
     fun toggleShuffle() {
-        val next = !_state.value.shuffle
-        controller?.shuffleModeEnabled = next
-        _state.update { it.copy(shuffle = next) }
+        setShuffle(!_state.value.shuffle, announce = true)
+    }
+
+    fun setShuffle(enabled: Boolean, announce: Boolean = false) {
+        controller?.shuffleModeEnabled = enabled
+        _state.update { it.copy(shuffle = enabled) }
+        if (announce) {
+            if (enabled) {
+                AppToasts.undo("Shuffle Turned ON") { setShuffle(false, announce = false) }
+            } else {
+                AppToasts.show("Shuffle Turned OFF")
+            }
+        }
     }
 
     fun cycleRepeat() {
@@ -232,21 +277,62 @@ class MusicController(
     fun toggleAutoPlay() {
         val next = !_state.value.autoPlay
         _state.update { it.copy(autoPlay = next) }
+        if (next) {
+            AppToasts.undo("Autoplay Turned ON") {
+                _state.update { it.copy(autoPlay = false) }
+            }
+        } else {
+            AppToasts.show("Autoplay Turned OFF")
+        }
     }
 
     fun toggleLyrics() {
+        if (_state.value.showVideo) hideVideo(resumeAudio = false)
         _state.update { it.copy(showLyrics = !it.showLyrics) }
+    }
+
+    fun toggleVideo() {
+        val track = _state.value.track ?: return
+        if (track.videoLink.isBlank()) return
+        if (_state.value.showVideo) {
+            hideVideo(resumeAudio = true)
+            return
+        }
+        resumeAfterVideo = _state.value.isPlaying
+        controller?.pause()
+        _state.update { it.copy(showVideo = true, showLyrics = false) }
+    }
+
+    fun hideVideo(resumeAudio: Boolean = false) {
+        if (!_state.value.showVideo) return
+        val shouldResume = resumeAudio && resumeAfterVideo
+        resumeAfterVideo = false
+        _state.update { it.copy(showVideo = false) }
+        if (shouldResume) controller?.play()
     }
 
     fun toggleLike() {
         val track = _state.value.track ?: return
+        toggleLikeFor(track)
+    }
+
+    fun toggleLikeFor(track: MusicTrack) {
         scope.launch {
             val liked = withContext(Dispatchers.IO) { library.toggleLoved(track) }
-            _state.update {
-                it.copy(
-                    liked = liked,
-                    statusMessage = if (liked) "পছন্দের তালিকায় যোগ হয়েছে" else "পছন্দ থেকে সরানো হয়েছে"
-                )
+            if (_state.value.track?.id == track.id) {
+                _state.update { it.copy(liked = liked) }
+            }
+            if (liked) {
+                AppToasts.undo("Added to Liked Songs") {
+                    scope.launch {
+                        withContext(Dispatchers.IO) { library.toggleLoved(track) }
+                        if (_state.value.track?.id == track.id) {
+                            _state.update { it.copy(liked = false) }
+                        }
+                    }
+                }
+            } else {
+                AppToasts.show("Removed from Liked Songs")
             }
         }
     }
@@ -254,16 +340,26 @@ class MusicController(
     fun saveCurrentOffline() {
         val track = _state.value.track ?: return
         if (_state.value.downloading) return
-        _state.update { it.copy(downloading = true, statusMessage = "সংরক্ষণ হচ্ছে…", error = null) }
+        _state.update { it.copy(downloading = true, error = null) }
         scope.launch {
             val result = withContext(Dispatchers.IO) { library.download(track) }
+            val saved = result.isSuccess || library.isOfflineFile(track.id)
             _state.update {
                 it.copy(
                     downloading = false,
-                    offline = result.isSuccess || library.isOfflineFile(track.id),
-                    statusMessage = if (result.isSuccess) "গান অ্যাপে সংরক্ষিত হয়েছে" else null,
+                    offline = saved,
                     error = result.exceptionOrNull()?.message
                 )
+            }
+            if (saved) {
+                AppToasts.undo("Song downloaded for offline") {
+                    scope.launch {
+                        withContext(Dispatchers.IO) { library.removeOffline(track.id) }
+                        _state.update { it.copy(offline = false) }
+                    }
+                }
+            } else {
+                AppToasts.show(result.exceptionOrNull()?.message ?: "Download failed")
             }
         }
     }
@@ -272,7 +368,11 @@ class MusicController(
         val track = _state.value.track ?: return
         scope.launch {
             withContext(Dispatchers.IO) { library.addToPlaylist(playlistId, track) }
-            _state.update { it.copy(statusMessage = "প্লেলিস্টে যোগ হয়েছে") }
+            AppToasts.undo("Added to playlist") {
+                scope.launch {
+                    withContext(Dispatchers.IO) { library.removeFromPlaylist(playlistId, track.id) }
+                }
+            }
         }
     }
 
@@ -349,6 +449,7 @@ class MusicController(
                 else -> "গান বাজানো যায়নি। ফাইল লিংক যাচাই করুন।"
             }
             _state.update { it.copy(isPlaying = false, isBuffering = false, error = message) }
+            AppToasts.show(message)
         }
     }
 
@@ -378,6 +479,8 @@ class MusicController(
         if (track != null && track.id != previousId) {
             retriedStorage = false
             refreshTrackFlags(track)
+            val index = queue.indexOfFirst { it.id == track.id }
+            if (index >= 0) prefetch(queue.drop(index + 1).take(2), MusicStreamCache.NEXT_BYTES)
         }
     }
 
@@ -422,6 +525,7 @@ internal fun MusicTrack.toMediaItem(
     return MediaItem.Builder()
         .setMediaId(id)
         .setUri(uri)
+        .setCustomCacheKey(id)
         .setMediaMetadata(
             MediaMetadata.Builder()
                 .setTitle(title)

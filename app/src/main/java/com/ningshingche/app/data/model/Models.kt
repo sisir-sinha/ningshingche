@@ -101,6 +101,20 @@ enum class AppThemeMode {
     SYSTEM, LIGHT, DARK
 }
 
+enum class PdfFitMode { WIDTH, HEIGHT, BOTH }
+
+data class PdfReaderSettings(
+    val bookView: Boolean = true,
+    val nightMode: Boolean = false,
+    val snapPages: Boolean = true,
+    val doubleTapZoom: Boolean = true,
+    val annotations: Boolean = true,
+    val keepScreenOn: Boolean = true,
+    val scrollHandle: Boolean = true,
+    val spacingDp: Int = 8,
+    val fitMode: PdfFitMode = PdfFitMode.BOTH
+)
+
 data class ReaderPreferences(
     val fontSizeSp: Float = 18f,
     val lineSpacingMultiplier: Float = 1.6f,

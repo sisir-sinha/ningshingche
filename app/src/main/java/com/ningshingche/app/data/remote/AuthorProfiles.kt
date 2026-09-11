@@ -63,7 +63,6 @@ object AuthorProfiles {
             "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhGH7bQYuDSsEyRM4u9OVsnK8b7VibniG5uGqBLY2SN-4orEROolj7HY-kcdV-9eNaa6ICsI7g13K3vPlzT2nz9WopI3BkaC2s50qyfKS3RMk0KS7nb8NDwD2473n6zWadzZc3Zso0JKGnkY56Co6U188qVqVa1OGT5Jlcxr14m8hc4Q4Cj1vppLNIS6CvG/s265/sukanta-singha-profile.png"
     )
 
-    fun urlFor(fileName: String): String = official(fileName)
 
     fun resolve(name: String, existing: String = ""): String {
         val live = existing.replace(" ", "%20")
@@ -95,15 +94,4 @@ object AuthorProfiles {
             .replace(Regex("""\s+"""), "")
 
     private fun official(fileName: String): String = BASE + fileName.replace(" ", "%20")
-}
-
-object PdfCovers {
-    val byReadId: Map<Int, String> = mapOf(
-        1 to "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgfFmmLDBHSEuPVLEyZxKBhnSZGXRoohaRHQl7fpUnmj0mGydBnlscam9Cjj73xJQhU4QCsB8oI36w4EHcUuWixygvFRTnMLCZ0g62YDUzQMJSwtDu9F_Ip01IbrRTWuMwp25v3aoWngGIhIorUlRoCrfhmujTx0VAiX-XqiQQeeDs8MC04rHRSgs37_Os4/s1035/NingshingChe-2024-PDF-Online.jpg",
-        2 to "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhIePuf-Ausr7DMrseqNIgmr5XtYOK7Th9l2p7J1-hDOVE3ggXfex9nCAbICf0hOzrNn19dBw4patimxTwxHlLvy5gdRNMdTkzKgijwofw9KRUbO1Xq4d5JIB5DQvbFgCYexQfz5Z9HYQ383YTpR9rxrWHux-NblIJS6WeCuTAeRmM_XGp3bweurcX0lZCr/s888/NingshingChe-2023-PDF-Online.png",
-        3 to "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEj4Tq6GIjEUCe0TG2SyICE1IvzpbIjeGSwS9ZghrP6DjKHs-1hYL_lQaakVQGLk2TmeErvktTOhmgJofAu3W9atT3nryFWm9rtjXVdmzFKKDT3TLCOe10AUnuXPDHzUwJ0RNYocPFuW7lG6qmhfQCsuAbSdZ5xDYSH2cPmMTwpcYdyMqU6C8f3SmVSrtO4n/s1063/NingshingChe-2018-PDF-Online.jpg",
-        4 to "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiL3xg8yIEcw41MiLPHe4SpqqhGE9wUNsvu8zGjt4NKKsYRqxJOmeGlL6LZreAeGAx7jfHKOs9_cd_hI7i3GiPK0E4YclQPmZ-bIZL7hv63GTr_RkIIboCRn1nNRJHgUsxMaqZqsGl5IbrNnqw4ng1HIjH76_-IrmYE7hp3MtWTjb9TgYRdzciCLWs5qe0d/s4361/Ningshingche-2022-thumbnail.jpg",
-        5 to "https://surajit-singha-sisir.github.io/NingshingCheNew/PDF/%E0%A6%AE%E0%A6%B9%E0%A6%BE%E0%A6%AE%E0%A7%87%E0%A6%B2-%E0%A7%A8%E0%A7%A6%E0%A7%A7%E0%A7%A9.jpg",
-        6 to "https://surajit-singha-sisir.github.io/NingshingCheNew/PDF/%E0%A6%95%E0%A7%81%E0%A6%AE%E0%A7%87%E0%A6%87-%E0%A7%A8%E0%A7%A6%E0%A7%A6%E0%A7%AF-%E0%A6%B8%E0%A6%82%E0%A6%96%E0%A7%8D%E0%A6%AF%E0%A6%BE.jpg"
-    )
 }

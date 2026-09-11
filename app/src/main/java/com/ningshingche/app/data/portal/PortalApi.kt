@@ -50,7 +50,12 @@ interface PortalApi {
             "id,title,artist,album,genre,description,thumbnail_url,audio_url," +
                 "file_provider,file_storage_path,duration_seconds,file_size_mb,sort_order,created_at"
         const val MUSIC_COLUMNS_WITH_LYRICS = "$MUSIC_COLUMNS,lyrics"
+        const val MUSIC_COLUMNS_WITH_VIDEO = "$MUSIC_COLUMNS_WITH_LYRICS,video_link"
+        const val MUSIC_COLUMNS_WITH_META =
+            "$MUSIC_COLUMNS_WITH_VIDEO,artist_image,artist_description,album_image,album_description"
+        const val MUSIC_COLUMNS_WITH_LOVE = "$MUSIC_COLUMNS_WITH_META,love_count"
         const val COMMENT_COLUMNS = "id,blog_id,blog_title,name,address,content,status,created_at,avatar_url,user_id"
+        const val COMMENT_COLUMNS_WITHOUT_AVATAR = "id,blog_id,blog_title,name,address,content,status,created_at"
         const val SETTINGS_COLUMNS =
             "id,site_title,site_description,logo_url,contact_email,contact_phone," +
                 "facebook_url,youtube_url,instagram_url,hero_slider_enabled," +
@@ -85,13 +90,6 @@ interface PortalApi {
         @Query("offset") offset: Int? = null
     ): Response<List<BlogDto>>
 
-    /** Lookup by UUID **or** slug — used by deep links and the reader. */
-    @GET("blogs")
-    suspend fun blogByIdOrSlug(
-        @Query("select") select: String = BLOG_DETAIL_COLUMNS,
-        @Query("or", encoded = true) or: String,
-        @Query("limit") limit: Int = 1
-    ): Response<List<BlogDto>>
 
     // ------------------------------------------------------------------- tags
 

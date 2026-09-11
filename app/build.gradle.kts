@@ -21,6 +21,11 @@ android {
     versionName = "1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+    // Phones only. x86/x86_64 Pdfium copies are for emulators and doubled the APK.
+    ndk {
+      abiFilters += listOf("armeabi-v7a", "arm64-v8a")
+    }
   }
 
   signingConfigs {
@@ -41,12 +46,30 @@ android {
 
   buildTypes {
     release {
-      isCrunchPngs = false
-      isMinifyEnabled = false
+      isCrunchPngs = true
+      isMinifyEnabled = true
+      isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
     }
     debug { signingConfig = signingConfigs.getByName("debugConfig") }
+  }
+
+  packaging {
+    jniLibs {
+      // Compress Pdfium/ExoPlayer .so files so the sideload APK is smaller.
+      useLegacyPackaging = true
+    }
+    resources {
+      excludes += setOf(
+        "META-INF/LICENSE.md",
+        "META-INF/LICENSE-notice.md",
+        "META-INF/NOTICE.md",
+        "META-INF/DEPENDENCIES",
+        "META-INF/*.version",
+        "DebugProbesKt.bin"
+      )
+    }
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
@@ -77,7 +100,6 @@ googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.W
 // This makes it easy to add them back in the future if needed.
 dependencies {
   implementation(platform(libs.androidx.compose.bom))
-  implementation(platform(libs.firebase.bom))
   // implementation(libs.accompanist.permissions)
   implementation(libs.androidx.activity.compose)
   // implementation(libs.androidx.camera.camera2)
@@ -102,16 +124,14 @@ dependencies {
   implementation(libs.androidx.room.runtime)
   implementation(libs.coil.compose)
   implementation(libs.converter.moshi)
-  implementation(libs.firebase.ai)
   // Uncomment to use Firestore:
   // implementation(libs.firebase.firestore)
 
   // Native Google Sign-In via Credential Manager → Supabase Auth (ID token).
-  // Firebase Auth is not used.
+  // Firebase Auth is not used. Gemini is called over HTTP, not the Firebase AI SDK.
   implementation(libs.androidx.credentials)
   implementation(libs.androidx.credentials.play.services)
   implementation(libs.googleid)
-  implementation(libs.firebase.appcheck.recaptcha)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.logging.interceptor)
@@ -119,6 +139,7 @@ dependencies {
   implementation(libs.okhttp)
   implementation(libs.androidx.media3.exoplayer)
   implementation(libs.androidx.media3.session)
+  implementation(libs.android.pdf.viewer)
   // implementation(libs.play.services.location)
   implementation(libs.retrofit)
   testImplementation(libs.androidx.compose.ui.test.junit4)

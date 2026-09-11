@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -57,8 +56,6 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -157,20 +154,35 @@ fun SectionHeader(
             Text(
                 text = title,
                 style = EditorialType.Headline,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
             if (!subtitle.isNullOrBlank()) {
                 Text(
                     text = subtitle,
                     style = EditorialType.Caption,
                     color = LocalEditorialTokens.current.inkMuted,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 2.dp)
                 )
             }
         }
         if (actionLabel != null && onAction != null) {
-            TextButton(onClick = onAction, contentPadding = PaddingValues(horizontal = 8.dp)) {
-                Text(actionLabel, style = EditorialType.Subtitle, color = LocalEditorialTokens.current.accent)
+            Row(
+                modifier = Modifier
+                    .clickable(onClick = onAction)
+                    .padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = actionLabel,
+                    style = EditorialType.Subtitle,
+                    color = LocalEditorialTokens.current.accent,
+                    maxLines = 1,
+                    softWrap = false
+                )
                 Spacer(Modifier.width(4.dp))
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowForward,
@@ -308,7 +320,9 @@ fun CategoryPill(
             fontWeight = FontWeight.Bold,
             color = content,
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
-            maxLines = 1
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            softWrap = false
         )
     }
 }
@@ -629,11 +643,11 @@ fun AnimatedHamburgerIcon(
 @Composable
 fun AiAssistantHomeBanner(
     onAiClick: () -> Unit,
+    onPromptClick: (String) -> Unit = { onAiClick() },
     modifier: Modifier = Modifier
 ) {
     val tokens = LocalEditorialTokens.current
     Card(
-        onClick = onAiClick,
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (tokens.isDark) Color(0xFF261814) else Color(0xFFFBF4EC)
@@ -654,7 +668,8 @@ fun AiAssistantHomeBanner(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.clickable(onClick = onAiClick)
             ) {
                 Surface(
                     shape = CircleShape,
@@ -690,19 +705,21 @@ fun AiAssistantHomeBanner(
 
             Spacer(Modifier.height(10.dp))
 
-            // Quick suggestion chips
+            // Quick suggestion chips — tap sends the topic as a question to AI.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                listOf("ভাষা আন্দোলন", "ইমচৌঘর", "মিংকৌ প্রথা", "বিশু উৎসব").forEach { tag ->
+                listOf("সুদেষ্ণা সিংহ", "মিংকৌ প্রথা", "বিষু উৎসব").forEach { tag ->
                     Surface(
+                        onClick = { onPromptClick(tag) },
                         shape = RoundedCornerShape(16.dp),
                         color = if (tokens.isDark) Color(0xFF38231C) else Color(0xFFFFFFFF),
                         border = androidx.compose.foundation.BorderStroke(
                             1.dp,
                             if (tokens.isDark) Color(0xFF5A392F) else Color(0xFFE2CEBC)
-                        )
+                        ),
+                        modifier = Modifier.weight(1f)
                     ) {
                         Text(
                             text = tag,
@@ -710,7 +727,13 @@ fun AiAssistantHomeBanner(
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
                             color = tokens.accent,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 6.dp)
                         )
                     }
                 }
@@ -719,7 +742,9 @@ fun AiAssistantHomeBanner(
             Spacer(Modifier.height(10.dp))
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onAiClick),
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -856,7 +881,6 @@ fun CategoryRail(
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(
             title = "বিষয় ও বিভাগসমূহ",
-            subtitle = "বিষ্ণুপ্রিয়া মণিপুরি সাহিত্য ও সাংস্কৃতিক ধারা",
             actionLabel = if (onSeeAll != null) "সব" else null,
             onAction = onSeeAll
         )
@@ -1141,7 +1165,7 @@ fun AuthorRail(
 ) {
     if (authors.isEmpty()) return
     Column(modifier = Modifier.fillMaxWidth()) {
-        SectionHeader(title = "লেখক", subtitle = "নিংশিং চে-এর নিয়মিত কলম")
+        SectionHeader(title = "লেখক")
         LazyRow(
             contentPadding = PaddingValues(horizontal = EditorialSpace.gutter),
             horizontalArrangement = Arrangement.spacedBy(EditorialSpace.md)
@@ -1160,21 +1184,23 @@ fun AuthorChip(author: AuthorRef, onClick: () -> Unit) {
         onClick = onClick,
         shape = RoundedCornerShape(EditorialShape.card),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.width(136.dp)
+        modifier = Modifier
+            .width(136.dp)
+            .height(152.dp)
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 10.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Box {
-                EditorialImage(
-                    url = author.imageUrl,
-                    contentDescription = author.name,
-                    modifier = Modifier.size(52.dp),
-                    shape = CircleShape
-                )
-            }
-            Spacer(Modifier.height(EditorialSpace.xs))
+            EditorialImage(
+                url = author.imageUrl,
+                contentDescription = author.name,
+                modifier = Modifier.size(56.dp),
+                shape = CircleShape
+            )
+            Spacer(Modifier.height(8.dp))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,
@@ -1186,24 +1212,30 @@ fun AuthorChip(author: AuthorRef, onClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
                 if (isVerified) {
                     Spacer(Modifier.width(4.dp))
-                    com.ningshingche.app.ui.components.VerifiedBadge(size = 14.dp)
+                    com.ningshingche.app.ui.components.VerifiedBadge(
+                        size = 14.dp,
+                        animated = false
+                    )
                 }
             }
-            if (author.designation.isNotBlank()) {
-                Text(
-                    text = author.designation,
-                    style = EditorialType.Caption,
-                    color = LocalEditorialTokens.current.inkMuted,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-            }
+            Text(
+                text = author.designation.ifBlank { " " },
+                style = EditorialType.Caption,
+                color = LocalEditorialTokens.current.inkMuted,
+                minLines = 2,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp)
+                    .weight(1f)
+            )
         }
     }
 }
@@ -1232,7 +1264,7 @@ fun GalleryGrid(
     }
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        SectionHeader(title = "ছবি ঘর", subtitle = "ইতিহাস ও সংস্কৃতির দৃশ্যপট")
+        SectionHeader(title = "ছবি ঘর")
         HorizontalPager(
             state = pagerState,
             contentPadding = PaddingValues(horizontal = EditorialSpace.gutter),
@@ -1330,11 +1362,16 @@ fun GalleryGrid(
 @Composable
 fun PdfRail(
     books: List<PdfBook>,
-    onBookClick: (PdfBook) -> Unit
+    onBookClick: (PdfBook) -> Unit,
+    onSeeAll: (() -> Unit)? = null
 ) {
     if (books.isEmpty()) return
     Column(modifier = Modifier.fillMaxWidth()) {
-        SectionHeader(title = "বই ও সাময়িকী", subtitle = "ডাউনলোড করে পড়ুন")
+        SectionHeader(
+            title = "বই ও সাময়িকী",
+            actionLabel = if (onSeeAll != null) "সব" else null,
+            onAction = onSeeAll
+        )
         LazyRow(
             contentPadding = PaddingValues(horizontal = EditorialSpace.gutter),
             horizontalArrangement = Arrangement.spacedBy(EditorialSpace.md)
@@ -1390,7 +1427,6 @@ fun VideoRail(
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(
             title = "ভিডিও",
-            subtitle = "নড়াচড়া ও কণ্ঠে সংস্কৃতি",
             actionLabel = if (onSeeAll != null) "সব" else null,
             onAction = onSeeAll
         )
@@ -1403,9 +1439,11 @@ fun VideoRail(
                     onClick = { onVideoClick(video) },
                     shape = RoundedCornerShape(EditorialShape.card),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    modifier = Modifier.width(252.dp)
+                    modifier = Modifier
+                        .width(252.dp)
+                        .height(236.dp)
                 ) {
-                    Column {
+                    Column(modifier = Modifier.fillMaxSize()) {
                         Box {
                             EditorialImage(
                                 url = video.thumbnailUrl,
@@ -1433,9 +1471,12 @@ fun VideoRail(
                             text = video.title,
                             style = EditorialType.Subtitle,
                             color = MaterialTheme.colorScheme.onSurface,
+                            minLines = 2,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(EditorialSpace.md)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(EditorialSpace.md)
                         )
                     }
                 }
@@ -1454,7 +1495,6 @@ fun MusicRail(
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(
             title = "সঙ্গীত",
-            subtitle = "কণ্ঠে বিষ্ণুপ্রিয়া মণিপুরি সংস্কৃতি",
             actionLabel = if (onSeeAll != null) "সব" else null,
             onAction = onSeeAll
         )
@@ -1467,9 +1507,14 @@ fun MusicRail(
                     onClick = { onTrackClick(track) },
                     shape = RoundedCornerShape(EditorialShape.card),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    modifier = Modifier.width(168.dp)
+                    // Track cards sit on the same paper as the page, so without
+                    // an outline they read as loose artwork rather than cards.
+                    border = BorderStroke(1.dp, LocalEditorialTokens.current.ruleStrong),
+                    modifier = Modifier
+                        .width(168.dp)
+                        .height(268.dp)
                 ) {
-                    Column {
+                    Column(modifier = Modifier.fillMaxSize()) {
                         Box {
                             EditorialImage(
                                 url = track.thumbnailUrl,
@@ -1493,24 +1538,28 @@ fun MusicRail(
                                 )
                             }
                         }
-                        Column(Modifier.padding(EditorialSpace.md)) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(EditorialSpace.md)
+                        ) {
                             Text(
                                 text = track.title,
                                 style = EditorialType.Subtitle,
                                 color = MaterialTheme.colorScheme.onSurface,
+                                minLines = 2,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
                             )
-                            if (track.artist.isNotBlank()) {
-                                Text(
-                                    text = track.artist,
-                                    style = EditorialType.Caption,
-                                    color = LocalEditorialTokens.current.inkMuted,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.padding(top = 2.dp)
-                                )
-                            }
+                            Text(
+                                text = track.artist.ifBlank { " " },
+                                style = EditorialType.Caption,
+                                color = LocalEditorialTokens.current.inkMuted,
+                                minLines = 1,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
                         }
                     }
                 }

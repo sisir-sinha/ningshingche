@@ -2,9 +2,14 @@ package com.ningshingche.app.ui.components
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -12,11 +17,11 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -27,6 +32,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,6 +45,8 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Lyrics
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
@@ -50,6 +59,8 @@ import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -59,8 +70,6 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -68,6 +77,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -83,6 +93,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -94,10 +106,13 @@ import com.ningshingche.app.playback.MusicPlayerUiState
 import com.ningshingche.app.playback.RepeatMode
 import com.ningshingche.app.ui.editorial.EditorialImage
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
+import com.ningshingche.app.ui.editorial.SocialEmbedPlayer
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.theme.PortalMaroon
 import com.ningshingche.app.ui.theme.PortalSaffron
+import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.delay
+import kotlin.math.abs
 import kotlinx.coroutines.launch
 
 val LocalMusicController = staticCompositionLocalOf<MusicController> {
@@ -107,9 +122,20 @@ val LocalMusicController = staticCompositionLocalOf<MusicController> {
 private enum class PlayerSheet { None, Menu, Playlist, Details, Sleep, NewPlaylist }
 
 @Composable
-fun BoxScope.MusicPlayerOverlay(
-    controller: MusicController
-) {
+fun MusicMiniPlayerBar(controller: MusicController) {
+    val state by controller.state.collectAsState()
+    if (!state.visible || state.expanded || state.track == null) return
+    MiniMusicPlayer(
+        state = state,
+        onExpand = controller::expand,
+        onToggle = controller::togglePlayPause,
+        onNext = controller::skipNext,
+        onDismiss = controller::dismiss
+    )
+}
+
+@Composable
+fun MusicFullPlayerOverlay(controller: MusicController) {
     val state by controller.state.collectAsState()
     if (!state.visible || state.track == null) return
 
@@ -127,20 +153,6 @@ fun BoxScope.MusicPlayerOverlay(
         modifier = Modifier.fillMaxSize()
     ) {
         FullMusicPlayer(controller = controller, state = state)
-    }
-    AnimatedVisibility(
-        visible = !state.expanded,
-        enter = slideInVertically { it } + fadeIn(),
-        exit = slideOutVertically { it } + fadeOut(),
-        modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-    ) {
-        MiniMusicPlayer(
-            state = state,
-            onExpand = controller::expand,
-            onToggle = controller::togglePlayPause,
-            onNext = controller::skipNext,
-            onDismiss = controller::dismiss
-        )
     }
 }
 
@@ -180,21 +192,23 @@ private fun MiniMusicPlayer(
                         .background(tokens.accent)
                 )
             }
+            // Compact strip: the bar only has to say what is playing and give
+            // pause / next / close, so it stays as short as the controls allow.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(onClick = onExpand)
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                CoverArt(url = track.thumbnailUrl, modifier = Modifier.size(52.dp), corner = 10.dp)
-                Spacer(Modifier.width(12.dp))
+                CoverArt(url = track.thumbnailUrl, modifier = Modifier.size(42.dp), corner = 8.dp)
+                Spacer(Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = track.title,
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
+                        fontSize = 14.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         color = MaterialTheme.colorScheme.onSurface
@@ -202,32 +216,35 @@ private fun MiniMusicPlayer(
                     Text(
                         text = track.artist.ifBlank { "নিংশিং চে" },
                         fontFamily = Kalpurush,
-                        fontSize = 12.sp,
+                        fontSize = 11.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         color = tokens.inkMuted
                     )
                 }
-                IconButton(onClick = onToggle) {
+                MiniPlayerButton(onClick = onToggle) {
                     Icon(
                         imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                         contentDescription = if (state.isPlaying) "বিরতি" else "চালান",
-                        tint = tokens.accent
+                        tint = tokens.accent,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
-                IconButton(onClick = onNext, enabled = state.hasNext) {
+                MiniPlayerButton(onClick = onNext, enabled = state.hasNext) {
                     Icon(
                         imageVector = Icons.Default.SkipNext,
                         contentDescription = "পরের গান",
                         tint = if (state.hasNext) MaterialTheme.colorScheme.onSurface
-                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+                        modifier = Modifier.size(22.dp)
                     )
                 }
-                IconButton(onClick = onDismiss) {
+                MiniPlayerButton(onClick = onDismiss) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "বন্ধ করুন",
-                        tint = tokens.inkMuted
+                        tint = tokens.inkMuted,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
@@ -235,21 +252,82 @@ private fun MiniMusicPlayer(
     }
 }
 
+/**
+ * A 40dp control for the mini bar.
+ *
+ * [IconButton] cannot be shrunk: it enforces a 48dp minimum touch target
+ * whatever size modifier it is given, which alone would keep the bar taller
+ * than the artwork. The mini bar is a glanceable control strip, so it trades
+ * the full touch target for height — the icons are tinted by the caller, so
+ * the disabled state still reads correctly.
+ */
+@Composable
+private fun MiniPlayerButton(
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    content: @Composable () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        content()
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FullMusicPlayer(
     controller: MusicController,
     state: MusicPlayerUiState
 ) {
     val track = state.track ?: return
-    BackHandler(onBack = controller::collapse)
+    var showQueue by remember { mutableStateOf(false) }
+    BackHandler(onBack = {
+        when {
+            showQueue -> showQueue = false
+            else -> controller.collapse()
+        }
+    })
 
     var dragging by remember { mutableStateOf(false) }
     var dragValue by remember { mutableFloatStateOf(0f) }
     var sheet by remember { mutableStateOf(PlayerSheet.None) }
     var offsetY by remember { mutableFloatStateOf(0f) }
+    var skipAccum by remember { mutableFloatStateOf(0f) }
+    var gestureHint by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(gestureHint) {
+        if (gestureHint != null) {
+            delay(700)
+            gestureHint = null
+        }
+    }
     val duration = state.durationMs.coerceAtLeast(1L)
     val sliderValue = if (dragging) dragValue else state.positionMs.toFloat().coerceIn(0f, duration.toFloat())
     val playlists by controller.library.playlists().collectAsState(initial = emptyList())
+    val queue = state.queue.ifEmpty { listOf(track) }
+    val playingIndex = queue.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
+    val pagerState = rememberPagerState(initialPage = playingIndex, pageCount = { queue.size.coerceAtLeast(1) })
+
+    LaunchedEffect(track.id, queue.size) {
+        val index = queue.indexOfFirst { it.id == track.id }
+        if (index >= 0 && pagerState.currentPage != index && !pagerState.isScrollInProgress) {
+            pagerState.animateScrollToPage(index)
+        }
+    }
+    LaunchedEffect(pagerState, queue) {
+        snapshotFlow { Triple(pagerState.currentPage, pagerState.currentPageOffsetFraction, pagerState.isScrollInProgress) }
+            .collect { (page, fraction, scrolling) ->
+                if (scrolling || abs(fraction) > 0.02f) return@collect
+                val item = queue.getOrNull(page) ?: return@collect
+                if (item.id != controller.state.value.track?.id) {
+                    controller.playQueueItem(item)
+                }
+            }
+    }
 
     Box(
         modifier = Modifier
@@ -260,29 +338,32 @@ private fun FullMusicPlayer(
                     listOf(Color(0xFF2A120E), PortalMaroon, Color(0xFF120806))
                 )
             )
+            .pointerInput(showQueue) {
+                if (showQueue) return@pointerInput
+                detectVerticalDragGestures(
+                    onDragEnd = {
+                        if (offsetY > 120f) controller.collapse()
+                        offsetY = 0f
+                    },
+                    onVerticalDrag = { change, amount ->
+                        if (amount > 0f || offsetY > 0f) {
+                            change.consume()
+                            offsetY = (offsetY + amount).coerceAtLeast(0f)
+                        }
+                    }
+                )
+            }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
-                .padding(horizontal = 22.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .pointerInput(Unit) {
-                        detectVerticalDragGestures(
-                            onDragEnd = {
-                                if (offsetY > 120f) controller.collapse()
-                                offsetY = 0f
-                            },
-                            onVerticalDrag = { change, amount ->
-                                change.consume()
-                                offsetY = (offsetY + amount).coerceAtLeast(0f)
-                            }
-                        )
-                    },
+                    .padding(horizontal = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(
@@ -323,58 +404,61 @@ private fun FullMusicPlayer(
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
-            Box(
+            HorizontalPager(
+                state = pagerState,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 18.dp)
-                    .aspectRatio(1f)
-                    .shadow(28.dp, RoundedCornerShape(28.dp))
-                    .pointerInput(track.id) {
-                        detectTapGestures(
-                            onDoubleTap = { offset ->
-                                if (offset.x < size.width / 2f) controller.seekBy(-5_000L)
-                                else controller.seekBy(5_000L)
-                            }
+                    .weight(1f),
+                userScrollEnabled = !state.showVideo,
+                beyondViewportPageCount = 1
+            ) { page ->
+                val pageTrack = queue.getOrNull(page) ?: track
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 28.dp)
+                    ) {
+                        Text(
+                            text = pageTrack.title,
+                            fontFamily = Kalpurush,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 22.sp,
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = pageTrack.playerCreditLine(),
+                            fontFamily = Kalpurush,
+                            fontSize = 14.sp,
+                            color = Color.White.copy(alpha = 0.88f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
                         )
                     }
-            ) {
-                CoverArt(url = track.thumbnailUrl, modifier = Modifier.fillMaxSize(), corner = 28.dp)
-                if (state.isBuffering) {
-                    CircularProgressIndicator(
-                        color = PortalSaffron,
-                        strokeWidth = 2.dp,
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .size(36.dp)
+                    TrackCoverCanvas(
+                        pageTrack = pageTrack,
+                        isCurrent = pageTrack.id == track.id,
+                        state = state,
+                        controller = controller,
+                        gestureHint = gestureHint,
+                        onGestureHint = { gestureHint = it }
                     )
                 }
             }
 
-            Spacer(Modifier.height(20.dp))
-            Text(
-                text = track.title,
-                fontFamily = Kalpurush,
-                fontWeight = FontWeight.Bold,
-                fontSize = 24.sp,
-                lineHeight = 32.sp,
-                color = Color.White,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = buildString {
-                    append(track.artist.ifBlank { "নিংশিং চে" })
-                    if (track.album.isNotBlank()) append("  ·  ${track.album}")
-                },
-                fontFamily = Kalpurush,
-                fontSize = 15.sp,
-                color = Color.White.copy(alpha = 0.78f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 22.dp)
+                    .padding(bottom = 10.dp)
+            ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -398,6 +482,16 @@ private fun FullMusicPlayer(
                     label = "রিপিট"
                 ) { controller.cycleRepeat() }
                 PlayerIcon(
+                    icon = Icons.AutoMirrored.Filled.PlaylistPlay,
+                    tint = if (state.autoPlay) PortalSaffron else Color.White.copy(alpha = 0.7f),
+                    label = "অটোপ্লে"
+                ) { controller.toggleAutoPlay() }
+                PlayerIcon(
+                    icon = Icons.Default.Download,
+                    tint = if (state.offline) PortalSaffron else Color.White.copy(alpha = 0.7f),
+                    label = "ডাউনলোড"
+                ) { controller.saveCurrentOffline() }
+                PlayerIcon(
                     icon = Icons.Default.Lyrics,
                     tint = if (state.showLyrics) PortalSaffron else Color.White.copy(alpha = 0.7f),
                     label = "লিরিক"
@@ -415,6 +509,25 @@ private fun FullMusicPlayer(
                     controller.seekTo(dragValue.toLong())
                 },
                 valueRange = 0f..duration.toFloat(),
+                thumb = {
+                    Box(
+                        modifier = Modifier
+                            .size(14.dp)
+                            .clip(CircleShape)
+                            .background(PortalSaffron)
+                    )
+                },
+                track = { sliderState ->
+                    SliderDefaults.Track(
+                        sliderState = sliderState,
+                        modifier = Modifier.height(3.dp),
+                        colors = SliderDefaults.colors(
+                            thumbColor = PortalSaffron,
+                            activeTrackColor = PortalSaffron,
+                            inactiveTrackColor = Color.White.copy(alpha = 0.22f)
+                        )
+                    )
+                },
                 colors = SliderDefaults.colors(
                     thumbColor = PortalSaffron,
                     activeTrackColor = PortalSaffron,
@@ -425,8 +538,8 @@ private fun FullMusicPlayer(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(formatMs(sliderValue.toLong()), color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
-                Text(formatMs(duration), color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+                Text(formatMs(sliderValue.toLong()), color = Color.White.copy(alpha = 0.85f), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text(formatMs(duration), color = Color.White.copy(alpha = 0.85f), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
 
             Row(
@@ -434,6 +547,10 @@ private fun FullMusicPlayer(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                SleepTimerControl(
+                    untilMs = state.sleepUntilMs,
+                    onClick = { sheet = PlayerSheet.Sleep }
+                )
                 IconButton(onClick = controller::skipPrevious, modifier = Modifier.size(56.dp)) {
                     Icon(Icons.Default.SkipPrevious, "আগের গান", tint = Color.White, modifier = Modifier.size(36.dp))
                 }
@@ -460,91 +577,29 @@ private fun FullMusicPlayer(
                         modifier = Modifier.size(36.dp)
                     )
                 }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "অটোপ্লে",
-                    fontFamily = Kalpurush,
-                    color = Color.White.copy(alpha = 0.85f),
-                    fontSize = 14.sp,
-                    modifier = Modifier.weight(1f)
-                )
-                Switch(
-                    checked = state.autoPlay,
-                    onCheckedChange = { controller.toggleAutoPlay() },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color(0xFF2A120E),
-                        checkedTrackColor = PortalSaffron
+                IconButton(onClick = { showQueue = true }, modifier = Modifier.size(48.dp)) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.QueueMusic,
+                        contentDescription = "তালিকা",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
                     )
-                )
-            }
-
-            state.error?.let { message ->
-                Text(
-                    text = message,
-                    fontFamily = Kalpurush,
-                    color = Color(0xFFFFC4C4),
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(bottom = 6.dp)
-                )
-            }
-            state.statusMessage?.let { message ->
-                Text(
-                    text = message,
-                    fontFamily = Kalpurush,
-                    color = PortalSaffron,
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(bottom = 6.dp)
-                )
-            }
-            state.sleepUntilMs?.let { until ->
-                val left = ((until - System.currentTimeMillis()) / 60_000L).coerceAtLeast(0L)
-                Text(
-                    text = "স্লিপ টাইমার · ${bengaliDigits(left)} মিনিট বাকি",
-                    fontFamily = Kalpurush,
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 12.sp
-                )
-            }
-
-            Spacer(Modifier.height(6.dp))
-            if (state.showLyrics) {
-                Text("লিরিক", fontFamily = Kalpurush, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = track.lyrics.ifBlank { "এই গানের লিরিক এখনো যোগ করা হয়নি।" },
-                    fontFamily = Kalpurush,
-                    color = Color.White.copy(alpha = 0.86f),
-                    fontSize = 15.sp,
-                    lineHeight = 24.sp,
-                    modifier = Modifier
-                        .weight(1f)
-                        .verticalScroll(rememberScrollState())
-                )
-            } else if (state.queue.size > 1) {
-                Text("তালিকা", fontFamily = Kalpurush, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
-                Spacer(Modifier.height(6.dp))
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    items(state.queue, key = { it.id }) { item ->
-                        QueueRow(
-                            item = item,
-                            selected = item.id == track.id,
-                            playing = state.isPlaying,
-                            onClick = { controller.playQueueItem(item) }
-                        )
-                    }
                 }
-            } else {
-                Spacer(Modifier.weight(1f))
+            }
             }
         }
+
+        QueueSidebar(
+            visible = showQueue,
+            queue = queue,
+            currentId = track.id,
+            playing = state.isPlaying,
+            onSelect = {
+                controller.playQueueItem(it)
+                showQueue = false
+            },
+            onClose = { showQueue = false }
+        )
 
         if (sheet != PlayerSheet.None) {
             PlayerSheets(
@@ -561,7 +616,123 @@ private fun FullMusicPlayer(
 }
 
 @Composable
+private fun SleepTimerControl(untilMs: Long?, onClick: () -> Unit) {
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(untilMs) {
+        while (untilMs != null) {
+            now = System.currentTimeMillis()
+            delay(1_000)
+        }
+    }
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        if (untilMs != null) {
+            val left = (untilMs - now).coerceAtLeast(0L)
+            Text(
+                text = formatMs(left),
+                color = PortalSaffron,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = Kalpurush
+            )
+        }
+        IconButton(onClick = onClick, modifier = Modifier.size(44.dp)) {
+            Icon(
+                imageVector = Icons.Default.Timer,
+                contentDescription = "স্লিপ টাইমার",
+                tint = if (untilMs != null) PortalSaffron else Color.White.copy(alpha = 0.85f),
+                modifier = Modifier.size(26.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun QueueSidebar(
+    visible: Boolean,
+    queue: List<MusicTrack>,
+    currentId: String,
+    playing: Boolean,
+    onSelect: (MusicTrack) -> Unit,
+    onClose: () -> Unit
+) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn() + slideInHorizontally { it },
+        exit = fadeOut() + slideOutHorizontally { it },
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Row(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .background(Color.Black.copy(alpha = 0.45f))
+                    .clickable(onClick = onClose)
+                    .pointerInput(Unit) {
+                        detectVerticalDragGestures(
+                            onDragEnd = { },
+                            onVerticalDrag = { change, amount ->
+                                if (amount > 18f) {
+                                    change.consume()
+                                    onClose()
+                                }
+                            }
+                        )
+                    }
+            )
+            Surface(
+                color = Color(0xFF1C0E0C),
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(304.dp)
+                    .pointerInput(Unit) {
+                        detectVerticalDragGestures(
+                            onVerticalDrag = { change, amount ->
+                                if (amount > 18f) {
+                                    change.consume()
+                                    onClose()
+                                }
+                            }
+                        )
+                    }
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .statusBarsPadding()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 14.dp, vertical = 12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .width(36.dp)
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(99.dp))
+                            .background(Color.White.copy(alpha = 0.28f))
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text("তালিকা", fontFamily = Kalpurush, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 18.sp)
+                    Spacer(Modifier.height(10.dp))
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.weight(1f)) {
+                        items(queue, key = { it.id }) { item ->
+                            QueueRow(
+                                item = item,
+                                selected = item.id == currentId,
+                                playing = playing,
+                                onClick = { onSelect(item) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun PlayerSheets(
+
     sheet: PlayerSheet,
     track: MusicTrack,
     state: MusicPlayerUiState,
@@ -571,6 +742,7 @@ private fun PlayerSheets(
     controller: MusicController
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var newTitle by remember { mutableStateOf("") }
     Box(
         modifier = Modifier
@@ -656,6 +828,7 @@ private fun PlayerSheets(
                         DetailLine("শিল্পী", track.artist.ifBlank { "নিংশিং চে" })
                         if (track.album.isNotBlank()) DetailLine("অ্যালবাম", track.album)
                         if (track.genre.isNotBlank()) DetailLine("ধরন", track.genre)
+                        if (track.videoLink.isNotBlank()) DetailLine("ভিডিও", track.videoLink)
                         if (track.durationSeconds > 0) DetailLine("সময়", formatMs(track.durationSeconds * 1000L))
                         if (track.description.isNotBlank()) {
                             Spacer(Modifier.height(8.dp))
@@ -712,8 +885,8 @@ private fun DetailLine(label: String, value: String) {
 
 @Composable
 private fun PlayerIcon(icon: ImageVector, tint: Color, label: String, onClick: () -> Unit) {
-    IconButton(onClick = onClick) {
-        Icon(icon, contentDescription = label, tint = tint)
+    IconButton(onClick = onClick, modifier = Modifier.size(40.dp)) {
+        Icon(icon, contentDescription = label, tint = tint, modifier = Modifier.size(22.dp))
     }
 }
 
@@ -755,6 +928,164 @@ private fun QueueRow(
         }
         if (selected && playing) {
             Icon(Icons.Default.MusicNote, null, tint = PortalSaffron, modifier = Modifier.size(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun TrackCoverCanvas(
+    pageTrack: MusicTrack,
+    isCurrent: Boolean,
+    state: MusicPlayerUiState,
+    controller: MusicController,
+    gestureHint: String?,
+    onGestureHint: (String) -> Unit
+) {
+    val showVideo = isCurrent && state.showVideo && pageTrack.hasVideo()
+    val rotation by animateFloatAsState(
+        targetValue = if (showVideo) 180f else 0f,
+        animationSpec = tween(durationMillis = 520, easing = FastOutSlowInEasing),
+        label = "coverFlip"
+    )
+    val density = LocalDensity.current.density
+    val camera = 18f * density
+    var keepVideo by remember(pageTrack.id) { mutableStateOf(false) }
+    LaunchedEffect(showVideo) {
+        if (showVideo) keepVideo = true
+    }
+    LaunchedEffect(rotation, showVideo) {
+        if (!showVideo && rotation < 2f) keepVideo = false
+    }
+
+    Box(
+        modifier = Modifier
+            .padding(horizontal = 28.dp)
+            .fillMaxWidth()
+            .aspectRatio(1f)
+            .shadow(24.dp, RoundedCornerShape(28.dp))
+            .clip(RoundedCornerShape(28.dp))
+            .pointerInput(pageTrack.id, showVideo) {
+                if (showVideo) return@pointerInput
+                detectTapGestures(
+                    onDoubleTap = { offset ->
+                        val third = size.width / 3f
+                        when {
+                            offset.x < third -> {
+                                controller.seekBy(-5_000L)
+                                onGestureHint("Backward -5s")
+                            }
+                            offset.x > third * 2f -> {
+                                controller.seekBy(5_000L)
+                                onGestureHint("Forward +5s")
+                            }
+                            else -> controller.togglePlayPause()
+                        }
+                    }
+                )
+            }
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    rotationY = rotation
+                    cameraDistance = camera
+                    alpha = if (rotation <= 90f) 1f else 0f
+                }
+        ) {
+            CoverArt(
+                url = pageTrack.thumbnailUrl,
+                modifier = Modifier.fillMaxSize(),
+                corner = 28.dp
+            )
+            if (state.showLyrics && isCurrent && !showVideo) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(28.dp))
+                        .background(Color(0x99000000))
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = pageTrack.lyrics.ifBlank { "এই গানের লিরিক এখনো যোগ করা হয়নি।" },
+                        fontFamily = Kalpurush,
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        lineHeight = 26.sp,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                    )
+                }
+            }
+        }
+
+        if (keepVideo || rotation > 90f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        rotationY = rotation - 180f
+                        cameraDistance = camera
+                        alpha = if (rotation > 90f) 1f else 0f
+                    }
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(Color.Black)
+            ) {
+                if (keepVideo || showVideo) {
+                    SocialEmbedPlayer(
+                        url = pageTrack.videoLink,
+                        modifier = Modifier.fillMaxSize(),
+                        autoplay = true
+                    )
+                }
+            }
+        }
+
+        if (state.isBuffering && isCurrent && !showVideo) {
+            CircularProgressIndicator(
+                color = PortalSaffron,
+                strokeWidth = 2.dp,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(36.dp)
+            )
+        }
+        gestureHint?.takeIf { isCurrent && !showVideo }?.let { hint ->
+            Surface(
+                color = Color.Black.copy(alpha = 0.62f),
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier.align(Alignment.Center)
+            ) {
+                Text(
+                    text = hint,
+                    color = Color.White,
+                    fontFamily = Kalpurush,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                )
+            }
+        }
+        if (pageTrack.hasVideo() && isCurrent) {
+            Surface(
+                onClick = controller::toggleVideo,
+                shape = CircleShape,
+                color = Color.Black.copy(alpha = 0.55f),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(12.dp)
+                    .size(44.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = if (showVideo) Icons.Default.MusicNote else Icons.Default.Videocam,
+                        contentDescription = if (showVideo) "অডিওতে ফিরুন" else "ভিডিও চালান",
+                        tint = PortalSaffron,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
         }
     }
 }

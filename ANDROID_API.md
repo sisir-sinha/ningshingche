@@ -93,10 +93,10 @@ data/
 `ArticleRepository.syncFromSupabaseOrWebsite()` refreshes Room from Supabase, falling back to
 scraping ningshingche.com, falling back to the shipped seed data in `NinghsingCheContentData`.
 
-**CMS flow:** `DashboardRepository` keeps each entity in a `MutableStateFlow`, seeds it from
-`NinghsingCheContentData`, then swaps in Supabase data. Writes are **optimistic**: the local
-`StateFlow` is updated first, then the network call is fired, and the result is **discarded**
-(`Result.success(...)` is returned regardless of the HTTP outcome).
+**CMS flow:** the editorial CMS is not in the app — it is the web SPA in `backend/` (see
+`backend/API.md`). The app only reads: `PortalRepository` (Retrofit + Moshi, `Result`-based) for the
+public portal data, and `ArticleRepository` (Room cache → Supabase → website-scraper fallback) for
+the reader's articles.
 
 ---
 
@@ -105,19 +105,26 @@ scraping ningshingche.com, falling back to the shipped seed data in `NinghsingCh
 `NinghsingCheApp.onCreate()` (`app/src/main/java/com/ningshingche/app/NinghsingCheApp.kt`):
 
 ```kotlin
-database            = AppDatabase.getInstance(this)      // Room: "ningshingche_database"
-websiteClient       = NingshingCheWebsiteClient()
-supabaseClient      = SupabaseClient(this)               // SharedPrefs session restore
-dashboardRepository = DashboardRepository(this, supabaseClient, database)
-articleRepository   = ArticleRepository(database, supabaseClient, websiteClient)
 preferencesRepository = UserPreferencesRepository(this)
-aiAssistant         = NinghsingCheAiAssistant(articleRepository)
+commenterPreferencesRepository = CommenterPreferencesRepository(...)  // DataStore, noBackupFilesDir
+database              = AppDatabase.getInstance(this)                 // Room: "ningshingche_database"
+websiteClient         = NingshingCheWebsiteClient()
+supabaseClient        = SupabaseClient(this)                          // SharedPrefs session restore
+googleAuthRepository  = GoogleAuthRepository(supabaseClient)
+articleRepository     = ArticleRepository(database, supabaseClient, websiteClient)
+portalRepository      = PortalProvider.repository()
+musicLibraryStore     = MusicLibraryStore(this, database, supabaseClient)
+musicController       = MusicController(this, musicLibraryStore)
+aiAssistant           = NinghsingCheAiAssistant(articleRepository, portalRepository)
+appNotificationManager = AppNotificationManager(this).also { it.createChannels() }
+contentUpdateNotifier = ContentUpdateNotifier(this, SeenContentStore(this), appNotificationManager, preferencesRepository)
+ContentCheckWorker.schedule(this)
 ```
 
-`MainActivity` builds `ViewModelFactory(repository, preferencesRepository, aiAssistant,
-dashboardRepository, applicationContext)` and passes it to every `viewModel(factory = factory)`
-call. **There is no Hilt/Koin** — to add a new ViewModel, add a branch to
-`ViewModelFactory.create()` (`ui/viewmodel/MainViewModels.kt:610`).
+`ReaderNavHost` (`EditorialReaderApp`) builds the factories — `ViewModelFactory` for the main screens
+plus `ReaderViewModelFactory` / `Category|Issue|AuthorViewModelFactory` for the portal ones — and
+passes them to `viewModel(factory = …)`. **There is no Hilt/Koin**: to add a ViewModel, add a branch
+to `ViewModelFactory.create()` (`ui/viewmodel/MainViewModels.kt:557`).
 
 > If you add a dependency (e.g. a `SessionManager`), construct it in `NinghsingCheApp.onCreate()`
 > and add it to the `ViewModelFactory` constructor.
@@ -148,22 +155,27 @@ call. **There is no Hilt/Koin** — to add a new ViewModel, add a branch to
 | `archive/{year}` | `year: Int` | |
 | `web_article/{year}/{month}/{slug}` | three strings | deep link `ningshingche.com/{year}/{month}/{slug}`; `.kehem` suffix stripped |
 
-Chrome is set in `MainActivity`:
+Chrome is set in `ReaderNavHost.kt` (`EditorialReaderApp`):
 
-- **Drawer** (`ModalNavigationDrawer` + `PortalDrawerContent`) on *all* routes.
-- **Top bar** (`PortalTopBar`) on `home, explore, bookmarks, pdf_archive, featured, about,
-  social_activities, authors_directory`.
-- **Bottom bar** (`EditorialBottomNavBar`) on `home, explore, bookmarks, pdf_archive, featured`.
+- **Drawer** (`ModalNavigationDrawer` + `PortalDrawerContent`) wraps the whole nav host.
+- **No shared top or bottom bar.** Each screen composes its own header from shared pieces such as
+  `AccountHeaderButton`, and edge-to-edge screens clear the status bar with
+  `Modifier.statusBarsPadding()`. The only bottom navigation is inside the signed-in user dashboard
+  (`UserDashboardScreen.kt`: `NavigationBar` + four `NavigationBarItem`s).
 - Transitions: 280 ms slide+fade in, 240 ms out, both directions.
 - Drawer navigation uses `popUpTo(home) { saveState = true }`, `launchSingleTop`, `restoreState`.
 
-`PortalNavigation` (same file) holds the drawer's static Bengali menu: `primary` (ঘর, সাম্প্রতিক,
-ফিচার্ড, PDF আর্কাইভ, অনুসন্ধান, সংরক্ষিত), `years` (2025 → 2014), `categories` (16 hard-coded
-Bengali name → slug pairs), `portal` (আমার সম্পর্কে, লেখক, সামাজিক কার্যকলাপ, লেখা জমাদান → external URL).
+The drawer's item list is built inside `PortalDrawerContent` (`ui/components/PortalDrawer.kt`). It is
+flat by design — thin dividers, no collapsible groups: (1) Home, Featured, Explore, PDF archive,
+Search, Saved; (2) Annual issues and Categories, both of which open Explore on the matching tab;
+(3) About, Authors, Social activities; (4) Settings, Share the app. The header carries the brand and
+a theme button that cycles System → Light → Dark.
 
-> **Task for the UI work:** `PortalNavigation.categories` is hard-coded. Replace it with
-> `GET /rest/v1/categories?select=*&order=title.asc` so new categories appear automatically.
-> The same applies to `years` — derive from `blogs.published_date`.
+The old hard-coded `PortalNavigation` menu (`years` 2025 → 2014, 16 hand-written category pairs) no
+longer exists. Those lists now come from the API: the Explore tabs load through `ExploreViewModel`
+(`ReaderViewModels.kt`) → `PortalRepository` (`categories`, `authors`, `facets`, `issues`,
+`specialArticles`, `featuredArticles`, `latestArticles`). Bengali-vs-ASCII spellings of one annual
+issue are collapsed by `data/portal/IssueTags.kt`, the Kotlin twin of `backend/assets/js/tags.js`.
 
 ---
 
@@ -442,7 +454,8 @@ suspend fun attemptDeleteImage(deleteUrl: String): Boolean
 Multipart `POST https://api.imgbb.com/1/upload`, field `image` = base64, key in the query string.
 Validates `image/*` MIME and the 32 MB cap. Error strings are Bengali.
 
-UI: `DashboardImageUploader` composable (gallery picker + URL entry + progress + preview).
+UI: uploads are triggered from the signed-in workspace (`ui/screens/UserDashboardScreen.kt`) through
+`ImgBbUploader` — gallery picker, preview, then `uploadBitmap` / `uploadFromUri`.
 
 ### PDFs — `util/PdfHelper.kt`
 
@@ -484,28 +497,46 @@ All use `stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), …)`.
 `AuthorsDirectoryScreen`, `SocialActivitiesScreen`; in `DetailListScreens.kt`:
 `CategoryDetailScreen`, `AuthorDetailScreen`, `ArchiveYearDetailScreen`.
 
-**CMS** (`ui/dashboard/`): `DashboardScreen` (shell + login gate) and
-`views/`: `DashboardHomeView`, `DashboardLoginView`, `DashboardSettingsView`,
-`AuthorsManagementView`, `BlogsManagementView`, `CategoriesManagementView`,
-`CommentsManagementView`, `GalleriesManagementView`, `PdfBooksManagementView`,
-`SubmittedBlogsManagementView`, `VideosManagementView`, `UserProfileAuthDialog`.
+**CMS**: not in the app. The editorial dashboard is the web SPA in `backend/`; the app ships only
+the signed-in user workspace, `ui/screens/UserDashboardScreen.kt` (dashboard tabs, notices, inbox).
+`ui/dashboard/` and its `views/` no longer exist.
 
 **Reusable components** — reuse these instead of writing new ones:
 
-`ui/components/EditorialComponents.kt` (1,627 lines): `NingshingCheBrandLogo`, `EditorialTopHeader`,
-`EditorialBottomNavBar`, `HeroArticleCarousel`, `FeaturedArticleHeroCard`, `ArticleListItemCard`,
-`CategoryFilterChip`, `AuthorCardItem`, `YearArchiveTimelineCard`, `PdfDocumentCard`,
-`PdfDocumentCardItem`, `PdfCategoryFilterChip`, `AiSourceCitationCard`,
-`EditorialNavigationDrawerContent`, `getCategoryIcon(slug)`.
+`ui/editorial/EditorialComponents.kt` (1,651 lines) is the reader's primary kit — 28 public
+declarations: `Hairline`, `Eyebrow`, `SectionHeader`, `EditorialImage`, `rememberShimmerBrush`,
+`formatBengaliDate`, `Byline`, `CategoryPill`, `HeroArticleCard`, `RailArticleCard`, `ArticleRow`,
+`NumberedArticleCard`, `AnimatedHamburgerIcon`, `AiAssistantHomeBanner`, `CategoryVisualCard`,
+`CategoryRail`, `GalleryModalDialog`, `ArticleRail`, `AuthorRail`, `AuthorChip`, `GalleryGrid`,
+`PdfRail`, `VideoRail`, `MusicRail`, `LoadingFeed`, `EmptyState`, `ErrorState`, `teaserOf`.
+Companions in the same package: `EditorialTheme.kt` (245 lines — `EditorialPalette`,
+`EditorialType`, `EditorialSpace`, `EditorialShape`, `EditorialTheme`, `toBengaliNumeral`),
+`LazyImage.kt` (47 — `ShimmerPlaceholder`, `ImagePlaceholder`), `SiteFooter.kt` (350 —
+`EditorialFooter`, `SiteContact`), `VideoPlayer.kt` (250 — `VideoPlayerDialog`,
+`SocialEmbedPlayer`, `embedUrlFor`).
 
-`ui/components/PortalHomeSections.kt`: `PortalSectionHeader`, `FeaturedPortalCard`,
-`SelectedEssayCard`, `CategoryImageTile`, `AuthorRailCard`, `PdfBookRailCard`, `HorizontalCardsRow`,
-`SubmitWritingBanner`.
+`ui/components/EditorialComponents.kt` (762 lines): `NingshingCheBrandLogo`,
+`FeaturedArticleHeroCard`, `ArticleListItemCard`, `BookmarkToggleButton`, `PdfDocumentCard`,
+`AiSourceCitationCard`, `getCategoryIcon(slug)`, `categoryIconFor`.
 
-Also: `PortalDrawerContent`, `PortalTopBar`, `MarkdownFormattedText`, `SkeletonShimmer`,
-`VerifiedBadge`, and dashboard kit `DashboardStatCard`, `StatusBadge`, `ConfirmDeleteDialog`,
-`DashboardHeaderBar`, `EmptyStateView`, `BlogPreviewDialog`, `DashboardImageUploader`,
-`DashboardRichTextEditor`, `DashboardTagInput`, `DashboardSidebarContent`.
+Rest of `ui/components/`: `PortalDrawerContent` (PortalDrawer.kt), `PortalAsyncImage` +
+`normalizePortalImageUrl` (PortalImages.kt), `MarkdownFormattedText`, `HtmlFormattedText`,
+`parseInlineMarkdown`, `YouTubeEmbed` (MarkdownText.kt), `HomeSkeletonLayout`,
+`ExploreSkeletonLayout`, `AiAssistantSkeletonLayout`, `ShimmerBox`, `shimmerEffect`
+(SkeletonShimmer.kt), `VerifiedBadge`, `AppToastHost` + `AppToasts`, `AccountHeaderButton`,
+`BookmarkController`, `connectivityStatus` (ConnectivityMonitor.kt), `GenreCombobox`,
+`GoogleSignInButton`, `HtmlContentEditor`, `keyboardAvoidingPadding`, `DialogImeAdjustResize`,
+`MusicMiniPlayerBar` + `MusicFullPlayerOverlay` (MusicPlayer.kt).
+
+Removed in the structure passes — do not reference: `ui/components/PortalHomeSections.kt` and its
+`PortalSectionHeader`, `FeaturedPortalCard`, `SelectedEssayCard`, `CategoryImageTile`,
+`AuthorRailCard`, `PdfBookRailCard`, `HorizontalCardsRow`, `SubmitWritingBanner`;
+`PortalTopBar`, `EditorialTopHeader`, `EditorialBottomNavBar`, `HeroArticleCarousel`,
+`CategoryFilterChip`, `AuthorCardItem`, `YearArchiveTimelineCard`, `PdfDocumentCardItem`,
+`PdfCategoryFilterChip`, `EditorialNavigationDrawerContent`, and the legacy dashboard kit
+(`DashboardStatCard`, `StatusBadge`, `ConfirmDeleteDialog`, `DashboardHeaderBar`, `EmptyStateView`,
+`BlogPreviewDialog`, `DashboardImageUploader`, `DashboardRichTextEditor`, `DashboardTagInput`,
+`DashboardSidebarContent`).
 
 ---
 
@@ -538,6 +569,9 @@ pre-migration-004 `is_dashboard_request()` digest path**, and never on a properl
 ---
 
 ## 14. Critical gaps and required changes
+
+> Written against an earlier revision of the app. Entries below marked as resolved were re-checked
+> against the current tree during the structure passes; treat any unmarked entry as unverified.
 
 ### 14.1 Writes will be rejected by RLS (critical)
 
@@ -580,30 +614,33 @@ Add to the records and `toJson()`/`fromJson()`:
 
 ### 14.5 Hard-coded content
 
-`NinghsingCheContentData` (753 lines) seeds articles, authors, categories, and PDF books;
-`DashboardRepository.initializeDefaultsFromSeed()` also injects fake galleries, videos, comments,
-and a submission with Unsplash URLs and a Rickroll YouTube link. `PortalNavigation.categories` and
-`.years` are hard-coded; `year` is hard-coded to 2026 on sync.
+`NinghsingCheContentData` (753 lines) still seeds articles, authors, categories and PDF books as the
+offline fallback. The drawer/archive/filter half of this item is resolved: categories, authors,
+facets and annual issues come from the API (`ExploreViewModel` → `PortalRepository`), and
+`PortalNavigation` no longer exists. `DashboardRepository.initializeDefaultsFromSeed()` went with
+the app-side CMS.
 
-**Fix:** treat seed data as an offline-only fallback (behind a flag), and drive the drawer,
-archives, and filters from live API data.
+Still hard-coded: the website-scraping fallback walks a fixed `(2014..2026)` year range
+(`NingshingCheWebsiteClient.kt`), and the PDF path falls back to `?: 2026` when a published date is
+missing (`ArticleRepository.kt`).
 
 ### 14.6 Optimistic writes swallow errors
 
-Every `DashboardRepository.save*/delete*` returns `Result.success` regardless of the HTTP result, so
-the UI shows success for failed writes.
-
-**Fix:** propagate the `Result` to the ViewModel and expose `error: StateFlow<String?>`; roll back
-the `StateFlow` on failure.
+`DashboardRepository` — the subject of this item — no longer exists in the app; the CMS is the web
+SPA in `backend/`. The app's remaining write paths are the Supabase calls in `SupabaseClient`
+(comments, submissions, profile, music). Re-audit those for the same pattern before closing this
+item.
 
 ### 14.7 Other items
 
-- Room DB is version 1 with `fallbackToDestructiveMigration()` — any schema change wipes the cache.
+- Room DB is version 4 with `fallbackToDestructiveMigration()` — any schema change wipes the cache.
 - No HTTP error taxonomy: failures surface as `Exception("Supabase error: 403 …")`. Map
   PostgREST codes as `backend/API.md` §13 does.
-- No retry/backoff, no connectivity observer, no `Cache-Control`.
-- `Retrofit` + `Moshi` are already on the classpath and unused — migrating off hand-rolled
-  `org.json` would remove ~400 lines of boilerplate and give typed responses.
+- No `Cache-Control`; a connectivity observer does exist for the UI (`connectivityStatus` in
+  `ui/components/ConnectivityMonitor.kt`).
+- `Retrofit` + `Moshi` are used for the portal read API only (`PortalConfig`, `PortalApi`,
+  `PortalDtos`); the write paths in `SupabaseClient` are still hand-rolled OkHttp + `org.json`, so
+  migrating those would remove boilerplate and give typed responses.
 - No Supabase Realtime; new articles only appear after a manual pull-to-refresh.
 
 ---

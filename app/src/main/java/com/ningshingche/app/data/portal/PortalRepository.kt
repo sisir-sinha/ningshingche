@@ -8,7 +8,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import retrofit2.Response
-import java.io.IOException
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
@@ -249,57 +248,6 @@ class PortalRepository(
         }
     }
 
-    /**
-     * Articles carrying [tag] in any spelling. Annual-issue tags are routed to
-     * [articlesByIssue]; topic tags use `tag_keys` when available and otherwise
-     * an exact-spelling `tags=cs.{…}` query softened by a client-side key match.
-     */
-    suspend fun articlesByTag(
-        tag: String,
-        limit: Int = PortalConfig.PAGE_SIZE,
-        offset: Int = 0
-    ): Result<Page<ArticleSummary>> = withContext(Dispatchers.IO) {
-        IssueTags.issueYear(tag)?.let { return@withContext articlesByIssue(it, limit, offset) }
-        val cleaned = IssueTags.clean(tag)
-        if (cleaned.isBlank()) {
-            return@withContext Result.success(Page(emptyList(), total = 0, offset = offset, limit = limit))
-        }
-        val key = IssueTags.keyOf(cleaned)
-        if (tagEndpointsAvailable != false) {
-            val viaKeys = callPage {
-                api.blogs(
-                    status = "eq.Publish",
-                    tagKeys = "cs." + encodeArrayLiteral(listOf(key)),
-                    order = PortalApi.FEED_ORDER,
-                    limit = limit,
-                    offset = offset
-                )
-            }
-            if (viaKeys.isSuccess) {
-                tagEndpointsAvailable = true
-                return@withContext viaKeys.map { page -> page.mapItems { it.toSummary() } }
-            }
-            if (viaKeys.exceptionOrNull() !is PortalError.SchemaMissing) {
-                return@withContext viaKeys.map { page -> page.mapItems { it.toSummary() } }
-            }
-            tagEndpointsAvailable = false
-        }
-        // Without the generated column only exact spellings can be matched
-        // server-side; try the cleaned spelling and a `#`-prefixed variant.
-        callPage {
-            api.blogs(
-                status = "eq.Publish",
-                tags = "ov." + encodeArrayLiteral(listOf(cleaned, "#$cleaned")),
-                order = PortalApi.FEED_ORDER,
-                limit = limit,
-                offset = offset
-            )
-        }.map { page ->
-            page.mapItems { it.toSummary() }.let { mapped ->
-                mapped.copy(items = mapped.items.filter { IssueTags.matches(it.tags, cleaned) })
-            }
-        }
-    }
 
     /**
      * One row per annual issue that actually has published articles, newest
@@ -511,17 +459,27 @@ class PortalRepository(
     suspend fun musicTracks(limit: Int = 50, forceRefresh: Boolean = false): Result<List<MusicTrack>> =
         withContext(Dispatchers.IO) {
             cached("music-$limit", musicCache, TTL_REFERENCE, forceRefresh) {
-                val withLyrics = callList {
-                    api.musicTracks(select = PortalApi.MUSIC_COLUMNS_WITH_LYRICS, limit = limit)
+                val selects = listOf(
+                    PortalApi.MUSIC_COLUMNS_WITH_LOVE,
+                    PortalApi.MUSIC_COLUMNS_WITH_META,
+                    PortalApi.MUSIC_COLUMNS_WITH_VIDEO,
+                    PortalApi.MUSIC_COLUMNS_WITH_LYRICS,
+                    PortalApi.MUSIC_COLUMNS
+                )
+                var rows: List<MusicDto>? = null
+                var lastError: Throwable? = null
+                for (select in selects) {
+                    val attempt = callList { api.musicTracks(select = select, limit = limit) }
+                    if (attempt.isSuccess) {
+                        rows = attempt.getOrThrow()
+                        break
+                    }
+                    lastError = attempt.exceptionOrNull()
+                    if (lastError !is PortalError.SchemaMissing) break
                 }
-                val rows = if (withLyrics.isSuccess) {
-                    withLyrics.getOrThrow()
-                } else if (withLyrics.exceptionOrNull() is PortalError.SchemaMissing) {
-                    callList { api.musicTracks(limit = limit) }.getOrThrow()
-                } else {
-                    throw withLyrics.exceptionOrNull() ?: PortalError.Unknown()
-                }
-                rows.map { it.toItem() }.filter { it.hasPlayableSource() }
+                (rows ?: throw lastError ?: PortalError.Unknown())
+                    .map { it.toItem() }
+                    .filter { it.hasPlayableSource() }
             }
         }
 
@@ -536,9 +494,28 @@ class PortalRepository(
     // ------------------------------------------------------------- comments
 
     suspend fun comments(blogId: String): Result<List<CommentItem>> = withContext(Dispatchers.IO) {
-        callList {
-            api.comments(blogId = "eq.$blogId", status = "eq.Publish", limit = 100)
-        }.map { list -> list.map { it.toItem() } }
+        val withAvatar = callList {
+            api.comments(
+                select = PortalApi.COMMENT_COLUMNS,
+                blogId = "eq.$blogId",
+                status = "eq.Publish",
+                limit = 100
+            )
+        }
+        if (withAvatar.isSuccess) {
+            return@withContext withAvatar.map { list -> list.map { it.toItem() } }
+        }
+        if (withAvatar.exceptionOrNull() is PortalError.SchemaMissing) {
+            return@withContext callList {
+                api.comments(
+                    select = PortalApi.COMMENT_COLUMNS_WITHOUT_AVATAR,
+                    blogId = "eq.$blogId",
+                    status = "eq.Publish",
+                    limit = 100
+                )
+            }.map { list -> list.map { it.toItem() } }
+        }
+        withAvatar.map { list -> list.map { it.toItem() } }
     }
 
     /**

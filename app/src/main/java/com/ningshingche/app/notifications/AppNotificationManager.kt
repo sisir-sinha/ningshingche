@@ -34,6 +34,9 @@ class AppNotificationManager(private val context: Context) {
         const val ROUTE_PDF = "pdf"
         const val ROUTE_SETTINGS = "settings"
         const val ROUTE_INBOX = "user_inbox"
+        const val ROUTE_VIDEOS = "videos"
+        const val ROUTE_MUSIC = "music"
+        const val ROUTE_COMMENT = "comment"
     }
 
     fun createChannels() {
@@ -101,27 +104,35 @@ class AppNotificationManager(private val context: Context) {
     }
 
     private fun pendingIntent(draft: NotificationDraft): PendingIntent {
-        val uri = draft.uri
-        val intent = when {
-            uri.startsWith("http://") || uri.startsWith("https://") ->
-                Intent(Intent.ACTION_VIEW, Uri.parse(uri)).apply {
-                    `package` = if (uri.contains("ningshingche.com")) context.packageName else null
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                }
-            else -> Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                putExtra(EXTRA_ROUTE, routeFor(draft.kind))
-                putExtra(EXTRA_TARGET_ID, draft.uri)
+        val target = targetIdOf(draft)
+        val route = routeFor(draft.kind)
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra(EXTRA_ROUTE, route)
+            putExtra(EXTRA_TARGET_ID, target)
+            if (route == ROUTE_ARTICLE && target.isNotBlank()) {
+                data = Uri.parse("https://ningshingche.com/article/$target")
             }
         }
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         return PendingIntent.getActivity(context, draft.notificationId, intent, flags)
     }
 
+    private fun targetIdOf(draft: NotificationDraft): String {
+        val uri = draft.uri
+        if (uri.isBlank()) return ""
+        if (uri.startsWith("http://") || uri.startsWith("https://")) {
+            return uri.substringAfterLast('/').substringBefore('?').ifBlank { uri }
+        }
+        return uri
+    }
+
     private fun routeFor(kind: NotificationKind): String = when (kind) {
         NotificationKind.ARTICLE, NotificationKind.FEATURED -> ROUTE_ARTICLE
         NotificationKind.PDF -> ROUTE_PDF
         NotificationKind.SYSTEM -> ROUTE_SETTINGS
-        else -> ROUTE_HOME
+        NotificationKind.MESSAGE -> ROUTE_INBOX
+        NotificationKind.VIDEO -> ROUTE_VIDEOS
+        NotificationKind.GALLERY -> ROUTE_HOME
     }
 }

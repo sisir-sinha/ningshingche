@@ -115,7 +115,25 @@ class ContentUpdateNotifier(
                 uri = AppNotificationManager.ROUTE_INBOX
             )
         }
-        return (fromChat + fromNotices).distinctBy { it.id }
+        val fromArticles = notices.filter { it.isArticle }.map { item ->
+            ContentNotice(
+                kind = NotificationKind.ARTICLE,
+                id = "user-article-${item.id}",
+                title = item.title.ifBlank { "প্রবন্ধ প্রকাশিত হয়েছে" },
+                body = item.body.take(180),
+                uri = item.relatedId.ifBlank { item.body }
+            )
+        }
+        val fromComments = notices.filter { it.isComment }.map { item ->
+            ContentNotice(
+                kind = NotificationKind.ARTICLE,
+                id = "user-comment-${item.id}",
+                title = item.title.ifBlank { "মন্তব্য প্রকাশিত হয়েছে" },
+                body = item.body.take(180),
+                uri = item.relatedId
+            )
+        }
+        return (fromChat + fromNotices + fromArticles + fromComments).distinctBy { it.id }
     }
 
     private fun noticesFrom(

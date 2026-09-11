@@ -13,5 +13,6 @@
         <domain includeSubdomains="true">slcpvmpsynkqdozvlsii.supabase.co</domain>
         <domain includeSubdomains="true">ningshingche.com</domain>
         <domain includeSubdomains="true">api.imgbb.com</domain>
+        <domain includeSubdomains="true">catbox.moe</domain>
     </domain-config>
 </network-security-config>

@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,7 +34,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -137,10 +135,6 @@ fun HeroCarouselSkeleton(modifier: Modifier = Modifier) {
     }
 }
 
-@Composable
-fun HeroCardSkeleton(modifier: Modifier = Modifier) {
-    HeroCarouselSkeleton(modifier = modifier)
-}
 
 @Composable
 fun ArticleCardSkeleton(modifier: Modifier = Modifier) {
@@ -306,29 +300,6 @@ fun ExploreSkeletonLayout() {
     }
 }
 
-@Composable
-fun PdfArchiveSkeletonLayout() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        ShimmerBox(modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(14.dp))
-
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(4) {
-                CategoryChipSkeleton()
-            }
-        }
-
-        repeat(4) {
-            PdfCardSkeleton()
-        }
-    }
-}
 
 @Composable
 fun AiAssistantSkeletonLayout() {
@@ -372,32 +343,4 @@ fun AiAssistantSkeletonLayout() {
     }
 }
 
-@Composable
-fun PdfViewerSkeletonLayout() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        ShimmerBox(modifier = Modifier.fillMaxWidth().height(44.dp), shape = RoundedCornerShape(10.dp))
-
-        ShimmerBox(
-            modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .aspectRatio(0.72f),
-            shape = RoundedCornerShape(16.dp)
-        )
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            ShimmerBox(modifier = Modifier.size(40.dp), shape = CircleShape)
-            ShimmerBox(modifier = Modifier.size(width = 100.dp, height = 24.dp))
-            ShimmerBox(modifier = Modifier.size(40.dp), shape = CircleShape)
-        }
-    }
-}
 

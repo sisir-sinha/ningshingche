@@ -79,6 +79,78 @@ data class AdminMessageRecord(
     }
 }
 
+data class SubmittedMusicRecord(
+    val id: String,
+    val title: String,
+    val artist: String = "",
+    val album: String = "",
+    val genre: String = "",
+    val thumbnailUrl: String = "",
+    val audioUrl: String = "",
+    val createdAt: String = ""
+) {
+    companion object {
+        fun fromJson(json: JSONObject): SubmittedMusicRecord = SubmittedMusicRecord(
+            id = json.optString("id", UUID.randomUUID().toString()),
+            title = json.optString("title", ""),
+            artist = json.optString("artist", ""),
+            album = json.optString("album", ""),
+            genre = json.optString("genre", ""),
+            thumbnailUrl = json.optString("thumbnail_url", ""),
+            audioUrl = json.optString("audio_url", ""),
+            createdAt = json.optString("created_at", "")
+        )
+    }
+}
+
+fun shortDateTime(iso: String): String {
+    if (iso.isBlank()) return ""
+    val parsed = parseIsoMillis(iso) ?: return iso.take(16).replace('T', ' ')
+    val fmt = java.text.SimpleDateFormat("d MMM, h:mm a", java.util.Locale.getDefault())
+    return fmt.format(parsed)
+}
+
+fun parseIsoMillis(iso: String): java.util.Date? {
+    val candidates = listOf(
+        "yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX",
+        "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
+        "yyyy-MM-dd'T'HH:mm:ssXXX",
+        "yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'",
+        "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+        "yyyy-MM-dd'T'HH:mm:ss'Z'",
+        "yyyy-MM-dd HH:mm:ss"
+    )
+    val trimmed = iso.trim()
+    for (pattern in candidates) {
+        val fmt = java.text.SimpleDateFormat(pattern, java.util.Locale.US)
+        fmt.timeZone = java.util.TimeZone.getTimeZone("UTC")
+        val value = runCatching { fmt.parse(trimmed) }.getOrNull()
+        if (value != null) return value
+    }
+    val compact = trimmed.take(19).replace(' ', 'T')
+    val fallback = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US)
+    fallback.timeZone = java.util.TimeZone.getTimeZone("UTC")
+    return runCatching { fallback.parse(compact) }.getOrNull()
+}
+
+fun messageAttachmentUrls(body: String): List<String> {
+    if (body.isBlank()) return emptyList()
+    val found = Regex("""https?://[^\s)]+""", RegexOption.IGNORE_CASE)
+        .findAll(body)
+        .map { it.value.trimEnd('.', ',', ';') }
+        .distinct()
+        .toList()
+    return found.filter { url ->
+        url.contains("i.ibb.co", true) ||
+            url.contains("imgbb", true) ||
+            url.endsWith(".jpg", true) ||
+            url.endsWith(".jpeg", true) ||
+            url.endsWith(".png", true) ||
+            url.endsWith(".webp", true) ||
+            url.endsWith(".gif", true)
+    }
+}
+
 object InboxSync {
     fun noticesFromPublished(
         userId: String,
@@ -110,7 +182,7 @@ object InboxSync {
                     kind = UserNotificationRecord.KIND_COMMENT,
                     title = "মন্তব্য প্রকাশিত হয়েছে",
                     body = comment.content.take(160),
-                    relatedId = comment.id
+                    relatedId = comment.blogId.ifBlank { comment.id }
                 )
             }
         }

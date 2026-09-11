@@ -11,6 +11,7 @@ import com.ningshingche.app.data.remote.CommentRecord
 import com.ningshingche.app.data.remote.ImgBbUploader
 import com.ningshingche.app.data.remote.InboxSync
 import com.ningshingche.app.data.remote.SubmittedBlogRecord
+import com.ningshingche.app.data.remote.SubmittedMusicRecord
 import com.ningshingche.app.data.remote.SupabaseClient
 import com.ningshingche.app.data.remote.UserNotificationRecord
 import com.ningshingche.app.data.remote.UserProfile
@@ -25,7 +26,9 @@ data class ReaderMetrics(
     val pendingArticles: Int = 0,
     val publishedArticles: Int = 0,
     val rejectedArticles: Int = 0,
-    val comments: Int = 0
+    val comments: Int = 0,
+    val songs: Int = 0,
+    val articleViews: Int = 0
 )
 
 class ReaderWorkspaceViewModel(
@@ -37,6 +40,9 @@ class ReaderWorkspaceViewModel(
 
     private val _articles = MutableStateFlow<List<SubmittedBlogRecord>>(emptyList())
     val articles: StateFlow<List<SubmittedBlogRecord>> = _articles.asStateFlow()
+
+    private val _tracks = MutableStateFlow<List<SubmittedMusicRecord>>(emptyList())
+    val tracks: StateFlow<List<SubmittedMusicRecord>> = _tracks.asStateFlow()
 
     private val _comments = MutableStateFlow<List<CommentRecord>>(emptyList())
     val comments: StateFlow<List<CommentRecord>> = _comments.asStateFlow()
@@ -73,7 +79,11 @@ class ReaderWorkspaceViewModel(
             val commentResult = supabaseClient.getMyComments(user.id, user.email)
             val articles = articleResult.getOrDefault(emptyList())
             val comments = commentResult.getOrDefault(emptyList())
+            val tracks = supabaseClient.getMyMusicTracks(user.id).getOrDefault(emptyList())
+            val songs = tracks.size.coerceAtLeast(supabaseClient.countMyMusicTracks(user.id))
+            val articleViews = supabaseClient.sumBlogViewsForAuthor(user.composedFullName())
             _articles.value = articles
+            _tracks.value = tracks
             _comments.value = comments
             _metrics.value = ReaderMetrics(
                 totalArticles = articles.size,
@@ -82,7 +92,9 @@ class ReaderWorkspaceViewModel(
                     it.status.equals("Published", true) || it.status.equals("Approved", true)
                 },
                 rejectedArticles = articles.count { it.status.equals("Rejected", true) },
-                comments = comments.size
+                comments = comments.size,
+                songs = songs,
+                articleViews = articleViews
             )
             articleResult.exceptionOrNull()?.message?.let { _message.value = it }
             commentResult.exceptionOrNull()?.message?.let { if (_message.value == null) _message.value = it }
@@ -164,7 +176,16 @@ class ReaderWorkspaceViewModel(
         }
     }
 
+    /**
+     * Called when the notices page is actually on screen. Viewing that page is
+     * what "seeing" a notification means, so the counter must drop to zero
+     * afterwards instead of waiting for the user to tap every card.
+     *
+     * Does nothing when there is nothing unread, so simply swiping back to the
+     * page does not fire a pointless write on every visit.
+     */
     fun markAllNotificationsRead() {
+        if (_notifications.value.none { !it.isRead }) return
         viewModelScope.launch {
             supabaseClient.markAllNotificationsRead()
             _notifications.value = _notifications.value.map { it.copy(isRead = true) }
@@ -172,17 +193,23 @@ class ReaderWorkspaceViewModel(
         }
     }
 
-    fun markInboxSeen() {
+    /**
+     * Called when the messages page is on screen: an open chat marks the
+     * admin's side read, same as any messenger. The unread badge counts admin
+     * messages as well as notices, so without this the counter could never
+     * reach zero after the notices were seen.
+     */
+    fun markAdminMessagesRead() {
+        if (_adminMessages.value.none { it.isFromAdmin && !it.isRead }) return
         viewModelScope.launch {
-            supabaseClient.markAllNotificationsRead()
             supabaseClient.markAdminMessagesRead()
-            _notifications.value = _notifications.value.map { it.copy(isRead = true) }
             _adminMessages.value = _adminMessages.value.map { item ->
                 if (item.isFromAdmin) item.copy(isRead = true) else item
             }
-            _unreadCount.value = 0
+            recountUnread()
         }
     }
+
 
     fun sendAdminMessage(body: String) {
         if (body.isBlank()) {
@@ -193,9 +220,11 @@ class ReaderWorkspaceViewModel(
             _isSaving.value = true
             supabaseClient.sendAdminMessage(body)
                 .onSuccess { sent ->
+                    // The new bubble appears in the chat immediately, so a
+                    // "message sent" toast would only repeat what the user can
+                    // already see. Failures still surface through _message.
                     val merged = (_adminMessages.value + sent).distinctBy { it.id }.sortedBy { it.createdAt }
                     _adminMessages.value = merged
-                    _message.value = "অ্যাডমিনকে বার্তা পাঠানো হয়েছে।"
                 }
                 .onFailure { error ->
                     _message.value = error.message ?: "বার্তা পাঠানো যায়নি।"
@@ -323,14 +352,85 @@ class ReaderWorkspaceViewModel(
         }
     }
 
+    fun submitMusic(
+        title: String,
+        artist: String,
+        album: String,
+        genre: String,
+        audioUri: Uri?,
+        coverUri: Uri?,
+        context: Context
+    ) {
+        val user = currentUser.value ?: return
+        if (!user.isProfileComplete) {
+            _message.value = "নতুন গান জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।"
+            return
+        }
+        if (title.isBlank()) {
+            _message.value = "শিরোনাম আবশ্যক।"
+            return
+        }
+        if (audioUri == null) {
+            _message.value = "এমপি৩ ফাইল নির্বাচন করুন।"
+            return
+        }
+        viewModelScope.launch {
+            _isSaving.value = true
+            _message.value = null
+            val audio = supabaseClient.uploadUserMusicFile(context, user.id, audioUri).getOrElse {
+                _isSaving.value = false
+                _message.value = it.message ?: "অডিও আপলোড যায়নি।"
+                return@launch
+            }
+            var coverUrl = ""
+            if (coverUri != null) {
+                val upload = ImgBbUploader.uploadFromUri(context, coverUri, "music_${System.currentTimeMillis()}")
+                val image = upload.getOrElse {
+                    _isSaving.value = false
+                    _message.value = it.message ?: "ছবি আপলোড যায়নি।"
+                    return@launch
+                }
+                coverUrl = image.displayUrl.ifBlank { image.url }
+            }
+            val durationSec = runCatching {
+                val retriever = android.media.MediaMetadataRetriever()
+                retriever.setDataSource(context, audioUri)
+                val ms = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+                retriever.release()
+                (ms / 1000L).toInt()
+            }.getOrDefault(0)
+            val result = supabaseClient.submitReaderMusic(
+                title = title.trim(),
+                artist = artist.trim().ifBlank { user.composedFullName() },
+                album = album.trim(),
+                genre = genre.trim(),
+                audioUrl = audio.publicUrl,
+                thumbnailUrl = coverUrl,
+                userId = user.id,
+                storagePath = audio.storagePath,
+                durationSeconds = durationSec,
+                fileSizeMb = audio.sizeBytes / 1_000_000.0
+            )
+            result.onSuccess {
+                _message.value = "গান জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর যুক্ত হবে।"
+                refresh()
+            }.onFailure {
+                _message.value = it.message ?: "গান জমা যায়নি।"
+            }
+            _isSaving.value = false
+        }
+    }
+
     fun signOut() {
         viewModelScope.launch {
             googleAuthRepository.signOut()
             _articles.value = emptyList()
+            _tracks.value = emptyList()
             _comments.value = emptyList()
             _notifications.value = emptyList()
             _adminMessages.value = emptyList()
             _unreadCount.value = 0
+            _metrics.value = ReaderMetrics()
         }
     }
 }

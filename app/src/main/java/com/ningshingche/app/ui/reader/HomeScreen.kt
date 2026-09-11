@@ -2,9 +2,7 @@ package com.ningshingche.app.ui.reader
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -29,7 +27,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,7 +36,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -55,10 +51,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ningshingche.app.ui.theme.Kalpurush
 import androidx.compose.ui.unit.sp
@@ -68,7 +62,6 @@ import androidx.compose.ui.text.font.FontWeight
 import com.ningshingche.app.data.portal.ArticleSummary
 import com.ningshingche.app.data.portal.AuthorRef
 import com.ningshingche.app.data.portal.CategoryRef
-import com.ningshingche.app.data.portal.GalleryItem
 import com.ningshingche.app.data.portal.PdfBook
 import com.ningshingche.app.data.portal.VideoItem
 import com.ningshingche.app.ui.components.LocalMusicController
@@ -82,7 +75,6 @@ import com.ningshingche.app.ui.editorial.ArticleRow
 import com.ningshingche.app.ui.editorial.AuthorRail
 import com.ningshingche.app.ui.editorial.CategoryRail
 import com.ningshingche.app.ui.editorial.EditorialSpace
-import com.ningshingche.app.ui.editorial.EditorialType
 import com.ningshingche.app.ui.editorial.EmptyState
 import com.ningshingche.app.ui.editorial.ErrorState
 import com.ningshingche.app.ui.editorial.GalleryGrid
@@ -96,7 +88,6 @@ import com.ningshingche.app.ui.editorial.PdfRail
 import com.ningshingche.app.ui.editorial.SectionHeader
 import com.ningshingche.app.ui.editorial.MusicRail
 import com.ningshingche.app.ui.editorial.VideoRail
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -123,6 +114,7 @@ fun HomeScreen(
     onAuthorClick: (AuthorRef) -> Unit,
     onSearchClick: () -> Unit,
     onPdfClick: (PdfBook) -> Unit,
+    onSeeAllPdf: (() -> Unit)? = null,
     onSeeAllLatest: () -> Unit,
     onSeeAllFeatured: () -> Unit = {},
     onSeeAllCategories: (() -> Unit)? = null,
@@ -131,6 +123,7 @@ fun HomeScreen(
     onSeeAllMusic: () -> Unit = {},
     onMenuClick: () -> Unit = {},
     onAiClick: () -> Unit = {},
+    onAiPrompt: (String) -> Unit = {},
     onLoginClick: () -> Unit = {},
     onDashboardClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
@@ -249,6 +242,7 @@ fun HomeScreen(
                     onCategoryClick = onCategoryClick,
                     onAuthorClick = onAuthorClick,
                     onPdfClick = onPdfClick,
+                    onSeeAllPdf = onSeeAllPdf,
                     onSeeAllLatest = onSeeAllLatest,
                     onSeeAllFeatured = onSeeAllFeatured,
                     onSeeAllCategories = onSeeAllCategories,
@@ -256,6 +250,7 @@ fun HomeScreen(
                     onSeeAllVideos = onSeeAllVideos,
                     onSeeAllMusic = onSeeAllMusic,
                     onAiClick = onAiClick,
+                    onAiPrompt = onAiPrompt,
                     onNavigate = onNavigate,
                     onOpenLink = onOpenLink
                 )
@@ -273,6 +268,7 @@ private fun HomeContent(
     onCategoryClick: (CategoryRef) -> Unit,
     onAuthorClick: (AuthorRef) -> Unit,
     onPdfClick: (PdfBook) -> Unit,
+    onSeeAllPdf: (() -> Unit)? = null,
     onSeeAllLatest: () -> Unit,
     onSeeAllFeatured: () -> Unit,
     onSeeAllCategories: (() -> Unit)? = null,
@@ -280,11 +276,15 @@ private fun HomeContent(
     onSeeAllVideos: () -> Unit,
     onSeeAllMusic: () -> Unit,
     onAiClick: () -> Unit,
+    onAiPrompt: (String) -> Unit = {},
     onNavigate: (String) -> Unit = {},
     onOpenLink: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val musicController = LocalMusicController.current
+    LaunchedEffect(feed.music) {
+        if (feed.music.isNotEmpty()) musicController.prefetchCatalog(feed.music)
+    }
     // Index (not the item) so the viewer can page through the whole gallery.
     var selectedGalleryIndex by remember { mutableStateOf<Int?>(null) }
     var selectedVideo by remember { mutableStateOf<VideoItem?>(null) }
@@ -344,7 +344,11 @@ private fun HomeContent(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = EditorialSpace.xxl)
+        // The scaffold already keeps the list clear of the system navigation
+        // bar, and the mini player takes its own row at the bottom rather than
+        // floating over the list, so a big trailing pad would only show as an
+        // empty band under the footer.
+        contentPadding = PaddingValues(bottom = EditorialSpace.xs)
     ) {
         // 1. Hero Section Carousel (Auto Sliding)
         if (feed.settings.heroSliderEnabled && heroArticles.isNotEmpty()) {
@@ -357,6 +361,7 @@ private fun HomeContent(
         item {
             AiAssistantHomeBanner(
                 onAiClick = onAiClick,
+                onPromptClick = onAiPrompt,
                 modifier = Modifier.padding(top = EditorialSpace.xs, bottom = EditorialSpace.xs)
             )
         }
@@ -394,7 +399,6 @@ private fun HomeContent(
             item {
                 SectionHeader(
                     title = "সাম্প্রতিক",
-                    subtitle = feed.settings.description,
                     actionLabel = "সব",
                     onAction = onSeeAllLatest
                 )
@@ -415,7 +419,6 @@ private fun HomeContent(
                 Column(modifier = Modifier.fillMaxWidth()) {
                     SectionHeader(
                         title = "বিশেষ নির্বাচন",
-                        subtitle = "সম্পাদকের পছন্দ",
                         actionLabel = if (onSeeAllSpecial != null) "সব" else null,
                         onAction = onSeeAllSpecial
                     )
@@ -455,7 +458,8 @@ private fun HomeContent(
             item {
                 PdfRail(
                     books = feed.pdfBooks,
-                    onBookClick = onPdfClick
+                    onBookClick = onPdfClick,
+                    onSeeAll = onSeeAllPdf
                 )
             }
         }
@@ -578,24 +582,3 @@ private fun HeroCarousel(
     }
 }
 
-@Composable
-internal fun SeeAllButton(onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        shape = CircleShape,
-        color = Color.Transparent
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = EditorialSpace.md, vertical = EditorialSpace.xs),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("সব", style = EditorialType.Subtitle, color = LocalEditorialTokens.current.accent)
-            Icon(
-                Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = null,
-                modifier = Modifier.size(14.dp),
-                tint = LocalEditorialTokens.current.accent
-            )
-        }
-    }
-}

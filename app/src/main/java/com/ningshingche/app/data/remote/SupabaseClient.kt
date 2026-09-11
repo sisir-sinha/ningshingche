@@ -1,7 +1,6 @@
 package com.ningshingche.app.data.remote
 
 import android.content.Context
-import com.ningshingche.app.data.auth.GoogleAuthConfig
 import com.ningshingche.app.data.auth.GoogleAuthException
 import com.ningshingche.app.data.auth.GoogleAuthMapper
 import kotlinx.coroutines.Dispatchers
@@ -61,44 +60,6 @@ class SupabaseClient(private val context: Context) {
         }
     }
 
-    fun getAdminEmail(): String {
-        return context.getSharedPreferences("supabase_auth_session", Context.MODE_PRIVATE)
-            .getString("admin_email", "admin@ningshingche.com") ?: "admin@ningshingche.com"
-    }
-
-    fun getAdminPassword(): String {
-        return context.getSharedPreferences("supabase_auth_session", Context.MODE_PRIVATE)
-            .getString("admin_password", "admin123") ?: "admin123"
-    }
-
-    fun updateAdminCredentials(newEmail: String, newPassword: String?, profile: UserProfile) {
-        val prefs = context.getSharedPreferences("supabase_auth_session", Context.MODE_PRIVATE).edit()
-        prefs.putString("admin_email", newEmail.trim())
-        if (!newPassword.isNullOrBlank()) {
-            prefs.putString("admin_password", newPassword)
-        }
-        val token = authToken ?: "admin_custom_token"
-        prefs.putString("access_token", token)
-        prefs.putString("user_profile", profile.toJson().toString())
-        prefs.apply()
-
-        authToken = token
-        _currentUser.value = profile
-    }
-
-    fun initDefaultAdminSession() {
-        val email = getAdminEmail()
-        val defaultAdmin = UserProfile(
-            id = "admin-root-user",
-            email = email,
-            fullName = "প্রধান সম্পাদক (Admin)",
-            role = UserRole.ADMINISTRATOR,
-            avatarUrl = "",
-            authProvider = GoogleAuthConfig.PROVIDER_LOCAL
-        )
-        saveSession("admin_default_token", defaultAdmin)
-    }
-
     fun saveSession(
         token: String,
         profile: UserProfile,
@@ -139,13 +100,29 @@ class SupabaseClient(private val context: Context) {
         val key = SupabaseConfig.supabaseKey
         val token = authToken
         if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null) return key
-        val expiry = if (expiresAtMillis > 0L) expiresAtMillis else jwtExpiryMillis(token)
-        if (expiry > 0L && System.currentTimeMillis() >= expiry - 30_000L) {
+        val jwtExp = jwtExpiryMillis(token)
+        val expiry = when {
+            jwtExp > 0L -> jwtExp
+            expiresAtMillis > 0L -> expiresAtMillis
+            else -> 0L
+        }
+        // Refresh two minutes early so a slow request still has a valid exp.
+        if (expiry <= 0L || System.currentTimeMillis() >= expiry - 120_000L) {
             refreshAccessTokenLocked()?.let { return it }
-            return key
+            if (expiry > 0L && System.currentTimeMillis() >= expiry) return key
         }
         return token
     }
+
+    /** User JWT only — never the publishable/anon key, which Storage treats as unauthenticated. */
+    private fun sessionUserJwt(): String? {
+        val refreshed = sessionBearer()
+        if (GoogleAuthMapper.isSupabaseJwt(refreshed)) return refreshed
+        return authToken.takeIf { GoogleAuthMapper.isSupabaseJwt(it) }
+    }
+
+    private fun jwtSubject(token: String): String =
+        GoogleAuthMapper.jwtPayload(token)?.optString("sub").orEmpty().trim()
 
     private fun jwtExpiryMillis(token: String): Long {
         return try {
@@ -164,32 +141,37 @@ class SupabaseClient(private val context: Context) {
     @Synchronized
     private fun refreshAccessTokenLocked(): String? {
         val refresh = refreshToken ?: return null
-        return try {
-            val url = "${SupabaseConfig.authBaseUrl}/token?grant_type=refresh_token"
-            val payload = JSONObject().put("refresh_token", refresh).toString()
-            val request = createAuthRequestBuilder(url)
-                .post(payload.toRequestBody(jsonMediaType))
-                .build()
-            val response = httpClient.newCall(request).execute()
-            val body = response.body?.string().orEmpty()
-            if (!response.isSuccessful || body.isBlank()) return null
-            val json = JSONObject(body)
-            val token = json.optString("access_token", "")
-            if (!GoogleAuthMapper.isSupabaseJwt(token)) return null
-            val nextRefresh = json.optString("refresh_token", refresh)
-            val expiresAt = System.currentTimeMillis() + json.optLong("expires_in", 3600L) * 1000L - 30_000L
-            val profile = _currentUser.value
-            if (profile != null) {
-                saveSession(token, profile, nextRefresh.ifBlank { refresh }, expiresAt)
-            } else {
-                authToken = token
-                refreshToken = nextRefresh.ifBlank { refresh }
-                expiresAtMillis = expiresAt
+        val url = "${SupabaseConfig.authBaseUrl}/token?grant_type=refresh_token"
+        val payload = JSONObject().put("refresh_token", refresh).toString()
+        val bearers = listOfNotNull(SupabaseConfig.supabaseKey, authToken).distinct()
+        for (bearer in bearers) {
+            try {
+                val request = createAuthRequestBuilder(url, bearer = bearer)
+                    .post(payload.toRequestBody(jsonMediaType))
+                    .build()
+                httpClient.newCall(request).execute().use { response ->
+                    val body = response.body?.string().orEmpty()
+                    if (!response.isSuccessful || body.isBlank()) return@use
+                    val json = JSONObject(body)
+                    val token = json.optString("access_token", "")
+                    if (token.count { it == '.' } < 2) return@use
+                    val nextRefresh = json.optString("refresh_token", refresh)
+                    val expiresAt = System.currentTimeMillis() + json.optLong("expires_in", 3600L) * 1000L - 30_000L
+                    val profile = _currentUser.value
+                    if (profile != null) {
+                        saveSession(token, profile, nextRefresh.ifBlank { refresh }, expiresAt)
+                    } else {
+                        authToken = token
+                        refreshToken = nextRefresh.ifBlank { refresh }
+                        expiresAtMillis = expiresAt
+                    }
+                    return token
+                }
+            } catch (_: Exception) {
+                // Try the next Authorization value.
             }
-            token
-        } catch (_: Exception) {
-            null
         }
+        return null
     }
 
     private fun createBaseRequestBuilder(url: String): Request.Builder {
@@ -201,133 +183,6 @@ class SupabaseClient(private val context: Context) {
             .addHeader("Authorization", "Bearer $bearer")
             .addHeader("Content-Type", "application/json")
             .addHeader("Prefer", "return=representation")
-    }
-
-    // ==========================================
-    // AUTHENTICATION & PROFILES
-    // ==========================================
-
-    suspend fun signIn(email: String, pass: String): Result<UserProfile> = withContext(Dispatchers.IO) {
-        val trimmedEmail = email.trim()
-        val configuredEmail = getAdminEmail()
-        val configuredPassword = getAdminPassword()
-
-        // 1. Check local/custom credentials first or fallback
-        val isConfiguredMatch = trimmedEmail.equals(configuredEmail, ignoreCase = true) && pass == configuredPassword
-        val isDefaultAdminMatch = (trimmedEmail.equals("admin@ningshingche.com", ignoreCase = true) && pass == "admin123")
-
-        if (isConfiguredMatch || isDefaultAdminMatch) {
-            val savedProfile = _currentUser.value ?: UserProfile(
-                id = "admin-root-user",
-                email = trimmedEmail,
-                fullName = "প্রধান সম্পাদক (Admin)",
-                role = UserRole.ADMINISTRATOR,
-                avatarUrl = "",
-                authProvider = GoogleAuthConfig.PROVIDER_LOCAL
-            )
-            val updatedProfile = savedProfile.copy(
-                email = trimmedEmail,
-                authProvider = GoogleAuthConfig.PROVIDER_LOCAL
-            )
-            saveSession(authToken ?: "admin_auth_token", updatedProfile)
-            return@withContext Result.success(updatedProfile)
-        }
-
-        // 2. Try remote Supabase Auth API
-        try {
-            val url = "${SupabaseConfig.authBaseUrl}/token?grant_type=password"
-            val payload = JSONObject().apply {
-                put("email", trimmedEmail)
-                put("password", pass)
-            }.toString()
-
-            val request = createBaseRequestBuilder(url)
-                .post(payload.toRequestBody(jsonMediaType))
-                .build()
-
-            val response = httpClient.newCall(request).execute()
-            val responseBody = response.body?.string().orEmpty()
-
-            if (response.isSuccessful && responseBody.isNotBlank()) {
-                val json = JSONObject(responseBody)
-                val token = json.optString("access_token", "")
-                val userObj = json.optJSONObject("user")
-                val userId = userObj?.optString("id", UUID.randomUUID().toString()) ?: UUID.randomUUID().toString()
-                val userMetadata = userObj?.optJSONObject("user_metadata")
-
-                val profile = UserProfile(
-                    id = userId,
-                    email = trimmedEmail,
-                    fullName = userMetadata?.optString("full_name", trimmedEmail.substringBefore("@")) ?: trimmedEmail.substringBefore("@"),
-                    role = UserRole.fromString(userMetadata?.optString("role", "ADMINISTRATOR") ?: "ADMINISTRATOR"),
-                    avatarUrl = userMetadata?.optString("avatar_url", "") ?: "",
-                    authProvider = GoogleAuthConfig.PROVIDER_PASSWORD
-                )
-                val refresh = json.optString("refresh_token", "")
-                val expiresAt = System.currentTimeMillis() + json.optLong("expires_in", 3600L) * 1000L - 30_000L
-                saveSession(token, profile, refresh.ifBlank { null }, expiresAt)
-                Result.success(profile)
-            } else {
-                Result.failure(Exception("ভুল ইমেইল বা পাসওয়ার্ড। অনুগ্রহ করে সঠিক তথ্য প্রদান করুন।"))
-            }
-        } catch (_: Exception) {
-            Result.failure(Exception("লগইন ব্যর্থ হয়েছে। অনুগ্রহ করে ইমেইল ও পাসওয়ার্ড সঠিক কিনা পরীক্ষা করুন।"))
-        }
-    }
-
-    suspend fun signUp(email: String, pass: String, fullName: String, role: UserRole = UserRole.EDITOR): Result<UserProfile> = withContext(Dispatchers.IO) {
-        try {
-            val url = "${SupabaseConfig.authBaseUrl}/signup"
-            val payload = JSONObject().apply {
-                put("email", email.trim())
-                put("password", pass)
-                put("data", JSONObject().apply {
-                    put("full_name", fullName)
-                    put("role", role.name)
-                })
-            }.toString()
-
-            val request = createBaseRequestBuilder(url)
-                .post(payload.toRequestBody(jsonMediaType))
-                .build()
-
-            val response = httpClient.newCall(request).execute()
-            val responseBody = response.body?.string().orEmpty()
-
-            if (response.isSuccessful && responseBody.isNotBlank()) {
-                val json = JSONObject(responseBody)
-                val token = json.optString("access_token", "mock_token")
-                val userObj = json.optJSONObject("user")
-                val userId = userObj?.optString("id", UUID.randomUUID().toString()) ?: UUID.randomUUID().toString()
-
-                val profile = UserProfile(
-                    id = userId,
-                    email = email.trim(),
-                    fullName = fullName,
-                    role = role
-                )
-                saveSession(token, profile)
-                Result.success(profile)
-            } else {
-                val profile = UserProfile(
-                    id = UUID.randomUUID().toString(),
-                    email = email.trim(),
-                    fullName = fullName,
-                    role = role
-                )
-                saveSession("local_token", profile)
-                Result.success(profile)
-            }
-        } catch (e: Exception) {
-            val profile = UserProfile(
-                id = UUID.randomUUID().toString(),
-                email = email.trim(),
-                fullName = fullName,
-                role = role
-            )
-            saveSession("local_token", profile)
-            Result.success(profile)
-        }
     }
 
     fun signOut() {
@@ -907,42 +762,6 @@ class SupabaseClient(private val context: Context) {
         }
     }
 
-    suspend fun upsertAuthor(author: AuthorRecord): Result<AuthorRecord> = withContext(Dispatchers.IO) {
-        try {
-            val url = "${SupabaseConfig.restBaseUrl}/authors"
-            val payload = author.toJson().toString()
-            val request = createBaseRequestBuilder(url)
-                .addHeader("Prefer", "resolution=merge-duplicates,return=representation")
-                .post(payload.toRequestBody(jsonMediaType))
-                .build()
-
-            val response = httpClient.newCall(request).execute()
-            val body = response.body?.string().orEmpty()
-
-            if (response.isSuccessful) {
-                Result.success(author)
-            } else {
-                Result.failure(Exception("Supabase error: ${response.code} $body"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun deleteAuthor(id: String, imgbbDeleteUrl: String = ""): Result<Boolean> = withContext(Dispatchers.IO) {
-        try {
-            if (imgbbDeleteUrl.isNotBlank()) {
-                ImgBbUploader.attemptDeleteImage(imgbbDeleteUrl)
-            }
-            val url = "${SupabaseConfig.restBaseUrl}/authors?id=eq.$id"
-            val request = createBaseRequestBuilder(url).delete().build()
-            val response = httpClient.newCall(request).execute()
-            Result.success(response.isSuccessful)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
     // ==========================================
     // CATEGORIES CRUD
     // ==========================================
@@ -964,33 +783,6 @@ class SupabaseClient(private val context: Context) {
             } else {
                 Result.failure(Exception("Supabase response: ${response.code} $body"))
             }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun upsertCategory(category: CategoryRecord): Result<CategoryRecord> = withContext(Dispatchers.IO) {
-        try {
-            val url = "${SupabaseConfig.restBaseUrl}/categories"
-            val payload = category.toJson().toString()
-            val request = createBaseRequestBuilder(url)
-                .addHeader("Prefer", "resolution=merge-duplicates,return=representation")
-                .post(payload.toRequestBody(jsonMediaType))
-                .build()
-
-            val response = httpClient.newCall(request).execute()
-            Result.success(category)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun deleteCategory(id: String): Result<Boolean> = withContext(Dispatchers.IO) {
-        try {
-            val url = "${SupabaseConfig.restBaseUrl}/categories?id=eq.$id"
-            val request = createBaseRequestBuilder(url).delete().build()
-            val response = httpClient.newCall(request).execute()
-            Result.success(response.isSuccessful)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -1062,33 +854,6 @@ class SupabaseClient(private val context: Context) {
         }
     }
 
-    suspend fun upsertBlog(blog: BlogRecord): Result<BlogRecord> = withContext(Dispatchers.IO) {
-        try {
-            val url = "${SupabaseConfig.restBaseUrl}/blogs"
-            val payload = blog.toJson().toString()
-            val request = createBaseRequestBuilder(url)
-                .addHeader("Prefer", "resolution=merge-duplicates,return=representation")
-                .post(payload.toRequestBody(jsonMediaType))
-                .build()
-
-            val response = httpClient.newCall(request).execute()
-            Result.success(blog)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun deleteBlog(id: String): Result<Boolean> = withContext(Dispatchers.IO) {
-        try {
-            val url = "${SupabaseConfig.restBaseUrl}/blogs?id=eq.$id"
-            val request = createBaseRequestBuilder(url).delete().build()
-            val response = httpClient.newCall(request).execute()
-            Result.success(response.isSuccessful)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
     // ==========================================
     // COMMENTS CRUD
     // ==========================================
@@ -1137,93 +902,6 @@ class SupabaseClient(private val context: Context) {
         }
     }
 
-    suspend fun updateCommentStatus(id: String, status: String): Result<Boolean> = withContext(Dispatchers.IO) {
-        try {
-            val url = "${SupabaseConfig.restBaseUrl}/comments?id=eq.$id"
-            val payload = JSONObject().apply { put("status", status) }.toString()
-            val request = createBaseRequestBuilder(url)
-                .patch(payload.toRequestBody(jsonMediaType))
-                .build()
-
-            val response = httpClient.newCall(request).execute()
-            Result.success(response.isSuccessful)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun deleteComment(id: String): Result<Boolean> = withContext(Dispatchers.IO) {
-        try {
-            val url = "${SupabaseConfig.restBaseUrl}/comments?id=eq.$id"
-            val request = createBaseRequestBuilder(url).delete().build()
-            val response = httpClient.newCall(request).execute()
-            Result.success(response.isSuccessful)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    // ==========================================
-    // GALLERIES CRUD
-    // ==========================================
-
-    suspend fun getGalleries(category: String? = null): Result<List<GalleryRecord>> = withContext(Dispatchers.IO) {
-        try {
-            val params = mutableListOf<String>()
-            params.add("select=*")
-            params.add("order=created_at.desc")
-            if (!category.isNullOrBlank() && category != "সব ছবি") params.add("category=eq.$category")
-
-            val url = "${SupabaseConfig.restBaseUrl}/galleries?${params.joinToString("&")}"
-            val request = createBaseRequestBuilder(url).get().build()
-            val response = httpClient.newCall(request).execute()
-            val body = response.body?.string().orEmpty()
-
-            if (response.isSuccessful && body.isNotBlank()) {
-                val array = JSONArray(body)
-                val list = mutableListOf<GalleryRecord>()
-                for (i in 0 until array.length()) {
-                    list.add(GalleryRecord.fromJson(array.getJSONObject(i)))
-                }
-                Result.success(list)
-            } else {
-                Result.failure(Exception("Supabase error: ${response.code} $body"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun upsertGallery(gallery: GalleryRecord): Result<GalleryRecord> = withContext(Dispatchers.IO) {
-        try {
-            val url = "${SupabaseConfig.restBaseUrl}/galleries"
-            val payload = gallery.toJson().toString()
-            val request = createBaseRequestBuilder(url)
-                .addHeader("Prefer", "resolution=merge-duplicates,return=representation")
-                .post(payload.toRequestBody(jsonMediaType))
-                .build()
-
-            val response = httpClient.newCall(request).execute()
-            Result.success(gallery)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun deleteGallery(id: String, imgbbDeleteUrl: String = ""): Result<Boolean> = withContext(Dispatchers.IO) {
-        try {
-            if (imgbbDeleteUrl.isNotBlank()) {
-                ImgBbUploader.attemptDeleteImage(imgbbDeleteUrl)
-            }
-            val url = "${SupabaseConfig.restBaseUrl}/galleries?id=eq.$id"
-            val request = createBaseRequestBuilder(url).delete().build()
-            val response = httpClient.newCall(request).execute()
-            Result.success(response.isSuccessful)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
     // ==========================================
     // PDF BOOKS CRUD
     // ==========================================
@@ -1250,188 +928,222 @@ class SupabaseClient(private val context: Context) {
         }
     }
 
-    suspend fun upsertPdfBook(book: PdfBookRecord): Result<PdfBookRecord> = withContext(Dispatchers.IO) {
-        try {
-            val url = "${SupabaseConfig.restBaseUrl}/pdf_books"
-            val payload = book.toJson().toString()
-            val request = createBaseRequestBuilder(url)
-                .addHeader("Prefer", "resolution=merge-duplicates,return=representation")
-                .post(payload.toRequestBody(jsonMediaType))
-                .build()
-
-            val response = httpClient.newCall(request).execute()
-            Result.success(book)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+    private fun parseContentRangeTotal(response: okhttp3.Response): Int {
+        val range = response.header("Content-Range").orEmpty()
+        val total = range.substringAfterLast("/", "").trim()
+        if (total.isBlank() || total == "*") return 0
+        return total.toIntOrNull() ?: 0
     }
 
-    suspend fun deletePdfBook(id: String, imgbbDeleteUrl: String = ""): Result<Boolean> = withContext(Dispatchers.IO) {
-        try {
-            if (imgbbDeleteUrl.isNotBlank()) {
-                ImgBbUploader.attemptDeleteImage(imgbbDeleteUrl)
-            }
-            val url = "${SupabaseConfig.restBaseUrl}/pdf_books?id=eq.$id"
-            val request = createBaseRequestBuilder(url).delete().build()
-            val response = httpClient.newCall(request).execute()
-            Result.success(response.isSuccessful)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    // ==========================================
-    // SUBMITTED BLOGS WORKFLOW
-    // ==========================================
-
-    suspend fun getSubmittedBlogs(status: String? = null): Result<List<SubmittedBlogRecord>> = withContext(Dispatchers.IO) {
-        try {
-            val params = mutableListOf<String>()
-            params.add("select=*")
-            params.add("order=created_at.desc")
-            if (!status.isNullOrBlank() && status != "সব") params.add("status=eq.$status")
-
-            val url = "${SupabaseConfig.restBaseUrl}/submitted_blogs?${params.joinToString("&")}"
-            val request = createBaseRequestBuilder(url).get().build()
-            val response = httpClient.newCall(request).execute()
-            val body = response.body?.string().orEmpty()
-
-            if (response.isSuccessful && body.isNotBlank()) {
-                val array = JSONArray(body)
-                val list = mutableListOf<SubmittedBlogRecord>()
+    suspend fun getMyMusicTracks(userId: String): Result<List<SubmittedMusicRecord>> =
+        withContext(Dispatchers.IO) {
+            val clean = userId.trim()
+            if (clean.isBlank()) return@withContext Result.success(emptyList())
+            try {
+                val url = "${SupabaseConfig.restBaseUrl}/music_tracks?select=*&user_id=eq.$clean&order=created_at.desc"
+                val request = createBaseRequestBuilder(url).get().build()
+                val response = httpClient.newCall(request).execute()
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) return@withContext Result.success(emptyList())
+                val array = JSONArray(body.ifBlank { "[]" })
+                val list = mutableListOf<SubmittedMusicRecord>()
                 for (i in 0 until array.length()) {
-                    list.add(SubmittedBlogRecord.fromJson(array.getJSONObject(i)))
+                    list.add(SubmittedMusicRecord.fromJson(array.getJSONObject(i)))
                 }
                 Result.success(list)
-            } else {
-                Result.failure(Exception("Supabase error: ${response.code} $body"))
+            } catch (_: Exception) {
+                Result.success(emptyList())
             }
-        } catch (e: Exception) {
-            Result.failure(e)
         }
-    }
 
-    suspend fun upsertSubmittedBlog(sub: SubmittedBlogRecord): Result<SubmittedBlogRecord> = withContext(Dispatchers.IO) {
-        try {
-            val url = "${SupabaseConfig.restBaseUrl}/submitted_blogs"
-            val payload = sub.toJson().toString()
-            val request = createBaseRequestBuilder(url)
-                .addHeader("Prefer", "resolution=merge-duplicates,return=representation")
-                .post(payload.toRequestBody(jsonMediaType))
-                .build()
+    data class MusicUpload(
+        val publicUrl: String,
+        val storagePath: String,
+        val sizeBytes: Long
+    )
 
-            val response = httpClient.newCall(request).execute()
-            Result.success(sub)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun updateSubmittedBlogStatus(id: String, status: String): Result<Boolean> = withContext(Dispatchers.IO) {
-        try {
-            val url = "${SupabaseConfig.restBaseUrl}/submitted_blogs?id=eq.$id"
-            val payload = JSONObject().apply { put("status", status) }.toString()
-            val request = createBaseRequestBuilder(url)
-                .patch(payload.toRequestBody(jsonMediaType))
-                .build()
-
-            val response = httpClient.newCall(request).execute()
-            Result.success(response.isSuccessful)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun deleteSubmittedBlog(id: String, imgbbDeleteUrl: String = ""): Result<Boolean> = withContext(Dispatchers.IO) {
-        try {
-            if (imgbbDeleteUrl.isNotBlank()) {
-                ImgBbUploader.attemptDeleteImage(imgbbDeleteUrl)
+    suspend fun uploadUserMusicFile(context: Context, userId: String, uri: android.net.Uri): Result<MusicUpload> =
+        withContext(Dispatchers.IO) {
+            val jwt = sessionUserJwt()
+                ?: return@withContext Result.failure(Exception("সাইন ইন করা নেই। আবার প্রবেশ করুন।"))
+            val uid = jwtSubject(jwt).ifBlank { userId.trim() }
+            if (uid.isBlank()) {
+                return@withContext Result.failure(Exception("সাইন ইন করা নেই। আবার প্রবেশ করুন।"))
             }
-            val url = "${SupabaseConfig.restBaseUrl}/submitted_blogs?id=eq.$id"
-            val request = createBaseRequestBuilder(url).delete().build()
-            val response = httpClient.newCall(request).execute()
-            Result.success(response.isSuccessful)
-        } catch (e: Exception) {
-            Result.failure(e)
+            val resolver = context.contentResolver
+            val reported = resolver.getType(uri).orEmpty()
+            val ext = when {
+                reported.contains("wav", true) -> "wav"
+                reported.contains("ogg", true) -> "ogg"
+                reported.contains("aac", true) || reported.contains("m4a", true) || reported.contains("mp4", true) -> "m4a"
+                reported.contains("flac", true) -> "flac"
+                else -> "mp3"
+            }
+            val mime = when (ext) {
+                "wav" -> "audio/wav"
+                "ogg" -> "audio/ogg"
+                "m4a" -> "audio/mp4"
+                "flac" -> "audio/flac"
+                else -> "audio/mpeg"
+            }
+            val bytes = resolver.openInputStream(uri)?.use { it.readBytes() }
+                ?: return@withContext Result.failure(Exception("অডিও ফাইল পড়া যায়নি।"))
+            if (bytes.isEmpty()) {
+                return@withContext Result.failure(Exception("অডিও ফাইল খালি।"))
+            }
+            if (bytes.size > 32 * 1024 * 1024) {
+                return@withContext Result.failure(Exception("ফাইল ৩২ এমবি-র বেশি হতে পারবে না।"))
+            }
+            val path = "user/$uid/${UUID.randomUUID()}.$ext"
+            val encodedPath = path.split('/').joinToString("/") {
+                java.net.URLEncoder.encode(it, Charsets.UTF_8.name()).replace("+", "%20")
+            }
+            val url = "${SupabaseConfig.storageBaseUrl}/object/music/$encodedPath"
+            val client = httpClient.newBuilder()
+                .writeTimeout(180, TimeUnit.SECONDS)
+                .readTimeout(180, TimeUnit.SECONDS)
+                .build()
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("apikey", SupabaseConfig.supabaseKey)
+                .addHeader("Authorization", "Bearer $jwt")
+                .addHeader("x-upsert", "false")
+                .post(bytes.toRequestBody(mime.toMediaType()))
+                .build()
+            val response = client.newCall(request).execute()
+            val body = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                return@withContext Result.failure(Exception(storageUploadError(response.code, body)))
+            }
+            Result.success(
+                MusicUpload(
+                    publicUrl = SupabaseConfig.musicPublicUrl(path),
+                    storagePath = path,
+                    sizeBytes = bytes.size.toLong()
+                )
+            )
+        }
+
+    private fun storageUploadError(code: Int, body: String): String {
+        val lower = body.lowercase()
+        return when {
+            code == 401 || lower.contains("unauthorized") || lower.contains("accessdenied") ||
+                lower.contains("row-level security") ->
+                "অডিও আপলোডের অনুমতি নেই। আবার সাইন ইন করে চেষ্টা করুন।"
+            lower.contains("mime") || lower.contains("invalidrequest") ->
+                "এই অডিও ফর্ম্যাট সাপোর্টেড নয়। এমপি৩ নির্বাচন করুন।"
+            code == 413 || lower.contains("payload") || lower.contains("size") ->
+                "ফাইল ৩২ এমবি-র বেশি হতে পারবে না।"
+            else -> "অডিও আপলোড যায়নি ($code)।"
         }
     }
 
-    // ==========================================
-    // VIDEOS CRUD
-    // ==========================================
-
-    suspend fun getVideos(): Result<List<VideoRecord>> = withContext(Dispatchers.IO) {
+    suspend fun submitReaderMusic(
+        title: String,
+        artist: String,
+        album: String,
+        genre: String,
+        audioUrl: String,
+        thumbnailUrl: String,
+        userId: String,
+        storagePath: String = "",
+        durationSeconds: Int = 0,
+        fileSizeMb: Double = 0.0
+    ): Result<SubmittedMusicRecord> = withContext(Dispatchers.IO) {
+        val jwt = sessionUserJwt()
+            ?: return@withContext Result.failure(Exception("সাইন ইন করা নেই। আবার প্রবেশ করুন।"))
+        val ownerId = jwtSubject(jwt).ifBlank { userId.trim() }
         try {
-            val url = "${SupabaseConfig.restBaseUrl}/videos?select=*&order=created_at.desc"
-            val request = createBaseRequestBuilder(url).get().build()
+            val record = SubmittedMusicRecord(
+                id = UUID.randomUUID().toString(),
+                title = title.trim(),
+                artist = artist.trim(),
+                album = album.trim(),
+                genre = genre.trim(),
+                thumbnailUrl = thumbnailUrl,
+                audioUrl = audioUrl.trim()
+            )
+            val sizeMb = kotlin.math.round(fileSizeMb.coerceAtLeast(0.0) * 100.0) / 100.0
+            val payload = JSONObject().apply {
+                put("id", record.id)
+                put("title", record.title)
+                put("artist", record.artist)
+                put("album", record.album)
+                put("genre", record.genre)
+                put("thumbnail_url", record.thumbnailUrl)
+                put("audio_url", record.audioUrl)
+                put("user_id", ownerId)
+                put("file_provider", if (storagePath.isNotBlank()) "supabase-storage" else "url")
+                put("file_storage_path", storagePath)
+                put("duration_seconds", durationSeconds.coerceAtLeast(0))
+                put("file_size_mb", sizeMb)
+            }
+            val url = "${SupabaseConfig.restBaseUrl}/music_tracks"
+            val request = createUserAuthedRequestBuilder(url, jwt)
+                .addHeader("Prefer", "return=representation")
+                .post(payload.toString().toRequestBody(jsonMediaType))
+                .build()
             val response = httpClient.newCall(request).execute()
             val body = response.body?.string().orEmpty()
-
-            if (response.isSuccessful && body.isNotBlank()) {
-                val array = JSONArray(body)
-                val list = mutableListOf<VideoRecord>()
-                for (i in 0 until array.length()) {
-                    list.add(VideoRecord.fromJson(array.getJSONObject(i)))
+            if (!response.isSuccessful) {
+                val denied = response.code == 401 || response.code == 403 ||
+                    body.contains("row-level security", ignoreCase = true)
+                val message = if (denied) {
+                    "গান জমা যায়নি। আবার সাইন ইন করে চেষ্টা করুন।"
+                } else {
+                    "গান জমা যায়নি (${response.code})। প্রোফাইল সম্পূর্ণ করে আবার চেষ্টা করুন।"
                 }
-                Result.success(list)
-            } else {
-                Result.failure(Exception("Supabase error: ${response.code} $body"))
+                return@withContext Result.failure(Exception(message))
             }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun upsertVideo(video: VideoRecord): Result<VideoRecord> = withContext(Dispatchers.IO) {
-        try {
-            val url = "${SupabaseConfig.restBaseUrl}/videos"
-            val payload = video.toJson().toString()
-            val request = createBaseRequestBuilder(url)
-                .addHeader("Prefer", "resolution=merge-duplicates,return=representation")
-                .post(payload.toRequestBody(jsonMediaType))
-                .build()
-
-            val response = httpClient.newCall(request).execute()
-            Result.success(video)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun deleteVideo(id: String): Result<Boolean> = withContext(Dispatchers.IO) {
-        try {
-            val url = "${SupabaseConfig.restBaseUrl}/videos?id=eq.$id"
-            val request = createBaseRequestBuilder(url).delete().build()
-            val response = httpClient.newCall(request).execute()
-            Result.success(response.isSuccessful)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    // ==========================================
-    // SITE SETTINGS
-    // ==========================================
-
-    suspend fun getSettings(): Result<SiteSettingsRecord> = withContext(Dispatchers.IO) {
-        try {
-            val url = "${SupabaseConfig.restBaseUrl}/settings?id=eq.site_settings&limit=1"
-            val request = createBaseRequestBuilder(url).get().build()
-            val response = httpClient.newCall(request).execute()
-            val body = response.body?.string().orEmpty()
-
-            if (response.isSuccessful && body.isNotBlank()) {
+            if (body.startsWith("[")) {
                 val array = JSONArray(body)
                 if (array.length() > 0) {
-                    Result.success(SiteSettingsRecord.fromJson(array.getJSONObject(0)))
-                } else {
-                    Result.success(SiteSettingsRecord())
+                    return@withContext Result.success(SubmittedMusicRecord.fromJson(array.getJSONObject(0)))
                 }
-            } else {
-                Result.success(SiteSettingsRecord())
             }
+            Result.success(record)
         } catch (e: Exception) {
-            Result.success(SiteSettingsRecord())
+            Result.failure(e)
+        }
+    }
+
+    suspend fun countMyMusicTracks(userId: String): Int = withContext(Dispatchers.IO) {
+        val clean = userId.trim()
+        if (clean.isBlank() || clean.length != 36 || runCatching { java.util.UUID.fromString(clean) }.isFailure) {
+            return@withContext 0
+        }
+        try {
+            val url = "${SupabaseConfig.restBaseUrl}/music_tracks?select=id&user_id=eq.$clean"
+            val request = createBaseRequestBuilder(url)
+                .header("Prefer", "count=exact")
+                .header("Range", "0-0")
+                .get()
+                .build()
+            val response = httpClient.newCall(request).execute()
+            response.body?.close()
+            if (!response.isSuccessful) 0 else parseContentRangeTotal(response)
+        } catch (_: Exception) {
+            0
+        }
+    }
+
+    suspend fun sumBlogViewsForAuthor(authorName: String): Int = withContext(Dispatchers.IO) {
+        if (authorName.isBlank()) return@withContext 0
+        try {
+            val encoded = java.net.URLEncoder.encode(authorName, "UTF-8")
+            val url = "${SupabaseConfig.restBaseUrl}/blogs?select=views_count&author_name=eq.$encoded&limit=1000"
+            val request = createBaseRequestBuilder(url).get().build()
+            val response = httpClient.newCall(request).execute()
+            val body = response.body?.string().orEmpty()
+            if (!response.isSuccessful || body.isBlank()) return@withContext 0
+            val array = JSONArray(body)
+            var sum = 0
+            for (i in 0 until array.length()) {
+                sum += array.getJSONObject(i).optInt("views_count", 0)
+            }
+            sum
+        } catch (_: Exception) {
+            0
         }
     }
 

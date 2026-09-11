@@ -8,7 +8,6 @@ import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.security.MessageDigest
-import java.util.Base64
 import java.util.UUID
 import kotlinx.coroutines.TimeoutCancellationException
 
@@ -53,7 +52,14 @@ object GoogleAuthMapper {
         return try {
             val payload = parts[1]
             val padded = payload + "=".repeat((4 - payload.length % 4) % 4)
-            val decoded = Base64.getUrlDecoder().decode(padded)
+            // android.util.Base64, not java.util.Base64: the latter is API 26+ and
+            // minSdk is 24 with no core library desugaring, so on Android 7 this
+            // used to throw NoClassDefFoundError — an Error, which the catch below
+            // does not swallow, so Google sign-in crashed the app. Matches jwtPayload().
+            val decoded = android.util.Base64.decode(
+                padded,
+                android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP
+            )
             val json = JSONObject(String(decoded, Charsets.UTF_8))
             if (!json.has("nonce")) null else json.optString("nonce")
         } catch (_: Exception) {
@@ -77,7 +83,51 @@ object GoogleAuthMapper {
 
     fun isSupabaseJwt(token: String?): Boolean {
         if (token.isNullOrBlank()) return false
-        return token.count { it == '.' } >= 2 && token.length > 40
+        if (token.count { it == '.' } < 2 || token.length <= 40) return false
+        val payload = jwtPayload(token) ?: return true
+        val iss = jwtClaim(payload, "iss")
+        if (iss.contains("accounts.google.com", ignoreCase = true)) return false
+        val role = jwtClaim(payload, "role")
+        val aud = jwtClaim(payload, "aud")
+        if (role == "authenticated" ||
+            aud.contains("authenticated") ||
+            iss.contains("supabase", ignoreCase = true)
+        ) {
+            return true
+        }
+        // Signed-in GoTrue tokens always have a user `sub`. Do not treat an
+        // unusual iss/aud shape as a missing Google session.
+        return jwtClaim(payload, "sub").isNotBlank() &&
+            !iss.contains("google.com", ignoreCase = true)
+    }
+
+    private fun jwtClaim(payload: JSONObject, key: String): String {
+        if (!payload.has(key) || payload.isNull(key)) return ""
+        return try {
+            when (val value = payload.get(key)) {
+                is String -> value.trim()
+                is org.json.JSONArray -> (0 until value.length()).joinToString(",") {
+                    value.optString(it)
+                }
+                else -> value.toString()
+            }
+        } catch (_: Exception) {
+            payload.optString(key).orEmpty()
+        }
+    }
+
+    fun jwtPayload(token: String): JSONObject? {
+        return try {
+            val payload = token.split('.').getOrNull(1) ?: return null
+            val padded = payload + "=".repeat((4 - payload.length % 4) % 4)
+            val decoded = android.util.Base64.decode(
+                padded,
+                android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP
+            )
+            JSONObject(String(decoded, Charsets.UTF_8))
+        } catch (_: Exception) {
+            null
+        }
     }
 
     fun profileFromAuthUser(user: JSONObject): UserProfile {
@@ -175,6 +225,28 @@ object GoogleAuthMapper {
             current = current.cause
         }
         return false
+    }
+
+    /** Shown when the stored Supabase session/JWT can no longer be validated. */
+    fun sessionExpiredMessage(): String =
+        "সেশনের মেয়াদ শেষ হয়েছে। আবার প্রবেশ করুন।"
+
+    /**
+     * Maps raw Supabase JWT-validation failures to the session-expired message.
+     * Returns `null` for messages that are not JWT-validation problems
+     * (e.g. network errors), so callers can keep their own handling.
+     */
+    fun userFacingJwtError(message: String?): String? {
+        val m = message?.lowercase().orEmpty()
+        if (m.isEmpty()) return null
+        return when {
+            m.contains("exp claim") ||
+                m.contains("jws protected header") ||
+                m.contains("token is expired") ||
+                m.contains("jwt malformed") ||
+                m.contains("jwt expired") -> sessionExpiredMessage()
+            else -> null
+        }
     }
 
     fun userMessage(error: Throwable): String {

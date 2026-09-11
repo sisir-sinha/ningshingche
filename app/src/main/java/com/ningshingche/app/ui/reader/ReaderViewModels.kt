@@ -13,6 +13,7 @@ import com.ningshingche.app.data.portal.AuthorRef
 import com.ningshingche.app.data.portal.CategoryRef
 import com.ningshingche.app.data.portal.CommentItem
 import com.ningshingche.app.data.portal.HomeFeed
+import com.ningshingche.app.data.music.MusicCatalogIndex
 import com.ningshingche.app.data.portal.MusicTrack
 import com.ningshingche.app.data.portal.VideoItem
 import com.ningshingche.app.data.portal.Page
@@ -102,7 +103,7 @@ class HomeViewModel(private val repository: PortalRepository) : ViewModel() {
         viewModelScope.launch {
             _musicLoading.value = _musicCatalog.value.isEmpty()
             _musicError.value = null
-            repository.musicTracks(limit = 200, forceRefresh = force)
+            repository.musicTracks(limit = 500, forceRefresh = force)
                 .onSuccess {
                     _musicCatalog.value = it
                     _musicError.value = null
@@ -387,7 +388,9 @@ class ArticleViewModel(
                     email = email,
                     phone = phone,
                     content = form.content,
-                    address = address
+                    address = address,
+                    avatarUrl = avatarUrl,
+                    userId = account?.id
                 ).onSuccess {
                     val details = CommenterDetails(name.trim(), email.trim(), phone.trim())
                     // Clear the draft ONLY after the server confirms the insert.
@@ -397,6 +400,7 @@ class ArticleViewModel(
                             email = details.email,
                             phone = details.phone,
                             address = address,
+                            avatarUrl = avatarUrl,
                             content = "",
                             isError = false,
                             identityFromAccount = account != null
@@ -428,10 +432,6 @@ class ArticleViewModel(
         }
     }
 
-    fun clearCommentStatus() {
-        _commentStatus.value = null
-        _commentForm.update { it.copy(isError = false) }
-    }
 
 }
 
@@ -775,6 +775,10 @@ class SearchViewModel(private val repository: PortalRepository) : ViewModel() {
     private val _categories = MutableStateFlow<List<CategoryRef>>(emptyList())
     val categories: StateFlow<List<CategoryRef>> = _categories.asStateFlow()
 
+    private val _songs = MutableStateFlow<List<MusicTrack>>(emptyList())
+    val songs: StateFlow<List<MusicTrack>> = _songs.asStateFlow()
+
+    private var musicCatalog: List<MusicTrack> = emptyList()
     private var debounceJob: Job? = null
 
     init {
@@ -786,10 +790,15 @@ class SearchViewModel(private val repository: PortalRepository) : ViewModel() {
                 ?.take(8)?.map { it.title }
                 .orEmpty()
         }
+        viewModelScope.launch {
+            musicCatalog = repository.musicTracks(limit = 500).getOrNull().orEmpty()
+            filterSongs()
+        }
     }
 
     fun onQueryChange(value: String) {
         _query.value = value
+        filterSongs()
         debounceJob?.cancel()
         if (value.trim().length < 2) {
             _state_reset()
@@ -804,10 +813,21 @@ class SearchViewModel(private val repository: PortalRepository) : ViewModel() {
     fun submit(query: String) {
         debounceJob?.cancel()
         _query.value = query
+        filterSongs()
         paginator.loadFirst()
     }
 
     fun loadMore() = paginator.loadMore()
+
+    private fun filterSongs() {
+        val term = _query.value.trim()
+        _songs.value = if (term.length < 2) {
+            emptyList()
+        } else {
+            musicCatalog.filter { MusicCatalogIndex.matches(it, term) }
+                .take(12)
+        }
+    }
 
     private fun _state_reset() {
         // Nothing to show before the term reaches two characters.

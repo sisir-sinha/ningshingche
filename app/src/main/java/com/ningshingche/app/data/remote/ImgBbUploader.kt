@@ -2,7 +2,6 @@ package com.ningshingche.app.data.remote
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.util.Base64
 import kotlinx.coroutines.Dispatchers
@@ -10,10 +9,8 @@ import kotlinx.coroutines.withContext
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
-import java.io.InputStream
 import java.util.concurrent.TimeUnit
 
 data class ImgBbUploadResult(
@@ -160,17 +157,4 @@ object ImgBbUploader {
         }
     }
 
-    suspend fun attemptDeleteImage(deleteUrl: String): Boolean = withContext(Dispatchers.IO) {
-        if (deleteUrl.isBlank()) return@withContext false
-        try {
-            val request = Request.Builder()
-                .url(deleteUrl)
-                .get()
-                .build()
-            val response = client.newCall(request).execute()
-            response.isSuccessful
-        } catch (_: Exception) {
-            false
-        }
-    }
 }

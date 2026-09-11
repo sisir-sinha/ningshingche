@@ -66,9 +66,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ningshingche.app.R
 import com.ningshingche.app.data.model.AiChatMessage
-import com.ningshingche.app.data.model.ArticleCitation
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import com.ningshingche.app.ui.components.MarkdownFormattedText
@@ -85,15 +83,23 @@ fun AiAssistantScreen(
     viewModel: AiViewModel,
     onBackClick: () -> Unit,
     onArticleClick: (String) -> Unit,
-    onMenuClick: () -> Unit = {}
+    onMenuClick: () -> Unit = {},
+    initialQuestion: String = ""
 ) {
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
 
     var isSkeletonLoading by remember { mutableStateOf(true) }
+    var promptSent by rememberSaveable(initialQuestion) { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         delay(1000L) // Minimum 1 second skeleton view
         isSkeletonLoading = false
+    }
+    LaunchedEffect(initialQuestion) {
+        if (!promptSent && initialQuestion.isNotBlank()) {
+            promptSent = true
+            viewModel.sendQuestion(initialQuestion)
+        }
     }
 
     val initialRenderedIds = remember { messages.map { it.id }.toSet() }
@@ -146,7 +152,7 @@ fun AiAssistantScreen(
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
             shadowElevation = 1.dp,
             // The screen is edge-to-edge and has no Scaffold, so the header has to
-            // clear the status bar itself - same approach as PortalTopBar.
+            // clear the status bar itself.
             modifier = Modifier.statusBarsPadding()
         ) {
             Row(

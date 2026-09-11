@@ -18,12 +18,13 @@
     ['books', 'PDF Books', 'fa-books', 'orange'],
     ['submissions', 'Submitted Blogs', 'fa-file-pen', 'cyan'],
     ['videos', 'Videos', 'fa-video', 'pink'],
-    ['music', 'Music', 'fa-music', 'rose'],
+    ['music', 'Total Songs', 'fa-music', 'rose'],
+    ['articleViews', 'Total Article Views', 'fa-eye', 'sky'],
     ['profiles', 'Registered users', 'fa-user-group', 'teal']
   ]);
 
   function permissionRoute(key) {
-    if (['published', 'drafts'].includes(key)) return 'blogs';
+    if (['published', 'drafts', 'articleViews'].includes(key)) return 'blogs';
     if (key === 'pendingComments') return 'comments';
     if (key === 'profiles') return 'registered-users';
     return key;
@@ -44,7 +45,7 @@
     // timeline sample powers charts while Content-Range provides exact totals.
     const allEntities = [
       ['authors', 'id,title,image,designation,created_at'],
-      ['blogs', 'id,title,status,author_name,published_date,created_at'],
+      ['blogs', 'id,title,status,author_name,published_date,created_at,views_count'],
       ['categories', 'id,title,created_at'],
       ['comments', 'id,name,blog_title,status,created_at'],
       ['galleries', 'id,title,created_at'],
@@ -84,6 +85,7 @@
         ? result.value
         : data[table].filter((item) => Object.entries(filters).every(([field, value]) => item[field] === value)).length;
     });
+    data.counts.articleViews = (data.blogs || []).reduce((sum, item) => sum + Number(item.views_count || 0), 0);
     return data;
   }
 

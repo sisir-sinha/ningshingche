@@ -38,8 +38,6 @@ interface ArticleDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertArticle(article: ArticleEntity)
 
-    @Query("DELETE FROM articles WHERE id = :id")
-    suspend fun deleteArticleById(id: String)
 
     @Query("DELETE FROM articles")
     suspend fun clearAll()
@@ -47,8 +45,6 @@ interface ArticleDao {
     @Query("DELETE FROM articles WHERE id LIKE 'art-%'")
     suspend fun deleteSeedArticles()
 
-    @Query("SELECT COUNT(*) FROM articles")
-    suspend fun countArticles(): Int
 }
 
 @Dao
@@ -77,14 +73,10 @@ interface HistoryDao {
     @Query("SELECT * FROM reading_history ORDER BY readAtTimestamp DESC")
     fun getAllHistory(): Flow<List<HistoryEntity>>
 
-    @Query("SELECT * FROM reading_history WHERE articleId = :articleId LIMIT 1")
-    suspend fun getHistory(articleId: String): HistoryEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertHistory(history: HistoryEntity)
 
-    @Query("DELETE FROM reading_history WHERE articleId = :articleId")
-    suspend fun deleteHistory(articleId: String)
 
     @Query("DELETE FROM reading_history")
     suspend fun clearAll()
@@ -107,26 +99,16 @@ interface SearchDao {
 
 @Dao
 interface ChatDao {
-    @Query("SELECT * FROM ai_chat_messages ORDER BY timestamp ASC")
-    fun getAllMessages(): Flow<List<ChatMessageEntity>>
 
-    @Query("SELECT * FROM ai_chat_messages ORDER BY timestamp ASC")
-    suspend fun getAllMessagesOnce(): List<ChatMessageEntity>
 
     @Query("SELECT * FROM ai_chat_messages WHERE articleId = :articleId ORDER BY timestamp ASC")
     suspend fun getMessagesForArticle(articleId: String): List<ChatMessageEntity>
 
-    @Query("SELECT * FROM ai_chat_messages WHERE articleId = :articleId ORDER BY timestamp ASC")
-    fun observeMessagesForArticle(articleId: String): Flow<List<ChatMessageEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessage(message: ChatMessageEntity)
 
-    @Query("DELETE FROM ai_chat_messages WHERE id = :id")
-    suspend fun deleteMessage(id: String)
 
-    @Query("DELETE FROM ai_chat_messages WHERE articleId = :articleId")
-    suspend fun clearArticle(articleId: String)
 
     @Query("DELETE FROM ai_chat_messages")
     suspend fun clearAll()
@@ -137,8 +119,6 @@ interface MusicLibraryDao {
     @Query("SELECT * FROM music_playlists WHERE userId = :userId ORDER BY kind DESC, createdAt DESC")
     fun playlists(userId: String): Flow<List<MusicPlaylistEntity>>
 
-    @Query("SELECT * FROM music_playlists WHERE userId = :userId ORDER BY kind DESC, createdAt DESC")
-    suspend fun playlistsOnce(userId: String): List<MusicPlaylistEntity>
 
     @Query("SELECT * FROM music_playlists WHERE id = :id LIMIT 1")
     suspend fun playlistById(id: String): MusicPlaylistEntity?
@@ -155,8 +135,6 @@ interface MusicLibraryDao {
     @Query("SELECT * FROM music_offline ORDER BY savedAt DESC")
     fun offline(): Flow<List<MusicOfflineEntity>>
 
-    @Query("SELECT * FROM music_offline ORDER BY savedAt DESC")
-    suspend fun offlineOnce(): List<MusicOfflineEntity>
 
     @Query("SELECT * FROM music_offline WHERE trackId = :trackId LIMIT 1")
     suspend fun offlineById(trackId: String): MusicOfflineEntity?

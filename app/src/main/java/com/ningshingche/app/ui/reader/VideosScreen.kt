@@ -140,12 +140,6 @@ fun VideosScreen(
                             style = EditorialType.Headline,
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        Text(
-                            text = "নড়াচড়া ও কণ্ঠে সংস্কৃতি",
-                            style = EditorialType.Caption,
-                            color = LocalEditorialTokens.current.inkMuted,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
                         Spacer(Modifier.height(EditorialSpace.sm))
                         Hairline()
                     }

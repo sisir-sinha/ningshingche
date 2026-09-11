@@ -448,6 +448,7 @@ Public library of MP3/audio tracks for the Android player (migration `014_music_
 | `duration_seconds` | integer | ≥ 0 |
 | `file_size_mb` | numeric(8,2) | |
 | `sort_order` | integer | Default `0` |
+| `love_count` (020) | integer | Public love reacts; trigger-synced from `music_loves`, written only through `toggle_music_love` (§7.13) |
 
 ### `settings`
 Single row, `id = 'site_settings'`.
@@ -811,6 +812,37 @@ Self-service username / display name / password change. Requires the current pas
 `dashboard_has_permission(text)`, `dashboard_has_any_permission(text[])`, `dashboard_is_super_admin()`,
 `is_dashboard_request()`, `dashboard_user_payload(uuid)`, `dashboard_role_payload(uuid)`.
 `dashboard_user_payload` and `dashboard_role_payload` are explicitly revoked from `public`.
+
+### 7.13 `toggle_music_love` (`022_anon_music_loves.sql`, publishable key allowed)
+
+Toggles one listener's love react on a track and returns the track's new public count. It exists so the
+heart works without an account: `music_loves` is keyed by `user_id` and its RLS policies only accept the
+row's owner, which a signed-out listener does not have.
+
+```bash
+POST /rest/v1/rpc/toggle_music_love
+{ "p_track_id": "f0632a9b-…", "p_device_id": "8f4c…", "p_loved": true }
+→ 3                                    # music_tracks.love_count after the change
+```
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `p_track_id` | uuid | ✅ | Must exist in `music_tracks` |
+| `p_device_id` | text | When signed out | At least 8 characters; ignored when the request carries a session |
+| `p_loved` | boolean | ✅ | `true` inserts, `false` deletes |
+
+`security definer`. A signed-in caller is identified by `auth.uid()`; a guest by
+`md5('ningshingche:' || p_device_id)::uuid`, so one device counts once per track and can withdraw the
+same react with an identical call. The `music_loves_sync_count` trigger keeps `music_tracks.love_count`
+equal to the row count, so the returned number never has to be guessed by the client.
+
+| Error | Condition |
+| --- | --- |
+| `22023` | Signed out and `p_device_id` is blank or shorter than 8 characters |
+| `23503` | `p_track_id` does not exist |
+
+`anon` still has **no** write access to `music_loves` itself — only `select` — and the raw device id is
+never stored, only its hash.
 
 ---
 

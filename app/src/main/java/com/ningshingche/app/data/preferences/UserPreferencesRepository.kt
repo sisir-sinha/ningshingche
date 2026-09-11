@@ -6,12 +6,16 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.ningshingche.app.data.model.AppThemeMode
+import com.ningshingche.app.data.model.PdfFitMode
+import com.ningshingche.app.data.model.PdfReaderSettings
 import com.ningshingche.app.data.model.ReaderPreferences
 import com.ningshingche.app.data.model.ReaderThemeMode
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 import androidx.datastore.preferences.core.emptyPreferences
@@ -36,6 +40,15 @@ class UserPreferencesRepository(private val context: Context) {
         val NOTIF_SYSTEM = booleanPreferencesKey("notif_system")
         val NOTIF_OTHER = booleanPreferencesKey("notif_other")
         val ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")
+        val PDF_BOOK_VIEW = booleanPreferencesKey("pdf_book_view")
+        val PDF_NIGHT = booleanPreferencesKey("pdf_night")
+        val PDF_SNAP = booleanPreferencesKey("pdf_snap")
+        val PDF_DOUBLE_TAP = booleanPreferencesKey("pdf_double_tap")
+        val PDF_ANNOTATIONS = booleanPreferencesKey("pdf_annotations")
+        val PDF_KEEP_SCREEN = booleanPreferencesKey("pdf_keep_screen")
+        val PDF_SCROLL_HANDLE = booleanPreferencesKey("pdf_scroll_handle")
+        val PDF_SPACING = intPreferencesKey("pdf_spacing")
+        val PDF_FIT = stringPreferencesKey("pdf_fit")
     }
 
     val readerPreferences: Flow<ReaderPreferences> = context.dataStore.data
@@ -89,23 +102,8 @@ class UserPreferencesRepository(private val context: Context) {
         )
     }
 
-    suspend fun updateFontSize(fontSize: Float) {
-        context.dataStore.edit { preferences ->
-            preferences[Keys.FONT_SIZE] = fontSize
-        }
-    }
 
-    suspend fun updateLineSpacing(spacing: Float) {
-        context.dataStore.edit { preferences ->
-            preferences[Keys.LINE_SPACING] = spacing
-        }
-    }
 
-    suspend fun updateThemeMode(mode: ReaderThemeMode) {
-        context.dataStore.edit { preferences ->
-            preferences[Keys.THEME_MODE] = mode.name
-        }
-    }
 
     suspend fun updateAppThemeMode(mode: AppThemeMode) {
         context.dataStore.edit { preferences ->
@@ -113,11 +111,6 @@ class UserPreferencesRepository(private val context: Context) {
         }
     }
 
-    suspend fun updateTtsSpeed(speed: Float) {
-        context.dataStore.edit { preferences ->
-            preferences[Keys.TTS_SPEED] = speed
-        }
-    }
 
     suspend fun updateNotificationsEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
@@ -165,5 +158,61 @@ class UserPreferencesRepository(private val context: Context) {
         context.dataStore.edit { preferences ->
             preferences[Keys.ONBOARDING_COMPLETE] = true
         }
+    }
+
+    val pdfReaderSettings: Flow<PdfReaderSettings> = context.dataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else emit(emptyPreferences())
+        }
+        .map { preferences ->
+            val fit = try {
+                PdfFitMode.valueOf(preferences[Keys.PDF_FIT] ?: PdfFitMode.BOTH.name)
+            } catch (_: Exception) {
+                PdfFitMode.BOTH
+            }
+            PdfReaderSettings(
+                bookView = preferences[Keys.PDF_BOOK_VIEW] ?: true,
+                nightMode = preferences[Keys.PDF_NIGHT] ?: false,
+                snapPages = preferences[Keys.PDF_SNAP] ?: true,
+                doubleTapZoom = preferences[Keys.PDF_DOUBLE_TAP] ?: true,
+                annotations = preferences[Keys.PDF_ANNOTATIONS] ?: true,
+                keepScreenOn = preferences[Keys.PDF_KEEP_SCREEN] ?: true,
+                scrollHandle = preferences[Keys.PDF_SCROLL_HANDLE] ?: true,
+                spacingDp = (preferences[Keys.PDF_SPACING] ?: 8).coerceIn(0, 32),
+                fitMode = fit
+            )
+        }
+
+    suspend fun updatePdfReaderSettings(settings: PdfReaderSettings) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.PDF_BOOK_VIEW] = settings.bookView
+            preferences[Keys.PDF_NIGHT] = settings.nightMode
+            preferences[Keys.PDF_SNAP] = settings.snapPages
+            preferences[Keys.PDF_DOUBLE_TAP] = settings.doubleTapZoom
+            preferences[Keys.PDF_ANNOTATIONS] = settings.annotations
+            preferences[Keys.PDF_KEEP_SCREEN] = settings.keepScreenOn
+            preferences[Keys.PDF_SCROLL_HANDLE] = settings.scrollHandle
+            preferences[Keys.PDF_SPACING] = settings.spacingDp.coerceIn(0, 32)
+            preferences[Keys.PDF_FIT] = settings.fitMode.name
+        }
+    }
+
+    suspend fun pdfLastPage(pdfId: String): Int {
+        if (pdfId.isBlank()) return 0
+        val key = intPreferencesKey("pdf_last_page_$pdfId")
+        return try {
+            context.dataStore.data
+                .catch { emit(emptyPreferences()) }
+                .map { it[key] ?: 0 }
+                .first()
+        } catch (_: Exception) {
+            0
+        }
+    }
+
+    suspend fun savePdfLastPage(pdfId: String, page: Int) {
+        if (pdfId.isBlank()) return
+        val key = intPreferencesKey("pdf_last_page_$pdfId")
+        context.dataStore.edit { it[key] = page.coerceAtLeast(0) }
     }
 }

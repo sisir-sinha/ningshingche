@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -65,11 +66,11 @@ internal fun CommenterAvatar(
     ) {
         if (avatarUrl.isNotBlank()) {
             AsyncImage(
-                model = avatarUrl,
+                model = avatarUrl.trim(),
                 contentDescription = name,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .size(size)
+                    .fillMaxSize()
                     .clip(CircleShape)
             )
         } else {

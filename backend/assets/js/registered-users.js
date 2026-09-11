@@ -9,7 +9,7 @@
   let articleEditorCleanup = null;
 
   function emptyCache() {
-    return { users: [], articles: [], comments: [], messages: [], notices: [], categories: [], authors: [], inboxReady: true };
+    return { users: [], articles: [], comments: [], messages: [], notices: [], tracks: [], categories: [], authors: [], inboxReady: true };
   }
 
   function destroyCharts() {
@@ -38,6 +38,27 @@
       || (user.email && String(item.email || '').toLowerCase() === String(user.email).toLowerCase()));
   }
 
+  function trackOwner(record) {
+    if (!record) return null;
+    if (record.user_id) {
+      const byId = userById(record.user_id);
+      if (byId) return byId;
+    }
+    const match = String(record.file_storage_path || '').match(/^user\/([^/]+)\//);
+    return match ? userById(match[1]) : null;
+  }
+
+  function relatedTracks(user) {
+    if (!user) return [];
+    return cache.tracks.filter((item) => trackOwner(item)?.id === user.id || item.user_id === user.id);
+  }
+
+  function isAppTrack(record) {
+    if (!record) return false;
+    if (record.user_id) return true;
+    return String(record.file_storage_path || '').startsWith('user/');
+  }
+
   function appArticles() {
     const emails = new Set(cache.users.map((item) => String(item.email || '').toLowerCase()).filter(Boolean));
     const ids = new Set(cache.users.map((item) => item.id));
@@ -48,6 +69,10 @@
     const emails = new Set(cache.users.map((item) => String(item.email || '').toLowerCase()).filter(Boolean));
     const ids = new Set(cache.users.map((item) => item.id));
     return cache.comments.filter((item) => ids.has(item.user_id) || emails.has(String(item.email || '').toLowerCase()));
+  }
+
+  function appTracks() {
+    return cache.tracks.filter(isAppTrack);
   }
 
   async function safeList(key, options) {
@@ -61,12 +86,13 @@
 
   async function loadCache(context = {}) {
     const optional = (key, options) => NC.api.list(key, options).catch(() => ({ data: [] }));
-    const [profilesResult, submissionsResult, commentsResult, messagesResult, noticesResult, categoriesResult, authorsResult] = await Promise.all([
+    const [profilesResult, submissionsResult, commentsResult, messagesResult, noticesResult, tracksResult, categoriesResult, authorsResult] = await Promise.all([
       NC.api.list('profiles', { select: '*', order: 'created_at.desc', limit: 3000 }),
       safeList('submissions', { select: '*', order: 'created_at.desc', limit: 3000 }),
       safeList('comments', { select: '*', order: 'created_at.desc', limit: 3000 }),
       safeList('messages', { select: '*', order: 'created_at.desc', limit: 3000 }),
       safeList('notifications', { select: '*', order: 'created_at.desc', limit: 3000 }),
+      safeList('music', { select: '*', order: 'created_at.desc', limit: 3000 }),
       optional('categories', { select: 'id,title,slug', order: 'title.asc', limit: 1000 }),
       optional('authors', { select: 'id,title,image', order: 'title.asc', limit: 2000 })
     ]);
@@ -77,6 +103,7 @@
       comments: commentsResult.data,
       messages: messagesResult.data,
       notices: noticesResult.data,
+      tracks: tracksResult.data,
       categories: categoriesResult.data,
       authors: authorsResult.data,
       inboxReady: !messagesResult.missing && !noticesResult.missing
@@ -145,6 +172,7 @@
   function metrics() {
     const articles = appArticles();
     const comments = appComments();
+    const tracks = appTracks();
     const published = articles.filter((item) => ['Published', 'Approved'].includes(item.status)).length;
     const pending = articles.filter((item) => item.status === 'Pending').length;
     const unreadNotices = cache.notices.filter((item) => !item.is_read).length;
@@ -155,6 +183,7 @@
       ['Articles', articles.length, 'fa-file-pen', 'brand'],
       ['Published', published, 'fa-circle-check', 'emerald'],
       ['Pending articles', pending, 'fa-clock', 'amber'],
+      ['Songs', tracks.length, 'fa-music', 'rose'],
       ['Comments', comments.length, 'fa-comments', 'indigo'],
       ['Messages', cache.messages.length, 'fa-messages', 'sky'],
       ['User messages', userMessages, 'fa-inbox', 'cyan'],
@@ -329,7 +358,7 @@
   function renderHome() {
     const articles = appArticles();
     const comments = appComments();
-    root.innerHTML = `${pageChrome('Dashboard', 'Users, articles, comments, messages, and notifications pushed from the Android app.')}
+    root.innerHTML = `${pageChrome('Dashboard', 'Users, articles, songs, comments, messages, and notifications pushed from the Android app.')}
       ${metrics()}
       <section class="ru-chart-grid mt-6" aria-label="Registered user charts">
         ${chartCard('Growth & activity', 'New sign-ups, articles, comments, and user messages per month.', 'ru-chart-growth', 'chart-wide')}
@@ -350,6 +379,13 @@
           meta: `${item.writer_name || 'Unknown writer'} · ${relativeTime(item.created_at)}`,
           status: item.status || 'Pending'
         })), 'No app articles yet', 'ru-articles')}
+      </section>
+      <section class="dashboard-columns mt-6">
+        ${recentBlock('Latest songs', appTracks().map((item) => ({
+          id: item.id, route: 'ru-music', icon: 'music', title: item.title || 'Untitled',
+          meta: `${trackOwner(item) ? displayName(trackOwner(item)) : (item.artist || 'App user')} · ${relativeTime(item.created_at)}`,
+          status: item.genre || 'Song'
+        })), 'No app songs yet', 'ru-music')}
       </section>
       <section class="dashboard-columns mt-6">
         ${recentBlock('Latest comments', comments.map((item) => ({
@@ -380,6 +416,7 @@
   function openUser(user) {
     const articles = relatedArticles(user);
     const comments = relatedComments(user);
+    const tracks = relatedTracks(user);
     const messages = cache.messages.filter((item) => item.user_id === user.id);
     const notices = cache.notices.filter((item) => item.user_id === user.id);
     NC.components.openModal({
@@ -396,9 +433,10 @@
           <div><dt>Profile</dt><dd>${user.profile_completed ? 'Complete' : 'Incomplete'}</dd></div>
         </dl>
         ${user.about ? `<p class="mt-4">${escapeHTML(user.about)}</p>` : ''}
-        <p class="mt-6 text-muted-foreground">${articles.length} articles · ${comments.length} comments · ${messages.length} messages · ${notices.length} notices</p>
+        <p class="mt-6 text-muted-foreground">${articles.length} articles · ${tracks.length} songs · ${comments.length} comments · ${messages.length} messages · ${notices.length} notices</p>
         <div class="button-row mt-4">
           <button type="button" class="btn btn-secondary" data-jump="ru-articles">Articles</button>
+          <button type="button" class="btn btn-secondary" data-jump="ru-music">Music</button>
           <button type="button" class="btn btn-secondary" data-jump="ru-comments">Comments</button>
           <button type="button" class="btn btn-secondary" data-jump="ru-messages">Messages</button>
           <button type="button" class="btn btn-primary" data-jump="ru-notifications">Send notification</button>
@@ -431,7 +469,7 @@
         body: rows.map((user) => `<tr>
           <td data-label="User"><div class="person-cell">${NC.utils.avatarHTML(displayName(user), user.avatar_url, 'person-avatar')}<div><strong>${escapeHTML(displayName(user))}</strong><span>${escapeHTML(user.email || 'No email')}</span></div></div></td>
           <td data-label="Profile">${NC.components.statusBadge(user.profile_completed ? 'Complete' : 'Incomplete')}</td>
-          <td data-label="App data"><small>${relatedArticles(user).length} articles · ${relatedComments(user).length} comments</small></td>
+          <td data-label="App data"><small>${relatedArticles(user).length} articles · ${relatedTracks(user).length} songs · ${relatedComments(user).length} comments</small></td>
           <td data-label="Joined">${escapeHTML(formatDateTime(user.created_at))}</td>
           <td data-label="Actions" class="text-right">${NC.components.rowActions([{ action: 'view', id: user.id, label: 'Open user', icon: 'fa-eye' }])}</td>
         </tr>`).join('')
@@ -1211,17 +1249,151 @@
     };
   }
 
+  function messageAttachmentUrls(body) {
+    const found = String(body || '').match(/https?:\/\/[^\s)]+/gi) || [];
+    return [...new Set(found.map((url) => url.replace(/[.,;]+$/, '')))].filter((url) => (
+      /i\.ibb\.co|imgbb\.com/i.test(url) || /\.(jpe?g|png|webp|gif)(\?|$)/i.test(url)
+    ));
+  }
+
+  function messagePlainText(body) {
+    let text = String(body || '');
+    messageAttachmentUrls(text).forEach((url) => { text = text.split(url).join(''); });
+    return text.replace(/\n{3,}/g, '\n\n').trim();
+  }
+
+  function openImageLightbox(url) {
+    if (!url) return;
+    document.getElementById('ru-image-lightbox')?.remove();
+    const layer = document.createElement('div');
+    layer.id = 'ru-image-lightbox';
+    layer.className = 'ru-image-lightbox';
+    layer.innerHTML = `<button type="button" class="ru-image-lightbox-close" aria-label="Close"><i class="fa-regular fa-xmark" aria-hidden="true"></i></button>
+      <div class="ru-image-lightbox-stage"><img src="${escapeHTML(url)}" alt="" referrerpolicy="no-referrer" draggable="false"></div>`;
+    const close = () => layer.remove();
+    document.addEventListener('keydown', function onKey(event) {
+      if (event.key === 'Escape') {
+        document.removeEventListener('keydown', onKey);
+        close();
+      }
+    });
+    bindLightboxZoom(layer, layer.querySelector('img'), close);
+    document.body.appendChild(layer);
+  }
+
+  function bindLightboxZoom(layer, img, close) {
+    if (!img) return;
+    const MIN = 1;
+    const MAX = 6;
+    let scale = 1;
+    let x = 0;
+    let y = 0;
+    const pointers = new Map();
+    let pinchStartDist = 0;
+    let pinchStartScale = 1;
+    let lastTap = 0;
+    let moved = false;
+
+    const apply = () => {
+      img.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+    };
+    const reset = () => {
+      scale = 1;
+      x = 0;
+      y = 0;
+      apply();
+    };
+    const dist = () => {
+      const pts = [...pointers.values()];
+      if (pts.length < 2) return 0;
+      return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    };
+
+    layer.addEventListener('pointerdown', (event) => {
+      if (event.target.closest('.ru-image-lightbox-close')) return;
+      event.preventDefault();
+      layer.setPointerCapture?.(event.pointerId);
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      moved = false;
+      if (pointers.size === 2) {
+        pinchStartDist = dist();
+        pinchStartScale = scale;
+      }
+    });
+    layer.addEventListener('pointermove', (event) => {
+      if (!pointers.has(event.pointerId)) return;
+      event.preventDefault();
+      const prev = pointers.get(event.pointerId);
+      const dx = event.clientX - prev.x;
+      const dy = event.clientY - prev.y;
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (pointers.size === 2 && pinchStartDist > 0) {
+        scale = Math.min(MAX, Math.max(MIN, pinchStartScale * (dist() / pinchStartDist)));
+        if (scale <= 1.01) reset();
+        else apply();
+        moved = true;
+      } else if (pointers.size === 1 && scale > 1.01) {
+        if (Math.hypot(dx, dy) > 2) moved = true;
+        x += dx;
+        y += dy;
+        apply();
+      } else if (Math.hypot(dx, dy) > 8) {
+        moved = true;
+      }
+    });
+    const forget = (event) => {
+      pointers.delete(event.pointerId);
+      if (pointers.size < 2) pinchStartDist = 0;
+    };
+    layer.addEventListener('pointerup', (event) => {
+      const count = pointers.size;
+      const wasMoved = moved;
+      forget(event);
+      if (event.target.closest('.ru-image-lightbox-close')) {
+        close();
+        return;
+      }
+      if (count !== 1 || wasMoved) return;
+      const now = Date.now();
+      if (now - lastTap < 320) {
+        lastTap = 0;
+        if (scale > 1.05) reset();
+        else {
+          scale = 2.6;
+          apply();
+        }
+      } else {
+        lastTap = now;
+        if (event.target === layer && scale <= 1.01) close();
+      }
+    });
+    layer.addEventListener('pointercancel', forget);
+    layer.addEventListener('wheel', (event) => {
+      event.preventDefault();
+      scale = Math.min(MAX, Math.max(MIN, scale * (event.deltaY < 0 ? 1.12 : 0.9)));
+      if (scale <= 1.01) reset();
+      else apply();
+    }, { passive: false });
+    layer.addEventListener('dblclick', (event) => event.preventDefault());
+  }
+
   function bubblesHTML(userId) {
     const { name } = chatIdentity(userId);
     const thread = threadFor(userId);
     if (!thread.length) {
       return '<p class="text-muted-foreground" style="padding:8px">No messages yet. Write the first reply below.</p>';
     }
-    return thread.map((item) => `
+    return thread.map((item) => {
+      const images = messageAttachmentUrls(item.body);
+      const text = messagePlainText(item.body);
+      const photos = images.map((url) => `<button type="button" class="ru-chat-photo" data-ru-lightbox="${escapeHTML(url)}"><img src="${escapeHTML(url)}" alt="" loading="lazy" referrerpolicy="no-referrer"></button>`).join('');
+      return `
       <article class="ru-bubble ${item.sender === 'admin' ? 'is-admin' : 'is-user'}">
         <header><strong>${item.sender === 'admin' ? 'Admin' : escapeHTML(name)}</strong><time>${escapeHTML(formatDateTime(item.created_at))}</time></header>
-        <p>${escapeHTML(item.body || '')}</p>
-      </article>`).join('');
+        ${text ? `<p>${escapeHTML(text)}</p>` : ''}
+        ${photos ? `<div class="ru-chat-photos">${photos}</div>` : ''}
+      </article>`;
+    }).join('');
   }
 
   function fromCell(userId) {
@@ -1358,6 +1530,13 @@
       pill.addEventListener('click', (event) => {
         if (event.target.closest('[data-ru-chat-close]')) return;
         openChat(pill.dataset.ruChatRestore);
+      });
+    });
+    dock.querySelectorAll('[data-ru-lightbox]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openImageLightbox(button.dataset.ruLightbox);
       });
     });
     dock.querySelectorAll('[data-ru-chat-form]').forEach((form) => {
@@ -1622,10 +1801,160 @@
     renderList();
   }
 
+
+  function durationLabel(seconds) {
+    const total = Number(seconds) || 0;
+    if (total <= 0) return '—';
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  function trackById(id) {
+    return cache.tracks.find((item) => item.id === id) || null;
+  }
+
+  function canManageMusic() {
+    return NC.auth.canAccess('music');
+  }
+
+  function openTrackView(record) {
+    const owner = trackOwner(record);
+    const thumbnail = safeImage(record.thumbnail_url);
+    NC.components.openModal({
+      title: record.title || 'Untitled',
+      eyebrow: [record.artist, record.album].filter(Boolean).join(' · ') || 'App song',
+      size: 'lg',
+      content: `
+        ${thumbnail ? `<img src="${escapeHTML(thumbnail)}" alt="" style="width:120px;height:120px;object-fit:cover;border-radius:16px;margin-bottom:16px;" referrerpolicy="no-referrer">` : ''}
+        <dl class="details-list">
+          <div><dt>Uploaded by</dt><dd>${escapeHTML(owner ? displayName(owner) : (record.user_id || 'App user'))}${owner?.email ? ` · ${escapeHTML(owner.email)}` : ''}</dd></div>
+          <div><dt>Genre</dt><dd>${escapeHTML(record.genre || '—')}</dd></div>
+          <div><dt>Length</dt><dd>${escapeHTML(durationLabel(record.duration_seconds))}</dd></div>
+          <div><dt>Added</dt><dd>${escapeHTML(formatDateTime(record.created_at))}</dd></div>
+        </dl>
+        <audio controls preload="metadata" src="${escapeHTML(record.audio_url || '')}" style="width:100%;margin-top:16px"></audio>
+        ${record.video_link ? `<div class="mt-5">${NC.media.videoPreviewHTML(record.video_link, { title: record.title })}</div>` : ''}
+        ${record.description ? `<div class="prose-content mt-5"><p>${escapeHTML(record.description)}</p></div>` : ''}`,
+      footer: `<button type="button" class="btn btn-secondary" data-modal-close>Close</button>${canManageMusic() ? '<button type="button" class="btn btn-primary" data-open-music><i class="fa-regular fa-music" aria-hidden="true"></i>Open in Music</button>' : ''}`,
+      onOpen: (modalRoot) => {
+        modalRoot.querySelector('[data-open-music]')?.addEventListener('click', () => {
+          NC.components.closeModal();
+          routeTo('music', { action: 'view', id: record.id });
+        });
+      }
+    });
+  }
+
+  async function deleteTrack(record, onDeleted) {
+    if (!canManageMusic()) {
+      NC.components.toast('Deleting songs requires Music library access.', 'warning');
+      return;
+    }
+    const deleted = await NC.crud.deleteRecord({
+      table: 'music',
+      record,
+      label: 'track',
+      remoteDeleteUrls: [record.imgbb_delete_url],
+      storageObjects: record.file_storage_path ? [{ bucket: NC_CONFIG.supabase.musicBucket, path: record.file_storage_path }] : []
+    });
+    if (deleted) await onDeleted();
+  }
+
+  function renderMusic(context = {}) {
+    const state = new NC.crud.ListState('tracks', { searchFields: ['title', 'artist', 'album', 'genre', 'description'], sortKey: 'created_at' });
+    const records = appTracks();
+    state.setRecords(records);
+    const reload = () => refreshScreen(renderMusic, context);
+    const params = context.params || new URLSearchParams();
+    const presetUser = params.get('user') || 'all';
+    const userOptions = cache.users
+      .map((user) => ({ value: user.id, label: `${displayName(user)}${user.email ? ` — ${user.email}` : ''}`, count: relatedTracks(user).length }))
+      .filter((item) => item.count > 0)
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'bn'));
+    root.innerHTML = `${pageChrome('Music', 'Songs uploaded from the Android app (নতুন গান). Editorial tracks stay in Content → Music.')}
+      <section class="surface">
+        <div class="list-toolbar">
+          <label class="search-field"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><span class="sr-only">Search songs</span><input type="search" placeholder="Search title, artist, or album…" data-ru-search></label>
+          ${NC.crud.filterSelect(userOptions, { attr: 'data-ru-user-filter', label: 'Filter by user', placeholder: 'All users', selected: presetUser, wide: true })}
+        </div>
+        <div class="active-filters hidden" data-ru-active-filters></div>
+        <div data-ru-table></div>
+      </section>`;
+    const renderList = () => {
+      const content = root.querySelector('[data-ru-table]');
+      const { rows, total } = state.paged();
+      if (!total) {
+        const filtered = Boolean(state.query) || root.querySelector('[data-ru-user-filter]')?.value !== 'all';
+        content.innerHTML = NC.components.emptyState({
+          icon: 'fa-music',
+          title: filtered ? 'No songs match' : 'No app songs yet',
+          description: filtered ? 'Try another user or search.' : 'Registered users upload MP3s from নতুন গান. They also appear in Content → Music.'
+        });
+        return;
+      }
+      content.innerHTML = `${NC.components.tableShell({
+        caption: 'App songs', minWidth: '1080px',
+        head: `<tr><th>Track</th><th>Uploaded by</th><th>Length</th><th><button type="button" data-sort="created_at">Added ${NC.crud.sortIcon(state, 'created_at')}</button></th><th class="text-right">Actions</th></tr>`,
+        body: rows.map((item) => {
+          const owner = trackOwner(item);
+          const thumbnail = safeImage(item.thumbnail_url);
+          const actions = [{ action: 'view', id: item.id, label: 'Preview track', icon: 'fa-play' }];
+          if (canManageMusic()) {
+            actions.push({ action: 'library', id: item.id, label: 'Open in Music', icon: 'fa-music' });
+            actions.push({ action: 'delete', id: item.id, label: 'Delete track', icon: 'fa-trash', danger: true });
+          }
+          return `<tr>
+            <td data-label="Track"><div class="video-cell">${thumbnail ? `<img src="${escapeHTML(thumbnail)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-image-fallback>` : `<span><i class="fa-regular fa-music" aria-hidden="true"></i></span>`}<div><strong>${escapeHTML(item.title || 'Untitled')}</strong><small>${escapeHTML([item.artist, item.album].filter(Boolean).join(' · ') || item.genre || '')}</small></div></div></td>
+            <td data-label="Uploaded by"><div class="person-cell compact">${NC.utils.avatarHTML(owner ? displayName(owner) : 'App user', owner?.avatar_url, 'person-avatar')}<div><strong>${escapeHTML(owner ? displayName(owner) : (item.user_id || 'Unknown user'))}</strong><span>${escapeHTML(owner?.email || '')}</span></div></div></td>
+            <td data-label="Length">${escapeHTML(durationLabel(item.duration_seconds))}</td>
+            <td data-label="Added">${escapeHTML(formatDateTime(item.created_at))}</td>
+            <td data-label="Actions" class="text-right">${NC.components.rowActions(actions)}</td>
+          </tr>`;
+        }).join('')
+      })}${NC.components.pagination({ page: state.page, pageSize: state.pageSize, total })}`;
+      NC.components.bindImageFallbacks(content);
+      content.querySelectorAll('[data-action]').forEach((button) => {
+        const record = trackById(button.dataset.id);
+        if (!record) return;
+        button.addEventListener('click', () => {
+          if (button.dataset.action === 'view') openTrackView(record);
+          if (button.dataset.action === 'library') routeTo('music', { action: 'view', id: record.id });
+          if (button.dataset.action === 'delete') deleteTrack(record, reload);
+        });
+      });
+      NC.crud.bindPagination(root, state, renderList);
+      NC.crud.bindSort(root, state, renderList);
+    };
+    bindList(state, renderList);
+    const userSelect = root.querySelector('[data-ru-user-filter]');
+    const applyUser = () => {
+      const value = userSelect?.value;
+      state.setFilter('__user', value && value !== 'all' ? (_, record) => (trackOwner(record)?.id === value || record.user_id === value) : 'all');
+      renderList();
+      NC.crud.renderActiveFilters(root.querySelector('[data-ru-active-filters]'), [
+        { key: 'user', label: 'User', value: value && value !== 'all' ? displayName(userById(value) || {}) : '' }
+      ], {
+        onRemove: (key) => { if (key === 'user' && userSelect) { userSelect.value = 'all'; applyUser(); } },
+        onClear: () => { if (userSelect) userSelect.value = 'all'; applyUser(); }
+      });
+    };
+    userSelect?.addEventListener('change', applyUser);
+    const openId = params.get('id');
+    if (presetUser !== 'all' && userSelect && [...userSelect.options].some((option) => option.value === presetUser)) {
+      userSelect.value = presetUser;
+    } else if (openId && userById(openId) && !trackById(openId) && userSelect) {
+      userSelect.value = openId;
+    }
+    applyUser();
+    if (openId && trackById(openId)) openTrackView(trackById(openId));
+  }
+
   const screens = {
     'registered-users': renderHome,
     'ru-users': renderUsers,
     'ru-articles': renderArticles,
+    'ru-music': renderMusic,
     'ru-comments': renderComments,
     'ru-messages': renderMessages,
     'ru-notifications': renderNotifications

@@ -7,6 +7,7 @@ import com.ningshingche.app.data.remote.UserRole
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -88,11 +89,37 @@ class GoogleAuthMapperTest {
     fun jwtDetectionRejectsLocalAdminTokens() {
         assertFalse(GoogleAuthMapper.isSupabaseJwt("admin_auth_token"))
         assertFalse(GoogleAuthMapper.isSupabaseJwt(null))
-        assertTrue(
+        assertFalse(
             GoogleAuthMapper.isSupabaseJwt(
-                "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.suffixvalue"
+                fakeIdToken(mapOf("sub" to "1234567890", "iss" to "https://accounts.google.com"))
             )
         )
+        assertTrue(
+            GoogleAuthMapper.isSupabaseJwt(
+                fakeIdToken(mapOf("sub" to "1234567890", "role" to "authenticated"))
+            )
+        )
+        assertTrue(
+            GoogleAuthMapper.isSupabaseJwt(
+                fakeIdToken(mapOf("sub" to "1234567890", "iss" to "https://xyz.supabase.co/auth/v1"))
+            )
+        )
+        assertTrue(
+            GoogleAuthMapper.isSupabaseJwt(
+                fakeIdToken(mapOf("sub" to "11111111-1111-1111-1111-111111111111"))
+            )
+        )
+    }
+
+    @Test
+    fun userFacingJwtErrorRecognizesExpirationAndMalformedTokens() {
+        val expiredMsg = GoogleAuthMapper.sessionExpiredMessage()
+        assertEquals(expiredMsg, GoogleAuthMapper.userFacingJwtError("exp claim timestamp check failed"))
+        assertEquals(expiredMsg, GoogleAuthMapper.userFacingJwtError("JWS Protected Header is invalid"))
+        assertEquals(expiredMsg, GoogleAuthMapper.userFacingJwtError("token is expired"))
+        assertEquals(expiredMsg, GoogleAuthMapper.userFacingJwtError("jwt malformed"))
+        assertNull(GoogleAuthMapper.userFacingJwtError("network timeout"))
+        assertNull(GoogleAuthMapper.userFacingJwtError(null))
     }
 
     @Test

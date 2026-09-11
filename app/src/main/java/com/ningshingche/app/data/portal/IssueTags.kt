@@ -103,12 +103,4 @@ object IssueTags {
         return issueYear(trimmed)
     }
 
-    /**
-     * PostgREST array-literal for `tags=ov.{…}` / `cs.{…}`. Values are quoted
-     * so commas or spaces inside a tag cannot split the literal.
-     */
-    fun postgrestArray(values: Collection<String>): String =
-        values.joinToString(",", prefix = "{", postfix = "}") { value ->
-            "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
-        }
 }

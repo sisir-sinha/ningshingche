@@ -24,10 +24,16 @@ sealed class Screen(val route: String) {
     data object Login : Screen("login")
     data object UserDashboard : Screen("user_dashboard")
     data object UserProfile : Screen("user_profile")
-    data object UserInbox : Screen("user_inbox")
     data object NewArticle : Screen("new_article")
+    data object NewMusic : Screen("new_music")
     data object PdfArchive : Screen("pdf_archive")
     data object Music : Screen("music")
+    data object MusicGenre : Screen("music_genre/{name}") {
+    }
+    data object MusicArtist : Screen("music_artist/{name}") {
+    }
+    data object MusicAlbum : Screen("music_album/{name}") {
+    }
     data object Featured : Screen("featured")
     data object About : Screen("about")
     data object SocialActivities : Screen("social_activities")
@@ -37,27 +43,21 @@ sealed class Screen(val route: String) {
     data object Explore : Screen("explore") {
         const val ARG_TAB = "tab"
         const val pattern = "explore?tab={tab}"
-        fun createRoute(tab: ExploreTab) = "explore?tab=${tab.key}"
     }
 
     data object PdfViewer : Screen("pdf_viewer/{pdfId}") {
-        fun createRoute(pdfId: String) = "pdf_viewer/$pdfId"
     }
 
     data object ArticleDetail : Screen("article/{articleId}") {
-        fun createRoute(articleId: String) = "article/$articleId"
     }
 
     data object CategoryDetail : Screen("category/{categorySlug}") {
-        fun createRoute(categorySlug: String) = "category/$categorySlug"
     }
 
     data object AuthorDetail : Screen("author/{authorId}") {
-        fun createRoute(authorId: String) = "author/$authorId"
     }
 
     /** Annual issue (`নিংশিং চে - YYYY` tag) listing. */
     data object IssueDetail : Screen("issue/{year}") {
-        fun createRoute(year: Int) = "issue/$year"
     }
 }

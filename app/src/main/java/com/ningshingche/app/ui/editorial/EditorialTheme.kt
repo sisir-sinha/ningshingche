@@ -8,12 +8,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
-
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ningshingche.app.ui.theme.bengaliTextStyle
 
 /**
  * "Modern editorial" design system.
@@ -169,83 +168,27 @@ object EditorialType {
         trim = LineHeightStyle.Trim.None
     )
 
-    val Masthead = TextStyle(
-        fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-        fontWeight = FontWeight.Bold,
-        fontSize = 26.sp,
-        lineHeight = 32.sp,
-        letterSpacing = (-0.4).sp
-    )
+    val Masthead = bengaliTextStyle(FontWeight.Bold, 26.sp, 32.sp)
 
-    val Display = TextStyle(
-        fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-        fontWeight = FontWeight.Bold,
-        fontSize = 34.sp,
-        lineHeight = 42.sp,
-        letterSpacing = (-0.8).sp,
-        lineHeightStyle = displayAlignment
-    )
+    val Display = bengaliTextStyle(FontWeight.Bold, 34.sp, 42.sp, displayAlignment)
 
-    val Headline = TextStyle(
-        fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 24.sp,
-        lineHeight = 32.sp,
-        letterSpacing = (-0.3).sp,
-        lineHeightStyle = displayAlignment
-    )
+    val Headline = bengaliTextStyle(FontWeight.SemiBold, 24.sp, 32.sp, displayAlignment)
 
-    val Title = TextStyle(
-        fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 19.sp,
-        lineHeight = 27.sp,
-        letterSpacing = (-0.1).sp,
-        lineHeightStyle = displayAlignment
-    )
+    val Title = bengaliTextStyle(FontWeight.SemiBold, 19.sp, 27.sp, displayAlignment)
 
-    val Subtitle = TextStyle(
-        fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 15.sp,
-        lineHeight = 23.sp
-    )
+    val Subtitle = bengaliTextStyle(FontWeight.SemiBold, 15.sp, 23.sp)
 
-    val Body = TextStyle(
-        fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-        fontSize = 16.sp,
-        lineHeight = 27.sp
-    )
+    val Body = bengaliTextStyle(FontWeight.Normal, 16.sp, 27.sp)
 
-    val BodySmall = TextStyle(
-        fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-        fontSize = 14.sp,
-        lineHeight = 23.sp
-    )
+    val BodySmall = bengaliTextStyle(FontWeight.Normal, 14.sp, 23.sp)
 
-    val Caption = TextStyle(
-        fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-        fontSize = 12.sp,
-        lineHeight = 18.sp,
-        letterSpacing = 0.2.sp
-    )
+    val Caption = bengaliTextStyle(FontWeight.Normal, 12.sp, 18.sp)
 
     /** Small caps–style section eyebrows. Uppercase Latin, normal Bengali. */
-    val Eyebrow = TextStyle(
-        fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-        fontWeight = FontWeight.Bold,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 1.1.sp
-    )
+    val Eyebrow = bengaliTextStyle(FontWeight.Bold, 12.sp, 16.sp)
 
     /** Drop-cap-capable lede paragraph for the article reader. */
-    val Lede = TextStyle(
-        fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-        fontSize = 18.sp,
-        lineHeight = 31.sp,
-        fontWeight = FontWeight.Medium
-    )
+    val Lede = bengaliTextStyle(FontWeight.Medium, 18.sp, 31.sp)
 }
 
 // ---------------------------------------------------------------------------
