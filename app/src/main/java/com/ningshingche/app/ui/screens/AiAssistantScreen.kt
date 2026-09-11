@@ -152,7 +152,7 @@ fun AiAssistantScreen(
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
             shadowElevation = 1.dp,
             // The screen is edge-to-edge and has no Scaffold, so the header has to
-            // clear the status bar itself - same approach as PortalTopBar.
+            // clear the status bar itself.
             modifier = Modifier.statusBarsPadding()
         ) {
             Row(
