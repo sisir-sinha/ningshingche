@@ -511,11 +511,26 @@ language, Bengali read-only as the lookup key) into `app_language_files` from mi
 never shadow a real one. Switching
 language in Settings calls `refresh`, as does the "অনুবাদ হালনাগাদ করুন" button.
 
-First launch: `MainActivity` waits for the first DataStore emission, then shows
-`ui/screens/LanguageSetupScreen.kt` while `ReaderPreferences.languageChosen` is false — one question,
-three cards (each named in its own script), and continuing sets the preference
-(`markLanguageChosen()`). Picking a language already downloads its file, so the reader lands in a
-translated app rather than watching it fill in.
+First launch: `MainActivity` waits for the first DataStore emission, then the reader starts on
+`ReaderRoute.Splash`. When `ReaderPreferences.onboardingComplete` is false the splash leads into
+`ReaderRoute.FirstRun` — `ui/screens/FirstRunFlow.kt`, the three first-install steps on one screen,
+one Next at the bottom of each:
+
+| Step | Screen | Button |
+| --- | --- | --- |
+| 1 | `LanguageSetupScreen` — three cards, each named in its own script | `পরবর্তী` (Next) |
+| 2 | `WelcomeLoginScreen` — Google sign-in, and `সাইন-ইন ছাড়া পরবর্তী` to move on without it | Next |
+| 3 | `WelcomeNotificationsScreen` — what will be sent, then the Android permission dialog | `চালু করে শেষ করুন` (Finish) |
+
+A row of dots at the top shows the step in hand. Choosing a language on step 1 already downloads its
+file, so the later steps are translated rather than filling in as the reader watches. Finishing calls
+`SettingsViewModel.completeOnboarding()`, which sets both `onboardingComplete` and `languageChosen`
+and returns to `ReaderRoute.Home`; declining notifications finishes the flow too. Nothing here is
+one-way: language, account and notifications are all editable afterwards in Settings.
+
+The splash's loading bar fills once from left to right across its 1.5 s display. It used to be an
+indeterminate `LinearProgressIndicator`, which swept right and snapped back — visible as a bounce on
+the loading screen.
 
 ### PDFs — `util/PdfHelper.kt`
 

@@ -57,7 +57,8 @@ import com.ningshingche.app.ui.viewmodel.SettingsViewModel
 fun WelcomeLoginScreen(
     viewModel: SettingsViewModel,
     onSignedIn: () -> Unit,
-    onSkip: () -> Unit = onSignedIn
+    onSkip: () -> Unit = onSignedIn,
+    skipLabel: String = "সাইন-ইন ছাড়া এগিয়ে যান"
 ) {
     val context = LocalContext.current
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
@@ -136,7 +137,7 @@ fun WelcomeLoginScreen(
             modifier = Modifier.testTag("welcome_login_skip_button")
         ) {
             Text(
-                text = "সাইন-ইন ছাড়া এগিয়ে যান",
+                text = skipLabel,
                 fontFamily = Kalpurush,
                 fontSize = 14.sp,
                 color = MaterialTheme.colorScheme.primary
@@ -148,7 +149,8 @@ fun WelcomeLoginScreen(
 @Composable
 fun WelcomeNotificationsScreen(
     viewModel: SettingsViewModel,
-    onFinished: () -> Unit
+    onFinished: () -> Unit,
+    finishLabel: String = "বিজ্ঞপ্তি চালু করুন"
 ) {
     val context = LocalContext.current
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -247,7 +249,7 @@ fun WelcomeNotificationsScreen(
                 .testTag("welcome_enable_notifications_button")
         ) {
             Text(
-                text = "বিজ্ঞপ্তি চালু করুন",
+                text = finishLabel,
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp

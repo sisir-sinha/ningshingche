@@ -60,8 +60,7 @@ import com.ningshingche.app.ui.screens.SplashScreen
 import com.ningshingche.app.ui.screens.UserDashboardScreen
 
 import com.ningshingche.app.ui.screens.UserProfileScreen
-import com.ningshingche.app.ui.screens.WelcomeLoginScreen
-import com.ningshingche.app.ui.screens.WelcomeNotificationsScreen
+import com.ningshingche.app.ui.screens.FirstRunFlow
 import com.ningshingche.app.ui.viewmodel.AiViewModel
 import com.ningshingche.app.ui.viewmodel.BookmarksViewModel
 import com.ningshingche.app.ui.viewmodel.SavedArticlesViewModel
@@ -99,8 +98,7 @@ object ReaderRoute {
     const val AiAssistantPattern = "ai_assistant?q={q}"
     const val Settings = "settings"
     const val Login = "login"
-    const val WelcomeLogin = "welcome_login"
-    const val WelcomeNotifications = "welcome_notifications"
+    const val FirstRun = "first_run"
     const val UserDashboard = "user_dashboard"
     const val UserDashboardPattern = "user_dashboard?tab={tab}&focus={focus}"
     const val UserProfile = "user_profile"
@@ -243,8 +241,7 @@ fun EditorialReaderApp(
     LaunchedEffect(launchRoute, currentRoute) {
         val route = launchRoute ?: return@LaunchedEffect
         val blocked = currentRoute == ReaderRoute.Splash ||
-            currentRoute == ReaderRoute.WelcomeLogin ||
-            currentRoute == ReaderRoute.WelcomeNotifications
+            currentRoute == ReaderRoute.FirstRun
         if (blocked) return@LaunchedEffect
         navController.navigate(route)
         onPendingRouteConsumed()
@@ -356,10 +353,13 @@ fun EditorialReaderApp(
             composable(ReaderRoute.Splash, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
                 SplashScreen(
                     onSplashComplete = {
-                        val dest = when {
-                            readerPreferences.onboardingComplete -> ReaderRoute.Home
-                            isSignedIn -> ReaderRoute.WelcomeNotifications
-                            else -> ReaderRoute.WelcomeLogin
+                        // A first install goes through the three steps (language,
+                        // sign-in, notifications) as one flow; afterwards the
+                        // splash opens the reader straight away.
+                        val dest = if (readerPreferences.onboardingComplete) {
+                            ReaderRoute.Home
+                        } else {
+                            ReaderRoute.FirstRun
                         }
                         navController.navigate(dest) {
                             popUpTo(ReaderRoute.Splash) { inclusive = true }
@@ -611,31 +611,25 @@ fun EditorialReaderApp(
                 )
             }
 
-            // Onboarding Welcome Screens
-            composable(ReaderRoute.WelcomeLogin, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
+            // First install: language, sign-in and notifications as three steps
+            // of one flow (see FirstRunFlow). Finish marks onboarding complete in
+            // the same call, so this route is never reached twice.
+            composable(ReaderRoute.FirstRun, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
                 val settingsViewModel: SettingsViewModel = viewModel(factory = mainFactory)
-                WelcomeLoginScreen(
-                    viewModel = settingsViewModel,
-                    onSignedIn = {
-                        navController.navigate(ReaderRoute.WelcomeNotifications) {
-                            popUpTo(ReaderRoute.WelcomeLogin) { inclusive = true }
+                FirstRunFlow(
+                    selected = readerPreferences.contentLanguage,
+                    onSelectLanguage = { language ->
+                        coroutineScope.launch {
+                            // Downloads that language's file immediately, so the
+                            // steps after this one are already translated.
+                            app.preferencesRepository.updateContentLanguage(language)
+                            app.translations.refresh(language)
                         }
                     },
-                    onSkip = {
-                        navController.navigate(ReaderRoute.WelcomeNotifications) {
-                            popUpTo(ReaderRoute.WelcomeLogin) { inclusive = true }
-                        }
-                    }
-                )
-            }
-
-            composable(ReaderRoute.WelcomeNotifications, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
-                val settingsViewModel: SettingsViewModel = viewModel(factory = mainFactory)
-                WelcomeNotificationsScreen(
                     viewModel = settingsViewModel,
                     onFinished = {
                         navController.navigate(ReaderRoute.Home) {
-                            popUpTo(ReaderRoute.WelcomeNotifications) { inclusive = true }
+                            popUpTo(ReaderRoute.FirstRun) { inclusive = true }
                         }
                     }
                 )

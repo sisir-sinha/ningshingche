@@ -16,7 +16,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -26,7 +28,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -80,6 +81,15 @@ fun SplashScreen(
         targetValue = if (startAnimation) 1f else 0.85f,
         animationSpec = tween(durationMillis = 900, easing = FastOutSlowInEasing),
         label = "splash_scale"
+    )
+
+    // One left-to-right fill across the splash's display time. The indeterminate
+    // bar that used to sit here swept to the right and jumped back to the left
+    // every 1.5 s, which read as something bouncing on the loading screen.
+    val progress by animateFloatAsState(
+        targetValue = if (startAnimation) 1f else 0f,
+        animationSpec = tween(durationMillis = 1500, easing = LinearEasing),
+        label = "splash_progress"
     )
 
     val infiniteTransition = rememberInfiniteTransition(label = "pulse_loop")
@@ -242,7 +252,8 @@ fun SplashScreen(
 
             Spacer(Modifier.height(48.dp))
 
-            // Loading progress bar with sleek styling
+            // Loading bar: fills once, left to right, and stays full until the
+            // reader is handed over.
             Box(
                 modifier = Modifier
                     .width(140.dp)
@@ -250,10 +261,12 @@ fun SplashScreen(
                     .clip(RoundedCornerShape(2.dp))
                     .background(if (isDark) Color(0xFF2B2521) else Color(0xFFE2D6C6))
             ) {
-                LinearProgressIndicator(
-                    modifier = Modifier.fillMaxSize(),
-                    color = if (isDark) Color(0xFFF0A94B) else PortalMaroon,
-                    trackColor = Color.Transparent
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(progress)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(if (isDark) Color(0xFFF0A94B) else PortalMaroon)
                 )
             }
 

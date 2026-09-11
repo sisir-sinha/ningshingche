@@ -41,13 +41,13 @@ import com.ningshingche.app.data.model.ContentLanguage
 import com.ningshingche.app.ui.theme.Kalpurush
 
 /**
- * The one question the app asks before anything else: which language to read in.
+ * The first of the three first-install steps: which language to read in.
  *
- * It is shown once, while `ReaderPreferences.languageChosen` is false, and it is
- * the whole first-launch experience — no login, no onboarding, nothing to skip
- * past. Picking a language downloads that language's file straight away, so the
- * reader sees the interface in their language as soon as they continue. After
- * this, the language is changed from Settings like any other preference.
+ * Shown by [FirstRunFlow] while `ReaderPreferences.onboardingComplete` is false —
+ * step one of three, so its button says Next rather than Start. Picking a
+ * language downloads that language's file straight away, so the reader sees the
+ * interface in their language as soon as they move on. After this, the language
+ * is changed from Settings like any other preference.
  *
  * The options are deliberately labelled in their own language (and their own
  * script), because this screen is read by someone who may not read the one the
@@ -58,7 +58,8 @@ import com.ningshingche.app.ui.theme.Kalpurush
 fun LanguageSetupScreen(
     selected: ContentLanguage,
     onSelect: (ContentLanguage) -> Unit,
-    onContinue: () -> Unit
+    onContinue: () -> Unit,
+    continueLabel: String = "শুরু করুন"
 ) {
     // Held locally so a tap feels immediate; the preference follows through.
     var chosen by remember(selected) { mutableStateOf(selected) }
@@ -128,7 +129,7 @@ fun LanguageSetupScreen(
                 Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
                 Text(
-                    text = "শুরু করুন",
+                    text = continueLabel,
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp

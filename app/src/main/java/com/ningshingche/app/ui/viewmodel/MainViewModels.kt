@@ -388,6 +388,9 @@ class SettingsViewModel(
 
     fun completeOnboarding(onDone: () -> Unit = {}) {
         viewModelScope.launch {
+            // The language was picked on the first step of the same flow, so both
+            // flags land together and neither step can come back on its own.
+            preferencesRepository.markLanguageChosen()
             preferencesRepository.markOnboardingComplete()
             onDone()
         }

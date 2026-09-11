@@ -21,7 +21,6 @@ import com.ningshingche.app.ui.editorial.EditorialTheme
 import com.ningshingche.app.ui.i18n.LocalTranslations
 import com.ningshingche.app.ui.i18n.TranslationTable
 import com.ningshingche.app.ui.reader.EditorialReaderApp
-import com.ningshingche.app.ui.screens.LanguageSetupScreen
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
@@ -30,6 +29,10 @@ import kotlinx.coroutines.launch
  *
  * All navigation lives in [EditorialReaderApp]; this class owns the theme
  * (system / light / dark, read from DataStore) and the edge-to-edge window.
+ *
+ * The first-install steps are not decided here: they are a destination of the
+ * reader's navigation (`ReaderRoute.FirstRun`), so the splash leads into them
+ * rather than appearing after them.
  *
  * Keyboard: [enableEdgeToEdge] opts out of decor fitting, so `adjustResize`
  * does not shrink the window. The root [imePadding] lifts the entire app by
@@ -75,47 +78,31 @@ class MainActivity : ComponentActivity() {
             ) {
                 EditorialTheme(darkTheme = darkTheme) {
                     if (stored == null) return@EditorialTheme // first frame only
-                    // First launch: the language question, on its own, before
-                    // anything else. Afterwards it lives in Settings only.
-                    if (!preferences.languageChosen) {
-                        LanguageSetupScreen(
-                            selected = preferences.contentLanguage,
-                            onSelect = { language ->
+                    // The reader opens on the splash; a first install goes from
+                    // there into the three-step flow (language, sign-in,
+                    // notifications) inside the reader's own navigation, so the
+                    // steps, their dots and the finish share one screen instead
+                    // of being separate destinations reached from here.
+                    Box(Modifier.fillMaxSize().imePadding()) {
+                        EditorialReaderApp(
+                            app = app,
+                            isDark = darkTheme,
+                            themeMode = preferences.appThemeMode,
+                            pendingRoute = pendingRoute,
+                            onPendingRouteConsumed = { pendingRoute.value = null },
+                            onCycleTheme = {
+                                // System (default) → Light → Dark → System …
                                 coroutineScope.launch {
-                                    // Downloads that language's file immediately,
-                                    // so the reader continues into a translated app.
-                                    app.preferencesRepository.updateContentLanguage(language)
-                                    app.translations.refresh(language)
+                                    val nextMode = when (preferences.appThemeMode) {
+                                        AppThemeMode.SYSTEM -> AppThemeMode.LIGHT
+                                        AppThemeMode.LIGHT -> AppThemeMode.DARK
+                                        AppThemeMode.DARK -> AppThemeMode.SYSTEM
+                                    }
+                                    app.preferencesRepository.updateAppThemeMode(nextMode)
                                 }
                             },
-                            onContinue = {
-                                coroutineScope.launch {
-                                    app.preferencesRepository.markLanguageChosen()
-                                }
-                            }
+                            modifier = Modifier.fillMaxSize()
                         )
-                    } else {
-                        Box(Modifier.fillMaxSize().imePadding()) {
-                            EditorialReaderApp(
-                                app = app,
-                                isDark = darkTheme,
-                                themeMode = preferences.appThemeMode,
-                                pendingRoute = pendingRoute,
-                                onPendingRouteConsumed = { pendingRoute.value = null },
-                                onCycleTheme = {
-                                    // System (default) → Light → Dark → System …
-                                    coroutineScope.launch {
-                                        val nextMode = when (preferences.appThemeMode) {
-                                            AppThemeMode.SYSTEM -> AppThemeMode.LIGHT
-                                            AppThemeMode.LIGHT -> AppThemeMode.DARK
-                                            AppThemeMode.DARK -> AppThemeMode.SYSTEM
-                                        }
-                                        app.preferencesRepository.updateAppThemeMode(nextMode)
-                                    }
-                                },
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
                     }
                 }
             }
