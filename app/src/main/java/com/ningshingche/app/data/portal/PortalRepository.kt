@@ -334,23 +334,25 @@ class PortalRepository(
         }
 
     /**
-     * Server-side search. PostgREST ORs an `ilike` across title, subtitle and
-     * slug; the term is escaped so a stray comma or parenthesis cannot break the
-     * filter expression.
+     * Server-side search across the article text: title, subtitle, slug, author,
+     * tags and body. Several words are separate conditions, so a reader can type
+     * what they remember in any order — see [SearchQuery], which owns the filter
+     * syntax and is unit-tested against the live database's behaviour.
      */
     suspend fun searchArticles(
         query: String,
         limit: Int = PortalConfig.PAGE_SIZE,
         offset: Int = 0
     ): Result<Page<ArticleSummary>> = withContext(Dispatchers.IO) {
-        val term = query.trim()
-        if (term.length < 2) return@withContext Result.success(Page(emptyList(), total = 0, offset = offset, limit = limit))
+        val filter = SearchQuery.build(query)
+            ?: return@withContext Result.success(Page(emptyList(), total = 0, offset = offset, limit = limit))
 
-        val pattern = "*${escapeFilterValue(term)}*"
+        val encoded = SearchQuery.encode(filter.value)
         callPage {
             api.blogs(
                 status = "eq.Publish",
-                or = "(title.ilike.$pattern,sub_title.ilike.$pattern,slug.ilike.$pattern)",
+                or = encoded.takeIf { filter.parameter == "or" },
+                and = encoded.takeIf { filter.parameter == "and" },
                 order = PortalApi.FEED_ORDER,
                 limit = limit,
                 offset = offset

@@ -1,6 +1,8 @@
 package com.ningshingche.app.ui.reader
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -53,6 +55,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -242,7 +245,7 @@ fun SearchScreen(
     ) { padding ->
         if (query.trim().length < 2) {
             EmptyState(
-                message = "অন্তত দুই অক্ষর লিখুন। শিরোনাম, উপশিরোনাম ও স্লাগে খোঁজা হয়।",
+                message = "অন্তত দুই অক্ষর লিখুন। শিরোনাম, উপশিরোনাম, লেখক, ট্যাগ ও লেখার ভেতরে খোঁজা হয়।",
                 modifier = Modifier.padding(padding)
             )
         } else if (songs.isNotEmpty() && state is ListUiState.Loading) {
@@ -284,10 +287,14 @@ fun SearchScreen(
                 modifier = Modifier.padding(padding)
             ) {
                 if (state is ListUiState.Ready) {
-                    val total = (state as ListUiState.Ready).total
+                    val ready = state as ListUiState.Ready
                     SectionHeader(
-                        title = "ফলাফল",
-                        subtitle = if (total != null) "$total টি প্রবন্ধ" else null
+                        title = if (ready.articles.isEmpty()) "কোনো ফলাফল নেই" else "ফলাফল",
+                        subtitle = when {
+                            ready.total != null -> "${ready.total} টি প্রবন্ধ"
+                            ready.articles.isEmpty() -> "\"${query.trim()}\" — অন্য শব্দে চেষ্টা করুন"
+                            else -> null
+                        }
                     )
                 }
             }
@@ -307,6 +314,10 @@ private fun SearchField(
         value = value,
         onValueChange = onValueChange,
         singleLine = true,
+        // The field searched as you typed but the keyboard's search key did
+        // nothing, which reads as "search is broken". It now submits.
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(onSearch = { onSubmit() }),
         textStyle = EditorialType.Body,
                     placeholder = { Text("প্রবন্ধ ও গান খুঁজুন...", style = EditorialType.Body, color = tokens.inkMuted) },
         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = tokens.inkMuted) },
