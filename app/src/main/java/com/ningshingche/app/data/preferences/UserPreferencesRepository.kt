@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.ningshingche.app.data.model.AppThemeMode
+import com.ningshingche.app.data.model.ContentLanguage
 import com.ningshingche.app.data.model.PdfFitMode
 import com.ningshingche.app.data.model.PdfReaderSettings
 import com.ningshingche.app.data.model.ReaderPreferences
@@ -31,6 +32,7 @@ class UserPreferencesRepository(private val context: Context) {
         val LINE_SPACING = floatPreferencesKey("line_spacing")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val APP_THEME_MODE = stringPreferencesKey("app_theme_mode")
+        val CONTENT_LANGUAGE = stringPreferencesKey("content_language")
         val TTS_SPEED = floatPreferencesKey("tts_speed")
         val NOTIF_ENABLED = booleanPreferencesKey("notif_enabled")
         val NOTIF_NEW_ARTICLES = booleanPreferencesKey("notif_new_articles")
@@ -75,6 +77,13 @@ class UserPreferencesRepository(private val context: Context) {
         } catch (_: Exception) {
             AppThemeMode.SYSTEM
         }
+        // Default is Bengali: the interface as originally written.
+        val contentLanguageStr = preferences[Keys.CONTENT_LANGUAGE] ?: ContentLanguage.BENGALI.name
+        val contentLanguage = try {
+            ContentLanguage.valueOf(contentLanguageStr)
+        } catch (_: Exception) {
+            ContentLanguage.BENGALI
+        }
         val ttsSpeed = preferences[Keys.TTS_SPEED] ?: 1.0f
         val notifEnabled = preferences[Keys.NOTIF_ENABLED] ?: true
         val notifNew = preferences[Keys.NOTIF_NEW_ARTICLES] ?: true
@@ -90,6 +99,7 @@ class UserPreferencesRepository(private val context: Context) {
             lineSpacingMultiplier = lineSpacing,
             themeMode = themeMode,
             appThemeMode = appThemeMode,
+            contentLanguage = contentLanguage,
             ttsSpeed = ttsSpeed,
             notificationsEnabled = notifEnabled,
             notificationNewArticles = notifNew,
@@ -108,6 +118,12 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun updateAppThemeMode(mode: AppThemeMode) {
         context.dataStore.edit { preferences ->
             preferences[Keys.APP_THEME_MODE] = mode.name
+        }
+    }
+
+    suspend fun updateContentLanguage(language: ContentLanguage) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.CONTENT_LANGUAGE] = language.name
         }
     }
 

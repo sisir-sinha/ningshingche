@@ -41,8 +41,10 @@ import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -81,6 +83,9 @@ import com.ningshingche.app.ui.components.GoogleSignInButton
 import com.ningshingche.app.ui.viewmodel.SettingsViewModel
 import com.ningshingche.app.util.ApkManager
 import kotlinx.coroutines.launch
+import com.ningshingche.app.data.model.ContentLanguage
+import com.ningshingche.app.ui.i18n.LocalTranslations
+import com.ningshingche.app.ui.i18n.t
 import com.ningshingche.app.ui.theme.Kalpurush
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -95,6 +100,9 @@ fun SettingsScreen(
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
     val googleAuthInProgress by viewModel.googleAuthInProgress.collectAsStateWithLifecycle()
     val googleAuthMessage by viewModel.googleAuthMessage.collectAsStateWithLifecycle()
+    // How many strings the current language file translates, shown so the
+    // reader knows what to expect from a half-finished translation.
+    val translations = LocalTranslations.current
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -347,6 +355,96 @@ fun SettingsScreen(
                                     modifier = Modifier.weight(1f),
                                     onClick = { viewModel.updateAppThemeMode(AppThemeMode.SYSTEM) }
                                 )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 1b. Interface language (Bengali / Bishnupriya Manipuri)
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Translate,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = t("ভাষা"),
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 13.sp
+                            )
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text(
+                                text = if (preferences.contentLanguage == ContentLanguage.BENGALI) {
+                                    t("ইন্টারফেসের ভাষা। বাংলা মূল ভাষা; অন্য ভাষা বাছলে অনুবাদ ডাউনলোড হবে।")
+                                } else {
+                                    t(
+                                        "ইন্টারফেসের ভাষা। অনুবাদ না থাকা লেখা বাংলাতেই থাকবে ({1}টি অনুবাদ লোড হয়েছে)।",
+                                        translations.size
+                                    )
+                                },
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 12.sp
+                                )
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                ThemeModeCard(
+                                    title = "বাংলা",
+                                    icon = Icons.Default.Translate,
+                                    isSelected = preferences.contentLanguage == ContentLanguage.BENGALI,
+                                    modifier = Modifier.weight(1f),
+                                    onClick = { viewModel.updateContentLanguage(ContentLanguage.BENGALI) }
+                                )
+                                ThemeModeCard(
+                                    title = "English",
+                                    icon = Icons.Default.Translate,
+                                    isSelected = preferences.contentLanguage == ContentLanguage.ENGLISH,
+                                    modifier = Modifier.weight(1f),
+                                    onClick = { viewModel.updateContentLanguage(ContentLanguage.ENGLISH) }
+                                )
+                                ThemeModeCard(
+                                    title = "বিষ্ণুপ্রিয়া\nমণিপুরী",
+                                    icon = Icons.Default.Translate,
+                                    isSelected = preferences.contentLanguage == ContentLanguage.BISHNUPRIYA,
+                                    modifier = Modifier.weight(1f),
+                                    onClick = { viewModel.updateContentLanguage(ContentLanguage.BISHNUPRIYA) }
+                                )
+                            }
+                            // Language files are edited in the dashboard; this pulls
+                            // the latest copy without waiting for the next launch.
+                            OutlinedButton(
+                                onClick = {
+                                    viewModel.refreshTranslations()
+                                    Toast.makeText(context, t("ভাষা ফাইল আনতে শুরু হয়েছে।"), Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(t("অনুবাদ হালনাগাদ করুন"), fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }

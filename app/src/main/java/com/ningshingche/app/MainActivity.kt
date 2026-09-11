@@ -9,6 +9,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -17,6 +18,8 @@ import com.ningshingche.app.data.model.AppThemeMode
 import com.ningshingche.app.data.model.ReaderPreferences
 import com.ningshingche.app.notifications.routeFromLaunchIntent
 import com.ningshingche.app.ui.editorial.EditorialTheme
+import com.ningshingche.app.ui.i18n.LocalTranslations
+import com.ningshingche.app.ui.i18n.TranslationTable
 import com.ningshingche.app.ui.reader.EditorialReaderApp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -53,27 +56,41 @@ class MainActivity : ComponentActivity() {
                 AppThemeMode.DARK -> true
             }
 
-            EditorialTheme(darkTheme = darkTheme) {
-                Box(Modifier.fillMaxSize().imePadding()) {
-                    EditorialReaderApp(
-                        app = app,
-                        isDark = darkTheme,
-                        themeMode = preferences.appThemeMode,
-                        pendingRoute = pendingRoute,
-                        onPendingRouteConsumed = { pendingRoute.value = null },
-                        onCycleTheme = {
-                            // System (default) → Light → Dark → System …
-                            coroutineScope.launch {
-                                val nextMode = when (preferences.appThemeMode) {
-                                    AppThemeMode.SYSTEM -> AppThemeMode.LIGHT
-                                    AppThemeMode.LIGHT -> AppThemeMode.DARK
-                                    AppThemeMode.DARK -> AppThemeMode.SYSTEM
+            // Interface language: the cached table shows immediately, and a
+            // refresh runs whenever the reader switches language, so a language
+            // file edited in the dashboard arrives without an app update.
+            val language = preferences.contentLanguage
+            val strings by app.translations.strings(language)
+                .collectAsStateWithLifecycle()
+            val table = TranslationTable(language = language, strings = strings)
+
+            // The table reaches every screen from here, so no screen has to read
+            // preferences or the repository itself.
+            CompositionLocalProvider(
+                LocalTranslations provides table
+            ) {
+                EditorialTheme(darkTheme = darkTheme) {
+                    Box(Modifier.fillMaxSize().imePadding()) {
+                        EditorialReaderApp(
+                            app = app,
+                            isDark = darkTheme,
+                            themeMode = preferences.appThemeMode,
+                            pendingRoute = pendingRoute,
+                            onPendingRouteConsumed = { pendingRoute.value = null },
+                            onCycleTheme = {
+                                // System (default) → Light → Dark → System …
+                                coroutineScope.launch {
+                                    val nextMode = when (preferences.appThemeMode) {
+                                        AppThemeMode.SYSTEM -> AppThemeMode.LIGHT
+                                        AppThemeMode.LIGHT -> AppThemeMode.DARK
+                                        AppThemeMode.DARK -> AppThemeMode.SYSTEM
+                                    }
+                                    app.preferencesRepository.updateAppThemeMode(nextMode)
                                 }
-                                app.preferencesRepository.updateAppThemeMode(nextMode)
-                            }
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
             }
         }

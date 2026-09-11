@@ -457,6 +457,37 @@ Validates `image/*` MIME and the 32 MB cap. Error strings are Bengali.
 UI: uploads are triggered from the signed-in workspace (`ui/screens/UserDashboardScreen.kt`) through
 `ImgBbUploader` — gallery picker, preview, then `uploadBitmap` / `uploadFromUri`.
 
+### Song files — `data/remote/SatoruUploadClient.kt`
+
+```kotlin
+fun describe(context, uri, fallbackName = "song.mp3"): SongFile   // name, mime, size
+suspend fun uploadAudio(context, uri): Result<UploadedSong>       // publicUrl, "", sizeBytes
+```
+
+`POST https://upload.satoru.click/user/api.php`, multipart `reqtype=fileupload` +
+`fileToUpload`; the response body **is** the public URL as plain text. Catbox-compatible,
+200 MB ceiling, no auth. The request body streams the picked `content://` file in 64 KB
+chunks instead of reading it into memory. `Add Song` tries this host first and falls back to
+`SupabaseClient.uploadUserMusicFile` (Storage, 32 MB, user JWT) if it is unreachable.
+
+### Interface language files — `data/i18n/TranslationRepository.kt`
+
+```kotlin
+fun strings(language: ContentLanguage): StateFlow<Map<String, String>>  // cache first, then fetch
+suspend fun refresh(language: ContentLanguage): Result<Map<String, String>>
+companion object { fun parseCsv(text: String): Map<String, String> }
+```
+
+One `GET /rest/v1/app_language_files?select=csv&lang=eq.<bn|en|bpy>` per language with the
+publishable key; the response is `[{"csv": "..."}]` and the CSV is cached at
+`filesDir/i18n/<lang>.csv`, so a language survives offline launches and an unreachable network.
+Bengali is never fetched: those strings are compiled in at the call site.
+
+Wiring: `NinghsingCheApp.translations` is the single instance; `MainActivity` collects the flow for
+the chosen language into `LocalTranslations`, and `t("বাংলা লেখা")` in `ui/i18n/Strings.kt` resolves
+it, falling back to the Bengali source when a key is absent or its value is blank. Switching
+language in Settings calls `refresh`, as does the "অনুবাদ হালনাগাদ করুন" button.
+
 ### PDFs — `util/PdfHelper.kt`
 
 `getOrGeneratePdfFile(context, PdfDocument)`, `renderPdfPages(file): List<Bitmap>`,

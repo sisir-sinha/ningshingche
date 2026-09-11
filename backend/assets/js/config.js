@@ -69,7 +69,8 @@
       settings: 'settings',
       profiles: 'profiles',
       notifications: 'user_notifications',
-      messages: 'admin_messages'
+      messages: 'admin_messages',
+      languageFiles: 'app_language_files'
     }),
 
     routes: Object.freeze([
@@ -92,6 +93,7 @@
       { id: 'music', label: 'Music', icon: 'fa-music', group: 'content' },
       { id: 'analytics', label: 'Analytics', icon: 'fa-chart-mixed', group: 'system' },
       { id: 'settings', label: 'Settings', icon: 'fa-gear', group: 'system' },
+      { id: 'languages', label: 'Languages', icon: 'fa-language', group: 'system', parent: 'settings' },
       { id: 'access-control', label: 'Users & Roles', icon: 'fa-user-shield', group: 'system' }
     ])
   });

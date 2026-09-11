@@ -20,6 +20,7 @@ import com.ningshingche.app.notifications.AppNotificationManager
 import com.ningshingche.app.notifications.ContentCheckWorker
 import com.ningshingche.app.notifications.ContentUpdateNotifier
 import com.ningshingche.app.notifications.SeenContentStore
+import com.ningshingche.app.data.i18n.TranslationRepository
 import com.ningshingche.app.data.music.MusicLibraryStore
 import com.ningshingche.app.playback.MusicController
 import okhttp3.OkHttpClient
@@ -65,6 +66,10 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
         private set
 
     lateinit var musicController: MusicController
+        private set
+
+    /** Interface language files, fetched from the dashboard and cached on disk. */
+    lateinit var translations: TranslationRepository
         private set
 
     /** Shared OkHttp client used by both the Portal API and Coil image loading,
@@ -139,6 +144,7 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
         val musicStore = MusicLibraryStore(this, database, supabaseClient)
         musicLibraryStore = musicStore
         musicController = MusicController(this, musicStore)
+        translations = TranslationRepository(this)
         if (android.os.Build.FINGERPRINT != "robolectric") {
             musicController.ensureConnected()
         }

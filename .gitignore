@@ -22,3 +22,7 @@ debug.keystore.base64
 # Git Auto Commit Generator learned data
 .git-auto-commit/
 backend/tests/screenshots/
+
+# Node dependencies used only by the optional jsdom-backed dashboard tests
+node_modules/
+__pycache__/

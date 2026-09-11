@@ -846,6 +846,30 @@ never stored, only its hash.
 
 ---
 
+### 7.14 `app_language_files` (`023_app_language_files.sql`, publishable key allowed)
+
+One row per interface language, holding that language's CSV for the Android app. The app reads the
+row for the language its reader picked and caches it; only the dashboard (permission `settings`)
+writes. Bengali is not required — the app compiles Bengali in as the source text.
+
+| column | type | notes |
+| --- | --- | --- |
+| `lang` | `text` | primary key, `bn` / `en` / `bpy` |
+| `label` | `text` | display name, e.g. `বিষ্ণুপ্রিয়া মণিপুরী` |
+| `csv` | `text` | `key,value` CSV; keys are the app's Bengali strings |
+| `row_count` | `integer` | key count, written by the dashboard as a sanity check |
+| `updated_at` | `timestamptz` | trigger-maintained |
+
+```
+GET /rest/v1/app_language_files?select=csv&lang=eq.bpy        # the file the app downloads
+GET /rest/v1/app_language_files?select=lang,label,row_count,updated_at   # dashboard list
+POST /rest/v1/app_language_files?on_conflict=lang             # dashboard save (Prefer: resolution=merge-duplicates)
+```
+
+A blank `value` means "not translated"; the app shows its own Bengali text for that key. The CSV
+reader on both sides handles quoted fields, doubled quotes, CRLF, a BOM and embedded newlines, and
+the last duplicate key wins — see `backend/tests/languages.test.cjs` and `TranslationCsvTest.kt`.
+
 ## 8. Storage API (PDF)
 
 Bucket: **`pdf-books`** — public, `allowed_mime_types = ['application/pdf']`, 32 MB limit.

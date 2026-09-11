@@ -31,8 +31,20 @@ Three components share one Supabase project (`slcpvmpsynkqdozvlsii`):
 
 - **Website** `https://ningshingche.com` (not in this repo) is the public reader's
   deep-link target and the provenance for the seed author data.
+- **Interface language** is a reader preference (Bengali / English / Bishnupriya Manipuri).
+  Strings are written in Bengali at the call site and resolved by `ui/i18n/Strings.kt`. Bengali is
+  the source text and is compiled in; the other two are `key,value` CSVs stored one row per
+  language in `public.app_language_files` (migration 023), edited from the dashboard's **Languages**
+  page and served as a plain PostgREST select. `TranslationRepository` fetches the chosen language,
+  caches the CSV under `filesDir/i18n/` and republishes it through `LocalTranslations`; the key list
+  itself comes from `i18n/strings_inventory.csv`. Missing translations fall back to Bengali, so the
+  app is never half-broken.
 - **ImgBB** hosts all image uploads from both clients (hero, avatars, covers);
   delete URLs are persisted so staff can remove them later.
+- **upload.satoru.click** hosts song files submitted from the app's Add Song screen
+  (Catbox-compatible multipart POST, 200 MB ceiling, no session needed). Supabase
+  Storage stays the fallback, and the track row records which host was used via
+  `file_provider` (`'url'` vs `'supabase-storage'`).
 - **GitHub Pages** deploys `backend/` as a static site (`.github/workflows/jekyll-gh-pages.yml`).
 
 ---
@@ -265,8 +277,10 @@ about, phone, address, facebook id, avatar) before article/music submission —
   and drawer.
 - `submitArticle`: optional thumbnail → ImgBB (delete URL persisted), HTML content,
   `status='Pending'`, `user_id` set → `submitted_blogs`.
-- `submitMusic`: audio → Storage `music/user/<uid>/…` (user JWT!), optional cover →
-  ImgBB, duration via `MediaMetadataRetriever` → `music_tracks` insert (021 RLS).
+- `submitMusic`: audio → `upload.satoru.click` (`SatoruUploadClient`, streamed body, 200 MB
+  cap), falling back to Storage `music/user/<uid>/…` (user JWT) when that host is
+  unreachable; optional cover → ImgBB; duration via `MediaMetadataRetriever` →
+  `music_tracks` insert (021 RLS).
 - Avatar upload → ImgBB → `profiles.avatar_url` + `imgbb_delete_url`.
 - `notifications_enabled` syncs to `profiles` (011) so staff can broadcast responsibly.
 

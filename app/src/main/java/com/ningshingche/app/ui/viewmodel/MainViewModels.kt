@@ -8,11 +8,14 @@ import com.ningshingche.app.data.ai.NinghsingCheAiAssistant
 import com.ningshingche.app.data.local.ArticleAiChatStore
 import com.ningshingche.app.data.auth.GoogleAuthException
 import com.ningshingche.app.data.auth.GoogleAuthMapper
+import com.ningshingche.app.NinghsingCheApp
 import com.ningshingche.app.data.auth.GoogleAuthRepository
 import com.ningshingche.app.data.remote.SupabaseClient
 import com.ningshingche.app.data.remote.UserProfile
 import com.ningshingche.app.data.model.AiChatMessage
+import com.ningshingche.app.data.i18n.TranslationRepository
 import com.ningshingche.app.data.model.AppThemeMode
+import com.ningshingche.app.data.model.ContentLanguage
 import com.ningshingche.app.data.model.Article
 import com.ningshingche.app.data.model.Author
 import com.ningshingche.app.data.model.Category
@@ -30,6 +33,7 @@ import com.ningshingche.app.data.repository.WebsiteSyncState
 import java.io.File
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -272,7 +276,8 @@ class SettingsViewModel(
     private val preferencesRepository: UserPreferencesRepository,
     private val articleRepository: ArticleRepository,
     private val googleAuthRepository: GoogleAuthRepository,
-    private val supabaseClient: SupabaseClient
+    private val supabaseClient: SupabaseClient,
+    private val translations: TranslationRepository
 ) : ViewModel() {
 
     val preferences: StateFlow<ReaderPreferences> = preferencesRepository.readerPreferences
@@ -319,6 +324,22 @@ class SettingsViewModel(
     fun updateAppThemeMode(mode: AppThemeMode) {
         viewModelScope.launch {
             preferencesRepository.updateAppThemeMode(mode)
+        }
+    }
+
+    /** Switches the interface language; the app fetches that language's file. */
+    fun updateContentLanguage(language: ContentLanguage) {
+        viewModelScope.launch {
+            preferencesRepository.updateContentLanguage(language)
+            translations.refresh(language)
+        }
+    }
+
+    /** Pulls the current language file again (dashboard edits land without an update). */
+    fun refreshTranslations() {
+        viewModelScope.launch {
+            val language = preferencesRepository.readerPreferences.first().contentLanguage
+            translations.refresh(language)
         }
     }
 
@@ -561,7 +582,8 @@ class ViewModelFactory(
     private val googleAuthRepository: GoogleAuthRepository,
     private val context: Context,
     private val supabaseClient: SupabaseClient,
-    private val portalRepository: PortalRepository
+    private val portalRepository: PortalRepository,
+    private val translations: TranslationRepository = NinghsingCheApp.instance.translations
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -573,7 +595,7 @@ class ViewModelFactory(
                 aiAssistant,
                 ArticleAiChatStore(com.ningshingche.app.data.local.AppDatabase.getInstance(context).chatDao())
             ) as T
-            modelClass.isAssignableFrom(SettingsViewModel::class.java) -> SettingsViewModel(preferencesRepository, repository, googleAuthRepository, supabaseClient) as T
+            modelClass.isAssignableFrom(SettingsViewModel::class.java) -> SettingsViewModel(preferencesRepository, repository, googleAuthRepository, supabaseClient, translations) as T
             modelClass.isAssignableFrom(PdfArchiveViewModel::class.java) -> PdfArchiveViewModel(repository) as T
             modelClass.isAssignableFrom(PdfViewerViewModel::class.java) ->
                 PdfViewerViewModel(repository, portalRepository, context, preferencesRepository) as T

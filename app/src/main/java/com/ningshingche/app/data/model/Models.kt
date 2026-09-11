@@ -101,6 +101,16 @@ enum class AppThemeMode {
     SYSTEM, LIGHT, DARK
 }
 
+/**
+ * Interface language. Bengali is the language the strings are written in, so it
+ * always works and needs no download; English and Bishnupriya Manipuri come
+ * from the dashboard's Languages page (`app_language_files`) and fall back to
+ * the Bengali original for any string they do not translate yet.
+ */
+enum class ContentLanguage {
+    BENGALI, ENGLISH, BISHNUPRIYA
+}
+
 enum class PdfFitMode { WIDTH, HEIGHT, BOTH }
 
 data class PdfReaderSettings(
@@ -120,6 +130,7 @@ data class ReaderPreferences(
     val lineSpacingMultiplier: Float = 1.6f,
     val themeMode: ReaderThemeMode = ReaderThemeMode.PAPER,
     val appThemeMode: AppThemeMode = AppThemeMode.SYSTEM,
+    val contentLanguage: ContentLanguage = ContentLanguage.BENGALI,
     val ttsSpeed: Float = 1.0f,
     val notificationsEnabled: Boolean = true,
     val notificationNewArticles: Boolean = true,
