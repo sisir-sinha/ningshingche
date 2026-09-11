@@ -34,21 +34,29 @@
     return `<a class="nav-link" href="#/${escapeHTML(item.id)}" data-nav-route="${escapeHTML(item.id)}"><i class="fa-regular ${escapeHTML(item.icon)}" aria-hidden="true"></i><span>${escapeHTML(item.label)}</span>${item.id === 'submissions' ? '<span class="nav-count hidden" data-submission-nav-count></span>' : ''}</a>`;
   }
 
-  function renderNavigation() {
-    const nav = qs('#sidebar-navigation');
-    const current = getHashRoute().route;
-    const visibleRoutes = NC_CONFIG.routes.filter((item) => NC.auth.canAccess(item.id));
+  function navItem(item, children) {
+    const link = navLink(item);
+    if (!children.length) return link;
+    // A route with a `parent` inherits that item's permission and is listed
+    // under it — the same idea as the Registered-users routes, without hiding
+    // the parent link behind a toggle.
+    return `${link}<div class="nav-submenu is-open" data-nav-children="${escapeHTML(item.id)}">${children.map(navLink).join('')}</div>`;
+  }
+
+  /**
+   * Sidebar HTML for a route list and a permission check. Pure on purpose: the
+   * menu is the one thing every role sees, so it is worth being able to render
+   * it for a given role in a test instead of only inside the browser.
+   */
+  function navigationHtml(routes = NC_CONFIG.routes, canAccess = NC.auth.canAccess, current = getHashRoute().route) {
+    const visibleRoutes = routes.filter((item) => canAccess(item.id));
+    const childrenOf = (id) => visibleRoutes.filter((item) => item.parent === id);
     const communityParent = visibleRoutes.find((item) => item.id === 'registered-users');
     const communityChildren = [
       communityParent ? { id: 'registered-users', label: 'Dashboard', icon: 'fa-gauge-high' } : null,
-      ...visibleRoutes.filter((item) => item.parent === 'registered-users')
+      ...childrenOf('registered-users')
     ].filter(Boolean);
     const communityOpen = communityChildren.some((item) => item.id === current);
-    const groups = [
-      { id: 'overview', label: '', items: visibleRoutes.filter((item) => item.group === 'overview') },
-      { id: 'content', label: 'Content', items: visibleRoutes.filter((item) => item.group === 'content' && !item.parent) },
-      { id: 'system', label: 'System', items: visibleRoutes.filter((item) => item.group === 'system' && !item.parent) }
-    ].filter((group) => group.items.length);
     const communityHtml = communityParent ? `
       <div class="nav-group">
         <p class="nav-group-label">Registered users</p>
@@ -61,15 +69,26 @@
           ${communityChildren.map(navLink).join('')}
         </div>
       </div>` : '';
-    nav.innerHTML = [
-      groups.filter((group) => group.id === 'overview').map((group) => `<div class="nav-group">${group.items.map(navLink).join('')}</div>`).join(''),
+    const group = (id, label = '') => {
+      const items = visibleRoutes.filter((item) => item.group === id && !item.parent);
+      if (!items.length) return '';
+      return `<div class="nav-group">
+        ${label ? `<p class="nav-group-label">${escapeHTML(label)}</p>` : ''}
+        ${items.map((item) => navItem(item, childrenOf(item.id))).join('')}
+      </div>`;
+    };
+    return [
+      group('overview'),
       communityHtml,
-      groups.filter((group) => group.id !== 'overview').map((group) => `
-      <div class="nav-group">
-        ${group.label ? `<p class="nav-group-label">${escapeHTML(group.label)}</p>` : ''}
-        ${group.items.map(navLink).join('')}
-      </div>`).join('')
+      group('content', 'Content'),
+      group('system', 'System')
     ].join('');
+  }
+
+  function renderNavigation() {
+    const nav = qs('#sidebar-navigation');
+    if (!nav) return;
+    nav.innerHTML = navigationHtml();
     nav.querySelectorAll('[data-nav-toggle]').forEach((button) => {
       button.addEventListener('click', () => {
         const open = button.classList.toggle('is-open');
@@ -395,6 +414,7 @@
   }
 
   NC.app = Object.freeze({ init, navigate, setTheme, setDensity, openGlobalSearch });
+  NC.nav = Object.freeze({ html: navigationHtml, render: renderNavigation });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
   else init();
 })(window.NC);
