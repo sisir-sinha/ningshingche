@@ -81,6 +81,8 @@ interface PortalApi {
         @Query("is_special_article") isSpecialArticle: String? = null,
         @Query("title", encoded = true) title: String? = null,
         @Query("or", encoded = true) or: String? = null,
+        /** Nested conditions for a multi-word search — see `SearchQuery`. */
+        @Query("and", encoded = true) and: String? = null,
         /** `ov.{…}` / `cs.{…}` against the raw `tags` column (exact spellings). */
         @Query("tags", encoded = true) tags: String? = null,
         /** `cs.{…}` against the generated `tag_keys` column (migration 013). */

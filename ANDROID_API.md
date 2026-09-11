@@ -470,6 +470,21 @@ suspend fun uploadAudio(context, uri): Result<UploadedSong>       // publicUrl, 
 chunks instead of reading it into memory. `Add Song` tries this host first and falls back to
 `SupabaseClient.uploadUserMusicFile` (Storage, 32 MB, user JWT) if it is unreachable.
 
+### Reader search — `data/portal/SearchQuery.kt`
+
+`SearchViewModel` debounces the query and calls `PortalRepository.searchArticles(query, limit, offset)`,
+which sends one PostgREST filter built by `SearchQuery`. The rules there are not stylistic:
+
+| Rule | Why |
+| --- | --- |
+| Searches `title`, `sub_title`, `slug`, `author_name`, `content` | A reader searches for a word they read in a piece. `কমলগঞ্জ` is in three articles' bodies and in none of their titles. |
+| `tags` / `tag_keys` are **not** searched | Both are `text[]`; `tags.ilike.…` is Postgres `42883` (`operator does not exist: text[] ~~* unknown`). |
+| One word → `or=(col.ilike."*term*",…)`; two or more → `and=(or(…),or(…))` | `"মণিপুরী ব্যান্ড"` as a single pattern matches nothing; as two conditions it finds `বাংলাদেশে মণিপুরী যত ব্যান্ড`. |
+| Values are double-quoted inside the expression, then the whole value percent-encoded once | PostgREST decodes the parameter *before* parsing it, so a comma or bracket typed by the reader used to return `PGRST100`. Quoting is the escaping PostgREST offers inside expressions. |
+
+All five behaviours above were verified against production (`GET /rest/v1/blogs?status=eq.Publish&…`)
+before the code was written, and are pinned by `app/src/test/.../portal/SearchQueryTest.kt`.
+
 ### Interface language files — `data/i18n/TranslationRepository.kt`
 
 ```kotlin
