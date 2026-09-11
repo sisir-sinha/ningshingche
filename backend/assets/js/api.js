@@ -381,18 +381,33 @@
     return settled.flatMap((result) => result.status === 'fulfilled' ? result.value : []);
   }
 
+  /**
+   * Columns each table is probed for. Anything not listed is probed with `id`, so a
+   * table whose primary key is something else has to declare it here: `app_language_files`
+   * (migration 023) is keyed on `lang`, and asking it for `id` answers "column does not
+   * exist" — which reads as a broken install on a database that is perfectly healthy.
+   */
+  const PROBE_COLUMNS = {
+    blogs: 'id,imgbb_delete_url,image_meta,inline_media,pdf_file_provider,pdf_storage_path,pdf_file_size_mb',
+    submissions: 'id,inline_media',
+    languageFiles: 'lang,label,csv,row_count'
+  };
+
+  /** The file that adds each probed table, or the columns it is checked for. */
+  const PROBE_FILES = {
+    languageFiles: 'backend/supabase/migrations/023_app_language_files.sql',
+    blogs: 'backend/supabase/migrations/003_blog_media_uploads.sql',
+    submissions: 'backend/supabase/migrations/003_blog_media_uploads.sql'
+  };
+
   async function schemaProbe() {
-    const requiredColumns = {
-      blogs: 'id,imgbb_delete_url,image_meta,inline_media,pdf_file_provider,pdf_storage_path,pdf_file_size_mb',
-      submissions: 'id,inline_media'
-    };
     // Optional: tag endpoints from migration 013. Checked so Settings can show
     // the upgrade hint; the dashboard falls back to client-side filtering.
     probeTagEndpoints();
     const keys = Object.keys(tables);
     const results = await Promise.all(keys.map(async (key) => {
       try {
-        await list(key, { select: requiredColumns[key] || 'id', limit: 1 });
+        await list(key, { select: PROBE_COLUMNS[key] || 'id', limit: 1 });
         return { key, table: tables[key], ok: true };
       } catch (error) {
         return { key, table: tables[key], ok: false, error };
@@ -405,6 +420,40 @@
     const missing = results.filter((item) => item.error?.isSchemaMissing);
     const mismatched = results.filter((item) => item.error?.isSchemaMismatch);
     return { ok: results.every((item) => item.ok), results, missing, mismatched, accessControlMissing };
+  }
+
+  /**
+   * What to tell the editor about a probe: which tables, which columns, and the one
+   * file that fixes it. The banner used to blame migration 003 whatever had failed,
+   * which sent people looking for Blog media columns when the problem was elsewhere.
+   * Returns null when there is nothing worth showing.
+   */
+  function schemaBanner(probe) {
+    if (!probe || probe.ok) return null;
+    const names = (items) => items.map((item) => `\`${item.table}\``).join(', ');
+    const files = (items) => [...new Set(items.map((item) => PROBE_FILES[item.key] || 'backend/supabase/schema.sql'))];
+    if (probe.missing.length) {
+      const count = probe.missing.length;
+      return {
+        title: 'Database setup required',
+        message: `${count} required database table${count === 1 ? ' is' : 's are'} missing (${names(probe.missing)}). Run ${files(probe.missing).join(' and ')} before using CRUD features.`
+      };
+    }
+    if (probe.mismatched.length) {
+      const count = probe.mismatched.length;
+      const detail = probe.mismatched.map((item) => item.error?.message).filter(Boolean).join('; ');
+      return {
+        title: 'Database update required',
+        message: `${names(probe.mismatched)} ${count === 1 ? 'is' : 'are'} missing a column the dashboard expects${detail ? ` (${detail})` : ''}. Run ${files(probe.mismatched).join(' and ')}.`
+      };
+    }
+    if (probe.accessControlMissing) {
+      return {
+        title: 'Security migration required',
+        message: 'Run backend/supabase/migrations/004_dashboard_access_control.sql to enable secure users, roles, and sessions.'
+      };
+    }
+    return null;
   }
 
   function storageObjectUrl(bucket, path) {
@@ -547,7 +596,7 @@
   function userMessage(error, fallback = 'The operation could not be completed.') {
     if (!error) return fallback;
     if (error.isSchemaMissing) return 'The Supabase tables are not installed yet. Run backend/supabase/schema.sql first.';
-    if (error.isSchemaMismatch) return 'The media columns are not installed yet. Run backend/supabase/migrations/003_blog_media_uploads.sql in Supabase.';
+    if (error.isSchemaMismatch) return 'A column this screen needs is missing from the database. Run the matching file in backend/supabase/migrations/ — 003 adds the Blog media columns.';
     if (error.code === '23505') return 'A record with this unique value already exists.';
     if (error.code === '23503') return 'This record is still used by related content and cannot be deleted.';
     if (error.code === '42501' || error.status === 401 || error.status === 403) return 'You do not have permission to perform this action. Sign in again or review the RLS policies.';
@@ -557,7 +606,7 @@
 
   NC.api = Object.freeze({
     ApiError, request, list, getById, count, insert, insertMany, update, upsert, remove,
-    rpc, slugExists, searchAll, schemaProbe, uploadPdf, uploadAudio, deleteStorageObject,
+    rpc, slugExists, searchAll, schemaProbe, schemaBanner, uploadPdf, uploadAudio, deleteStorageObject,
     storagePublicUrl, attemptImgBBDelete, userMessage, tableName,
     tagIndex, issueYears, blogsByIssue, blogsByTag, tagEndpointsAvailable, probeTagEndpoints, arrayLiteral
   });

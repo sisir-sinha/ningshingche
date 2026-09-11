@@ -5,7 +5,7 @@
   "description": "Fixture-only tests; no production Supabase requests",
   "engines": { "node": ">=20" },
   "scripts": {
-    "test": "node --test backup.test.cjs",
+    "test": "node --test",
     "test:browser": "node backup.browser.cjs"
   },
   "devDependencies": {

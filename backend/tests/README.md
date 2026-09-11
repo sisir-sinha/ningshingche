@@ -12,6 +12,20 @@ node --test backend/tests/backup.test.cjs
 
 Covers the real `api.js` and `backup.js` with an in-memory fetch implementation: all nine tables, Unicode and relationships, selections, server-capped pagination beyond 1,000 rows, empty tables, strict exact counts, unexpected IDs, changing counts, missing migrations, denied/revoked permissions, session changes, network failures, cancellation, and ordinary request timeouts.
 
+## Schema probe and banner tests
+
+```sh
+node --test backend/tests/schema-probe.test.cjs
+```
+
+Runs the real `api.js` against a fixture that models PostgREST: each probe request's `select` is
+checked against the columns the table really has, so asking a table for a column it lacks fails with
+`42703` exactly as the server does. Covers the healthy path — including `app_language_files`, keyed
+on `lang` and with no `id` column — plus a missing Blog media column, a missing language column,
+missing tables, a legacy login, the optional tag view, and a plain HTTP 500. It asserts that the
+banner names the right table and the right migration file, and stays silent when there is nothing an
+editor can fix by running SQL.
+
 ## Isolated Chromium tests
 
 ```sh

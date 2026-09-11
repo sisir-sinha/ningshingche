@@ -538,9 +538,22 @@ The tests use fixtures only and do not contact or modify production Supabase. Se
 
 Run `supabase/schema.sql` in the project SQL Editor and then use the Settings database check.
 
-### “Migration needed” or missing Blog media columns
+### “Database update required” or missing columns
 
-Run `supabase/migrations/003_blog_media_uploads.sql` in Supabase SQL Editor, then reload the dashboard and run the database check again.
+The banner now names the table that failed and the file that adds it — that sentence is generated
+from the check that failed, so read it rather than assuming Blog uploads:
+
+- Blog media columns → `supabase/migrations/003_blog_media_uploads.sql`
+- `app_language_files` (the Languages page) → `supabase/migrations/023_app_language_files.sql`
+- A table reported as *missing* → `supabase/schema.sql`, then the migrations in order
+
+Run that file in the Supabase SQL Editor, reload the dashboard, and check again in **Settings →
+Database check**. The per-table list there names the column that is missing when you hover it.
+
+Earlier builds blamed migration 003 for every failure, and asked `app_language_files` — which is
+keyed on `lang` and has no `id` column — for an `id`, so a correctly installed database could still
+announce “Required Blog media columns are missing”. If you see exactly that sentence, you are on a
+cached older `api.js`: reload with `?v=1.7.1`, which is the build that fixed it.
 
 ### “Security migration required” or Users & Roles shows setup instructions
 

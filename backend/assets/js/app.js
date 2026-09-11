@@ -264,15 +264,12 @@
     try {
       const result = await NC.api.schemaProbe();
       const banner = qs('#schema-banner');
-      if (!result.ok && (result.missing.length || result.mismatched.length || result.accessControlMissing)) {
-        banner.classList.remove('hidden');
-        banner.querySelector('strong').textContent = result.missing.length ? 'Database setup required' : (result.mismatched.length ? 'Database update required' : 'Security migration required');
-        banner.querySelector('[data-schema-message]').textContent = result.missing.length
-          ? `${result.missing.length} required database table${result.missing.length === 1 ? ' is' : 's are'} missing. Run the included Supabase schema before using CRUD features.`
-          : (result.mismatched.length
-            ? 'Required Blog media columns are missing. Run migration 003 before saving Blog uploads.'
-            : 'Run supabase/migrations/004_dashboard_access_control.sql to enable secure users, roles, and sessions.');
-      } else banner.classList.add('hidden');
+      // schemaBanner() names the tables that failed and the file that fixes them.
+      const issue = NC.api.schemaBanner(result);
+      if (!issue) { banner.classList.add('hidden'); return; }
+      banner.classList.remove('hidden');
+      banner.querySelector('strong').textContent = issue.title;
+      banner.querySelector('[data-schema-message]').textContent = issue.message;
     } catch (error) { console.warn('Schema probe failed:', error); }
   }
 
