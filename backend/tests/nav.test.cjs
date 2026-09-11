@@ -87,16 +87,34 @@ test('sidebar menu', { skip: JSDOM ? false : 'jsdom is not installed (npm instal
     });
   });
 
-  await t.test('a child route sits under its parent', () => {
+  await t.test('Languages is a first-class System entry, right after Settings', () => {
     const markup = html(routes, allowAll, 'dashboard');
     const settings = markup.indexOf('href="#/settings"');
     const languages = markup.indexOf('href="#/languages"');
+    const roles = markup.indexOf('href="#/access-control"');
     assert.ok(settings > -1 && languages > -1, 'both Settings and Languages must render');
-    assert.ok(languages > settings, 'Languages is listed after Settings');
-    assert.match(markup, /data-nav-children="settings"[\s\S]*href="#\/languages"/, 'Languages is nested inside the Settings block');
+    assert.ok(settings < languages && languages < roles, 'it sits between Settings and Users & Roles');
+    assert.doesNotMatch(markup, /data-nav-children="settings"/, 'it is not nested under Settings');
   });
 
-  await t.test('the Settings permission carries its child route', () => {
+  await t.test('a route that declares a parent is nested, not dropped', () => {
+    // The real config nests only the Registered-users routes, and those render
+    // inside that group's toggle. This covers the general path with a synthetic
+    // pair, so a future `parent` route cannot disappear the way Languages did.
+    const synthetic = [
+      { id: 'dashboard', label: 'Dashboard', icon: 'fa-gauge-high', group: 'overview' },
+      { id: 'settings', label: 'Settings', icon: 'fa-gear', group: 'system' },
+      { id: 'plugin', label: 'Plugin', icon: 'fa-plug', group: 'system', parent: 'settings' }
+    ];
+    const markup = html(synthetic, allowAll, 'dashboard');
+    const child = markup.indexOf('href="#/plugin"');
+    const parentBlock = markup.indexOf('data-nav-children="settings"');
+    assert.equal(markup.split('href="#/plugin"').length - 1, 1, 'the child is rendered exactly once');
+    assert.ok(parentBlock > -1, 'the parent opens a children block');
+    assert.ok(child > parentBlock, 'and the child is inside it, not a System sibling');
+  });
+
+  await t.test('the Settings permission carries Languages', () => {
     // What a non-super-admin role looks like: permissionKey('languages') is 'settings',
     // so a role granted Settings sees both entries.
     const markup = html(routes, allow('dashboard', 'settings', 'languages'), 'dashboard');
@@ -114,8 +132,8 @@ test('sidebar menu', { skip: JSDOM ? false : 'jsdom is not installed (npm instal
   await t.test('the Registered-users submenu still works', () => {
     const markup = html(routes, allowAll, 'ru-users');
     assert.match(markup, /data-nav-toggle="registered-users"/);
-    assert.match(markup, /data-nav-submenu="registered-users"[\s\S]*href="#\/ru-users"/);
-    assert.match(markup, /data-nav-submenu="registered-users"[\s\S]*is-open/, 'the submenu opens for the current route');
+    assert.match(markup, /data-nav-submenu="registered-users"[^>]*>[\s\S]*href="#\/ru-users"/, 'the community routes live in the submenu');
+    assert.match(markup, /class="nav-submenu is-open" data-nav-submenu="registered-users"/, 'the submenu opens for the current route');
     assert.equal(markup.split('href="#/ru-users"').length - 1, 1, 'ru-users is listed exactly once');
   });
 

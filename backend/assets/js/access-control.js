@@ -15,7 +15,9 @@
   }
 
   function menuRoutes() {
-    return NC_CONFIG.routes.filter((item) => item.id !== 'access-control' && !item.parent);
+    // Routes that borrow another route's permission are not independently
+    // grantable, so they do not belong in this list.
+    return NC_CONFIG.routes.filter((item) => item.id !== 'access-control' && !item.parent && !item.permission);
   }
 
   function menuLabel(id) {
