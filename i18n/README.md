@@ -25,7 +25,18 @@ The templates carry the strings the **interface** shows. Publication text — ar
 copy from `NinghsingCheContentData.kt`, author biographies, the contact block — is listed in the
 inventory but left out of the page: a string counts as content only when every file that mentions it
 is one of those, so a section name that the drawer also shows (`লেখক`, `বার্ষিক সংখ্যা`) stays
-translatable. In the current tree that is **776 strings on the page, 203 kept as content**.
+translatable. In the current tree that is **748 strings on the page, 203 kept as content**.
+
+Markdown scaffolding is left out too: headings (`### «{1}» — নিবন্ধ বিশ্লেষণ`), bullets
+(`• **বিভাগ:** {1}`), rules, italic wrappers (`*গান*`) and regex sources
+(`(20\d{2}|২০\d{2})`). Those strings are prompts and patterns, not wording a reader sees — a bullet
+is not something to translate, and translating one changes a prompt or breaks a match. The page
+filters them out a second time when it builds the grid (`isScaffolding` in `languages.js`), because a
+language file saved by an older build can still carry them and Import can paste anything.
+
+Value markers stay: `পৃষ্ঠা {1} / {2}` is one string with the page number spliced in, so `{1}` and
+`{2}` have to survive a translation — a translation may even move them, which is the reason they are
+numbered rather than named.
 
 ## How it lands in the app
 

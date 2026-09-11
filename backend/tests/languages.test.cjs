@@ -115,6 +115,33 @@ test('matrixCsv names the app’s own string once the Bengali has been rewritten
   assert.equal(parsed.values.en['লেখক'], 'Authors');
 });
 
+test('markdown scaffolding is recognised so the grid can keep it out', () => {
+  // Headings, bullets, rules, italic wrappers and regex sources: a language file
+  // written by an older build can still carry these.
+  const junk = [
+    '### «{1}» — নিবন্ধ বিশ্লেষণ',
+    '### সম্পর্কিত জিজ্ঞাসা:',
+    '*গান*',
+    '--- *তথ্যসূত্র: নিংশিং চে ডিজিটাল আর্কাইভের «{1}» নিবন্ধ*',
+    '•  {1} মি.',
+    '• **বিভাগ:** {1}',
+    '(20\\d{2}|২০\\d{2})',
+    '^(?:নিংশিংচে|ningshingche)-?(\\d{4})$',
+    ''
+  ];
+  junk.forEach((key) => assert.equal(api.isScaffolding(key), true, `${key} should be scaffolding`));
+
+  // Real interface strings, including the ones that carry a value marker, are not.
+  [
+    'AI সহকারী লুকান',
+    'পৃষ্ঠা {1} / {2}',
+    '«{1}» সম্পর্কে আরও বিস্তারিত তথ্য জানা যাবে কি?',
+    '· {1}টি গান',
+    '{1}টি নতুন প্রবন্ধ',
+    'সংস্করণ {1} • সাইজ: {2}'
+  ].forEach((key) => assert.equal(api.isScaffolding(key), false, `${key} is interface copy`));
+});
+
 test('import falls back to the Bengali column when the sheet has no key column', () => {
   // The owner's own sheet: four columns, the Bengali cell doubling as the key.
   const parsed = api.parseMatrix('#,bpy,bn,en\n1,লেকক,লেখক,Authors\n');

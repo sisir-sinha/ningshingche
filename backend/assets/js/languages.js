@@ -117,6 +117,25 @@
     return String(text || '').trim().replace(/\s+/g, ' ').replace(/[।.!?\s\u200b]+$/, '');
   }
 
+  /**
+   * Prompt and markdown scaffolding, which has no place in a translation sheet:
+   * a heading (`### …`), a list bullet (`- …`, `• …`), a horizontal rule, an
+   * italic wrapper (`*গান*`), or a regex source. The Bengali column is for the
+   * wording a reader sees; a hash mark or a bullet is neither wording nor
+   * something to translate, and translating one would only change a prompt.
+   *
+   * The inventory leaves these out already — this is the second line of defence,
+   * because a language file saved by an older build may still carry them, and
+   * Import can paste anything.
+   */
+  const SCAFFOLDING = /^(?:#{1,6}\s|[-*\u2022]\s|--+\s?|\*\S|\d+\.\s)|\\[dDwWsS]|\(\?:/;
+
+  function isScaffolding(key) {
+    const text = String(key || '').trim();
+    if (!text) return true;
+    return SCAFFOLDING.test(text) || (text.startsWith('^') && text.endsWith('$'));
+  }
+
   /** The grid rows: key + one value per language, in `keyList` order. */
   function buildMatrix(keyList, maps) {
     return keyList.map((key) => ({
@@ -212,7 +231,9 @@
    */
   async function keyListFrom() {
     try {
-      const fromTemplate = parsePairs(await loadTemplate(SOURCE)).map(([key]) => key).filter(Boolean);
+      const fromTemplate = parsePairs(await loadTemplate(SOURCE))
+        .map(([key]) => key)
+        .filter((key) => key && !isScaffolding(key));
       if (fromTemplate.length) return fromTemplate;
     } catch (error) {
       console.error(error);
@@ -255,7 +276,9 @@
       const extraKeys = [];
       LANGS.forEach((lang) => {
         Object.keys(values[lang.code]).forEach((key) => {
-          if (!known.has(key) && !extraKeys.includes(key)) extraKeys.push(key);
+          if (!key || known.has(key) || extraKeys.includes(key)) return;
+          if (isScaffolding(key)) return;
+          extraKeys.push(key);
         });
       });
       // A key typed by hand has no compiled string behind it, so it is its own
@@ -506,10 +529,12 @@
           keys.forEach((knownKey) => { if (!byLoose.has(looseKey(knownKey))) byLoose.set(looseKey(knownKey), knownKey); });
           let changed = 0;
           let renamed = 0;
+          let skipped = 0;
           parsed.keys.forEach((typedKey) => {
             // A key a person typed may differ from the app's string only by
             // punctuation; land it on the real key instead of stranding it.
             const key = byLoose.get(looseKey(typedKey)) || typedKey;
+            if (isScaffolding(key)) { skipped += 1; return; }
             if (key !== typedKey) renamed += 1;
             if (!keys.includes(key)) { keys.push(key); }
             EDITABLE.forEach((code) => {
@@ -532,7 +557,8 @@
           renderToolbar();
           renderGrid();
           const note = renamed ? `, ${renamed} matched a Bengali key after ignoring punctuation` : '';
-          NC.components.toast(`Imported ${parsed.keys.length} rows (${changed} cells)${note}. Press Save translations to publish.`, 'success');
+          const dropped = skipped ? `, ${skipped} heading or bullet row${skipped === 1 ? '' : 's'} left out` : '';
+          NC.components.toast(`Imported ${parsed.keys.length} rows (${changed} cells)${note}${dropped}. Press Save translations to publish.`, 'success');
         });
       }
     });
@@ -552,7 +578,7 @@
     })}<section class="surface">
       <div class="list-toolbar">
         <p class="text-muted-foreground toolbar-note" data-lang-chips></p>
-        <p class="text-muted-foreground toolbar-note">A blank cell keeps the app's Bengali text. Editing Bengali changes the wording a Bengali reader sees, never the lookup.</p>
+        <p class="text-muted-foreground toolbar-note">A blank cell keeps the app's Bengali text. Editing Bengali changes the wording a Bengali reader sees, never the lookup. <code>{1}</code> (and <code>{2}</code>) is where the app puts a value — a page number, a count, a title — so keep the marker in your wording: it is not read out.</p>
       </div>
       <div data-grid-panel>${NC.components.skeleton(7, 4)}</div>
     </section>`;
@@ -567,6 +593,6 @@
 
   // Exposed for the dashboard's own tests and for reuse by the importer.
   NC.languageFiles = Object.freeze({
-    parseCSV, writeCSV, parsePairs, summarise, buildMatrix, matrixCsv, parseMatrix
+    parseCSV, writeCSV, parsePairs, summarise, buildMatrix, matrixCsv, parseMatrix, isScaffolding
   });
 })(window.NC);

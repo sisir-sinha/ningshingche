@@ -58,14 +58,22 @@ def looks_like_pattern(value: str) -> bool:
     return bool(re.search(r"\\[dDwWsS]|\(\?:", text)) or (text.startswith("^") and text.endswith("$"))
 
 
-def is_prompt_block(value: str, filename: str) -> bool:
-    """Markdown labels the AI assistant builds for its prompt, not for a screen.
+# Markdown structure at the start of a literal: a heading (`### …`), a list item
+# (`- …`, `* …`, `• …`), a horizontal rule (`--- …`), bold (`**…`), or an italic
+# wrapper (`*গান*`). The owner asked for the Bengali wording on the page, not the
+# markup these strings are built with.
+MARKDOWN_LEAD = re.compile(r"^\s*(?:#{1,6}\s|[-*•]\s|--+\s?|\*\S|\d+\.\s)")
 
-    `### সম্পর্কিত জিজ্ঞাসা:` is appended to the context and stripped back out of
-    the answer; `**শিরোনাম:** {1}` is a bold block heading the model reads.
-    Translating one changes a prompt rather than the interface.
+
+def is_prompt_block(value: str, filename: str) -> bool:
+    """Markdown scaffolding rather than a label on a screen.
+
+    `### সম্পর্কিত জিজ্ঞাসা:` is appended to the AI context and stripped back out
+    of the answer; `• **বিভাগ:** {1}` is a bulleted block heading the model
+    reads. Translating one changes a prompt, and the bullets and hashes are noise
+    in a translation sheet whoever reads it.
     """
-    if value.lstrip().startswith("#"):
+    if MARKDOWN_LEAD.match(value):
         return True
     return filename == "NinghsingCheAiAssistant.kt" and bool(re.match(r"^\s*(?:-\s*)?\*{2}", value))
 

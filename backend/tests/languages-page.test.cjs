@@ -41,7 +41,9 @@ const SCRIPT = path.join(__dirname, '..', 'assets', 'js', 'languages.js');
 // the sheet will not reproduce it.
 const SOURCE = ['গান', 'শিরোনাম', 'অনুসন্ধান', 'অন্বেষণ', 'অডিও ফাইল পড়া যায়নি।'];
 const bnCsv = ['key,value', ...SOURCE.map((key) => `${key},${key}`)].join('\n') + '\n';
-const bpyCsv = 'key,value\nগান,Elahan\n';
+// One heading row rides along in the stored file, as a file saved by an older
+// build would carry: the page must not turn it into a row.
+const bpyCsv = 'key,value\nগান,Elahan\n### «{1}» — নিবন্ধ বিশ্লেষণ,লেবেল\n';
 const enCsv = 'key,value\nগান,Song\nগান,Song (duplicate wins)\n'.replace('গান,Song (duplicate wins)\n', '');
 
 function boot() {
@@ -129,6 +131,14 @@ test('languages page', { skip: JSDOM ? false : 'jsdom is not installed (npm inst
     assert.deepEqual(labels, ['বিষ্ণুপ্রিয়া মণিপুরী', 'বাংলা', 'English'], 'every column says which language it is');
   });
 
+  await t.test('a stored heading or bullet row never becomes a row on the page', () => {
+    // The fixture's Bengali list is five strings and the stored bpy file carries
+    // a `### …` row, which the page leaves out of the grid entirely.
+    assert.equal(root.querySelectorAll('[data-entry-row]').length, SOURCE.length);
+    assert.equal([...root.querySelectorAll('[data-key]')].some((node) => node.dataset.key.startsWith('###')), false);
+    assert.equal(root.querySelector('[data-entry-search]').placeholder.length > 0, true, 'the toolbar is still there');
+  });
+
   await t.test('one row per string, with all three languages editable', () => {
     assert.equal(root.querySelectorAll('[data-entry-row]').length, SOURCE.length);
     const sourceRow = rowFor(root, 'শিরোনাম');
@@ -203,6 +213,7 @@ test('languages page', { skip: JSDOM ? false : 'jsdom is not installed (npm inst
     assert.match(byLang.bpy.csv, /শিরোনাম,নিংশিং চে\n/);
     assert.equal(byLang.bpy.row_count, 2);
     assert.doesNotMatch(byLang.bpy.csv, /অনুসন্ধান/);
+    assert.doesNotMatch(byLang.bpy.csv, /###/, 'and the stored heading is not written back either');
     assert.match(byLang.en.csv, /গান,Song\n/);
     assert.equal(byLang.en.row_count, 1);
     // Nobody has rewritten the Bengali yet, so its file holds no rows at all:

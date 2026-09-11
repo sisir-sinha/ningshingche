@@ -175,8 +175,6 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 সারসংক্ষেপ,,ui,2,0,NinghsingCheAiAssistant.kt
 স্মৃতি,,ui,2,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 ১৬ই মার্চ,,content,2,0,NinghsingCheContentData.kt
-*গান*,,ui,1,0,SearchQuery.kt
---- *তথ্যসূত্র: নিংশিং চে ডিজিটাল আর্কাইভের «{1}» নিবন্ধ*,,ui,1,1,NinghsingCheAiAssistant.kt
 AI বিশ্লেষণ ও উত্তর প্রস্তুত করা হচ্ছে...,,ui,1,0,AiAssistantScreen.kt
 AI সহকারী লুকান,,ui,1,0,AiAssistantScreen.kt
 AI সহকারীকে জিজ্ঞাসা করুন,,ui,1,0,EditorialComponents.kt
@@ -947,8 +945,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 ২০ ডিসেম্বর ২০২৪,,content,1,0,NinghsingCheContentData.kt
 ২৮ ডিসেম্বর ২০২৪,,content,1,0,NinghsingCheContentData.kt
 — শেষ —,,ui,1,0,ListScreens.kt
-•  {1} মি.,,ui,1,1,EditorialComponents.kt
-• **বিভাগ:** {1},,ui,1,1,NinghsingCheAiAssistant.kt
 ❓ প্রশ্নোত্তর বিশ্লেষণ,,ui,1,0,ArticleScreen.kt
 🎯 লেখকের বক্তব্য,,ui,1,0,ArticleScreen.kt
 💡 মূল শিক্ষণীয় বিষয়,,ui,1,0,ArticleScreen.kt
