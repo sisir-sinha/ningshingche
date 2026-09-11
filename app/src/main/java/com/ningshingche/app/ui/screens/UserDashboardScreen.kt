@@ -351,8 +351,13 @@ fun UserDashboardScreen(
                 .padding(padding)
                 .imePadding()
         ) {
+            // Tabs change on tap only. Notices sit next to Home in the pager, so
+            // a stray swipe used to land on the notices list and mark everything
+            // there as read; the bell (and the notices metric card) is now the
+            // only way in. The bottom bar still reaches the other tabs.
             HorizontalPager(
                 state = pagerState,
+                userScrollEnabled = false,
                 modifier = Modifier.fillMaxSize()
             ) { page ->
                 when (page) {

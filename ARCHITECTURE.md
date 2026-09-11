@@ -72,7 +72,7 @@ Order matters: `schema.sql` (or 002 legacy, **never after 004**) → 003 → 004
 | `submitted_blogs` | reader submissions. `status in ('Pending','Reviewed','Approved','Rejected','Published')`, `converted_blog_id`, `user_id` (006). `approve_submission()` RPC (004) atomically converts → blog + author de-dup. |
 | `music_tracks` (014–021) | `title/artist/album/genre/description`, `thumbnail_url`, `audio_url`, `file_provider ('url'/'supabase-storage')`, `file_storage_path`, `duration_seconds`, `file_size_mb`, `sort_order`, `lyrics` (015), `video_link` (017), `user_id` (018), artist/album images+bios (019), `love_count` (020, trigger-synced from `music_loves`) |
 | `music_playlists` / `music_playlist_tracks` (015) | per user (`kind in ('custom','loved')`; loved is unique per user) |
-| `music_loves` (020) | `(track_id, user_id)` PK; public read; triggers update `music_tracks.love_count` |
+| `music_loves` (020) | `(track_id, user_id)` PK; public read; triggers update `music_tracks.love_count`. No `anon` write access: signed-out loves go through the `toggle_music_love` security-definer RPC (022), which keys a guest by `md5('ningshingche:' \|\| device_id)` |
 
 ### 3.2 App-user workspace tables
 
@@ -223,7 +223,8 @@ authors_directory, social_activities.
   `MusicPlaybackService` (ExoPlayer + MediaSession, video renderer for `video_link`
   embeds), shared `SimpleCache` (256 MB) with prefetch heads (1.5 MB current / 6 MB next),
   shuffle/repeat/loop/autoplay/lyrics/sleep-timer, **loved songs** (Room playlist +
-  `music_loves` remote sync + `love_count`), custom playlists (Room + `music_playlists`/
+  `toggle_music_love` RPC + `love_count`; works signed out via a device id, and taps that
+  miss the network are replayed), custom playlists (Room + `music_playlists`/
   `music_playlist_tracks` best-effort sync), **offline downloads** (Room `music_offline`
   + file). `MusicTrack.streamUrl()` prefers public Storage when the URL is signed or
   `file_provider=supabase-storage`.
