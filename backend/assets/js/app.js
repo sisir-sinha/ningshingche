@@ -111,6 +111,11 @@
     if (searchButton) searchButton.hidden = !searchableRoutes.some((route) => NC.auth.canAccess(route));
   }
 
+  /** The build the browser actually loaded, shown in the sidebar footer. */
+  function syncBuildLabel() {
+    qsa('[data-app-version]').forEach((node) => { node.textContent = NC_CONFIG.app.version || '—'; });
+  }
+
   function setActiveNavigation(route) {
     qsa('[data-nav-route]').forEach((link) => {
       const active = link.dataset.navRoute === route;
@@ -150,6 +155,7 @@
     qsa('[data-current-user-role]').forEach((node) => { node.textContent = session?.user?.role || NC_CONFIG.auth.role; });
     qsa('[data-current-user-initials]').forEach((node) => { node.textContent = NC.utils.initials(session?.user?.name || NC_CONFIG.auth.displayName); });
     renderNavigation();
+    syncBuildLabel();
     syncPermissionControls();
   }
 

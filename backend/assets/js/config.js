@@ -14,7 +14,7 @@
     app: Object.freeze({
       name: 'Ningshing Che',
       subtitle: 'Editorial Command Center',
-      version: '1.5.0',
+      version: '1.6.0',
       websiteUrl: 'https://ningshingche.com',
       locale: 'en-BD',
       timeZone: 'Asia/Dhaka',
@@ -93,7 +93,10 @@
       { id: 'music', label: 'Music', icon: 'fa-music', group: 'content' },
       { id: 'analytics', label: 'Analytics', icon: 'fa-chart-mixed', group: 'system' },
       { id: 'settings', label: 'Settings', icon: 'fa-gear', group: 'system' },
-      { id: 'languages', label: 'Languages', icon: 'fa-language', group: 'system', parent: 'settings' },
+      // Top level on purpose, and guarded by the Settings permission: a role that
+      // can open Settings can edit language files, and there is no separate
+      // 'languages' key for the database to validate.
+      { id: 'languages', label: 'Languages', icon: 'fa-language', group: 'system', permission: 'settings' },
       { id: 'access-control', label: 'Users & Roles', icon: 'fa-user-shield', group: 'system' }
     ])
   });

@@ -252,9 +252,14 @@
     return isAuthenticated() ? (NC.state.session.accessToken || '') : '';
   }
 
+  /**
+   * The permission a route is guarded by. A route may borrow another route's
+   * permission (`permission: 'settings'`) — that is how Languages rides on
+   * Settings without adding a key the database would reject.
+   */
   function permissionKey(route) {
     const item = NC_CONFIG.routes.find((entry) => entry.id === route);
-    return item?.parent || item?.id || String(route || '');
+    return item?.permission || item?.parent || item?.id || String(route || '');
   }
 
   function canAccess(route) {
