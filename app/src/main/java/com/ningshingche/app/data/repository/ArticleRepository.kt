@@ -3,8 +3,6 @@ package com.ningshingche.app.data.repository
 import com.ningshingche.app.data.local.AppDatabase
 import com.ningshingche.app.data.local.ArticleEntity
 import com.ningshingche.app.data.local.BookmarkEntity
-import com.ningshingche.app.data.local.HistoryEntity
-import com.ningshingche.app.data.local.SearchHistoryEntity
 import com.ningshingche.app.data.model.Article
 import com.ningshingche.app.data.model.ArticleComment
 import com.ningshingche.app.data.model.Author

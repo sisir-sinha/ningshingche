@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -52,7 +51,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
@@ -61,7 +59,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.ningshingche.app.data.portal.ArticleSummary
 import com.ningshingche.app.data.portal.AuthorRef
 import com.ningshingche.app.data.portal.CategoryRef
 import com.ningshingche.app.data.portal.IssueTags
@@ -69,7 +66,6 @@ import com.ningshingche.app.data.portal.stripHtml
 import com.ningshingche.app.ui.components.HtmlFormattedText
 import com.ningshingche.app.ui.components.VerifiedBadge
 import com.ningshingche.app.ui.editorial.ArticleRow
-import com.ningshingche.app.ui.editorial.AuthorChip
 import com.ningshingche.app.ui.editorial.CategoryPill
 import com.ningshingche.app.ui.editorial.EditorialImage
 import com.ningshingche.app.ui.editorial.EditorialShape
@@ -81,7 +77,6 @@ import com.ningshingche.app.ui.editorial.Hairline
 import com.ningshingche.app.ui.editorial.LoadingFeed
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.editorial.SectionHeader
-import com.ningshingche.app.ui.theme.Kalpurush
 
 /**
  * The three list screens — search, category and author — share one paging

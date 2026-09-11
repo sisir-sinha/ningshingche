@@ -15,7 +15,6 @@ import com.ningshingche.app.data.model.AiChatMessage
 import com.ningshingche.app.data.model.AppThemeMode
 import com.ningshingche.app.data.model.Article
 import com.ningshingche.app.data.model.Author
-import com.ningshingche.app.data.model.Bookmark
 import com.ningshingche.app.data.model.Category
 import com.ningshingche.app.data.model.PdfCategory
 import com.ningshingche.app.data.model.PdfDocument

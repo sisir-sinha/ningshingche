@@ -4,8 +4,6 @@ import android.annotation.SuppressLint
 import android.content.ClipboardManager
 import android.content.Context
 import android.view.ActionMode
-import android.view.Menu
-import android.view.MenuItem
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebView

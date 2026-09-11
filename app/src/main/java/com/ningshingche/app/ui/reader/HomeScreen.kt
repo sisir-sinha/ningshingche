@@ -2,9 +2,7 @@ package com.ningshingche.app.ui.reader
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -29,7 +27,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,7 +36,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -55,10 +51,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ningshingche.app.ui.theme.Kalpurush
 import androidx.compose.ui.unit.sp
@@ -68,7 +62,6 @@ import androidx.compose.ui.text.font.FontWeight
 import com.ningshingche.app.data.portal.ArticleSummary
 import com.ningshingche.app.data.portal.AuthorRef
 import com.ningshingche.app.data.portal.CategoryRef
-import com.ningshingche.app.data.portal.GalleryItem
 import com.ningshingche.app.data.portal.PdfBook
 import com.ningshingche.app.data.portal.VideoItem
 import com.ningshingche.app.ui.components.LocalMusicController
@@ -82,7 +75,6 @@ import com.ningshingche.app.ui.editorial.ArticleRow
 import com.ningshingche.app.ui.editorial.AuthorRail
 import com.ningshingche.app.ui.editorial.CategoryRail
 import com.ningshingche.app.ui.editorial.EditorialSpace
-import com.ningshingche.app.ui.editorial.EditorialType
 import com.ningshingche.app.ui.editorial.EmptyState
 import com.ningshingche.app.ui.editorial.ErrorState
 import com.ningshingche.app.ui.editorial.GalleryGrid
@@ -96,7 +88,6 @@ import com.ningshingche.app.ui.editorial.PdfRail
 import com.ningshingche.app.ui.editorial.SectionHeader
 import com.ningshingche.app.ui.editorial.MusicRail
 import com.ningshingche.app.ui.editorial.VideoRail
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**

@@ -66,9 +66,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ningshingche.app.R
 import com.ningshingche.app.data.model.AiChatMessage
-import com.ningshingche.app.data.model.ArticleCitation
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import com.ningshingche.app.ui.components.MarkdownFormattedText

@@ -1,7 +1,6 @@
 package com.ningshingche.app.data.remote
 
 import android.content.Context
-import com.ningshingche.app.data.auth.GoogleAuthConfig
 import com.ningshingche.app.data.auth.GoogleAuthException
 import com.ningshingche.app.data.auth.GoogleAuthMapper
 import kotlinx.coroutines.Dispatchers
