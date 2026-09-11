@@ -13,7 +13,9 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.rememberDrawerState
@@ -42,6 +44,7 @@ import com.ningshingche.app.data.model.AppThemeMode
 import com.ningshingche.app.data.portal.IssueTags
 import com.ningshingche.app.ui.navigation.ExploreTab
 import com.ningshingche.app.ui.components.PortalDrawerContent
+import com.ningshingche.app.ui.components.PortalDrawerWidth
 import com.ningshingche.app.ui.screens.AboutScreen
 import com.ningshingche.app.ui.screens.AiAssistantScreen
 import com.ningshingche.app.ui.screens.AuthorsDirectoryScreen
@@ -294,6 +297,15 @@ fun EditorialReaderApp(
         currentRoute == ReaderRoute.ExplorePattern ||
         currentRoute == ReaderRoute.Explore
 
+    // Material3 measures the drawer sheet to learn where "closed" sits, and draws
+    // it at offset 0 until that first measurement is in — which shows the panel for
+    // a frame or two (~50 ms) on a cold start, over the splash. The sheet's contents
+    // stay out of the tree until the splash has handed over: by then the measurement
+    // is long done, and no screen before that can open the drawer anyway. The
+    // placeholder measures the same width, so the anchor does not move when the real
+    // sheet arrives.
+    val drawerPanelReady = navBackStackEntry != null && currentRoute != ReaderRoute.Splash
+
     CompositionLocalProvider(
         LocalBookmarkController provides bookmarkController,
         LocalMusicController provides app.musicController
@@ -304,6 +316,10 @@ fun EditorialReaderApp(
         drawerState = drawerState,
         gesturesEnabled = drawerGesturesEnabled,
         drawerContent = {
+            if (!drawerPanelReady) {
+                Box(modifier = Modifier.fillMaxHeight().width(PortalDrawerWidth))
+                return@ModalNavigationDrawer
+            }
             PortalDrawerContent(
                 currentRoute = currentRoute,
                 isDark = isDark,

@@ -82,6 +82,16 @@ import com.ningshingche.app.ui.theme.PortalSaffron
  * System → Light → Dark. The default mode is *System*, which is why the
  * button exposes all three states instead of a plain light/dark switch.
  */
+
+/**
+ * The sheet's width.
+ *
+ * Exposed because the navigation host draws an empty placeholder of the same size
+ * while the splash is on screen: Material3 measures this sheet to learn where
+ * "closed" sits, and a placeholder of a different width would move that anchor.
+ */
+val PortalDrawerWidth = 304.dp
+
 @Composable
 fun PortalDrawerContent(
     currentRoute: String,
@@ -103,7 +113,7 @@ fun PortalDrawerContent(
         drawerContentColor = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier
             .fillMaxHeight()
-            .width(304.dp)
+            .width(PortalDrawerWidth)
             .testTag("portal_drawer")
     ) {
         DrawerHeader(
