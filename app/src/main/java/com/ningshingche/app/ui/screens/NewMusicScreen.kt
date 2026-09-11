@@ -331,6 +331,7 @@ private fun SongPreview(uri: Uri, name: String, sizeBytes: Long, onClear: () -> 
  * `৩.৪ এমবি`. Built from two integers so the digits stay Bengali:
  * `toBengaliNumeral` takes a Number, and a `%.1f` string would bypass it.
  */
+@Composable
 private fun fileSizeLabel(bytes: Long): String {
     if (bytes <= 0) return ""
     return if (bytes >= 1_000_000) {
