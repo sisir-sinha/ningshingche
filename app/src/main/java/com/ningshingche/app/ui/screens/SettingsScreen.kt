@@ -435,10 +435,11 @@ fun SettingsScreen(
                             }
                             // Language files are edited in the dashboard; this pulls
                             // the latest copy without waiting for the next launch.
+                            val refreshToastMessage = t("ভাষা ফাইল আনতে শুরু হয়েছে।")
                             OutlinedButton(
                                 onClick = {
                                     viewModel.refreshTranslations()
-                                    Toast.makeText(context, t("ভাষা ফাইল আনতে শুরু হয়েছে।"), Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, refreshToastMessage, Toast.LENGTH_SHORT).show()
                                 },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
