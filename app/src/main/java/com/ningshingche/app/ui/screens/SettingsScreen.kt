@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Refresh
@@ -52,6 +53,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
@@ -407,31 +410,94 @@ fun SettingsScreen(
                                     fontSize = 12.sp
                                 )
                             )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                ThemeModeCard(
-                                    title = "বাংলা",
-                                    icon = Icons.Default.Translate,
-                                    isSelected = preferences.contentLanguage == ContentLanguage.BENGALI,
-                                    modifier = Modifier.weight(1f),
-                                    onClick = { viewModel.updateContentLanguage(ContentLanguage.BENGALI) }
-                                )
-                                ThemeModeCard(
-                                    title = "English",
-                                    icon = Icons.Default.Translate,
-                                    isSelected = preferences.contentLanguage == ContentLanguage.ENGLISH,
-                                    modifier = Modifier.weight(1f),
-                                    onClick = { viewModel.updateContentLanguage(ContentLanguage.ENGLISH) }
-                                )
-                                ThemeModeCard(
-                                    title = "বিষ্ণুপ্রিয়া\nমণিপুরী",
-                                    icon = Icons.Default.Translate,
-                                    isSelected = preferences.contentLanguage == ContentLanguage.BISHNUPRIYA,
-                                    modifier = Modifier.weight(1f),
-                                    onClick = { viewModel.updateContentLanguage(ContentLanguage.BISHNUPRIYA) }
-                                )
+                            // One line showing the language in use; tapping it opens
+                            // the three choices. The first-launch screen shows the
+                            // same three as cards — here a menu keeps the row short.
+                            var languageMenuOpen by remember { mutableStateOf(false) }
+                            Box {
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surface,
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable { languageMenuOpen = true }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Translate,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = preferences.contentLanguage.displayName(),
+                                                fontFamily = Kalpurush,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 15.sp,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Text(
+                                                text = t("অ্যাপের ভাষা — বদলাতে টিপুন"),
+                                                fontSize = 11.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        Icon(
+                                            imageVector = Icons.Default.KeyboardArrowDown,
+                                            contentDescription = t("ভাষা বাছাই করুন"),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                DropdownMenu(
+                                    expanded = languageMenuOpen,
+                                    onDismissRequest = { languageMenuOpen = false }
+                                ) {
+                                    ContentLanguage.entries.forEach { language ->
+                                        val isCurrent = language == preferences.contentLanguage
+                                        DropdownMenuItem(
+                                            text = {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = if (isCurrent) {
+                                                            Icons.Default.CheckCircle
+                                                        } else {
+                                                            Icons.Default.Translate
+                                                        },
+                                                        contentDescription = null,
+                                                        tint = if (isCurrent) {
+                                                            MaterialTheme.colorScheme.primary
+                                                        } else {
+                                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                                        },
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                    Text(
+                                                        text = language.displayName(),
+                                                        fontFamily = Kalpurush,
+                                                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                                                        color = MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                }
+                                            },
+                                            onClick = {
+                                                languageMenuOpen = false
+                                                // Switching downloads that language's file.
+                                                viewModel.updateContentLanguage(language)
+                                            }
+                                        )
+                                    }
+                                }
                             }
                             // Language files are edited in the dashboard; this pulls
                             // the latest copy without waiting for the next launch.

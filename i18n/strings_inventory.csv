@@ -145,7 +145,6 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 ফাইল ৩২ এমবি-র বেশি হতে পারবে না।,,ui,2,0,SupabaseClient.kt
 ফিচার্ড প্রবন্ধসমূহ,,ui,2,0,PortalPages.kt
 বন্ধ,,ui,2,0,"PdfViewerScreen.kt, UserDashboardScreen.kt"
-বাংলা,,ui,2,0,"LanguageSetupScreen.kt, SettingsScreen.kt"
 বার্তা লিখুন।,,ui,2,0,"ReaderWorkspaceViewModel.kt, SupabaseClient.kt"
 বার্ষিক সংখ্যা • {1} সালে প্রকাশিত লেখাসমূহ,,ui,2,1,"ExploreScreen.kt, ListScreens.kt"
 বার্ষিক সাহিত্য সংকলন,,ui,2,0,SupabaseModels.kt
@@ -154,9 +153,9 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 বিশু,,content,2,0,"NinghsingCheAiAssistant.kt, NinghsingCheContentData.kt"
 বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ,,ui,2,0,"PortalDrawer.kt, SiteFooter.kt"
 বিষ্ণুপ্রিয়া মণিপুরি ভাষা আন্দোলনের ইতিহাস কী?,,ui,2,0,MainViewModels.kt
-বিষ্ণুপ্রিয়া মণিপুরী,,ui,2,0,"LanguageSetupScreen.kt, SettingsScreen.kt"
 ব্যবহারকারীর প্রশ্ন / নির্দেশ: {1},,ui,2,1,NinghsingCheAiAssistant.kt
 ব্রাউজারে খুলুন,,ui,2,0,"HtmlArticleRenderer.kt, VideoPlayer.kt"
+ভাষা বাছাই করুন,,ui,2,0,"LanguageSetupScreen.kt, SettingsScreen.kt"
 ভূমিকা,,content,2,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 মণিপুরি সমাজে 'মিংকৌ' নামপ্রথা কী?,,ui,2,0,MainViewModels.kt
 মণিপুরি সমাজের ঐতিহ্যবাহী 'ইঞ্চৌঘর' কী?,,ui,2,0,MainViewModels.kt
@@ -290,6 +289,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 অ্যাপ শেয়ার করুন,,ui,1,0,PortalDrawer.kt
 অ্যাপ সংস্করণ ও সাইট হালনাগাদ,,ui,1,0,SettingsScreen.kt
 অ্যাপে MP3 সংরক্ষণ,,ui,1,0,MusicPlayer.kt
+অ্যাপের ভাষা — বদলাতে টিপুন,,ui,1,0,SettingsScreen.kt
 আগস্ট,,ui,1,0,UserDashboardCharts.kt
 আগের কাজ,,ui,1,0,HtmlContentEditor.kt
 আগের গান,,ui,1,0,MusicPlayer.kt
@@ -697,6 +697,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 বর্মেন্দ্র,,content,1,0,AuthorProfiles.kt
 বর্ষপূর্তি,,content,1,0,NinghsingCheContentData.kt
 বাঁকা,,ui,1,0,HtmlContentEditor.kt
+বাংলা,,ui,1,0,LanguageSetupScreen.kt
 বাংলাদেশ,,ui,1,0,NingshingCheWebsiteClient.kt
 বাড়ি,,ui,1,0,NinghsingCheAiAssistant.kt
 বাতিল,,ui,1,0,MusicScreen.kt
@@ -748,6 +749,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 বিষ্ণুপ্রিয়া মণিপুরি সাহিত্যের আদিযুগ থেকে আধুনিক পর্ব,,content,1,0,NinghsingCheContentData.kt
 বিষ্ণুপ্রিয়া মণিপুরিদের অন্যান্য প্রধান সামাজিক ও ধর্মীয় উৎসব কী কী?,,ui,1,0,NinghsingCheAiAssistant.kt
 বিষ্ণুপ্রিয়া মণিপুরিদের ঐতিহ্যবাহী বসতবাড়ির স্থাপত্য: 'ইঞ্চৌঘর',,content,1,0,NinghsingCheContentData.kt
+বিষ্ণুপ্রিয়া মণিপুরী,,ui,1,0,LanguageSetupScreen.kt
 বিষ্ণুপ্রিয়া মণিপুরী / Bishnupriya Manipuri,,ui,1,0,LanguageSetupScreen.kt
 বৈষ্ণব পদাবলী,,content,1,0,NinghsingCheContentData.kt
 ব্যবহারকারীর প্রশ্ন: {1},,ui,1,1,NinghsingCheAiAssistant.kt
@@ -762,7 +764,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 ভাষা ও সংস্কৃতি গবেষক,,content,1,0,NinghsingCheContentData.kt
 ভাষা ফাইল আনতে শুরু হয়েছে।,,ui,1,0,SettingsScreen.kt
 ভাষা ফাইল আনা যায়নি ({1})।,,ui,1,1,TranslationRepository.kt
-ভাষা বাছাই করুন,,ui,1,0,LanguageSetupScreen.kt
 ভাষা শহীদ,,content,1,0,NinghsingCheContentData.kt
 ভাষা শহীদ সুদেষ্ণা সিংহ স্মারক সংখ্যা ও সমাজ জাগরণের চালচিত্র।,,content,1,0,NinghsingCheContentData.kt
 ভাষা শহীদ সুদেষ্ণা সিংহ: অবিনাশী আত্মত্যাগ ও প্রেরণার শিখা,,content,1,0,NinghsingCheContentData.kt
