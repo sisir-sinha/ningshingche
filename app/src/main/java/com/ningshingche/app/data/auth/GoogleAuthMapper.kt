@@ -8,7 +8,6 @@ import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.security.MessageDigest
-import java.util.Base64
 import java.util.UUID
 import kotlinx.coroutines.TimeoutCancellationException
 
@@ -53,7 +52,14 @@ object GoogleAuthMapper {
         return try {
             val payload = parts[1]
             val padded = payload + "=".repeat((4 - payload.length % 4) % 4)
-            val decoded = Base64.getUrlDecoder().decode(padded)
+            // android.util.Base64, not java.util.Base64: the latter is API 26+ and
+            // minSdk is 24 with no core library desugaring, so on Android 7 this
+            // used to throw NoClassDefFoundError — an Error, which the catch below
+            // does not swallow, so Google sign-in crashed the app. Matches jwtPayload().
+            val decoded = android.util.Base64.decode(
+                padded,
+                android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP
+            )
             val json = JSONObject(String(decoded, Charsets.UTF_8))
             if (!json.has("nonce")) null else json.optString("nonce")
         } catch (_: Exception) {
