@@ -33,6 +33,7 @@ class UserPreferencesRepository(private val context: Context) {
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val APP_THEME_MODE = stringPreferencesKey("app_theme_mode")
         val CONTENT_LANGUAGE = stringPreferencesKey("content_language")
+        val LANGUAGE_CHOSEN = booleanPreferencesKey("language_chosen")
         val TTS_SPEED = floatPreferencesKey("tts_speed")
         val NOTIF_ENABLED = booleanPreferencesKey("notif_enabled")
         val NOTIF_NEW_ARTICLES = booleanPreferencesKey("notif_new_articles")
@@ -78,6 +79,7 @@ class UserPreferencesRepository(private val context: Context) {
             AppThemeMode.SYSTEM
         }
         // Default is Bengali: the interface as originally written.
+        val languageChosen = preferences[Keys.LANGUAGE_CHOSEN] ?: false
         val contentLanguageStr = preferences[Keys.CONTENT_LANGUAGE] ?: ContentLanguage.BENGALI.name
         val contentLanguage = try {
             ContentLanguage.valueOf(contentLanguageStr)
@@ -100,6 +102,7 @@ class UserPreferencesRepository(private val context: Context) {
             themeMode = themeMode,
             appThemeMode = appThemeMode,
             contentLanguage = contentLanguage,
+            languageChosen = languageChosen,
             ttsSpeed = ttsSpeed,
             notificationsEnabled = notifEnabled,
             notificationNewArticles = notifNew,
@@ -167,6 +170,13 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun updateNotificationOther(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[Keys.NOTIF_OTHER] = enabled
+        }
+    }
+
+    /** Called from the first-launch language screen, once a language is picked. */
+    suspend fun markLanguageChosen(chosen: Boolean = true) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.LANGUAGE_CHOSEN] = chosen
         }
     }
 

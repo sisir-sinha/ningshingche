@@ -145,6 +145,7 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 ফাইল ৩২ এমবি-র বেশি হতে পারবে না।,,ui,2,0,SupabaseClient.kt
 ফিচার্ড প্রবন্ধসমূহ,,ui,2,0,PortalPages.kt
 বন্ধ,,ui,2,0,"PdfViewerScreen.kt, UserDashboardScreen.kt"
+বাংলা,,ui,2,0,"LanguageSetupScreen.kt, SettingsScreen.kt"
 বার্তা লিখুন।,,ui,2,0,"ReaderWorkspaceViewModel.kt, SupabaseClient.kt"
 বার্ষিক সংখ্যা • {1} সালে প্রকাশিত লেখাসমূহ,,ui,2,1,"ExploreScreen.kt, ListScreens.kt"
 বার্ষিক সাহিত্য সংকলন,,ui,2,0,SupabaseModels.kt
@@ -153,6 +154,7 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 বিশু,,content,2,0,"NinghsingCheAiAssistant.kt, NinghsingCheContentData.kt"
 বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ,,ui,2,0,"PortalDrawer.kt, SiteFooter.kt"
 বিষ্ণুপ্রিয়া মণিপুরি ভাষা আন্দোলনের ইতিহাস কী?,,ui,2,0,MainViewModels.kt
+বিষ্ণুপ্রিয়া মণিপুরী,,ui,2,0,"LanguageSetupScreen.kt, SettingsScreen.kt"
 ব্যবহারকারীর প্রশ্ন / নির্দেশ: {1},,ui,2,1,NinghsingCheAiAssistant.kt
 ব্রাউজারে খুলুন,,ui,2,0,"HtmlArticleRenderer.kt, VideoPlayer.kt"
 ভূমিকা,,content,2,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
@@ -206,6 +208,7 @@ APK শেয়ার প্রস্তুত করা সম্ভব হয
 APK সংরক্ষণ করুন,,ui,1,0,SettingsScreen.kt
 APK সংরক্ষণ ব্যর্থ হয়েছে,,ui,1,0,SettingsScreen.kt
 APK সফলভাবে ডাউনলোড ফোল্ডারে সংরক্ষিত হয়েছে!,,ui,1,0,SettingsScreen.kt
+Choose your language · লাউখোল,,ui,1,0,LanguageSetupScreen.kt
 Downloads/Ningshingche/{1} ফোল্ডারে সফলভাবে সংরক্ষিত হয়েছে!,,ui,1,1,ApkManager.kt
 Downloads/Ningshingche_PDFs/{1} ফোল্ডারে সংরক্ষিত হয়েছে!,,ui,1,1,PdfHelper.kt
 Facebook আইডি / লিংক,,ui,1,0,UserProfileScreen.kt
@@ -315,6 +318,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 আরতী,,ui,1,0,MusicGenres.kt
 আর্কাইভ,,content,1,0,NinghsingCheContentData.kt
 "আসাম, ভারত",,content,1,0,NinghsingCheContentData.kt
+ইংরেজি,,ui,1,0,LanguageSetupScreen.kt
 ইউনিকোড,,content,1,0,NinghsingCheContentData.kt
 ইঞ্চৌঘর ও মণিপুরি লোকস্থাপত্য সমীক্ষা,,content,1,0,NinghsingCheContentData.kt
 ইঞ্চৌঘরের স্থাপত্যরীতিতে বাঁশ ও কাঠের ব্যবহার কীভাবে হয়?,,ui,1,0,NinghsingCheAiAssistant.kt
@@ -596,6 +600,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 পড়ে শোনানোর সময় ত্রুটি হয়েছে।,,ui,1,0,ArticleTtsPlayer.kt
 পদবি / পরিচয় (ঐচ্ছিক),,ui,1,0,UserProfileScreen.kt
 পরিবেশ,,content,1,0,NinghsingCheContentData.kt
+পরে সেটিংস থেকে ভাষা বদলাতে পারবেন।,,ui,1,0,LanguageSetupScreen.kt
 পরের ছবি,,ui,1,0,EditorialComponents.kt
 পরের পৃষ্ঠা,,ui,1,0,PdfViewerScreen.kt
 পর্যালোচনায়,,ui,1,0,UserDashboardScreen.kt
@@ -689,7 +694,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 বর্মেন্দ্র,,content,1,0,AuthorProfiles.kt
 বর্ষপূর্তি,,content,1,0,NinghsingCheContentData.kt
 বাঁকা,,ui,1,0,HtmlContentEditor.kt
-বাংলা,,ui,1,0,SettingsScreen.kt
 বাংলাদেশ,,ui,1,0,NingshingCheWebsiteClient.kt
 বাড়ি,,ui,1,0,NinghsingCheAiAssistant.kt
 বাতিল,,ui,1,0,MusicScreen.kt
@@ -741,7 +745,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 বিষ্ণুপ্রিয়া মণিপুরি সাহিত্যের আদিযুগ থেকে আধুনিক পর্ব,,content,1,0,NinghsingCheContentData.kt
 বিষ্ণুপ্রিয়া মণিপুরিদের অন্যান্য প্রধান সামাজিক ও ধর্মীয় উৎসব কী কী?,,ui,1,0,NinghsingCheAiAssistant.kt
 বিষ্ণুপ্রিয়া মণিপুরিদের ঐতিহ্যবাহী বসতবাড়ির স্থাপত্য: 'ইঞ্চৌঘর',,content,1,0,NinghsingCheContentData.kt
-বিষ্ণুপ্রিয়া মণিপুরী,,ui,1,0,SettingsScreen.kt
+বিষ্ণুপ্রিয়া মণিপুরী / Bishnupriya Manipuri,,ui,1,0,LanguageSetupScreen.kt
 বৈষ্ণব পদাবলী,,content,1,0,NinghsingCheContentData.kt
 ব্যবহারকারীর প্রশ্ন: {1},,ui,1,1,NinghsingCheAiAssistant.kt
 ভজন,,ui,1,0,MusicGenres.kt
@@ -755,6 +759,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 ভাষা ও সংস্কৃতি গবেষক,,content,1,0,NinghsingCheContentData.kt
 ভাষা ফাইল আনতে শুরু হয়েছে।,,ui,1,0,SettingsScreen.kt
 ভাষা ফাইল আনা যায়নি ({1})।,,ui,1,1,TranslationRepository.kt
+ভাষা বাছাই করুন,,ui,1,0,LanguageSetupScreen.kt
 ভাষা শহীদ,,content,1,0,NinghsingCheContentData.kt
 ভাষা শহীদ সুদেষ্ণা সিংহ স্মারক সংখ্যা ও সমাজ জাগরণের চালচিত্র।,,content,1,0,NinghsingCheContentData.kt
 ভাষা শহীদ সুদেষ্ণা সিংহ: অবিনাশী আত্মত্যাগ ও প্রেরণার শিখা,,content,1,0,NinghsingCheContentData.kt
@@ -857,6 +862,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 শুধুমাত্র এই নিবন্ধের তথ্যের ভিত্তিতে উত্তর প্রদান করা হয়,,ui,1,0,ArticleScreen.kt
 শুনুন,,ui,1,0,NewMusicScreen.kt
 শুভাশিস,,content,1,0,AuthorProfiles.kt
+শুরু করুন,,ui,1,0,LanguageSetupScreen.kt
 শেষ ছয় মাসে কোনো কার্যক্রম নেই।,,ui,1,0,UserDashboardCharts.kt
 শেষ ৬ মাস,,ui,1,0,UserDashboardCharts.kt
 শেষ ৬ মাসে মোট {1}টি,,ui,1,1,UserDashboardCharts.kt

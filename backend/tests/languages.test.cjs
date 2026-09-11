@@ -89,6 +89,29 @@ test('a row without a comma is reported rather than silently merged', () => {
   assert.deepEqual(pairs, [['গান', '']]);
 });
 
+test('withValue replaces one key and leaves the rest of the file alone', () => {
+  const csv = 'key,value\nগান,\n"শিরোনাম, বই",Title\n';
+  const next = api.withValue(csv, 'গান', 'Elahan');
+  assert.equal(next, 'key,value\nগান,Elahan\n"শিরোনাম, বই",Title\n');
+  assert.equal(pairsOf(next)[1][1], 'Title', 'the untouched row keeps its quoting and value');
+});
+
+test('withValue quotes a value that needs quoting', () => {
+  const next = api.withValue('key,value\nগান,\n', 'গান', 'Song, first');
+  assert.match(next, /গান,"Song, first"/);
+  assert.equal(pairsOf(next)[0][1], 'Song, first');
+});
+
+test('withValue appends a key the file does not carry yet', () => {
+  const next = api.withValue('key,value\nগান,Elahan\n', 'নতুন', 'Nokwa');
+  assert.deepEqual(pairsOf(next), [['গান', 'Elahan'], ['নতুন', 'Nokwa']]);
+});
+
+test('withValue matches the first occurrence and ignores the header', () => {
+  const next = api.withValue('key,value\nগান,First\nগান,Second\n', 'গান', 'Changed');
+  assert.equal(next, 'key,value\nগান,Changed\nগান,Second\n');
+});
+
 test('the shipped templates parse and keep every key', () => {
   const dir = path.join(__dirname, '..', 'assets', 'lang');
   ['bn.csv', 'en.csv', 'bpy.csv'].forEach((name) => {

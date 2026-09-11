@@ -488,6 +488,12 @@ the chosen language into `LocalTranslations`, and `t("বাংলা লেখ�
 it, falling back to the Bengali source when a key is absent or its value is blank. Switching
 language in Settings calls `refresh`, as does the "অনুবাদ হালনাগাদ করুন" button.
 
+First launch: `MainActivity` waits for the first DataStore emission, then shows
+`ui/screens/LanguageSetupScreen.kt` while `ReaderPreferences.languageChosen` is false — one question,
+three cards (each named in its own script), and continuing sets the preference
+(`markLanguageChosen()`). Picking a language already downloads its file, so the reader lands in a
+translated app rather than watching it fill in.
+
 ### PDFs — `util/PdfHelper.kt`
 
 `getOrGeneratePdfFile(context, PdfDocument)`, `renderPdfPages(file): List<Bitmap>`,
