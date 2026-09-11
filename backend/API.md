@@ -866,6 +866,9 @@ GET /rest/v1/app_language_files?select=lang,label,row_count,updated_at   # dashb
 POST /rest/v1/app_language_files?on_conflict=lang             # dashboard save (Prefer: resolution=merge-duplicates)
 ```
 
+The dashboard's Languages page presents this as one grid (#, bpy, bn, en) and writes these rows back
+on save; the app only ever reads one language at a time.
+
 A blank `value` means "not translated"; the app shows its own Bengali text for that key. The CSV
 reader on both sides handles quoted fields, doubled quotes, CRLF, a BOM and embedded newlines, and
 the last duplicate key wins — see `backend/tests/languages.test.cjs` and `TranslationCsvTest.kt`.

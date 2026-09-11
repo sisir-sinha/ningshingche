@@ -179,7 +179,6 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 সারসংক্ষেপ,,ui,2,0,NinghsingCheAiAssistant.kt
 স্মৃতি,,content,2,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 ১৬ই মার্চ,,content,2,0,NinghsingCheContentData.kt
-"""{1}"" — অন্য শব্দে চেষ্টা করুন",,ui,1,1,ListScreens.kt
 ### «{1}» — নিবন্ধ বিশ্লেষণ,,ui,1,1,NinghsingCheAiAssistant.kt
 ### নিংশিং চে ডাটাবেজের প্রাসঙ্গিক নিবন্ধসমূহ:,,ui,1,0,NinghsingCheAiAssistant.kt
 ### সংশ্লিষ্ট বই/ই-বুক তালিকা:,,ui,1,0,NinghsingCheAiAssistant.kt
@@ -270,6 +269,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 অন্য অ্যাপে খুলুন,,ui,1,0,PdfViewerScreen.kt
 অন্য ধরন লিখুন,,ui,1,0,GenreCombobox.kt
 অন্য শব্দ দিয়ে খুঁজুন বা বিভাগ ফিল্টার বদলান।,,ui,1,0,BookmarksScreen.kt
+অন্য শব্দে চেষ্টা করুন,,ui,1,0,ListScreens.kt
 অপর্ণা,,content,1,0,AuthorProfiles.kt
 অফলাইন ক্যাশ সিঙ্ক ও পরিষ্কার করুন,,ui,1,0,SettingsScreen.kt
 অফলাইন ক্যাশে {1}টি প্রবন্ধ,,ui,1,1,ArticleRepository.kt

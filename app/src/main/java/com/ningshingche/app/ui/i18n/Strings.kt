@@ -25,7 +25,27 @@ data class TranslationTable(
 ) {
     /** How many strings this language translates. */
     val size: Int get() = strings.size
+
+    /**
+     * The same table keyed loosely, so a translation survives the punctuation
+     * difference a person typing a CSV will not notice: `অডিও ফাইল পড়া যায়নি`
+     * and `অডিও ফাইল পড়া যায়নি।` are the same string to a reader. Exact matches
+     * still win — this map is only consulted second.
+     */
+    val loose: Map<String, String> by lazy {
+        if (language == ContentLanguage.BENGALI) {
+            emptyMap()
+        } else {
+            strings.entries.associate { (key, value) -> looseKey(key) to value }
+        }
+    }
 }
+
+/** Trimmed, single-spaced, and without trailing sentence punctuation. */
+internal fun looseKey(text: String): String =
+    text.trim().replace(WHITESPACE, " ").trimEnd('।', '.', '!', '?', ' ', '\u200b')
+
+private val WHITESPACE = Regex("\\s+")
 
 val LocalTranslations = staticCompositionLocalOf { TranslationTable() }
 
@@ -38,7 +58,9 @@ fun translate(table: TranslationTable, bengali: String, vararg args: Any?): Stri
     val text = if (table.language == ContentLanguage.BENGALI) {
         bengali
     } else {
-        table.strings[bengali]?.takeIf { it.isNotBlank() } ?: bengali
+        table.strings[bengali]?.takeIf { it.isNotBlank() }
+            ?: table.loose[looseKey(bengali)]?.takeIf { it.isNotBlank() }
+            ?: bengali
     }
     if (args.isEmpty()) return text
     var filled = text

@@ -500,7 +500,15 @@ Bengali is never fetched: those strings are compiled in at the call site.
 
 Wiring: `NinghsingCheApp.translations` is the single instance; `MainActivity` collects the flow for
 the chosen language into `LocalTranslations`, and `t("বাংলা লেখা")` in `ui/i18n/Strings.kt` resolves
-it, falling back to the Bengali source when a key is absent or its value is blank. Switching
+it, falling back to the Bengali source when a key is absent or its value is blank.
+
+Lookup tries the exact Bengali string first and, on a miss, retries with `looseKey()` — trimmed,
+whitespace collapsed, trailing `।`/`.`/`!`/`?` dropped — so a key typed by hand in the dashboard
+(`অডিও ফাইল পড়া যায়নি`) still finds the string compiled into the app (`অডিও ফাইল পড়া যায়নি।`).
+Those CSVs are written by the dashboard's **Languages** grid (one row per string, a column per
+language, Bengali read-only as the lookup key) into `app_language_files` from migration 023;
+`TranslationTable.loose` is only consulted after the exact lookup misses, so a hand-typed key can
+never shadow a real one. Switching
 language in Settings calls `refresh`, as does the "অনুবাদ হালনাগাদ করুন" button.
 
 First launch: `MainActivity` waits for the first DataStore emission, then shows

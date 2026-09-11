@@ -35,7 +35,8 @@ Three components share one Supabase project (`slcpvmpsynkqdozvlsii`):
   Strings are written in Bengali at the call site and resolved by `ui/i18n/Strings.kt`. Bengali is
   the source text and is compiled in; the other two are `key,value` CSVs stored one row per
   language in `public.app_language_files` (migration 023), edited from the dashboard's **Languages**
-  page and served as a plain PostgREST select. `TranslationRepository` fetches the chosen language,
+  page (a grid of `#`, `bpy`, `bn`, `en`, where the Bengali column is the read-only key the app
+  looks strings up by) and served as a plain PostgREST select. `TranslationRepository` fetches the chosen language,
   caches the CSV under `filesDir/i18n/` and republishes it through `LocalTranslations`; the key list
   itself comes from `i18n/strings_inventory.csv`. Missing translations fall back to Bengali, so the
   app is never half-broken. The question is asked once, on first launch

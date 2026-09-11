@@ -292,7 +292,9 @@ fun SearchScreen(
                         title = if (ready.articles.isEmpty()) "কোনো ফলাফল নেই" else "ফলাফল",
                         subtitle = when {
                             ready.total != null -> "${ready.total} টি প্রবন্ধ"
-                            ready.articles.isEmpty() -> "\"${query.trim()}\" — অন্য শব্দে চেষ্টা করুন"
+                            // Plain text on purpose: a key with the query spliced into
+                            // it is harder to translate than two short strings.
+                            ready.articles.isEmpty() -> "অন্য শব্দে চেষ্টা করুন"
                             else -> null
                         }
                     )

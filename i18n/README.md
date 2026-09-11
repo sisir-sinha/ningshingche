@@ -12,16 +12,22 @@ one its reader picked.
 | --- | --- |
 | `strings_inventory.csv` | Every user-visible string in `app/src/main/java`, one row per **distinct** string, with how often it is used, which screens use it, and how many `{1}` slots it takes. This is the work queue. |
 | `refresh_inventory.py` | Regenerates the inventory from the sources (`python3 i18n/refresh_inventory.py`). `--check` fails if it has gone stale. |
-| `build_language_templates.py` | Writes the per-language templates the dashboard offers: `backend/assets/lang/{bn,en,bpy}.csv` (`--check` fails if they are stale). |
+| `build_language_templates.py` | Writes the per-language templates the dashboard starts from: `backend/assets/lang/{bn,en,bpy}.csv` (`--check` fails if they are stale). |
+| `backend/tests/languages*.test.cjs` | The grid's CSV layer and page wiring: sheet ⇄ per-language files, quoting, the filter/search behaviour, import and save. |
 
 Both scripts run without a JVM. `bn.csv` maps every key to itself, so it doubles as the key list;
 `en.csv` and `bpy.csv` ship with empty values for a translator to fill.
 
 ## How it lands in the app
 
-1. An editor opens **Dashboard → Languages**, picks a language tab, presses **Load template** and
-   fills the `value` column (or pastes a CSV from a spreadsheet), then **Save**. One CSV per
-   language is stored in `public.app_language_files` (migration 023).
+1. An editor opens **Dashboard → Languages** and types into the grid: one row per string, one column
+   per language — `#`, `bpy`, `bn`, `en`, the same shape as the sheet this work started in. `bn` is
+   the Bengali source the app looks each string up by, so it is shown read-only; `bpy` and `en` are
+   the translations. **Save translations** writes one `key,value` CSV per language into
+   `public.app_language_files` (migration 023) — that is what the app downloads. **Download** gives
+   the grid as a CSV to fill in a spreadsheet, and **Import** reads it back (columns matched by
+   header, `#` ignored, and a key that differs from the app's only by a trailing `।` lands on the
+   real key).
 2. The reader picks the language. On a fresh install that is the first screen
    (`LanguageSetupScreen`, before anything else, remembered by the `language_chosen` preference);
    afterwards it is **Settings → ভাষা**. Either way the set is the same (`ContentLanguage`:
@@ -37,7 +43,9 @@ So:
 - a half-filled CSV means half the interface switches, which is a valid intermediate state;
 - nothing is guessed — a wrong translation is a CSV edit and Save, never an app release;
 - changing the language refetches, and Settings has an "অনুবাদ হালনাগাদ করুন" button to pull the
-  current file without waiting for the next launch.
+  current file without waiting for the next launch;
+- a translation is found even if its Bengali key differs from the app's by a trailing `।` or extra
+  spaces — `looseKey()` in `ui/i18n/Strings.kt`, and the same fallback on the page's import.
 
 Strings with values use numbered slots so a translation can reorder them:
 
@@ -64,11 +72,9 @@ the translation, it may be moved but not dropped.
 1. Open **Dashboard → Languages**, pick the language, press **Load template**. The page reports how
    many rows are translated, how many values are still empty, and which Bengali keys the file does
    not carry yet.
-2. Fill the wording in. The default view is a table — one row per string, Bengali on the left and
-   your translation on the right, with a search box and "empty only" / "translated only" filters for
-   working through 700+ rows. **Whole file (CSV)** shows the raw text for pasting from a spreadsheet,
-   and **Download CSV** gives you the file to edit offline. Either way, press **Save**. Leave a value
-   empty if you are unsure: it keeps its Bengali text.
+2. Work down the grid. The search box matches Bengali and both translations; **Missing** shows the
+   rows that still lack a `bpy` or `en` value and **Complete** the rest, which is how you find what
+   is left. Leave a cell empty if you are unsure: the app shows its own Bengali text for that string.
 3. Refresh the language in the app (Settings → অনুবাদ হালনাগাদ করুন, or just switch language) to see
    the result. No app release is involved.
 
