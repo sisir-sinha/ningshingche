@@ -12,6 +12,7 @@ import com.ningshingche.app.data.remote.ImgBbUploader
 import com.ningshingche.app.data.remote.InboxSync
 import com.ningshingche.app.data.remote.SubmittedBlogRecord
 import com.ningshingche.app.data.remote.SubmittedMusicRecord
+import com.ningshingche.app.data.remote.SatoruUploadClient
 import com.ningshingche.app.data.remote.SupabaseClient
 import com.ningshingche.app.data.remote.UserNotificationRecord
 import com.ningshingche.app.data.remote.UserProfile
@@ -377,7 +378,7 @@ class ReaderWorkspaceViewModel(
         viewModelScope.launch {
             _isSaving.value = true
             _message.value = null
-            val audio = supabaseClient.uploadUserMusicFile(context, user.id, audioUri).getOrElse {
+            val audio = uploadSong(context, user.id, audioUri).getOrElse {
                 _isSaving.value = false
                 _message.value = it.message ?: "অডিও আপলোড যায়নি।"
                 return@launch
@@ -418,6 +419,34 @@ class ReaderWorkspaceViewModel(
                 _message.value = it.message ?: "গান জমা যায়নি।"
             }
             _isSaving.value = false
+        }
+    }
+
+    /**
+     * Adds a song file to the host: `upload.satoru.click` first, because it
+     * needs no session and takes up to 200 MB, then Supabase Storage if that
+     * host cannot be reached — a submission should not be lost to a third party
+     * being down. The two paths differ only in where the file lives, which is
+     * what `file_provider` records.
+     */
+    private suspend fun uploadSong(
+        context: Context,
+        userId: String,
+        uri: Uri
+    ): Result<SatoruUploadClient.UploadedSong> {
+        val host = SatoruUploadClient.uploadAudio(context, uri)
+        if (host.isSuccess) return host
+        if (SatoruUploadClient.isTooLarge(SatoruUploadClient.describe(context, uri).sizeBytes)) {
+            // Reported already; the fallback's 32 MB ceiling would only be a
+            // second, more confusing error.
+            return host
+        }
+        return supabaseClient.uploadUserMusicFile(context, userId, uri).map { upload ->
+            SatoruUploadClient.UploadedSong(
+                publicUrl = upload.publicUrl,
+                storagePath = upload.storagePath,
+                sizeBytes = upload.sizeBytes
+            )
         }
     }
 

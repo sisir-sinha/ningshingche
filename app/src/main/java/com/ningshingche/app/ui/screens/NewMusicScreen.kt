@@ -58,6 +58,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.ningshingche.app.data.music.MusicGenres
+import com.ningshingche.app.data.remote.SatoruUploadClient
+import com.ningshingche.app.ui.editorial.toBengaliNumeral
 import com.ningshingche.app.ui.components.GenreCombobox
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.ReaderWorkspaceViewModel
@@ -79,6 +81,7 @@ fun NewMusicScreen(
     var genres by remember { mutableStateOf(listOf<String>()) }
     var audio by remember { mutableStateOf<Uri?>(null) }
     var audioName by remember { mutableStateOf("") }
+    var audioSize by remember { mutableStateOf(0L) }
     var cover by remember { mutableStateOf<Uri?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -93,6 +96,7 @@ fun NewMusicScreen(
             genres = emptyList()
             audio = null
             audioName = ""
+            audioSize = 0L
             cover = null
         }
         viewModel.clearMessage()
@@ -104,6 +108,14 @@ fun NewMusicScreen(
     val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         audio = uri
         audioName = uri?.lastPathSegment.orEmpty().substringAfterLast('/').ifBlank { "song.mp3" }
+        audioSize = 0L
+    }
+    // Reads the chosen file's real name and size for the card below the picker.
+    LaunchedEffect(audio) {
+        val uri = audio ?: return@LaunchedEffect
+        val file = SatoruUploadClient.describe(context, uri, audioName.ifBlank { "song.mp3" })
+        audioName = file.displayName
+        audioSize = file.sizeBytes
     }
 
     Scaffold(
@@ -164,20 +176,27 @@ fun NewMusicScreen(
             )
             OutlinedButton(
                 onClick = { audioPicker.launch("audio/*") },
+                enabled = !saving,
                 modifier = Modifier.fillMaxWidth().testTag("music_audio_pick")
             ) {
                 Text(
-                    if (audio == null) "এমপি৩ নির্বাচন" else "এমপি৩ বদলান",
-                    fontFamily = Kalpurush
+                    // Bishnupriya Manipuri, as used by the community for the
+                    // song file itself; the language is the same for picking and
+                    // re-picking, the card below shows what is chosen.
+                    "এলাহান বরিক",
+                    fontFamily = Kalpurush,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
             audio?.let { uri ->
                 SongPreview(
                     uri = uri,
                     name = audioName,
+                    sizeBytes = audioSize,
                     onClear = {
                         audio = null
                         audioName = ""
+                        audioSize = 0L
                     }
                 )
             }
@@ -235,7 +254,7 @@ fun NewMusicScreen(
 }
 
 @Composable
-private fun SongPreview(uri: Uri, name: String, onClear: () -> Unit) {
+private fun SongPreview(uri: Uri, name: String, sizeBytes: Long, onClear: () -> Unit) {
     val context = LocalContext.current
     var playing by remember(uri) { mutableStateOf(false) }
     var durationMs by remember(uri) { mutableStateOf(0) }
@@ -288,7 +307,10 @@ private fun SongPreview(uri: Uri, name: String, onClear: () -> Unit) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(name.ifBlank { "গান" }, fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold, maxLines = 1)
                 Text(
-                    if (durationMs > 0) formatDuration(durationMs) else "প্রিভিউ",
+                    listOf(
+                        if (durationMs > 0) formatDuration(durationMs) else "প্রিভিউ",
+                        if (sizeBytes > 0) fileSizeLabel(sizeBytes) else ""
+                    ).filter { it.isNotBlank() }.joinToString(" • "),
                     fontFamily = Kalpurush,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -297,6 +319,21 @@ private fun SongPreview(uri: Uri, name: String, onClear: () -> Unit) {
                 Icon(Icons.Default.Close, contentDescription = "সরান")
             }
         }
+    }
+}
+
+/**
+ * `৩.৪ এমবি`. Built from two integers so the digits stay Bengali:
+ * `toBengaliNumeral` takes a Number, and a `%.1f` string would bypass it.
+ */
+private fun fileSizeLabel(bytes: Long): String {
+    if (bytes <= 0) return ""
+    return if (bytes >= 1_000_000) {
+        val whole = bytes / 1_000_000
+        val tenth = (bytes % 1_000_000) / 100_000
+        "${toBengaliNumeral(whole)}.${toBengaliNumeral(tenth)} এমবি"
+    } else {
+        "${toBengaliNumeral(bytes / 1000)} কেবি"
     }
 }
 

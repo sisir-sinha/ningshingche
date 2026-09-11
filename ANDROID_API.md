@@ -457,6 +457,19 @@ Validates `image/*` MIME and the 32 MB cap. Error strings are Bengali.
 UI: uploads are triggered from the signed-in workspace (`ui/screens/UserDashboardScreen.kt`) through
 `ImgBbUploader` — gallery picker, preview, then `uploadBitmap` / `uploadFromUri`.
 
+### Song files — `data/remote/SatoruUploadClient.kt`
+
+```kotlin
+fun describe(context, uri, fallbackName = "song.mp3"): SongFile   // name, mime, size
+suspend fun uploadAudio(context, uri): Result<UploadedSong>       // publicUrl, "", sizeBytes
+```
+
+`POST https://upload.satoru.click/user/api.php`, multipart `reqtype=fileupload` +
+`fileToUpload`; the response body **is** the public URL as plain text. Catbox-compatible,
+200 MB ceiling, no auth. The request body streams the picked `content://` file in 64 KB
+chunks instead of reading it into memory. `Add Song` tries this host first and falls back to
+`SupabaseClient.uploadUserMusicFile` (Storage, 32 MB, user JWT) if it is unreachable.
+
 ### PDFs — `util/PdfHelper.kt`
 
 `getOrGeneratePdfFile(context, PdfDocument)`, `renderPdfPages(file): List<Bitmap>`,

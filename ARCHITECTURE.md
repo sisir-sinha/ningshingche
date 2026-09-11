@@ -33,6 +33,10 @@ Three components share one Supabase project (`slcpvmpsynkqdozvlsii`):
   deep-link target and the provenance for the seed author data.
 - **ImgBB** hosts all image uploads from both clients (hero, avatars, covers);
   delete URLs are persisted so staff can remove them later.
+- **upload.satoru.click** hosts song files submitted from the app's Add Song screen
+  (Catbox-compatible multipart POST, 200 MB ceiling, no session needed). Supabase
+  Storage stays the fallback, and the track row records which host was used via
+  `file_provider` (`'url'` vs `'supabase-storage'`).
 - **GitHub Pages** deploys `backend/` as a static site (`.github/workflows/jekyll-gh-pages.yml`).
 
 ---
@@ -265,8 +269,10 @@ about, phone, address, facebook id, avatar) before article/music submission —
   and drawer.
 - `submitArticle`: optional thumbnail → ImgBB (delete URL persisted), HTML content,
   `status='Pending'`, `user_id` set → `submitted_blogs`.
-- `submitMusic`: audio → Storage `music/user/<uid>/…` (user JWT!), optional cover →
-  ImgBB, duration via `MediaMetadataRetriever` → `music_tracks` insert (021 RLS).
+- `submitMusic`: audio → `upload.satoru.click` (`SatoruUploadClient`, streamed body, 200 MB
+  cap), falling back to Storage `music/user/<uid>/…` (user JWT) when that host is
+  unreachable; optional cover → ImgBB; duration via `MediaMetadataRetriever` →
+  `music_tracks` insert (021 RLS).
 - Avatar upload → ImgBB → `profiles.avatar_url` + `imgbb_delete_url`.
 - `notifications_enabled` syncs to `profiles` (011) so staff can broadcast responsibly.
 
