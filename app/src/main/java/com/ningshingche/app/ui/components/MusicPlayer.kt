@@ -192,21 +192,23 @@ private fun MiniMusicPlayer(
                         .background(tokens.accent)
                 )
             }
+            // Compact strip: the bar only has to say what is playing and give
+            // pause / next / close, so it stays as short as the controls allow.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(onClick = onExpand)
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                CoverArt(url = track.thumbnailUrl, modifier = Modifier.size(52.dp), corner = 10.dp)
-                Spacer(Modifier.width(12.dp))
+                CoverArt(url = track.thumbnailUrl, modifier = Modifier.size(42.dp), corner = 8.dp)
+                Spacer(Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = track.title,
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
+                        fontSize = 14.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         color = MaterialTheme.colorScheme.onSurface
@@ -214,36 +216,65 @@ private fun MiniMusicPlayer(
                     Text(
                         text = track.artist.ifBlank { "নিংশিং চে" },
                         fontFamily = Kalpurush,
-                        fontSize = 12.sp,
+                        fontSize = 11.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         color = tokens.inkMuted
                     )
                 }
-                IconButton(onClick = onToggle) {
+                MiniPlayerButton(onClick = onToggle) {
                     Icon(
                         imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                         contentDescription = if (state.isPlaying) "বিরতি" else "চালান",
-                        tint = tokens.accent
+                        tint = tokens.accent,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
-                IconButton(onClick = onNext, enabled = state.hasNext) {
+                MiniPlayerButton(onClick = onNext, enabled = state.hasNext) {
                     Icon(
                         imageVector = Icons.Default.SkipNext,
                         contentDescription = "পরের গান",
                         tint = if (state.hasNext) MaterialTheme.colorScheme.onSurface
-                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+                        modifier = Modifier.size(22.dp)
                     )
                 }
-                IconButton(onClick = onDismiss) {
+                MiniPlayerButton(onClick = onDismiss) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "বন্ধ করুন",
-                        tint = tokens.inkMuted
+                        tint = tokens.inkMuted,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
         }
+    }
+}
+
+/**
+ * A 40dp control for the mini bar.
+ *
+ * [IconButton] cannot be shrunk: it enforces a 48dp minimum touch target
+ * whatever size modifier it is given, which alone would keep the bar taller
+ * than the artwork. The mini bar is a glanceable control strip, so it trades
+ * the full touch target for height — the icons are tinted by the caller, so
+ * the disabled state still reads correctly.
+ */
+@Composable
+private fun MiniPlayerButton(
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    content: @Composable () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        content()
     }
 }
 

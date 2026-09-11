@@ -378,6 +378,7 @@ fun EditorialReaderApp(
                     onAuthorClick = { navController.navigate(ReaderRoute.author(it.id)) },
                     onSearchClick = { navController.navigate(ReaderRoute.Search) },
                     onPdfClick = { book -> navController.navigate(ReaderRoute.pdfViewer(book.id)) },
+                    onSeeAllPdf = { navController.navigate(ReaderRoute.PdfArchive) },
                     onSeeAllLatest = { navController.navigate(ReaderRoute.Featured) },
                     onSeeAllFeatured = { navController.navigate(ReaderRoute.Featured) },
                     onSeeAllCategories = { openExploreTab(ExploreTab.Categories) },
@@ -946,7 +947,9 @@ fun EditorialReaderApp(
     MusicFullPlayerOverlay(controller = app.musicController)
     AppToastHost(
         modifier = Modifier.padding(
-            bottom = if (playerUi.visible && !playerUi.expanded) 72.dp else 0.dp
+            // Clears the mini player, which is 52dp of content below the
+            // system navigation bar inset.
+            bottom = if (playerUi.visible && !playerUi.expanded) 56.dp else 0.dp
         )
     )
     }

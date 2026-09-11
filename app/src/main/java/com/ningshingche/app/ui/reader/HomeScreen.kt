@@ -114,6 +114,7 @@ fun HomeScreen(
     onAuthorClick: (AuthorRef) -> Unit,
     onSearchClick: () -> Unit,
     onPdfClick: (PdfBook) -> Unit,
+    onSeeAllPdf: (() -> Unit)? = null,
     onSeeAllLatest: () -> Unit,
     onSeeAllFeatured: () -> Unit = {},
     onSeeAllCategories: (() -> Unit)? = null,
@@ -241,6 +242,7 @@ fun HomeScreen(
                     onCategoryClick = onCategoryClick,
                     onAuthorClick = onAuthorClick,
                     onPdfClick = onPdfClick,
+                    onSeeAllPdf = onSeeAllPdf,
                     onSeeAllLatest = onSeeAllLatest,
                     onSeeAllFeatured = onSeeAllFeatured,
                     onSeeAllCategories = onSeeAllCategories,
@@ -266,6 +268,7 @@ private fun HomeContent(
     onCategoryClick: (CategoryRef) -> Unit,
     onAuthorClick: (AuthorRef) -> Unit,
     onPdfClick: (PdfBook) -> Unit,
+    onSeeAllPdf: (() -> Unit)? = null,
     onSeeAllLatest: () -> Unit,
     onSeeAllFeatured: () -> Unit,
     onSeeAllCategories: (() -> Unit)? = null,
@@ -341,7 +344,11 @@ private fun HomeContent(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = EditorialSpace.xxl)
+        // The scaffold already keeps the list clear of the system navigation
+        // bar, and the mini player takes its own row at the bottom rather than
+        // floating over the list, so a big trailing pad would only show as an
+        // empty band under the footer.
+        contentPadding = PaddingValues(bottom = EditorialSpace.xs)
     ) {
         // 1. Hero Section Carousel (Auto Sliding)
         if (feed.settings.heroSliderEnabled && heroArticles.isNotEmpty()) {
@@ -392,7 +399,6 @@ private fun HomeContent(
             item {
                 SectionHeader(
                     title = "সাম্প্রতিক",
-                    subtitle = feed.settings.description,
                     actionLabel = "সব",
                     onAction = onSeeAllLatest
                 )
@@ -413,7 +419,6 @@ private fun HomeContent(
                 Column(modifier = Modifier.fillMaxWidth()) {
                     SectionHeader(
                         title = "বিশেষ নির্বাচন",
-                        subtitle = "সম্পাদকের পছন্দ",
                         actionLabel = if (onSeeAllSpecial != null) "সব" else null,
                         onAction = onSeeAllSpecial
                     )
@@ -453,7 +458,8 @@ private fun HomeContent(
             item {
                 PdfRail(
                     books = feed.pdfBooks,
-                    onBookClick = onPdfClick
+                    onBookClick = onPdfClick,
+                    onSeeAll = onSeeAllPdf
                 )
             }
         }

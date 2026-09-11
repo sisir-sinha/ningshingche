@@ -881,7 +881,6 @@ fun CategoryRail(
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(
             title = "বিষয় ও বিভাগসমূহ",
-            subtitle = "বিষ্ণুপ্রিয়া মণিপুরি সাহিত্য ও সাংস্কৃতিক ধারা",
             actionLabel = if (onSeeAll != null) "সব" else null,
             onAction = onSeeAll
         )
@@ -1166,7 +1165,7 @@ fun AuthorRail(
 ) {
     if (authors.isEmpty()) return
     Column(modifier = Modifier.fillMaxWidth()) {
-        SectionHeader(title = "লেখক", subtitle = "নিংশিং চে-এর নিয়মিত কলম")
+        SectionHeader(title = "লেখক")
         LazyRow(
             contentPadding = PaddingValues(horizontal = EditorialSpace.gutter),
             horizontalArrangement = Arrangement.spacedBy(EditorialSpace.md)
@@ -1265,7 +1264,7 @@ fun GalleryGrid(
     }
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        SectionHeader(title = "ছবি ঘর", subtitle = "ইতিহাস ও সংস্কৃতির দৃশ্যপট")
+        SectionHeader(title = "ছবি ঘর")
         HorizontalPager(
             state = pagerState,
             contentPadding = PaddingValues(horizontal = EditorialSpace.gutter),
@@ -1363,11 +1362,16 @@ fun GalleryGrid(
 @Composable
 fun PdfRail(
     books: List<PdfBook>,
-    onBookClick: (PdfBook) -> Unit
+    onBookClick: (PdfBook) -> Unit,
+    onSeeAll: (() -> Unit)? = null
 ) {
     if (books.isEmpty()) return
     Column(modifier = Modifier.fillMaxWidth()) {
-        SectionHeader(title = "বই ও সাময়িকী", subtitle = "ডাউনলোড করে পড়ুন")
+        SectionHeader(
+            title = "বই ও সাময়িকী",
+            actionLabel = if (onSeeAll != null) "সব" else null,
+            onAction = onSeeAll
+        )
         LazyRow(
             contentPadding = PaddingValues(horizontal = EditorialSpace.gutter),
             horizontalArrangement = Arrangement.spacedBy(EditorialSpace.md)
@@ -1423,7 +1427,6 @@ fun VideoRail(
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(
             title = "ভিডিও",
-            subtitle = "নড়াচড়া ও কণ্ঠে সংস্কৃতি",
             actionLabel = if (onSeeAll != null) "সব" else null,
             onAction = onSeeAll
         )
@@ -1492,7 +1495,6 @@ fun MusicRail(
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(
             title = "সঙ্গীত",
-            subtitle = "কণ্ঠে বিষ্ণুপ্রিয়া মণিপুরি সংস্কৃতি",
             actionLabel = if (onSeeAll != null) "সব" else null,
             onAction = onSeeAll
         )
@@ -1505,6 +1507,9 @@ fun MusicRail(
                     onClick = { onTrackClick(track) },
                     shape = RoundedCornerShape(EditorialShape.card),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    // Track cards sit on the same paper as the page, so without
+                    // an outline they read as loose artwork rather than cards.
+                    border = BorderStroke(1.dp, LocalEditorialTokens.current.ruleStrong),
                     modifier = Modifier
                         .width(168.dp)
                         .height(268.dp)

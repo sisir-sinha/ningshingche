@@ -123,12 +123,14 @@ internal fun MusicTrackList(
                 Hairline()
                 Spacer(Modifier.height(EditorialSpace.md))
                 Text(text = title, style = EditorialType.Headline, color = MaterialTheme.colorScheme.onSurface)
-                Text(
-                    text = subtitle,
-                    style = EditorialType.Caption,
-                    color = LocalEditorialTokens.current.inkMuted,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
+                if (subtitle.isNotBlank()) {
+                    Text(
+                        text = subtitle,
+                        style = EditorialType.Caption,
+                        color = LocalEditorialTokens.current.inkMuted,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
                 Spacer(Modifier.height(EditorialSpace.sm))
                 Hairline()
             }

@@ -245,11 +245,9 @@ fun MusicScreen(
                 )
                 else -> MusicTrackList(
                     title = if (query.isBlank()) "সব গান" else "খোঁজার ফলাফল",
-                    subtitle = if (query.isBlank()) {
-                        "কণ্ঠে বিষ্ণুপ্রিয়া মণিপুরি সংস্কৃতি"
-                    } else {
-                        "${filtered.size}টি গান"
-                    },
+                    // No tagline here: the count is the only useful line, and it
+                    // only exists while searching.
+                    subtitle = if (query.isBlank()) "" else "${filtered.size}টি গান",
                     tracks = filtered,
                     empty = if (query.isBlank()) "এখনো কোনো গান যোগ করা হয়নি।" else "কোনো গান মেলেনি।",
                     onPlay = { track -> player.play(track, filtered, expand = true) },
