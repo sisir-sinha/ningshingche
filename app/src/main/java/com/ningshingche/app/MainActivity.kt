@@ -18,7 +18,8 @@ import com.ningshingche.app.data.model.AppThemeMode
 import com.ningshingche.app.data.model.ReaderPreferences
 import com.ningshingche.app.notifications.routeFromLaunchIntent
 import com.ningshingche.app.ui.editorial.EditorialTheme
-import com.ningshingche.app.ui.i18n.LocalContentLanguage
+import com.ningshingche.app.ui.i18n.LocalTranslations
+import com.ningshingche.app.ui.i18n.TranslationTable
 import com.ningshingche.app.ui.reader.EditorialReaderApp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -55,10 +56,18 @@ class MainActivity : ComponentActivity() {
                 AppThemeMode.DARK -> true
             }
 
-            // The interface language reaches every screen from here, so no
-            // screen has to read preferences itself.
+            // Interface language: the cached table shows immediately, and a
+            // refresh runs whenever the reader switches language, so a language
+            // file edited in the dashboard arrives without an app update.
+            val language = preferences.contentLanguage
+            val strings by app.translations.strings(language)
+                .collectAsStateWithLifecycle()
+            val table = TranslationTable(language = language, strings = strings)
+
+            // The table reaches every screen from here, so no screen has to read
+            // preferences or the repository itself.
             CompositionLocalProvider(
-                LocalContentLanguage provides preferences.contentLanguage
+                LocalTranslations provides table
             ) {
                 EditorialTheme(darkTheme = darkTheme) {
                     Box(Modifier.fillMaxSize().imePadding()) {

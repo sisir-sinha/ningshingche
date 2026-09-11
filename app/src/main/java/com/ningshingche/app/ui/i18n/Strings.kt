@@ -9,43 +9,36 @@ import com.ningshingche.app.data.model.ContentLanguage
  * Interface language plumbing.
  *
  * Every user-visible string is written in Bengali at its call site and wrapped
- * in [t] (or [translate] outside composition). Bengali is therefore the source
- * text — the app is complete without a single translation — and Bishnupriya
- * Manipuri is layered on top: [BISHNUPRIYA] holds the translated strings and
- * anything missing falls back to the Bengali original.
+ * in [t]. Bengali is therefore the source text — the app is complete without a
+ * single translation — and the other languages are layered on top: the table
+ * provided here holds the translations fetched from the dashboard, and anything
+ * missing falls back to the Bengali original.
  *
- * The table is generated from `i18n/strings_inventory.csv`, the file a reviewer
- * fills in (`python3 i18n/generate_strings.py`). Nothing here is guessed: an
- * empty table means the app reads exactly as it always did.
- *
- * Strings with values are written with numbered slots, so a translation can
- * move the value where its grammar wants it:
+ * Values are passed as numbered slots, so a translation can move them where its
+ * grammar wants them:
  *
  *     t("গান {1}টি", toBengaliNumeral(count))
  */
+data class TranslationTable(
+    val language: ContentLanguage = ContentLanguage.BENGALI,
+    val strings: Map<String, String> = emptyMap()
+) {
+    /** How many strings this language translates. */
+    val size: Int get() = strings.size
+}
 
-val LocalContentLanguage = staticCompositionLocalOf { ContentLanguage.BENGALI }
+val LocalTranslations = staticCompositionLocalOf { TranslationTable() }
 
-/** The current interface language, for the few places that need to branch. */
+/** The language the interface is rendering in. */
 val contentLanguage: ContentLanguage
-    @Composable @ReadOnlyComposable get() = LocalContentLanguage.current
+    @Composable @ReadOnlyComposable get() = LocalTranslations.current.language
 
-/** True when the interface is running in Bishnupriya Manipuri. */
-val isBishnupriya: Boolean
-    @Composable @ReadOnlyComposable get() = LocalContentLanguage.current == ContentLanguage.BISHNUPRIYA
-
-/**
- * Bengali source text in, the reader's language out.
- *
- * One argument means no slots; more arguments fill `{1}`, `{2}`, … in that
- * order. Values arrive already formatted (numerals included), because the
- * translator cannot know what a number is.
- */
-fun translate(language: ContentLanguage, bengali: String, vararg args: Any?): String {
-    val text = if (language == ContentLanguage.BISHNUPRIYA) {
-        BISHNUPRIYA[bengali] ?: bengali
-    } else {
+/** Bengali source text in, the reader's language out. */
+fun translate(table: TranslationTable, bengali: String, vararg args: Any?): String {
+    val text = if (table.language == ContentLanguage.BENGALI) {
         bengali
+    } else {
+        table.strings[bengali]?.takeIf { it.isNotBlank() } ?: bengali
     }
     if (args.isEmpty()) return text
     var filled = text
@@ -58,7 +51,4 @@ fun translate(language: ContentLanguage, bengali: String, vararg args: Any?): St
 @Composable
 @ReadOnlyComposable
 fun t(bengali: String, vararg args: Any?): String =
-    translate(LocalContentLanguage.current, bengali, *args)
-
-/** How much of the interface is translated, for the progress line in Settings. */
-fun bishnupriyaCoverage(): Pair<Int, Int> = BISHNUPRIYA.size to BISHNUPRIYA_SOURCE_COUNT
+    translate(LocalTranslations.current, bengali, *args)

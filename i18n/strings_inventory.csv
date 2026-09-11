@@ -259,6 +259,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 অডিওতে ফিরুন,,ui,1,0,MusicPlayer.kt
 অধ্যাপক বারীন্দ্র কুমার সিংহ ও সম্পাদনা পরিষদ,,content,1,0,NinghsingCheContentData.kt
 "অনন্য রাগ, পাখোয়াজ ও করতাল সংবলিত মণিপুরি লোকসংগীতের গভীরতা, বৈষ্ণব পদাবলী এবং বাউলধারার সমন্বিত রূপ।",,content,1,0,NinghsingCheContentData.kt
+অনুবাদ হালনাগাদ করুন,,ui,1,0,SettingsScreen.kt
 অনুমোদনের পর আপনার মন্তব্য এখানে প্রকাশিত হবে।,,ui,1,0,ArticleScreen.kt
 "অন্তত দুই অক্ষর লিখুন। শিরোনাম, উপশিরোনাম ও স্লাগে খোঁজা হয়।",,ui,1,0,ListScreens.kt
 অন্বেষণ,,ui,1,0,PortalDrawer.kt
@@ -321,7 +322,8 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 ইন্টারনেট সংযোগ নেই।,,ui,1,0,MusicController.kt
 ইন্টারনেট সংযোগ নেই। সংরক্ষিত আর্কাইভ দেখানো হচ্ছে।,,ui,1,0,PortalModels.kt
 ইন্টারনেট সংযোগ যাচাই করে আবার চেষ্টা করুন। আপনার মন্তব্য মুছে ফেলা হয়নি।,,ui,1,0,ReaderViewModels.kt
-ইন্টারফেসের ভাষা। বাকি লেখা বাংলাতেই থাকবে যতক্ষণ অনুবাদ না হয় ({1}/{2})।,,ui,1,0,SettingsScreen.kt
+ইন্টারফেসের ভাষা। অনুবাদ না থাকা লেখা বাংলাতেই থাকবে ({1}টি অনুবাদ লোড হয়েছে)।,,ui,1,0,SettingsScreen.kt
+ইন্টারফেসের ভাষা। বাংলা মূল ভাষা; অন্য ভাষা বাছলে অনুবাদ ডাউনলোড হবে।,,ui,1,0,SettingsScreen.kt
 ইমন,,content,1,0,AuthorProfiles.kt
 ইমার,,ui,1,0,NingshingCheWebsiteClient.kt
 ইমার ঠারর এলা,,ui,1,0,NingshingCheWebsiteClient.kt
@@ -751,6 +753,8 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 "ভাষা আন্দোলন, প্রামাণ্য দলিল ও নৃতাত্ত্বিক গবেষণা প্রবন্ধমালা।",,content,1,0,NinghsingCheContentData.kt
 ভাষা আন্দোলনের প্রেক্ষাপট ও প্রাচীন লোকনৃত্যের সমাজতাত্ত্বিক মূল্যায়ন।,,content,1,0,NinghsingCheContentData.kt
 ভাষা ও সংস্কৃতি গবেষক,,content,1,0,NinghsingCheContentData.kt
+ভাষা ফাইল আনতে শুরু হয়েছে।,,ui,1,0,SettingsScreen.kt
+ভাষা ফাইল আনা যায়নি ({1})।,,ui,1,1,TranslationRepository.kt
 ভাষা শহীদ,,content,1,0,NinghsingCheContentData.kt
 ভাষা শহীদ সুদেষ্ণা সিংহ স্মারক সংখ্যা ও সমাজ জাগরণের চালচিত্র।,,content,1,0,NinghsingCheContentData.kt
 ভাষা শহীদ সুদেষ্ণা সিংহ: অবিনাশী আত্মত্যাগ ও প্রেরণার শিখা,,content,1,0,NinghsingCheContentData.kt

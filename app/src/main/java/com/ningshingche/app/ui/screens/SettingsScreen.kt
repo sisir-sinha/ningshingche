@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Translate
@@ -83,7 +84,7 @@ import com.ningshingche.app.ui.viewmodel.SettingsViewModel
 import com.ningshingche.app.util.ApkManager
 import kotlinx.coroutines.launch
 import com.ningshingche.app.data.model.ContentLanguage
-import com.ningshingche.app.ui.i18n.bishnupriyaCoverage
+import com.ningshingche.app.ui.i18n.LocalTranslations
 import com.ningshingche.app.ui.i18n.t
 import com.ningshingche.app.ui.theme.Kalpurush
 
@@ -99,8 +100,9 @@ fun SettingsScreen(
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
     val googleAuthInProgress by viewModel.googleAuthInProgress.collectAsStateWithLifecycle()
     val googleAuthMessage by viewModel.googleAuthMessage.collectAsStateWithLifecycle()
-    // Translated-string count, shown so the reader knows the state of the work.
-    val coverage = remember { bishnupriyaCoverage() }
+    // How many strings the current language file translates, shown so the
+    // reader knows what to expect from a half-finished translation.
+    val translations = LocalTranslations.current
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -392,10 +394,14 @@ fun SettingsScreen(
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Text(
-                                text = t(
-                                    "ইন্টারফেসের ভাষা। বাকি লেখা বাংলাতেই থাকবে যতক্ষণ অনুবাদ না হয় ({1}/{2})।",
-                                    coverage.first, coverage.second
-                                ),
+                                text = if (preferences.contentLanguage == ContentLanguage.BENGALI) {
+                                    t("ইন্টারফেসের ভাষা। বাংলা মূল ভাষা; অন্য ভাষা বাছলে অনুবাদ ডাউনলোড হবে।")
+                                } else {
+                                    t(
+                                        "ইন্টারফেসের ভাষা। অনুবাদ না থাকা লেখা বাংলাতেই থাকবে ({1}টি অনুবাদ লোড হয়েছে)।",
+                                        translations.size
+                                    )
+                                },
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 12.sp
@@ -413,12 +419,32 @@ fun SettingsScreen(
                                     onClick = { viewModel.updateContentLanguage(ContentLanguage.BENGALI) }
                                 )
                                 ThemeModeCard(
-                                    title = "বিষ্ণুপ্রিয়া মণিপুরী",
+                                    title = "English",
+                                    icon = Icons.Default.Translate,
+                                    isSelected = preferences.contentLanguage == ContentLanguage.ENGLISH,
+                                    modifier = Modifier.weight(1f),
+                                    onClick = { viewModel.updateContentLanguage(ContentLanguage.ENGLISH) }
+                                )
+                                ThemeModeCard(
+                                    title = "বিষ্ণুপ্রিয়া\nমণিপুরী",
                                     icon = Icons.Default.Translate,
                                     isSelected = preferences.contentLanguage == ContentLanguage.BISHNUPRIYA,
                                     modifier = Modifier.weight(1f),
                                     onClick = { viewModel.updateContentLanguage(ContentLanguage.BISHNUPRIYA) }
                                 )
+                            }
+                            // Language files are edited in the dashboard; this pulls
+                            // the latest copy without waiting for the next launch.
+                            OutlinedButton(
+                                onClick = {
+                                    viewModel.refreshTranslations()
+                                    Toast.makeText(context, t("ভাষা ফাইল আনতে শুরু হয়েছে।"), Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(t("অনুবাদ হালনাগাদ করুন"), fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }

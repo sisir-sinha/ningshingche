@@ -11,22 +11,30 @@ holds the work queue and the vocabulary so the two halves can happen without gue
 | --- | --- |
 | `strings_inventory.csv` | Every user-visible string in `app/src/main/java`, one row per **distinct** string, with how often it is used and which screens use it. Fill the `bishnupriya` column. |
 | `refresh_inventory.py` | Regenerates the CSV from the sources (`python3 i18n/refresh_inventory.py`). `--check` fails if the file has gone stale. |
-| `generate_strings.py` | Turns the filled CSV into `ui/i18n/BishnupriyaStrings.kt` (`python3 i18n/generate_strings.py`). `--check` fails if that table is stale. |
+| `build_language_templates.py` | Writes the per-language templates the dashboard serves: `backend/assets/lang/{bn,en,bpy}.csv` (`--check` fails if they are stale). |
 
-Both scripts run without a JVM, so the CSV can be filled and regenerated at any time; the table is
-a normal committed Kotlin file.
+Both scripts run without a JVM. The templates are only a starting point: the files the app actually
+reads live in Supabase (`app_language_files`, migration 023) and are edited from the dashboard's
+**Languages** page.
 
 ## How it lands in the app
 
-The interface language is a preference (`ContentLanguage`: `BENGALI` / `BISHNUPRIYA`), chosen in
-**Settings → ভাষা**, and provided to every screen from `MainActivity` through
-`LocalContentLanguage`. Screens call `t("বাংলা লেখা")`; in Bishnupriya mode `t` looks the Bengali
-source string up in `BISHNUPRIYA` and returns the translation, or the Bengali original when that
-string has no translation yet. So:
+1. An editor opens **Dashboard → Languages**, picks a language tab, presses **Load template** and
+   fills the `value` column (or pastes a CSV from a spreadsheet), then **Save**. One CSV per
+   language is stored in `public.app_language_files`.
+2. The reader picks the language in **Settings → ভাষা** (`ContentLanguage`: `BENGALI`, `ENGLISH`,
+   `BISHNUPRIYA`). `TranslationRepository` fetches that language's row, caches the CSV under
+   `filesDir/i18n/`, and provides the parsed table app-wide through `LocalTranslations`.
+3. Screens call `t("বাংলা লেখা")`; `t` returns the translation, or the Bengali original when the
+   file has no entry for that key. Bengali is never fetched — it is the compiled-in source text.
 
-- an empty CSV means the app reads exactly as it always did;
+So:
+
+- an empty or missing file means the app reads exactly as it always did;
 - a half-filled CSV means half the interface switches, which is a valid intermediate state;
-- nothing is guessed — a wrong translation is a CSV edit and a regenerate, never a code change.
+- nothing is guessed — a wrong translation is a CSV edit and Save, never an app release;
+- changing the language refetches, and Settings has an "অনুবাদ হালনাগাদ করুন" button to pull the
+  current file without waiting for the next launch.
 
 Strings with values use numbered slots so a translation can reorder them:
 
@@ -60,7 +68,7 @@ Screens that already call `t(...)` are listed below; the rest still print their 
 directly and need the call-site wrap (a mechanical change, done screen by screen, no translation
 required for it to be safe).
 
-| Wrapped | Screens |
+| Wrapped with `t(...)` | Screens |
 | --- | --- |
 | ✅ | `NewMusicScreen.kt` (Add Song), the language row in `SettingsScreen.kt` |
 | ⏳ | everything else — 65 files, listed by frequency in the CSV |

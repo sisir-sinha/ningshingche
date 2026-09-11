@@ -31,10 +31,14 @@ Three components share one Supabase project (`slcpvmpsynkqdozvlsii`):
 
 - **Website** `https://ningshingche.com` (not in this repo) is the public reader's
   deep-link target and the provenance for the seed author data.
-- **Interface language** is a reader preference (Bengali / Bishnupriya Manipuri). Strings are
-  written in Bengali at the call site and resolved by `ui/i18n/Strings.kt`; the Bishnupriya table
-  is generated from `i18n/strings_inventory.csv`, which a speaker fills in. Missing translations
-  fall back to Bengali, so the app is never half-broken.
+- **Interface language** is a reader preference (Bengali / English / Bishnupriya Manipuri).
+  Strings are written in Bengali at the call site and resolved by `ui/i18n/Strings.kt`. Bengali is
+  the source text and is compiled in; the other two are `key,value` CSVs stored one row per
+  language in `public.app_language_files` (migration 023), edited from the dashboard's **Languages**
+  page and served as a plain PostgREST select. `TranslationRepository` fetches the chosen language,
+  caches the CSV under `filesDir/i18n/` and republishes it through `LocalTranslations`; the key list
+  itself comes from `i18n/strings_inventory.csv`. Missing translations fall back to Bengali, so the
+  app is never half-broken.
 - **ImgBB** hosts all image uploads from both clients (hero, avatars, covers);
   delete URLs are persisted so staff can remove them later.
 - **upload.satoru.click** hosts song files submitted from the app's Add Song screen
