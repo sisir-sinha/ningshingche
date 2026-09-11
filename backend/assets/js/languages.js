@@ -227,7 +227,7 @@
         body
       }) : NC.components.emptyState({ icon: 'fa-inbox', title: 'Nothing matches', description: 'Clear the search or switch the filter to see the other rows.' })}
       <div class="list-toolbar">
-        <p class="text-muted-foreground toolbar-note" data-entry-summary>Showing ${filtered.length} of ${state.total} rows · ${state.translated} translated · ${state.missing} empty</p>
+        <p class="text-muted-foreground toolbar-note" data-entry-summary>Showing <span data-entry-shown>${slice.length}</span> of ${state.total} rows · ${state.translated} translated · ${state.missing} empty<span data-entry-filtered>${query || filter !== 'all' ? ' · filtered' : ''}</span></p>
         <div class="button-row">
           <button type="button" class="btn btn-secondary" data-page="prev" ${safePage <= 1 ? 'disabled' : ''}><i class="fa-regular fa-chevron-left" aria-hidden="true"></i>Previous</button>
           <span class="status-badge status-neutral">Page ${safePage} / ${pages}</span>
@@ -256,8 +256,10 @@
       row.hidden = !matches;
       if (matches) shown += 1;
     });
-    const summary = scope.querySelector('[data-entry-summary]');
-    if (summary) summary.textContent = summary.textContent.replace(/Showing \d+/, `Showing ${shown}`);
+    const counter = scope.querySelector('[data-entry-shown]');
+    if (counter) counter.textContent = String(shown);
+    const filteredTag = scope.querySelector('[data-entry-filtered]');
+    if (filteredTag) filteredTag.textContent = (search || filter !== 'all') ? ' · filtered' : '';
   }
 
   function bindTable(scope) {

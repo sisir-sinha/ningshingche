@@ -145,11 +145,13 @@ test('languages page', { skip: JSDOM ? false : 'jsdom is not installed (npm inst
     search.focus();
     type(window, search, 'গান');
     assert.equal(window.document.activeElement, search, 'the search box keeps focus');
-    assert.match(root.querySelector('[data-entry-summary]').textContent, /Showing 1/);
+    assert.equal(root.querySelector('[data-entry-shown]').textContent, '1');
+    assert.match(root.querySelector('[data-entry-summary]').textContent, /filtered/);
     assert.equal(root.querySelectorAll('[data-entry-row]:not([hidden])').length, 1);
 
     type(window, search, '');
-    assert.match(root.querySelector('[data-entry-summary]').textContent, /Showing 2/);
+    assert.equal(root.querySelector('[data-entry-shown]').textContent, '2');
+    assert.doesNotMatch(root.querySelector('[data-entry-summary]').textContent, /filtered/);
     root.querySelector('[data-filter="empty"]').click();
     assert.equal(root.querySelectorAll('[data-entry-row]:not([hidden])').length, 0, 'bn maps every key to itself');
     root.querySelector('[data-filter="all"]').click();
