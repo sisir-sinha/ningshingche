@@ -55,6 +55,8 @@ data class MusicPlayerUiState(
     val autoPlay: Boolean = true,
     val liked: Boolean = false,
     val volume: Float = 1f,
+    /** The track's public play count, as the database last reported it. */
+    val viewsCount: Long = 0L,
     val offline: Boolean = false,
     val downloading: Boolean = false,
     val showLyrics: Boolean = false,
@@ -79,6 +81,16 @@ class MusicController(
     private var pending: (() -> Unit)? = null
     private var retriedStorage = false
     private var resumeAfterVideo = false
+
+    /**
+     * Called once when a track actually starts (not when it is resumed). The
+     * application wires it to the view counter; keeping it a plain callback
+     * leaves the player free of any knowledge of the network.
+     */
+    var onTrackStarted: ((String) -> Unit)? = null
+
+    /** The last track whose play was counted, so a transition cannot count twice. */
+    private var lastAnnouncedViewId: String? = null
 
     private val _state = MutableStateFlow(MusicPlayerUiState())
     val state: StateFlow<MusicPlayerUiState> = _state.asStateFlow()
@@ -199,6 +211,7 @@ class MusicController(
             )
         }
         refreshTrackFlags(list.getOrNull(index) ?: track)
+        announceStarted(list.getOrNull(index) ?: track)
         prefetch(list.drop(index).take(3), MusicStreamCache.NEXT_BYTES)
     }
 
@@ -253,6 +266,29 @@ class MusicController(
         _state.update { it.copy(positionMs = next) }
     }
 
+    /**
+     * Tells the view counter a track has started, and remembers the count the
+     * catalogue row carried until the database answers with the real one.
+     */
+    private fun announceStarted(track: MusicTrack) {
+        if (track.id == lastAnnouncedViewId) return
+        lastAnnouncedViewId = track.id
+        _state.update { it.copy(viewsCount = track.viewsCount) }
+        onTrackStarted?.invoke(track.id)
+    }
+
+    /**
+     * Applies the total the database reported for [trackId].
+     *
+     * Ignored when the listener has already moved on: the answer belongs to the
+     * song that started it, not to whatever is playing by the time it lands.
+     */
+    fun applyServerViewCount(trackId: String, count: Long) {
+        val current = _state.value
+        if (current.track?.id != trackId) return
+        _state.update { it.copy(viewsCount = count.coerceAtLeast(0L)) }
+    }
+
     fun expand() {
         if (_state.value.visible) _state.update { it.copy(expanded = true) }
     }
@@ -296,8 +332,17 @@ class MusicController(
             if (!alreadyLoaded) controller?.seekToDefaultPosition(index)
             val player = controller
             if (player != null && !player.isPlaying) player.play()
-            _state.update { it.copy(track = track, expanded = true, error = null, showVideo = false) }
+            _state.update {
+                it.copy(
+                    track = track,
+                    expanded = true,
+                    error = null,
+                    showVideo = false,
+                    viewsCount = if (alreadyLoaded) it.viewsCount else track.viewsCount
+                )
+            }
             refreshTrackFlags(track)
+            if (!alreadyLoaded) announceStarted(track)
         } else {
             play(track, queue.ifEmpty { listOf(track) })
         }
@@ -480,6 +525,17 @@ class MusicController(
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && !_state.value.autoPlay) {
                 controller?.pause()
+            }
+            // Auto-advance and a press of next both land here, and both mean a
+            // new song has started, so both are a play to count. A playlist
+            // being (re)built is not: that reason is filtered out, and the
+            // explicit announce in play() covers the track the listener chose.
+            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO ||
+                reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK
+            ) {
+                val id = mediaItem?.mediaId
+                val started = _state.value.queue.firstOrNull { it.id == id }
+                if (started != null) announceStarted(started)
             }
         }
 

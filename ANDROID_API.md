@@ -579,6 +579,31 @@ All use `stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), …)`.
 the signed-in user workspace, `ui/screens/UserDashboardScreen.kt` (dashboard tabs, notices, inbox).
 `ui/dashboard/` and its `views/` no longer exist.
 
+### 12.3 Public user pages and view counting
+
+Every registered reader has a public page: `ui/screens/PublicProfileScreen.kt`, route
+`user/{userId}` (`ReaderRoute.PublicProfile`), reachable by tapping an uploader's name on a song. It
+shows their name and avatar, their songs (tapping one starts playback with that list as the queue)
+and the articles their submissions were converted into, plus the view totals for both. It is one
+request — `PortalRepository.publicProfile(userId)` → the `public_profile` RPC (migration 024) —
+because `profiles` and `submitted_blogs` are both select-own and a submission row carries the
+writer's contact details. It opens for guests too.
+
+Views are counted in the database (migration 025), never in the app:
+
+| What | Where it is recorded | How it is shown |
+| --- | --- | --- |
+| Article | `PortalRepository.article()` records the view once the article resolves, then folds the returned total into `ArticleDetail.summary.viewsCount` | The article screen's "বার পঠিত" line, one ahead of the row it fetched |
+| Song | `MusicController.onTrackStarted` (wired in `NinghsingCheApp`) fires on a chosen track, an auto-advance and a press of next — `announceStarted` dedupes so one start is one count | The song row's "বার শোনা" and the player's "বার শোনা হয়েছে" line, which takes the RPC's total for the playing track and the row's own count for its neighbours |
+
+`PortalRepository.guestViewerId` (set from `MusicLibraryStore.deviceId`) is what a signed-out reader
+counts as, matching the guest love react. A failed count is never surfaced: the number simply stays
+what the row carried. The reader's own totals — `SupabaseClient.userViewTotals` / `userViewSeries` —
+feed the dashboard's ভিউ cards (total, plus the article/song split) and the **সময়ের সাথে ভিউ** chart
+in `ui/screens/UserDashboardCharts.kt` (`ViewsOverTimeChart`, 30 days, empty days drawn as a dashed
+zero line). The dashboard home no longer carries notice or message counters; the bell and the
+bottom-bar tabs are the way in.
+
 The workspace's **Content** tab lists the reader's own submissions (articles from `submitted_blogs`
 and songs from `music_tracks`). Each card carries the piece's state on its right — `ContentStatusChip`
 over the same `statusLabel` wording the rest of the screen uses — and tapping it does one of three
@@ -639,10 +664,15 @@ The full player (MusicPlayer.kt) answers to these, and they are deliberately dis
 | Double tap on the artwork | Left third −5 s, right third +5 s, middle play/pause. |
 | Tap the row of the song that is already loaded | Brings the player up and keeps its position. `MusicController.play` and `playQueueItem` both return early for the loaded track, so a second tap never rebuilds the media items (which used to restart the song at 0:00). |
 
-A list row whose track is loaded swaps its love control for `PlayingWaveBars` — an animated bar
-indicator for the playing row (frozen mid-sweep while paused), so the list says what is on without a
-per-tick recomposition: `MusicController.nowPlayingId` / `isPlayingNow` collapse the player state to
-one emission per track change. The love control is still on every other row and in the player itself.
+A list row whose track is loaded wears `PlayingWaveBars` on its artwork — an animated bar indicator
+(frozen mid-sweep while paused) on a light chip so the thin bars stay legible over a photograph. The
+love control stays on **every** row, playing or not. Because a list of cards must not recompose on
+every position tick, the row reads `MusicController.nowPlayingId` / `isPlayingNow`, which collapse the
+player state to one emission per track change.
+
+The card also names the uploader (`আপলোডার: <name>`, from `music_tracks.uploader_name`) and the play
+count, and the player's credit line puts the uploader before the singer: `Uploader: … ◻ Singer: …`.
+Tapping the uploader opens `ReaderRoute.publicProfile(uploaderId)`.
 
 ### 12.2 System-bar insets belong inside the surface
 

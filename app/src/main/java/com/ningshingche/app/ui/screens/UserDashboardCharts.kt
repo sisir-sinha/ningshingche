@@ -1,5 +1,6 @@
 package com.ningshingche.app.ui.screens
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,10 +23,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ningshingche.app.data.portal.ViewDay
 import com.ningshingche.app.data.remote.CommentRecord
 import com.ningshingche.app.data.remote.SubmittedBlogRecord
 import com.ningshingche.app.data.remote.SubmittedMusicRecord
@@ -173,17 +179,125 @@ internal fun ContributionCharts(
     }
 }
 
+/**
+ * Views over time, from the database's own view events.
+ *
+ * The one graph on this screen that is not derived from the reader's local
+ * records: each point is a day of counted views across the articles and songs
+ * they published, so it keeps rising while nobody opens the dashboard. An empty
+ * series (no views yet, or a database that has not run the migration) draws the
+ * axis and says so rather than showing a flat line at zero.
+ */
+@Composable
+internal fun ViewsOverTimeChart(
+    series: List<ViewDay>,
+    totalViews: Long,
+    days: Int = 30,
+    modifier: Modifier = Modifier
+) {
+    val counted = series.sumOf { it.views }
+    val peak = series.maxOfOrNull { it.views } ?: 0L
+    val accent = MaterialTheme.colorScheme.primary
+
+    ChartCard(
+        title = "সময়ের সাথে ভিউ",
+        subtitle = if (totalViews > 0L) {
+            "মোট ${toBengaliNumeral(totalViews)} · শেষ ${toBengaliNumeral(days)} দিনে ${toBengaliNumeral(counted)}"
+        } else {
+            "শেষ ${toBengaliNumeral(days)} দিন"
+        },
+        modifier = modifier
+    ) {
+        if (series.isEmpty()) {
+            ChartEmptyHint("ভিউয়ের তথ্য এখনো পাওয়া যায়নি।")
+            return@ChartCard
+        }
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp)
+        ) {
+            val span = series.size.coerceAtLeast(2) - 1
+            val top = peak.coerceAtLeast(1L).toFloat()
+            val stepX = size.width / span
+            fun point(index: Int): Offset {
+                val value = series[index].views.coerceAtLeast(0L).toFloat()
+                val y = size.height - (value / top) * (size.height - 6f) - 3f
+                return Offset(index * stepX, y)
+            }
+            // Baseline, so an empty day still reads as a day.
+            drawLine(
+                color = accent.copy(alpha = 0.25f),
+                start = Offset(0f, size.height - 1f),
+                end = Offset(size.width, size.height - 1f),
+                strokeWidth = 1f
+            )
+            val line = Path().apply {
+                moveTo(point(0).x, point(0).y)
+                for (index in 1..span) {
+                    val current = point(index)
+                    lineTo(current.x, current.y)
+                }
+            }
+            // The fill under the line is the same path closed to the baseline.
+            val area = Path().apply {
+                addPath(line)
+                lineTo(size.width, size.height)
+                lineTo(0f, size.height)
+                close()
+            }
+            drawPath(path = area, color = accent.copy(alpha = 0.12f))
+            drawPath(
+                path = line,
+                color = accent,
+                style = Stroke(width = 2.5f)
+            )
+            if (peak == 0L) {
+                drawLine(
+                    color = accent.copy(alpha = 0.5f),
+                    start = Offset(0f, size.height / 2f),
+                    end = Offset(size.width, size.height / 2f),
+                    strokeWidth = 2f,
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 10f))
+                )
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = series.first().day.takeLast(5),
+                style = com.ningshingche.app.ui.editorial.EditorialType.Caption,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "সর্বোচ্চ ${toBengaliNumeral(peak)}",
+                style = com.ningshingche.app.ui.editorial.EditorialType.Caption,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = series.last().day.takeLast(5),
+                style = com.ningshingche.app.ui.editorial.EditorialType.Caption,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
 @Composable
 private fun ChartCard(
     title: String,
     subtitle: String,
+    modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
     Surface(
         shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 1.dp,
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(title, fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = 15.sp)

@@ -13,6 +13,7 @@ import com.ningshingche.app.data.remote.InboxSync
 import com.ningshingche.app.data.remote.SubmittedBlogRecord
 import com.ningshingche.app.data.remote.SubmittedMusicRecord
 import com.ningshingche.app.data.remote.SatoruUploadClient
+import com.ningshingche.app.data.portal.ViewDay
 import com.ningshingche.app.data.remote.SupabaseClient
 import com.ningshingche.app.data.remote.UserNotificationRecord
 import com.ningshingche.app.data.remote.UserProfile
@@ -29,8 +30,16 @@ data class ReaderMetrics(
     val rejectedArticles: Int = 0,
     val comments: Int = 0,
     val songs: Int = 0,
-    val articleViews: Int = 0
-)
+    /** Article views, as the database counts them. */
+    val articleViews: Long = 0L,
+    /** Plays of the reader's songs, as the database counts them. */
+    val musicViews: Long = 0L
+) {
+    val totalViews: Long get() = articleViews + musicViews
+}
+
+/** Days of view history the dashboard chart asks the database for. */
+private const val VIEW_SERIES_DAYS = 30
 
 class ReaderWorkspaceViewModel(
     private val googleAuthRepository: GoogleAuthRepository,
@@ -60,6 +69,13 @@ class ReaderWorkspaceViewModel(
     private val _metrics = MutableStateFlow(ReaderMetrics())
     val metrics: StateFlow<ReaderMetrics> = _metrics.asStateFlow()
 
+    /** The reader's views per day, for the dashboard's views-over-time chart. */
+    private val _viewSeries = MutableStateFlow<List<ViewDay>>(emptyList())
+    val viewSeries: StateFlow<List<ViewDay>> = _viewSeries.asStateFlow()
+
+    /** How many days of history [viewSeries] covers. */
+    val viewSeriesDays: Int = VIEW_SERIES_DAYS
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -82,7 +98,12 @@ class ReaderWorkspaceViewModel(
             val comments = commentResult.getOrDefault(emptyList())
             val tracks = supabaseClient.getMyMusicTracks(user.id).getOrDefault(emptyList())
             val songs = tracks.size.coerceAtLeast(supabaseClient.countMyMusicTracks(user.id))
-            val articleViews = supabaseClient.sumBlogViewsForAuthor(user.composedFullName())
+            // The view counter is the database's number, not the app's guess:
+            // `user_view_totals` sums the counts on the blogs this reader's
+            // submissions became plus the plays of the tracks they uploaded.
+            val viewTotals = supabaseClient.userViewTotals(user.id).getOrNull()
+            val series = supabaseClient.userViewSeries(user.id, VIEW_SERIES_DAYS)
+                .getOrDefault(_viewSeries.value)
             _articles.value = articles
             _tracks.value = tracks
             _comments.value = comments
@@ -95,8 +116,10 @@ class ReaderWorkspaceViewModel(
                 rejectedArticles = articles.count { it.status.equals("Rejected", true) },
                 comments = comments.size,
                 songs = songs,
-                articleViews = articleViews
+                articleViews = viewTotals?.articleViews ?: 0L,
+                musicViews = viewTotals?.musicViews ?: 0L
             )
+            _viewSeries.value = series
             articleResult.exceptionOrNull()?.message?.let { _message.value = it }
             commentResult.exceptionOrNull()?.message?.let { if (_message.value == null) _message.value = it }
             refreshInbox(user.id, articles, comments, notifySystem = true, markSeen = false)

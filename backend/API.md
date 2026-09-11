@@ -846,6 +846,53 @@ never stored, only its hash.
 
 ---
 
+### 7.15 `public_profile` (`024_uploader_and_public_profile.sql`, publishable key allowed)
+
+One registered reader's public page: their name and avatar, the published articles their submissions
+were converted into, and the songs they uploaded — with the view totals for both. Exists because
+`profiles` and `submitted_blogs` are both **select-own**, and a submission row carries the writer's
+email, phone and address; the function reads both as the definer and returns only the safe fields,
+only for `status in ('Publish','Published')`.
+
+| parameter | notes |
+| --- | --- |
+| `p_user_id` | `uuid` of a `public.profiles` row |
+
+Returns `jsonb` (`{ id, name, avatar_url, joined_at, article_views, music_views, articles[], songs[] }`),
+or `null` when no such profile exists. `articles[]` is `{ id, title, slug, thumbnail, views_count, published_date, created_at, category_title }` (max 60);
+`songs[]` is `{ id, title, artist, album, genre, thumbnail_url, audio_url, file_storage_path, duration_seconds, love_count, views_count, created_at }` (max 120).
+
+The same migration denormalises the uploader onto the track: `music_tracks.uploader_name`, filled
+from `profiles.name` for the rows that already existed, and written by the app on new uploads. It is
+what the player's `Uploader: …` line reads, with no extra request.
+
+---
+
+### 7.16 View counting (`025_content_views.sql`, publishable key allowed)
+
+A running total cannot draw a graph, so the counts are derived from events: every view is one row in
+`public.content_views`, a trigger keeps `blogs.views_count` / `music_tracks.views_count` in step, and
+the dashboard's series comes from the same rows. The table itself is closed — no grants, RLS on, no
+policies — so only the security-definer functions below touch it.
+
+**`record_content_view(p_type text, p_id uuid, p_device_id text default null) → bigint`**
+
+Counts one view and returns the item's new total. `p_type` is `blog` or `music`. A signed-in reader
+is identified by `auth.uid()`; a guest by `md5('ningshingche:view:' || p_device_id)`, so the device id
+is never stored. The same viewer counts once per item per 20 hours.
+
+| error | when |
+| --- | --- |
+| `22023` | `p_type` is not `blog`/`music`, or `p_id` is null |
+
+**`user_view_totals(p_user_id uuid) → jsonb`** — `{ article_views, music_views }`: the counts on the
+blogs the reader's submissions became, plus the plays of the tracks they uploaded.
+
+**`user_view_series(p_user_id uuid, p_days integer default 30) → table(day date, views bigint)`** —
+one row per day, empty days included, UTC, so the chart has a continuous axis.
+
+---
+
 ### 7.14 `app_language_files` (`023_app_language_files.sql`, publishable key allowed)
 
 One row per interface language, holding that language's CSV for the Android app. The app reads the

@@ -23,10 +23,21 @@ import com.ningshingche.app.notifications.SeenContentStore
 import com.ningshingche.app.data.i18n.TranslationRepository
 import com.ningshingche.app.data.music.MusicLibraryStore
 import com.ningshingche.app.playback.MusicController
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
 class NinghsingCheApp : Application(), ImageLoaderFactory {
+
+    /**
+     * Application-lifetime scope for the small fire-and-forget jobs the app
+     * kicks off at startup — the view count that follows a track starting is
+     * the first one: it must finish even if the screen that started it is gone.
+     */
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     lateinit var database: AppDatabase
         private set
@@ -143,7 +154,20 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
         portalRepository = PortalProvider.repository()
         val musicStore = MusicLibraryStore(this, database, supabaseClient)
         musicLibraryStore = musicStore
+        // Guest views are counted per device, the same identity the guest love
+        // react uses, so one phone is one viewer for both.
+        portalRepository.guestViewerId = musicStore.deviceId
         musicController = MusicController(this, musicStore)
+        // The player reports what it starts; the count itself belongs to the
+        // database, so the song's total in the UI is read back from the RPC.
+        musicController.onTrackStarted = { trackId ->
+            if (android.os.Build.FINGERPRINT != "robolectric") {
+                appScope.launch {
+                    val total = portalRepository.recordMusicView(trackId).getOrNull()
+                    if (total != null) musicController.applyServerViewCount(trackId, total)
+                }
+            }
+        }
         translations = TranslationRepository(this)
         if (android.os.Build.FINGERPRINT != "robolectric") {
             musicController.ensureConnected()

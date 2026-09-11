@@ -188,6 +188,7 @@ fun SearchScreen(
     onMusicArtistClick: (String) -> Unit = {},
     onMusicAlbumClick: (String) -> Unit = {},
     onMusicGenreClick: (String) -> Unit = {},
+    onUploaderClick: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsState()
@@ -260,6 +261,7 @@ fun SearchScreen(
                     MusicCatalogCard(
                         track = track,
                         onClick = { player.play(track, songs, expand = true) },
+                        onUploaderClick = { onUploaderClick(it) },
                         onArtistClick = onMusicArtistClick,
                         onAlbumClick = onMusicAlbumClick,
                         onGenreClick = onMusicGenreClick

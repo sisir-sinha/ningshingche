@@ -34,6 +34,13 @@ class PortalRepository(
     private val api: PortalApi
 ) {
 
+    /**
+     * The stable id this install reports when it counts a view while signed
+     * out, so a guest is one viewer instead of an anonymous crowd. Set by the
+     * application at startup; empty means guests all count as one.
+     */
+    var guestViewerId: String = ""
+
     // ------------------------------------------------------------------ cache
 
     private class CacheEntry<T>(val value: T, val storedAtMillis: Long) {
@@ -395,8 +402,78 @@ class PortalRepository(
             } else {
                 throw PortalError.NotFound
             }
-        }
+        }.map { detail -> detail.withFreshViewCount() }
     }
+
+    /**
+     * Counts this reading of the article and folds the new total into the
+     * article the screen is about to show.
+     *
+     * A failed count is not an error the reader should see — the article is
+     * open, the number is simply the one the row carried.
+     */
+    private suspend fun ArticleDetail.withFreshViewCount(): ArticleDetail {
+        val total = recordArticleView(summary.id).getOrNull() ?: return this
+        return copy(summary = summary.copy(viewsCount = total))
+    }
+
+    // --------------------------------------------------------- public profile
+
+    /**
+     * A registered reader's public page (migration 024 RPC). `profiles` and
+     * `submitted_blogs` are select-own, so the page is assembled by the
+     * database, which is also what keeps the writer's contact details off it.
+     */
+    suspend fun publicProfile(userId: String): Result<PublicProfile> =
+        withContext(Dispatchers.IO) {
+            val id = userId.trim()
+            if (id.isBlank()) return@withContext Result.failure(PortalError.NotFound)
+            callOne { api.publicProfile(mapOf("p_user_id" to id)) }
+                .mapCatching { dto -> dto?.toModel() ?: throw PortalError.NotFound }
+        }
+
+    // ------------------------------------------------------------------ views
+
+    /** Counts one article view; the result is the item's new public total. */
+    suspend fun recordArticleView(articleId: String): Result<Long> = recordView("blog", articleId)
+
+    /** Counts one play of a song; the result is the track's new public total. */
+    suspend fun recordMusicView(trackId: String): Result<Long> = recordView("music", trackId)
+
+    private suspend fun recordView(type: String, id: String): Result<Long> =
+        withContext(Dispatchers.IO) {
+            val target = id.trim()
+            if (target.isBlank()) return@withContext Result.failure(PortalError.NotFound)
+            callOne {
+                api.recordContentView(
+                    mapOf(
+                        "p_type" to type,
+                        "p_id" to target,
+                        "p_device_id" to guestViewerId
+                    )
+                )
+            }
+        }
+
+    /** The reader's own article/song view totals, straight from the database. */
+    suspend fun viewTotals(userId: String): Result<ViewTotals> = withContext(Dispatchers.IO) {
+        val id = userId.trim()
+        if (id.isBlank()) return@withContext Result.failure(PortalError.NotFound)
+        callOne { api.viewTotals(mapOf("p_user_id" to id)) }
+            .mapCatching { dto -> dto?.toModel() ?: ViewTotals(0L, 0L) }
+    }
+
+    /** One row per day for the reader's views-over-time chart. */
+    suspend fun viewSeries(userId: String, days: Int = 30): Result<List<ViewDay>> =
+        withContext(Dispatchers.IO) {
+            val id = userId.trim()
+            if (id.isBlank()) return@withContext Result.failure(PortalError.NotFound)
+            callList {
+                api.viewSeries(
+                    mapOf("p_user_id" to id, "p_days" to days.coerceIn(1, 365).toString())
+                )
+            }.mapCatching { rows -> rows.map { it.toModel() } }
+        }
 
     // ------------------------------------------------------------ reference
 
@@ -462,6 +539,7 @@ class PortalRepository(
         withContext(Dispatchers.IO) {
             cached("music-$limit", musicCache, TTL_REFERENCE, forceRefresh) {
                 val selects = listOf(
+                    PortalApi.MUSIC_COLUMNS_WITH_VIEWS,
                     PortalApi.MUSIC_COLUMNS_WITH_LOVE,
                     PortalApi.MUSIC_COLUMNS_WITH_META,
                     PortalApi.MUSIC_COLUMNS_WITH_VIDEO,
@@ -568,6 +646,14 @@ class PortalRepository(
             val response = block()
             if (!response.isSuccessful) throw httpError(response.code(), response)
             response.body().orEmpty()
+        }.recoverCatching { throw it.toPortalError() }
+
+    /** Unwraps a single-object or scalar response, treating an empty body as missing. */
+    private suspend fun <T : Any> callOne(block: suspend () -> Response<T?>): Result<T> =
+        runCatching {
+            val response = block()
+            if (!response.isSuccessful) throw httpError(response.code(), response)
+            response.body() ?: throw PortalError.NotFound
         }.recoverCatching { throw it.toPortalError() }
 
     /** Same as [callList] but also parses `Content-Range` into [Page.total]. */

@@ -128,6 +128,10 @@ data class MusicDto(
     @Json(name = "file_size_mb") val fileSizeMb: Double? = null,
     @Json(name = "sort_order") val sortOrder: Int? = null,
     @Json(name = "love_count") val loveCount: Int? = null,
+    @Json(name = "views_count") val viewsCount: Long? = null,
+    /** The registered reader who uploaded the song, when there is one. */
+    @Json(name = "user_id") val userId: String? = null,
+    @Json(name = "uploader_name") val uploaderName: String? = null,
     @Json(name = "created_at") val createdAt: String? = null
 )
 
@@ -216,4 +220,62 @@ data class BlogFacetDto(
     @Json(name = "published_date") val publishedDate: String? = null,
     @Json(name = "created_at") val createdAt: String? = null,
     @Json(name = "views_count") val viewsCount: Long? = null
+)
+
+
+/** One day of the dashboard's views-over-time chart (`user_view_series` RPC). */
+@JsonClass(generateAdapter = true)
+data class ViewDayDto(
+    val day: String,
+    val views: Long? = null
+)
+
+/** `user_view_totals` RPC: what the reader's published work has been read/watched. */
+@JsonClass(generateAdapter = true)
+data class ViewTotalsDto(
+    @Json(name = "article_views") val articleViews: Long? = null,
+    @Json(name = "music_views") val musicViews: Long? = null
+)
+
+/** A published article as it appears on a public user page. */
+@JsonClass(generateAdapter = true)
+data class PublicArticleDto(
+    val id: String,
+    val title: String? = null,
+    val slug: String? = null,
+    val thumbnail: String? = null,
+    @Json(name = "views_count") val viewsCount: Long? = null,
+    @Json(name = "published_date") val publishedDate: String? = null,
+    @Json(name = "created_at") val createdAt: String? = null,
+    @Json(name = "category_title") val categoryTitle: String? = null
+)
+
+/** One of that user's uploads. Same fields the catalogue hands the player. */
+@JsonClass(generateAdapter = true)
+data class PublicSongDto(
+    val id: String,
+    val title: String? = null,
+    val artist: String? = null,
+    val album: String? = null,
+    val genre: String? = null,
+    @Json(name = "thumbnail_url") val thumbnailUrl: String? = null,
+    @Json(name = "audio_url") val audioUrl: String? = null,
+    @Json(name = "file_storage_path") val fileStoragePath: String? = null,
+    @Json(name = "duration_seconds") val durationSeconds: Int? = null,
+    @Json(name = "love_count") val loveCount: Int? = null,
+    @Json(name = "views_count") val viewsCount: Long? = null,
+    @Json(name = "created_at") val createdAt: String? = null
+)
+
+/** `public_profile` RPC — a registered reader's public page. */
+@JsonClass(generateAdapter = true)
+data class PublicProfileDto(
+    val id: String,
+    val name: String? = null,
+    @Json(name = "avatar_url") val avatarUrl: String? = null,
+    @Json(name = "joined_at") val joinedAt: String? = null,
+    @Json(name = "article_views") val articleViews: Long? = null,
+    @Json(name = "music_views") val musicViews: Long? = null,
+    val articles: List<PublicArticleDto>? = null,
+    val songs: List<PublicSongDto>? = null
 )

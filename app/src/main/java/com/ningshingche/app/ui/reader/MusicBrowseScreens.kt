@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -104,7 +105,8 @@ internal fun MusicTrackList(
     onPlay: (MusicTrack) -> Unit,
     onArtistClick: (String) -> Unit = {},
     onAlbumClick: (String) -> Unit = {},
-    onGenreClick: (String) -> Unit = {}
+    onGenreClick: (String) -> Unit = {},
+    onUploaderClick: (String) -> Unit = {}
 ) {
     if (tracks.isEmpty()) {
         EmptyState(message = empty)
@@ -142,7 +144,8 @@ internal fun MusicTrackList(
                 onClick = { onPlay(track) },
                 onArtistClick = onArtistClick,
                 onAlbumClick = onAlbumClick,
-                onGenreClick = onGenreClick
+                onGenreClick = onGenreClick,
+                onUploaderClick = onUploaderClick
             )
         }
     }
@@ -218,7 +221,8 @@ internal fun MusicCatalogCard(
     onClick: () -> Unit,
     onArtistClick: (String) -> Unit = {},
     onAlbumClick: (String) -> Unit = {},
-    onGenreClick: (String) -> Unit = {}
+    onGenreClick: (String) -> Unit = {},
+    onUploaderClick: (String) -> Unit = {}
 ) {
     val tokens = LocalEditorialTokens.current
     val player = LocalMusicController.current
@@ -226,9 +230,8 @@ internal fun MusicCatalogCard(
     val loved = track.id in lovedIds
     val loveCounts by player.library.loveCounts.collectAsState()
     val loveCount = loveCounts[track.id] ?: track.loveCount
-    // The row that is loaded shows the playing wave in place of the love
-    // control: the list is where a reader looks to see what is on, and the
-    // heart is still one tap away inside the player.
+    // The row that is loaded wears the wave on its artwork; the love control
+    // stays on every row, playing or not.
     val playingId by player.nowPlayingId.collectAsState()
     val isPlaying by player.isPlayingNow.collectAsState()
     val isCurrent = track.id == playingId
@@ -250,20 +253,39 @@ internal fun MusicCatalogCard(
                     contentDescription = track.title,
                     modifier = Modifier.size(72.dp)
                 )
-                Surface(
-                    shape = RoundedCornerShape(999.dp),
-                    color = tokens.accent.copy(alpha = 0.92f),
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .size(28.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = "চালান",
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp)
+                // The playing row wears the wave on its artwork. It sits on a
+                // light chip so the thin bars stay legible over a photograph,
+                // and it replaces the play badge rather than sitting beside it.
+                if (isCurrent) {
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = Color.White.copy(alpha = 0.88f),
+                        modifier = Modifier.align(Alignment.Center)
+                    ) {
+                        PlayingWaveBars(
+                            animated = isPlaying,
+                            height = 22.dp,
+                            barWidth = 2.5.dp,
+                            barGap = 1.5.dp,
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 5.dp)
                         )
+                    }
+                } else {
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = tokens.accent.copy(alpha = 0.92f),
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .size(28.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = "চালান",
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -310,31 +332,58 @@ internal fun MusicCatalogCard(
                         }
                     }
                 }
+                // Who sent the song in, and how often it has been played. The
+                // name opens their public page — the songs, and the articles
+                // they wrote.
+                if (track.uploaderName.isNotBlank()) {
+                    Text(
+                        text = "আপলোডার: ${track.uploaderName}",
+                        style = EditorialType.Caption,
+                        color = if (track.uploaderId.isNotBlank()) tokens.accent else tokens.inkMuted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = if (track.uploaderId.isNotBlank()) {
+                            Modifier.clickable { onUploaderClick(track.uploaderId) }
+                        } else {
+                            Modifier
+                        }
+                    )
+                }
+                if (track.viewsCount > 0L) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Visibility,
+                            contentDescription = null,
+                            tint = tokens.inkMuted,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Text(
+                            text = "${toBengaliNumeral(track.viewsCount)} বার শোনা",
+                            style = EditorialType.Caption,
+                            color = tokens.inkMuted
+                        )
+                    }
+                }
             }
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(start = 4.dp)
             ) {
-                if (isCurrent) {
-                    PlayingWaveBars(
-                        animated = isPlaying,
-                        height = 24.dp,
-                        modifier = Modifier.padding(horizontal = 4.dp)
-                    )
-                } else {
-                    IconButton(onClick = { player.toggleLikeFor(track) }) {
-                        Icon(
-                            imageVector = if (loved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                            contentDescription = "পছন্দ",
-                            tint = if (loved) Color(0xFFE53935) else tokens.inkMuted
-                        )
-                    }
-                    Text(
-                        text = toBengaliNumeral(loveCount),
-                        style = EditorialType.Caption,
-                        color = tokens.inkMuted
+                IconButton(onClick = { player.toggleLikeFor(track) }) {
+                    Icon(
+                        imageVector = if (loved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = "পছন্দ",
+                        tint = if (loved) Color(0xFFE53935) else tokens.inkMuted
                     )
                 }
+                Text(
+                    text = toBengaliNumeral(loveCount),
+                    style = EditorialType.Caption,
+                    color = tokens.inkMuted
+                )
             }
         }
     }
@@ -349,7 +398,8 @@ fun MusicEntityScreen(
     onBackClick: () -> Unit,
     onArtistClick: (String) -> Unit,
     onAlbumClick: (String) -> Unit,
-    onGenreClick: (String) -> Unit
+    onGenreClick: (String) -> Unit,
+    onUploaderClick: (String) -> Unit = {}
 ) {
     val tracks by viewModel.musicCatalog.collectAsState()
     val loading by viewModel.musicLoading.collectAsState()
@@ -468,6 +518,7 @@ fun MusicEntityScreen(
                         MusicCatalogCard(
                             track = track,
                             onClick = { player.play(track, matched, expand = true) },
+                            onUploaderClick = onUploaderClick,
                             onArtistClick = onArtistClick,
                             onAlbumClick = onAlbumClick,
                             onGenreClick = onGenreClick

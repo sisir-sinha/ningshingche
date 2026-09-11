@@ -48,6 +48,15 @@ Three components share one Supabase project (`slcpvmpsynkqdozvlsii`):
   (Catbox-compatible multipart POST, 200 MB ceiling, no session needed). Supabase
   Storage stays the fallback, and the track row records which host was used via
   `file_provider` (`'url'` vs `'supabase-storage'`).
+- **View counting** is event-based (migration 025): `public.content_views` holds one row per view, a
+  trigger keeps `blogs.views_count` / `music_tracks.views_count` in step, and the same rows feed the
+  dashboard's views-over-time chart. The write is a security-definer RPC so a guest can be counted
+  once a day from a device-derived pseudonym (the same trick as the guest love react, migration 022);
+  the table itself has no grants and no policies.
+- **Public user pages** (migration 024) gather one registered reader's published work through the
+  `public_profile` RPC — `profiles` and `submitted_blogs` are select-own, and the latter carries the
+  writer's contact details, so the page is assembled by the definer and returns only safe fields.
+  The uploader's name is also denormalised onto the track (`music_tracks.uploader_name`).
 - **GitHub Pages** deploys `backend/` as a static site (`.github/workflows/jekyll-gh-pages.yml`).
 
 ---

@@ -312,7 +312,7 @@ class MusicLibraryStore(
      * it survives restarts and updates; if a device cannot report one, a random
      * id is generated once and kept in preferences.
      */
-    private val deviceId: String by lazy {
+    val deviceId: String by lazy {
         val prefs = lovePrefs()
         prefs.getString(KEY_DEVICE_ID, null)?.takeIf { it.isNotBlank() } ?: run {
             val androidId = runCatching {

@@ -545,6 +545,9 @@ from the check that failed, so read it rather than assuming Blog uploads:
 
 - Blog media columns → `supabase/migrations/003_blog_media_uploads.sql`
 - `app_language_files` (the Languages page) → `supabase/migrations/023_app_language_files.sql`
+- A track's uploader or a public user page → `supabase/migrations/024_uploader_and_public_profile.sql`
+- View counts, the dashboard's ভিউ counter and its views-over-time chart →
+  `supabase/migrations/025_content_views.sql`
 - A table reported as *missing* → `supabase/schema.sql`, then the migrations in order
 
 Run that file in the Supabase SQL Editor, reload the dashboard, and check again in **Settings →

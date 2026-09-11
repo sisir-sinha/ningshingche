@@ -132,14 +132,27 @@ data class MusicTrack(
     val albumDescription: String = "",
     val durationSeconds: Int,
     val fileSizeMb: Double,
-    val loveCount: Int = 0
+    val loveCount: Int = 0,
+    /** How many times the song has been played, from the database. */
+    val viewsCount: Long = 0L,
+    /** The registered reader who uploaded it, when it came from the app. */
+    val uploaderId: String = "",
+    val uploaderName: String = ""
 ) {
     fun hasPlayableSource(): Boolean = audioUrl.isNotBlank() || storagePath.isNotBlank()
     fun hasVideo(): Boolean = videoLink.isNotBlank()
 
+    /**
+     * The line under the title in the player.
+     *
+     * The uploader comes first — for a song a reader sent in, who sent it is the
+     * first thing to say — and only when there is one: catalogue tracks added by
+     * the editors have no uploader and start at the singer, as before.
+     */
     fun playerCreditLine(): String {
         val singer = artist.ifBlank { "নিংশিং চে" }
         return buildString {
+            if (uploaderName.isNotBlank()) append("Uploader: ${uploaderName} ◻ ")
             append("Singer: $singer")
             if (album.isNotBlank()) append(" ◻ Album: $album")
             if (genre.isNotBlank()) append(" ◻ Genre: $genre")
@@ -373,7 +386,10 @@ internal fun MusicDto.toItem(): MusicTrack = MusicTrack(
     albumDescription = albumDescription.orEmpty().trim(),
     durationSeconds = (durationSeconds ?: 0).coerceAtLeast(0),
     fileSizeMb = fileSizeMb ?: 0.0,
-    loveCount = (loveCount ?: 0).coerceAtLeast(0)
+    loveCount = (loveCount ?: 0).coerceAtLeast(0),
+    viewsCount = (viewsCount ?: 0L).coerceAtLeast(0L),
+    uploaderId = userId.orEmpty().trim(),
+    uploaderName = uploaderName.orEmpty().trim()
 )
 
 internal fun VideoDto.toItem(): VideoItem = VideoItem(
@@ -464,4 +480,101 @@ fun thumbnailOf(url: String): String {
 fun permalinkOf(slug: String): String {
     val encoded = java.net.URLEncoder.encode(slug, "UTF-8").replace("+", "%20")
     return "https://ningshingche.com/article/$encoded"
+}
+
+
+/**
+ * A registered reader's public page: who they are and everything of theirs that
+ * is published, gathered by the `public_profile` RPC so the page opens with a
+ * single request.
+ */
+data class PublicProfile(
+    val id: String,
+    val name: String,
+    val avatarUrl: String,
+    val joinedAt: String,
+    val articleViews: Long,
+    val musicViews: Long,
+    val articles: List<PublicArticle>,
+    val songs: List<MusicTrack>
+) {
+    val totalViews: Long get() = articleViews + musicViews
+}
+
+/** One published article on a public user page. */
+data class PublicArticle(
+    val id: String,
+    val title: String,
+    val slug: String,
+    val thumbnailUrl: String,
+    val categoryTitle: String,
+    val viewsCount: Long,
+    val publishedAt: String
+)
+
+/** One point of the dashboard's views-over-time chart. */
+data class ViewDay(
+    val day: String,
+    val views: Long
+)
+
+/** The reader's own view totals, as the database has them. */
+data class ViewTotals(
+    val articleViews: Long,
+    val musicViews: Long
+) {
+    val total: Long get() = articleViews + musicViews
+}
+
+internal fun ViewTotalsDto.toModel(): ViewTotals = ViewTotals(
+    articleViews = (articleViews ?: 0L).coerceAtLeast(0L),
+    musicViews = (musicViews ?: 0L).coerceAtLeast(0L)
+)
+
+internal fun ViewDayDto.toModel(): ViewDay = ViewDay(
+    day = day,
+    views = (views ?: 0L).coerceAtLeast(0L)
+)
+
+internal fun PublicProfileDto.toModel(): PublicProfile {
+    val profileId = id
+    val profileName = name.orEmpty()
+    return PublicProfile(
+    id = profileId,
+    name = profileName.ifBlank { "নিংশিং চে পাঠক" },
+    avatarUrl = avatarUrl.orEmpty(),
+    joinedAt = joinedAt.orEmpty(),
+    articleViews = (articleViews ?: 0L).coerceAtLeast(0L),
+    musicViews = (musicViews ?: 0L).coerceAtLeast(0L),
+    articles = articles.orEmpty().map { row ->
+        PublicArticle(
+            id = row.id,
+            title = row.title.orEmpty().ifBlank { "শিরোনামহীন" },
+            slug = row.slug.orEmpty(),
+            thumbnailUrl = row.thumbnail.orEmpty(),
+            categoryTitle = row.categoryTitle.orEmpty(),
+            viewsCount = (row.viewsCount ?: 0L).coerceAtLeast(0L),
+            publishedAt = row.publishedDate.orEmpty().ifBlank { row.createdAt.orEmpty() }
+        )
+    },
+    songs = songs.orEmpty().map { row ->
+        MusicTrack(
+            id = row.id,
+            title = row.title.orEmpty().trim(),
+            artist = row.artist.orEmpty().trim(),
+            album = row.album.orEmpty().trim(),
+            genre = row.genre.orEmpty().trim(),
+            description = "",
+            thumbnailUrl = row.thumbnailUrl.orEmpty(),
+            audioUrl = row.audioUrl.orEmpty(),
+            storagePath = row.fileStoragePath.orEmpty().trim(),
+            durationSeconds = (row.durationSeconds ?: 0).coerceAtLeast(0),
+            fileSizeMb = 0.0,
+            loveCount = (row.loveCount ?: 0).coerceAtLeast(0),
+            viewsCount = (row.viewsCount ?: 0L).coerceAtLeast(0L),
+            uploaderId = profileId,
+            uploaderName = profileName
+        )
+    }
+    )
 }

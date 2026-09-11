@@ -25,7 +25,7 @@ The templates carry the strings the **interface** shows. Publication text — ar
 copy from `NinghsingCheContentData.kt`, author biographies, the contact block — is listed in the
 inventory but left out of the page: a string counts as content only when every file that mentions it
 is one of those, so a section name that the drawer also shows (`লেখক`, `বার্ষিক সংখ্যা`) stays
-translatable. In the current tree that is **751 strings on the page, 203 kept as content**.
+translatable. In the current tree that is **769 strings on the page, 203 kept as content**.
 
 Markdown scaffolding is left out too: headings (`### «{1}» — নিবন্ধ বিশ্লেষণ`), bullets
 (`• **বিভাগ:** {1}`), rules, italic wrappers (`*গান*`) and regex sources

@@ -2,6 +2,8 @@ package com.ningshingche.app.data.remote
 
 import android.content.Context
 import com.ningshingche.app.data.auth.GoogleAuthException
+import com.ningshingche.app.data.portal.ViewDay
+import com.ningshingche.app.data.portal.ViewTotals
 import com.ningshingche.app.data.auth.GoogleAuthMapper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -1127,25 +1129,73 @@ class SupabaseClient(private val context: Context) {
         }
     }
 
-    suspend fun sumBlogViewsForAuthor(authorName: String): Int = withContext(Dispatchers.IO) {
-        if (authorName.isBlank()) return@withContext 0
+    /**
+     * The reader's own view totals, as the database counts them (migration 025).
+     *
+     * Article views are the counts on the blogs their submissions were converted
+     * into, music views are the plays of the tracks they uploaded — so the
+     * number under "ভিউ" is the site's number, not the app's guess at it.
+     * Returns null when the function is not deployed yet.
+     */
+    suspend fun userViewTotals(userId: String): ViewTotals? = withContext(Dispatchers.IO) {
+        val id = userId.trim()
+        if (id.isBlank()) return@withContext null
         try {
-            val encoded = java.net.URLEncoder.encode(authorName, "UTF-8")
-            val url = "${SupabaseConfig.restBaseUrl}/blogs?select=views_count&author_name=eq.$encoded&limit=1000"
-            val request = createBaseRequestBuilder(url).get().build()
+            val payload = JSONObject().put("p_user_id", id).toString()
+            val request = createBaseRequestBuilder("${SupabaseConfig.restBaseUrl}/rpc/user_view_totals")
+                .post(payload.toRequestBody(jsonMediaType))
+                .build()
             val response = httpClient.newCall(request).execute()
             val body = response.body?.string().orEmpty()
-            if (!response.isSuccessful || body.isBlank()) return@withContext 0
-            val array = JSONArray(body)
-            var sum = 0
-            for (i in 0 until array.length()) {
-                sum += array.getJSONObject(i).optInt("views_count", 0)
-            }
-            sum
+            if (!response.isSuccessful || body.isBlank() || body == "null") return@withContext null
+            val json = if (body.trimStart().startsWith("[")) {
+                JSONArray(body).optJSONObject(0)
+            } else {
+                JSONObject(body)
+            } ?: return@withContext null
+            ViewTotals(
+                articleViews = json.optLong("article_views", 0L).coerceAtLeast(0L),
+                musicViews = json.optLong("music_views", 0L).coerceAtLeast(0L)
+            )
         } catch (_: Exception) {
-            0
+            null
         }
     }
+
+    /** One row per day for the reader's views-over-time chart (migration 025). */
+    suspend fun userViewSeries(userId: String, days: Int = 30): Result<List<ViewDay>> =
+        withContext(Dispatchers.IO) {
+            val id = userId.trim()
+            if (id.isBlank()) return@withContext Result.success(emptyList())
+            try {
+                val payload = JSONObject()
+                    .put("p_user_id", id)
+                    .put("p_days", days.coerceIn(1, 365))
+                    .toString()
+                val request = createBaseRequestBuilder("${SupabaseConfig.restBaseUrl}/rpc/user_view_series")
+                    .post(payload.toRequestBody(jsonMediaType))
+                    .build()
+                val response = httpClient.newCall(request).execute()
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) return@withContext Result.success(emptyList())
+                val array = JSONArray(body.ifBlank { "[]" })
+                val rows = mutableListOf<ViewDay>()
+                for (i in 0 until array.length()) {
+                    val row = array.optJSONObject(i) ?: continue
+                    val day = row.optString("day").take(10)
+                    if (day.isBlank()) continue
+                    rows.add(
+                        ViewDay(
+                            day = day,
+                            views = row.optLong("views", 0L).coerceAtLeast(0L)
+                        )
+                    )
+                }
+                Result.success(rows)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
 
     suspend fun updateSettings(settings: SiteSettingsRecord): Result<SiteSettingsRecord> = withContext(Dispatchers.IO) {
         try {

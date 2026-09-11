@@ -126,11 +126,13 @@ import com.ningshingche.app.data.remote.SubmittedBlogRecord
 import com.ningshingche.app.data.remote.SubmittedMusicRecord
 import com.ningshingche.app.data.remote.UserNotificationRecord
 import com.ningshingche.app.data.portal.MusicTrack
+import com.ningshingche.app.data.portal.ViewDay
 import com.ningshingche.app.data.remote.UserProfile
 import com.ningshingche.app.data.remote.messageAttachmentUrls
 import com.ningshingche.app.data.remote.shortDateTime
 import com.ningshingche.app.ui.components.AppToasts
 import com.ningshingche.app.ui.editorial.Hairline
+import com.ningshingche.app.ui.editorial.toBengaliNumeral
 import com.ningshingche.app.ui.components.LocalMusicController
 import com.ningshingche.app.ui.reader.RichHtmlArticleBody
 import com.ningshingche.app.ui.theme.Kalpurush
@@ -174,6 +176,7 @@ fun UserDashboardScreen(
     val notifications by viewModel.notifications.collectAsStateWithLifecycle()
     val messages by viewModel.adminMessages.collectAsStateWithLifecycle()
     val metrics by viewModel.metrics.collectAsStateWithLifecycle()
+    val viewSeries by viewModel.viewSeries.collectAsStateWithLifecycle()
     val loading by viewModel.isLoading.collectAsStateWithLifecycle()
     val saving by viewModel.isSaving.collectAsStateWithLifecycle()
     val status by viewModel.message.collectAsStateWithLifecycle()
@@ -379,15 +382,12 @@ fun UserDashboardScreen(
                     TAB_HOME -> HomePane(
                         user = user,
                         metrics = metrics,
-                        unread = noticeUnread,
-                        messageCount = messages.size,
+                        viewSeries = viewSeries,
+                        viewSeriesDays = viewModel.viewSeriesDays,
                         articles = articles,
                         tracks = tracks,
                         comments = comments,
-                        onEditProfile = onCompleteProfile,
-                        onOpenNotices = {
-                            scope.launch { pagerState.animateScrollToPage(TAB_NOTICES) }
-                        }
+                        onEditProfile = onCompleteProfile
                     )
                     TAB_NOTICES -> NoticePane(notifications, openNotice)
                     TAB_MESSAGES -> MessagePane(
@@ -471,13 +471,12 @@ private fun DashboardBottomBar(
 private fun HomePane(
     user: UserProfile?,
     metrics: ReaderMetrics,
-    unread: Int,
-    messageCount: Int,
+    viewSeries: List<ViewDay>,
+    viewSeriesDays: Int,
     articles: List<SubmittedBlogRecord>,
     tracks: List<SubmittedMusicRecord>,
     comments: List<CommentRecord>,
-    onEditProfile: () -> Unit,
-    onOpenNotices: () -> Unit = {}
+    onEditProfile: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -504,14 +503,16 @@ private fun HomePane(
                 }
             }
         }
-        MetricsGrid(
-            metrics = metrics,
-            unread = unread,
-            messageCount = messageCount,
-            onOpenNotices = onOpenNotices
+        MetricsGrid(metrics = metrics)
+        // The one graph that comes from the server: the views the database has
+        // counted on the reader's articles and songs, day by day.
+        ViewsOverTimeChart(
+            series = viewSeries,
+            totalViews = metrics.totalViews,
+            days = viewSeriesDays
         )
-        // Graphs of the reader's own numbers, drawn from the same records the
-        // tabs list — no extra requests.
+        // Graphs of the reader's own records, drawn from the same local lists
+        // the tabs show — no extra requests.
         ContributionCharts(
             articles = articles,
             tracks = tracks,
@@ -1297,31 +1298,37 @@ private fun UserInfoCard(
 }
 
 @Composable
-private fun MetricsGrid(
-    metrics: ReaderMetrics,
-    unread: Int,
-    messageCount: Int,
-    onOpenNotices: () -> Unit = {}
-) {
+private fun MetricsGrid(metrics: ReaderMetrics) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag("dashboard_metrics")) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             MetricCard("প্রবন্ধ", metrics.totalArticles.toString(), Icons.AutoMirrored.Filled.Article, Modifier.weight(1f))
             MetricCard("গান", metrics.songs.toString(), Icons.Default.MusicNote, Modifier.weight(1f))
-            MetricCard("ভিউ", metrics.articleViews.toString(), Icons.Default.Visibility, Modifier.weight(1f))
+            MetricCard("অপেক্ষমাণ", metrics.pendingArticles.toString(), Icons.Default.HourglassTop, Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             MetricCard("প্রকাশিত", metrics.publishedArticles.toString(), Icons.Default.Publish, Modifier.weight(1f))
             MetricCard("মন্তব্য", metrics.comments.toString(), Icons.Default.Comment, Modifier.weight(1f))
-            MetricCard("অপেক্ষমাণ", metrics.pendingArticles.toString(), Icons.Default.HourglassTop, Modifier.weight(1f))
+            MetricCard(
+                "ভিউ",
+                toBengaliNumeral(metrics.totalViews),
+                Icons.Default.Visibility,
+                Modifier.weight(1f)
+            )
         }
+        // The view counter split, so the total above can be read.
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             MetricCard(
-                "বিজ্ঞপ্তি",
-                unread.toString(),
-                Icons.Default.Notifications,
-                Modifier.weight(1f).clickable(onClick = onOpenNotices)
+                "প্রবন্ধ ভিউ",
+                toBengaliNumeral(metrics.articleViews),
+                Icons.AutoMirrored.Filled.Article,
+                Modifier.weight(1f)
             )
-            MetricCard("বার্তা", messageCount.toString(), Icons.Default.Mail, Modifier.weight(1f))
+            MetricCard(
+                "গান ভিউ",
+                toBengaliNumeral(metrics.musicViews),
+                Icons.Default.MusicNote,
+                Modifier.weight(1f)
+            )
         }
     }
 }

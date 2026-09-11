@@ -54,6 +54,9 @@ interface PortalApi {
         const val MUSIC_COLUMNS_WITH_META =
             "$MUSIC_COLUMNS_WITH_VIDEO,artist_image,artist_description,album_image,album_description"
         const val MUSIC_COLUMNS_WITH_LOVE = "$MUSIC_COLUMNS_WITH_META,love_count"
+        /** Love count plus the uploader and the public play count (migrations 024-025). */
+        const val MUSIC_COLUMNS_WITH_VIEWS =
+            "$MUSIC_COLUMNS_WITH_LOVE,user_id,uploader_name,views_count"
         const val COMMENT_COLUMNS = "id,blog_id,blog_title,name,address,content,status,created_at,avatar_url,user_id"
         const val COMMENT_COLUMNS_WITHOUT_AVATAR = "id,blog_id,blog_title,name,address,content,status,created_at"
         const val SETTINGS_COLUMNS =
@@ -106,6 +109,42 @@ interface PortalApi {
         @Query("order") order: String = "issue_year.desc.nullslast,total.desc",
         @Query("limit") limit: Int? = 200
     ): Response<List<TagCountDto>>
+
+    // ------------------------------------------------------------- public page
+
+    /**
+     * Everything a public user page shows, in one request (migration 024 RPC).
+     * `profiles` and `submitted_blogs` are both select-own, so the page cannot
+     * be assembled from the tables themselves.
+     */
+    @POST("rpc/public_profile")
+    suspend fun publicProfile(
+        @Body body: Map<String, String>
+    ): Response<PublicProfileDto?>
+
+    // ------------------------------------------------------------------ views
+
+    /**
+     * Counts one view of an article or a song and answers with the new total
+     * (migration 025 RPC). Safe for guests: the function identifies them by a
+     * device-derived pseudonym, and counts the same viewer once a day.
+     */
+    @POST("rpc/record_content_view")
+    suspend fun recordContentView(
+        @Body body: Map<String, String>
+    ): Response<Long?>
+
+    /** The reader's own article/song view totals (migration 025 RPC). */
+    @POST("rpc/user_view_totals")
+    suspend fun viewTotals(
+        @Body body: Map<String, String>
+    ): Response<ViewTotalsDto?>
+
+    /** One row per day for the last `p_days` days, empty days included. */
+    @POST("rpc/user_view_series")
+    suspend fun viewSeries(
+        @Body body: Map<String, String>
+    ): Response<List<ViewDayDto>>
 
     /** Published article count per annual issue (migration 013 RPC). */
     @POST("rpc/blog_issue_years")

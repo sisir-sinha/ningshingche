@@ -223,6 +223,7 @@ fun MusicScreen(
                         .ifEmpty { lovedIds.toList() }
                         .mapNotNull { byId[it] }
                     MusicTrackList(
+                        onUploaderClick = onUploaderClick,
                         title = "পছন্দের গান",
                         subtitle = "আপনার সংরক্ষিত প্লেলিস্ট",
                         tracks = loved,
@@ -244,6 +245,7 @@ fun MusicScreen(
                     onGenreClick = onGenreClick
                 )
                 else -> MusicTrackList(
+                    onUploaderClick = onUploaderClick,
                     title = if (query.isBlank()) "সব গান" else "খোঁজার ফলাফল",
                     // No tagline here: the count is the only useful line, and it
                     // only exists while searching.

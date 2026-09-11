@@ -57,6 +57,7 @@ import com.ningshingche.app.ui.screens.NewArticleScreen
 import com.ningshingche.app.ui.screens.NewMusicScreen
 import com.ningshingche.app.data.music.MusicShelfKind
 import com.ningshingche.app.ui.screens.PdfArchiveScreen
+import com.ningshingche.app.ui.screens.PublicProfileScreen
 import com.ningshingche.app.ui.screens.PdfViewerScreen
 import com.ningshingche.app.ui.screens.SettingsScreen
 import com.ningshingche.app.ui.screens.SocialActivitiesScreen
@@ -103,6 +104,9 @@ object ReaderRoute {
     const val Settings = "settings"
     const val Login = "login"
     const val FirstRun = "first_run"
+    // A registered reader's public page: their songs and published articles.
+    const val PublicProfile = "user/{userId}"
+    const val PublicProfilePattern = "user/{userId}"
     const val UserDashboard = "user_dashboard"
     const val UserDashboardPattern = "user_dashboard?tab={tab}&focus={focus}"
     const val UserProfile = "user_profile"
@@ -127,6 +131,13 @@ object ReaderRoute {
     fun ai(question: String = ""): String {
         return if (question.isBlank()) AiAssistant else "ai_assistant?q=${encode(question)}"
     }
+
+    /**
+     * A user id is already URL-safe, so it goes in unescaped: a percent-encoded
+     * argument arrives at the route as opaque text and would have to be decoded
+     * back on the other side.
+     */
+    fun publicProfile(userId: String): String = "user/${userId.trim()}"
 
     fun article(idOrSlug: String, focus: String = "") : String {
         val base = "article/${encode(idOrSlug)}"
@@ -458,7 +469,8 @@ fun EditorialReaderApp(
                     onCategoryClick = { navController.navigate(ReaderRoute.category(it.slug)) },
                     onMusicArtistClick = { navController.navigate(ReaderRoute.musicArtist(it)) },
                     onMusicAlbumClick = { navController.navigate(ReaderRoute.musicAlbum(it)) },
-                    onMusicGenreClick = { navController.navigate(ReaderRoute.musicGenre(it)) }
+                    onMusicGenreClick = { navController.navigate(ReaderRoute.musicGenre(it)) },
+                    onUploaderClick = { navController.navigate(ReaderRoute.publicProfile(it)) }
                 )
             }
 
@@ -697,6 +709,22 @@ fun EditorialReaderApp(
                 exitTransition = navExit,
                 popEnterTransition = navPopEnter,
                 popExitTransition = navPopExit,
+                route = ReaderRoute.PublicProfile,
+                arguments = listOf(navArgument("userId") { type = NavType.StringType })
+            ) { entry ->
+                PublicProfileScreen(
+                    userId = entry.arguments?.getString("userId").orEmpty(),
+                    loadProfile = { userId -> app.portalRepository.publicProfile(userId) },
+                    onBackClick = { navController.popBackStack() },
+                    onArticleClick = { articleId -> navController.navigate(ReaderRoute.article(articleId)) }
+                )
+            }
+
+            composable(
+                enterTransition = navEnter,
+                exitTransition = navExit,
+                popEnterTransition = navPopEnter,
+                popExitTransition = navPopExit,
                 route = ReaderRoute.UserDashboardPattern,
                 arguments = listOf(
                     navArgument("tab") { type = NavType.StringType; defaultValue = "home" },
@@ -840,7 +868,8 @@ fun EditorialReaderApp(
                     onBackClick = { navController.popBackStack() },
                     onGenreClick = { navController.navigate(ReaderRoute.musicGenre(it)) },
                     onArtistClick = { navController.navigate(ReaderRoute.musicArtist(it)) },
-                    onAlbumClick = { navController.navigate(ReaderRoute.musicAlbum(it)) }
+                    onAlbumClick = { navController.navigate(ReaderRoute.musicAlbum(it)) },
+                    onUploaderClick = { navController.navigate(ReaderRoute.publicProfile(it)) }
                 )
             }
 
@@ -860,7 +889,8 @@ fun EditorialReaderApp(
                     onBackClick = { navController.popBackStack() },
                     onArtistClick = { navController.navigate(ReaderRoute.musicArtist(it)) },
                     onAlbumClick = { navController.navigate(ReaderRoute.musicAlbum(it)) },
-                    onGenreClick = { navController.navigate(ReaderRoute.musicGenre(it)) }
+                    onGenreClick = { navController.navigate(ReaderRoute.musicGenre(it)) },
+                    onUploaderClick = { navController.navigate(ReaderRoute.publicProfile(it)) }
                 )
             }
 
@@ -880,7 +910,8 @@ fun EditorialReaderApp(
                     onBackClick = { navController.popBackStack() },
                     onArtistClick = { navController.navigate(ReaderRoute.musicArtist(it)) },
                     onAlbumClick = { navController.navigate(ReaderRoute.musicAlbum(it)) },
-                    onGenreClick = { navController.navigate(ReaderRoute.musicGenre(it)) }
+                    onGenreClick = { navController.navigate(ReaderRoute.musicGenre(it)) },
+                    onUploaderClick = { navController.navigate(ReaderRoute.publicProfile(it)) }
                 )
             }
 
@@ -900,7 +931,8 @@ fun EditorialReaderApp(
                     onBackClick = { navController.popBackStack() },
                     onArtistClick = { navController.navigate(ReaderRoute.musicArtist(it)) },
                     onAlbumClick = { navController.navigate(ReaderRoute.musicAlbum(it)) },
-                    onGenreClick = { navController.navigate(ReaderRoute.musicGenre(it)) }
+                    onGenreClick = { navController.navigate(ReaderRoute.musicGenre(it)) },
+                    onUploaderClick = { navController.navigate(ReaderRoute.publicProfile(it)) }
                 )
             }
 
