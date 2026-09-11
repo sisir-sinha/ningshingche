@@ -131,6 +131,11 @@ data class ReaderPreferences(
     val themeMode: ReaderThemeMode = ReaderThemeMode.PAPER,
     val appThemeMode: AppThemeMode = AppThemeMode.SYSTEM,
     val contentLanguage: ContentLanguage = ContentLanguage.BENGALI,
+    /**
+     * False until the reader has answered the language question the first launch
+     * asks. The app shows that screen instead of the reader while it is false.
+     */
+    val languageChosen: Boolean = false,
     val ttsSpeed: Float = 1.0f,
     val notificationsEnabled: Boolean = true,
     val notificationNewArticles: Boolean = true,

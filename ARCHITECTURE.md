@@ -38,7 +38,9 @@ Three components share one Supabase project (`slcpvmpsynkqdozvlsii`):
   page and served as a plain PostgREST select. `TranslationRepository` fetches the chosen language,
   caches the CSV under `filesDir/i18n/` and republishes it through `LocalTranslations`; the key list
   itself comes from `i18n/strings_inventory.csv`. Missing translations fall back to Bengali, so the
-  app is never half-broken.
+  app is never half-broken. The question is asked once, on first launch
+  (`ui/screens/LanguageSetupScreen.kt`, gated by the `language_chosen` preference) and lives in
+  Settings afterwards.
 - **ImgBB** hosts all image uploads from both clients (hero, avatars, covers);
   delete URLs are persisted so staff can remove them later.
 - **upload.satoru.click** hosts song files submitted from the app's Add Song screen

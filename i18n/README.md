@@ -22,9 +22,12 @@ Both scripts run without a JVM. `bn.csv` maps every key to itself, so it doubles
 1. An editor opens **Dashboard → Languages**, picks a language tab, presses **Load template** and
    fills the `value` column (or pastes a CSV from a spreadsheet), then **Save**. One CSV per
    language is stored in `public.app_language_files` (migration 023).
-2. The reader picks the language in **Settings → ভাষা** (`ContentLanguage`: `BENGALI`, `ENGLISH`,
-   `BISHNUPRIYA`). `TranslationRepository` fetches that language's row, caches the CSV under
-   `filesDir/i18n/`, and provides the parsed table app-wide through `LocalTranslations`.
+2. The reader picks the language. On a fresh install that is the first screen
+   (`LanguageSetupScreen`, before anything else, remembered by the `language_chosen` preference);
+   afterwards it is **Settings → ভাষা**. Either way the set is the same (`ContentLanguage`:
+   `BENGALI`, `ENGLISH`, `BISHNUPRIYA`): `TranslationRepository` fetches that language's row,
+   caches the CSV under `filesDir/i18n/`, and provides the parsed table app-wide through
+   `LocalTranslations`.
 3. Screens call `t("বাংলা লেখা")`; `t` returns the translation, or the Bengali original when the
    file has no entry for that key. Bengali is never fetched — it is the compiled-in source text.
 
@@ -61,8 +64,11 @@ the translation, it may be moved but not dropped.
 1. Open **Dashboard → Languages**, pick the language, press **Load template**. The page reports how
    many rows are translated, how many values are still empty, and which Bengali keys the file does
    not carry yet.
-2. Fill values in the editor — or edit the CSV in a spreadsheet and paste it back — and press
-   **Save**. Leave a value empty if you are unsure: it keeps its Bengali text.
+2. Fill the wording in. The default view is a table — one row per string, Bengali on the left and
+   your translation on the right, with a search box and "empty only" / "translated only" filters for
+   working through 700+ rows. **Whole file (CSV)** shows the raw text for pasting from a spreadsheet,
+   and **Download CSV** gives you the file to edit offline. Either way, press **Save**. Leave a value
+   empty if you are unsure: it keeps its Bengali text.
 3. Refresh the language in the app (Settings → অনুবাদ হালনাগাদ করুন, or just switch language) to see
    the result. No app release is involved.
 
@@ -74,6 +80,7 @@ no translation required for it to be safe).
 | Wrapped with `t(...)` | Screens |
 | --- | --- |
 | ✅ | `NewMusicScreen.kt` (Add Song), the language row in `SettingsScreen.kt` |
+| — | `LanguageSetupScreen.kt` is deliberately not translated: it is the screen that asks the question, so it shows every language in its own script |
 | ⏳ | everything else — 65 files, listed by frequency in the inventory |
 
 ## Vocabulary (started; confirm or correct each one)
