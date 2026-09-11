@@ -176,10 +176,36 @@ class ReaderWorkspaceViewModel(
         }
     }
 
+    /**
+     * Called when the notices page is actually on screen. Viewing that page is
+     * what "seeing" a notification means, so the counter must drop to zero
+     * afterwards instead of waiting for the user to tap every card.
+     *
+     * Does nothing when there is nothing unread, so simply swiping back to the
+     * page does not fire a pointless write on every visit.
+     */
     fun markAllNotificationsRead() {
+        if (_notifications.value.none { !it.isRead }) return
         viewModelScope.launch {
             supabaseClient.markAllNotificationsRead()
             _notifications.value = _notifications.value.map { it.copy(isRead = true) }
+            recountUnread()
+        }
+    }
+
+    /**
+     * Called when the messages page is on screen: an open chat marks the
+     * admin's side read, same as any messenger. The unread badge counts admin
+     * messages as well as notices, so without this the counter could never
+     * reach zero after the notices were seen.
+     */
+    fun markAdminMessagesRead() {
+        if (_adminMessages.value.none { it.isFromAdmin && !it.isRead }) return
+        viewModelScope.launch {
+            supabaseClient.markAdminMessagesRead()
+            _adminMessages.value = _adminMessages.value.map { item ->
+                if (item.isFromAdmin) item.copy(isRead = true) else item
+            }
             recountUnread()
         }
     }
@@ -194,9 +220,11 @@ class ReaderWorkspaceViewModel(
             _isSaving.value = true
             supabaseClient.sendAdminMessage(body)
                 .onSuccess { sent ->
+                    // The new bubble appears in the chat immediately, so a
+                    // "message sent" toast would only repeat what the user can
+                    // already see. Failures still surface through _message.
                     val merged = (_adminMessages.value + sent).distinctBy { it.id }.sortedBy { it.createdAt }
                     _adminMessages.value = merged
-                    _message.value = "অ্যাডমিনকে বার্তা পাঠানো হয়েছে।"
                 }
                 .onFailure { error ->
                     _message.value = error.message ?: "বার্তা পাঠানো যায়নি।"

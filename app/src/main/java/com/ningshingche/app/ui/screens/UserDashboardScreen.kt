@@ -42,6 +42,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Comment
@@ -182,10 +183,22 @@ fun UserDashboardScreen(
     var fabOpen by remember { mutableStateOf(false) }
     val noticeUnread = notifications.count { !it.isRead }
     val onNoticesTab = pagerState.currentPage == TAB_NOTICES
+    val onMessagesTab = pagerState.currentPage == TAB_MESSAGES
     val onContentTab = pagerState.currentPage == TAB_CONTENT
 
     LaunchedEffect(user?.id) {
         if (user != null) viewModel.refresh()
+    }
+    // Seeing the list is what clears the counter — the badge used to stay lit
+    // until every card had been tapped one by one. Keyed on the unread count,
+    // not just the tab, so a background inbox refresh that re-lights the badge
+    // is cleared again while the page is still on screen.
+    val messageUnread = messages.count { it.isFromAdmin && !it.isRead }
+    LaunchedEffect(onNoticesTab, noticeUnread) {
+        if (onNoticesTab && noticeUnread > 0) viewModel.markAllNotificationsRead()
+    }
+    LaunchedEffect(onMessagesTab, messageUnread) {
+        if (onMessagesTab && messageUnread > 0) viewModel.markAdminMessagesRead()
     }
     // A tapped notice slides the pager to its own tab (like a manual
     // swipe) and focuses + highlights the matching card there instead of
@@ -266,7 +279,18 @@ fun UserDashboardScreen(
                                     }
                                 }
                             ) {
-                                Icon(Icons.Default.Notifications, contentDescription = "বিজ্ঞপ্তি")
+                                Icon(
+                                    Icons.Default.Notifications,
+                                    contentDescription = "বিজ্ঞপ্তি",
+                                    // The bell is the notifications page itself, so while that
+                                    // page is on screen it switches to the accent colour to
+                                    // show the current tab instead of looking idle.
+                                    tint = if (onNoticesTab) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    }
+                                )
                             }
                         }
                     }
@@ -337,6 +361,9 @@ fun UserDashboardScreen(
                         metrics = metrics,
                         unread = noticeUnread,
                         messageCount = messages.size,
+                        articles = articles,
+                        tracks = tracks,
+                        comments = comments,
                         onEditProfile = onCompleteProfile,
                         onOpenNotices = {
                             scope.launch { pagerState.animateScrollToPage(TAB_NOTICES) }
@@ -426,6 +453,9 @@ private fun HomePane(
     metrics: ReaderMetrics,
     unread: Int,
     messageCount: Int,
+    articles: List<SubmittedBlogRecord>,
+    tracks: List<SubmittedMusicRecord>,
+    comments: List<CommentRecord>,
     onEditProfile: () -> Unit,
     onOpenNotices: () -> Unit = {}
 ) {
@@ -459,6 +489,13 @@ private fun HomePane(
             unread = unread,
             messageCount = messageCount,
             onOpenNotices = onOpenNotices
+        )
+        // Graphs of the reader's own numbers, drawn from the same records the
+        // tabs list — no extra requests.
+        ContributionCharts(
+            articles = articles,
+            tracks = tracks,
+            comments = comments
         )
         Spacer(Modifier.height(24.dp))
     }
@@ -1189,6 +1226,16 @@ private fun NotificationCard(
                     color = MaterialTheme.colorScheme.primary
                 )
             }
+            // Every row opens something, so it carries a chevron like any other
+            // navigable list item.
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .align(Alignment.CenterVertically)
+                    .size(18.dp)
+            )
         }
     }
 }
