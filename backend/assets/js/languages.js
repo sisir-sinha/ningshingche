@@ -168,6 +168,9 @@
         const text2 = await loadTemplate(active);
         if (editor.value.trim() && !window.confirm('Replace the editor with the template? Unsaved changes are lost.')) return;
         editor.value = text2;
+        // Keep it in the row first: renderEditor() redraws from the stored
+        // record, so an un-stashed template would be wiped by its own redraw.
+        stashEditor();
         NC.components.toast(`Template for ${meta.label} loaded. Press Save to publish it.`, 'info');
         renderEditor();
       } catch (error) {
