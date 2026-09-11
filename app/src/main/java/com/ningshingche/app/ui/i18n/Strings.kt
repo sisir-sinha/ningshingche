@@ -14,6 +14,12 @@ import com.ningshingche.app.data.model.ContentLanguage
  * provided here holds the translations fetched from the dashboard, and anything
  * missing falls back to the Bengali original.
  *
+ * Bengali is layered on in the same way. Its file is normally empty, and then
+ * every lookup misses and the compiled string is shown; a row entered on the
+ * dashboard's Languages page (key `লেখক`, value `লেখকবৃন্দ`) replaces that
+ * wording wherever the app says `লেখক`. The key never changes, so an editor can
+ * rewrite the Bengali without the app losing track of which string it is.
+ *
  * Values are passed as numbered slots, so a translation can move them where its
  * grammar wants them:
  *
@@ -33,11 +39,7 @@ data class TranslationTable(
      * still win — this map is only consulted second.
      */
     val loose: Map<String, String> by lazy {
-        if (language == ContentLanguage.BENGALI) {
-            emptyMap()
-        } else {
-            strings.entries.associate { (key, value) -> looseKey(key) to value }
-        }
+        strings.entries.associate { (key, value) -> looseKey(key) to value }
     }
 }
 
@@ -55,13 +57,12 @@ val contentLanguage: ContentLanguage
 
 /** Bengali source text in, the reader's language out. */
 fun translate(table: TranslationTable, bengali: String, vararg args: Any?): String {
-    val text = if (table.language == ContentLanguage.BENGALI) {
-        bengali
-    } else {
-        table.strings[bengali]?.takeIf { it.isNotBlank() }
-            ?: table.loose[looseKey(bengali)]?.takeIf { it.isNotBlank() }
-            ?: bengali
-    }
+    // The file wins whenever it has this string — for Bengali as well, where a
+    // row means an editor rewrote that wording. Anything absent or blank stays
+    // exactly as compiled, which is what every key looks like by default.
+    val text = table.strings[bengali]?.takeIf { it.isNotBlank() }
+        ?: table.loose[looseKey(bengali)]?.takeIf { it.isNotBlank() }
+        ?: bengali
     if (args.isEmpty()) return text
     var filled = text
     args.forEachIndexed { index, value ->

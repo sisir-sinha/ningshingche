@@ -496,7 +496,9 @@ companion object { fun parseCsv(text: String): Map<String, String> }
 One `GET /rest/v1/app_language_files?select=csv&lang=eq.<bn|en|bpy>` per language with the
 publishable key; the response is `[{"csv": "..."}]` and the CSV is cached at
 `filesDir/i18n/<lang>.csv`, so a language survives offline launches and an unreachable network.
-Bengali is never fetched: those strings are compiled in at the call site.
+Bengali is fetched too, and its file is normally empty: it holds only the rows an editor rewrote
+on the Languages page, and each of those replaces the compiled wording for the same key (`লেখক` ->
+`লেখকবৃন্দ`) without changing the key itself, so the lookup cannot lose track of a string.
 
 Wiring: `NinghsingCheApp.translations` is the single instance; `MainActivity` collects the flow for
 the chosen language into `LocalTranslations`, and `t("বাংলা লেখা")` in `ui/i18n/Strings.kt` resolves
@@ -506,7 +508,8 @@ Lookup tries the exact Bengali string first and, on a miss, retries with `looseK
 whitespace collapsed, trailing `।`/`.`/`!`/`?` dropped — so a key typed by hand in the dashboard
 (`অডিও ফাইল পড়া যায়নি`) still finds the string compiled into the app (`অডিও ফাইল পড়া যায়নি।`).
 Those CSVs are written by the dashboard's **Languages** grid (one row per string, a column per
-language, Bengali read-only as the lookup key) into `app_language_files` from migration 023;
+language, all three editable, Bengali doubling as the key the app looks a string up by) into
+`app_language_files` from migration 023;
 `TranslationTable.loose` is only consulted after the exact lookup misses, so a hand-typed key can
 never shadow a real one. Switching
 language in Settings calls `refresh`, as does the "অনুবাদ হালনাগাদ করুন" button.

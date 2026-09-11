@@ -4,7 +4,13 @@
 Scans `app/src/main/java` for Bengali string literals, drops anything that is
 not user-visible (keys, ids, log lines, SQL, code fragments), de-duplicates and
 writes one row per distinct string with its occurrence count and the screens it
-appears in. The `bishnupriya` column is what a reviewer fills in; nothing in the
+appears in.
+
+`kind` decides whether a string reaches the dashboard's Languages page: `ui`
+rows do, `content` rows (publication text from the files in `CONTENT_FILES`)
+do not. The content label is applied only when every file mentioning the string
+is a content file, so a section name that the drawer also shows stays
+translatable. The `bishnupriya` column is what a reviewer fills in; nothing in the
 app is translated until that column has a value.
 
 Usage (from the repository root):
@@ -26,11 +32,11 @@ OUT = ROOT / "i18n/strings_inventory.csv"
 # Files that carry publication content rather than interface chrome. Their text
 # is what the magazine publishes (author bios, standing copy), so it is listed
 # for completeness but is not part of the UI translation.
-CONTENT_FILES = {
+CONTENT_FILES = frozenset({
     "NinghsingCheContentData.kt",
     "AuthorProfiles.kt",
     "SiteContact.kt",
-}
+})
 
 BENGALI = re.compile(r"[\u0980-\u09FF]")
 LITERAL = re.compile(r'"((?:[^"\\\n]|\\.)*)"')
@@ -42,10 +48,34 @@ NOISE = re.compile(
 )
 
 
-def is_ui_copy(value: str) -> bool:
+def looks_like_pattern(value: str) -> bool:
+    """Regex source rather than copy: `(20\\d{2}|২০\\d{2})`, `^(?:নিংশিংচে|…)$`.
+
+    These contain Bengali because the pattern matches Bengali text, but nobody
+    reads them and translating one would break the match it is written for.
+    """
+    text = value.strip()
+    return bool(re.search(r"\\[dDwWsS]|\(\?:", text)) or (text.startswith("^") and text.endswith("$"))
+
+
+def is_prompt_block(value: str, filename: str) -> bool:
+    """Markdown labels the AI assistant builds for its prompt, not for a screen.
+
+    `### সম্পর্কিত জিজ্ঞাসা:` is appended to the context and stripped back out of
+    the answer; `**শিরোনাম:** {1}` is a bold block heading the model reads.
+    Translating one changes a prompt rather than the interface.
+    """
+    if value.lstrip().startswith("#"):
+        return True
+    return filename == "NinghsingCheAiAssistant.kt" and bool(re.match(r"^\s*(?:-\s*)?\*{2}", value))
+
+
+def is_ui_copy(value: str, filename: str = "") -> bool:
     if not BENGALI.search(value):
         return False
     if NOISE.match(value.strip()):
+        return False
+    if looks_like_pattern(value) or is_prompt_block(value, filename):
         return False
     # GraphQL/SQL/JSON fragments and path-ish strings are never shown verbatim.
     lowered = value.lower()
@@ -78,7 +108,7 @@ def collect():
         text = path.read_text(encoding="utf-8")
         for raw in LITERAL.findall(text):
             value = raw.replace('\\"', '"').replace("\\n", " ").replace('\\$', '$')
-            if not is_ui_copy(value):
+            if not is_ui_copy(value, path.name):
                 continue
             key, slots = normalise(value)
             if not key:
@@ -87,8 +117,13 @@ def collect():
             bucket["count"] += 1
             bucket["files"].add(path.name)
             bucket["slots"] = max(bucket["slots"], slots)
-            if path.name in CONTENT_FILES:
-                bucket["kind"] = "content"
+    # A string counts as publication content only when *every* file that mentions
+    # it is a content file. A section name like `লেখক` or `বার্ষিক সংখ্যা` is
+    # written in the drawer and the navigation as well as in the content data, and
+    # the readers of those screens have to be able to translate it.
+    for meta in entries.values():
+        if meta["files"] <= CONTENT_FILES:
+            meta["kind"] = "content"
     return entries
 
 

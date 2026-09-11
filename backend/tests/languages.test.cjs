@@ -96,9 +96,31 @@ test('matrixCsv writes the sheet shape — #, bpy, bn, en — with quoting', () 
     { key: 'শিরোনাম, বই', known: true, values: { bpy: '', bn: 'শিরোনাম, বই', en: 'Title, book' } }
   ]);
   const lines = csv.split('\n');
-  assert.equal(lines[0], '#,bpy,bn,en');
-  assert.equal(lines[1], '1,এলাহান,গান,Song');
-  assert.equal(lines[2], '2,,"শিরোনাম, বই","Title, book"');
+  assert.equal(lines[0], '#,bpy,bn,en,key', 'the app’s own string rides along in one extra column');
+  assert.equal(lines[1], '1,এলাহান,গান,Song,', 'untouched Bengali leaves the key column empty');
+  assert.equal(lines[2], '2,,"শিরোনাম, বই","Title, book",');
+});
+
+test('matrixCsv names the app’s own string once the Bengali has been rewritten', () => {
+  const csv = api.matrixCsv([
+    { key: 'লেখক', known: true, values: { bpy: 'লেকক', bn: 'লেখকবৃন্দ', en: 'Authors' } }
+  ]);
+  const lines = csv.split('\n');
+  assert.equal(lines[1], '1,লেকক,লেখকবৃন্দ,Authors,লেখক', 'the rewrite and its key are both on the sheet');
+  // And the sheet reads back as the same row, not as a new string called
+  // "লেখকবৃন্দ" — which is what would happen if the Bengali cell were the key.
+  const parsed = api.parseMatrix(csv);
+  assert.deepEqual(Array.from(parsed.keys), ['লেখক']);
+  assert.equal(parsed.values.bn['লেখক'], 'লেখকবৃন্দ');
+  assert.equal(parsed.values.en['লেখক'], 'Authors');
+});
+
+test('import falls back to the Bengali column when the sheet has no key column', () => {
+  // The owner's own sheet: four columns, the Bengali cell doubling as the key.
+  const parsed = api.parseMatrix('#,bpy,bn,en\n1,লেকক,লেখক,Authors\n');
+  assert.deepEqual(Array.from(parsed.keys), ['লেখক']);
+  assert.equal(parsed.values.bn['লেখক'], 'লেখক');
+  assert.equal(parsed.values.bpy['লেখক'], 'লেকক');
 });
 
 test('a sheet written by the page imports back unchanged', () => {

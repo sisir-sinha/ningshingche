@@ -1,10 +1,13 @@
 # Interface language files
 
 The app's interface is written in Bengali, hard-coded in Kotlin. Bengali is therefore the source
-text and needs no work; **English** and **Bishnupriya Manipuri** are translation jobs layered on top,
-and the wording has to come from a speaker — a machine-guessed interface is worse than a Bengali
-one. One CSV per language carries those layers, the dashboard edits them, and the app downloads the
-one its reader picked.
+text, and it also works with no files at all; **English** and **Bishnupriya Manipuri** are
+translation jobs layered on top, and the wording has to come from a speaker — a machine-guessed
+interface is worse than a Bengali one. One CSV per language carries those layers, the dashboard
+edits them, and the app downloads the one its reader picked.
+
+Bengali has a file too, and it is editable: a row there rewrites the wording a Bengali reader sees
+without touching the string the app looks up. See **Rewriting the Bengali** below.
 
 ## What is here
 
@@ -18,24 +21,31 @@ one its reader picked.
 Both scripts run without a JVM. `bn.csv` maps every key to itself, so it doubles as the key list;
 `en.csv` and `bpy.csv` ship with empty values for a translator to fill.
 
+The templates carry the strings the **interface** shows. Publication text — article and category
+copy from `NinghsingCheContentData.kt`, author biographies, the contact block — is listed in the
+inventory but left out of the page: a string counts as content only when every file that mentions it
+is one of those, so a section name that the drawer also shows (`লেখক`, `বার্ষিক সংখ্যা`) stays
+translatable. In the current tree that is **776 strings on the page, 203 kept as content**.
+
 ## How it lands in the app
 
 1. An editor opens **Dashboard → Languages** and types into the grid: one row per string, one column
-   per language — `#`, `bpy`, `bn`, `en`, the same shape as the sheet this work started in. `bn` is
-   the Bengali source the app looks each string up by, so it is shown read-only; `bpy` and `en` are
-   the translations. **Save translations** writes one `key,value` CSV per language into
+   per language — `#`, `bpy`, `bn`, `en`, the same shape as the sheet this work started in. All three
+   columns are editable. **Save translations** writes one `key,value` CSV per language into
    `public.app_language_files` (migration 023) — that is what the app downloads. **Download** gives
-   the grid as a CSV to fill in a spreadsheet, and **Import** reads it back (columns matched by
-   header, `#` ignored, and a key that differs from the app's only by a trailing `।` lands on the
-   real key).
+   the grid as a CSV to fill in a spreadsheet (plus a `key` column, explained below), and **Import**
+   reads it back: columns are matched by header, `#` is ignored, a key that differs from the app's
+   only by a trailing `।` lands on the real key, and a Bengali cell that merely repeats the row is
+   not mistaken for a rewrite.
 2. The reader picks the language. On a fresh install that is the first screen
    (`LanguageSetupScreen`, before anything else, remembered by the `language_chosen` preference);
    afterwards it is **Settings → ভাষা**. Either way the set is the same (`ContentLanguage`:
    `BENGALI`, `ENGLISH`, `BISHNUPRIYA`): `TranslationRepository` fetches that language's row,
    caches the CSV under `filesDir/i18n/`, and provides the parsed table app-wide through
    `LocalTranslations`.
-3. Screens call `t("বাংলা লেখা")`; `t` returns the translation, or the Bengali original when the
-   file has no entry for that key. Bengali is never fetched — it is the compiled-in source text.
+3. Screens call `t("বাংলা লেখা")`; `t` returns whatever the reader's language file has for that
+   key, or the Bengali original when it has nothing (a blank value counts as nothing). Bengali is
+   fetched like the other languages and is usually empty, so those lookups simply miss.
 
 So:
 
@@ -46,6 +56,25 @@ So:
   current file without waiting for the next launch;
 - a translation is found even if its Bengali key differs from the app's by a trailing `।` or extra
   spaces — `looseKey()` in `ui/i18n/Strings.kt`, and the same fallback on the page's import.
+
+## Rewriting the Bengali
+
+Bengali is both the wording and the key, so a row in `bn.csv` carries two things that can differ:
+
+| Where | What it is |
+| --- | --- |
+| The key — the Bengali string compiled into the app (`t("লেখক")`) | never changes; it is how the app finds the row |
+| The value — what you type in the `bn` column | what a Bengali reader sees |
+
+The file stays the same `key,value` CSV as every other language, and rows that still read exactly
+like the app's string are left out of it — so a Bengali file is normally empty and grows only where
+somebody rewrote something (`লেখক,লেখকবৃন্দ`). Nothing about the app's lookup depends on the value,
+which is why the wording can be corrected at any time from the dashboard.
+
+Because the `bn` column can no longer be assumed to *be* the key, **Download** appends a `key` column
+holding the app's own string; it is left empty for rows nobody has rewritten, so an untouched sheet
+still reads as the four columns above. **Import** uses it when it is there and falls back to the
+Bengali column when it is not, which is what a sheet typed by hand has.
 
 Strings with values use numbered slots so a translation can reorder them:
 

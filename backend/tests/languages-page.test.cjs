@@ -9,6 +9,11 @@
  * file, what Save sends, what Import accepts, and that filtering does not
  * redraw the grid out from under the caret.
  *
+ * Bengali is editable and is also the key the app looks a string up by, so the
+ * tests cover both halves of that: a rewrite is saved against the app's own
+ * string (`লেখক -> লেখকবৃন্দ`), and a sheet carrying a rewrite still imports onto
+ * the right row.
+ *
  * They need jsdom, which the rest of this suite deliberately avoids:
  *
  *     npm install --no-save jsdom && node --test backend/tests/
@@ -124,12 +129,15 @@ test('languages page', { skip: JSDOM ? false : 'jsdom is not installed (npm inst
     assert.deepEqual(labels, ['বিষ্ণুপ্রিয়া মণিপুরী', 'বাংলা', 'English'], 'every column says which language it is');
   });
 
-  await t.test('one row per string, Bengali shown as source text, not an input', () => {
+  await t.test('one row per string, with all three languages editable', () => {
     assert.equal(root.querySelectorAll('[data-entry-row]').length, SOURCE.length);
     const sourceRow = rowFor(root, 'শিরোনাম');
-    assert.match(sourceRow.textContent, /শিরোনাম/, 'the Bengali column shows the string');
-    assert.equal(sourceRow.querySelectorAll('input').length, 2, 'only bpy and en are editable');
-    assert.ok(!sourceRow.querySelector('[data-lang="bn"]'), 'the key column is not an input');
+    assert.equal(sourceRow.querySelectorAll('input').length, 3, 'bpy, bn and en are all inputs');
+    const bengali = sourceRow.querySelector('[data-entry][data-lang="bn"]');
+    assert.equal(bengali.value, 'শিরোনাম', 'the Bengali column shows the app\'s own string');
+    assert.ok(bengali, 'Bengali is editable');
+    assert.equal(bengali.value, 'শিরোনাম', 'and starts as the app\'s own string');
+    assert.equal(bengali.dataset.key, 'শিরোনাম', 'carrying the key the app looks it up by');
   });
 
   await t.test('an existing translation is loaded into its cell', () => {
@@ -142,6 +150,9 @@ test('languages page', { skip: JSDOM ? false : 'jsdom is not installed (npm inst
     const chips = root.querySelector('[data-lang-chips]').textContent.replace(/\s+/g, ' ').trim();
     assert.match(chips, new RegExp(`bpy 1/${SOURCE.length}`));
     assert.match(chips, new RegExp(`en 1/${SOURCE.length}`));
+    // Bengali always has wording, so what is worth counting is how much of it
+    // somebody has rewritten.
+    assert.match(chips, /bn 0 edited/);
   });
 
   await t.test('typing in a cell keeps the caret and updates the counts', () => {
@@ -182,7 +193,7 @@ test('languages page', { skip: JSDOM ? false : 'jsdom is not installed (npm inst
     root.querySelector('[data-save-all]').click();
     await settle();
     const byLang = Object.fromEntries(saved.map((entry) => [entry.payload.lang, entry.payload]));
-    assert.deepEqual(Object.keys(byLang).sort(), ['bpy', 'en'], 'bn is the key list the app compiles in');
+    assert.deepEqual(Object.keys(byLang).sort(), ['bn', 'bpy', 'en'], 'one file per language, Bengali included');
     assert.equal(byLang.bpy.table, undefined);
     assert.equal(saved[0].table, 'languageFiles');
     assert.equal(saved[0].conflict, 'lang');
@@ -194,7 +205,32 @@ test('languages page', { skip: JSDOM ? false : 'jsdom is not installed (npm inst
     assert.doesNotMatch(byLang.bpy.csv, /অনুসন্ধান/);
     assert.match(byLang.en.csv, /গান,Song\n/);
     assert.equal(byLang.en.row_count, 1);
+    // Nobody has rewritten the Bengali yet, so its file holds no rows at all:
+    // the app falls back to the string compiled into it.
+    assert.equal(byLang.bn.csv, 'key,value\n');
+    assert.equal(byLang.bn.row_count, 0);
     assert.ok(toasts.some((toast) => toast.tone === 'success' && /Saved/.test(toast.message)));
+  });
+
+  await t.test('rewriting the Bengali saves it against the app\'s own string', async () => {
+    const input = cells(root, 'bn')[0];
+    input.focus();
+    type(window, input, 'গানবৃন্দ');
+    assert.equal(window.document.activeElement, input, 'the grid is not redrawn while typing');
+    const hint = input.closest('td').querySelector('[data-key-hint]');
+    assert.equal(hint.textContent.trim(), 'মূল: গান', 'the app\'s own string stays visible under the rewrite');
+    assert.match(root.querySelector('[data-lang-chips]').textContent.replace(/\s+/g, ' '), /bn 1 edited/);
+
+    root.querySelector('[data-save-all]').click();
+    await settle();
+    const bn = saved.filter((entry) => entry.payload.lang === 'bn').pop();
+    assert.match(bn.payload.csv, /^key,value\nগান,গানবৃন্দ\n$/, 'the key is the app\'s string, the value is the rewrite');
+    assert.equal(bn.payload.row_count, 1);
+    assert.doesNotMatch(bn.payload.csv, /শিরোনাম/, 'rows nobody rewrote are not written out again');
+
+    // Put it back, so the later subtests read the sheet they started with.
+    type(window, input, 'গান');
+    assert.equal(input.closest('td').querySelector('[data-key-hint]').textContent.trim(), '');
   });
 
   await t.test('a value with a comma is quoted on the way out', async () => {
@@ -239,6 +275,25 @@ test('languages page', { skip: JSDOM ? false : 'jsdom is not installed (npm inst
     assert.match(bpy.payload.csv, /নতুন শব্দ,নুৱা কথা\n/, 'extra keys survive a save');
   });
 
+  await t.test('import lands on the app\'s key when the sheet carries rewritten Bengali', async () => {
+    const before = root.querySelectorAll('[data-entry-row]').length;
+    root.querySelector('[data-import]').click();
+    window.document.querySelector('#import-csv').value =
+      '#,bpy,bn,en,key\n1,Elahan,গানবৃন্দ,Song,গান\n';
+    window.document.querySelector('[data-apply-import]').click();
+    await settle();
+    assert.equal(root.querySelectorAll('[data-entry-row]').length, before,
+      'the rewritten Bengali did not become a new string of its own');
+    const row = rowFor(root, 'গান');
+    assert.equal(row.querySelector('[data-entry][data-lang="bn"]').value, 'গানবৃন্দ');
+    assert.equal(row.querySelector('[data-entry][data-lang="bn"]').dataset.key, 'গান');
+    // Back to the sheet the later subtests expect.
+    root.querySelector('[data-import]').click();
+    window.document.querySelector('#import-csv').value = '#,bpy,bn,en,key\n1,Elahan,গান,Song,\n';
+    window.document.querySelector('[data-apply-import]').click();
+    await settle();
+  });
+
   await t.test('a typed key that differs only by punctuation lands on the real key', async () => {
     // The sheet says "অডিও ফাইল পড়া যায়নি", the app's string ends in "।".
     root.querySelector('[data-filter="all"]').click();
@@ -251,6 +306,9 @@ test('languages page', { skip: JSDOM ? false : 'jsdom is not installed (npm inst
       'the import says it matched a key loosely');
     // The row it landed on is the app's real key, danda included.
     assert.ok(rowFor(root, 'অডিও ফাইল পড়া যায়নি।'), 'the punctuation-less row found its key');
+    const matched = rowFor(root, 'অডিও ফাইল পড়া যায়নি।').querySelector('[data-entry][data-lang="bn"]');
+    assert.equal(matched.value, 'অডিও ফাইল পড়া যায়নি।',
+      'a Bengali cell that only repeats the row is not read as a rewrite of it');
     root.querySelector('[data-save-all]').click();
     await settle();
     const bpy = saved.filter((entry) => entry.payload.lang === 'bpy').pop();

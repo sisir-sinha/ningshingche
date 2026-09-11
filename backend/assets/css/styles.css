@@ -344,11 +344,14 @@ a { color: inherit; }
    it reads as text; the others are inputs. */
 .lang-index { width: 64px; color: var(--faint); font-variant-numeric: tabular-nums; }
 .lang-source { font-weight: 600; color: var(--foreground); }
+.lang-source .lang-cell { font-weight: 600; }
 .lang-source .status-badge { margin-left: 8px; }
+.lang-key-hint { display: block; margin-top: 3px; color: var(--faint); font-size: .64rem; }
+.lang-key-hint:empty { display: none; }
 .lang-source-head small, .data-table th small { display: block; font-weight: 400; color: var(--faint); font-size: .62rem; text-transform: none; }
 .lang-cell { min-width: 190px; }
 .lang-cell.is-empty { background: color-mix(in srgb, var(--warning-soft, transparent) 55%, transparent); }
-.data-table td[data-label="bpy"], .data-table td[data-label="en"] { min-width: 200px; }
+.data-table td[data-label="bpy"], .data-table td[data-label="en"], .data-table td[data-label="bn"] { min-width: 200px; }
 .app-shell { min-height: 100vh; margin-left: var(--sidebar-width); }
 .topbar { position: sticky; z-index: 40; top: 0; display: flex; height: var(--topbar-height); align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--border); padding: 0 clamp(18px, 3vw, 34px); background: color-mix(in srgb, var(--background) 90%, transparent); backdrop-filter: blur(18px); }
 .topbar-leading, .topbar-actions { display: flex; align-items: center; gap: 11px; }

@@ -6,32 +6,35 @@
    * language (bpy · bn · en) — the same shape as the spreadsheet the owner fills
    * in, so the page and the sheet can be handed back and forth.
    *
-   * Where each numbered column comes from:
-   *   bn   the Bengali source text compiled into the app. It is the *key* the app
-   *        looks a string up by, so it is read-only here: changing it would break
-   *        the lookup rather than rename anything.
-   *   bpy  Bishnupriya Manipuri translation   (editable)
-   *   en   English translation                (editable)
+   * Every column is editable, Bengali included:
+   *   bn   the wording a Bengali reader sees. It starts as the app's own string
+   *        and can be rewritten here — a typo, a word the community prefers.
+   *   bpy  Bishnupriya Manipuri translation
+   *   en   English translation
    *
-   * Storage is unchanged — one `key,value` CSV per language in
-   * `public.app_language_files`, which is what the app downloads. The grid joins
-   * those files for editing and writes them back on save, so nothing has to be
-   * migrated and the app keeps working as it is.
+   * Bengali is also the *key*: the app looks a string up by the text compiled
+   * into it (`t("লেখক")`). So each row keeps two things that can differ — the
+   * app's own string (the key, shown under the cell once you change it) and the
+   * wording you type. Storage is unchanged: one `key,value` CSV per language in
+   * `public.app_language_files`, where the key is always the app's own string and
+   * the value is what you typed. Nothing has to be migrated.
    *
-   * An empty cell is not an empty string in the app: it means "not translated
-   * yet", and the app shows its own Bengali text for that key.
+   * An empty cell is not an empty string in the app: it means "leave this as it
+   * was" — the app shows its own Bengali text for that key, which is the same
+   * thing for a row nobody has edited.
    */
 
   const { escapeHTML } = NC.utils;
 
   /** Columns, in the order the owner's sheet shows them. */
   const LANGS = Object.freeze([
-    { code: 'bpy', label: 'বিষ্ণুপ্রিয়া মণিপুরী', short: 'bpy', editable: true },
-    { code: 'bn', label: 'বাংলা', short: 'bn', editable: false, source: true },
-    { code: 'en', label: 'English', short: 'en', editable: true }
+    { code: 'bpy', label: 'বিষ্ণুপ্রিয়া মণিপুরী', short: 'bpy' },
+    { code: 'bn', label: 'বাংলা', short: 'bn', source: true },
+    { code: 'en', label: 'English', short: 'en' }
   ]);
   const SOURCE = 'bn';
-  const EDITABLE = LANGS.filter((lang) => lang.editable).map((lang) => lang.code);
+  const EDITABLE = LANGS.map((lang) => lang.code);            // every cell
+  const TRANSLATIONS = LANGS.filter((lang) => !lang.source).map((lang) => lang.code);
   const TEMPLATE_BASE = 'assets/lang';
   const PAGE_SIZE = 25;
 
@@ -79,7 +82,8 @@
   }
 
   function writeCSV(pairs) {
-    return `key,value\n${pairs.map(([key, value]) => `${csvCell(key)},${csvCell(value)}`).join('\n')}\n`;
+    const rows = pairs.map(([key, value]) => `${csvCell(key)},${csvCell(value)}`);
+    return `key,value\n${rows.length ? `${rows.join('\n')}\n` : ''}`;
   }
 
   /** `key,value` pairs from a language file, header skipped, blank values dropped. */
@@ -126,28 +130,37 @@
   }
 
   /**
-   * The grid as the owner's sheet: `#,bpy,bn,en`, one row per string. The number
-   * column is written for the spreadsheet and ignored on the way back in.
+   * The grid as the owner's sheet: `#,bpy,bn,en`, one row per string — the shape
+   * the page shows and the owner fills in by hand. One extra column, `key`, is
+   * appended for round trips and left empty while the Bengali is untouched, so a
+   * sheet that has not been edited still reads as four columns.
    */
   function matrixCsv(matrix) {
-    const header = ['#', ...LANGS.map((lang) => lang.short)].join(',');
-    const lines = matrix.map((entry, index) =>
-      [String(index + 1), ...LANGS.map((lang) => csvCell(entry.values[lang.code]))].join(','));
+    const header = ['#', ...LANGS.map((lang) => lang.short), 'key'].join(',');
+    const lines = matrix.map((entry, index) => {
+      const bengali = (entry.values[SOURCE] || '').trim();
+      const key = bengali && bengali !== entry.key ? entry.key : '';
+      return [String(index + 1), ...LANGS.map((lang) => csvCell(entry.values[lang.code])), csvCell(key)].join(',');
+    });
     return `${header}\n${lines.join('\n')}\n`;
   }
 
   /**
-   * Reads a matrix file back in. Columns are matched by header name in any
-   * order; `#` and unknown columns are ignored; the Bengali column is the key.
-   * A plain `key,value` file is accepted too and treated as one language's file
-   * when its second column names bpy or en.
+   * Reads a matrix file back in. Columns are matched by header name in any order
+   * and `#` and unknown columns are ignored. The row's identity is the app's own
+   * string: from the `key` column when the sheet has one (Download writes it once
+   * the Bengali has been edited), otherwise from the Bengali cell, which is the
+   * key itself on a sheet nobody has edited. A plain `key,value` file is accepted
+   * too, when its second column names bpy, bn or en.
    */
   function parseMatrix(text) {
     const records = parseCSV(text);
     if (!records.length) return null;
     const header = records[0].map((cell) => cell.trim().toLowerCase());
     const shortCodes = LANGS.map((lang) => lang.short);
-    let keyColumn = header.indexOf(SOURCE);
+    const keyAt = header.indexOf('key');
+    const bengaliAt = header.indexOf(SOURCE);
+    let keyColumn = keyAt > -1 ? keyAt : bengaliAt;
     let languageColumns = {};
     shortCodes.forEach((code) => {
       const at = header.indexOf(code);
@@ -156,21 +169,27 @@
     if (keyColumn === -1 && header[0] === 'key') {
       // `key,value` from a single language file.
       const language = header[1] && shortCodes.includes(header[1]) ? header[1] : null;
-      if (language && language !== SOURCE) { keyColumn = 0; languageColumns = { [language]: 1 }; }
+      if (language) { keyColumn = 0; languageColumns = { [language]: 1 }; }
     }
     if (keyColumn === -1 || !Object.keys(languageColumns).length) return null;
     const order = [];
     const out = {};
     LANGS.forEach((lang) => { out[lang.code] = {}; });
     records.slice(1).forEach((cells) => {
-      const key = (cells[keyColumn] || '').trim();
+      const cellAt = (at) => (at === undefined ? '' : String(cells[at] ?? '').trim());
+      const bengali = cellAt(bengaliAt);
+      // The app's own string, when the sheet carries it; else the Bengali cell.
+      const key = cellAt(keyAt) || bengali;
       if (!key) return;
-      if (!(key in out[SOURCE]) && !order.includes(key)) order.push(key);
-      Object.entries(languageColumns).forEach(([code, at]) => {
+      if (!order.includes(key)) order.push(key);
+      LANGS.forEach((lang) => {
+        const at = languageColumns[lang.code];
         // One cell, not the rest of the row: columns are positional here.
-        out[code][key] = String(cells[at] ?? '').trim();
+        if (at !== undefined) out[lang.code][key] = cellAt(at);
       });
-      if (!(key in out[SOURCE]) && out[SOURCE][key] === undefined) out[SOURCE][key] = key;
+      // Bengali defaults to the app's own string: an untouched sheet says nothing
+      // about it, and that is exactly what the app shows then.
+      if (!out[SOURCE][key]) out[SOURCE][key] = bengali || key;
     });
     return { keys: order, values: out };
   }
@@ -183,11 +202,26 @@
     return response.text();
   }
 
-  /** The Bengali key list: the bn row if it has one, else the committed template. */
-  async function keyListFrom(bnCsv) {
-    const fromRow = parsePairs(bnCsv).map(([key]) => key).filter(Boolean);
-    if (fromRow.length) return fromRow;
-    return parsePairs(await loadTemplate(SOURCE)).map(([key]) => key).filter(Boolean);
+  /**
+   * The key list, always from the Bengali template committed with the app.
+   *
+   * It used to be read from the stored Bengali file, which no longer works: that
+   * file now holds only the rows somebody rewrote, so taking the list from it
+   * would shrink the grid to those few. If the template cannot be fetched, the
+   * keys already loaded from the stored files are used instead.
+   */
+  async function keyListFrom() {
+    try {
+      const fromTemplate = parsePairs(await loadTemplate(SOURCE)).map(([key]) => key).filter(Boolean);
+      if (fromTemplate.length) return fromTemplate;
+    } catch (error) {
+      console.error(error);
+    }
+    const fallback = [];
+    LANGS.forEach((lang) => Object.keys(values[lang.code] || {}).forEach((key) => {
+      if (!fallback.includes(key)) fallback.push(key);
+    }));
+    return fallback;
   }
 
   async function load() {
@@ -201,19 +235,19 @@
         if (!rows[lang.code]) rows[lang.code] = { lang: lang.code, label: lang.label, csv: '' };
       });
 
-      const keyList = await keyListFrom(rows[SOURCE].csv || '');
-      known = new Set(keyList);
+      // Stored files first, then the committed key list on top: the Bengali
+      // column shows the app's own string unless a row has been rewritten.
       values = {};
       LANGS.forEach((lang) => {
         values[lang.code] = {};
         parsePairs(rows[lang.code].csv || '').forEach(([key, value]) => {
           values[lang.code][key] = value;
-          if (lang.code === SOURCE && !values[SOURCE][key]) values[SOURCE][key] = key;
         });
-        if (lang.code === SOURCE) {
-          // The Bengali column is the source text: it always has the key itself.
-          keyList.forEach((key) => { values[SOURCE][key] = key; });
-        }
+      });
+      const keyList = await keyListFrom();
+      known = new Set(keyList);
+      keyList.forEach((key) => {
+        if (!(values[SOURCE][key] || '').trim()) values[SOURCE][key] = key;
       });
 
       // Keys a translator added by hand are kept, after the known list, so a save
@@ -224,6 +258,9 @@
           if (!known.has(key) && !extraKeys.includes(key)) extraKeys.push(key);
         });
       });
+      // A key typed by hand has no compiled string behind it, so it is its own
+      // Bengali wording.
+      extraKeys.forEach((key) => { if (!(values[SOURCE][key] || '').trim()) values[SOURCE][key] = key; });
       keys = [...keyList, ...extraKeys];
 
       page = 1;
@@ -245,9 +282,13 @@
     return buildMatrix(keys, values);
   }
 
+  /** Per-column progress: translations filled, or Bengali rows rewritten. */
   function coverage() {
     return LANGS.map((lang) => {
-      const filled = keys.filter((key) => (values[lang.code][key] || '').trim()).length;
+      const filled = keys.filter((key) => {
+        const value = (values[lang.code][key] || '').trim();
+        return lang.source ? value && value !== key : value;
+      }).length;
       return { ...lang, filled, total: keys.length };
     });
   }
@@ -255,7 +296,9 @@
   function rowMatches(entry, search) {
     const texts = LANGS.map((lang) => entry.values[lang.code]);
     if (search && !texts.some((text) => text.toLowerCase().includes(search))) return false;
-    const missing = EDITABLE.some((code) => !(entry.values[code] || '').trim());
+    // Missing means "no translation yet", so Bengali — which always has the
+    // app's own wording behind it — is never the reason a row is listed.
+    const missing = TRANSLATIONS.some((code) => !(entry.values[code] || '').trim());
     if (filter === 'missing') return missing;
     if (filter === 'complete') return !missing;
     return true;
@@ -263,7 +306,7 @@
 
   function renderToolbar() {
     const chips = coverage().map((lang) => `<span class="status-badge ${lang.filled ? 'status-info' : 'status-neutral'}" title="${escapeHTML(lang.label)}">
-        ${escapeHTML(lang.short)} ${lang.filled}/${lang.total}</span>`).join('');
+        ${escapeHTML(lang.short)} ${lang.source ? `${lang.filled} edited` : `${lang.filled}/${lang.total}`}</span>`).join('');
     root.querySelector('[data-lang-chips]').innerHTML = chips;
   }
 
@@ -277,20 +320,21 @@
     const slice = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
     const cells = (entry) => LANGS.map((lang) => {
-      if (lang.source) {
-        return `<td data-label="${escapeHTML(lang.short)}" class="lang-source"><span dir="auto">${escapeHTML(entry.values[lang.code])}</span>
-          ${entry.known ? '' : '<span class="status-badge status-warning" title="Not in the Bengali list the app uses">extra</span>'}</td>`;
-      }
       const value = entry.values[lang.code];
       const filled = !!(value || '').trim();
-      return `<td data-label="${escapeHTML(lang.short)}">
+      // Bengali is the key as well as the wording: once it is rewritten the
+      // app's own string is shown underneath, so the row still says what it maps to.
+      const rewritten = lang.source && filled && value.trim() !== entry.key;
+      return `<td data-label="${escapeHTML(lang.short)}"${lang.source ? ' class="lang-source"' : ''}>
         <input class="form-input lang-cell ${filled ? '' : 'is-empty'}" data-entry data-lang="${lang.code}" data-key="${escapeHTML(entry.key)}"
-          dir="auto" spellcheck="false" placeholder="—" value="${escapeHTML(value)}"></td>`;
+          dir="auto" spellcheck="false" placeholder="—" value="${escapeHTML(value)}">
+        ${lang.source ? `<small class="lang-key-hint" data-key-hint>${rewritten ? `মূল: ${escapeHTML(entry.key)}` : ''}</small>` : ''}
+        ${lang.source && !entry.known ? '<span class="status-badge status-warning" title="Not in the Bengali list the app uses">extra</span>' : ''}</td>`;
     }).join('');
 
     const body = slice.map((entry, index) => `<tr data-entry-row data-row="${(safePage - 1) * PAGE_SIZE + index + 1}"
         data-search-text="${escapeHTML(LANGS.map((lang) => entry.values[lang.code]).join(' \\u0000 '))}"
-        data-missing="${EDITABLE.some((code) => !(entry.values[code] || '').trim()) ? 'true' : 'false'}">
+        data-missing="${TRANSLATIONS.some((code) => !(entry.values[code] || '').trim()) ? 'true' : 'false'}">
         <td data-label="#" class="lang-index">${(safePage - 1) * PAGE_SIZE + index + 1}</td>
         ${cells(entry)}
       </tr>`).join('');
@@ -311,10 +355,7 @@
         body
       }) : NC.components.emptyState({ icon: 'fa-inbox', title: 'Nothing matches', description: 'Clear the search or switch the filter to see the other rows.' })}
       <div class="list-toolbar">
-        <p class="text-muted-foreground toolbar-note" data-entry-summary>Showing <span data-entry-shown>${slice.length}</span> of ${keys.length} strings<span data-entry-filtered>${search || filter !== 'all' ? ' · filtered' : ''}</span>${EDITABLE.map((code) => {
-          const filled = keys.filter((key) => (values[code][key] || '').trim()).length;
-          return ` · ${code} ${filled}/${keys.length}`;
-        }).join('')}</p>
+        <p class="text-muted-foreground toolbar-note" data-entry-summary>Showing <span data-entry-shown>${slice.length}</span> of ${keys.length} strings<span data-entry-filtered>${search || filter !== 'all' ? ' · filtered' : ''}</span>${coverage().map((lang) => ` · ${escapeHTML(lang.short)} ${lang.source ? `${lang.filled} edited` : `${lang.filled}/${lang.total}`}`).join('')}</p>
         <div class="button-row">
           <button type="button" class="btn btn-secondary" data-page="prev" ${safePage <= 1 ? 'disabled' : ''}><i class="fa-regular fa-chevron-left" aria-hidden="true"></i>Previous</button>
           <span class="status-badge status-neutral">Page ${safePage} / ${pages}</span>
@@ -346,9 +387,9 @@
     renderToolbar();
     const summary = root.querySelector('[data-entry-summary]');
     if (!summary) return;
-    const parts = EDITABLE.map((code) => {
-      const filled = keys.filter((key) => (values[code][key] || '').trim()).length;
-      return `${code} ${filled}/${keys.length}`;
+    const parts = coverage().map((lang) => {
+      const count = `${escapeHTML(lang.short)} ${lang.source ? `${lang.filled} edited` : `${lang.filled}/${lang.total}`}`;
+      return count;
     }).join(' · ');
     summary.innerHTML = `Showing <span data-entry-shown>${root.querySelectorAll('[data-entry-row]:not([hidden])').length}</span>`
       + ` of ${keys.length} strings<span data-entry-filtered>${query.trim() || filter !== 'all' ? ' · filtered' : ''}</span> · ${parts}`;
@@ -379,7 +420,9 @@
         if (!values[code]) values[code] = {};
         values[code][key] = input.value;
         input.classList.toggle('is-empty', !input.value.trim());
-        input.closest('[data-entry-row]').dataset.missing = EDITABLE.some((other) => !(values[other][key] || '').trim()) ? 'true' : 'false';
+        const hint = input.closest('td')?.querySelector('[data-key-hint]');
+        if (hint) hint.textContent = input.value.trim() && input.value.trim() !== key ? `মূল: ${key}` : '';
+        input.closest('[data-entry-row]').dataset.missing = TRANSLATIONS.some((other) => !(values[other][key] || '').trim()) ? 'true' : 'false';
         // Metrics only: the grid itself is not redrawn, so the caret stays put.
         refreshCounters();
       });
@@ -388,10 +431,16 @@
 
   // ---------------------------------------------------------------- write
 
-  /** One language's file, in grid order, blanks dropped (the app treats them as untranslated). */
+  /**
+   * One language's file, in grid order. Blanks are dropped — the app treats them
+   * as untranslated — and for Bengali a row that still reads exactly like the
+   * app's own string is dropped too: it would only restate the key, and leaving
+   * it out keeps the file to the rows somebody actually rewrote.
+   */
   function csvFor(code) {
     return writeCSV(keys
       .filter((key) => (values[code][key] || '').trim())
+      .filter((key) => code !== SOURCE || (values[code][key] || '').trim() !== key)
       .map((key) => [key, values[code][key].trim()]));
   }
 
@@ -437,11 +486,11 @@
     NC.components.openModal({
       title: 'Import translations',
       eyebrow: 'From a spreadsheet',
-      description: 'Paste the sheet — a header row with bpy, bn and en, one column per language — or paste a single language\'s key,value file.',
+      description: 'Paste the sheet — a header row with bpy, bn and en, one column per language — or a single language\'s key,value file. The optional key column Download writes is used when present, so a sheet with rewritten Bengali still lands on the right rows.',
       content: `<div class="field">
           <label class="field-label" for="import-csv">CSV</label>
           <textarea class="form-textarea" id="import-csv" rows="12" spellcheck="false" placeholder="#,bpy,bn,en&#10;1,আরাক ওয়াহিদ…,অন্য শব্দে চেষ্টা করুন,Try another word"></textarea>
-          <p class="field-hint">The bn column is the key the app looks up, so it is not changed by an import; it only tells the page which string a row belongs to.</p>
+          <p class="field-hint">Rows are matched to the app's own strings by the key column when the sheet has one, and by the Bengali column otherwise. Bengali is editable: type the wording a Bengali reader should see.</p>
         </div>`,
       footer: '<button type="button" class="btn btn-secondary" data-modal-close>Cancel</button>'
         + '<button type="button" class="btn btn-primary" data-apply-import><i class="fa-regular fa-file-import" aria-hidden="true"></i>Import</button>',
@@ -463,14 +512,20 @@
             const key = byLoose.get(looseKey(typedKey)) || typedKey;
             if (key !== typedKey) renamed += 1;
             if (!keys.includes(key)) { keys.push(key); }
-            if (parsed.values[SOURCE]?.[typedKey] && !values[SOURCE][key]) values[SOURCE][key] = key;
             EDITABLE.forEach((code) => {
               const value = parsed.values[code]?.[typedKey];
               if (value === undefined) return;
               if (!values[code]) values[code] = {};
-              values[code][key] = value;
+              // A Bengali cell that only repeats the row's own label — a sheet
+              // typed by hand, or one missing the trailing `।` — is not a
+              // rewrite, so the app's own string is kept exactly as compiled.
+              values[code][key] = code === SOURCE && value && looseKey(value) === looseKey(typedKey)
+                ? key
+                : value;
               changed += 1;
             });
+            // Bengali always has wording: the imported cell, or the app's own.
+            if (!(values[SOURCE][key] || '').trim()) values[SOURCE][key] = key;
           });
           NC.components.closeModal();
           page = 1;
@@ -488,7 +543,7 @@
     root.innerHTML = `${NC.components.pageHeader({
       eyebrow: 'System',
       title: 'Language files',
-      description: 'One row per string, one column per language. Bengali is the source text the app looks strings up by; Bishnupriya Manipuri and English are what it downloads for the language the reader picks.',
+      description: 'One row per string, one column per language — the sheet. Bengali, Bishnupriya Manipuri and English are all editable; Bengali is also the string the app looks each row up by, so its original text stays under the cell after you rewrite it.',
       breadcrumb: [{ label: 'Languages' }],
       actions: '<button type="button" class="btn btn-secondary" data-reload><i class="fa-regular fa-rotate" aria-hidden="true"></i>Reload</button>'
         + '<button type="button" class="btn btn-secondary" data-import><i class="fa-regular fa-file-import" aria-hidden="true"></i>Import</button>'
@@ -497,7 +552,7 @@
     })}<section class="surface">
       <div class="list-toolbar">
         <p class="text-muted-foreground toolbar-note" data-lang-chips></p>
-        <p class="text-muted-foreground toolbar-note">A blank cell keeps the app's Bengali text.</p>
+        <p class="text-muted-foreground toolbar-note">A blank cell keeps the app's Bengali text. Editing Bengali changes the wording a Bengali reader sees, never the lookup.</p>
       </div>
       <div data-grid-panel>${NC.components.skeleton(7, 4)}</div>
     </section>`;

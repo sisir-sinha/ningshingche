@@ -27,8 +27,14 @@ import java.util.concurrent.TimeUnit
  * only has to translate what it knows — anything absent stays Bengali.
  *
  * Order of business: the cached table is available immediately (offline first),
- * then a refresh replaces it when the server copy is newer. Bengali is never
- * fetched: it is the source text, compiled into the app.
+ * then a refresh replaces it when the server copy is newer.
+ *
+ * Bengali is fetched like the other languages. Its file is empty until an editor
+ * rewrites a word on the dashboard's Languages page, and until then every lookup
+ * misses and the app shows the string it was compiled with — so the file costs
+ * one request and changes nothing. Once a row is there (`লেখক` -> `লেখকবৃন্দ`)
+ * the app shows the rewritten wording for that key, which is how the Bengali
+ * column becomes editable without the lookup ever depending on it.
  */
 class TranslationRepository(context: Context) {
 
@@ -44,7 +50,7 @@ class TranslationRepository(context: Context) {
     /** The parsed table for [language]; fills itself from cache, then the network. */
     fun strings(language: ContentLanguage): StateFlow<Map<String, String>> {
         val flow = flows.getOrPut(language) { MutableStateFlow<Map<String, String>>(emptyMap()) }
-        if (language != ContentLanguage.BENGALI && loaded.putIfAbsent(language, true) == null) {
+        if (loaded.putIfAbsent(language, true) == null) {
             scope.launch {
                 val cached = readCache(language)
                 if (cached.isNotEmpty()) flow.value = cached
@@ -57,12 +63,10 @@ class TranslationRepository(context: Context) {
     }
 
     /** Forces a fetch — used by the language switch and the Settings refresh. */
-    suspend fun refresh(language: ContentLanguage): Result<Map<String, String>> {
-        if (language == ContentLanguage.BENGALI) return Result.success(emptyMap())
-        return fetch(language).onSuccess { table ->
+    suspend fun refresh(language: ContentLanguage): Result<Map<String, String>> =
+        fetch(language).onSuccess { table ->
             flows.getOrPut(language) { MutableStateFlow<Map<String, String>>(emptyMap()) }.value = table
         }
-    }
 
     private suspend fun fetch(language: ContentLanguage): Result<Map<String, String>> =
         withContext(Dispatchers.IO) {
