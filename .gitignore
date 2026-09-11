@@ -25,3 +25,4 @@ backend/tests/screenshots/
 
 # Node dependencies used only by the optional jsdom-backed dashboard tests
 node_modules/
+__pycache__/
