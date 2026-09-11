@@ -59,6 +59,7 @@ import com.ningshingche.app.data.music.MusicShelf
 import com.ningshingche.app.data.music.MusicShelfKind
 import com.ningshingche.app.data.portal.MusicTrack
 import com.ningshingche.app.ui.components.LocalMusicController
+import com.ningshingche.app.ui.components.PlayingWaveBars
 import com.ningshingche.app.ui.editorial.EditorialImage
 import com.ningshingche.app.ui.editorial.EditorialShape
 import com.ningshingche.app.ui.editorial.EditorialSpace
@@ -225,6 +226,12 @@ internal fun MusicCatalogCard(
     val loved = track.id in lovedIds
     val loveCounts by player.library.loveCounts.collectAsState()
     val loveCount = loveCounts[track.id] ?: track.loveCount
+    // The row that is loaded shows the playing wave in place of the love
+    // control: the list is where a reader looks to see what is on, and the
+    // heart is still one tap away inside the player.
+    val playingId by player.nowPlayingId.collectAsState()
+    val isPlaying by player.isPlayingNow.collectAsState()
+    val isCurrent = track.id == playingId
     Card(
         onClick = onClick,
         shape = RoundedCornerShape(EditorialShape.card),
@@ -308,18 +315,26 @@ internal fun MusicCatalogCard(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(start = 4.dp)
             ) {
-                IconButton(onClick = { player.toggleLikeFor(track) }) {
-                    Icon(
-                        imageVector = if (loved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        contentDescription = "পছন্দ",
-                        tint = if (loved) Color(0xFFE53935) else tokens.inkMuted
+                if (isCurrent) {
+                    PlayingWaveBars(
+                        animated = isPlaying,
+                        height = 24.dp,
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    )
+                } else {
+                    IconButton(onClick = { player.toggleLikeFor(track) }) {
+                        Icon(
+                            imageVector = if (loved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = "পছন্দ",
+                            tint = if (loved) Color(0xFFE53935) else tokens.inkMuted
+                        )
+                    }
+                    Text(
+                        text = toBengaliNumeral(loveCount),
+                        style = EditorialType.Caption,
+                        color = tokens.inkMuted
                     )
                 }
-                Text(
-                    text = toBengaliNumeral(loveCount),
-                    style = EditorialType.Caption,
-                    color = tokens.inkMuted
-                )
             }
         }
     }

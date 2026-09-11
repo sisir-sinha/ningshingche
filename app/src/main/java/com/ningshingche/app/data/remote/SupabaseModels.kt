@@ -474,7 +474,13 @@ data class SubmittedBlogRecord(
     val status: String = "Pending", // "Pending", "Published", "Rejected"
     val createdAt: String = "",
     val updatedAt: String = "",
-    val userId: String = ""
+    val userId: String = "",
+    /**
+     * The blog this submission was converted into when it was approved, or `""`
+     * while it is still only a submission. Read-only: the conversion is done by
+     * the approval routine, so it is never sent back up.
+     */
+    val convertedBlogId: String = ""
 ) {
     fun toJson(): JSONObject {
         return JSONObject().apply {
@@ -517,7 +523,8 @@ data class SubmittedBlogRecord(
                 status = json.optString("status", "Pending"),
                 createdAt = json.optString("created_at", ""),
                 updatedAt = json.optString("updated_at", ""),
-                userId = json.optString("user_id", "")
+                userId = json.optString("user_id", ""),
+                convertedBlogId = json.optString("converted_blog_id", "")
             )
         }
     }

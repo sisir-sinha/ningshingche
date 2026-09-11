@@ -26,8 +26,12 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -50,6 +54,7 @@ data class MusicPlayerUiState(
     val repeatMode: RepeatMode = RepeatMode.OFF,
     val autoPlay: Boolean = true,
     val liked: Boolean = false,
+    val volume: Float = 1f,
     val offline: Boolean = false,
     val downloading: Boolean = false,
     val showLyrics: Boolean = false,
@@ -77,6 +82,24 @@ class MusicController(
 
     private val _state = MutableStateFlow(MusicPlayerUiState())
     val state: StateFlow<MusicPlayerUiState> = _state.asStateFlow()
+
+    /**
+     * Id of the track the player is on, or `""` when nothing is loaded.
+     *
+     * A list of songs has to mark the row that is playing, and collecting
+     * [state] for that would recompose every row on every position tick.
+     * This collapses to one emission per track change.
+     */
+    val nowPlayingId: StateFlow<String> = _state
+        .map { it.track?.id.orEmpty() }
+        .distinctUntilChanged()
+        .stateIn(scope, SharingStarted.Eagerly, "")
+
+    /** Whether the loaded track is actually playing, for the same reason as [nowPlayingId]. */
+    val isPlayingNow: StateFlow<Boolean> = _state
+        .map { it.isPlaying }
+        .distinctUntilChanged()
+        .stateIn(scope, SharingStarted.Eagerly, false)
 
     private val isRobolectric: Boolean by lazy {
         android.os.Build.FINGERPRINT == "robolectric" ||
@@ -120,6 +143,20 @@ class MusicController(
     }
 
     fun play(track: MusicTrack, queue: List<MusicTrack>, expand: Boolean = true) {
+        // Tapping the row of the song that is already loaded only brings the
+        // player back up. Rebuilding the media items would restart the track at
+        // 0:00 and throw away the listener's place in it, which is not what a
+        // second tap on the same song means.
+        val loaded = _state.value
+        val player = controller
+        if (player != null && loaded.visible && loaded.track?.id == track.id) {
+            _state.update { it.copy(expanded = expand, error = null) }
+            if (!player.isPlaying) {
+                applyPlaybackFlags(player)
+                player.play()
+            }
+            return
+        }
         val list = queue.filter { it.hasPlayableSource() }.ifEmpty {
             listOf(track).filter { it.hasPlayableSource() }
         }
@@ -220,6 +257,19 @@ class MusicController(
         if (_state.value.visible) _state.update { it.copy(expanded = true) }
     }
 
+    /**
+     * Sets the playback volume, `0f`…`1f`.
+     *
+     * The value is kept in the UI state as well as pushed to the player, so a
+     * drag on the artwork while the media session is still connecting lands on
+     * the right volume instead of being forgotten.
+     */
+    fun setVolume(value: Float) {
+        val clamped = value.coerceIn(0f, 1f)
+        controller?.volume = clamped
+        _state.update { it.copy(volume = clamped) }
+    }
+
     fun collapse() {
         _state.update { it.copy(expanded = false) }
     }
@@ -231,16 +281,21 @@ class MusicController(
             stop()
             clearMediaItems()
         }
-        _state.value = MusicPlayerUiState()
+        // The volume the listener chose outlives the player being closed.
+        _state.value = MusicPlayerUiState(volume = _state.value.volume)
     }
 
     fun playQueueItem(track: MusicTrack) {
         val queue = _state.value.queue
         val index = queue.indexOfFirst { it.id == track.id }
         if (index >= 0) {
+            // Same rule as [play]: a second tap on the song that is already up
+            // keeps its position instead of starting it over.
+            val alreadyLoaded = _state.value.track?.id == track.id
             hideVideo(resumeAudio = false)
-            controller?.seekToDefaultPosition(index)
-            controller?.play()
+            if (!alreadyLoaded) controller?.seekToDefaultPosition(index)
+            val player = controller
+            if (player != null && !player.isPlaying) player.play()
             _state.update { it.copy(track = track, expanded = true, error = null, showVideo = false) }
             refreshTrackFlags(track)
         } else {
@@ -414,6 +469,7 @@ class MusicController(
         val current = _state.value
         player.shuffleModeEnabled = current.shuffle
         player.repeatMode = current.repeatMode.toPlayerRepeat()
+        player.volume = current.volume.coerceIn(0f, 1f)
     }
 
     private val listener = object : Player.Listener {

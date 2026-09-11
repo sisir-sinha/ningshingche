@@ -7,9 +7,9 @@ bengali,bishnupriya,kind,uses,slots,screens
 লেখক,,ui,8,0,"EditorialComponents.kt, ListScreens.kt, NinghsingCheContentData.kt, PortalDrawer.kt, PortalPages.kt, SupabaseModels.kt"
 সমাজ ও সংস্কৃতি,,ui,8,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt, PortalPages.kt, ReaderViewModels.kt"
 জীবনী,,ui,7,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
+বন্ধ করুন,,ui,7,0,"ArticleScreen.kt, EditorialComponents.kt, HtmlArticleRenderer.kt, MusicPlayer.kt, UserDashboardScreen.kt, VideoPlayer.kt"
 গান,,ui,6,0,"ListScreens.kt, NewMusicScreen.kt, UserDashboardCharts.kt, UserDashboardScreen.kt"
 পাঠক,,ui,6,0,"ArticleCommentForm.kt, ArticleRepository.kt, GoogleAuthMapper.kt, NingshingCheWebsiteClient.kt, SettingsScreen.kt, UserDashboardScreen.kt"
-বন্ধ করুন,,ui,6,0,"ArticleScreen.kt, EditorialComponents.kt, HtmlArticleRenderer.kt, MusicPlayer.kt, VideoPlayer.kt"
 সংস্কৃতি,,ui,6,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 সামাজিক কার্যকলাপ,,ui,6,0,"NinghsingCheContentData.kt, PortalDrawer.kt, PortalPages.kt, ReaderViewModels.kt"
 অধ্যাপক বারীন্দ্র কুমার সিংহ,,content,5,0,NinghsingCheContentData.kt
@@ -53,6 +53,7 @@ Google সাইন-ইন সময় শেষ হয়েছে। আব�
 অ্যাডমিনের বার্তা,,ui,3,0,"ContentNotice.kt, ContentUpdateNotifier.kt"
 ইঞ্চৌঘর,,ui,3,0,"NinghsingCheAiAssistant.kt, NinghsingCheContentData.kt"
 উৎসব,,ui,3,0,"MusicGenres.kt, NinghsingCheAiAssistant.kt, NinghsingCheContentData.kt"
+এই গানের অডিও ফাইল নেই।,,ui,3,0,"MusicController.kt, UserDashboardScreen.kt"
 গবেষণা ও ভাষা আন্দোলন,,content,3,0,NinghsingCheContentData.kt
 ঘর,,ui,3,0,"NinghsingCheAiAssistant.kt, PortalDrawer.kt, UserDashboardScreen.kt"
 ছবি আপলোড যায়নি।,,ui,3,0,ReaderWorkspaceViewModel.kt
@@ -94,8 +95,6 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 অন্যান্য,,ui,2,0,"AppNotificationManager.kt, SettingsScreen.kt"
 অফলাইন,,ui,2,0,MusicScreen.kt
 আবার চেষ্টা করুন,,ui,2,0,"EditorialComponents.kt, PdfViewerScreen.kt"
-এই গানের অডিও ফাইল নেই।,,ui,2,0,MusicController.kt
-এই প্রবন্ধ এখনো পর্যালোচনায় আছে।,,ui,2,0,ReaderNavHost.kt
 এখনো কোনো গান যোগ করা হয়নি।,,ui,2,0,MusicScreen.kt
 এখানে কোনো প্রবন্ধ পাওয়া যায়নি।,,ui,2,0,ListScreens.kt
 ঐতিহ্য,,content,2,0,NinghsingCheContentData.kt
@@ -129,7 +128,6 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 পরের গান,,ui,2,0,MusicPlayer.kt
 পাঠান,,ui,2,0,"ArticleScreen.kt, UserDashboardScreen.kt"
 পৌরাণিক,,ui,2,0,NingshingCheWebsiteClient.kt
-প্রকাশিত প্রবন্ধ খোলা যায়নি।,,ui,2,0,ReaderNavHost.kt
 প্রত্যাখ্যাত,,ui,2,0,"UserDashboardCharts.kt, UserDashboardScreen.kt"
 প্রবন্ধ প্রকাশিত হয়েছে,,ui,2,0,"ContentUpdateNotifier.kt, InboxModels.kt"
 প্রোফাইল,,ui,2,0,"AccountHeaderButton.kt, UserProfileScreen.kt"
@@ -348,6 +346,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 এখনো কোনো সামাজিক কার্যকলাপের লেখা প্রকাশিত হয়নি।,,ui,1,0,PortalPages.kt
 এগুলোও পড়ুন,,ui,1,0,ArticleScreen.kt
 এপ্রিল,,ui,1,0,UserDashboardCharts.kt
+এভাবে প্রকাশিত হবে,,ui,1,0,UserDashboardScreen.kt
 এমপি৩ ফাইল নির্বাচন করুন।,,ui,1,0,ReaderWorkspaceViewModel.kt
 এলাহান বরিক,,ui,1,0,NewMusicScreen.kt
 ঐতিহাসিক গবেষণা প্রকাশনা (২০২৩),,content,1,0,NinghsingCheContentData.kt
@@ -429,6 +428,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 ছবির আকার ৩২ মেগাবাইটের বেশি হতে পারবে না (Exceeds 32MB limit: {1}MB),,ui,1,1,ImgBbUploader.kt
 ছবির আকার ৩২ মেগাবাইটের বেশি হতে পারবে না (Image exceeds 32MB),,ui,1,0,ImgBbUploader.kt
 ছবির ফাইল পড়া যাচ্ছে না (Cannot read image file),,ui,1,0,ImgBbUploader.kt
+ছেড়ে দিলে ছোট হয়ে যাবে,,ui,1,0,MusicPlayer.kt
 জনপ্রিয় ও নির্বাচিত,,ui,1,0,Screen.kt
 জানু,,ui,1,0,UserDashboardCharts.kt
 জিজ্ঞাসা করুন,,ui,1,0,AiAssistantScreen.kt
@@ -607,6 +607,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 পেস্ট,,ui,1,0,HtmlContentEditor.kt
 পৌরাণিক লোকগাথা: মণিপুরের লোকতাক হ্রদ ও সৃষ্টির আখ্যান,,content,1,0,NinghsingCheContentData.kt
 পৌরাণিক-কাহিনী,,ui,1,0,EditorialComponents.kt
+প্রকাশিত হলে লিংকটি কাজ করবে।,,ui,1,0,UserDashboardScreen.kt
 "প্রকৃতির সাথে তাল মিলিয়ে নির্মিত পরিবেশবান্ধব বাঁশ, মাটি ও ছনের ঐতিহ্যবাহী ইঞ্চৌঘরের স্থাপত্য বিশ্লেষণ।",,content,1,0,NinghsingCheContentData.kt
 প্রকৃতির সাথে নিবিড় সম্পর্কের পরিচায়ক 'ইঞ্চৌঘর' ও মাটির তৈরি ভিটের বাস্তুসংস্থান ও নির্মাণ শৈলীর নান্দনিক পর্যালোচনা।,,content,1,0,NinghsingCheContentData.kt
 প্রতাপ,,content,1,0,AuthorProfiles.kt
@@ -734,6 +735,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 ভয়েস থামান,,ui,1,0,ArticleScreen.kt
 ভয়েস পুনরায় চালু করুন,,ui,1,0,ArticleScreen.kt
 ভয়েস শুনুন,,ui,1,0,ArticleScreen.kt
+ভলিউম {1}%,,ui,1,1,MusicPlayer.kt
 ভাষা,,ui,1,0,SettingsScreen.kt
 "ভাষা আন্দোলন, প্রামাণ্য দলিল ও নৃতাত্ত্বিক গবেষণা প্রবন্ধমালা।",,content,1,0,NinghsingCheContentData.kt
 ভাষা আন্দোলনের প্রেক্ষাপট ও প্রাচীন লোকনৃত্যের সমাজতাত্ত্বিক মূল্যায়ন।,,content,1,0,NinghsingCheContentData.kt
@@ -838,6 +840,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 শিক্ষা,,content,1,0,NinghsingCheContentData.kt
 শিরোনাম আবশ্যক।,,ui,1,0,ReaderWorkspaceViewModel.kt
 শিরোনাম ও লেখা আবশ্যক।,,ui,1,0,ReaderWorkspaceViewModel.kt
+শিরোনামহীন,,ui,1,0,UserDashboardScreen.kt
 শিশির,,content,1,0,AuthorProfiles.kt
 শিশু,,ui,1,0,MusicGenres.kt
 শুধুমাত্র এই নিবন্ধের তথ্যের ভিত্তিতে উত্তর প্রদান করা হয়,,ui,1,0,ArticleScreen.kt

@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -124,9 +125,14 @@ import com.ningshingche.app.data.remote.ImgBbUploader
 import com.ningshingche.app.data.remote.SubmittedBlogRecord
 import com.ningshingche.app.data.remote.SubmittedMusicRecord
 import com.ningshingche.app.data.remote.UserNotificationRecord
+import com.ningshingche.app.data.portal.MusicTrack
 import com.ningshingche.app.data.remote.UserProfile
 import com.ningshingche.app.data.remote.messageAttachmentUrls
 import com.ningshingche.app.data.remote.shortDateTime
+import com.ningshingche.app.ui.components.AppToasts
+import com.ningshingche.app.ui.editorial.Hairline
+import com.ningshingche.app.ui.components.LocalMusicController
+import com.ningshingche.app.ui.reader.RichHtmlArticleBody
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.ReaderMetrics
 import com.ningshingche.app.ui.viewmodel.ReaderWorkspaceViewModel
@@ -151,7 +157,10 @@ fun UserDashboardScreen(
     onCompleteProfile: () -> Unit,
     onNewArticle: () -> Unit,
     onNewMusic: () -> Unit = {},
-    onOpenArticle: (SubmittedBlogRecord) -> Unit = {},
+    // Suspends until the article route knows whether it has somewhere to go:
+    // `false` means the submission has nothing published behind it, and the
+    // dashboard shows its own preview instead.
+    onOpenArticle: suspend (SubmittedBlogRecord) -> Boolean = { false },
     onOpenComment: (CommentRecord) -> Unit = {},
     initialTab: Int = 0,
     focusMessageId: String = "",
@@ -193,9 +202,15 @@ fun UserDashboardScreen(
     // until every card had been tapped one by one. Keyed on the unread count,
     // not just the tab, so a background inbox refresh that re-lights the badge
     // is cleared again while the page is still on screen.
+    //
+    // Waiting for the swipe to settle is what makes this safe with the tabs
+    // swipeable: a page the pager is still travelling over is not a page the
+    // reader has arrived at, so a hand that keeps moving past Notices no longer
+    // clears the whole inbox on the way.
+    val restingOnNotices = onNoticesTab && !pagerState.isScrollInProgress
     val messageUnread = messages.count { it.isFromAdmin && !it.isRead }
-    LaunchedEffect(onNoticesTab, noticeUnread) {
-        if (onNoticesTab && noticeUnread > 0) viewModel.markAllNotificationsRead()
+    LaunchedEffect(restingOnNotices, noticeUnread) {
+        if (restingOnNotices && noticeUnread > 0) viewModel.markAllNotificationsRead()
     }
     LaunchedEffect(onMessagesTab, messageUnread) {
         if (onMessagesTab && messageUnread > 0) viewModel.markAdminMessagesRead()
@@ -351,13 +366,13 @@ fun UserDashboardScreen(
                 .padding(padding)
                 .imePadding()
         ) {
-            // Tabs change on tap only. Notices sit next to Home in the pager, so
-            // a stray swipe used to land on the notices list and mark everything
-            // there as read; the bell (and the notices metric card) is now the
-            // only way in. The bottom bar still reaches the other tabs.
+            // Tabs swipe again, the way they do everywhere else in the app.
+            // The reason swiping was switched off — a hand travelling past the
+            // notices list marked the whole inbox read — is handled by the
+            // settling check above instead of by taking the gesture away.
             HorizontalPager(
                 state = pagerState,
-                userScrollEnabled = false,
+                userScrollEnabled = true,
                 modifier = Modifier.fillMaxSize()
             ) { page ->
                 when (page) {
@@ -386,7 +401,7 @@ fun UserDashboardScreen(
                         articles = articles,
                         tracks = tracks,
                         focusId = contentFocus,
-                        onOpenArticle = onOpenArticle
+                        onOpenArticle = onOpenArticle,
                     )
                     else -> CommentPane(
                         comments = comments,
@@ -545,17 +560,39 @@ private fun ContentPane(
     articles: List<SubmittedBlogRecord>,
     tracks: List<SubmittedMusicRecord>,
     focusId: String = "",
-    onOpenArticle: (SubmittedBlogRecord) -> Unit
+    onOpenArticle: suspend (SubmittedBlogRecord) -> Boolean
 ) {
     var limit by remember { mutableIntStateOf(PAGE_SIZE) }
     var filter by remember { mutableStateOf(ContentFilter.All) }
+    // The card whose preview is open, if any. A preview stands in for the
+    // article screen until the piece is published, so it never pushes a route.
+    var preview by remember { mutableStateOf<SubmittedBlogRecord?>(null) }
+    val scope = rememberCoroutineScope()
+    val player = LocalMusicController.current
+    // Songs are catalogue rows, so the dashboard's own list is the queue the
+    // player opens with.
+    val musicQueue = remember(tracks) { tracks.map { it.toMusicTrack() } }
     val rows = remember(articles, tracks, filter) {
         val articleRows = if (filter != ContentFilter.Songs) {
-            articles.map { ContentRow(it.id, false, it.title, statusLabel(it.status), it.thumbnail, it, null, it.createdAt) }
+            articles.map {
+                ContentRow(it.id, false, it.title, it.writerName, it.status, it.thumbnail, it, null, it.createdAt)
+            }
         } else emptyList()
         val musicRows = if (filter != ContentFilter.Articles) {
             tracks.map {
-                ContentRow(it.id, true, it.title, listOf(it.artist, it.album).filter { s -> s.isNotBlank() }.joinToString(" · ").ifBlank { "গান" }, it.thumbnailUrl, null, it, it.createdAt)
+                ContentRow(
+                    id = it.id,
+                    isMusic = true,
+                    title = it.title,
+                    subtitle = listOf(it.artist, it.album).filter { s -> s.isNotBlank() }.joinToString(" · ").ifBlank { "গান" },
+                    // A song in the catalogue is live in the app's music screen,
+                    // which is also where tapping the row sends the reader.
+                    status = "Published",
+                    thumbnail = it.thumbnailUrl,
+                    article = null,
+                    music = it,
+                    createdAt = it.createdAt
+                )
             }
         } else emptyList()
         (articleRows + musicRows).sortedByDescending { it.createdAt }
@@ -634,7 +671,27 @@ private fun ContentPane(
                     row = row,
                     highlighted = highlightOn && row.id == focusId,
                     onOpen = {
-                        row.article?.let(onOpenArticle)
+                        val article = row.article
+                        when {
+                            article == null -> {
+                                // A song: open it where the app keeps it — the
+                                // player, with the dashboard's songs as the queue.
+                                val track = row.music?.toMusicTrack() ?: return@ContentCard
+                                if (track.hasPlayableSource()) {
+                                    player.play(track, musicQueue.ifEmpty { listOf(track) }, expand = true)
+                                } else {
+                                    AppToasts.show("এই গানের অডিও ফাইল নেই।")
+                                }
+                            }
+                            isPublishedStatus(article.status) -> scope.launch {
+                                // Published: straight into the app. If the blog
+                                // cannot be opened after all — the conversion can
+                                // still be sitting as a draft — the preview is a
+                                // better landing than an error screen.
+                                if (!onOpenArticle(article)) preview = article
+                            }
+                            else -> preview = article
+                        }
                     }
                 )
             }
@@ -651,6 +708,106 @@ private fun ContentPane(
         }
         item { Spacer(Modifier.height(88.dp)) }
     }
+
+    preview?.let { article ->
+        ArticlePreviewDialog(article = article, onDismiss = { preview = null })
+    }
+}
+
+/**
+ * How a submission will look once it is published.
+ *
+ * The card in the list carries a status, and a reader who taps a piece that is
+ * still pending needs to see what they sent rather than an error, so the same
+ * body renderer the article screen uses draws the submission here.
+ */
+@Composable
+private fun ArticlePreviewDialog(article: SubmittedBlogRecord, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(
+            shape = RoundedCornerShape(18.dp),
+            color = MaterialTheme.colorScheme.surface,
+            modifier = Modifier
+                .fillMaxWidth(0.94f)
+                .fillMaxHeight(0.92f)
+                .testTag("content_preview_dialog")
+        ) {
+            Column(Modifier.fillMaxSize()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 6.dp, top = 10.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "এভাবে প্রকাশিত হবে",
+                        fontFamily = Kalpurush,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                    ContentStatusChip(status = article.status)
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "বন্ধ করুন")
+                    }
+                }
+                Hairline()
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    if (article.thumbnail.isNotBlank()) {
+                        AsyncImage(
+                            model = article.thumbnail,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(180.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                        )
+                    }
+                    Text(
+                        text = article.title.ifBlank { "শিরোনামহীন" },
+                        fontFamily = Kalpurush,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 21.sp,
+                        lineHeight = 30.sp
+                    )
+                    if (article.contentTitle.isNotBlank()) {
+                        Text(
+                            text = article.contentTitle,
+                            fontFamily = Kalpurush,
+                            fontSize = 15.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Text(
+                        text = listOf(article.writerName, article.writerDesignation)
+                            .filter { it.isNotBlank() }
+                            .joinToString(" · "),
+                        fontFamily = Kalpurush,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Hairline()
+                    RichHtmlArticleBody(
+                        html = article.content,
+                        fontSizeSp = 16f,
+                        lineSpacingMultiplier = 1.35f,
+                        // Nothing to open inside a preview: the body is there
+                        // to be read, and a link in a submission that is not
+                        // live should not walk the reader out of the dashboard.
+                        onOpenLink = { AppToasts.show("প্রকাশিত হলে লিংকটি কাজ করবে।") }
+                    )
+                    Spacer(Modifier.height(20.dp))
+                }
+            }
+        }
+    }
 }
 
 private data class ContentRow(
@@ -658,10 +815,26 @@ private data class ContentRow(
     val isMusic: Boolean,
     val title: String,
     val subtitle: String,
+    /** Raw moderation status; the chip on the card is what translates it. */
+    val status: String,
     val thumbnail: String,
     val article: SubmittedBlogRecord?,
     val music: SubmittedMusicRecord?,
     val createdAt: String
+)
+
+/** A song as the player wants it. The catalogue row is the only source here. */
+private fun SubmittedMusicRecord.toMusicTrack(): MusicTrack = MusicTrack(
+    id = id,
+    title = title,
+    artist = artist,
+    album = album,
+    genre = genre,
+    description = "",
+    thumbnailUrl = thumbnailUrl,
+    audioUrl = audioUrl,
+    durationSeconds = 0,
+    fileSizeMb = 0.0
 )
 
 @Composable
@@ -1285,10 +1458,53 @@ private fun ContentCard(row: ContentRow, highlighted: Boolean = false, onOpen: (
                     if (row.isMusic) "গান · ${row.subtitle}" else row.subtitle,
                     fontFamily = Kalpurush,
                     fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
+            // Where the piece stands, on the right of the card where a reader
+            // scans for it: pending, published, rejected, under review.
+            ContentStatusChip(
+                status = row.status,
+                modifier = Modifier
+                    .align(Alignment.CenterVertically)
+                    .padding(start = 6.dp)
+            )
         }
+    }
+}
+
+/**
+ * The state of one submission as a small chip.
+ *
+ * Tinted rather than coloured text so it stays readable on the light and the
+ * dark surface the card is drawn on.
+ */
+@Composable
+private fun ContentStatusChip(status: String, modifier: Modifier = Modifier) {
+    val label = statusLabel(status)
+    if (label.isBlank()) return
+    val tint = when (status.lowercase()) {
+        "published", "approved" -> Color(0xFF2E9E5B)
+        "rejected" -> Color(0xFFE05252)
+        "reviewed" -> Color(0xFF4A90D9)
+        else -> Color(0xFFD98A1F)
+    }
+    Surface(
+        color = tint.copy(alpha = 0.16f),
+        shape = RoundedCornerShape(999.dp),
+        modifier = modifier
+    ) {
+        Text(
+            text = label,
+            fontFamily = Kalpurush,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = tint,
+            maxLines = 1,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+        )
     }
 }
 
@@ -1330,6 +1546,12 @@ private fun statusLabel(status: String): String {
         "reviewed" -> "পর্যালোচিত"
         else -> status
     }
+}
+
+/** Whether the piece is out in the app, and so has somewhere to open to. */
+private fun isPublishedStatus(status: String): Boolean {
+    val value = status.lowercase()
+    return value == "published" || value == "approved"
 }
 
 private fun renderPdfPreview(context: android.content.Context, uri: Uri): Bitmap? {

@@ -42,6 +42,7 @@ import androidx.navigation.navDeepLink
 import com.ningshingche.app.NinghsingCheApp
 import com.ningshingche.app.data.model.AppThemeMode
 import com.ningshingche.app.data.portal.IssueTags
+import com.ningshingche.app.data.remote.SubmittedBlogRecord
 import com.ningshingche.app.ui.navigation.ExploreTab
 import com.ningshingche.app.ui.components.PortalDrawerContent
 import com.ningshingche.app.ui.components.PortalDrawerWidth
@@ -232,6 +233,30 @@ fun EditorialReaderApp(
             runCatching {
                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
             }
+        }
+    }
+
+    // Opening a published submission from the dashboard.
+    //
+    // Approval converts a submission into a blog and records the blog it made,
+    // so the id to open is known rather than guessed at from the title. Older
+    // rows that predate that column — and any that point at a blog which is
+    // still a draft — fall back to the title search, and anything that resolves
+    // to nothing returns false: the dashboard shows the submission's own
+    // preview in that case instead of an error screen.
+    val openSubmittedArticle: suspend (SubmittedBlogRecord) -> Boolean = { article ->
+        val candidate = article.convertedBlogId.ifBlank { article.id }
+        val direct = if (candidate.isNotBlank()) app.portalRepository.article(candidate) else null
+        val resolved = when {
+            direct?.isSuccess == true -> candidate
+            else -> app.portalRepository.searchArticles(article.title, limit = 1)
+                .getOrNull()?.items?.firstOrNull()?.id
+        }
+        if (resolved.isNullOrBlank()) {
+            false
+        } else {
+            navController.navigate(ReaderRoute.article(resolved))
+            true
         }
     }
 
@@ -658,25 +683,7 @@ fun EditorialReaderApp(
                     onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) },
                     onNewArticle = { navController.navigate(ReaderRoute.NewArticle) },
                     onNewMusic = { navController.navigate(ReaderRoute.NewMusic) },
-                    onOpenArticle = { article ->
-                        coroutineScope.launch {
-                            val published = article.status.equals("Published", true) ||
-                                article.status.equals("Approved", true)
-                            if (!published) {
-                                AppToasts.show("এই প্রবন্ধ এখনো পর্যালোচনায় আছে।")
-                                return@launch
-                            }
-                            val direct = app.portalRepository.article(article.id)
-                            if (direct.isSuccess) {
-                                navController.navigate(ReaderRoute.article(article.id))
-                            } else {
-                                val hit = app.portalRepository.searchArticles(article.title, limit = 1)
-                                    .getOrNull()?.items?.firstOrNull()
-                                if (hit != null) navController.navigate(ReaderRoute.article(hit.id))
-                                else AppToasts.show("প্রকাশিত প্রবন্ধ খোলা যায়নি।")
-                            }
-                        }
-                    },
+                    onOpenArticle = openSubmittedArticle,
                     onOpenComment = { comment ->
                         if (comment.blogId.isNotBlank()) {
                             navController.navigate(ReaderRoute.article(comment.blogId, "comments"))
@@ -713,25 +720,7 @@ fun EditorialReaderApp(
                     onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) },
                     onNewArticle = { navController.navigate(ReaderRoute.NewArticle) },
                     onNewMusic = { navController.navigate(ReaderRoute.NewMusic) },
-                    onOpenArticle = { article ->
-                        coroutineScope.launch {
-                            val published = article.status.equals("Published", true) ||
-                                article.status.equals("Approved", true)
-                            if (!published) {
-                                AppToasts.show("এই প্রবন্ধ এখনো পর্যালোচনায় আছে।")
-                                return@launch
-                            }
-                            val direct = app.portalRepository.article(article.id)
-                            if (direct.isSuccess) {
-                                navController.navigate(ReaderRoute.article(article.id))
-                            } else {
-                                val hit = app.portalRepository.searchArticles(article.title, limit = 1)
-                                    .getOrNull()?.items?.firstOrNull()
-                                if (hit != null) navController.navigate(ReaderRoute.article(hit.id))
-                                else AppToasts.show("প্রকাশিত প্রবন্ধ খোলা যায়নি।")
-                            }
-                        }
-                    },
+                    onOpenArticle = openSubmittedArticle,
                     onOpenComment = { comment ->
                         if (comment.blogId.isNotBlank()) {
                             navController.navigate(ReaderRoute.article(comment.blogId, "comments"))

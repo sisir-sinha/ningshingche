@@ -579,6 +579,26 @@ All use `stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), …)`.
 the signed-in user workspace, `ui/screens/UserDashboardScreen.kt` (dashboard tabs, notices, inbox).
 `ui/dashboard/` and its `views/` no longer exist.
 
+The workspace's **Content** tab lists the reader's own submissions (articles from `submitted_blogs`
+and songs from `music_tracks`). Each card carries the piece's state on its right — `ContentStatusChip`
+over the same `statusLabel` wording the rest of the screen uses — and tapping it does one of three
+things:
+
+* **Published** (`Published`/`Approved`) — opens in the app. A submission carries
+  `converted_blog_id` once approval has turned it into a blog, so `onOpenArticle` opens that id
+  directly and only falls back to a title search for rows from before the column existed. When
+  nothing resolves — the conversion can still be sitting as a draft — the callback returns `false`
+  and the dashboard shows the preview instead of an error screen.
+* **Not published** — shows `ArticlePreviewDialog`, the submission drawn the way it will look when
+  it is live (thumbnail, title, subtitle, byline, the same `RichHtmlArticleBody` the article screen
+  uses). Links inside a preview do not navigate.
+* **Songs** — the catalogue row is live in the music screen, so the tap opens the player with the
+  dashboard's songs as the queue.
+
+The bottom-bar tabs are swipeable, as they are everywhere else in the app. The reason swiping had
+been switched off — a hand travelling across the notices page marked the whole inbox read — is
+handled by waiting for the pager to settle (`restingOnNotices`), not by taking the gesture away.
+
 **Reusable components** — reuse these instead of writing new ones:
 
 `ui/editorial/EditorialComponents.kt` (1,651 lines) is the reader's primary kit — 28 public
@@ -604,7 +624,25 @@ Rest of `ui/components/`: `PortalDrawerContent` (PortalDrawer.kt), `PortalAsyncI
 (SkeletonShimmer.kt), `VerifiedBadge`, `AppToastHost` + `AppToasts`, `AccountHeaderButton`,
 `BookmarkController`, `connectivityStatus` (ConnectivityMonitor.kt), `GenreCombobox`,
 `GoogleSignInButton`, `HtmlContentEditor`, `keyboardAvoidingPadding`, `DialogImeAdjustResize`,
-`MusicMiniPlayerBar` + `MusicFullPlayerOverlay` (MusicPlayer.kt).
+`MusicMiniPlayerBar` + `MusicFullPlayerOverlay` (MusicPlayer.kt), `PlayingWaveBars` +
+`PlayingWaveBlue` (PlayingWaveBars.kt).
+
+### 12.1 The music player's gestures
+
+The full player (MusicPlayer.kt) answers to these, and they are deliberately distinct:
+
+| Gesture | Effect |
+| --- | --- |
+| Pull down anywhere off the artwork, past `PlayerMinimizeDrag` (110 dp) | Minimizes. The offset is released with an animation instead of snapping to zero, so the sheet continues from where the finger stopped rather than jumping back to the top and then sliding away. |
+| Drag up/down **on the artwork** | Volume — the pull covers the full range over `CoverVolumeDrag` (260 dp), up is louder, down is quieter. A read-out says `ভলিউম <n>%` over a saffron bar while the finger is down. The drag is clamped to 0–100 % before it is shown, because a negative value is the read-out's own hidden state. |
+| Pull down on the artwork past `CoverMinimizeDrag` (190 dp) | The same pull stops being a volume change and puts the player away: the level the drag had already changed is put back, the read-out switches to `ছেড়ে দিলে ছোট হয়ে যাবে`, and the sheet follows the finger from there. |
+| Double tap on the artwork | Left third −5 s, right third +5 s, middle play/pause. |
+| Tap the row of the song that is already loaded | Brings the player up and keeps its position. `MusicController.play` and `playQueueItem` both return early for the loaded track, so a second tap never rebuilds the media items (which used to restart the song at 0:00). |
+
+A list row whose track is loaded swaps its love control for `PlayingWaveBars` — an animated bar
+indicator for the playing row (frozen mid-sweep while paused), so the list says what is on without a
+per-tick recomposition: `MusicController.nowPlayingId` / `isPlayingNow` collapse the player state to
+one emission per track change. The love control is still on every other row and in the player itself.
 
 Removed in the structure passes — do not reference: `ui/components/PortalHomeSections.kt` and its
 `PortalSectionHeader`, `FeaturedPortalCard`, `SelectedEssayCard`, `CategoryImageTile`,

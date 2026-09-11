@@ -3,6 +3,7 @@ package com.ningshingche.app.ui.components
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -113,6 +114,7 @@ import com.ningshingche.app.ui.theme.PortalSaffron
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.delay
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
 val LocalMusicController = staticCompositionLocalOf<MusicController> {
@@ -120,6 +122,19 @@ val LocalMusicController = staticCompositionLocalOf<MusicController> {
 }
 
 private enum class PlayerSheet { None, Menu, Playlist, Details, Sleep, NewPlaylist }
+
+/** How far the player has to be pulled down before letting go puts it away. */
+private val PlayerMinimizeDrag = 110.dp
+
+/** Drag on the artwork that covers the whole volume range, quiet to loud. */
+private val CoverVolumeDrag = 260.dp
+
+/**
+ * Drag on the artwork that counts as "put the player away" instead of a volume
+ * change. Longer than [PlayerMinimizeDrag] because the artwork's own gesture is
+ * volume, and only a deliberate pull should mean minimize there.
+ */
+private val CoverMinimizeDrag = 190.dp
 
 @Composable
 fun MusicMiniPlayerBar(controller: MusicController) {
@@ -299,11 +314,24 @@ private fun FullMusicPlayer(
     var offsetY by remember { mutableFloatStateOf(0f) }
     var skipAccum by remember { mutableFloatStateOf(0f) }
     var gestureHint by remember { mutableStateOf<String?>(null) }
+    // Volume read-out shown while the artwork is dragged: -1f means nothing to
+    // show, which is how the HUD hides itself without a second flag.
+    var volumeHud by remember { mutableFloatStateOf(-1f) }
+    var minimizeHint by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val minimizePx = with(density) { PlayerMinimizeDrag.toPx() }
     LaunchedEffect(gestureHint) {
         if (gestureHint != null) {
             delay(700)
             gestureHint = null
         }
+    }
+    LaunchedEffect(volumeHud, minimizeHint) {
+        if (volumeHud < 0f && !minimizeHint) return@LaunchedEffect
+        delay(900)
+        volumeHud = -1f
+        minimizeHint = false
     }
     val duration = state.durationMs.coerceAtLeast(1L)
     val sliderValue = if (dragging) dragValue else state.positionMs.toFloat().coerceIn(0f, duration.toFloat())
@@ -338,12 +366,27 @@ private fun FullMusicPlayer(
                     listOf(Color(0xFF2A120E), PortalMaroon, Color(0xFF120806))
                 )
             )
-            .pointerInput(showQueue) {
+            .pointerInput(showQueue, minimizePx) {
                 if (showQueue) return@pointerInput
                 detectVerticalDragGestures(
                     onDragEnd = {
-                        if (offsetY > 120f) controller.collapse()
-                        offsetY = 0f
+                        // A drag this long is a minimize, and the offset is
+                        // left where the finger stopped so the exit animation
+                        // carries on from there.
+                        if (offsetY > minimizePx) controller.collapse()
+                        // Either way the offset is released rather than
+                        // snapped back to zero: resetting it on release put the
+                        // player back at the top for a frame right before the
+                        // exit animation took it down, which read as the sheet
+                        // bouncing on the way out.
+                        if (offsetY > 0f) {
+                            val from = offsetY
+                            scope.launch {
+                                animate(from, 0f, animationSpec = tween(300)) { value, _ ->
+                                    offsetY = value
+                                }
+                            }
+                        }
                     },
                     onVerticalDrag = { change, amount ->
                         if (amount > 0f || offsetY > 0f) {
@@ -448,7 +491,26 @@ private fun FullMusicPlayer(
                         state = state,
                         controller = controller,
                         gestureHint = gestureHint,
-                        onGestureHint = { gestureHint = it }
+                        onGestureHint = { gestureHint = it },
+                        onVolumeHud = { volumeHud = it },
+                        onMinimizeDrag = { delta ->
+                            // The pull on the artwork keeps moving the sheet, so
+                            // the two gestures look like the same one.
+                            minimizeHint = true
+                            offsetY = (offsetY + delta).coerceAtLeast(0f)
+                        },
+                        onMinimizeFinish = {
+                            minimizeHint = false
+                            controller.collapse()
+                            val from = offsetY
+                            if (from > 0f) {
+                                scope.launch {
+                                    animate(from, 0f, animationSpec = tween(300)) { value, _ ->
+                                        offsetY = value
+                                    }
+                                }
+                            }
+                        }
                     )
                 }
             }
@@ -589,6 +651,12 @@ private fun FullMusicPlayer(
             }
         }
 
+        PlayerHud(
+            volume = volumeHud,
+            minimize = minimizeHint,
+            modifier = Modifier.align(Alignment.Center)
+        )
+
         QueueSidebar(
             visible = showQueue,
             queue = queue,
@@ -611,6 +679,69 @@ private fun FullMusicPlayer(
                 onOpen = { sheet = it },
                 controller = controller
             )
+        }
+    }
+}
+
+/**
+ * The read-out the artwork gestures show.
+ *
+ * [volume] is `-1f` when there is nothing to say; [minimize] takes over once a
+ * long pull is on its way to putting the player away. It only ever displays —
+ * the box has no pointer handling, so a finger that is still on the artwork
+ * keeps driving the gesture underneath.
+ */
+@Composable
+private fun PlayerHud(volume: Float, minimize: Boolean, modifier: Modifier = Modifier) {
+    if (!minimize && volume < 0f) return
+    val level = volume.coerceIn(0f, 1f)
+    Surface(
+        modifier = modifier,
+        color = Color.Black.copy(alpha = 0.55f),
+        shape = RoundedCornerShape(18.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            if (minimize) {
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(26.dp)
+                )
+                Text(
+                    text = "ছেড়ে দিলে ছোট হয়ে যাবে",
+                    fontFamily = Kalpurush,
+                    color = Color.White,
+                    fontSize = 13.sp
+                )
+            } else {
+                Text(
+                    text = "ভলিউম ${bengaliDigits((level * 100f).roundToInt().toLong())}%",
+                    fontFamily = Kalpurush,
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Box(
+                    modifier = Modifier
+                        .width(132.dp)
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(99.dp))
+                        .background(Color.White.copy(alpha = 0.25f))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(level)
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(99.dp))
+                            .background(PortalSaffron)
+                    )
+                }
+            }
         }
     }
 }
@@ -939,7 +1070,10 @@ private fun TrackCoverCanvas(
     state: MusicPlayerUiState,
     controller: MusicController,
     gestureHint: String?,
-    onGestureHint: (String) -> Unit
+    onGestureHint: (String) -> Unit,
+    onVolumeHud: (Float) -> Unit,
+    onMinimizeDrag: (Float) -> Unit,
+    onMinimizeFinish: () -> Unit
 ) {
     val showVideo = isCurrent && state.showVideo && pageTrack.hasVideo()
     val rotation by animateFloatAsState(
@@ -949,6 +1083,8 @@ private fun TrackCoverCanvas(
     )
     val density = LocalDensity.current.density
     val camera = 18f * density
+    val coverVolumePx = with(LocalDensity.current) { CoverVolumeDrag.toPx() }
+    val coverMinimizePx = with(LocalDensity.current) { CoverMinimizeDrag.toPx() }
     var keepVideo by remember(pageTrack.id) { mutableStateOf(false) }
     LaunchedEffect(showVideo) {
         if (showVideo) keepVideo = true
@@ -979,6 +1115,53 @@ private fun TrackCoverCanvas(
                                 onGestureHint("Forward +5s")
                             }
                             else -> controller.togglePlayPause()
+                        }
+                    }
+                )
+            }
+            // The artwork is the volume control: pull down for quiet, up for
+            // loud. Horizontal swipes still reach the pager, and a long pull
+            // stops being a volume change and puts the player away instead —
+            // the volume the pull had already changed is put back, so the
+            // listener never loses the level they had.
+            .pointerInput(pageTrack.id, showVideo, coverVolumePx, coverMinimizePx) {
+                if (showVideo) return@pointerInput
+                var dragged = 0f
+                var startVolume = 1f
+                var minimizing = false
+                detectVerticalDragGestures(
+                    onDragStart = {
+                        dragged = 0f
+                        minimizing = false
+                        startVolume = controller.state.value.volume
+                    },
+                    onDragEnd = {
+                        if (minimizing) {
+                            onMinimizeFinish()
+                        } else {
+                            onVolumeHud(-1f)
+                        }
+                    },
+                    onVerticalDrag = { change, amount ->
+                        change.consume()
+                        if (minimizing) {
+                            onMinimizeDrag(amount)
+                        } else {
+                            dragged += amount
+                            if (dragged > coverMinimizePx) {
+                                minimizing = true
+                                controller.setVolume(startVolume)
+                                onVolumeHud(-1f)
+                                onMinimizeDrag(0f)
+                            } else {
+                                // Clamped before it is shown: a negative value
+                                // is the HUD's own "nothing to say" marker, so
+                                // dragging past the ends has to stop at 0% and
+                                // 100% rather than hide the read-out.
+                                val next = (startVolume - dragged / coverVolumePx).coerceIn(0f, 1f)
+                                controller.setVolume(next)
+                                onVolumeHud(next)
+                            }
                         }
                     }
                 )
