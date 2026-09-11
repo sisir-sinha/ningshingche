@@ -59,9 +59,17 @@ declare
   target uuid;
   delta integer;
 begin
-  kind := coalesce(new.content_type, old.content_type);
-  target := coalesce(new.content_id, old.content_id);
-  delta := case when tg_op = 'INSERT' then 1 else -1 end;
+  -- Whichever record the operation actually has: NEW is unassigned in a delete,
+  -- so the two cases are read separately rather than coalesced.
+  if tg_op = 'DELETE' then
+    kind := old.content_type;
+    target := old.content_id;
+    delta := -1;
+  else
+    kind := new.content_type;
+    target := new.content_id;
+    delta := 1;
+  end if;
 
   if kind = 'blog' then
     update public.blogs
@@ -73,7 +81,9 @@ begin
       where id = target;
   end if;
 
-  return coalesce(new, old);
+  -- AFTER trigger: the return value is ignored, and reading NEW here would be
+  -- the unassigned record again on a delete.
+  return null;
 end;
 $$;
 
