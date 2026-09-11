@@ -11,6 +11,8 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
@@ -31,6 +33,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
@@ -334,7 +337,14 @@ fun ArticleScreen(
         },
         floatingActionButton = {
             val readyState = state as? ArticleUiState.Ready
-            if (readyState != null) {
+            // Hidden while the assistant is up. The FAB is drawn above the
+            // screen content, so it used to sit on the sheet's input row; it
+            // comes back on its own when the sheet closes.
+            AnimatedVisibility(
+                visible = readyState != null && !showAiSheet,
+                enter = fadeIn(tween(180)) + scaleIn(tween(220, easing = FastOutSlowInEasing), initialScale = 0.85f),
+                exit = fadeOut(tween(120)) + scaleOut(tween(160, easing = FastOutSlowInEasing), targetScale = 0.85f)
+            ) {
                 FloatingActionButton(
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -1171,12 +1181,19 @@ fun ArticleAiAssistantBottomSheet(
                 .background(Color.Black.copy(alpha = 0.35f))
         )
         Surface(
+            // 90% of the space the sheet has to work with, so a long answer is
+            // readable without the keyboard eating the conversation.
+            //
+            // The system-bar inset belongs *inside* the surface: a
+            // `navigationBarsPadding()` in front of the background paints the
+            // padding itself, which leaves the gesture-bar strip transparent and
+            // shows the article through it. Seen from the sheet, that strip is
+            // simply missing — the empty band under the input row.
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .height(460.dp)
-                .navigationBarsPadding()
-                .imePadding(),
+                .imePadding()
+                .fillMaxHeight(0.9f),
             shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
             color = MaterialTheme.colorScheme.surface,
             shadowElevation = 16.dp
@@ -1184,6 +1201,7 @@ fun ArticleAiAssistantBottomSheet(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .navigationBarsPadding()
                     .padding(horizontal = 16.dp, vertical = 4.dp)
             ) {
                 Box(

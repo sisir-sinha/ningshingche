@@ -189,11 +189,13 @@ private fun MiniMusicPlayer(
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 8.dp,
         shadowElevation = 12.dp,
-        modifier = Modifier
-            .fillMaxWidth()
-            .navigationBarsPadding()
+        // The system-bar inset is applied inside, on the column below. In front
+        // of the surface it pads the *background* as well, so the bar stops
+        // short of the bottom edge and the screen shows through under it — the
+        // empty strip below the controls.
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Column {
+        Column(modifier = Modifier.navigationBarsPadding()) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()

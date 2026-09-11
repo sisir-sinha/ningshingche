@@ -644,6 +644,23 @@ indicator for the playing row (frozen mid-sweep while paused), so the list says 
 per-tick recomposition: `MusicController.nowPlayingId` / `isPlayingNow` collapse the player state to
 one emission per track change. The love control is still on every other row and in the player itself.
 
+### 12.2 System-bar insets belong inside the surface
+
+The app is edge-to-edge (`enableEdgeToEdge` in `MainActivity`), so a surface that touches the bottom
+edge of the screen has to leave room for the gesture bar itself. The inset has to be applied **inside**
+the surface, on its content:
+
+```kotlin
+Surface(modifier = Modifier.fillMaxWidth()) {          // background reaches the screen edge
+    Column(modifier = Modifier.navigationBarsPadding()) { … }   // content clears the gesture bar
+}
+```
+
+`Modifier.navigationBarsPadding()` in front of the surface is wrong even though it looks right: the
+padding is applied before the background is drawn, so the background stops above the strip and the
+screen behind shows through it as an empty band. `MusicMiniPlayerBar` and the article AI assistant
+sheet both had that, and the assistant's is why the sheet's input row appeared to float above a gap.
+
 Removed in the structure passes — do not reference: `ui/components/PortalHomeSections.kt` and its
 `PortalSectionHeader`, `FeaturedPortalCard`, `SelectedEssayCard`, `CategoryImageTile`,
 `AuthorRailCard`, `PdfBookRailCard`, `HorizontalCardsRow`, `SubmitWritingBanner`;
