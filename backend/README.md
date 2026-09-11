@@ -551,7 +551,12 @@ from the check that failed, so read it rather than assuming Blog uploads:
 - A table reported as *missing* → `supabase/schema.sql`, then the migrations in order
 
 Run that file in the Supabase SQL Editor, reload the dashboard, and check again in **Settings →
-Database check**. The per-table list there names the column that is missing when you hover it.
+Database check**. Each migration file is one transaction: if any statement in it fails, the whole
+file rolls back and **nothing** is applied — so read the error, fix or re-run, and do not assume the
+statements above the error landed. Migrations 024 and 025 can be run in either order.
+
+Migrations are checked by `bash backend/tests/sql/run.sh`, which needs a local PostgreSQL and runs the
+files against a throwaway database built from `backend/tests/sql/fixture.sql`. The per-table list there names the column that is missing when you hover it.
 
 Earlier builds blamed migration 003 for every failure, and asked `app_language_files` — which is
 keyed on `lang` and has no `id` column — for an `id`, so a correctly installed database could still

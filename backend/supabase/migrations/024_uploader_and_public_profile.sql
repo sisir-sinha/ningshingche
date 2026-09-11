@@ -25,6 +25,13 @@ begin;
 alter table public.music_tracks
   add column if not exists uploader_name text not null default '';
 
+-- `public_profile` below sums the track's play count, which 025 creates. Either
+-- file can be pasted first, so this file makes sure the column is there rather
+-- than assuming 025 has already run: `add column if not exists` is free when it
+-- has, and the function below cannot be created without it.
+alter table public.music_tracks
+  add column if not exists views_count bigint not null default 0;
+
 create index if not exists music_tracks_user_id_idx
   on public.music_tracks (user_id);
 
@@ -35,6 +42,76 @@ update public.music_tracks t
   from public.profiles p
   where t.user_id = p.id
     and coalesce(t.uploader_name, '') = '';
+
+-- ...and kept in step afterwards, by the database rather than by the client: the
+-- app is not the only thing that inserts a track, and a reader who renames
+-- themselves should not leave their old name on their uploads. `security
+-- definer` because the inserting role may not be allowed to read `profiles`
+-- (select-own, migration 005).
+create or replace function public.music_tracks_set_uploader_name()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  owner uuid := new.user_id;
+  known text := coalesce(new.uploader_name, '');
+  owner_changed boolean;
+begin
+  if coalesce(known, '') = '' and owner is null then
+    new.uploader_name := '';
+    return new;
+  end if;
+
+  if tg_op = 'UPDATE' then
+    owner_changed := new.user_id is distinct from old.user_id;
+  else
+    owner_changed := false;
+  end if;
+
+  if owner is null then
+    new.uploader_name := known;
+    return new;
+  end if;
+
+  if known = '' or owner_changed then
+    select coalesce(p.name, '') into new.uploader_name
+      from public.profiles p where p.id = owner;
+    new.uploader_name := coalesce(new.uploader_name, '');
+  else
+    new.uploader_name := known;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists music_tracks_set_uploader_name on public.music_tracks;
+create trigger music_tracks_set_uploader_name
+before insert or update of user_id on public.music_tracks
+for each row execute function public.music_tracks_set_uploader_name();
+
+-- A rename is meant to follow through to what the reader already uploaded.
+create or replace function public.profiles_sync_uploader_name()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.name is distinct from old.name then
+    update public.music_tracks
+      set uploader_name = coalesce(new.name, '')
+      where user_id = new.id;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists profiles_sync_uploader_name on public.profiles;
+create trigger profiles_sync_uploader_name
+after update of name on public.profiles
+for each row execute function public.profiles_sync_uploader_name();
 
 -- 2. One public page per registered user -------------------------------------
 --
@@ -78,7 +155,7 @@ as $$
         select b.id,
                b.title,
                b.slug,
-               b.thumbnail,
+               b.image,
                b.views_count,
                b.published_date,
                b.created_at,
@@ -87,7 +164,7 @@ as $$
         join public.blogs b on b.id = s.converted_blog_id
         where s.user_id = p.id
           and b.status = any (array['Publish', 'Published'])
-        order by coalesce(b.published_date::timestamptz, b.created_at) desc
+        order by b.published_date desc nulls last, b.created_at desc
         limit 60
       ) a
     ), '[]'::jsonb),
@@ -120,6 +197,9 @@ grant execute on function public.public_profile(uuid) to anon, authenticated;
 
 commit;
 
+-- The JSON keys are the app's, not the columns': `thumbnail` carries `blogs.image`
+-- and `views_count` is the trigger-maintained total.
+--
 -- App side: PortalRepository.publicProfile(userId) → PublicProfile; the player's
 -- credit line shows `Uploader: <name>` ahead of the singer, and the uploader's
 -- name in a song row opens `ReaderRoute.publicProfile(userId)`.
