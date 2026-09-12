@@ -52,6 +52,17 @@ create table if not exists public.forum_categories (
 create unique index if not exists forum_categories_slug_idx
   on public.forum_categories (lower(slug));
 
+-- RLS on every table this section may create, exactly as the file that owns it
+-- leaves it: 029 for the three forum tables, 026 for `content_views` and
+-- `reader_activity`, 007 for `user_notifications`. Where the table already
+-- exists and already has RLS — every real database — these lines state something
+-- that is already true; where this file is the one that created the table, they
+-- are the difference between a table nobody can read directly and one anybody
+-- can. The Supabase SQL editor asks about this before it will run a script that
+-- creates a table, and the honest answer is that this script does not create an
+-- unprotected one.
+alter table public.forum_categories enable row level security;
+
 create table if not exists public.forum_discussions (
   id uuid primary key default gen_random_uuid(),
   category_id uuid not null references public.forum_categories (id) on delete cascade,
@@ -75,6 +86,9 @@ create table if not exists public.forum_replies (
   created_at timestamptz not null default timezone('utc', now())
 );
 
+alter table public.forum_discussions enable row level security;
+alter table public.forum_replies enable row level security;
+
 create table if not exists public.content_views (
   id bigserial primary key,
   content_type text not null check (content_type in ('blog', 'music')),
@@ -83,6 +97,8 @@ create table if not exists public.content_views (
   created_at timestamptz not null default timezone('utc', now())
 );
 
+alter table public.content_views enable row level security;
+
 create table if not exists public.reader_activity (
   user_id uuid not null,
   day date not null default (timezone('utc', now())::date),
@@ -90,6 +106,8 @@ create table if not exists public.reader_activity (
   updated_at timestamptz not null default timezone('utc', now()),
   primary key (user_id, day)
 );
+
+alter table public.reader_activity enable row level security;
 
 -- 011's column: it decides who hears about a new thread. Added here so this file
 -- stands alone; the definition is 011's.
@@ -128,6 +146,10 @@ begin
   end if;
 end;
 $guard$;
+
+-- And the inbox is not open to clients either — 007's own line, for the same
+-- reason as the ones above.
+alter table public.user_notifications enable row level security;
 
 -- 029's counter, which the write guards use. Identical to 029's definition.
 create or replace function public.forum_text_units(p_text text)

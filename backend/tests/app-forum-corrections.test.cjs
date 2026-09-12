@@ -610,6 +610,36 @@ test('the extras the owner asked for alongside the ten', async (t) => {
       'and never works the arithmetic out itself');
   });
 
+  await t.test('every table the migration can create is created behind RLS', () => {
+    // The Supabase SQL editor asks before it will run a script that creates a
+    // table without enabling row level security. Every table in §0 is guarded by
+    // `if not exists` and exists already on a real database — but a database
+    // where this file is the one that creates them must not be the one database
+    // where a client can read a forum table directly.
+    const created = [...MIGRATION.matchAll(/create table if not exists public\.([a-z_]+)/g)]
+      .map((match) => match[1]);
+    assert.ok(created.length >= 6, `the file guards the tables it reads (${created.join(', ')})`);
+    for (const table of new Set(created)) {
+      assert.ok(MIGRATION.includes(`alter table public.${table} enable row level security;`),
+        `${table} is created with RLS enabled`);
+    }
+  });
+
+  await t.test('and the drops it makes are the ones that cannot be avoided', () => {
+    // The SQL editor also warns about "destructive operations". This file's are
+    // four old function signatures (a new parameter makes a new function, so the
+    // old ones have to go or PostgREST cannot choose) and three triggers, all
+    // `if exists`, none of them touching a row.
+    const drops = [...MIGRATION.matchAll(/^drop (\w+) if exists/gm)].map((match) => match[1]);
+    assert.ok(drops.length > 0, 'there are drops, and they are all guarded');
+    assert.deepEqual([...new Set(drops)].sort(), ['function', 'trigger'],
+      'no table, view, column or policy is dropped');
+    for (const table of ['forum_discussions', 'forum_replies', 'forum_categories']) {
+      assert.ok(!new RegExp(`drop table[^;]*${table}`).test(MIGRATION),
+        `${table} is never dropped — a drop of it would take every thread with it`);
+    }
+  });
+
   await t.test('the behaviour the migration promises is measured, not assumed', () => {
     for (const check of ['forum answers', 'official', 'forum_react', 'forum_activity',
       'one row per thread']) {
