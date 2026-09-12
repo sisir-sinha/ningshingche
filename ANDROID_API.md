@@ -476,6 +476,24 @@ suspend fun uploadAudio(context, uri): Result<UploadedSong>       // publicUrl, 
 chunks instead of reading it into memory. `Add Song` tries this host first and falls back to
 `SupabaseClient.uploadUserMusicFile` (Storage, 32 MB, user JWT) if it is unreachable.
 
+### Attachments — `data/remote/ForumAttachmentUploader.kt`
+
+A forum post carries files, and a file is one of two kinds: a picture, which goes
+to ImgBB where the app's pictures already go, and a PDF, which goes to the
+Catbox-compatible host [SatoruUploadClient] already uses for songs — ImgBB takes
+images and nothing else, and Supabase Storage wants a session and a bucket policy
+for the same result. `SatoruUploadClient.uploadAttachment` is the same multipart
+POST as `uploadAudio` (they share `sendFile`), answering with a public URL *and*
+the file's own name, because the thread has to draw a chip that says which
+document it is.
+
+The limits are the owner's: **five files**, pictures and PDFs. `PICKER_TYPES`
+hands the system picker exactly those two types, `isSupported` checks the answer
+again (some providers hand back `application/octet-stream` for a PDF, and the name
+decides), and `MAX_FILES` stops the sixth at the moment it is picked rather than
+after it has been uploaded. Pictures are capped at ImgBB's 32 MB and documents at
+the host's 200 MB, both before anything is read into memory.
+
 ### Reader search — `data/portal/SearchQuery.kt`
 
 `SearchViewModel` debounces the query and calls `PortalRepository.searchArticles(query, limit, offset)`,
@@ -884,6 +902,63 @@ list, plus each card's own tap).
 image inside the body — the caller appends the URLs to the HTML as the post is sent
 (`forumWithAttachments`). The compact editor's own picker is only ever used where the full editor is.
 Attachments are part of the draft, so they survive a wrong turn like the text does.
+
+**The fifth pass (app 1.4 → 1.5).** Eight more notes, and one of them was a bug the owner had
+reported twice.
+
+*Bold and italic "still did nothing".* Two causes, both fixed in `HtmlContentEditor`:
+
+  * `document.execCommand` applies to the selection, and a tap on a Compose `IconButton` is a tap
+    on a different view — the page may no longer hold the focus the selection lived in, and the
+    command then does nothing at all, quietly. The page now keeps its last range
+    (`saveSelection` on `keyup`/`mouseup`/`input`/`touchend`/`focus` and on `selectionchange`) and
+    puts it back inside a single entry point, `window.command(cmd, arg)`, which also sets
+    `styleWithCSS` to false so the markup is `<b>`/`<i>`/`<u>` — the tags both renderers
+    (HtmlCompat and the WebView) already understand. `run()` calls `webView.requestFocus()` first,
+    because the view has to be focused for the page to take the caret back.
+  * The WebView's `@font-face` for Kalpurush declared `font-weight: 100 900`. Kalpurush ships one
+    weight, and a face that claims a range tells the browser every weight is covered — so it drew
+    bold text with the regular glyphs and bold looked like nothing had happened. It declares
+    `font-weight: 400` now, which lets the browser synthesise the bold (and the oblique) the reader
+    asked for.
+
+*The formatting row is four buttons.* The compact editor no longer offers a picture button, and it
+no longer draws attachments — `HtmlContentEditor` is an editor again. Files are attached on the row
+under the box, which is also where they are previewed.
+
+*The reply box is asked for.* The thread's bottom bar shows one button — **উত্তর যোগ করুন**, bottom
+right — and the box expands out of the bottom of the screen when it is tapped and shrinks back into
+it when it is done (`AnimatedVisibility` with `expandVertically`/`shrinkVertically` from
+`Alignment.Bottom` and a fade, in both directions, the launcher animating the other way in the same
+seat). The keyboard is asked for once the box has arrived (`FORUM_COMPOSER_APPEAR_MS`), the chevron
+on the box's header puts it away without posting anything, and Back goes keyboard → box → screen
+(the box's `BackHandler` is disabled while the IME is up, so the order cannot invert).
+
+*Files are attached, previewed and opened.* `ForumAttachment` (a URL, a name, a type, a size) is
+the model; `forumWithAttachments` appends `<p><img src="…" alt="…"></p>` for a picture and
+`<p><a href="…">name</a></p>` for a document — **on the way out**, so nothing is ever inserted into
+the middle of a sentence. A post's body is then read in two parts: `forumBodyMarkup` (the words,
+with the attachments taken out) and `forumBodyImages`/`forumBodyDocs` (the files, drawn as previews
+under it). That split is the fix for the second complaint of the same family: an `<img>` handed to
+`HtmlCompat` becomes U+FFFC, the platform's "an object I cannot draw", which a reader sees as a
+boxed **obj** — and a body used to fold on the strength of the tag, so the boxed obj was what the
+folded copy showed until "see more" was tapped. Folding now counts the words
+(`ForumReply.isLong` = `forumBodyText(body).length > 240`).
+
+*And a tap opens it.* `AttachmentViewer` is a frame-less dialog: a picture fills the screen and can
+be pinched (1×–5×, panning only once it is larger than the screen), a PDF is opened by the app's own
+viewer library at its plainest setting — `pageFitPolicy(FitPolicy.WIDTH)`, a swipe between pages,
+no settings sheet and no night mode, because the owner asked for no smart options here. Both kinds
+carry a download button in the top right that writes to `Download/Ningshingche_PDFs` for a document
+and `Download/Ningshingche` for a picture, and says so in a toast.
+
+*A posted draft is gone.* The reply draft keeps words *and* files (a file is stored with its name
+and type, and a draft written before this pass — a bare list of image URLs — is read back as what it
+is). After a successful post the box empties, the files are dropped and the draft is cleared, all
+after the database has answered. That last part needed a second fix in the editor: a WebView only
+takes `value` on page load, so an emptied box stayed full on screen. `HtmlContentEditor` now pushes
+an outside change into the page (`lastEmitted` / `lastPushed`: a value from the page is never pushed
+back at it, one from anywhere else is) and `window.setHtml` leaves the caret at the end.
 
 **The API is seven functions** — 029's six plus `forum_react`, with `forum_overview`,
 `forum_discussion`, `forum_create_discussion` and `forum_reply` replaced on new signatures by 030, and

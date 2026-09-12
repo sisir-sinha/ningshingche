@@ -286,12 +286,22 @@ authors_directory, social_activities.
   post. Public read, signed-in write, through the RPCs; the drawer's **ফোরাম** row replaced
   **সামাজিক কার্যকলাপ** (a hard-coded gallery grid the home page already draws, whose screen and
   state were removed with the row), and the account menu carries **ফোরাম** as well. The reader's
-  own forum work shows on their dashboard and on their public page's third tab. The reply box is
-  the thread's bottom bar (a 96 dp editor that grows to 240 dp and rises with the keyboard; Back
-  closes the keyboard first), reactions are icons on the card and three icons in the long-press
-  popup, a reply is indented inside its answer behind a drawn line, and a picture in an answer is an
-  attachment above the box with a cross to remove it — appended to the post as it is sent, never
-  typed into the body.
+  own forum work shows on their dashboard and on their public page's third tab. The thread's bottom
+  bar is one button — উত্তর যোগ করুন — until it is tapped, and the reply box then grows out of the
+  bottom of the screen (a 96 dp editor that grows to 240 dp and rises with the keyboard; Back closes
+  the keyboard, then the box, then the screen). Reactions are icons on the card and three icons in
+  the long-press popup, and a reply is indented inside its answer behind a drawn line.
+
+  Files are attachments, never text: the paperclip on the row under the box takes up to five
+  pictures and PDFs (ImgBB for a picture, the Catbox-compatible host for a document), each previewed
+  beside it with a cross to take it back, and all of them appended to the post by
+  `forumWithAttachments` as it is sent. A posted body is read in two parts — `forumBodyMarkup` for
+  the words, `forumBodyImages`/`forumBodyDocs` for the files, which are drawn as previews (a picture
+  as a thumbnail, a PDF as its icon and its name) instead of the `obj` HtmlCompat puts in place of an
+  image it cannot draw. A tap opens the file in `AttachmentViewer` — large, pinch-zoomable for a
+  picture and drawn by the app's PDF library for a document, with a download button in the corner.
+  Drafts keep the files as well as the words, and everything is cleared once the post has gone
+  through.
 - **Public profile** (`PublicProfileScreen.kt`, route `user/{userId}`): name, designation,
   short address, a statistics card (total views, lifetime points, this month's points) and
   two tabs — articles and songs — each ordered by views and dated. One request,

@@ -28,6 +28,9 @@ const FORUM_SCREENS = read('ui', 'screens', 'ForumScreens.kt');
 const FORUM_EDITOR = read('ui', 'components', 'HtmlContentEditor.kt');
 const DRAFT_STORE = read('data', 'local', 'ForumDraftStore.kt');
 const PORTAL_MODELS = read('data', 'portal', 'PortalModels.kt');
+// The forum's HTML knowledge — what a body's words are, and what its files are —
+// lives in one place of its own since the fifth pass.
+const FORUM_HTML = read('data', 'portal', 'ForumHtml.kt');
 const PORTAL_DTOS = read('data', 'portal', 'PortalDtos.kt');
 const PORTAL_API = read('data', 'portal', 'PortalApi.kt');
 const PORTAL_REPOSITORY = read('data', 'portal', 'PortalRepository.kt');
@@ -285,8 +288,8 @@ test('both composers remember what was typed until it posts', async (t) => {
   await t.test('the reply box is remembered per thread', () => {
     const thread = bodyOf(FORUM_SCREENS, 'ForumThreadScreen');
     assert.match(thread, /draftStore\.reply\(discussionId\)/, 'read per thread');
-    assert.match(thread, /draftStore\.saveReply\(\s*discussionId,\s*ForumDraftStore\.ReplyDraft\(replyBody, replyTarget, replyImages\)\s*\)/,
-      'saved with the answer it was answering, and with its pictures');
+    assert.match(thread, /draftStore\.saveReply\(\s*discussionId,\s*ForumDraftStore\.ReplyDraft\(replyBody, replyTarget, attachments\)\s*\)/,
+      'saved with the answer it was answering, and with its files');
     assert.match(thread, /draftStore\.clearReply\(discussionId\)/);
     assert.match(DRAFT_STORE, /fun reply\(discussionId: String\)/, 'the key is the thread');
   });
@@ -419,7 +422,10 @@ test('a long body folds behind a plain "আরও দেখুন"', async (t) =
   });
 
   await t.test('the fold is decided before anything is measured', () => {
-    assert.match(PORTAL_MODELS, /val isLong: Boolean get\(\) = body\.length > 240 \|\| body\.contains\("<img"/,
+    // The length is the length of the words: a picture used to make a body
+    // "long" on the strength of its markup alone, and a post with one picture and
+    // one line was folded behind a control it did not need.
+    assert.match(PORTAL_MODELS, /val isLong: Boolean get\(\) = forumBodyText\(body\)\.length > 240/,
       'a length, so a short answer never grows a control it does not need');
     assert.match(FORUM_SCREENS, /private const val FORUM_FOLD_CHARS = 240/,
       'and the opening post uses the same rule');
@@ -484,8 +490,10 @@ test('the reply box is an editor, not a one-line field', async (t) => {
   });
 
   await t.test('what is counted is the text, not the markup', () => {
-    assert.match(FORUM_SCREENS, /private fun forumPlainText\(html: String\): String =/,
+    assert.match(FORUM_HTML, /fun forumBodyText\(html: String\): String =/,
       'one way to ask what the reader typed');
+    assert.match(FORUM_HTML, /fun forumBodyMarkup\(html: String\): String =/,
+      'and one way to ask what to draw, with the files taken out of it');
     assert.match(FORUM_SCREENS, /val bodyProblem = ForumText\.bodyProblem\(forumPlainText\(body\)\)/,
       'the length the database will judge is the length of the text');
     assert.match(FORUM_SCREENS, /ForumText\.replyProblem\(forumPlainText\(body\)\) == null/,
@@ -500,7 +508,8 @@ test('the reply box is an editor, not a one-line field', async (t) => {
     // the reply list's own checks hold the draft to it.
     assert.match(FORUM_SCREENS, /draftStore\.saveReply\(/,
       'the reader is never told the draft is lost, because it is not');
-    assert.match(FORUM_SCREENS, /"\$targetName কে উত্তর"/, 'and who they are answering');
+    assert.match(FORUM_SCREENS, /targetName\?\.let \{ "\$it কে উত্তর" \}/,
+      'and who they are answering');
     assert.match(FORUM_SCREENS, /testTag\("forum_reply_target_clear"\)/, 'with a way to take it back');
   });
 });

@@ -366,42 +366,55 @@ test('the editor grows with the writing and pictures are attached, not typed', a
     assert.match(FORUM_EDITOR, /maxGrow: Int = if \(compact\) 260 else 720/, 'with a ceiling per shape');
   });
 
-  await t.test('a picture is an attachment, drawn over the box', () => {
+  await t.test('a file is attached on the row under the box, never over it', () => {
     const editor = editorSource();
-    assert.match(editor, /attachments: List<String> = emptyList\(\)/);
-    assert.match(editor, /onAttachImage: \(\(\) -> Unit\)\? = null/);
-    assert.match(editor, /onRemoveAttachment: \(String\) -> Unit = \{\}/);
-    assert.match(editor, /testTag\("editor_attachment"\)/, 'the thumbnail is reachable in a UI test');
-    assert.match(editor, /testTag\("editor_attachment_remove"\)/, 'and so is its cross');
-    assert.match(editor, /Icons\.Default\.Close/, 'the cross');
-    assert.match(editor, /PortalAsyncImage\(/, 'the picture itself');
+    // The editor is an editor: the strip that used to sit above its toolbar is
+    // gone, and with it the parameters that fed it.
+    assert.ok(!/attachments: List<String>/.test(editor), 'the editor holds no files of its own');
+    assert.ok(!/onAttachImage/.test(editor), 'and does not open the picker');
+    assert.ok(!/editor_attachment/.test(editor), 'so nothing is drawn over the formatting row');
   });
 
-  await t.test('the compact editor never inserts one into the body', () => {
+  await t.test('the compact editor never inserts a file into the body', () => {
     const editor = editorSource();
-    assert.match(editor, /} else if \(onAttachImage != null\) \{\s*\/\/ The forum's picture: attached, never typed into the body\.\s*ToolIcon\("ছবি সংযুক্ত করুন", Icons\.Default\.Image, true\) \{ onAttachImage\(\) \}/,
-      'the forum\'s image button hands the picker to the screen');
     assert.ok(!/compact[\s\S]{0,200}insertImageUrl/.test(
       editor.slice(0, editor.indexOf('fun insertImageUrl'))
     ), 'nothing in the compact path inserts an image');
+    assert.ok(!/ছবি সংযুক্ত করুন/.test(editor), 'and the compact row has no picture button at all');
+    const row = screen('ForumAttachmentRow');
+    assert.match(row, /Icons\.Default\.AttachFile/, 'the paperclip is where files are added');
+    assert.ok(!/Text\(\s*text = "ছবি"/.test(row), 'with no word beside it');
+    assert.match(row, /ForumAttachmentUploader\.canAdd\(attachments\.size\)/,
+      'and it stops at the fifth file');
   });
 
-  await t.test('the reply posts its pictures after the text', () => {
+  await t.test('the post carries its files out through one door', () => {
     // An expression body, so the slice runs from the declaration to what follows
     // it; `bodyOf` would have stopped at the `if`'s own brace.
-    const from = FORUM_SCREENS.indexOf('private fun forumWithAttachments(');
-    const attach = FORUM_SCREENS.slice(from, FORUM_SCREENS.indexOf('@Composable', from));
+    const forumHtml = read('data', 'portal', 'ForumHtml.kt');
+    const from = forumHtml.indexOf('fun forumWithAttachments(');
+    const attach = forumHtml.slice(from, forumHtml.indexOf('/**', from));
     assert.match(attach, /"<p><img src=/, 'an image tag is built on the way out');
-    assert.match(attach, /url\.replace\("\\"", ""\)/, 'from the URL that was attached, without its quotes');
-    assert.match(FORUM_SCREENS, /postReply\(discussionId, forumWithAttachments\(body, replyImages\), replyTarget\)/,
-      'and it is what the database is handed');
+    assert.match(attach, /"<p><a href=/, 'and a document is a labelled link');
+    assert.match(attach, /attachment\.label\.replace\("\\"", ""\)/,
+      'named by the file the reader picked');
+    assert.match(FORUM_SCREENS,
+      /postReply\(discussionId, forumWithAttachments\(body, attachments\), replyTarget\)/,
+      'and that is what the database is handed');
+    assert.match(FORUM_SCREENS,
+      /post\(\s*categorySlug,\s*title,\s*forumWithAttachments\(body, attachments\),/,
+      'a new thread sends its files the same way');
   });
 
   await t.test('the attachments survive a wrong turn', () => {
-    assert.match(DRAFT_STORE, /val images: List<String> = emptyList\(\)/,
+    assert.match(DRAFT_STORE, /val attachments: List<ForumAttachment> = emptyList\(\)/,
       'they are part of the draft');
-    assert.match(DRAFT_STORE, /put\("images", org\.json\.JSONArray\(draft\.images\)\)/, 'written with it');
-    assert.match(DRAFT_STORE, /images = json\.optJSONArray\("images"\)\.toStringList\(\)/, 'and read back');
+    assert.match(DRAFT_STORE, /put\("attachments", draft\.attachments\.toJsonArray\(\)\)/, 'written with it');
+    assert.match(DRAFT_STORE, /json\.optJSONArray\("attachments"\)\.toAttachments\(\)/, 'and read back');
+    assert.match(DRAFT_STORE, /optJSONArray\("images"\)\.toStringList\(\)\.map\(::attachmentFromUrl\)/,
+      'including a draft written before the app took PDFs');
+    assert.match(PORTAL_MODELS, /val sizeBytes: Long = 0L/,
+      'and the name and the size a chip is drawn from are on the model');
   });
 
   await t.test('the toolbar is the four the owner listed', () => {

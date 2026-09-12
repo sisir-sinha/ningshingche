@@ -26,6 +26,9 @@ import java.util.concurrent.TimeUnit
 
 object PdfHelper {
 
+    /** A downloaded attachment is reused for a day before it is fetched again. */
+    private const val CACHE_TTL_MS = 24L * 60L * 60L * 1000L
+
     private val http = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(120, TimeUnit.SECONDS)
@@ -127,6 +130,96 @@ object PdfHelper {
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    /**
+     * One file from a forum attachment, downloaded to the cache.
+     *
+     * The reader's PDF viewer is a library that reads files, so the document has
+     * to be on the disk before it can be opened — the same path the book archive
+     * already takes, without the book's metadata to name it with.
+     */
+    suspend fun downloadAttachment(context: Context, url: String, fileName: String): File =
+        withContext(Dispatchers.IO) {
+            if (url.isBlank()) throw IOException("ফাইলের ঠিকানা নেই।")
+            val safeName = safeFileName(fileName)
+            val cacheDir = File(context.cacheDir, "attachment_cache").apply { mkdirs() }
+            val target = File(cacheDir, safeName)
+            val fresh = target.exists() && target.length() > 2048 &&
+                System.currentTimeMillis() - target.lastModified() < CACHE_TTL_MS
+            if (fresh) return@withContext target
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", "NingshingCheApp/1.0")
+                .header("Accept", "*/*")
+                .build()
+            http.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) throw IOException("ফাইল ডাউনলোড হয়নি (${response.code})")
+                val body = response.body ?: throw IOException("ফাইল খালি এসেছে।")
+                FileOutputStream(target).use { output -> body.byteStream().copyTo(output) }
+            }
+            target
+        }
+
+    /**
+     * An attachment saved where the reader can keep it: `Download/Ningshingche_PDFs`
+     * for a document, `Download/Ningshingche` for a picture.
+     */
+    suspend fun saveAttachmentToDownloads(
+        context: Context,
+        url: String,
+        fileName: String,
+        mimeType: String
+    ): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val pdf = mimeType.equals("application/pdf", ignoreCase = true) ||
+                fileName.trim().lowercase().endsWith(".pdf")
+            val folder = if (pdf) "Ningshingche_PDFs" else "Ningshingche"
+            val source = downloadAttachment(context, url, fileName)
+            val targetFileName = safeFileName(fileName)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, targetFileName)
+                    put(MediaStore.MediaColumns.MIME_TYPE, mimeType.ifBlank { "application/octet-stream" })
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/" + folder)
+                    put(MediaStore.MediaColumns.IS_PENDING, 1)
+                }
+                val resolver = context.contentResolver
+                val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+                    ?: resolver.insert(MediaStore.Files.getContentUri("external"), contentValues)
+                if (uri != null) {
+                    resolver.openOutputStream(uri).use { outStream ->
+                        if (outStream == null) throw IOException("Failed to open output stream")
+                        FileInputStream(source).use { inStream -> inStream.copyTo(outStream) }
+                    }
+                    contentValues.clear()
+                    contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                    resolver.update(uri, contentValues, null, null)
+                    return@withContext Result.success("Downloads/$folder/$targetFileName ফোল্ডারে সংরক্ষিত হয়েছে!")
+                }
+            }
+
+            val downloadsDir =
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            val destDir = File(downloadsDir, folder).apply { mkdirs() }
+            val destFile = File(destDir, targetFileName)
+            FileInputStream(source).use { inStream ->
+                FileOutputStream(destFile).use { outStream -> inStream.copyTo(outStream) }
+            }
+            Result.success("ডাউনলোড ফোল্ডারে সংরক্ষিত হয়েছে: ${destFile.name}")
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /** A name this filesystem will take, and one the reader will still recognise. */
+    private fun safeFileName(raw: String): String {
+        val cleaned = raw.substringAfterLast('/').trim()
+            .replace(Regex("[\\\\/:*?\"<>|]"), "_")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+        return cleaned.ifBlank { "attachment" }.take(96)
     }
 
     fun sharePdfFile(context: Context, doc: NinghsingPdfDocument, file: File): Boolean {

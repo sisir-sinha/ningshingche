@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -42,6 +43,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Forum
@@ -49,6 +51,7 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Reply
 import androidx.compose.material.icons.filled.Search
@@ -104,6 +107,15 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.ningshingche.app.data.local.ForumDraftStore
 import com.ningshingche.app.data.portal.ForumActivity
+import com.ningshingche.app.data.portal.ForumAttachment
+import com.ningshingche.app.data.portal.forumBodyAttachments
+import com.ningshingche.app.data.portal.forumBodyDocs
+import com.ningshingche.app.data.portal.forumBodyImages
+import com.ningshingche.app.data.portal.forumBodyMarkup
+import com.ningshingche.app.data.portal.forumBodyText
+import com.ningshingche.app.data.portal.forumHasText
+import com.ningshingche.app.data.portal.forumPlainText
+import com.ningshingche.app.data.portal.forumWithAttachments
 import com.ningshingche.app.data.portal.ForumCategory
 import com.ningshingche.app.data.portal.ForumCategoryPage
 import com.ningshingche.app.data.portal.ForumDiscussion
@@ -114,7 +126,9 @@ import com.ningshingche.app.data.portal.ForumSearchResult
 import com.ningshingche.app.data.portal.ForumText
 import com.ningshingche.app.data.portal.ForumThread
 import com.ningshingche.app.data.portal.PortalError
+import com.ningshingche.app.data.remote.ForumAttachmentUploader
 import com.ningshingche.app.data.remote.ImgBbUploader
+import com.ningshingche.app.ui.components.AttachmentViewer
 import com.ningshingche.app.ui.components.HtmlContentEditor
 import com.ningshingche.app.ui.components.HtmlEditorController
 import com.ningshingche.app.ui.components.PortalAsyncImage
@@ -158,12 +172,15 @@ import kotlinx.coroutines.launch
  *   * an answer and its answers are one card: the replies are indented well
  *     inside it, behind a line that runs down their left, so the whole argument
  *     reads as the answer it belongs to;
- *   * the reply box is a strip fixed to the bottom of the thread, small to start
- *     with and growing with what is written in it, and it rises with the keyboard.
- *     Back, while the keyboard is up, puts the keyboard away first, and a tap
- *     anywhere outside the editor does the same;
- *   * a picture in an answer is attached, not typed: a thumbnail over the box
- *     with a cross to take it back, appended to the post when it is sent.
+ *   * the reply box is not always there. The thread carries one button —
+ *     উত্তর যোগ করুন, bottom right — and the box expands from the bottom of the
+ *     screen when it is asked for and shrinks away when it is done with;
+ *   * files are attached, never typed: a paperclip on the row under the box takes
+ *     up to five pictures and PDFs, each drawn beside it with a cross to take it
+ *     back, and all of them are appended to the post on its way out;
+ *   * a picture in a post is a small preview and a PDF is its icon and its name —
+ *     never a URL, and never the boxed "obj" the text renderer keeps for an image
+ *     it cannot draw. A tap opens either one large, with a download beside it.
  *
  * Nothing here holds content of its own: rooms are rows, threads are rows, and a
  * number on a card is a number the database sent.
@@ -187,6 +204,15 @@ private val FORUM_REPLY_INDENT = 22.dp
 /** The reply box's first height, and the ceiling it grows to. */
 private const val FORUM_COMPOSER_HEIGHT = 96
 private const val FORUM_COMPOSER_MAX = 240
+
+/** How long the box takes to arrive, before the keyboard is asked for. */
+private const val FORUM_COMPOSER_APPEAR_MS = 260L
+
+/** What a file attached to a draft is drawn as, on the row under the box. */
+private val FORUM_ATTACHMENT_THUMB = 44.dp
+
+/** What a file attached to a *post* is drawn as, under its words. */
+private val FORUM_ATTACHMENT_PREVIEW = 96.dp
 
 // ---------------------------------------------------------------------------
 // ফোরাম — the home
@@ -727,19 +753,44 @@ fun ForumThreadScreen(
     var expandedThreads by remember { mutableStateOf(setOf<String>()) }
 
     var replyBody by remember { mutableStateOf("") }
-    var replyImages by remember { mutableStateOf(listOf<String>()) }
+    var attachments by remember { mutableStateOf(listOf<ForumAttachment>()) }
     var replyTarget by remember { mutableStateOf("") }
     var posting by remember { mutableStateOf(false) }
     var replyError by remember { mutableStateOf<String?>(null) }
     var attaching by remember { mutableStateOf(false) }
+    // The box is not on the screen until it is asked for: a thread is read far
+    // more often than it is answered, and a permanent editor at the bottom of
+    // every reading is a screen that is two-thirds a thread.
+    var composerOpen by remember { mutableStateOf(false) }
 
     var reactionTarget by remember { mutableStateOf<ForumReply?>(null) }
+    var viewerAttachment by remember { mutableStateOf<ForumAttachment?>(null) }
 
-    // The keyboard is the editor's; Back, while it is up, belongs to it.
+    // Opening the box: the animation takes this long, and the keyboard is asked
+    // for after it, so the two movements do not fight each other.
+    val openComposer: (String) -> Unit = { parentId ->
+        if (parentId.isNotBlank()) replyTarget = parentId
+        composerOpen = true
+    }
+
+    // Back, in the order the reader expects: the keyboard first, then the box,
+    // then the screen. The box's handler is disabled while the keyboard is up,
+    // so the keyboard always wins the first press.
     val keyboardUp by remember {
         derivedStateOf { WindowInsets.ime.getBottom(density) > 0 }
     }
+    BackHandler(enabled = composerOpen && !keyboardUp) {
+        composerOpen = false
+        editor.dismiss()
+    }
     BackHandler(enabled = keyboardUp) { editor.dismiss() }
+
+    // The keyboard follows the box in, once the box has arrived.
+    LaunchedEffect(composerOpen) {
+        if (!composerOpen) return@LaunchedEffect
+        delay(FORUM_COMPOSER_APPEAR_MS)
+        editor.focus()
+    }
 
     LaunchedEffect(discussionId, reloadToken) {
         loading = true
@@ -752,35 +803,48 @@ fun ForumThreadScreen(
         loading = false
     }
 
-    // The draft comes back when the screen does, and is saved as it changes.
+    // The draft comes back when the screen does, and is saved as it changes. A
+    // draft with words in it opens the box: a half-written answer behind a button
+    // is a half-written answer the reader has to remember they wrote.
     LaunchedEffect(discussionId) {
         val saved = draftStore.reply(discussionId)
         if (saved != null) {
             replyBody = saved.body
             replyTarget = saved.parentId
-            replyImages = saved.images
+            attachments = saved.attachments
+            if (forumHasText(saved.body) || saved.attachments.isNotEmpty()) composerOpen = true
         }
     }
-    LaunchedEffect(replyBody, replyTarget, replyImages, discussionId) {
+    LaunchedEffect(replyBody, replyTarget, attachments, discussionId, isSignedIn) {
         if (!isSignedIn) return@LaunchedEffect
         delay(FORUM_SEARCH_DELAY_MS)
         draftStore.saveReply(
             discussionId,
-            ForumDraftStore.ReplyDraft(replyBody, replyTarget, replyImages)
+            ForumDraftStore.ReplyDraft(replyBody, replyTarget, attachments)
         )
     }
 
-    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
+    // Pictures and PDFs together, five at most. Each file is uploaded as it is
+    // taken, so the row fills in front of the reader instead of after them.
+    val attachmentPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        if (uris.isEmpty()) return@rememberLauncherForActivityResult
         scope.launch {
             attaching = true
             replyError = null
-            ImgBbUploader.uploadFromUri(context, uri, "forum_reply_${System.currentTimeMillis()}")
-                .onSuccess { image ->
-                    val url = image.displayUrl.ifBlank { image.url }
-                    if (url.isNotBlank()) replyImages = replyImages + url
-                }
-                .onFailure { replyError = it.message ?: "ছবি আপলোড হয়নি।" }
+            val picked = uris.take(ForumAttachmentUploader.roomLeft(attachments.size))
+            if (picked.size < uris.size) {
+                replyError =
+                    "একটি উত্তরে সর্বোচ্চ ${toBengaliNumeral(ForumAttachmentUploader.MAX_FILES)}টি ফাইল যুক্ত করা যাবে।"
+            }
+            picked.forEachIndexed { index, uri ->
+                ForumAttachmentUploader.upload(context, uri, index)
+                    .onSuccess { file -> attachments = attachments + file }
+                    .onFailure { failure ->
+                        replyError = failure.message ?: "ফাইল যুক্ত করা যায়নি।"
+                    }
+            }
             attaching = false
         }
     }
@@ -793,14 +857,20 @@ fun ForumThreadScreen(
             replyError = null
             // The pictures are attached, never typed: they are appended to the
             // post here, on their way out, and never appear in the editor.
-            postReply(discussionId, forumWithAttachments(body, replyImages), replyTarget)
+            postReply(discussionId, forumWithAttachments(body, attachments), replyTarget)
                 .onSuccess { posted ->
                     // Folded in locally, then re-read with countView = false so
                     // the answer arrives with the counts the database kept.
                     thread = thread?.with(posted)
+                    // Sent: the box closes, and what was in it — words and files
+                    // alike — is cleared here and in the draft. The editor is told
+                    // the value is empty, which is what takes the text off the
+                    // screen; a draft is for what has not been posted.
                     replyBody = ""
                     replyTarget = ""
-                    replyImages = emptyList()
+                    attachments = emptyList()
+                    composerOpen = false
+                    editor.dismiss()
                     draftStore.clearReply(discussionId)
                     thread = loadThread(discussionId, false).getOrNull() ?: thread
                 }
@@ -838,22 +908,50 @@ fun ForumThreadScreen(
         onRefreshClick = { reloadToken += 1 },
         bottomBar = {
             if (isSignedIn) {
-                ForumReplyComposer(
-                    body = replyBody,
-                    onBodyChange = { replyBody = it },
-                    images = replyImages,
-                    attaching = attaching,
-                    onAttachImage = { imagePicker.launch("image/*") },
-                    onRemoveImage = { url -> replyImages = replyImages - url },
-                    targetName = thread?.replies
-                        ?.firstOrNull { it.id == replyTarget }
-                        ?.authorName,
-                    onClearTarget = { replyTarget = "" },
-                    posting = posting,
-                    error = replyError,
-                    onSubmit = submit,
-                    controller = editor
-                )
+                // One seat, two occupants: a Box, not a Column, so the button on
+                // its way out and the box on its way in overlap instead of
+                // stacking — the bottom bar never grows to twice its size while
+                // the two trade places.
+                Box(contentAlignment = Alignment.BottomCenter) {
+                    // The box grows out of the bottom of the screen while the
+                    // button that asked for it shrinks away, and back on the way
+                    // out.
+                    AnimatedVisibility(
+                        visible = composerOpen,
+                        enter = expandVertically(expandFrom = Alignment.Bottom) + fadeIn(),
+                        exit = shrinkVertically(shrinkFrom = Alignment.Bottom) + fadeOut()
+                    ) {
+                        ForumReplyComposer(
+                            body = replyBody,
+                            onBodyChange = { replyBody = it },
+                            attachments = attachments,
+                            attaching = attaching,
+                            onAttach = {
+                                attachmentPicker.launch(ForumAttachmentUploader.PICKER_TYPES)
+                            },
+                            onRemoveAttachment = { file -> attachments = attachments - file },
+                            targetName = thread?.replies
+                                ?.firstOrNull { it.id == replyTarget }
+                                ?.authorName,
+                            onClearTarget = { replyTarget = "" },
+                            onCollapse = {
+                                composerOpen = false
+                                editor.dismiss()
+                            },
+                            posting = posting,
+                            error = replyError,
+                            onSubmit = submit,
+                            controller = editor
+                        )
+                    }
+                    AnimatedVisibility(
+                        visible = !composerOpen,
+                        enter = expandVertically(expandFrom = Alignment.Bottom) + fadeIn(),
+                        exit = shrinkVertically(shrinkFrom = Alignment.Bottom) + fadeOut()
+                    ) {
+                        ForumReplyLauncher(onClick = { openComposer("") })
+                    }
+                }
             } else {
                 ForumSignInPrompt(onSignInClick)
             }
@@ -901,7 +999,8 @@ fun ForumThreadScreen(
                                 expandedBodies = expandedBodies.toggle(loaded.discussion.id)
                             },
                             onAuthorClick = { onAuthorClick(loaded.discussion.authorId) },
-                            onCardClick = { editor.dismiss() }
+                            onCardClick = { editor.dismiss() },
+                            onOpenAttachment = { file -> viewerAttachment = file }
                         )
                     }
 
@@ -939,12 +1038,10 @@ fun ForumThreadScreen(
                             onToggleExpand = { expandedBodies = expandedBodies.toggle(answer.id) },
                             onToggleAll = { expandedThreads = expandedThreads.toggle(answer.id) },
                             onAuthorClick = onAuthorClick,
-                            onReply = {
-                                replyTarget = answer.id
-                                editor.dismiss()
-                            },
+                            onReply = { openComposer(answer.id) },
                             onReact = { target -> reactionTarget = target },
                             onCardClick = { editor.dismiss() },
+                            onOpenAttachment = { file -> viewerAttachment = file },
                             expandedIds = expandedBodies
                         )
                     }
@@ -961,6 +1058,14 @@ fun ForumThreadScreen(
             reply = target,
             onDismiss = { reactionTarget = null },
             onPick = { kind -> reactTo(target, kind) }
+        )
+    }
+
+    // An attachment as large as the phone will show it.
+    viewerAttachment?.let { file ->
+        AttachmentViewer(
+            attachment = file,
+            onDismiss = { viewerAttachment = null }
         )
     }
 }
@@ -1016,6 +1121,7 @@ private fun ForumAnswerCard(
     onReply: () -> Unit,
     onReact: (ForumReply) -> Unit,
     onCardClick: () -> Unit,
+    onOpenAttachment: (ForumAttachment) -> Unit,
     expandedIds: Set<String> = emptySet()
 ) {
     val tokens = LocalEditorialTokens.current
@@ -1054,6 +1160,7 @@ private fun ForumAnswerCard(
                 expanded = expanded || !answer.isLong,
                 canExpand = answer.isLong,
                 onToggleExpand = onToggleExpand,
+                onOpenAttachment = onOpenAttachment,
                 testTag = "forum_answer_body_${answer.id}"
             )
             ForumReactionRow(
@@ -1135,7 +1242,8 @@ private fun ForumAnswerCard(
                             onAuthorClick = onAuthorClick,
                             onReply = onReply,
                             onReact = onReact,
-                            onCardClick = onCardClick
+                            onCardClick = onCardClick,
+                            onOpenAttachment = onOpenAttachment
                         )
                     }
                 }
@@ -1153,7 +1261,8 @@ private fun ForumNestedReply(
     onAuthorClick: (String) -> Unit,
     onReply: () -> Unit,
     onReact: (ForumReply) -> Unit,
-    onCardClick: () -> Unit
+    onCardClick: () -> Unit,
+    onOpenAttachment: (ForumAttachment) -> Unit
 ) {
     val tokens = LocalEditorialTokens.current
     Surface(
@@ -1186,6 +1295,7 @@ private fun ForumNestedReply(
                 expanded = expanded || !reply.isLong,
                 canExpand = reply.isLong,
                 onToggleExpand = onToggleExpand,
+                onOpenAttachment = onOpenAttachment,
                 testTag = "forum_reply_body_${reply.id}"
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1397,6 +1507,9 @@ fun NewDiscussionScreen(
     var coverDeleteUrl by remember { mutableStateOf("") }
     var coverUploading by remember { mutableStateOf(false) }
     var coverError by remember { mutableStateOf<String?>(null) }
+    var attachments by remember { mutableStateOf(listOf<ForumAttachment>()) }
+    var attaching by remember { mutableStateOf(false) }
+    var attachError by remember { mutableStateOf<String?>(null) }
 
     var posting by remember { mutableStateOf(false) }
     var postError by remember { mutableStateOf<String?>(null) }
@@ -1417,12 +1530,13 @@ fun NewDiscussionScreen(
             body = saved.body
             coverUrl = saved.coverImageUrl
             coverDeleteUrl = saved.coverDeleteUrl
+            attachments = saved.attachments
         }
         restored = true
     }
 
     // Saved as it is typed, so nothing is lost to a phone call or a wrong turn.
-    LaunchedEffect(restored, categorySlug, title, body, coverUrl, coverDeleteUrl) {
+    LaunchedEffect(restored, categorySlug, title, body, coverUrl, coverDeleteUrl, attachments) {
         if (!restored) return@LaunchedEffect
         delay(FORUM_SEARCH_DELAY_MS)
         draftStore.saveComposer(
@@ -1431,9 +1545,34 @@ fun NewDiscussionScreen(
                 title = title,
                 body = body,
                 coverImageUrl = coverUrl,
-                coverDeleteUrl = coverDeleteUrl
+                coverDeleteUrl = coverDeleteUrl,
+                attachments = attachments
             )
         )
+    }
+
+    // The same picker the reply box uses: pictures and PDFs, five at most.
+    val attachmentPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        if (uris.isEmpty()) return@rememberLauncherForActivityResult
+        scope.launch {
+            attaching = true
+            attachError = null
+            val picked = uris.take(ForumAttachmentUploader.roomLeft(attachments.size))
+            if (picked.size < uris.size) {
+                attachError =
+                    "একটি আলোচনায় সর্বোচ্চ ${toBengaliNumeral(ForumAttachmentUploader.MAX_FILES)}টি ফাইল যুক্ত করা যাবে।"
+            }
+            picked.forEachIndexed { index, uri ->
+                ForumAttachmentUploader.upload(context, uri, index)
+                    .onSuccess { file -> attachments = attachments + file }
+                    .onFailure { failure ->
+                        attachError = failure.message ?: "ফাইল যুক্ত করা যায়নি।"
+                    }
+            }
+            attaching = false
+        }
     }
 
     val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -1565,6 +1704,25 @@ fun NewDiscussionScreen(
                     placeholder = "আলোচনার কথা লিখুন…",
                     testTag = "forum_new_body"
                 )
+                // The cover is the thread's face; these are its files, and they
+                // are attached the same way a reply's are.
+                ForumAttachmentRow(
+                    attachments = attachments,
+                    attaching = attaching,
+                    onAttach = { attachmentPicker.launch(ForumAttachmentUploader.PICKER_TYPES) },
+                    onRemove = { file -> attachments = attachments - file },
+                    tagPrefix = "forum_new",
+                    modifier = Modifier.padding(top = EditorialSpace.xs)
+                )
+                attachError?.let { message ->
+                    Text(
+                        text = message,
+                        fontFamily = Kalpurush,
+                        fontSize = 11.5.sp,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.testTag("forum_new_attach_error")
+                    )
+                }
                 if (bodyProblem != null && forumHasText(body)) {
                     Text(
                         text = bodyProblem,
@@ -1594,7 +1752,15 @@ fun NewDiscussionScreen(
                         scope.launch {
                             posting = true
                             postError = null
-                            post(categorySlug, title, body, coverUrl, coverDeleteUrl)
+                            // The files ride with the body, on their way out — and
+                            // only here, so nothing is inserted into the writing.
+                            post(
+                                categorySlug,
+                                title,
+                                forumWithAttachments(body, attachments),
+                                coverUrl,
+                                coverDeleteUrl
+                            )
                                 .onSuccess { created ->
                                     // Cleared only here: the draft has been posted,
                                     // and there is nothing to come back to.
@@ -1981,27 +2147,6 @@ private fun OfficialBadge() {
 }
 
 /** What the reader typed, without the editor's markup. */
-private fun forumPlainText(html: String): String =
-    html.replace(Regex("<[^>]*>"), " ").replace("&nbsp;", " ").trim()
-
-/** Whether the editor has anything in it, empty markup aside. */
-private fun forumHasText(html: String): Boolean = forumPlainText(html).isNotBlank()
-
-/**
- * The post as it goes out: what was typed, then the pictures that were attached.
- *
- * A picture is never typed into the body — it is attached, and it is added here,
- * last, on its way to the database.
- */
-private fun forumWithAttachments(body: String, images: List<String>): String =
-    if (images.isEmpty()) {
-        body
-    } else {
-        body + images.joinToString(separator = "") { url ->
-            "<p><img src=\"${url.replace("\"", "")}\" alt=\"\"></p>"
-        }
-    }
-
 /** The room card's counters, for a room seen on its own. */
 @Composable
 private fun ForumCountsRow(discussions: Number, replies: Number, locked: Boolean) {
@@ -2154,11 +2299,17 @@ private fun ForumAuthorRow(
 }
 
 /**
- * A body, folded until asked for.
+ * A body, folded until asked for, and its attachments under it.
  *
- * Folded it is drawn as an annotated string — cheap, and never more than a screen
- * tall. Opened it goes through the app's article renderer, which is what knows
- * how to draw the pictures the editor can hold.
+ * The words and the files are asked for separately, and that is the whole of the
+ * fix the owner needed twice: a body with a picture in it used to be handed to
+ * the text renderer whole, and HtmlCompat draws an `<img>` as U+FFFC — the one
+ * character the platform keeps for "an object I cannot draw", which a reader sees
+ * as a boxed "obj". The picture is drawn by the app now, as a preview, and the
+ * text renderer never sees it.
+ *
+ * Folding counts the words only ([ForumReply.isLong]), so a short answer with a
+ * file in it no longer hides behind a "see more" for the sake of a tag.
  */
 @Composable
 private fun ForumBody(
@@ -2166,26 +2317,53 @@ private fun ForumBody(
     expanded: Boolean,
     canExpand: Boolean,
     onToggleExpand: () -> Unit,
+    onOpenAttachment: (ForumAttachment) -> Unit,
     testTag: String
 ) {
     val tokens = LocalEditorialTokens.current
+    val markup = forumBodyMarkup(html)
+    val images = forumBodyImages(html)
+    val docs = forumBodyDocs(html)
     Column(verticalArrangement = Arrangement.spacedBy(EditorialSpace.xxs)) {
-        if (expanded) {
-            RichHtmlArticleBody(
-                html = html,
-                fontSizeSp = 14f,
-                lineSpacingMultiplier = 1.4f,
-                onOpenLink = { },
-                modifier = Modifier.testTag(testTag)
-            )
-        } else {
-            com.ningshingche.app.ui.components.HtmlFormattedText(
-                html = html,
-                fontSize = 14.sp,
-                maxLines = 6,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.testTag(testTag)
-            )
+        if (markup.isNotBlank()) {
+            if (expanded) {
+                RichHtmlArticleBody(
+                    html = markup,
+                    fontSizeSp = 14f,
+                    lineSpacingMultiplier = 1.4f,
+                    onOpenLink = { },
+                    modifier = Modifier.testTag(testTag)
+                )
+            } else {
+                com.ningshingche.app.ui.components.HtmlFormattedText(
+                    html = markup,
+                    fontSize = 14.sp,
+                    maxLines = 6,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.testTag(testTag)
+                )
+            }
+        }
+        if (images.isNotEmpty() || docs.isNotEmpty()) {
+            // Pictures first, then documents: a name tells a reader nothing about
+            // a picture, and a picture tells them nothing about a page.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(EditorialSpace.xs),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                images.forEach { url ->
+                    ForumAttachmentPreview(
+                        file = ForumAttachment.fromReference(url, ""),
+                        onClick = onOpenAttachment
+                    )
+                }
+                docs.forEach { doc ->
+                    ForumAttachmentPreview(file = doc, onClick = onOpenAttachment)
+                }
+            }
         }
         if (canExpand) {
             // Small, plain, no border and no fill — the owner asked for exactly
@@ -2206,6 +2384,62 @@ private fun ForumBody(
     }
 }
 
+/**
+ * One attached file, as a post shows it: a picture as a small preview, a
+ * document as its icon and its name. A tap opens the viewer.
+ */
+@Composable
+private fun ForumAttachmentPreview(file: ForumAttachment, onClick: (ForumAttachment) -> Unit) {
+    val tokens = LocalEditorialTokens.current
+    if (file.isPdf) {
+        Surface(
+            shape = RoundedCornerShape(EditorialShape.thumb),
+            color = tokens.surfaceSunken,
+            modifier = Modifier
+                .clip(RoundedCornerShape(EditorialShape.thumb))
+                .clickable { onClick(file) }
+                .testTag("forum_body_attachment")
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(
+                    start = EditorialSpace.xs,
+                    end = EditorialSpace.sm,
+                    top = EditorialSpace.xs,
+                    bottom = EditorialSpace.xs
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PictureAsPdf,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.error
+                )
+                Spacer(Modifier.width(EditorialSpace.xs))
+                Text(
+                    text = file.label,
+                    fontFamily = Kalpurush,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 168.dp)
+                )
+            }
+        }
+    } else {
+        PortalAsyncImage(
+            url = file.url,
+            contentDescription = file.label,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .size(FORUM_ATTACHMENT_PREVIEW)
+                .clip(RoundedCornerShape(EditorialShape.thumb))
+                .clickable { onClick(file) }
+                .testTag("forum_body_attachment")
+        )
+    }
+}
+
 /** The opening post, with its cover and its numbers. */
 @Composable
 private fun ForumOpeningPost(
@@ -2213,7 +2447,8 @@ private fun ForumOpeningPost(
     expanded: Boolean,
     onToggleExpand: () -> Unit,
     onAuthorClick: () -> Unit,
-    onCardClick: () -> Unit
+    onCardClick: () -> Unit,
+    onOpenAttachment: (ForumAttachment) -> Unit
 ) {
     val tokens = LocalEditorialTokens.current
     Surface(
@@ -2281,10 +2516,12 @@ private fun ForumOpeningPost(
 
             ForumBody(
                 html = discussion.body,
-                expanded = expanded || discussion.body.length <= FORUM_FOLD_CHARS,
-                canExpand = discussion.body.length > FORUM_FOLD_CHARS ||
-                    discussion.body.contains("<img", ignoreCase = true),
+                // The opening post folds on its words like an answer does; its
+                // pictures are previews under the text, not a reason to hide it.
+                expanded = expanded || forumBodyText(discussion.body).length <= FORUM_FOLD_CHARS,
+                canExpand = forumBodyText(discussion.body).length > FORUM_FOLD_CHARS,
                 onToggleExpand = onToggleExpand,
+                onOpenAttachment = onOpenAttachment,
                 testTag = "forum_opening_body"
             )
 
@@ -2299,24 +2536,83 @@ private fun ForumOpeningPost(
 }
 
 /**
- * The reply box: a strip fixed to the bottom of the thread.
+ * উত্তর যোগ করুন — the one control a thread shows when nobody is writing in it.
+ *
+ * Bottom right, where a thumb is: the owner asked for exactly this, and it is
+ * also the honest shape of a thread — answers are read far more often than they
+ * are written, and a permanent editor at the bottom of the screen is a screen
+ * that is a third reading and two thirds typing.
+ */
+@Composable
+private fun ForumReplyLauncher(onClick: () -> Unit) {
+    val tokens = LocalEditorialTokens.current
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 3.dp,
+        shadowElevation = 8.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .imePadding()
+            .navigationBarsPadding()
+            .testTag("forum_reply_launcher")
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = EditorialSpace.sm, vertical = EditorialSpace.xs),
+            horizontalArrangement = Arrangement.End
+        ) {
+            Button(
+                onClick = onClick,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = tokens.accent,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
+                modifier = Modifier.testTag("forum_reply_open")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Reply,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(EditorialSpace.xs))
+                Text(
+                    text = "উত্তর যোগ করুন",
+                    fontFamily = Kalpurush,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.5.sp
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The reply box, once it has been asked for.
  *
  * It starts at [FORUM_COMPOSER_HEIGHT] — a reply is usually a line or two, and a
  * box the height of a paragraph is a box that has taken the thread off the
  * screen — and grows with what is written in it up to [FORUM_COMPOSER_MAX], after
  * which it scrolls inside itself. The keyboard lifts the whole strip
  * (`imePadding`) rather than covering it.
+ *
+ * Four buttons over the text — bold, italic, underline, a list — and nothing
+ * else: the owner took the picture button out of this row, because files are
+ * attached on the row under the box, where a picture cannot be dropped into the
+ * middle of a sentence by a mistimed tap. [onCollapse] is the chevron that puts
+ * the box away without posting anything; the draft stays where it is.
  */
 @Composable
 private fun ForumReplyComposer(
     body: String,
     onBodyChange: (String) -> Unit,
-    images: List<String>,
+    attachments: List<ForumAttachment>,
     attaching: Boolean,
-    onAttachImage: () -> Unit,
-    onRemoveImage: (String) -> Unit,
+    onAttach: () -> Unit,
+    onRemoveAttachment: (ForumAttachment) -> Unit,
     targetName: String?,
     onClearTarget: () -> Unit,
+    onCollapse: () -> Unit,
     posting: Boolean,
     error: String?,
     onSubmit: () -> Unit,
@@ -2342,22 +2638,37 @@ private fun ForumReplyComposer(
             ),
             verticalArrangement = Arrangement.spacedBy(EditorialSpace.xxs)
         ) {
-            if (targetName != null) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "$targetName কে উত্তর",
-                        fontFamily = Kalpurush,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp,
-                        color = tokens.accent,
-                        modifier = Modifier.weight(1f)
-                    )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = targetName?.let { "$it কে উত্তর" } ?: "নতুন উত্তর",
+                    fontFamily = Kalpurush,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    color = if (targetName != null) tokens.accent else tokens.inkMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                if (targetName != null) {
                     TextButton(
                         onClick = onClearTarget,
                         modifier = Modifier.testTag("forum_reply_target_clear")
                     ) {
                         Text("বাতিল", fontFamily = Kalpurush, fontSize = 12.sp, color = tokens.inkMuted)
                     }
+                }
+                IconButton(
+                    onClick = onCollapse,
+                    modifier = Modifier
+                        .size(30.dp)
+                        .testTag("forum_reply_collapse")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = "লেখা বন্ধ করুন",
+                        modifier = Modifier.size(18.dp),
+                        tint = tokens.inkMuted
+                    )
                 }
             }
 
@@ -2370,10 +2681,17 @@ private fun ForumReplyComposer(
                 compact = true,
                 placeholder = "উত্তর লিখুন…",
                 testTag = "forum_reply_field",
-                controller = controller,
-                attachments = images,
-                onAttachImage = onAttachImage,
-                onRemoveAttachment = onRemoveImage
+                controller = controller
+            )
+
+            // The files live here, on the row with the button that added them —
+            // never over the formatting buttons, and never in the text.
+            ForumAttachmentRow(
+                attachments = attachments,
+                attaching = attaching,
+                onAttach = onAttach,
+                onRemove = onRemoveAttachment,
+                tagPrefix = "forum_reply"
             )
 
             error?.let { message ->
@@ -2386,26 +2704,11 @@ private fun ForumReplyComposer(
                 )
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(
-                    onClick = onAttachImage,
-                    enabled = !attaching,
-                    modifier = Modifier.testTag("forum_reply_attach")
-                ) {
-                    if (attaching) {
-                        CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
-                    } else {
-                        Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(EditorialSpace.xxs))
-                        Text(
-                            text = "ছবি",
-                            fontFamily = Kalpurush,
-                            fontSize = 12.sp,
-                            color = tokens.inkMuted
-                        )
-                    }
-                }
-                Spacer(Modifier.weight(1f))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Button(
                     onClick = onSubmit,
                     enabled = !posting && ForumText.replyProblem(forumPlainText(body)) == null,
@@ -2435,6 +2738,117 @@ private fun ForumReplyComposer(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * The paperclip, and what it has taken so far.
+ *
+ * Five files at most, pictures and PDFs: a picture is drawn as itself, small,
+ * with a cross on its corner; a document is drawn as its icon and its file name,
+ * because a page of text cannot be a thumbnail and a reader who attached three
+ * PDFs has to be able to tell them apart. The cross is on every file, pictures
+ * and documents alike, and taking one back never touches the others.
+ *
+ * [tagPrefix] lets the two composers that use this row — the reply box and the
+ * new-thread composer — be driven apart in a UI test.
+ */
+@Composable
+private fun ForumAttachmentRow(
+    attachments: List<ForumAttachment>,
+    attaching: Boolean,
+    onAttach: () -> Unit,
+    onRemove: (ForumAttachment) -> Unit,
+    tagPrefix: String,
+    modifier: Modifier = Modifier
+) {
+    val tokens = LocalEditorialTokens.current
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
+    ) {
+        IconButton(
+            onClick = onAttach,
+            enabled = !attaching && ForumAttachmentUploader.canAdd(attachments.size),
+            modifier = Modifier
+                .size(32.dp)
+                .testTag("${tagPrefix}_attach")
+        ) {
+            if (attaching) {
+                CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+            } else {
+                Icon(
+                    imageVector = Icons.Default.AttachFile,
+                    contentDescription = "ফাইল সংযুক্ত করুন",
+                    modifier = Modifier.size(18.dp),
+                    tint = tokens.inkMuted
+                )
+            }
+        }
+        attachments.forEach { file ->
+            if (file.isPdf) {
+                Surface(
+                    shape = RoundedCornerShape(EditorialShape.thumb),
+                    color = tokens.surfaceSunken,
+                    modifier = Modifier.testTag("${tagPrefix}_attachment")
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(
+                            start = EditorialSpace.xs,
+                            end = EditorialSpace.xxs,
+                            top = EditorialSpace.xxs,
+                            bottom = EditorialSpace.xxs
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PictureAsPdf,
+                            contentDescription = null,
+                            modifier = Modifier.size(15.dp),
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = file.label,
+                            fontFamily = Kalpurush,
+                            fontSize = 11.5.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.widthIn(max = 132.dp)
+                        )
+                    }
+                }
+            } else {
+                Box(modifier = Modifier.size(FORUM_ATTACHMENT_THUMB).testTag("${tagPrefix}_attachment")) {
+                    PortalAsyncImage(
+                        url = file.url,
+                        contentDescription = file.label,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(EditorialShape.thumb))
+                    )
+                }
+            }
+            IconButton(
+                onClick = { onRemove(file) },
+                modifier = Modifier
+                    .size(22.dp)
+                    .testTag("${tagPrefix}_attachment_remove")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Clear,
+                    contentDescription = "সংযুক্তি সরান",
+                    modifier = Modifier
+                        .size(14.dp)
+                        .background(MaterialTheme.colorScheme.surface, CircleShape),
+                    tint = MaterialTheme.colorScheme.error
+                )
             }
         }
     }

@@ -65,6 +65,22 @@ object SatoruUploadClient {
         val sizeBytes: Long
     )
 
+    /**
+     * A file of any kind on the same host.
+     *
+     * The forum's attachments ride here: a PDF is not a song, but it is a
+     * document the host will keep and hand back a URL for, and Supabase Storage
+     * would want a session and a bucket policy for the same result. The name is
+     * carried along because the app shows it on the thread — a document is its
+     * icon and its file name, and a URL's last path segment is neither.
+     */
+    data class UploadedFile(
+        val publicUrl: String,
+        val displayName: String,
+        val mimeType: String,
+        val sizeBytes: Long
+    )
+
     fun describe(context: Context, uri: Uri, fallbackName: String = "song.mp3"): SongFile {
         var name = fallbackName
         var size = 0L
@@ -98,47 +114,95 @@ object SatoruUploadClient {
                 return@withContext Result.failure(Exception("ফাইল ২০০ এমবি-র বেশি হতে পারে না।"))
             }
             try {
-                val part = UriUploadBody(
-                    context = context,
-                    uri = uri,
-                    contentType = file.mimeType.toMediaTypeOrNull(),
-                    declaredLength = file.sizeBytes
-                )
-                val body = MultipartBody.Builder()
-                    .setType(MultipartBody.FORM)
-                    .addFormDataPart("reqtype", "fileupload")
-                    .addFormDataPart("fileToUpload", file.displayName, part)
-                    .build()
-                val request = Request.Builder()
-                    .url(UPLOAD_ENDPOINT)
-                    .header("User-Agent", USER_AGENT)
-                    .header("Accept", "text/plain")
-                    .post(body)
-                    .build()
-                client.newCall(request).execute().use { response ->
-                    val text = response.body?.string().orEmpty().trim()
-                    if (!response.isSuccessful) {
-                        return@withContext Result.failure(
-                            Exception(uploadError(response.code, text))
-                        )
-                    }
-                    if (!text.startsWith("http")) {
-                        return@withContext Result.failure(
-                            Exception("আপলোড সার্ভার ঠিকানা দেয়নি।")
-                        )
-                    }
-                    Result.success(
-                        UploadedSong(
-                            publicUrl = text.substringBefore('\n').trim(),
-                            storagePath = "",
-                            sizeBytes = file.sizeBytes
-                        )
+                val url = sendFile(context, uri, file.displayName, file.mimeType, file.sizeBytes)
+                Result.success(
+                    UploadedSong(
+                        publicUrl = url,
+                        storagePath = "",
+                        sizeBytes = file.sizeBytes
                     )
-                }
+                )
             } catch (error: Exception) {
                 Result.failure(error)
             }
         }
+
+    /**
+     * Anything the host will take: a PDF, a page, a picture the image host would
+     * refuse. The caller is told the name and the type as well as the URL, so a
+     * thread can draw a chip with the file's own name on it.
+     */
+    suspend fun uploadAttachment(context: Context, uri: Uri): Result<UploadedFile> =
+        withContext(Dispatchers.IO) {
+            val file = describe(context, uri, fallbackName = "attachment.pdf")
+            if (isTooLarge(file.sizeBytes)) {
+                return@withContext Result.failure(Exception("সংযুক্তি ২০০ এমবি-র বেশি হতে পারে না।"))
+            }
+            val name = withExtension(file.displayName, file.mimeType)
+            try {
+                val url = sendFile(context, uri, name, file.mimeType, file.sizeBytes)
+                Result.success(
+                    UploadedFile(
+                        publicUrl = url,
+                        displayName = name,
+                        mimeType = file.mimeType,
+                        sizeBytes = file.sizeBytes
+                    )
+                )
+            } catch (error: Exception) {
+                Result.failure(error)
+            }
+        }
+
+    /** One multipart POST to the host, and the URL it answers with. */
+    private fun sendFile(
+        context: Context,
+        uri: Uri,
+        name: String,
+        mimeType: String,
+        sizeBytes: Long
+    ): String {
+        val part = UriUploadBody(
+            context = context,
+            uri = uri,
+            contentType = mimeType.toMediaTypeOrNull(),
+            declaredLength = sizeBytes
+        )
+        val body = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart("reqtype", "fileupload")
+            .addFormDataPart("fileToUpload", name, part)
+            .build()
+        val request = Request.Builder()
+            .url(UPLOAD_ENDPOINT)
+            .header("User-Agent", USER_AGENT)
+            .header("Accept", "text/plain")
+            .post(body)
+            .build()
+        client.newCall(request).execute().use { response ->
+            val text = response.body?.string().orEmpty().trim()
+            if (!response.isSuccessful) throw IOException(uploadError(response.code, text))
+            if (!text.startsWith("http")) throw IOException("আপলোড সার্ভার ঠিকানা দেয়নি।")
+            return text.substringBefore('\n').trim()
+        }
+    }
+
+    /** The host decides the type by the extension, so a file without one gets it. */
+    private fun withExtension(name: String, mimeType: String): String {
+        val clean = name.substringAfterLast('/').trim().ifBlank { "attachment" }
+        if (clean.contains('.')) return clean
+        return "$clean.${extensionFor(mimeType)}"
+    }
+
+    private fun extensionFor(mimeType: String): String = when (mimeType.lowercase()) {
+        "application/pdf" -> "pdf"
+        "image/png" -> "png"
+        "image/webp" -> "webp"
+        "image/gif" -> "gif"
+        "image/heic", "image/heif" -> "heic"
+        "text/plain" -> "txt"
+        else -> if (mimeType.startsWith("image/")) "jpg" else "bin"
+    }
 
     private fun uploadError(code: Int, body: String): String {
         val lower = body.lowercase()

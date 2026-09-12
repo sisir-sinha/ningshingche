@@ -28,7 +28,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.FormatBold
@@ -82,10 +81,22 @@ import org.json.JSONObject
  */
 class HtmlEditorController {
     internal var hideKeyboard: (() -> Unit)? = null
+    internal var focusEditor: (() -> Unit)? = null
 
     /** Blur the editing surface and put the keyboard away. */
     fun dismiss() {
         hideKeyboard?.invoke()
+    }
+
+    /**
+     * Put the caret in the box and raise the keyboard.
+     *
+     * A reply box that opens under a tap is a box the reader expects to type in
+     * straight away, and a WebView only raises the keyboard for a focus the page
+     * asked for itself — so the screen asks the page, not the view.
+     */
+    fun focus() {
+        focusEditor?.invoke()
     }
 }
 
@@ -102,12 +113,10 @@ private const val EDITOR_MIN_HEIGHT = 88
  * list, no selection popup (a popup over three lines of reply covers most of
  * them), and no way to put a picture *into* the text.
  *
- * [attachments] are pictures the reader added. They are drawn as small
- * thumbnails, each with a cross to take it back, and they are never inserted
- * into the body: the caller is handed [onAttachImage] to open its own picker,
- * uploads, and appends the URLs to the HTML when the post is sent. A picture in
- * the middle of a sentence is easy to tap into accidentally and hard to take out
- * again; a strip of attachments above the box is neither.
+ * The editor holds no files of its own. A forum post's attachments are drawn by
+ * the screen that owns the box — on the row under it, beside the button that
+ * added them — and they are appended to the HTML on their way to the database;
+ * nothing is ever typed into the middle of a sentence.
  *
  * The box grows with what is written in it ([autoGrow]) up to [maxGrow], and
  * scrolls inside itself beyond that — a reply of three lines does not open a
@@ -125,14 +134,18 @@ fun HtmlContentEditor(
     placeholder: String = "লেখা লিখুন… নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি, কাট ও পেস্ট আসবে।",
     testTag: String = "article_content",
     controller: HtmlEditorController? = null,
-    attachments: List<String> = emptyList(),
-    onAttachImage: (() -> Unit)? = null,
-    onRemoveAttachment: (String) -> Unit = {},
     autoGrow: Boolean = true,
     maxGrow: Int = if (compact) 260 else 720
 ) {
     var htmlMode by remember { mutableStateOf(false) }
     var webView by remember { mutableStateOf<WebView?>(null) }
+    // What the page last told us, and what we last told the page. A value that
+    // comes back from the page is not pushed back into it (that would fight the
+    // caret); a value that changes anywhere else — the box being emptied after a
+    // post went through, a draft being restored — is pushed, and that is how the
+    // text actually disappears from the screen.
+    var lastEmitted by remember { mutableStateOf("") }
+    var lastPushed by remember { mutableStateOf("") }
     var uploading by remember { mutableStateOf(false) }
     var uploadError by remember { mutableStateOf<String?>(null) }
     // What the box measures: the caller's height is the floor, what the reader
@@ -146,6 +159,10 @@ fun HtmlContentEditor(
 
     // The reader's own Back, while the keyboard is up, is the keyboard's first.
     SideEffect {
+        controller?.focusEditor = {
+            webView?.requestFocus()
+            webView?.evaluateJavascript("if(window.focusEditor){window.focusEditor();}", null)
+        }
         controller?.hideKeyboard = {
             webView?.evaluateJavascript(
                 "if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();",
@@ -156,13 +173,26 @@ fun HtmlContentEditor(
         }
     }
 
+    /**
+     * A toolbar button, in three steps: the box takes the focus back, the caret
+     * is put where it was, and only then does the command run.
+     *
+     * That order is the whole of a bug the owner reported twice — bold and
+     * italic "did nothing". Tapping a Compose button is not a tap on the page, so
+     * the page may have lost the focus the selection lived in; `execCommand` with
+     * no selection does nothing at all, quietly. The page keeps its last range
+     * and puts it back before every command, which is what makes the button work
+     * whether or not the reader still has the caret showing.
+     */
     fun run(command: String, arg: String? = null) {
+        val web = webView ?: return
+        web.requestFocus()
         val script = if (arg == null) {
-            "document.execCommand('$command')"
+            "window.command(${JSONObject.quote(command)})"
         } else {
-            "document.execCommand('$command', false, ${JSONObject.quote(arg)})"
+            "window.command(${JSONObject.quote(command)}, ${JSONObject.quote(arg)})"
         }
-        webView?.evaluateJavascript(script, null)
+        web.evaluateJavascript(script, null)
     }
 
     fun insertImageUrl(url: String) {
@@ -198,52 +228,6 @@ fun HtmlContentEditor(
             tonalElevation = 1.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
-            // What is attached sits above the box it will be sent with.
-            if (attachments.isNotEmpty()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(start = 8.dp, end = 8.dp, top = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    attachments.forEach { url ->
-                        Box(modifier = Modifier.size(52.dp).testTag("editor_attachment")) {
-                            PortalAsyncImage(
-                                url = url,
-                                contentDescription = "সংযুক্ত ছবি",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(52.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                            )
-                            // Small, and on the corner: the picture is the thing
-                            // being looked at, and the cross only says it can go.
-                            IconButton(
-                                onClick = { onRemoveAttachment(url) },
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .size(20.dp)
-                                    .testTag("editor_attachment_remove")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "ছবি সরান",
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier
-                                        .size(14.dp)
-                                        .background(
-                                            MaterialTheme.colorScheme.surface,
-                                            RoundedCornerShape(50)
-                                        )
-                                )
-                            }
-                        }
-                    }
-                }
-            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -259,13 +243,13 @@ fun HtmlContentEditor(
                     if (!compact) {
                         ToolIcon("পেস্ট", Icons.Default.ContentPaste) { pasteClipboard() }
                     }
+                    // The picture button is the article composer's. A forum post
+                    // attaches its files on the row under the box — a picture and a
+                    // PDF alike — so the four the owner listed are the four here.
                     if (!compact) {
                         ToolIcon("ছবি যোগ", Icons.Default.Image) {
                             if (!uploading) imagePicker.launch("image/*")
                         }
-                    } else if (onAttachImage != null) {
-                        // The forum's picture: attached, never typed into the body.
-                        ToolIcon("ছবি সংযুক্ত করুন", Icons.Default.Image, true) { onAttachImage() }
                     }
                     if (!compact) {
                         ToolIcon("আগের কাজ", Icons.Default.Undo) { run("undo") }
@@ -347,7 +331,12 @@ fun HtmlContentEditor(
                             addJavascriptInterface(
                                 HtmlBridge(
                                     host = this,
-                                    emit = { html -> post { onValueChange(html) } },
+                                    emit = { html ->
+                                        post {
+                                            lastEmitted = html
+                                            onValueChange(html)
+                                        }
+                                    },
                                     emitHeight = { measured ->
                                         post {
                                             // Reported by the page as it grows;
@@ -387,6 +376,17 @@ fun HtmlContentEditor(
                     },
                     update = { view ->
                         webView = view
+                        // What the caller holds and what the box shows are kept in
+                        // step here. Setting the value from the page may be pushed
+                        // straight back in a moment later, which is what empties the
+                        // box the instant an answer has gone through.
+                        if (value != lastEmitted && value != lastPushed) {
+                            lastPushed = value
+                            view.evaluateJavascript(
+                                "if(window.setHtml){window.setHtml(${JSONObject.quote(value)});}",
+                                null
+                            )
+                        }
                     }
                 )
                 if (uploading) {
@@ -522,11 +522,16 @@ private object KalpurushWebFont {
                     .use { it.readBytes() }
             }.getOrNull() ?: return ""
             val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+            // `font-weight: 400` and not a range: Kalpurush ships one weight, and a
+            // face that claims 100–900 tells the browser every weight is covered —
+            // so it draws bold text with the regular glyphs and bold looks like
+            // nothing happened. Declaring the single weight lets the browser
+            // synthesise the bold (and the italic) the reader asked for.
             val face = """
             @font-face {
               font-family: 'Kalpurush';
               src: url('data:font/truetype;charset=utf-8;base64,$b64') format('truetype');
-              font-weight: 100 900;
+              font-weight: 400;
               font-style: normal;
               font-display: block;
             }
@@ -592,6 +597,52 @@ private fun editorHtml(
             const e = document.getElementById('e');
             const bar = document.getElementById('selbar');
             function emit(){ if (window.Android) Android.onHtml(e.innerHTML); }
+            // Where the caret was, kept across taps that leave the page. A tap on
+            // a toolbar button is a tap outside the document, and the selection
+            // does not survive it on every WebView build — which is why the
+            // buttons put the range back before they run a command.
+            var lastRange = null;
+            function saveSelection(){
+              const sel = window.getSelection();
+              if (sel && sel.rangeCount > 0 && e.contains(sel.anchorNode)) {
+                lastRange = sel.getRangeAt(0).cloneRange();
+              }
+            }
+            function restoreSelection(){
+              if (!lastRange) return;
+              const sel = window.getSelection();
+              sel.removeAllRanges();
+              sel.addRange(lastRange);
+            }
+            function placeCaretAtEnd(){
+              const range = document.createRange();
+              range.selectNodeContents(e);
+              range.collapse(false);
+              const sel = window.getSelection();
+              sel.removeAllRanges();
+              sel.addRange(range);
+              lastRange = range.cloneRange();
+            }
+            ['keyup','mouseup','input','touchend','focus'].forEach(function(ev){
+              e.addEventListener(ev, saveSelection);
+            });
+            document.addEventListener('selectionchange', saveSelection);
+            window.command = function(cmd, arg){
+              e.focus();
+              if (document.activeElement !== e && e.focus) e.focus();
+              restoreSelection();
+              // Tags, not inline styles: the reader's markup is read back by the
+              // app's own renderer and by the site, and both know <b> and <i>.
+              document.execCommand('styleWithCSS', false, false);
+              var done = false;
+              try { done = document.execCommand(cmd, false, arg === undefined ? null : arg); }
+              catch (err) { done = false; }
+              saveSelection();
+              emit();
+              grow();
+              return done;
+            };
+            window.focusEditor = function(){ e.focus(); placeCaretAtEnd(); saveSelection(); };
             // How tall the writing is. The box on the other side of the bridge
             // grows to fit it, up to the ceiling the caller set, and scrolls past
             // that — so a long reply is readable inside a box that never takes
@@ -603,7 +654,11 @@ private fun editorHtml(
             setTimeout(grow, 60);
             document.addEventListener('contextmenu', function(ev){ ev.preventDefault(); });
             window.setHtml = function(html){
-              if (typeof html === 'string' && html !== e.innerHTML) e.innerHTML = html;
+              if (typeof html === 'string' && html !== e.innerHTML) {
+                e.innerHTML = html;
+                lastRange = null;
+                placeCaretAtEnd();
+              }
               grow();
             };
             window.insertImage = function(url){
@@ -615,8 +670,7 @@ private fun editorHtml(
             document.querySelectorAll('#selbar [data-cmd]').forEach(function(btn){
               btn.addEventListener('mousedown', function(ev){ ev.preventDefault(); });
               btn.addEventListener('click', function(){
-                document.execCommand(btn.getAttribute('data-cmd'));
-                emit();
+                window.command(btn.getAttribute('data-cmd'));
               });
             });
             // The selection bar belongs to the article composer alone: over three

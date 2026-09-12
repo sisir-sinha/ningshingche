@@ -323,13 +323,69 @@ data class ForumReply(
      * Whether a body is long enough to fold. The threshold is a length, not a
      * measurement: a card that has to be measured before it can decide would
      * push a "see more" onto every short answer that happens to wrap.
+     *
+     * The length is the length of the *words*. A post with a picture in it used
+     * to fold on the markup alone — which hid a short answer behind a "see more"
+     * for the sake of a tag, and the folded copy drew the picture as the one
+     * character HtmlCompat keeps for images (U+FFFC, "obj" to a reader).
      */
-    val isLong: Boolean get() = body.length > 240 || body.contains("<img", ignoreCase = true)
+    val isLong: Boolean get() = forumBodyText(body).length > 240
 
     companion object {
         const val REACTION_LIKE = "like"
         const val REACTION_DISLIKE = "dislike"
         const val REACTION_AGREE = "agree"
+    }
+}
+
+/**
+ * One file attached to a post: a picture, or a document.
+ *
+ * The app never draws a raw URL for one of these. A picture becomes a small
+ * preview, a PDF becomes its icon and its file name — and a tap on either opens
+ * the viewer, which shows the whole thing and offers the download.
+ *
+ * [sizeBytes] and [mimeType] are what the uploader knew about the file; a file
+ * that came back from the database is rebuilt from its URL and its label alone,
+ * which is why both have to survive being empty.
+ */
+data class ForumAttachment(
+    val url: String,
+    val name: String = "",
+    val mimeType: String = "",
+    val sizeBytes: Long = 0L
+) {
+    val isImage: Boolean get() = mimeType.startsWith("image/") || (!isPdf && mimeType.isBlank())
+
+    val isPdf: Boolean get() = mimeType == MIME_PDF || isPdfReference(url, name)
+
+    /** What a chip shows: the file's own name, or something honest instead. */
+    val label: String
+        get() = name.trim().ifBlank { if (isPdf) "সংযুক্তি.pdf" else "সংযুক্তি" }
+
+    /** The name a downloaded copy is saved under. */
+    val downloadName: String
+        get() {
+            val clean = label.substringAfterLast('/').trim()
+            return if (clean.contains('.')) clean else "$clean${if (isPdf) ".pdf" else ".jpg"}"
+        }
+
+    val mime: String get() = if (mimeType.isNotBlank()) mimeType else if (isPdf) MIME_PDF else "image/jpeg"
+
+    companion object {
+        const val MIME_PDF = "application/pdf"
+
+        /** A file described by a URL and a label, as a stored post describes it. */
+        fun fromReference(url: String, name: String): ForumAttachment {
+            val cleanUrl = url.trim()
+            val label = name.trim()
+            val pdf = isPdfReference(cleanUrl, label)
+            return ForumAttachment(
+                url = cleanUrl,
+                name = label,
+                mimeType = if (pdf) MIME_PDF else "image/jpeg"
+            )
+        }
     }
 }
 
