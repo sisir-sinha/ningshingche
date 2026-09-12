@@ -19,10 +19,6 @@ data class Page<out T>(
     val offset: Int = 0,
     val limit: Int = PortalConfig.PAGE_SIZE
 ) {
-    val hasMore: Boolean
-        get() = total?.let { offset + items.size < it } ?: (items.size == limit)
-
-    val nextOffset: Int get() = offset + items.size
 }
 
 data class ArticleSummary(
@@ -255,6 +251,23 @@ sealed class PortalError(message: String, cause: Throwable? = null) : Exception(
 
     /** HTTP failure. `code` is the PostgREST/Supabase status. */
     class Http(val code: Int, override val message: String) : PortalError(message)
+
+    /**
+     * A call that needs a session was refused — no reader token travelled, or
+     * the one that did had expired.
+     *
+     * Kept apart from [Http] for two reasons: the screens answer it with the
+     * sign-in gate rather than a retry button, and the database's own wording
+     * for it is English ("contributor board is for signed-in readers"), which is
+     * not a sentence to put in front of a Bengali reader.
+     */
+    class SignedOut(override val message: String = SESSION_EXPIRED) : PortalError(message) {
+        companion object {
+            /** The same sentence the contributor gate shows, so it is one key. */
+            const val SESSION_EXPIRED =
+                "আপনার সেশনের মেয়াদ শেষ হয়েছে। আবার সাইন ইন করলে তালিকা ও পয়েন্ট দেখা যাবে।"
+        }
+    }
 
     /** A table or column is missing — `schema.sql` or migration 003 has not run. */
     class SchemaMissing(override val message: String) : PortalError(message)

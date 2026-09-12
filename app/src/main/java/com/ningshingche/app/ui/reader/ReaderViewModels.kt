@@ -95,6 +95,10 @@ class HomeViewModel(private val repository: PortalRepository) : ViewModel() {
     private val _contributorsError = MutableStateFlow<String?>(null)
     val contributorsError: StateFlow<String?> = _contributorsError.asStateFlow()
 
+    /** True when the board was refused for want of a session, not merely unreachable. */
+    private val _contributorsRefused = MutableStateFlow(false)
+    val contributorsRefused: StateFlow<Boolean> = _contributorsRefused.asStateFlow()
+
     private val _musicCatalog = MutableStateFlow<List<MusicTrack>>(emptyList())
     val musicCatalog: StateFlow<List<MusicTrack>> = _musicCatalog.asStateFlow()
 
@@ -130,6 +134,7 @@ class HomeViewModel(private val repository: PortalRepository) : ViewModel() {
         if (!isSignedIn) {
             _contributors.value = emptyList()
             _contributorsError.value = null
+            _contributorsRefused.value = false
             return
         }
         if (_contributorsLoading.value) return
@@ -137,13 +142,22 @@ class HomeViewModel(private val repository: PortalRepository) : ViewModel() {
         viewModelScope.launch {
             _contributorsLoading.value = true
             _contributorsError.value = null
+            _contributorsRefused.value = false
             repository.contributorBoard(limit = HOME_CONTRIBUTOR_COUNT)
                 .onSuccess {
                     _contributors.value = it.contributors
                     _contributorsError.value = null
                 }
                 .onFailure { failure ->
-                    _contributorsError.value = (failure as? PortalError).message()
+                    val refused = failure is PortalError.SignedOut
+                    // Never the database's own sentence: it is English, and it
+                    // reads as a permission problem to somebody who is signed in.
+                    _contributorsError.value = if (refused) {
+                        PortalError.SignedOut.SESSION_EXPIRED
+                    } else {
+                        (failure as? PortalError).message()
+                    }
+                    _contributorsRefused.value = refused
                 }
             _contributorsLoading.value = false
         }

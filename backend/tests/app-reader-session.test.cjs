@@ -35,6 +35,10 @@ const APPLICATION = read('NinghsingCheApp.kt');
 const HOME_SCREEN = read('ui', 'reader', 'HomeScreen.kt');
 const READER_VIEW_MODELS = read('ui', 'reader', 'ReaderViewModels.kt');
 const CONTRIBUTOR_SCREEN = read('ui', 'screens', 'ContributorScreen.kt');
+const PORTAL_MODELS = read('data', 'portal', 'PortalModels.kt');
+const PORTAL_REPOSITORY = read('data', 'portal', 'PortalRepository.kt');
+const BUILD_GRADLE = fs.readFileSync(
+  path.join(__dirname, '..', '..', 'app', 'build.gradle.kts'), 'utf8');
 
 /** The text inside a balanced `(` … `)` that starts at `openIndex`. */
 function balanced(text, openIndex) {
@@ -89,8 +93,8 @@ test('the app sends the reader\'s session, not just the publishable key', async 
 test('what a screen uses, it declares', async (t) => {
   await t.test('the contributor section is passed everything it renders', () => {
     const parameters = parametersOf(HOME_SCREEN, 'HomeContent');
-    const used = ['contributors', 'contributorsError', 'isSignedIn',
-      'onSeeAllContributors', 'onContributorClick', 'onRetryContributors'];
+    const used = ['contributors', 'contributorsError', 'contributorsRefused', 'isSignedIn',
+      'onSeeAllContributors', 'onContributorClick', 'onRetryContributors', 'onSignInClick'];
     for (const parameter of used) {
       assert.match(parameters, new RegExp(`\\b${parameter}:`),
         `HomeContent takes ${parameter} — it renders it, so it cannot borrow it from HomeScreen`);
@@ -99,8 +103,9 @@ test('what a screen uses, it declares', async (t) => {
 
   await t.test('and the call site supplies them', () => {
     const call = HOME_SCREEN.slice(HOME_SCREEN.indexOf('HomeContent(\n'), HOME_SCREEN.indexOf('onOpenLink = onOpenLink'));
-    for (const argument of ['contributors =', 'contributorsError =', 'isSignedIn =',
-      'onSeeAllContributors =', 'onContributorClick =', 'onRetryContributors =']) {
+    for (const argument of ['contributors =', 'contributorsError =', 'contributorsRefused =',
+      'isSignedIn =', 'onSeeAllContributors =', 'onContributorClick =',
+      'onRetryContributors =', 'onSignInClick =']) {
       assert.ok(call.includes(argument), `the call passes ${argument}`);
     }
   });
@@ -109,8 +114,10 @@ test('what a screen uses, it declares', async (t) => {
 test('a board that cannot be read says so', async (t) => {
   await t.test('the view model keeps the failure', () => {
     assert.match(READER_VIEW_MODELS, /val contributorsError: StateFlow<String\?>/, 'the home page can see it');
-    assert.match(READER_VIEW_MODELS, /_contributorsError\.value = \(failure as\? PortalError\)\.message\(\)/,
-      'and it is set from the failure, not swallowed');
+    assert.match(READER_VIEW_MODELS, /val contributorsRefused: StateFlow<Boolean>/,
+      'and whether the failure was a refusal');
+    assert.match(READER_VIEW_MODELS, /_contributorsError\.value = if \(refused\) \{/,
+      'it is set from the failure, not swallowed');
   });
 
   await t.test('the home section renders it with a retry', () => {
@@ -120,11 +127,57 @@ test('a board that cannot be read says so', async (t) => {
     assert.match(HOME_SCREEN, /viewModel\.loadContributors\(isSignedIn, force = true\)/, 'whose retry ignores the cache');
   });
 
+  await t.test('and offers a way back in when the session was refused', () => {
+    assert.match(HOME_SCREEN, /refused = contributorsRefused/, 'the notice is told which case it is');
+    assert.match(HOME_SCREEN, /clickable \{ if \(refused\) onSignIn\(\) else onRetry\(\) \}/,
+      'the action follows the case: sign in again, or try again');
+    assert.match(HOME_SCREEN, /testTag\(if \(refused\) "contributors_sign_in" else "contributors_retry"\)/,
+      'and is distinguishable in the UI tests');
+    assert.match(HOME_SCREEN, /onSignInClick = onLoginClick/, 'wired to the sign-in screen, not to nothing');
+  });
+
   await t.test('a refused session is not described as "signed out" to a reader who is signed in', () => {
-    assert.match(CONTRIBUTOR_SCREEN, /refused = failure is PortalError\.Http && failure\.code in 401\.\.403/,
-      'a 401/403 is recognised as a session problem');
+    assert.match(CONTRIBUTOR_SCREEN, /refused = failure is PortalError\.SignedOut \|\|/,
+      'a typed refusal is recognised as a session problem');
+    assert.match(CONTRIBUTOR_SCREEN, /\(failure is PortalError\.Http && failure\.code in 401\.\.403\)/,
+      'and so is a raw 401/403, whichever shape it arrives in');
     assert.match(CONTRIBUTOR_SCREEN, /SignedOutGate\(onSignInClick, expired = refused\)/,
       'and turns into the gate, which explains the session');
     assert.match(CONTRIBUTOR_SCREEN, /সেশনের মেয়াদ শেষ/, 'with wording that says so');
+  });
+});
+
+test('a refusal is answered in the app\'s words, not the database\'s', async (t) => {
+  await t.test('the transport has a type for it', () => {
+    assert.match(PORTAL_MODELS, /class SignedOut\(override val message: String = SESSION_EXPIRED\)/,
+      'PortalError.SignedOut exists');
+    assert.match(PORTAL_MODELS, /const val SESSION_EXPIRED =\s*\n\s*"আপনার সেশনের মেয়াদ শেষ হয়েছে/,
+      'and carries the sentence the reader is shown');
+  });
+
+  await t.test('the refusal is recognised from the body as well as the status', () => {
+    assert.match(PORTAL_REPOSITORY, /isSignInRefusal\(code, bodyCode, message\) -> PortalError\.SignedOut\(\)/,
+      'httpError classifies it');
+    assert.match(PORTAL_REPOSITORY, /bodyCode == "42501"/,
+      'migration 026 raises 42501, which PostgREST may report as a 401 or a 403');
+    assert.match(PORTAL_REPOSITORY, /code == 401/,
+      'and a bare 401 on this transport always means the database saw no session');
+    assert.match(PORTAL_REPOSITORY, /message\?\.contains\("signed-in readers", ignoreCase = true\)/,
+      'the English wording is matched too, so it can never be rendered');
+  });
+
+  await t.test('so the English sentence has nowhere to surface', () => {
+    assert.ok(!/contributorsError\.orEmpty\(\)\.ifBlank/.test(HOME_SCREEN),
+      'the home notice shows the app\'s sentence');
+    assert.match(READER_VIEW_MODELS, /PortalError\.SignedOut\.SESSION_EXPIRED/,
+      'the view model substitutes it for a refusal');
+    assert.match(CONTRIBUTOR_SCREEN, /সেশনের মেয়াদ শেষ/, 'and the board screen already said so');
+  });
+
+  await t.test('the build that carries the fix can be told apart', () => {
+    assert.match(BUILD_GRADLE, /versionName = "1\.1"/,
+      'the app version moved past the build that was refused (1.0)');
+    assert.match(BUILD_GRADLE, /versionCode = 2/,
+      'and so did the version code, which is what Settings reads out');
   });
 });

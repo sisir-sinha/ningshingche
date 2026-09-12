@@ -145,6 +145,7 @@ fun HomeScreen(
     val state by viewModel.state.collectAsState()
     val contributors by viewModel.contributors.collectAsState()
     val contributorsError by viewModel.contributorsError.collectAsState()
+    val contributorsRefused by viewModel.contributorsRefused.collectAsState()
     LaunchedEffect(isSignedIn) { viewModel.loadContributors(isSignedIn) }
     val offlineNotice by viewModel.offlineNotice.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -249,10 +250,12 @@ fun HomeScreen(
                     listState = listState,
                     contributors = contributors,
                     contributorsError = contributorsError,
+                    contributorsRefused = contributorsRefused,
                     isSignedIn = isSignedIn,
                     onSeeAllContributors = onSeeAllContributors,
                     onContributorClick = onContributorClick,
                     onRetryContributors = { viewModel.loadContributors(isSignedIn, force = true) },
+                    onSignInClick = onLoginClick,
                     onArticleClick = onArticleClick,
                     onCategoryClick = onCategoryClick,
                     onAuthorClick = onAuthorClick,
@@ -281,10 +284,12 @@ private fun HomeContent(
     listState: LazyListState,
     contributors: List<Contributor>,
     contributorsError: String?,
+    contributorsRefused: Boolean,
     isSignedIn: Boolean,
     onSeeAllContributors: () -> Unit,
     onContributorClick: (String) -> Unit,
     onRetryContributors: () -> Unit,
+    onSignInClick: () -> Unit,
     onArticleClick: (String) -> Unit,
     onCategoryClick: (CategoryRef) -> Unit,
     onAuthorClick: (AuthorRef) -> Unit,
@@ -538,7 +543,9 @@ private fun HomeContent(
                             // nobody has points or the app simply gave up.
                             ContributorBoardNotice(
                                 message = contributorsError.orEmpty(),
-                                onRetry = onRetryContributors
+                                refused = contributorsRefused,
+                                onRetry = onRetryContributors,
+                                onSignIn = onSignInClick
                             )
                         }
                     }
@@ -566,9 +573,18 @@ private fun HomeContent(
 /**
  * Shown in the contributor section when the board could not be read — the reader
  * gets a reason and a way to try again, rather than a section that never appears.
+ *
+ * A refused session is not a retry: the fix is to sign in again, so that is the
+ * action offered. The message for it is already the app's own sentence, never the
+ * database's English wording for the refusal.
  */
 @Composable
-private fun ContributorBoardNotice(message: String, onRetry: () -> Unit) {
+private fun ContributorBoardNotice(
+    message: String,
+    refused: Boolean,
+    onRetry: () -> Unit,
+    onSignIn: () -> Unit
+) {
     val tokens = LocalEditorialTokens.current
     Column(
         modifier = Modifier
@@ -583,16 +599,16 @@ private fun ContributorBoardNotice(message: String, onRetry: () -> Unit) {
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            text = "আবার চেষ্টা করুন",
+            text = if (refused) "সাইন ইন করুন" else "আবার চেষ্টা করুন",
             fontFamily = Kalpurush,
             fontWeight = FontWeight.Bold,
             fontSize = 13.sp,
             color = tokens.accent,
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
-                .clickable { onRetry() }
+                .clickable { if (refused) onSignIn() else onRetry() }
                 .padding(vertical = 4.dp)
-                .testTag("contributors_retry")
+                .testTag(if (refused) "contributors_sign_in" else "contributors_retry")
         )
     }
 }

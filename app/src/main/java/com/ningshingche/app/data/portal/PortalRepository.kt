@@ -708,19 +708,36 @@ class PortalRepository(
 
     private fun httpError(code: Int, response: Response<*>): PortalError {
         val raw = response.errorBody()?.string().orEmpty()
-        val message = runCatching {
-            val obj = PortalConfig.moshi.adapter(Map::class.java).fromJson(raw)
-            (obj?.get("message") as? String)?.takeIf { it.isNotBlank() }
-                ?: (obj?.get("error_description") as? String)
+        val body = runCatching {
+            PortalConfig.moshi.adapter(Map::class.java).fromJson(raw)
         }.getOrNull()
+        val message = (body?.get("message") as? String)?.takeIf { it.isNotBlank() }
+            ?: (body?.get("error_description") as? String)
+        val bodyCode = body?.get("code") as? String
         return when {
             code == 404 || raw.contains("PGRST205") ->
                 PortalError.SchemaMissing("ডেটাবেজ টেবিল পাওয়া যায়নি। অনুগ্রহ করে সার্ভার কনফিগারেশন যাচাই করুন।")
             raw.contains("PGRST204") || raw.contains("42703") ->
                 PortalError.SchemaMissing("ডেটাবেজ আপডেট প্রয়োজন।")
+            isSignInRefusal(code, bodyCode, message) -> PortalError.SignedOut()
             else -> PortalError.Http(code, message?.takeIf { it.isNotBlank() } ?: "সার্ভার ত্রুটি ($code)")
         }
     }
+
+    /**
+     * True when the database refused the call because it saw no session.
+     *
+     * The auth-gated RPCs raise `42501` (`insufficient_privilege`) — migration
+     * 026 does, and PostgREST may render that as a 401 or a 403 depending on its
+     * version — so the body's own code and wording are matched as well as the
+     * status. That way a signed-in reader is told their session needs renewing
+     * whichever shape the refusal arrives in, and never sees the English
+     * sentence the function raised.
+     */
+    internal fun isSignInRefusal(code: Int, bodyCode: String?, message: String?): Boolean =
+        bodyCode == "42501" ||
+            code == 401 ||
+            (code == 403 && message?.contains("signed-in readers", ignoreCase = true) == true)
 
     /** Example header "0-19/50" yields 50; "0-19/star" or malformed yields null. */
     internal fun parseContentRangeTotal(header: String?): Int? {

@@ -82,7 +82,9 @@ Key rules that bite if broken:
   and grants nothing beyond the anon RLS policies. A signed-in reader replaces it with their own
   access token (`PortalConfig.installReaderSession`), which is what makes the calls granted to
   `authenticated` (contributor board, own points, app time) answer for them;
-  `backend/tests/app-reader-session.test.cjs` guards that wiring.
+  `backend/tests/app-reader-session.test.cjs` guards that wiring — including that a refused session
+  becomes `PortalError.SignedOut` and reaches the reader in the app's words rather than the
+  database's English sentence, and that the version the fix shipped as is the one Settings reads.
 - Storage treats the publishable key as **unauthenticated**: user uploads must send the
   user JWT (`sessionUserJwt()` in `SupabaseClient`); this is why reader MP3 uploads 403'd
   before the fix (commit `6772f80`).

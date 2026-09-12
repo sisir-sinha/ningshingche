@@ -604,8 +604,16 @@ screen is therefore a session problem, not a permission one, and the screen says
 has expired — sign in again") instead of printing the server's sentence.
 
 **An empty board is not a failed board.** The home section renders when there are rows *or* when the
-request failed, and a failure gets the reason plus **আবার চেষ্টা করুন** rather than a section that
-quietly never appears.
+request failed, and a failure gets the reason plus an action rather than a section that quietly never
+appears — **আবার চেষ্টা করুন** for a request that can simply be repeated, and **সাইন ইন করুন** when the
+session itself was refused, because retrying a token that is gone cannot help.
+
+**A refusal is a type, not a sentence.** `PortalError.SignedOut` is what a refused session becomes,
+recognised in `PortalRepository.httpError` from the body's own `42501` (what migration 026 raises),
+from a bare `401`, or from a `403` whose body says the call is "for signed-in readers" — whichever
+shape PostgREST chooses. Screens answer the type; the English sentence the function raised is never
+printed, because a reader who is signed in already reads it as a permission problem rather than as an
+expired session.
 
 **Tapping a card opens that reader's public page** (`ReaderRoute.publicProfile`), where their songs and
 published articles are listed.
@@ -1074,6 +1082,12 @@ working; the app was simply never introducing itself.
 Nothing else changes: the public reads are policies written `to anon, authenticated`, so a signed-in
 reader sees exactly what a guest sees there, and the app-time/view attribution (migrations 025-026)
 now lands on the reader's own id, which is what those migrations always intended.
+
+That fix reached the sources as **app version 1.1** (`versionCode = 2`) — the builds before it say
+`1.0`, and since Settings prints the installed APK's own version (`ApkManager`), a report of "the
+board still says it is for signed-in readers" can now be answered by asking which version is on the
+phone. A build older than 1.1 also has no contributor section on the home page at all, which is the
+other half of that same report.
 
 What was hardened instead:
 

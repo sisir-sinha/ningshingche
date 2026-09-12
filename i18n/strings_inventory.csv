@@ -100,6 +100,7 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 অন্যান্য,,ui,2,0,"AppNotificationManager.kt, SettingsScreen.kt"
 অফলাইন,,ui,2,0,MusicScreen.kt
 আগস্ট,,ui,2,0,"ContributorScreen.kt, UserDashboardCharts.kt"
+আপনার সেশনের মেয়াদ শেষ হয়েছে। আবার সাইন ইন করলে তালিকা ও পয়েন্ট দেখা যাবে।,,ui,2,0,"ContributorScreen.kt, PortalModels.kt"
 এখনো কোনো গান যোগ করা হয়নি।,,ui,2,0,MusicScreen.kt
 এখানে কোনো প্রবন্ধ পাওয়া যায়নি।,,ui,2,0,ListScreens.kt
 এপ্রিল,,ui,2,0,"ContributorScreen.kt, UserDashboardCharts.kt"
@@ -184,6 +185,7 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 সম্পাদকীয়,,ui,2,0,"EditorialComponents.kt, NinghsingCheAiAssistant.kt"
 সরান,,ui,2,0,"NewMusicScreen.kt, UserDashboardScreen.kt"
 সাইন ইন,,ui,2,0,"AccountHeaderButton.kt, LoginScreen.kt"
+সাইন ইন করুন,,ui,2,0,"ContributorScreen.kt, HomeScreen.kt"
 সারসংক্ষেপ,,ui,2,0,NinghsingCheAiAssistant.kt
 সেরা অবদানকারী,,ui,2,0,"ContributorScreen.kt, PortalDrawer.kt"
 স্মৃতি,,ui,2,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
@@ -301,7 +303,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 আপনার মন্তব্য সফলভাবে প্রকাশিত হয়েছে!,,ui,1,0,ArticleRepository.kt
 আপনার মূল্যবান মন্তব্য *,,ui,1,0,ArticleCommentForm.kt
 আপনার সংরক্ষিত প্লেলিস্ট,,ui,1,0,MusicScreen.kt
-আপনার সেশনের মেয়াদ শেষ হয়েছে। আবার সাইন ইন করলে তালিকা ও পয়েন্ট দেখা যাবে।,,ui,1,0,ContributorScreen.kt
 আপনি,,ui,1,0,UserDashboardScreen.kt
 আপলোড সার্ভার এখন সাড়া দিচ্ছে না ({1})।,,ui,1,1,SatoruUploadClient.kt
 আপলোড সার্ভার ঠিকানা দেয়নি।,,ui,1,0,SatoruUploadClient.kt
@@ -930,7 +931,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 সাংস্কৃতিক কর্মী ও প্রাবন্ধিক,,content,1,0,NinghsingCheContentData.kt
 সাইট হালনাগাদ,,ui,1,0,ContentUpdateNotifier.kt
 সাইটম্যাপ,,ui,1,0,SiteFooter.kt
-সাইন ইন করুন,,ui,1,0,ContributorScreen.kt
 সাইন-ইন ছাড়া এগিয়ে যান,,ui,1,0,WelcomeOnboardingScreen.kt
 সাইন-ইন ছাড়া পরবর্তী,,ui,1,0,FirstRunFlow.kt
 সাদা / লাইট,,ui,1,0,SettingsScreen.kt

@@ -114,7 +114,8 @@ fun ContributorScreen(
             .onSuccess { board = it }
             .onFailure { failure ->
                 error = failure.message ?: "তালিকা আনা যায়নি।"
-                refused = failure is PortalError.Http && failure.code in 401..403
+                refused = failure is PortalError.SignedOut ||
+                    (failure is PortalError.Http && failure.code in 401..403)
             }
         own = loadOwnScore()
         loading = false
