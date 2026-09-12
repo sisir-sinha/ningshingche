@@ -37,7 +37,7 @@ ok()   { printf '  ok    %s\n' "$1"; }
 bad()  { printf '  FAIL  %s\n' "$1"; fail=1; }
 
 # --- each migration on its own, from an empty fixture ------------------------
-for file in 024_uploader_and_public_profile.sql 025_content_views.sql 026_contributors.sql; do
+for file in 024_uploader_and_public_profile.sql 025_content_views.sql 026_contributors.sql 027_contributor_board_dashboard.sql; do
   step "$file alone"
   psql -c "drop database if exists alone" >/dev/null 2>&1 || true
   psql -c "create database alone" >/dev/null
@@ -51,7 +51,7 @@ for file in 024_uploader_and_public_profile.sql 025_content_views.sql 026_contri
 done
 
 # --- both orders, then both again (idempotency) ------------------------------
-for order in "024 025 026" "025 024 026" "026 025 024"; do
+for order in "024 025 026 027" "025 024 026 027" "026 025 024 027" "027 026 025 024"; do
   for pass in 1 2; do
     step "order $order (pass $pass)"
     psql -c "drop database if exists ordered" >/dev/null 2>&1 || true
@@ -90,7 +90,7 @@ insert into public.submitted_blogs (user_id, converted_blog_id, status) values (
 insert into public.music_tracks (id, title, artist, file_storage_path, duration_seconds, love_count, user_id) values ('$TRACK', 'পাঠকের গান', 'গায়ক', 'reader/track.mp3', 200, 3, '$READER');
 SQL
 
-for n in 024 025 026; do
+for n in 024 025 026 027; do
   psql -d behaviour -f "$MIGRATIONS/$(ls "$MIGRATIONS" | grep "^$n")" >/dev/null
 done
 
@@ -187,6 +187,28 @@ echo "$gate" | grep -qi "permission denied\|signed-in" && ok "a guest is refused
 
 empty_month="$(reader_call "contributor_leaderboard(20, (timezone('utc', now())::date - 400))")"
 echo "$empty_month" | grep -q '"contributors": \[\]' && ok "a month with no work is an empty board" || bad "empty month: $empty_month"
+
+# --- the dashboard's door -----------------------------------------------------
+step "dashboard board"
+
+as_dashboard() {
+  psql -d behaviour -tAc "set role anon; set request.jwt.claim.sub = ''; set test.dashboard = 'on'; select public.$1;" 2>&1
+}
+
+board="$(as_dashboard "contributor_leaderboard_dashboard(50, null, false)")"
+echo "$board" | grep -q 'নতুন নাম' && ok "the dashboard reads the board" || bad "dashboard board: $board"
+echo "$board" | grep -q '"points": 152' && ok "the dashboard sees the same points as the app" || bad "dashboard points: $board"
+echo "$board" | grep -q '"email"' && ok "each row carries the e-mail the dashboard links on" || bad "email missing: $board"
+
+lifetime="$(as_dashboard "contributor_leaderboard_dashboard(50, null, true)")"
+echo "$lifetime" | grep -q '"points": 152' && ok "the Lifetime switch spans everything" || bad "lifetime: $lifetime"
+echo "$lifetime" | grep -q '"month_key": ""' && ok "and reports no month when it is asked for everything" || bad "lifetime key: $lifetime"
+
+no_session="$(as_anon "contributor_leaderboard_dashboard(50, null, false)" || true)"
+echo "$no_session" | grep -qi "permission denied\|available to the dashboard" && ok "without a dashboard session the door is shut" || bad "no session (got '$no_session')"
+
+plain_reader="$(reader_call "contributor_leaderboard_dashboard(50, null, false)" || true)"
+echo "$plain_reader" | grep -qi "dashboard" && ok "a reader session is not a dashboard session" || bad "reader on dashboard door (got '$plain_reader')"
 
 # the trigger has to survive a delete, and only a delete
 psql -d behaviour -c "delete from public.content_views where content_type = 'blog' and content_id = '$BLOG'" >/dev/null

@@ -62,6 +62,9 @@ Three components share one Supabase project (`slcpvmpsynkqdozvlsii`):
   reporting of foreground time with a per-call and per-day cap. The board and a reader's own figures
   are two more RPCs, granted to `authenticated` alone — the "registered readers only" rule is the
   grant, not a screen. `reader_activity` keeps one row per reader per day, RLS on and no grants.
+- **Two doors to the contributor board:** the app's readers pass `auth.uid()` and the dashboard's staff
+  pass `is_dashboard_request()` (migration 027); both land on the same unexported `contributor_board`,
+  so the CMS page and the app page can never show different totals.
 - **GitHub Pages** deploys `backend/` as a static site (`.github/workflows/jekyll-gh-pages.yml`).
 
 ---

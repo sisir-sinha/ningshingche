@@ -9,7 +9,7 @@
   let articleEditorCleanup = null;
 
   function emptyCache() {
-    return { users: [], articles: [], comments: [], messages: [], notices: [], tracks: [], categories: [], authors: [], inboxReady: true };
+    return { users: [], articles: [], comments: [], messages: [], notices: [], tracks: [], categories: [], authors: [], contributors: null, inboxReady: true };
   }
 
   function destroyCharts() {
@@ -440,6 +440,7 @@
           <button type="button" class="btn btn-secondary" data-jump="ru-comments">Comments</button>
           <button type="button" class="btn btn-secondary" data-jump="ru-messages">Messages</button>
           <button type="button" class="btn btn-primary" data-jump="ru-notifications">Send notification</button>
+          <button type="button" class="btn btn-secondary" data-jump="ru-contributors">সেরা অবদানকারী</button>
         </div>`,
       footer: '<button type="button" class="btn btn-secondary" data-modal-close>Close</button>',
       onOpen: (modalRoot) => {
@@ -1950,6 +1951,158 @@
     if (openId && trackById(openId)) openTrackView(trackById(openId));
   }
 
+
+  // ---------------------------------------------------------------------------
+  // সেরা অবদানকারী — the contributor board.
+  //
+  // The same points the app shows its readers (migration 026): published
+  // articles, uploaded songs, comments, views of their work and time in the app,
+  // weighted 50 / 30 / 5 / 1 / 1-per-2-minutes. The counting is the database's —
+  // this page only draws it, so the two never disagree. It reads through
+  // `contributor_leaderboard_dashboard`, which is gated on the dashboard session
+  // rather than a reader session, so the app's rule is untouched.
+  // ---------------------------------------------------------------------------
+
+  const CONTRIBUTOR_PAGE_SIZE = 25;
+
+  function contributorBoardCache() {
+    if (!cache.contributors) cache.contributors = { month: null, all: null, monthKey: '' };
+    return cache.contributors;
+  }
+
+  /** `2026-09` → `September 2026`, without pulling in a date library. */
+  function monthLabel(key) {
+    if (!key) return 'Lifetime';
+    const [year, month] = String(key).split('-').map((part) => Number(part));
+    if (!year || !month) return key;
+    const names = ['January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'];
+    return `${names[month - 1] || key} ${year}`;
+  }
+
+  /** Seconds as a readable span: 4,320 → `1h 12m`. */
+  function duration(seconds) {
+    const total = Math.max(0, Number(seconds) || 0);
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    if (hours) return `${hours}h ${minutes}m`;
+    if (minutes) return `${minutes}m`;
+    return `${total}s`;
+  }
+
+  async function contributorBoard(all) {
+    const board = contributorBoardCache();
+    const cached = all ? board.all : board.month;
+    if (cached) return cached;
+    const data = await NC.api.rpc('contributor_leaderboard_dashboard', {
+      p_limit: 200, p_all: Boolean(all)
+    });
+    const result = Array.isArray(data) ? data[0] : data;
+    if (!result) throw new Error('The board answered nothing.');
+    if (all) { board.all = result; } else { board.month = result; board.monthKey = result.month_key || ''; }
+    return result;
+  }
+
+  function renderContributors(context = {}) {
+    const board = contributorBoardCache();
+    let scope = context.params?.get('scope') === 'all' ? 'all' : 'month';
+    let search = '';
+
+    root.innerHTML = `${pageChrome('সেরা অবদানকারী', 'Contributors, ranked by points earned from published articles, uploaded songs, comments, views and time in the app.')}
+      <section class="surface">
+        <div class="list-toolbar">
+          <label class="search-field"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><span class="sr-only">Search contributors</span><input type="search" placeholder="Search name or email…" data-ru-search></label>
+          <div class="button-row">
+            <button type="button" class="btn btn-primary" data-scope="month">This month</button>
+            <button type="button" class="btn btn-secondary" data-scope="all">Lifetime</button>
+          </div>
+        </div>
+        <div data-ru-table></div>
+      </section>`;
+
+    const table = root.querySelector('[data-ru-table]');
+
+    const paint = () => {
+      const rows = (scope === 'all' ? board.all : board.month)?.contributors || [];
+      const needle = search.trim().toLowerCase();
+      const filtered = needle
+        ? rows.filter((row) => `${row.name || ''} ${row.email || ''}`.toLowerCase().includes(needle))
+        : rows;
+
+      root.querySelectorAll('[data-scope]').forEach((button) => {
+        const active = button.dataset.scope === scope;
+        button.classList.toggle('btn-primary', active);
+        button.classList.toggle('btn-secondary', !active);
+      });
+
+      if (!filtered.length) {
+        table.innerHTML = NC.components.emptyState({
+          icon: 'fa-trophy',
+          title: needle ? 'No contributor matches' : 'No points earned yet',
+          description: needle
+            ? 'Clear the search to see the whole board.'
+            : 'Points appear here as registered readers publish articles, upload songs, comment, are read, and spend time in the app.'
+        });
+        return;
+      }
+
+      const totalPoints = filtered.reduce((sum, row) => sum + (Number(row.points) || 0), 0);
+      table.innerHTML = `${NC.components.tableShell({
+        caption: `Contributors — ${scope === 'all' ? 'lifetime' : monthLabel(board.monthKey)}`,
+        minWidth: '1040px',
+        head: `<tr><th style="width:64px">#</th><th>Contributor</th><th>Articles</th><th>Songs</th><th>Comments</th><th>Views</th><th>App time</th><th class="text-right">Points</th></tr>`,
+        body: filtered.map((row, index) => {
+          const user = userById(row.user_id);
+          const name = row.name || (user ? displayName(user) : 'Reader');
+          return `<tr>
+            <td data-label="#" class="ru-index">${index + 1}</td>
+            <td data-label="Contributor"><div class="person-cell">${NC.utils.avatarHTML(name, row.avatar_url || user?.avatar_url, 'person-avatar')}<div><strong>${escapeHTML(name)}</strong><span>${escapeHTML(row.email || user?.email || '')}</span></div></div></td>
+            <td data-label="Articles">${Number(row.articles) || 0}</td>
+            <td data-label="Songs">${Number(row.songs) || 0}</td>
+            <td data-label="Comments">${Number(row.comments) || 0}</td>
+            <td data-label="Views">${Number(row.views) || 0}</td>
+            <td data-label="App time">${escapeHTML(duration(row.seconds))}</td>
+            <td data-label="Points" class="text-right"><strong>${Number(row.points) || 0}</strong></td>
+          </tr>`;
+        }).join('')
+      })}<p class="text-muted-foreground toolbar-note">${filtered.length} contributor${filtered.length === 1 ? '' : 's'} · ${totalPoints} points in total · weights: article 50 · song 30 · comment 5 · view 1 · 2 minutes 1</p>`;
+    };
+
+    const load = async (force = false) => {
+      if (force) {
+        const box = contributorBoardCache();
+        if (scope === 'all') box.all = null; else box.month = null;
+      }
+      table.innerHTML = NC.components.skeleton(5, 4);
+      try {
+        await contributorBoard(scope === 'all');
+        paint();
+      } catch (error) {
+        table.innerHTML = NC.components.emptyState({
+          icon: 'fa-trophy',
+          title: 'The board is unavailable',
+          description: NC.api.userMessage(error, 'Run supabase/migrations/026_contributors.sql and 027_contributor_board_dashboard.sql, then reload.')
+        });
+      }
+    };
+
+    root.querySelectorAll('[data-scope]').forEach((button) => button.addEventListener('click', () => {
+      if (scope === button.dataset.scope) return;
+      scope = button.dataset.scope;
+      const url = new URL(window.location.href);
+      if (scope === 'all') url.searchParams.set('scope', 'all'); else url.searchParams.delete('scope');
+      window.history.replaceState({}, '', url);
+      load();
+    }));
+
+    root.querySelector('[data-ru-search]')?.addEventListener('input', debounce((event) => {
+      search = event.target.value;
+      paint();
+    }, 220));
+
+    load();
+  }
+
   const screens = {
     'registered-users': renderHome,
     'ru-users': renderUsers,
@@ -1957,7 +2110,8 @@
     'ru-music': renderMusic,
     'ru-comments': renderComments,
     'ru-messages': renderMessages,
-    'ru-notifications': renderNotifications
+    'ru-notifications': renderNotifications,
+    'ru-contributors': renderContributors
   };
 
   async function render(container, context = {}) {

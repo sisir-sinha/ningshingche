@@ -607,7 +607,10 @@ them, so an offline batch is folded into the next one instead of vanishing. Gues
 than carried over — on a shared device their minutes would otherwise land on the next reader.
 
 The weights (article 50, song 30, comment 5, view 1, two minutes 1) live in the database —
-`contributor_points_from` — so the app never computes a score it can disagree with. The contributor
+`contributor_points_from` — so the app never computes a score it can disagree with. The dashboard
+shows the same board through a second door, `contributor_leaderboard_dashboard` (migration 027), which
+is gated on the dashboard session instead; the page lives in the live dashboard's **Registered users →
+সেরা অবদানকারী** menu and reads the identical numbers. The contributor
 page prints the same table for the reader, in words.
 
 ### 12.4 Public user pages and view counting

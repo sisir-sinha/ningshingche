@@ -896,7 +896,29 @@ the entry points above.
 
 ---
 
-### 7.16 `public_profile` (`024_uploader_and_public_profile.sql`, publishable key allowed)
+### 7.16 The contributor board's second door (`027_contributor_board_dashboard.sql`)
+
+Migration 026's board is for readers: `contributor_leaderboard` needs an `auth.uid()`, and dashboard
+staff do not have one. This file adds the same board behind the dashboard's own gate so the CMS can
+show it, without loosening the app's rule:
+
+**`contributor_leaderboard_dashboard(p_limit integer default 50, p_month date default null, p_all boolean default false) → jsonb`**
+
+Identical shape to `contributor_leaderboard`, plus `email` on each row (what the dashboard links on),
+and `month_key` is `""` when `p_all` is true. Raises `42501` unless `public.is_dashboard_request()`
+(the helper from migration 004). Granted to `anon, authenticated` — the session header is what tells
+the two callers apart.
+
+Counting is unchanged and still lives in `contributor_score` / `contributor_points_from`; `026`'s
+`contributor_leaderboard` and this one are both thin wrappers over a shared, unexported
+`contributor_board(p_limit, p_month, p_all)`, so the two cannot drift apart.
+
+App side: `/contributors` in the dashboard is not a page — it is the app's own screen. Dashboard side:
+the **সেরা অবদানকারী** route under Registered users.
+
+---
+
+### 7.17 `public_profile` (`024_uploader_and_public_profile.sql`, publishable key allowed)
 
 One registered reader's public page: their name and avatar, the published articles their submissions
 were converted into, and the songs they uploaded — with the view totals for both. Exists because
@@ -918,7 +940,7 @@ what the player's `Uploader: …` line reads, with no extra request.
 
 ---
 
-### 7.17 View counting (`025_content_views.sql`, publishable key allowed)
+### 7.18 View counting (`025_content_views.sql`, publishable key allowed)
 
 A running total cannot draw a graph, so the counts are derived from events: every view is one row in
 `public.content_views`, a trigger keeps `blogs.views_count` / `music_tracks.views_count` in step, and

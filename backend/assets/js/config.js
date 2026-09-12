@@ -14,7 +14,7 @@
     app: Object.freeze({
       name: 'Ningshing Che',
       subtitle: 'Editorial Command Center',
-      version: '1.8.3',
+      version: '1.8.4',
       websiteUrl: 'https://ningshingche.com',
       locale: 'en-BD',
       timeZone: 'Asia/Dhaka',
@@ -82,6 +82,9 @@
       { id: 'ru-comments', label: 'Comments', icon: 'fa-comments', group: 'community', parent: 'registered-users' },
       { id: 'ru-messages', label: 'Messages', icon: 'fa-messages', group: 'community', parent: 'registered-users' },
       { id: 'ru-notifications', label: 'Notification', icon: 'fa-bell', group: 'community', parent: 'registered-users' },
+      // The app's own page (সেরা অবদানকারী) mirrored into the dashboard. Its
+      // permission follows its parent, like every other row in this menu.
+      { id: 'ru-contributors', label: 'সেরা অবদানকারী', icon: 'fa-trophy', group: 'community', parent: 'registered-users' },
       { id: 'authors', label: 'Authors', icon: 'fa-user-pen', group: 'content' },
       { id: 'blogs', label: 'Blogs', icon: 'fa-newspaper', group: 'content' },
       { id: 'categories', label: 'Categories', icon: 'fa-layer-group', group: 'content' },

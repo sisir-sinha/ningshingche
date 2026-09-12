@@ -107,6 +107,17 @@ grant select on public.profiles, public.blogs, public.music_tracks, public.submi
   public.comments
   to anon, authenticated;
 
+-- 004's dashboard-session helper, which 027 gates on. The real one reads
+-- `dashboard_sessions`; here the session is whatever the caller sets, which is
+-- all the gate needs to be exercised both ways.
+create or replace function public.is_dashboard_request()
+returns boolean
+language sql
+stable
+as $$
+  select coalesce(current_setting('test.dashboard', true), '') = 'on'
+$$;
+
 -- Deliberately *not* created: `music_tracks.views_count` and
 -- `music_tracks.uploader_name`. Those are what the two migrations bring; a
 -- fixture that pre-created them would hide the very ordering bug being tested.

@@ -74,6 +74,12 @@ test.after(() => windows.forEach((window) => window.close()));
 
 const allowAll = () => true;
 const allow = (...ids) => (id) => ids.includes(id);
+/** The real check: a route is permitted by its own key or by its parent's. */
+const allowKeys = (routes, ...keys) => (id) => {
+  const route = routes.find((item) => item.id === id);
+  const key = route?.permission || route?.parent || id;
+  return keys.includes(id) || keys.includes(key);
+};
 
 test('sidebar menu', { skip: JSDOM ? false : 'jsdom is not installed (npm install --no-save jsdom)' }, async (t) => {
   const window = bootTracked();
@@ -135,6 +141,23 @@ test('sidebar menu', { skip: JSDOM ? false : 'jsdom is not installed (npm instal
     assert.match(markup, /data-nav-submenu="registered-users"[^>]*>[\s\S]*href="#\/ru-users"/, 'the community routes live in the submenu');
     assert.match(markup, /class="nav-submenu is-open" data-nav-submenu="registered-users"/, 'the submenu opens for the current route');
     assert.equal(markup.split('href="#/ru-users"').length - 1, 1, 'ru-users is listed exactly once');
+  });
+
+  await t.test('সেরা অবদানকারী sits in the Registered-users menu', () => {
+    // The owner asked for the app's contributor page in this menu, so both
+    // halves matter: it is in the submenu, and a role that can open Registered
+    // users can open it (its permission key is its parent).
+    const markup = html(routes, allowAll, 'dashboard');
+    assert.match(markup, /href="#\/ru-contributors"/, 'the route is in the sidebar');
+    assert.match(
+      markup,
+      /data-nav-submenu="registered-users"[\s\S]*href="#\/ru-contributors"/,
+      'and inside the Registered-users submenu'
+    );
+    const withParent = html(routes, allowKeys(routes, 'dashboard', 'registered-users'), 'dashboard');
+    assert.match(withParent, /href="#\/ru-contributors"/, 'the parent permission carries it');
+    const withoutParent = html(routes, allowKeys(routes, 'dashboard', 'blogs'), 'dashboard');
+    assert.doesNotMatch(withoutParent, /href="#\/ru-contributors"/, 'and nothing else does');
   });
 
   await t.test('groups stay ordered overview, community, content, system', () => {
