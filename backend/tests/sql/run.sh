@@ -134,6 +134,23 @@ echo "$profile" | grep -q 'নতুন নাম' && ok "public profile returns
 echo "$profile" | grep -q 'reader-article' && ok "public profile lists the published article" || bad "profile article missing"
 echo "$profile" | grep -q 'পাঠকের গান' && ok "public profile lists the song" || bad "profile song missing"
 
+# --- the lock on the new tables ----------------------------------------------
+# Supabase's default privileges hand `anon` access to anything new in `public`,
+# so a table that ends up here without RLS is exposed through the API. The SQL
+# Editor warns about it when a create has no enable in the same script — this is
+# the same check, run against the result instead of the text.
+step "row level security"
+
+for table in content_views reader_activity profile_locks; do
+  [ "$table" = "profile_locks" ] && continue
+  rls="$(psql -d ordered -tAc "select relrowsecurity from pg_class where relname = '$table' and relnamespace = 'public'::regnamespace")"
+  [ "$rls" = "t" ] && ok "$table has RLS enabled" || bad "$table has RLS = '$rls'"
+done
+
+policies="$(psql -d ordered -tAc "select count(*) from pg_policies where schemaname = 'public' and tablename = 'content_views'")"
+[ "$policies" = "0" ] && ok "content_views has no policies (definer functions only)" \
+  || bad "content_views has $policies policies"
+
 # --- contributors -------------------------------------------------------------
 step "contributors"
 

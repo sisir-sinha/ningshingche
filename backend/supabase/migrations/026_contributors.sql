@@ -40,6 +40,15 @@ create table if not exists public.content_views (
   created_at timestamptz not null default timezone('utc', now())
 );
 
+-- And it is locked immediately, in the same file that might have created it.
+-- Supabase grants `anon` and `authenticated` access to new tables in `public` by
+-- default privilege, so a table left without RLS is reachable through the API the
+-- moment it exists — which is what the SQL Editor's warning is about. This file
+-- has no policies for the table, so RLS on means nobody reads or writes it
+-- except the security-definer functions. (The Supabase prompt offers to add this;
+-- it belongs in the file, so a run cannot forget it.)
+alter table public.content_views enable row level security;
+
 -- 1. Time in the app ---------------------------------------------------------
 --
 -- One row per reader per UTC day. The app reports seconds in batches while it is
