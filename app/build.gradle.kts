@@ -17,8 +17,8 @@ android {
     applicationId = "com.ningshingche.app"
     minSdk = 24
     targetSdk = 36
-    versionCode = 13
-    versionName = "1.10.0"
+    versionCode = 14
+    versionName = "1.10.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

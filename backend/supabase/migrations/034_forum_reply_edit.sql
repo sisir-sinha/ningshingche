@@ -1,30 +1,23 @@
--- A reader's own answers: editing them, deleting them, and knowing which answers
--- came from the dashboard.
--- Run in the Supabase SQL Editor after 029_forum.sql, 030_forum_answers.sql and
--- 032_forum_editorial.sql.
+-- ============================================================================
+-- 034_forum_reply_edit.sql
+-- An answer is the reader's own: editing it, and taking it back.
 --
--- 029 gave a signed-in reader the right to write an answer. It did not give them
--- the right to change their mind: `forum_reply` inserts, and nothing in the app
--- could touch the row again — the reader's only remedy for a typo was to write a
--- second answer correcting the first. This file adds the two doors.
+-- The owner's newest corrections are half a page of layout and two sentences of
+-- behaviour: a reader may change or remove **their own** answer in the app, by a
+-- long press, and an answer the dashboard wrote is marked as the admin's. Both
+-- halves need the database to say one extra word about every answer, which is
+-- what this file adds.
 --
---   * `forum_edit_reply(id, body)` — the author of the answer, and only them.
---   * `forum_delete_reply(id)` — the same author. A delete is `status =
---     'Removed'` rather than a `delete`, for three reasons: the dashboard can
---     still see what was there, the row keeps its reactions and its place in the
---     thread until they are re-folded, and a reader cannot destroy other people's
---     answers by proxy — the answers *under* a deleted one are re-parented onto
---     the answer it answered, so they stay in the thread and keep their words.
+-- `forum_reply_rows` has carried `is_official` since 032 (the dashboard's own
+-- signature). What it has never carried is `is_mine` — whether the reader asking
+-- is the one who wrote it — because until now the app had nothing to do with the
+-- answer. A long press needs it: the two actions belong to the author and to
+-- nobody else, and the app must know that before it offers them, not after the
+-- database refuses.
 --
--- The same two functions also carry the answers the dashboard wrote (032): those
--- have no reader behind them, so nobody in the app can edit or delete them, which
--- is what `user_id is null` in the checks below says.
---
--- And both re-reads the app already makes — `forum_discussion` and the reply
--- `forum_reply` hands back — learn two things about every answer: `is_official`
--- (the dashboard's own mark, added to `forum_reply_rows` by 032) and `is_mine`
--- (this reader wrote it). Without `is_mine` the app would have to guess from the
--- author's name, and a name is not an identity.
+-- Run after 029_forum.sql, 030_forum_answers.sql and 032_forum_editorial.sql.
+-- A database that has not run them is told so and left alone.
+-- ============================================================================
 
 begin;
 
@@ -51,14 +44,19 @@ begin
   end if;
 
   -- --------------------------------------------------------------------------
-  -- 1. The author reads the thread again, and learns what is theirs
+  -- 1. The answers the app reads, with the two words appended
   -- --------------------------------------------------------------------------
   --
-  -- The shapes are unchanged: `{discussion, replies[]}`, the same columns in the
-  -- same order, with `is_official` and `is_mine` appended to each reply. A view
-  -- may only grow columns at the end, and this function is the same kind of
-  -- promise — the app reads it by name, so nothing it already reads may move.
-  execute $discussion$
+  -- The shape is unchanged: the same columns in the same order, with
+  -- `is_official` and `is_mine` at the end of each reply. A function whose shape
+  -- is a promise may only grow at the end, and the app reads it by name — so
+  -- this is the same body 030 and 032 built, plus two columns.
+  --
+  -- `is_mine` is `(author_id is not null and author_id = auth.uid())` and not a
+  -- bare `=`: an editorial answer has no reader behind it, and `null = null` is
+  -- null, which is not true. A reader is never handed a row that says it is
+  -- theirs when it is nobody's.
+  execute $fn_discussion$
     create or replace function public.forum_discussion(
       p_id uuid,
       p_count_view boolean default true,
@@ -112,9 +110,9 @@ begin
                    v.like_count,
                    v.dislike_count,
                    v.agree_count,
+                   -- The two words this file exists for, appended after everything
+                   -- 030 and 032 read by name.
                    v.is_official,
-                   -- `is not null` and not a bare `=`: an editorial answer has no
-                   -- reader, and `null = null` is null, which is not true.
                    (v.author_id is not null and v.author_id = auth.uid()) as is_mine,
                    coalesce((select x.kind from public.forum_reactions x
                               where x.reply_id = v.id and x.reactor_key = key), '') as my_reaction
@@ -127,12 +125,9 @@ begin
       );
     end;
     $body$
-  $discussion$;
+  $fn_discussion$;
 
-  -- --------------------------------------------------------------------------
-  -- 2. A new answer comes back in the same shape
-  -- --------------------------------------------------------------------------
-  execute $reply$
+  execute $fn_reply$
     create or replace function public.forum_reply(
       p_id uuid,
       p_body text,
@@ -176,6 +171,7 @@ begin
         root := coalesce(parent.parent_id, parent.id);
       end if;
 
+      -- And so is an answer, for the same reason.
       if public.forum_text_units(public.forum_plain_text(clean_body)) < 1
          or char_length(public.forum_plain_text(clean_body)) > 4000 then
         raise exception 'a reply is at least 1 character (and at most 4000)'
@@ -216,14 +212,21 @@ begin
       );
     end;
     $body$
-  $reply$;
+  $fn_reply$;
 
   -- --------------------------------------------------------------------------
-  -- 3. Editing an answer
+  -- 2. Changing an answer
   -- --------------------------------------------------------------------------
   --
-  -- The same body rules as writing one, checked against the *words* rather than
-  -- the markup: an answer holding one picture and no sentence is not an answer.
+  -- The words, and only the words.
+  -- `author_name` and `is_official` are not touched here: 032's guard trigger
+  -- enforces it even for a direct PostgREST update, so a reader cannot sign their
+  -- answer with someone else's name, or award themselves the official badge, by
+  -- going around this function.
+  --
+  -- The length and content rules are the ones writing an answer has always had,
+  -- measured on the *words* rather than the markup: an answer holding one picture
+  -- and no sentence is not an answer.
   execute $edit$
     create or replace function public.forum_edit_reply(
       p_id uuid,
@@ -264,8 +267,6 @@ begin
           using errcode = '22023';
       end if;
 
-      -- `author_name` and `is_official` are not touched here, and the guard
-      -- trigger from 032 enforces that even for a direct PostgREST update.
       update public.forum_replies r
          set body = clean_body
        where r.id = p_id;
@@ -299,17 +300,19 @@ begin
   $edit$;
 
   -- --------------------------------------------------------------------------
-  -- 4. Deleting an answer
+  -- 3. Taking an answer back
   -- --------------------------------------------------------------------------
   --
-  -- `status = 'Removed'`, never a `delete`, and the answers under it are handed
-  -- to the answer it answered. That is the same one-level fold the thread already
-  -- draws — a reply to a reply belongs to its top-level answer — so a reader who
-  -- deletes their answer takes their own words away and nobody else's, and the
-  -- argument under it does not fall into a hole.
+  -- `status = 'Removed'`, never a `delete`: the row stays, the dashboard can
+  -- still see what was there, and the author's own id keeps its history. The
+  -- answers written under it are handed to the answer it answered, which is the
+  -- one indent level the thread draws — so a reader who takes their answer back
+  -- takes their own words away and nobody else's, and the argument under it does
+  -- not fall into a hole.
   --
-  -- The count trigger (029) fires on the update, so the thread's উত্তর counter and
-  -- `last_reply_at` come back to the truth in the same transaction.
+  -- The reply counter is a column (`replies_count`) kept by a trigger, so it
+  -- settles by itself when the status changes; the app re-reads the thread after
+  -- a delete and gets the settled number.
   execute $delete$
     create or replace function public.forum_delete_reply(p_id uuid)
     returns jsonb
@@ -322,7 +325,7 @@ begin
       moved integer := 0;
     begin
       if auth.uid() is null then
-        raise exception 'deleting an answer needs a signed-in reader'
+        raise exception 'removing an answer needs a signed-in reader'
           using errcode = '42501';
       end if;
 
@@ -357,14 +360,26 @@ begin
     $body$
   $delete$;
 
+  -- --------------------------------------------------------------------------
+  -- 4. Who may call what
+  -- --------------------------------------------------------------------------
+  --
+  -- Both functions are the reader's own: signed-in, and only over rows whose
+  -- `user_id` is theirs. Nothing is granted to `anon` — a guest is not offered
+  -- the long press at all, and the database refuses it anyway.
   execute 'grant execute on function public.forum_edit_reply(uuid, text) to authenticated';
   execute 'grant execute on function public.forum_delete_reply(uuid) to authenticated';
   execute 'revoke execute on function public.forum_edit_reply(uuid, text) from anon';
   execute 'revoke execute on function public.forum_delete_reply(uuid) from anon';
+
+  -- The read functions keep the grants 029 and 030 gave them: this file only
+  -- replaced their bodies.
+  execute 'grant execute on function public.forum_discussion(uuid, boolean, text) to anon, authenticated';
+  execute 'grant execute on function public.forum_reply(uuid, text, uuid, text) to authenticated';
 end
 $forum_reply_edit$;
 
--- 5. RLS, restated after the tables and policies it belongs to ------------------
+-- 5. RLS, restated for the table this file writes -------------------------------
 
 do $forum_reply_edit_rls$
 begin

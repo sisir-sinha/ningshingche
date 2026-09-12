@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -236,7 +235,7 @@ private val FORUM_CARD_COVER_WIDTH = 116.dp
  * words fit themselves into it — the title ellipsises at two lines, the summary at
  * one when there is a cover, and the author block sits on the floor of the card.
  */
-private val FORUM_CARD_HEIGHT = 140.dp
+private val FORUM_CARD_HEIGHT = 152.dp
 
 /**
  * How many lines of a folded body a reader sees.
@@ -2590,10 +2589,11 @@ private fun ForumDiscussionCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                // A floor, not a lid: every card on the page is the same height,
-                // and the one whose words ask for more grows instead of having
-                // its last line cut off.
-                .defaultMinSize(minHeight = FORUM_CARD_HEIGHT)
+                // EVERY card on the page is the same height — the owner's
+                // third sentence about this list, and the reason the words on it
+                // are capped: a two-line title, a two-line description, and a
+                // cover filling whatever is left beside them.
+                .height(FORUM_CARD_HEIGHT)
                 .clickable(onClick = onClick)
                 .padding(EditorialSpace.sm),
             verticalAlignment = Alignment.Top
@@ -2665,9 +2665,11 @@ private fun ForumDiscussionCard(
                     fontWeight = FontWeight.Bold,
                     fontSize = if (discussion.hasCover) 16.sp else 17.sp,
                     lineHeight = if (discussion.hasCover) 19.sp else 20.sp,
-                    // Two lines, as the owner asked — and three only on a card
-                    // with no cover, where the words have the whole width.
-                    maxLines = if (discussion.hasCover) 2 else 3,
+                    // Two lines, on every card, cover or no cover: with the
+                    // description under it that is what fits the height they all
+                    // share, and a title that ran on would push the description
+                    // out of the card instead of shortening itself.
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
 

@@ -415,25 +415,34 @@ test('every card on the forum page is the same card', async (t) => {
       'the row is reachable in a UI test');
   });
 
-  await t.test('a card beside a picture folds its words sooner', () => {
+  await t.test('the title is two lines, and the summary one beside a picture', () => {
     const card = screen('ForumDiscussionCard');
-    assert.match(card, /maxLines = if \(discussion\.hasCover\) 2 else 3/,
-      'two lines of title beside a cover, three without one');
+    // Re-anchored for the owner's next words on this card: two lines of title on
+    // EVERY card, cover or no cover, with the description under it.
+    assert.match(card, /maxLines = 2,\s*\n\s*overflow = TextOverflow\.Ellipsis/,
+      'two lines of title, then an ellipsis');
+    const title = card.slice(card.indexOf('text = discussion.title'),
+      card.indexOf('val excerpt = forumExcerpt'));
+    assert.match(title, /maxLines = 2,/);
+    assert.ok(!/maxLines = if \(/.test(title),
+      'and the title is never given a third line: not with a cover, not without one');
     assert.match(card, /maxLines = if \(discussion\.hasCover\) 1 else 2/,
-      'one line of summary beside it, two without');
+      'one line of summary beside a cover, two without one');
     assert.match(card, /fontSize = if \(discussion\.hasCover\) 16\.sp else 17\.sp/,
       'a size down for the narrower column');
   });
 
-  await t.test('the cover is the height of the card, and the card is a floor', () => {
+  await t.test('every card is the same height, and the cover fills it', () => {
     const card = screen('ForumDiscussionCard');
     assert.match(FORUM_SCREENS, /private val FORUM_CARD_COVER_WIDTH = 116\.dp/);
-    assert.match(FORUM_SCREENS, /private val FORUM_CARD_HEIGHT = 140\.dp/,
+    assert.match(FORUM_SCREENS, /private val FORUM_CARD_HEIGHT = 152\.dp/,
       'one height for every card on the page');
+    assert.match(card, /\.height\(FORUM_CARD_HEIGHT\)/,
+      'which each card takes, exactly');
+    assert.ok(!/defaultMinSize/.test(card),
+      'not a floor: a card that grew would be a card of its own height');
     assert.match(card, /\.width\(FORUM_CARD_COVER_WIDTH\)\s*\n\s*\.fillMaxHeight\(\)/,
       'a cover fills the card beside the words');
-    assert.match(card, /\.defaultMinSize\(minHeight = FORUM_CARD_HEIGHT\)/,
-      'a floor rather than a lid: a card that needs more grows');
     assert.ok(!/FORUM_CORNER_RESERVE/.test(FORUM_SCREENS),
       'and the corner the counters used to be pinned in is gone with them');
   });

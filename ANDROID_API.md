@@ -1121,11 +1121,16 @@ on the box's header puts it away without posting anything, and Back goes keyboar
 
 *The forum's cards are one shape.* On **সাম্প্রতিক আলোচনা** the view and answer counters sit inline
 at the right of the category, with no pill, no border and no fill of their own — the owner's first
-correction to that card, and where it started. Beside a cover the title keeps **two** lines and the
-summary **one**; without a cover they keep three and two, because the words have the whole width.
-Every card is `FORUM_CARD_HEIGHT` (140 dp) as a **floor** rather than a lid, so a card whose words ask
-for more grows instead of having its last line cut off, and the cover is a 116 dp column filling that
-height beside the words, with the face, the name and the date on the floor of the card.
+correction to that card, and where it started. The title keeps **two** lines on every card, cover or
+no cover, with the description under it; beside a cover that description keeps **one** line, and two
+without one. Every card is exactly `FORUM_CARD_HEIGHT` (**152 dp**) — the owner's third sentence, *the
+items should be equal height* — so the words on it are capped rather than allowed to push the card
+taller than its neighbours. The cover is a 116 dp column filling that height beside the words, with
+the face, the name and the date on the floor of the card.
+
+The same counters, in the thread, sit at the **right of the creator block**: the face on the left, the
+name above its date, and the view and answer counts starting from the right-hand edge of that block —
+`ForumOpeningMeta`, which is the one place a thread's numbers are drawn.
 
 *Files are attached, previewed and opened.* `ForumAttachment` (a URL, a name, a type, a size) is
 the model; `forumWithAttachments` appends `<p><img src="…" alt="…"></p>` for a picture and
