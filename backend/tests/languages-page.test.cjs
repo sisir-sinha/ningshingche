@@ -46,7 +46,13 @@ const bnCsv = ['key,value', ...SOURCE.map((key) => `${key},${key}`)].join('\n') 
 const bpyCsv = 'key,value\nগান,Elahan\n### «{1}» — নিবন্ধ বিশ্লেষণ,লেবেল\n';
 const enCsv = 'key,value\nগান,Song\nগান,Song (duplicate wins)\n'.replace('গান,Song (duplicate wins)\n', '');
 
-function boot() {
+/**
+ * The same page with more strings than fit on one page (the sheet is well past
+ * that now), so the search can be asked about a row it cannot see.
+ */
+const LONG_SOURCE = Array.from({ length: 60 }, (_, index) => `${'স্ট্রিং'} ${index + 1}`);
+
+function boot({ bn = bnCsv } = {}) {
   const dom = new JSDOM('<!doctype html><html><body><div id="root"></div><div id="modal-root"></div></body></html>', {
     url: 'https://example.test/dashboard/',
     runScripts: 'outside-only'
@@ -61,7 +67,7 @@ function boot() {
   window.URL.revokeObjectURL = () => {};
   window.fetch = async (url) => {
     const name = String(url).split('/').pop();
-    if (name === 'bn.csv') return { ok: true, text: async () => bnCsv };
+    if (name === 'bn.csv') return { ok: true, text: async () => bn };
     return { ok: false, status: 404, text: async () => '' };
   };
   window.NC = {
@@ -197,6 +203,35 @@ test('languages page', { skip: JSDOM ? false : 'jsdom is not installed (npm inst
     assert.equal(rows(), 1);
     type(window, search, '');
     assert.equal(rows(), SOURCE.length);
+  });
+
+  await t.test('the search looks at every string, not just the page on screen', async () => {
+    // The sheet is several pages long and the search used to hide rows in place,
+    // so it could only ever see the twenty-five in front of it: typing a string
+    // that lived on another page answered "0 of 797" and the row looked missing.
+    const NL = String.fromCharCode(10);
+    const longCsv = ['key,value', ...LONG_SOURCE.map((key) => `${key},${key}`)].join(NL) + NL;
+    const long = boot({ bn: longCsv });
+    await long.window.NC.views.languages.render(long.root);
+    assert.equal(long.root.querySelectorAll('[data-entry-row]').length, 25, 'page one shows one page of rows');
+    assert.equal(long.root.querySelector('[data-entry-shown]').textContent, '25');
+
+    // The last string is on the last page, and has never been rendered.
+    const box = long.root.querySelector('[data-entry-search]');
+    box.focus();
+    type(long.window, box, LONG_SOURCE[LONG_SOURCE.length - 1]);
+    assert.equal(long.window.document.activeElement, box, 'the search box keeps the caret');
+    assert.equal(long.root.querySelector('[data-entry-shown]').textContent, '1', 'the match is found across all pages');
+    assert.equal(long.root.querySelectorAll('[data-entry-row]').length, 1);
+    assert.equal(
+      long.root.querySelectorAll('[data-entry][data-lang="bn"]')[0].dataset.key,
+      LONG_SOURCE[LONG_SOURCE.length - 1]
+    );
+
+    // A filter spans the whole sheet too, and clearing the search restores it.
+    type(long.window, box, '');
+    assert.equal(long.root.querySelector('[data-entry-shown]').textContent, '25');
+    assert.equal(long.root.querySelectorAll('[data-entry-row]').length, 25);
   });
 
   await t.test('save writes one file per language, blanks dropped', async () => {

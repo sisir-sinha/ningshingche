@@ -333,7 +333,29 @@
     root.querySelector('[data-lang-chips]').innerHTML = chips;
   }
 
+  /**
+   * The toolbar once, then the rows: the search box and the filter buttons are
+   * built here and never rebuilt, so the caret stays where the owner left it
+   * while everything below them changes. (Typing used to hide rows in place
+   * instead, which meant the search could only ever see the page in front of it —
+   * twenty-five of several hundred strings, with the count below claiming zero.)
+   */
   function renderGrid() {
+    root.querySelector('[data-grid-panel]').innerHTML = `
+      <div class="list-toolbar">
+        <label class="search-field"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><span class="sr-only">Search strings</span><input type="search" placeholder="Search Bengali or a translation…" data-entry-search value="${escapeHTML(query)}"></label>
+        <div class="button-row">
+          ${[['all', 'All'], ['missing', 'Missing'], ['complete', 'Complete']].map(([id, label]) =>
+            `<button type="button" class="btn ${filter === id ? 'btn-primary' : 'btn-secondary'}" data-filter="${id}">${label}</button>`).join('')}
+        </div>
+      </div>
+      <div data-table-area></div>`;
+    bindToolbar();
+    renderTableArea();
+  }
+
+  /** The rows for the current search, filter and page — all of them, not just the last page drawn. */
+  function renderTableArea() {
     const entries = matrix();
     const search = query.trim().toLowerCase();
     const filtered = entries.filter((entry) => rowMatches(entry, search));
@@ -363,14 +385,9 @@
       </tr>`).join('');
 
     const row = (lang) => `<th${lang.source ? ' class="lang-source-head"' : ''}>${escapeHTML(lang.short)}<small>${escapeHTML(lang.label)}</small></th>`;
-    root.querySelector('[data-grid-panel]').innerHTML = `
-      <div class="list-toolbar">
-        <label class="search-field"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><span class="sr-only">Search strings</span><input type="search" placeholder="Search Bengali or a translation…" data-entry-search value="${escapeHTML(query)}"></label>
-        <div class="button-row">
-          ${[['all', 'All'], ['missing', 'Missing'], ['complete', 'Complete']].map(([id, label]) =>
-            `<button type="button" class="btn ${filter === id ? 'btn-primary' : 'btn-secondary'}" data-filter="${id}">${label}</button>`).join('')}
-        </div>
-      </div>
+    const area = root.querySelector('[data-table-area]');
+    if (!area) return;
+    area.innerHTML = `
       ${body ? NC.components.tableShell({
         caption: 'Interface strings and their translations',
         minWidth: '820px',
@@ -386,24 +403,7 @@
         </div>
       </div>`;
 
-    bindGrid();
-  }
-
-  /** Hide/show the rows already on screen, so typing in the search box keeps focus. */
-  function applyRowFilter() {
-    const search = query.trim().toLowerCase();
-    let shown = 0;
-    root.querySelectorAll('[data-entry-row]').forEach((row) => {
-      const matches = (!search || (row.dataset.searchText || '').toLowerCase().includes(search))
-        && (filter === 'all'
-          || (filter === 'missing' ? row.dataset.missing === 'true' : row.dataset.missing !== 'true'));
-      row.hidden = !matches;
-      if (matches) shown += 1;
-    });
-    const counter = root.querySelector('[data-entry-shown]');
-    if (counter) counter.textContent = String(shown);
-    const filteredTag = root.querySelector('[data-entry-filtered]');
-    if (filteredTag) filteredTag.textContent = (search || filter !== 'all') ? ' · filtered' : '';
+    bindRows();
   }
 
   function refreshCounters() {
@@ -418,10 +418,14 @@
       + ` of ${keys.length} strings<span data-entry-filtered>${query.trim() || filter !== 'all' ? ' · filtered' : ''}</span> · ${parts}`;
   }
 
-  function bindGrid() {
+  /** The toolbar: the two controls that never get rebuilt. */
+  function bindToolbar() {
     const search = root.querySelector('[data-entry-search]');
     if (search) {
-      search.addEventListener('input', () => { query = search.value; page = 1; applyRowFilter(); });
+      // The rows are recomputed over every string, not just the ones on screen,
+      // and only the area below the toolbar is replaced — so the box keeps the
+      // caret while the results change underneath it.
+      search.addEventListener('input', () => { query = search.value; page = 1; renderTableArea(); });
     }
     root.querySelectorAll('[data-filter]').forEach((button) => button.addEventListener('click', () => {
       filter = button.dataset.filter;
@@ -430,11 +434,16 @@
         other.classList.toggle('btn-primary', other === button));
       root.querySelectorAll('[data-filter]').forEach((other) =>
         other.classList.toggle('btn-secondary', other !== button));
-      applyRowFilter();
+      renderTableArea();
     }));
+  }
+
+  /** The rows and the pager, which are replaced whenever the search or filter changes. */
+  function bindRows() {
     root.querySelectorAll('[data-page]').forEach((button) => button.addEventListener('click', () => {
       page += button.dataset.page === 'next' ? 1 : -1;
-      renderGrid();
+      renderTableArea();
+      root.querySelector('[data-entry-search]')?.focus({ preventScroll: true });
     }));
     root.querySelectorAll('[data-entry]').forEach((input) => {
       input.addEventListener('input', () => {
