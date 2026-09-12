@@ -111,6 +111,9 @@ object ReaderRoute {
     // A registered reader's public page: their songs and published articles.
     const val PublicProfile = "user/{userId}"
     const val UserDashboard = "user_dashboard"
+
+    /** The dashboard tab a successful submission forwards to (see the `tabKey` map). */
+    const val DASHBOARD_CONTENT = "content"
     const val UserDashboardPattern = "user_dashboard?tab={tab}&focus={focus}"
     const val UserProfile = "user_profile"
     const val NewArticle = "new_article"
@@ -797,11 +800,42 @@ fun EditorialReaderApp(
                 )
             }
 
+            // Where a successful submit goes: the dashboard, opened on its
+            // content tab, so the row the reader has just written is in front of
+            // them. The dashboard's own entry is thrown away first when it is
+            // already underneath this screen, otherwise the pattern route underneath
+            // would be re-shown with the tab it was created with (a pop restores
+            // the arguments of the entry, it cannot change them) and there would
+            // be two dashboards in the stack. A fresh entry is honest: content
+            // tab, focus row, and Back still returns to whatever was under the
+            // dashboard. Returns false when nothing had to be thrown away.
+            fun androidx.navigation.NavHostController.forwardToSubmittedContent(): Boolean {
+                val dashboard = backQueue.lastOrNull { entry ->
+                    val route = entry.destination.route.orEmpty()
+                    route == ReaderRoute.UserDashboard ||
+                        route.startsWith("${ReaderRoute.UserDashboard}?")
+                }
+                if (dashboard == null) {
+                    // New Article is reachable from the home screen too: the
+                    // composer is the only thing to close.
+                    popBackStack()
+                    return false
+                }
+                return popBackStack(dashboard.id, inclusive = true)
+            }
+
+            /** The one trip both composers take when the send has succeeded. */
+            fun androidx.navigation.NavHostController.openSubmittedContent() {
+                forwardToSubmittedContent()
+                navigate(ReaderRoute.dashboard(tab = ReaderRoute.DASHBOARD_CONTENT))
+            }
+
             composable(ReaderRoute.NewArticle, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
                 NewArticleScreen(
                     viewModel = workspaceViewModel,
                     onBackClick = { navController.popBackStack() },
-                    onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) }
+                    onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) },
+                    onSubmitted = { navController.openSubmittedContent() }
                 )
             }
 
@@ -809,7 +843,8 @@ fun EditorialReaderApp(
                 NewMusicScreen(
                     viewModel = workspaceViewModel,
                     onBackClick = { navController.popBackStack() },
-                    onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) }
+                    onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) },
+                    onSubmitted = { navController.openSubmittedContent() }
                 )
             }
 

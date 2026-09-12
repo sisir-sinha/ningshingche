@@ -37,6 +37,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -137,6 +139,7 @@ import com.ningshingche.app.data.remote.UserProfile
 import com.ningshingche.app.data.remote.messageAttachmentUrls
 import com.ningshingche.app.data.remote.shortDateTime
 import com.ningshingche.app.ui.components.AppToasts
+import com.ningshingche.app.ui.editorial.formatBengaliDate
 import com.ningshingche.app.ui.editorial.Hairline
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.editorial.toBengaliNumeral
@@ -189,6 +192,15 @@ fun UserDashboardScreen(
     val viewSeries by viewModel.viewSeries.collectAsStateWithLifecycle()
     val contributorScore by viewModel.contributorScore.collectAsStateWithLifecycle()
     val forumActivity by viewModel.forumActivity.collectAsStateWithLifecycle()
+    val forumHasMore by viewModel.forumHasMore.collectAsStateWithLifecycle()
+    val forumLoadingMore by viewModel.forumLoadingMore.collectAsStateWithLifecycle()
+    val submission by viewModel.submission.collectAsStateWithLifecycle()
+
+    // Where this visit lands. A submission that has just gone through decides
+    // it — the owner asked for the content tab, with the new row in front of the
+    // reader — and it is captured once, when the screen composes, so clearing the
+    // note afterwards cannot move the reader a second time.
+    val landing = remember { submission?.takeIf { it.isFresh() } }
     val loading by viewModel.isLoading.collectAsStateWithLifecycle()
     val saving by viewModel.isSaving.collectAsStateWithLifecycle()
     val status by viewModel.message.collectAsStateWithLifecycle()
@@ -252,8 +264,26 @@ fun UserDashboardScreen(
         scope.launch { pagerState.animateScrollToPage(targetTab) }
         }
     }
-    LaunchedEffect(initialTab) {
-        pagerState.scrollToPage(initialTab.coerceIn(0, TAB_COMMENTS))
+    val snackbarHostState = remember { SnackbarHostState() }
+    // One landing, in one hop: a submission takes the reader to the content tab
+    // and points the pane at the row that was just written, and the ordinary
+    // case goes to whatever tab the route asked for. `scrollToPage` and not
+    // `animateScrollToPage` — the screen is appearing, not travelling, and an
+    // animation here is a flash of the wrong tab first.
+    LaunchedEffect(initialTab, landing) {
+        val note = landing
+        if (note != null) {
+            if (note.id.isNotBlank()) contentFocus = note.id
+            pagerState.scrollToPage(TAB_CONTENT)
+            // Cleared before the snackbar, which suspends: a note is spent the
+            // moment it has moved the reader, not four seconds later.
+            viewModel.clearSubmission()
+            if (note.confirmation.isNotBlank()) {
+                snackbarHostState.showSnackbar(note.confirmation)
+            }
+        } else {
+            pagerState.scrollToPage(initialTab.coerceIn(0, TAB_COMMENTS))
+        }
     }
     LaunchedEffect(onContentTab) {
         if (!onContentTab) fabOpen = false
@@ -262,7 +292,6 @@ fun UserDashboardScreen(
         scope.launch { pagerState.animateScrollToPage(TAB_HOME) }
     }
 
-    val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(status) {
         val text = status ?: return@LaunchedEffect
         if (text.isBlank()) return@LaunchedEffect
@@ -405,6 +434,12 @@ fun UserDashboardScreen(
                         articles = articles,
                         tracks = tracks,
                         comments = comments,
+                        forumActivity = forumActivity,
+                        forumHasMore = forumHasMore,
+                        forumLoadingMore = forumLoadingMore,
+                        onLoadMoreForum = { viewModel.loadMoreForumActivity() },
+                        onOpenForum = onOpenForum,
+                        onOpenForumThread = onOpenForumThread,
                         onEditProfile = onCompleteProfile
                     )
                     TAB_NOTICES -> NoticePane(notifications, openNotice)
@@ -485,6 +520,151 @@ private fun DashboardBottomBar(
     }
 }
 
+/** The five sections of the dashboard home, shown one at a time. */
+private enum class HomeSection(val label: String) {
+    Points("পয়েন্ট"),
+    Forum("ফোরাম"),
+    Views("ভিউ"),
+    Activity("কার্যক্রম"),
+    Analytics("বিশ্লেষণ")
+}
+
+@Composable
+private fun HomeSectionTabs(selected: HomeSection, onSelect: (HomeSection) -> Unit) {
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("dashboard_sections"),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(HomeSection.entries.toList(), key = { it.name }) { entry ->
+            FilterChip(
+                selected = entry == selected,
+                onClick = { onSelect(entry) },
+                label = {
+                    Text(entry.label, fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold)
+                },
+                modifier = Modifier.testTag("dashboard_section_${entry.name.lowercase()}")
+            )
+        }
+    }
+}
+
+/** The view counter split, so the total in the chart above it can be read. */
+@Composable
+private fun ViewSplit(metrics: ReaderMetrics) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("dashboard_view_split"),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        MetricCard(
+            "প্রবন্ধ ভিউ",
+            toBengaliNumeral(metrics.articleViews),
+            Icons.AutoMirrored.Filled.Article,
+            Modifier.weight(1f)
+        )
+        MetricCard(
+            "গান ভিউ",
+            toBengaliNumeral(metrics.musicViews),
+            Icons.Default.MusicNote,
+            Modifier.weight(1f)
+        )
+    }
+}
+
+/**
+ * বিশ্লেষণ — the reader's articles, one row each, with what is known about them.
+ *
+ * Deliberately honest about what the data holds: a submission has a status, a
+ * date, and the comments readers left on the article it became (the app matches
+ * them by `convertedBlogId`). Per-article view counts are not in the submissions
+ * table — the views live on the published blog — so this list does not invent
+ * them, and the total the database does count is on the ভিউ section.
+ *
+ * Five rows at a time behind the same "আরও দেখুন" the other lists use.
+ */
+@Composable
+private fun ArticleAnalyticsList(
+    articles: List<SubmittedBlogRecord>,
+    comments: List<CommentRecord>
+) {
+    var limit by rememberSaveable { mutableIntStateOf(PAGE_SIZE) }
+    val tokens = LocalEditorialTokens.current
+    val sorted = remember(articles) {
+        articles.sortedByDescending { it.createdAt.ifBlank { it.updatedAt } }
+    }
+    val commentsByBlog = remember(comments) {
+        comments.filter { it.blogId.isNotBlank() }.groupingBy { it.blogId }.eachCount()
+    }
+
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("dashboard_analytics")
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                text = "প্রবন্ধ বিশ্লেষণ",
+                fontFamily = Kalpurush,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp
+            )
+            if (sorted.isEmpty()) {
+                EmptyHint("এখনো কোনো প্রবন্ধ জমা দেওয়া হয়নি।")
+                return@Column
+            }
+            sorted.take(limit).forEach { article ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = article.title,
+                            fontFamily = Kalpurush,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 13.5.sp,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = buildString {
+                                append(formatBengaliDate(article.createdAt))
+                                val replies = commentsByBlog[article.convertedBlogId] ?: 0
+                                if (replies > 0) {
+                                    append(" · ")
+                                    append(toBengaliNumeral(replies))
+                                    append(" মন্তব্য")
+                                }
+                            },
+                            fontFamily = Kalpurush,
+                            fontSize = 10.5.sp,
+                            color = tokens.inkMuted
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    ContentStatusChip(status = article.status)
+                }
+            }
+            if (limit < sorted.size) {
+                OutlinedButton(
+                    onClick = { limit = (limit + PAGE_SIZE).coerceAtMost(sorted.size) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("dashboard_analytics_more")
+                ) {
+                    Text("আরও দেখুন", fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun HomePane(
     user: UserProfile?,
@@ -495,8 +675,15 @@ private fun HomePane(
     articles: List<SubmittedBlogRecord>,
     tracks: List<SubmittedMusicRecord>,
     comments: List<CommentRecord>,
+    forumActivity: ForumActivity?,
+    forumHasMore: Boolean,
+    forumLoadingMore: Boolean,
+    onLoadMoreForum: () -> Unit,
+    onOpenForum: () -> Unit,
+    onOpenForumThread: (String) -> Unit,
     onEditProfile: () -> Unit
 ) {
+    var section by rememberSaveable { mutableStateOf(HomeSection.Points) }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -523,28 +710,57 @@ private fun HomePane(
             }
         }
         MetricsGrid(metrics = metrics)
-        // Points, from the same place the contributor board gets them.
-        contributorScore?.let { ContributorPointsCard(score = it) }
-        ForumCard(
-            activity = forumActivity,
-            onOpenForum = onOpenForum,
-            onOpenThread = onOpenForumThread,
-            modifier = Modifier.testTag("dashboard_forum")
-        )
-        // The one graph that comes from the server: the views the database has
-        // counted on the reader's articles and songs, day by day.
-        ViewsOverTimeChart(
-            series = viewSeries,
-            totalViews = metrics.totalViews,
-            days = viewSeriesDays
-        )
-        // Graphs of the reader's own records, drawn from the same local lists
-        // the tabs show — no extra requests.
-        ContributionCharts(
-            articles = articles,
-            tracks = tracks,
-            comments = comments
-        )
+
+        // One section at a time, in tabs.
+        //
+        // The owner's words were "points, forum, view, কার্যক্রম, Article
+        // analytics view in tab": these five used to be a single column of cards
+        // that had to be scrolled through to find any one of them. The summary
+        // above stays put — it is four numbers, not a section — and the sections
+        // below it trade places.
+        HomeSectionTabs(selected = section, onSelect = { section = it })
+
+        when (section) {
+            HomeSection.Points -> if (contributorScore != null) {
+                // Points, from the same place the contributor board gets them.
+                ContributorPointsCard(score = contributorScore)
+            } else {
+                EmptyHint("পয়েন্টের হিসাব এখনো পাওয়া যায়নি।")
+            }
+
+            HomeSection.Forum -> ForumCard(
+                activity = forumActivity,
+                onOpenForum = onOpenForum,
+                onOpenThread = onOpenForumThread,
+                onLoadMore = if (forumHasMore || forumLoadingMore) onLoadMoreForum else null,
+                loadingMore = forumLoadingMore,
+                modifier = Modifier.testTag("dashboard_forum")
+            )
+
+            HomeSection.Views -> {
+                // The one graph that comes from the server: the views the
+                // database has counted on the reader's articles and songs, day
+                // by day.
+                ViewsOverTimeChart(
+                    series = viewSeries,
+                    totalViews = metrics.totalViews,
+                    days = viewSeriesDays
+                )
+                ViewSplit(metrics = metrics)
+            }
+
+            HomeSection.Activity -> ActivityChart(
+                articles = articles,
+                tracks = tracks,
+                comments = comments
+            )
+
+            HomeSection.Analytics -> {
+                ArticleStatusChart(articles = articles)
+                ArticleAnalyticsList(articles = articles, comments = comments)
+            }
+        }
+
         Spacer(Modifier.height(24.dp))
     }
 }

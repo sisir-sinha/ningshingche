@@ -3091,6 +3091,9 @@ fun ForumCard(
     activity: ForumActivity?,
     onOpenForum: () -> Unit,
     onOpenThread: (String) -> Unit,
+    /** Asked for a bigger page when the database has more than this card holds. */
+    onLoadMore: (() -> Unit)? = null,
+    loadingMore: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val tokens = LocalEditorialTokens.current
@@ -3142,6 +3145,34 @@ fun ForumCard(
                     activity = activity,
                     onOpenDiscussion = onOpenThread
                 )
+                // Five items to a page, and the rest behind this button — which
+                // is the owner's rule for the dashboard's forum section. The
+                // database is asked again for a bigger window each time, so the
+                // list is never a copy of what the app already had.
+                if (onLoadMore != null) {
+                    TextButton(
+                        onClick = { if (!loadingMore) onLoadMore() },
+                        enabled = !loadingMore,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("dashboard_forum_more")
+                    ) {
+                        if (loadingMore) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(15.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text(
+                                text = "আরও লোড করুন",
+                                fontFamily = Kalpurush,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 12.5.sp,
+                                color = tokens.accent
+                            )
+                        }
+                    }
+                }
             }
         }
     }

@@ -987,6 +987,43 @@ memory.
     rebuilt screen counted the same reader a second time. The holder owns it: `counted` is set when
     the count has actually been sent, `countView = reloadToken == 0 && !holder.counted`.
 
+**The seventh read (app 1.7 → 1.8).** Three corrections: the audio tabs did not work, the dashboard
+home wanted its sections as tabs with the forum paged five at a time, and a successful submission
+should land on the content tab instead of going back where it came from.
+
+  * **A page state with no pager.** `MusicScreen` read its pane from `pagerState.currentPage` and its
+    chips called `pagerState.animateScrollToPage`, and there was no `HorizontalPager` anywhere in the
+    file. A `PagerState` on its own holds a page and changes a number; it scrolls nothing, and with the
+    pane chosen from that number, tapping a chip moved the number the chips read their selection from
+    and left the pane alone. The screen now composes one `HorizontalPager` over `MusicTab.entries`, so
+    the number the chips animate *is* the page on screen, and swipes work for the same reason taps do.
+    The lesson is general: **a derived state is only as live as the thing that drives it.**
+  * **The dashboard's five sections are tabs.** Points, forum, views, কার্যক্রম and article analytics
+    used to be one column of cards that had to be scrolled to find any one of them. They are a
+    `HomeSection` enum, a row of `FilterChip`s (`dashboard_sections`, each chip
+    `dashboard_section_<name>`) and a `when` over `rememberSaveable` state. The summary — the user
+    card and the four metrics — stays above the tabs; the tabs trade places below it. The two graphs
+    that shared one composable are two: `ActivityChart` (কার্যক্রম) and `ArticleStatusChart`
+    (প্রবন্ধের অবস্থা), and ভিউ adds the split the database counts (`metric_article_views`,
+    `metric_music_views`).
+  * **Five, then load more.** `forum_activity` takes a limit and **no offset**, so paging is the same
+    call asked for a bigger window: `forumLimit` starts at 5 and grows by 5 to the repository's own
+    ceiling of 50 (`loadMoreForumActivity()`, `forumHasMore` from `ForumActivity.hasMoreThan(limit)` —
+    the counters are the whole truth, the lists are the window). The initial `refresh()` reads the same
+    window, so a reload does not shrink what the reader has already loaded. The card shows
+    `dashboard_forum_more` only while the counts say there is more.
+  * **A submit ends on the content tab.** The composer screens no longer decide where a send goes;
+    they call `onSubmitted()` when the message says the submit succeeded — after the fields and the
+    draft are cleared and after `clearMessage()`, so nothing is left to replay — and the nav host
+    routes it: `forwardToSubmittedContent()` finds the dashboard in the back stack and drops its old
+    entry (a pop restores an entry's *arguments*, so popping back would have re-shown the tab it was
+    created with), then `openSubmittedContent()` navigates to
+    `ReaderRoute.dashboard(tab = ReaderRoute.DASHBOARD_CONTENT)`. The intent itself travels in a
+    `ReaderSubmission` note on `ReaderWorkspaceViewModel` — kind, row id, title, and the instant it was
+    stamped (`isFresh()`, three minutes) — and the dashboard reads it **once**, on the way in:
+    content tab, the new row focused via `contentFocus`, the note spent, and the confirmation snackbar
+    the composer used to show repeated on the screen the reader is actually looking at.
+
 *The formatting row is four buttons.* The compact editor no longer offers a picture button, and it
 no longer draws attachments — `HtmlContentEditor` is an editor again. Files are attached on the row
 under the box, which is also where they are previewed.

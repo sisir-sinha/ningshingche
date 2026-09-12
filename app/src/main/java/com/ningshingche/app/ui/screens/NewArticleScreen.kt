@@ -61,7 +61,13 @@ import kotlinx.coroutines.delay
 fun NewArticleScreen(
     viewModel: ReaderWorkspaceViewModel,
     onBackClick: () -> Unit,
-    onCompleteProfile: () -> Unit
+    onCompleteProfile: () -> Unit,
+    /**
+     * Where a successful submit goes next: the dashboard's content tab, with
+     * the row that was just written waiting there. The screen has nothing to do
+     * with the decision — it says "done" and the host routes it.
+     */
+    onSubmitted: () -> Unit
 ) {
     val context = LocalContext.current
     val draftStore = remember { ArticleDraftStore(context) }
@@ -82,14 +88,20 @@ fun NewArticleScreen(
     LaunchedEffect(message) {
         val text = message ?: return@LaunchedEffect
         if (text.isBlank()) return@LaunchedEffect
-        snackbarHostState.showSnackbar(text)
         if (text.startsWith("লেখা জমা হয়েছে")) {
             title = ""
             content = ""
             thumbnail = null
             editorHeight = 280
             draftStore.clear()
+            // The message is spent and the screen is about to leave; the
+            // confirmation is repeated by the dashboard this lands on, so
+            // nothing is lost by not holding the reader here for a snackbar.
+            viewModel.clearMessage()
+            onSubmitted()
+            return@LaunchedEffect
         }
+        snackbarHostState.showSnackbar(text)
         viewModel.clearMessage()
     }
 

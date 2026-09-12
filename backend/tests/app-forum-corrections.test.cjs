@@ -584,7 +584,9 @@ test('the extras the owner asked for alongside the ten', async (t) => {
   });
 
   await t.test('the forum\'s work is on the dashboard and on the public page', () => {
-    assert.match(WORKSPACE, /val forum = portalRepository\.forumActivity\(user\.id\)\.getOrNull\(\)/,
+    // Re-anchored for the paged section: the dashboard asks for a window it can
+    // grow — five items, then "load more" — through the same call.
+    assert.match(WORKSPACE, /val forum = portalRepository\.forumActivity\(user\.id, limit = forumLimit\)\.getOrNull\(\).*/,
       'the dashboard reads it with everything else it reads');
     assert.match(WORKSPACE, /_forumActivity\.value = forum/);
     assert.match(DASHBOARD, /ForumCard\(\s*activity = forumActivity,/,

@@ -413,6 +413,16 @@ data class ForumActivity(
     val hasAnything: Boolean get() = threads.isNotEmpty() || answers.isNotEmpty()
 
     val total: Int get() = discussions + replies
+
+    /**
+     * Whether the database holds more than the window that was asked for.
+     *
+     * `forum_activity` takes a limit and no offset, so the two lists that come
+     * back are trimmed to the limit while the counters are the whole truth —
+     * which is what tells a screen whether to offer a "load more".
+     */
+    fun hasMoreThan(limit: Int): Boolean =
+        discussions > threads.size || replies > answers.size
 }
 
 data class ForumActivityThread(

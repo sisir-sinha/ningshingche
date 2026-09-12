@@ -114,11 +114,14 @@ private fun monthKey(createdAt: String): String? {
 }
 
 /**
- * The two dashboard graphs: contributions per month and where the reader's
- * articles stand. Sits under the metrics grid on the dashboard home tab.
+ * কার্যক্রম — what the reader did, month by month.
+ *
+ * One of the five dashboard sections the owner asked to see one at a time rather
+ * than stacked down a page; [ArticleStatusChart] is the other half of what used
+ * to be a single composable.
  */
 @Composable
-internal fun ContributionCharts(
+internal fun ActivityChart(
     articles: List<SubmittedBlogRecord>,
     tracks: List<SubmittedMusicRecord>,
     comments: List<CommentRecord>,
@@ -128,53 +131,61 @@ internal fun ContributionCharts(
         monthlyActivity(articles, tracks, comments)
     }
     val totalActivity = activity.sumOf { it.total }
+
+    ChartCard(
+        title = "কার্যক্রম",
+        subtitle = if (totalActivity > 0) {
+            "শেষ ৬ মাসে মোট ${toBengaliNumeral(totalActivity)}টি"
+        } else {
+            "শেষ ৬ মাস"
+        },
+        modifier = modifier
+    ) {
+        if (totalActivity == 0) {
+            ChartEmptyHint("শেষ ছয় মাসে কোনো কার্যক্রম নেই।")
+        } else {
+            ActivityBars(activity)
+            Spacer(Modifier.height(10.dp))
+            Legend(
+                entries = listOf(
+                    "প্রবন্ধ" to (activity.sumOf { it.articles } to MaterialTheme.colorScheme.primary),
+                    "গান" to (activity.sumOf { it.songs } to MaterialTheme.colorScheme.tertiary),
+                    "মন্তব্য" to (activity.sumOf { it.comments } to MaterialTheme.colorScheme.secondary)
+                )
+            )
+        }
+    }
+}
+
+/** Where the reader's articles stand: published, waiting, refused. */
+@Composable
+internal fun ArticleStatusChart(
+    articles: List<SubmittedBlogRecord>,
+    modifier: Modifier = Modifier
+) {
     val published = articles.count {
         it.status.equals("Published", true) || it.status.equals("Approved", true)
     }
     val pending = articles.count { it.status.equals("Pending", true) }
     val rejected = articles.count { it.status.equals("Rejected", true) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = modifier) {
-        ChartCard(
-            title = "কার্যক্রম",
-            subtitle = if (totalActivity > 0) {
-                "শেষ ৬ মাসে মোট ${toBengaliNumeral(totalActivity)}টি"
-            } else {
-                "শেষ ৬ মাস"
-            }
-        ) {
-            if (totalActivity == 0) {
-                ChartEmptyHint("শেষ ছয় মাসে কোনো কার্যক্রম নেই।")
-            } else {
-                ActivityBars(activity)
-                Spacer(Modifier.height(10.dp))
-                Legend(
-                    entries = listOf(
-                        "প্রবন্ধ" to (activity.sumOf { it.articles } to MaterialTheme.colorScheme.primary),
-                        "গান" to (activity.sumOf { it.songs } to MaterialTheme.colorScheme.tertiary),
-                        "মন্তব্য" to (activity.sumOf { it.comments } to MaterialTheme.colorScheme.secondary)
-                    )
+    ChartCard(
+        title = "প্রবন্ধের অবস্থা",
+        subtitle = "মোট ${toBengaliNumeral(articles.size)}টি জমা",
+        modifier = modifier
+    ) {
+        if (articles.isEmpty()) {
+            ChartEmptyHint("এখনো কোনো প্রবন্ধ জমা দেওয়া হয়নি।")
+        } else {
+            StatusBar(published = published, pending = pending, rejected = rejected)
+            Spacer(Modifier.height(10.dp))
+            Legend(
+                entries = listOf(
+                    "প্রকাশিত" to (published to MaterialTheme.colorScheme.primary),
+                    "অপেক্ষমাণ" to (pending to MaterialTheme.colorScheme.tertiary),
+                    "প্রত্যাখ্যাত" to (rejected to MaterialTheme.colorScheme.error)
                 )
-            }
-        }
-
-        ChartCard(
-            title = "প্রবন্ধের অবস্থা",
-            subtitle = "মোট ${toBengaliNumeral(articles.size)}টি জমা"
-        ) {
-            if (articles.isEmpty()) {
-                ChartEmptyHint("এখনো কোনো প্রবন্ধ জমা দেওয়া হয়নি।")
-            } else {
-                StatusBar(published = published, pending = pending, rejected = rejected)
-                Spacer(Modifier.height(10.dp))
-                Legend(
-                    entries = listOf(
-                        "প্রকাশিত" to (published to MaterialTheme.colorScheme.primary),
-                        "অপেক্ষমাণ" to (pending to MaterialTheme.colorScheme.tertiary),
-                        "প্রত্যাখ্যাত" to (rejected to MaterialTheme.colorScheme.error)
-                    )
-                )
-            }
+            )
         }
     }
 }

@@ -44,6 +44,57 @@ data class ReaderMetrics(
 /** Days of view history the dashboard chart asks the database for. */
 private const val VIEW_SERIES_DAYS = 30
 
+/**
+ * How many forum items the dashboard shows at a time, and how far the app will
+ * grow that window.
+ *
+ * `forum_activity` takes a limit and no offset, so "load more" is the same API
+ * call asked for a bigger page: five items, then ten, then fifteen. The ceiling
+ * is the repository's own (`portalRepository.forumActivity` coerces to 50), and
+ * the button goes away when the counts say everything has been read.
+ */
+private const val FORUM_ACTIVITY_PAGE = 5
+private const val FORUM_ACTIVITY_MAX = 50
+
+/**
+ * Where the reader should be taken after a submission has gone through.
+ *
+ * The screens that submit ask the dashboard to land on its content tab; this is
+ * the note they leave for it, with the row to highlight. It carries the time it
+ * was written because a note is only good for the trip it was left for — a
+ * signal from an hour ago must not drag the reader out of wherever they are.
+ */
+data class ReaderSubmission(
+    val kind: String,
+    val id: String,
+    val title: String = "",
+    val at: Long = System.currentTimeMillis()
+) {
+    fun isFresh(now: Long = System.currentTimeMillis()): Boolean = now - at in 0..SUBMISSION_FRESH_MS
+
+    /**
+     * What the dashboard says when it lands on a fresh submission.
+     *
+     * The composer screen used to show this and then go away; the reader has to
+     * hear it on the screen they are looking at, so the words travel with the
+     * note. Blank when there is nothing to confirm.
+     */
+    val confirmation: String
+        get() = when (kind) {
+            KIND_ARTICLE -> "লেখা জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর প্রকাশিত হবে।"
+            KIND_SONG -> "গান জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর যুক্ত হবে।"
+            else -> ""
+        }
+
+    companion object {
+        const val KIND_ARTICLE = "article"
+        const val KIND_SONG = "song"
+
+        /** How long a landing note is worth acting on. */
+        const val SUBMISSION_FRESH_MS = 3L * 60L * 1000L
+    }
+}
+
 class ReaderWorkspaceViewModel(
     private val googleAuthRepository: GoogleAuthRepository,
     private val supabaseClient: SupabaseClient,
@@ -80,6 +131,20 @@ class ReaderWorkspaceViewModel(
     /** The reader's views per day, for the dashboard's views-over-time chart. */
     private val _forumActivity = MutableStateFlow<ForumActivity?>(null)
     val forumActivity: StateFlow<ForumActivity?> = _forumActivity.asStateFlow()
+
+    /** Whether the database has more forum work than the page on screen holds. */
+    private val _forumHasMore = MutableStateFlow(false)
+    val forumHasMore: StateFlow<Boolean> = _forumHasMore.asStateFlow()
+
+    private val _forumLoadingMore = MutableStateFlow(false)
+    val forumLoadingMore: StateFlow<Boolean> = _forumLoadingMore.asStateFlow()
+
+    /** How far the forum window has been grown; a page at a time, up to the RPC's ceiling. */
+    private var forumLimit: Int = FORUM_ACTIVITY_PAGE
+
+    /** What has just been submitted, for the dashboard to open on. */
+    private val _submission = MutableStateFlow<ReaderSubmission?>(null)
+    val submission: StateFlow<ReaderSubmission?> = _submission.asStateFlow()
 
     private val _viewSeries = MutableStateFlow<List<ViewDay>>(emptyList())
     val viewSeries: StateFlow<List<ViewDay>> = _viewSeries.asStateFlow()
@@ -118,7 +183,8 @@ class ReaderWorkspaceViewModel(
             val score = portalRepository.contributorPoints(user.id).getOrNull()
             // The reader's own forum work: three counts and the two lists, in one
             // call, read from the same function their public page uses.
-            val forum = portalRepository.forumActivity(user.id).getOrNull()
+            val forum = portalRepository.forumActivity(user.id, limit = forumLimit).getOrNull()
+            if (forum != null) _forumHasMore.value = forum.hasMoreThan(forumLimit)
             _articles.value = articles
             _tracks.value = tracks
             _comments.value = comments
@@ -142,6 +208,39 @@ class ReaderWorkspaceViewModel(
             refreshInbox(user.id, articles, comments, notifySystem = true, markSeen = false)
             _isLoading.value = false
         }
+    }
+
+    /**
+     * Five more items of forum work, from the database.
+     *
+     * The RPC takes a limit and no offset, so this asks for a bigger page rather
+     * than a second one: `forum_activity(p_limit := 10)` after `p_limit := 5`.
+     * It stops at the repository's own ceiling, where [forumHasMore] goes false
+     * and the button in the dashboard disappears.
+     */
+    fun loadMoreForumActivity() {
+        val user = currentUser.value ?: return
+        if (_forumLoadingMore.value) return
+        val next = (forumLimit + FORUM_ACTIVITY_PAGE).coerceAtMost(FORUM_ACTIVITY_MAX)
+        if (next <= forumLimit) {
+            _forumHasMore.value = false
+            return
+        }
+        forumLimit = next
+        viewModelScope.launch {
+            _forumLoadingMore.value = true
+            portalRepository.forumActivity(user.id, limit = forumLimit)
+                .onSuccess { forum ->
+                    _forumActivity.value = forum
+                    _forumHasMore.value = forum.hasMoreThan(forumLimit)
+                }
+            _forumLoadingMore.value = false
+        }
+    }
+
+    /** The dashboard has landed on what was submitted; the note is spent. */
+    fun clearSubmission() {
+        _submission.value = null
     }
 
     fun refreshInbox(markSeen: Boolean = false) {
@@ -385,6 +484,13 @@ class ReaderWorkspaceViewModel(
             val result = supabaseClient.submitReaderArticle(record)
             result.onSuccess {
                 _message.value = "লেখা জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর প্রকাশিত হবে।"
+                // The note the dashboard lands on: the content tab, with the row
+                // the reader has just written highlighted.
+                _submission.value = ReaderSubmission(
+                    kind = ReaderSubmission.KIND_ARTICLE,
+                    id = record.id,
+                    title = record.title
+                )
                 refresh()
             }.onFailure {
                 _message.value = it.message ?: "লেখা জমা যায়নি।"
@@ -454,6 +560,13 @@ class ReaderWorkspaceViewModel(
             )
             result.onSuccess {
                 _message.value = "গান জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর যুক্ত হবে।"
+                // A song's row id is made by the database, so the note carries
+                // what the app knows: the tab to land on and what it was called.
+                _submission.value = ReaderSubmission(
+                    kind = ReaderSubmission.KIND_SONG,
+                    id = "",
+                    title = title.trim()
+                )
                 refresh()
             }.onFailure {
                 _message.value = it.message ?: "গান জমা যায়নি।"

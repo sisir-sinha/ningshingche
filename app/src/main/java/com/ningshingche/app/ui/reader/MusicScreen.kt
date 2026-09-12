@@ -3,7 +3,6 @@ package com.ningshingche.app.ui.reader
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +14,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -179,84 +180,101 @@ fun MusicScreen(
                 )
             }
 
-            when {
-                loading && tracks.isEmpty() && tab == MusicTab.All -> Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(
-                        color = LocalEditorialTokens.current.accent,
-                        strokeWidth = 2.dp
+            // The pages are real pages, and that is the whole of a bug: the tab
+            // row used to drive a `when` off `pagerState.currentPage`, with no
+            // pager anywhere to hold the page — so tapping a tab animated a
+            // scroll that had nowhere to go and nothing on screen ever changed.
+            // One pager, one page per tab, and both ways of moving work now.
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+                key = { page -> MusicTab.entries[page].name }
+            ) { page ->
+                when (MusicTab.entries[page]) {
+                    MusicTab.All -> when {
+                        loading && tracks.isEmpty() -> Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                color = LocalEditorialTokens.current.accent,
+                                strokeWidth = 2.dp
+                            )
+                        }
+                        tracks.isEmpty() && !error.isNullOrBlank() -> ErrorState(
+                            message = error.orEmpty(),
+                            onRetry = { viewModel.loadMusicCatalog(force = true) }
+                        )
+                        tracks.isEmpty() -> EmptyState(message = "এখনো কোনো গান যোগ করা হয়নি।")
+                        else -> MusicTrackList(
+                            onUploaderClick = onUploaderClick,
+                            title = if (query.isBlank()) "সব গান" else "খোঁজার ফলাফল",
+                            // No tagline here: the count is the only useful line,
+                            // and it only exists while searching.
+                            subtitle = if (query.isBlank()) "" else "${filtered.size}টি গান",
+                            tracks = filtered,
+                            empty = if (query.isBlank()) {
+                                "এখনো কোনো গান যোগ করা হয়নি।"
+                            } else {
+                                "কোনো গান মেলেনি।"
+                            },
+                            onPlay = { track -> player.play(track, filtered, expand = true) },
+                            onArtistClick = onArtistClick,
+                            onAlbumClick = onAlbumClick,
+                            onGenreClick = onGenreClick
+                        )
+                    }
+                    MusicTab.Genres -> MusicShelfGrid(
+                        shelves = genreShelves,
+                        empty = if (query.isBlank()) "কোনো ধরন নেই।" else "কোনো ধরন মেলেনি।",
+                        onOpen = { onGenreClick(it.name) }
                     )
-                }
-                tab == MusicTab.All && tracks.isEmpty() && !error.isNullOrBlank() -> ErrorState(
-                    message = error.orEmpty(),
-                    onRetry = { viewModel.loadMusicCatalog(force = true) }
-                )
-                tab == MusicTab.All && tracks.isEmpty() -> EmptyState(message = "এখনো কোনো গান যোগ করা হয়নি।")
-                tab == MusicTab.Genres -> MusicShelfGrid(
-                    shelves = genreShelves,
-                    empty = if (query.isBlank()) "কোনো ধরন নেই।" else "কোনো ধরন মেলেনি।",
-                    onOpen = { onGenreClick(it.name) }
-                )
-                tab == MusicTab.Artists -> MusicShelfGrid(
-                    shelves = artistShelves,
-                    empty = if (query.isBlank()) "কোনো শিল্পী নেই।" else "কোনো শিল্পী মেলেনি।",
-                    onOpen = { onArtistClick(it.name) }
-                )
-                tab == MusicTab.Albums -> MusicShelfGrid(
-                    shelves = albumShelves,
-                    empty = if (query.isBlank()) "কোনো অ্যালবাম নেই।" else "কোনো অ্যালবাম মেলেনি।",
-                    onOpen = { onAlbumClick(it.name) }
-                )
-                tab == MusicTab.Playlists -> PlaylistPane(
-                    playlists = playlists.filter { !it.isLoved },
-                    catalog = byId,
-                    onPlay = { playlist ->
-                        val queue = playlist.trackIds.mapNotNull { byId[it] }
-                        queue.firstOrNull()?.let { player.play(it, queue, expand = true) }
-                    },
-                    onDelete = { scope.launch { player.library.deletePlaylist(it.id) } }
-                )
-                tab == MusicTab.Loved -> {
-                    val loved = playlists.firstOrNull { it.isLoved }?.trackIds.orEmpty()
-                        .ifEmpty { lovedIds.toList() }
-                        .mapNotNull { byId[it] }
-                    MusicTrackList(
-                        onUploaderClick = onUploaderClick,
-                        title = "পছন্দের গান",
-                        subtitle = "আপনার সংরক্ষিত প্লেলিস্ট",
-                        tracks = loved,
-                        empty = "এখনো কোনো গান পছন্দ করা হয়নি।",
-                        onPlay = { track -> player.play(track, loved, expand = true) },
+                    MusicTab.Artists -> MusicShelfGrid(
+                        shelves = artistShelves,
+                        empty = if (query.isBlank()) "কোনো শিল্পী নেই।" else "কোনো শিল্পী মেলেনি।",
+                        onOpen = { onArtistClick(it.name) }
+                    )
+                    MusicTab.Albums -> MusicShelfGrid(
+                        shelves = albumShelves,
+                        empty = if (query.isBlank()) "কোনো অ্যালবাম নেই।" else "কোনো অ্যালবাম মেলেনি।",
+                        onOpen = { onAlbumClick(it.name) }
+                    )
+                    MusicTab.Playlists -> PlaylistPane(
+                        playlists = playlists.filter { !it.isLoved },
+                        catalog = byId,
+                        onPlay = { playlist ->
+                            val queue = playlist.trackIds.mapNotNull { byId[it] }
+                            queue.firstOrNull()?.let { player.play(it, queue, expand = true) }
+                        },
+                        onDelete = { scope.launch { player.library.deletePlaylist(it.id) } }
+                    )
+                    MusicTab.Loved -> {
+                        val loved = playlists.firstOrNull { it.isLoved }?.trackIds.orEmpty()
+                            .ifEmpty { lovedIds.toList() }
+                            .mapNotNull { byId[it] }
+                        MusicTrackList(
+                            onUploaderClick = onUploaderClick,
+                            title = "পছন্দের গান",
+                            subtitle = "আপনার সংরক্ষিত প্লেলিস্ট",
+                            tracks = loved,
+                            empty = "এখনো কোনো গান পছন্দ করা হয়নি।",
+                            onPlay = { track -> player.play(track, loved, expand = true) },
+                            onArtistClick = onArtistClick,
+                            onAlbumClick = onAlbumClick,
+                            onGenreClick = onGenreClick
+                        )
+                    }
+                    MusicTab.Offline -> MusicTrackList(
+                        title = "অফলাইন",
+                        subtitle = "এই ডিভাইসে সংরক্ষিত MP3",
+                        tracks = offline,
+                        empty = "কোনো গান অ্যাপে সংরক্ষণ করা হয়নি।",
+                        onPlay = { track -> player.play(track, offline, expand = true) },
                         onArtistClick = onArtistClick,
                         onAlbumClick = onAlbumClick,
                         onGenreClick = onGenreClick
                     )
                 }
-                tab == MusicTab.Offline -> MusicTrackList(
-                    title = "অফলাইন",
-                    subtitle = "এই ডিভাইসে সংরক্ষিত MP3",
-                    tracks = offline,
-                    empty = "কোনো গান অ্যাপে সংরক্ষণ করা হয়নি।",
-                    onPlay = { track -> player.play(track, offline, expand = true) },
-                    onArtistClick = onArtistClick,
-                    onAlbumClick = onAlbumClick,
-                    onGenreClick = onGenreClick
-                )
-                else -> MusicTrackList(
-                    onUploaderClick = onUploaderClick,
-                    title = if (query.isBlank()) "সব গান" else "খোঁজার ফলাফল",
-                    // No tagline here: the count is the only useful line, and it
-                    // only exists while searching.
-                    subtitle = if (query.isBlank()) "" else "${filtered.size}টি গান",
-                    tracks = filtered,
-                    empty = if (query.isBlank()) "এখনো কোনো গান যোগ করা হয়নি।" else "কোনো গান মেলেনি।",
-                    onPlay = { track -> player.play(track, filtered, expand = true) },
-                    onArtistClick = onArtistClick,
-                    onAlbumClick = onAlbumClick,
-                    onGenreClick = onGenreClick
-                )
             }
         }
     }
