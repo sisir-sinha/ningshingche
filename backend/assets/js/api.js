@@ -367,7 +367,8 @@
       ['submissions', 'Submit Blogs', 'file-pen', ['title', 'writer_name', 'content_title']],
       ['videos', 'Videos', 'video', ['title', 'description']],
       ['music', 'Music', 'music', ['title', 'artist', 'album']],
-      ['profiles', 'Registered users', 'user-group', ['name', 'email', 'phone', 'first_name', 'last_name']]
+      ['profiles', 'Registered users', 'user-group', ['name', 'email', 'phone', 'first_name', 'last_name']],
+      ['forum', 'Forum', 'comment-dots', ['title', 'body']]
     ];
     const accessible = definitions.filter(([table]) => {
       if (table === 'profiles') return NC.auth?.canAccess?.('registered-users');
@@ -390,12 +391,20 @@
   const PROBE_COLUMNS = {
     blogs: 'id,imgbb_delete_url,image_meta,inline_media,pdf_file_provider,pdf_storage_path,pdf_file_size_mb',
     submissions: 'id,inline_media',
-    languageFiles: 'lang,label,csv,row_count'
+    languageFiles: 'lang,label,csv,row_count',
+    // The forum is checked for the columns moderation itself uses, so a database
+    // where migration 030 has not run says so instead of half-loading a page.
+    forum: 'id,status,replies_count,last_reply_at,is_official',
+    forumReplies: 'id,status,parent_id',
+    forumCategories: 'id,slug,title'
   };
 
   /** The file that adds each probed table, or the columns it is checked for. */
   const PROBE_FILES = {
     languageFiles: 'backend/supabase/migrations/023_app_language_files.sql',
+    forum: 'backend/supabase/migrations/029_forum.sql',
+    forumReplies: 'backend/supabase/migrations/029_forum.sql',
+    forumCategories: 'backend/supabase/migrations/029_forum.sql',
     blogs: 'backend/supabase/migrations/003_blog_media_uploads.sql',
     submissions: 'backend/supabase/migrations/003_blog_media_uploads.sql'
   };

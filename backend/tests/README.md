@@ -26,6 +26,23 @@ missing tables, a legacy login, the optional tag view, and a plain HTTP 500. It 
 banner names the right table and the right migration file, and stays silent when there is nothing an
 editor can fix by running SQL.
 
+## Dashboard page tests (jsdom)
+
+```sh
+cd backend
+npm install --no-save jsdom      # then rm -rf node_modules when finished
+node --test tests/*.test.cjs
+```
+
+`nav`, `languages-page`, `contributors-page`, and `forum-page` load a real page script into a jsdom
+document with a fixture `NC` namespace and assert what it renders and what it sends. `forum-page`
+covers the Forum moderation page (the three granted forum tables, readers' names joined from
+`profiles`, the counters, `?filter=Waiting` / `?filter=Unpublish` deep links, opening one thread
+with its answers, and the exact `PATCH` each hide/restore sends) plus the forum's place on the index
+dashboard. It also plants a `<script>` and an `onerror` in a fixture body to prove the page shows a
+reader's post as text. A suite that needs jsdom **skips itself** when the module is absent, so
+`node --test tests/*.test.cjs` is safe to run with or without it.
+
 ## Isolated Chromium tests
 
 ```sh

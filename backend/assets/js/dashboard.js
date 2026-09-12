@@ -20,13 +20,19 @@
     ['videos', 'Videos', 'fa-video', 'pink'],
     ['music', 'Total Songs', 'fa-music', 'rose'],
     ['articleViews', 'Total Article Views', 'fa-eye', 'sky'],
-    ['profiles', 'Registered users', 'fa-user-group', 'teal']
+    ['profiles', 'Registered users', 'fa-user-group', 'teal'],
+    // The forum, in the app's own words: threads, and the answers readers left on
+    // them. Both follow the Forum menu rather than Analytics, so a moderator who
+    // has no analytics access still sees the numbers they moderate.
+    ['discussions', 'Forum Threads', 'fa-comment-dots', 'cyan'],
+    ['answers', 'Forum Answers', 'fa-message', 'violet']
   ]);
 
   function permissionRoute(key) {
     if (['published', 'drafts', 'articleViews'].includes(key)) return 'blogs';
     if (key === 'pendingComments') return 'comments';
     if (key === 'profiles') return 'registered-users';
+    if (key === 'discussions' || key === 'answers') return 'forum';
     return key;
   }
 
@@ -53,7 +59,11 @@
       ['submissions', 'id,title,writer_name,status,created_at'],
       ['videos', 'id,title,created_at'],
       ['music', 'id,title,created_at'],
-      ['profiles', 'id,name,email,created_at']
+      ['profiles', 'id,name,email,created_at'],
+      // Narrow on purpose: no `body` here, so the overview never downloads the
+      // text of every thread to draw a number.
+      ['forum', 'id,title,status,category_id,user_id,views_count,replies_count,is_official,created_at,last_reply_at'],
+      ['forumAnswers', 'id,discussion_id,user_id,status,created_at']
     ];
     const canAnalyze = NC.auth.canAccess('analytics');
     const entities = allEntities.filter(([key]) => canAnalyze || NC.auth.canAccess(permissionRoute(key)));
@@ -76,7 +86,9 @@
       ['published', 'blogs', { status: 'Publish' }],
       ['drafts', 'blogs', { status: 'Draft' }],
       ['pendingComments', 'comments', { status: 'Unpublish' }],
-      ['pendingSubmissions', 'submissions', { status: 'Pending' }]
+      ['pendingSubmissions', 'submissions', { status: 'Pending' }],
+      // The one queue the forum genuinely has: threads hidden from readers.
+      ['forumHidden', 'forum', { status: 'Unpublish' }]
     ].filter(([, route]) => canAnalyze || NC.auth.canAccess(route));
     const countRequests = await Promise.allSettled(countSpecs.map(([, table, filters]) => NC.api.count(table, filters)));
     countSpecs.forEach(([key, table, filters], index) => {
@@ -86,6 +98,11 @@
         : data[table].filter((item) => Object.entries(filters).every(([field, value]) => item[field] === value)).length;
     });
     data.counts.articleViews = (data.blogs || []).reduce((sum, item) => sum + Number(item.views_count || 0), 0);
+    // A thread is "waiting" when it is published and nobody has answered it — the
+    // one queue the forum genuinely has, and the reason it is worth a card.
+    data.counts.forumUnanswered = (data.forum || []).filter((item) => (
+      item.status === 'Publish' && Number(item.replies_count || 0) === 0
+    )).length;
     return data;
   }
 
@@ -107,7 +124,8 @@
       ['books', 'new', 'Add Book', 'fa-book-circle-plus', ''],
       ['submissions', '', 'Review Submissions', 'fa-file-magnifying-glass', ''],
       ['videos', 'new', 'Add Video', 'fa-video-plus', ''],
-      ['music', 'new', 'Add Track', 'fa-music', '']
+      ['music', 'new', 'Add Track', 'fa-music', ''],
+      ['forum', '', 'Review the forum', 'fa-comment-dots', '']
     ].filter(([route]) => NC.auth.canAccess(route));
     if (!actions.length) return emptyState({ icon: 'fa-shield-lock', title: 'No content actions assigned', description: 'A Super Admin can add content menus to your role.' });
     return `<div class="quick-actions">${actions.map(([route, action, label, icon, tone]) => `
@@ -123,8 +141,12 @@
       ['submissions', 'Submission', 'file-pen', (item) => item.title, (item) => item.status],
       ['books', 'PDF Book', 'books', (item) => item.title, () => 'Added'],
       ['videos', 'Video', 'video', (item) => item.title, () => 'Added'],
-      ['music', 'Music', 'music', (item) => item.title, () => 'Added']
-    ].filter(([key]) => NC.auth.canAccess(key));
+      ['music', 'Music', 'music', (item) => item.title, () => 'Added'],
+      ['forum', 'Discussion', 'comment-dots', (item) => item.title, (item) => item.status],
+      // An answer has no title of its own; it belongs to a thread, so the thread's
+      // title is what the feed shows.
+      ['forumAnswers', 'Answer', 'message', (item) => data.forum.find((thread) => thread.id === item.discussion_id)?.title || 'Forum answer', (item) => item.status]
+    ].filter(([key]) => NC.auth.canAccess('forum'));
     return map.flatMap(([key, type, icon, title, status]) => (data[key] || []).slice(0, 8).map((item) => ({
       id: item.id, route: key, type, icon, title: title(item) || 'Untitled', status: status(item), created_at: item.created_at
     }))).sort((a, b) => (new Date(b.created_at).getTime() || 0) - (new Date(a.created_at).getTime() || 0)).slice(0, 10);
@@ -145,7 +167,9 @@
     const items = [
       { count: data.counts.drafts, label: 'draft blogs awaiting publication', route: 'blogs', filter: 'Draft', icon: 'fa-pen-ruler', tone: 'amber' },
       { count: data.counts.pendingComments, label: 'comments awaiting moderation', route: 'comments', filter: 'Unpublish', icon: 'fa-message-exclamation', tone: 'rose' },
-      { count: data.counts.pendingSubmissions, label: 'new submissions to review', route: 'submissions', filter: 'Pending', icon: 'fa-file-magnifying-glass', tone: 'sky' }
+      { count: data.counts.pendingSubmissions, label: 'new submissions to review', route: 'submissions', filter: 'Pending', icon: 'fa-file-magnifying-glass', tone: 'sky' },
+      { count: data.counts.forumUnanswered, label: 'forum discussions waiting for an answer', route: 'forum', filter: 'Waiting', icon: 'fa-message-question', tone: 'sky' },
+      { count: data.counts.forumHidden, label: 'forum threads hidden from readers', route: 'forum', filter: 'Unpublish', icon: 'fa-comments', tone: 'rose' }
     ].filter((item) => NC.auth.canAccess(item.route));
     if (!items.length) return emptyState({ icon: 'fa-shield-lock', title: 'No review queues assigned', description: 'Your role does not include Blogs, Comments, or Submit Blogs.' });
     if (!items.some((item) => item.count)) {
@@ -156,6 +180,41 @@
         <span><i class="fa-regular ${item.icon}" aria-hidden="true"></i></span>
         <strong>${number(item.count)}</strong><p>${escapeHTML(item.label)}</p><i class="fa-regular fa-chevron-right" aria-hidden="true"></i>
       </button>`).join('')}</div>`;
+  }
+
+  /**
+   * The newest five discussions.
+   *
+   * Five, and a link to the rest: the forum has API paging of its own (the Forum
+   * page lists every thread with its filters), and the dashboard's job is to show
+   * the ones a moderator might act on without making the overview a second inbox.
+   */
+  function forumPanel(data) {
+    const threads = (data.forum || []).slice(0, 5);
+    if (!NC.auth.canAccess('forum')) return '';
+    const body = threads.length
+      ? `<div class="dashboard-forum-list">${threads.map((thread) => {
+        const waiting = thread.status === 'Publish' && Number(thread.replies_count || 0) === 0;
+        return `
+        <button type="button" class="dashboard-forum-item" data-forum-thread="${escapeHTML(thread.id)}">
+          <span class="dashboard-forum-main">
+            <strong>${escapeHTML(thread.title || 'Untitled discussion')}</strong>
+            <small>${escapeHTML(relativeTime(thread.last_reply_at || thread.created_at))} · ${number(thread.replies_count || 0)} answer${Number(thread.replies_count || 0) === 1 ? '' : 's'} · ${number(thread.views_count || 0)} views</small>
+          </span>
+          ${thread.is_official ? '<span class="status-badge status-info"><i class="fa-regular fa-badge-check" aria-hidden="true"></i>Official</span>' : ''}
+          ${waiting ? '<span class="status-badge status-warning"><i class="fa-regular fa-message-question" aria-hidden="true"></i>Waiting</span>' : ''}
+          ${thread.status === 'Publish' ? '' : '<span class="status-badge status-danger"><i class="fa-regular fa-eye-slash" aria-hidden="true"></i>Hidden</span>'}
+        </button>`;
+      }).join('')}</div>`
+      : emptyState({ icon: 'fa-comments', title: 'No discussions yet', description: 'Threads written in the app will appear here.' });
+    return `
+      <section class="surface mt-6">
+        <div class="surface-header">
+          <div><p class="eyebrow">The readers' side</p><h2>Latest forum discussions</h2></div>
+          <button type="button" class="btn btn-ghost btn-sm" data-forum-open><i class="fa-regular fa-arrow-right" aria-hidden="true"></i>Open the forum</button>
+        </div>
+        ${body}
+      </section>`;
   }
 
   function latestCards(data) {
@@ -191,7 +250,8 @@
     const brand = '#8b5cf6';
     const distributionItems = [
       ['Blogs', 'blogs', brand], ['Authors', 'authors', '#22c55e'], ['Categories', 'categories', '#38bdf8'],
-      ['Galleries', 'galleries', '#d946ef'], ['Books', 'books', '#f97316'], ['Videos', 'videos', '#ec4899'], ['Music', 'music', '#f43f5e'], ['Comments', 'comments', '#6366f1']
+      ['Galleries', 'galleries', '#d946ef'], ['Books', 'books', '#f97316'], ['Videos', 'videos', '#ec4899'], ['Music', 'music', '#f43f5e'], ['Comments', 'comments', '#6366f1'],
+      ['Threads', 'forum', '#06b6d4']
     ].filter(([, route]) => NC.auth.canAccess('analytics') || NC.auth.canAccess(route));
     const months = groupMonthly(data.blogs).map((item) => item.label);
     const common = {
@@ -258,7 +318,8 @@
           <article class="surface"><div class="surface-header"><div><p class="eyebrow">Editorial queue</p><h2>Needs attention</h2></div></div>${attentionPanel(data)}</article>
         </section>
         <section class="surface mt-6"><div class="surface-header"><div><p class="eyebrow">At a glance</p><h2>Latest content</h2></div></div>${latestCards(data)}</section>
-        <section class="surface mt-6"><div class="surface-header"><div><p class="eyebrow">Live feed</p><h2>Recent activity</h2></div><button type="button" class="btn btn-ghost btn-sm" data-refresh-dashboard><i class="fa-regular fa-rotate" aria-hidden="true"></i>Refresh</button></div>${recentActivity(data)}</section>`}
+        <section class="surface mt-6"><div class="surface-header"><div><p class="eyebrow">Live feed</p><h2>Recent activity</h2></div><button type="button" class="btn btn-ghost btn-sm" data-refresh-dashboard><i class="fa-regular fa-rotate" aria-hidden="true"></i>Refresh</button></div>${recentActivity(data)}</section>
+        ${forumPanel(data)}`}
     `;
     bindEvents(container, analyticsOnly);
     renderCharts(data);
@@ -273,6 +334,10 @@
       routeTo(route, { action: 'view', id });
     }));
     container.querySelectorAll('[data-attention-route]').forEach((button) => button.addEventListener('click', () => routeTo(button.dataset.attentionRoute, { filter: button.dataset.attentionFilter })));
+    // A discussion opens the page on it; the button at the panel's head opens the
+    // page itself.
+    container.querySelectorAll('[data-forum-thread]').forEach((button) => button.addEventListener('click', () => routeTo('forum', { action: 'view', id: button.dataset.forumThread })));
+    container.querySelectorAll('[data-forum-open]').forEach((button) => button.addEventListener('click', () => routeTo('forum')));
   }
 
   async function render(container, analyticsOnly = false, context = {}) {

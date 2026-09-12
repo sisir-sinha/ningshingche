@@ -450,6 +450,63 @@ Public library of MP3/audio tracks for the Android player (migration `014_music_
 | `sort_order` | integer | Default `0` |
 | `love_count` (020) | integer | Public love reacts; trigger-synced from `music_loves`, written only through `toggle_music_love` (§7.13) |
 
+### `forum_categories` (migration `029_forum.sql`)
+The handful of boards a reader files a discussion under. Public read; no dashboard editor — a new
+category is a migration or a SQL-editor insert, exactly as the app's own `forum_overview`
+advertises them.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | uuid PK | |
+| `slug` | text unique | What `forum_create_discussion` is called with |
+| `title`, `description` | text | Bengali titles are the ones readers see |
+| `position` | integer | Order in the app's board list |
+| `is_locked` | boolean | Locked boards take no new discussion |
+
+### `forum_discussions`
+A thread a signed-in reader wrote, and everything the dashboard moderates (page **Forum**, route
+`forum`).
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | uuid PK | |
+| `category_id` | uuid → `forum_categories` | `on delete cascade` |
+| `user_id` | uuid → `profiles` | The reader; names are joined from `profiles`, never duplicated here |
+| `title` | text | Required |
+| `body` | text | The reader's HTML, as the app's editor produced it |
+| `status` | text | `Publish` \\| `Unpublish` — **the only field the dashboard writes** |
+| `views_count` | bigint | Counted by `forum_discussion(…, p_count_view)` |
+| `replies_count` | integer | Trigger-synced from visible replies |
+| `last_reply_at` | timestamptz | `null` until someone answers |
+| `cover_image_url`, `cover_delete_url` (030) | text | Optional ImgBB cover |
+| `is_official` (030) | boolean | Set by a trigger for editor-posted threads |
+| `created_at`, `updated_at` | timestamptz | |
+
+### `forum_replies`
+An answer. Answers are **not** rewritten by the dashboard either: hiding one is `status`.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | uuid PK | |
+| `discussion_id` | uuid → `forum_discussions` | `on delete cascade` |
+| `user_id` | uuid → `profiles` | |
+| `body` | text | The answer's HTML |
+| `status` | text | `Publish` \\| `Unpublish` |
+| `parent_id` (030) | uuid | One indent level; `null` for a top-level answer |
+| `created_at` | timestamptz | Answers read oldest first |
+
+### `forum_reactions` (migration `030_forum_answers.sql`)
+One row per reaction per reactor, written only through `forum_react` (§7.19). `reactor_key` is the
+reader's id or an opaque device key, so an anonymous reader's reaction counts once on one device.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `reply_id` | uuid → `forum_replies` | Part of the PK |
+| `reactor_key` | text | Part of the PK |
+| `user_id` | uuid | `null` for an anonymous reaction |
+| `kind` | text | `like` \\| `dislike` \\| `agree` |
+| `created_at` | timestamptz | |
+
 ### `settings`
 Single row, `id = 'site_settings'`.
 
@@ -501,6 +558,9 @@ Table name mapping lives in `NC_CONFIG.tables`:
 | `submissions` (app articles) | `submitted_blogs` | `created_at.desc` | 10 (Registered users › Articles) |
 | `messages` | `admin_messages` | `created_at.desc` | grouped per user |
 | `notifications` | `user_notifications` | `created_at.desc` | 10 |
+| `forum` | `forum_discussions` | `created_at.desc` | 10 (Forum) |
+| `forumAnswers` | `forum_replies` | `created_at.asc` | — (inside one discussion) |
+| `forumCategories` | `forum_categories` | `position.asc` | filter dropdown |
 | — (read-only view) | `blog_tag_counts` | `issue_year.desc.nullslast,total.desc` | filter dropdowns |
 
 Generic operations — substitute `<table>` from the mapping above:
@@ -522,6 +582,8 @@ Granted by `schema.sql` so the website and Android app can read content directly
 | `blogs` | `SELECT` — only `status = 'Publish'` |
 | `comments` | `SELECT` — only `status = 'Publish'`; `INSERT` allowed (visitor comments) |
 | `submitted_blogs` | `INSERT` allowed (public article submission) |
+| `forum_categories` | `SELECT` — all rows |
+| `forum_discussions`, `forum_replies` | `SELECT` — only `status = 'Publish'`; `INSERT`/`UPDATE`/`DELETE` — only the reader's own row (`user_id = auth.uid()`) |
 | `storage.objects` (`pdf-books`, `music`) | `SELECT` — public read |
 
 Write access to everything else requires a dashboard session whose role carries the matching menu
@@ -539,6 +601,26 @@ permission (migration 004 creates per-menu policies).
 **Comments**
 - Quick moderation is a single column patch: `PATCH /rest/v1/comments?id=eq.<id>` with
   `{ "status": "Publish" }` or `{ "status": "Unpublish" }`.
+
+**Forum (route `forum`)**
+- The page reads the **tables** — `forum_discussions`, `forum_replies`, `forum_categories` — and not
+  the `forum_*` RPCs or the `forum_*_rows` views. Migration 029 grants the dashboard `select` on
+  each table with a dashboard-level policy (`is_dashboard_request()`), and that policy is the only
+  door through which a hidden thread can be read back at all; the views are revoked from browser
+  roles on purpose. Reads join `profiles` for names.
+- Moderation is one column: `PATCH /rest/v1/forum_discussions?id=eq.<id>` with
+  `{ "status": "Unpublish" }` to hide, `{ "status": "Publish" }` to restore — the same values the
+  app's RPCs filter on, so the effect is immediate everywhere. The same patch on
+  `forum_replies` hides a single answer. Deleting a discussion removes its cover from ImgBB when
+  `cover_delete_url` is present, and the cascade takes its answers with it.
+- A reader's `body` is displayed as **text**: `NC.utils.stripHTML` runs after block tags become line
+  breaks, so nothing a reader wrote is ever parsed as markup. `<a href>` targets found in the body
+  are listed as attachments (that is where the app keeps a picture or a PDF), and
+  `cover_image_url` is passed through `safeImage`.
+- Needs-attention queues on the index dashboard link to the page's own filters:
+  `#/forum?filter=Waiting` (published, `replies_count = 0`) and `#/forum?filter=Unpublish`.
+- `body_text` is **not** a column and `forum_display_name` is **not** a function: search matches
+  `title`; names come from `profiles`.
 
 **Categories**
 - Duplicate detection before insert: `count('categories', { title, slug })`; usage counts come from
@@ -992,6 +1074,31 @@ A blank `value` means "not translated"; the app shows its own Bengali text for t
 reader on both sides handles quoted fields, doubled quotes, CRLF, a BOM and embedded newlines, and
 the last duplicate key wins — see `backend/tests/languages.test.cjs` and `TranslationCsvTest.kt`.
 
+### 7.19 The forum (`029_forum.sql`, `030_forum_answers.sql`, publishable key allowed)
+
+The app's own doors. The dashboard moderates through the tables (§6.2); these are what a reader
+calls, and they only ever return `status = 'Publish'` rows.
+
+| Function | Arguments | Returns | Notes |
+| --- | --- | --- | --- |
+| `forum_overview` | `p_limit integer = 20`, `p_order text = 'recent'` | jsonb | Boards, latest and popular threads. `030` adds the order argument and the answer counts; `p_order` accepts the app's own order names |
+| `forum_category` | `p_slug text`, `p_limit integer = 30`, `p_offset integer = 0` | jsonb | One board, paged (`029`; unchanged by `030`) |
+| `forum_search` | `p_query text`, `p_limit integer = 30` | jsonb | Title and body search (`029`) |
+| `forum_discussion` | `p_id uuid`, `p_count_view boolean = true`, `p_device_id text = null` | jsonb | One thread with its answers and reactions. `p_count_view` is how `views_count` moves |
+| `forum_react` | `p_reply_id uuid`, `p_kind text`, `p_device_id text = null` | jsonb | `like` \\| `dislike` \\| `agree`; the same call again takes the reaction back. Anonymous readers are keyed by `forum_reactor_key(p_device_id)` |
+| `forum_create_discussion` | `p_category_slug text`, `p_title text`, `p_body text`, `p_cover_image_url text = ''`, `p_cover_delete_url text = ''` | jsonb | Signed-in (`authenticated`) only |
+| `forum_reply` | `p_id uuid`, `p_body text`, `p_parent_id uuid = null`, `p_device_id text = null` | jsonb | Signed-in only; `p_parent_id` is the one indent level |
+| `forum_activity` | `p_user_id uuid`, `p_limit integer = 20` | jsonb | A reader's own forum history — threads, answers, points (used by the public profile and the app dashboard) |
+
+`030` re-creates `forum_overview`, `forum_discussion`, `forum_create_discussion` and `forum_reply`
+with the signatures above and **drops the four `029` signatures** they replace, so an old call shape
+is a hard `404` rather than a silent wrong answer. Bodies are flattened with the same
+`forum_plain_text` helper the app's reader uses, which is where the plain-text search and length
+limits come from. Points a reader earns from the forum come through `contributor_score`
+(§7.15) — `contributor_forum_points_from` is internal.
+
+---
+
 ## 8. Storage API (PDF)
 
 Bucket: **`pdf-books`** — public, `allowed_mime_types = ['application/pdf']`, 32 MB limit.
@@ -1132,6 +1239,7 @@ GET /rest/v1/<table>?select=*&or=(<f1>.ilike.*term*,<f2>.ilike.*term*)&order=cre
 | `submitted_blogs` | `title`, `writer_name`, `content_title` |
 | `videos` | `title`, `description` |
 | `music_tracks` | `title`, `artist`, `album` |
+| `forum_discussions` | `title`, `body` |
 
 Requests run in parallel via `Promise.allSettled`; tables the user may not access are skipped and
 individual failures are dropped. Results are flattened to
@@ -1149,6 +1257,7 @@ lightweight `GET …?select=…&limit=1` per table and reports:
 | Content tables | `select=id` | `PGRST205` → table missing → run `schema.sql` |
 | `blogs` media columns | `select=id,imgbb_delete_url,image_meta,inline_media,pdf_file_provider,pdf_storage_path,pdf_file_size_mb` | `PGRST204`/`42703` → run migration `003` |
 | `submitted_blogs.inline_media` | `select=id,inline_media` | run migration `003` |
+| Forum columns | `forum_discussions` `select=id,status,replies_count,last_reply_at,is_official`; `forum_replies` `select=id,parent_id,status`; `forum_categories` `select=id,slug,position` | `PGRST205`/`PGRST204` → run migration `029_forum.sql` |
 | Access control | presence of the `dashboard_login` RPC (client-side `isLegacy()` check) | run migration `004` |
 
 Returns `{ ok, results[], missing[], mismatched[], accessControlMissing }`.
@@ -1277,6 +1386,12 @@ All helpers live on the `window.NC` namespace. Load order matters — see `index
 Pure helpers (no requests) — see §4.3.1: `clean`, `normalize`, `keyOf`, `issueYear`, `isIssue`,
 `issueKey`, `issueLabel`, `issueVariants`, `tagsOf`, `matchesKey`, `matchesIssue`, `parseIssueParam`,
 `index`, `indexFromRows`, `houseIssueLabel`, `displayLabel`, `withIssue`, `toAsciiDigits`, `toBengaliDigits`.
+
+### `NC.views.forum` (`assets/js/forum.js`, route `forum`)
+The forum moderation page: `render(container, context)` and an internal `load(context, { keepListStill })`.
+Filters are the URL too — `#/forum?filter=Waiting`, `#/forum?filter=Unpublish`, `?answers=waiting`,
+`?category=<slug>`, `?action=view&id=<uuid>`. Writes go through `NC.api.update` /
+`NC.api.remove` and `NC.crud.deleteRecord`; nothing here writes a `body`.
 
 ### `NC.crud` additions
 

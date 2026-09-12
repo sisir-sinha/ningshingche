@@ -12,6 +12,7 @@ The dashboard is located entirely inside `backend/`, as requested.
 - **Filters everywhere** — Blogs filter by author, নিংশিং চে annual issue, and other tags; Comments filter by blog author *and* by commenter; Registered users › Articles and Messages filter by app user. Active filters are shown as removable chips and encoded in the URL.
 - **Registered-user articles use the full editor** — the same Quill workspace, ImgBB thumbnail, preview, and status controls as Blogs, plus *Add article* on behalf of a selected app user and *Approve & convert to Blog*.
 - **Registered-user charts** — growth, article status, profile completion, 14-day message volume, most active users, and notification read state.
+- **Forum moderation** — the app's forum as a page of its own (**Forum**, route `forum`): every thread readers wrote, its board and its answers, filters for *hidden* and *waiting for an answer*, and a read-only view of the post exactly as the reader wrote it — as text, never as markup.
 - Dark-first editorial interface with a persistent light theme
 - Database-backed dashboard users with bcrypt password hashes and expiring, revocable, SHA-256-hashed sessions
 - Custom roles with menu-level authorization, direct-route denial, and permission-aware Supabase RLS
@@ -60,6 +61,7 @@ backend/
 │       ├── blogs.js
 │       ├── categories.js
 │       ├── comments.js
+│       ├── forum.js            # Reader discussions and answers: read back and moderated
 │       ├── galleries.js
 │       ├── books.js
 │       ├── submissions.js
@@ -80,7 +82,10 @@ backend/
         ├── 003_blog_media_uploads.sql
         ├── 004_dashboard_access_control.sql
         ├── 005 … 012                       # Registered-user profiles, inbox, notifications, comment avatars
-        └── 013_blog_tags.sql               # Tag keys, blog_tag_counts view, blogs_by_issue / blogs_by_tag RPCs
+        ├── 013_blog_tags.sql               # Tag keys, blog_tag_counts view, blogs_by_issue / blogs_by_tag RPCs
+        ├── 014 … 028                       # Music, languages, uploader/profile, views, contributors, …
+        ├── 029_forum.sql                   # Forum boards, discussions, answers, RLS, the app's read RPCs
+        └── 030_forum_answers.sql           # Cover images, one indent level, reactions, notifications, forum activity
 ```
 
 ## Database setup
@@ -140,6 +145,7 @@ For an existing installation, use this order:
 5. Open **Settings → Authentication & database → Run check**.
 6. Run the registered-user migrations `005`–`012` in order if the app's reader features are in use.
 7. Run `013_blog_tags.sql` (optional but recommended). It installs the **tag endpoints**: normalised tag keys (`blog_tag_key`), a generated `blogs.tag_keys` column with a GIN index, the `blog_tag_counts` view, and the `blogs_by_issue` / `blogs_by_tag` / `blog_issue_years` RPCs. Until it is installed, the Blogs page shows a small hint and runs the issue/tag filters in the browser instead.
+8. Run `029_forum.sql`, then `030_forum_answers.sql`, if the app's forum is in use. Between them they add the forum boards, discussions, answers and reactions, the public read policies the app needs, dashboard `select` policies for the **Forum** page, the app's `forum_*` read/write RPCs, notifications, and the forum's share of contributor points. Supabase's SQL Editor may warn that the older `forum_*` function signatures are being replaced: that is expected — `030` drops the four `029` signatures it re-creates and re-states **Run and enable RLS** for each table it adds. Until these are installed, the dashboard's Forum page reports the migration it is missing (see **Troubleshooting**).
 
 ### Annual issues and tags (নিংশিং চে বার্ষিক সংখ্যা)
 
@@ -434,6 +440,18 @@ Approval calls the transactional `approve_submission(...)` database function. It
 
 Migration 004 requires **Submit Blogs** permission before the RPC can run, and its Author/Blog/Submission writes still pass the matching RLS policies. Assign all relevant editorial menus to roles that perform approvals. The frontend has a compatibility fallback if the RPC has not yet been installed, but the SQL RPC is preferred because it is atomic.
 
+## Forum moderation
+
+`#/forum` is the app's forum, read back. Readers write threads and answers in the Android app; this page is where a moderator sees them and hides what must not be public.
+
+- **What it reads.** The three tables `forum_discussions`, `forum_replies`, and `forum_categories` — the doors migration `029` opens for the dashboard. It deliberately does **not** use the app's `forum_*` RPCs or the `forum_*_rows` views: those only ever show `status = 'Publish'`, so a hidden thread could never be found again to restore it, and the views are revoked from browser roles.
+- **What it writes.** One column: `status` → `Unpublish` to hide, `Publish` to restore, on a discussion or on a single answer. The app's RPCs filter on that same value, so the effect is immediate. Deleting a discussion offers the same ImgBB cover cleanup as every other delete, and the database cascade takes its answers with it.
+- **A post is shown as text.** The body is sanitised, block tags become line breaks, and the rest is escaped — a reader's markup is never parsed here, so nothing they wrote can act on the moderator's browser. Links inside the body are listed as attachments (that is where the app keeps a picture or a PDF), and a cover image only renders if it is a plain `http(s)` URL.
+- **Filtering.** Search (title, reader, board), status, board, and answers (*waiting for an answer* / *answered*). Active filters become removable chips and are encoded in the URL: `#/forum?filter=Waiting`, `#/forum?filter=Unpublish`, `?answers=waiting`, `?category=<slug>`, and `?action=view&id=<uuid>` to open one thread.
+- **On the index dashboard**, the forum appears as two metric cards (*Forum Threads*, *Forum Answers*, under the Forum permission rather than Analytics), a bar in the content distribution chart, a **Latest forum discussions** panel with the newest five threads and a link to the page, quick action *Review the forum*, Discussion/Answer entries in the live activity feed, and two Needs-attention queues — *waiting for an answer* and *hidden from readers* — that open the page already filtered. The overview reads the threads without their bodies: the text is only fetched when a moderator opens one.
+
+No new SQL, no new table, and no new column: this page is a client of migration `029`/`030`.
+
 ## Theme and dashboard preferences
 
 - Dark is the default.
@@ -499,6 +517,7 @@ Completed checks:
 - A genuine `.xlsx` workbook populated the first Author Add form row, including text, boolean, direct image URL, and Quill biography values.
 - The Author Description Quill editor preserved formatted, sanitized HTML in its live preview and intercepted Supabase payload; its 375 px toolbar stayed inside the modal with internal scrolling.
 - CSV and genuine Excel template downloads were generated successfully, and all eight list/Add workflows exposed their correct import controls while Settings exposed none.
+- The Forum page was exercised against intercepted Supabase-shaped fixtures: readers' names joined from `profiles`, boards, the four counters, the two Needs-attention filters arriving from the index dashboard, opening one thread with its answers, and hiding/restoring a discussion and an answer — each asserting the exact `PATCH` (`status: Publish`↔`Unpublish`) it sends. A fixture body carrying a `<script>` tag and an `onerror` attribute rendered as text with no element, no attribute, and nothing executed.
 - All eight entity transformers passed valid schema-shaped rows; Blog relation lookup, tag parsing, direct-media metadata, reading time, and HTML sanitization were verified.
 - The import modal was checked at 375 px: it retained 10 px viewport margins, caused no document-level overflow, and confined its wide preview table to an internal horizontal scroller.
 - Automated axe accessibility checks reported zero violations for the login and dashboard views at desktop and mobile sizes.
@@ -551,6 +570,8 @@ from the check that failed, so read it rather than assuming Blog uploads:
 - Contributor points and the সেরা অবদানকারী board → `supabase/migrations/026_contributors.sql`
 - The same board inside the dashboard (Registered users → সেরা অবদানকারী) →
   `supabase/migrations/027_contributor_board_dashboard.sql`
+- The Forum page, or the forum cards on the index dashboard →
+  `supabase/migrations/029_forum.sql`, then `030_forum_answers.sql`
 - A table reported as *missing* → `supabase/schema.sql`, then the migrations in order
 
 Run that file in the Supabase SQL Editor, reload the dashboard, and check again in **Settings →

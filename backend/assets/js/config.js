@@ -70,7 +70,14 @@
       profiles: 'profiles',
       notifications: 'user_notifications',
       messages: 'admin_messages',
-      languageFiles: 'app_language_files'
+      languageFiles: 'app_language_files',
+      // The forum, which lives in the app: threads, answers, and the categories
+      // they are filed under. Migration 029 grants the dashboard select on all
+      // three and gives each a dashboard-level RLS policy, which is what lets
+      // this dashboard read a hidden thread for moderation.
+      forum: 'forum_discussions',
+      forumReplies: 'forum_replies',
+      forumCategories: 'forum_categories'
     }),
 
     routes: Object.freeze([
@@ -89,6 +96,9 @@
       { id: 'blogs', label: 'Blogs', icon: 'fa-newspaper', group: 'content' },
       { id: 'categories', label: 'Categories', icon: 'fa-layer-group', group: 'content' },
       { id: 'comments', label: 'Comments', icon: 'fa-comments', group: 'content' },
+      // Reader-written, reader-answered, and moderated here: the forum sits with
+      // Comments rather than under a menu of its own.
+      { id: 'forum', label: 'Forum', icon: 'fa-comment-dots', group: 'content' },
       { id: 'galleries', label: 'Galleries', icon: 'fa-images', group: 'content' },
       { id: 'books', label: 'PDF Books', icon: 'fa-books', group: 'content' },
       { id: 'submissions', label: 'Submit Blogs', icon: 'fa-file-pen', group: 'content' },
