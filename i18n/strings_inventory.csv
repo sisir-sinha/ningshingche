@@ -2,10 +2,10 @@ bengali,bishnupriya,kind,uses,slots,screens
 নিংশিং চে,,ui,21,0,"AiAssistantScreen.kt, ContentUpdateNotifier.kt, HomeScreen.kt, IssueTags.kt, LoginScreen.kt, MusicController.kt, MusicPlayer.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt, PortalDrawer.kt, PortalModels.kt, SplashScreen.kt, SupabaseModels.kt, WelcomeOnboardingScreen.kt"
 পেছনে,,ui,17,0,"ArticleScreen.kt, BookmarksScreen.kt, ContributorScreen.kt, ForumScreens.kt, ListScreens.kt, MusicBrowseScreens.kt, MusicScreen.kt, PdfArchiveScreen.kt, PdfViewerScreen.kt, PortalPages.kt, PublicProfileScreen.kt, SettingsScreen.kt, VideosScreen.kt"
 সব,,ui,15,0,"BookmarksScreen.kt, EditorialComponents.kt, HomeScreen.kt, MusicScreen.kt, PortalPages.kt, Type.kt, UserDashboardScreen.kt"
+আরও দেখুন,,ui,12,0,"ForumScreens.kt, PortalModels.kt, PortalRepository.kt, UserDashboardScreen.kt"
+আলোচনা,,ui,12,0,"ForumScreens.kt, PortalModels.kt, PublicProfileScreen.kt, UserDashboardScreen.kt"
 সাহিত্য,,ui,11,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 ইতিহাস,,ui,10,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
-আলোচনা,,ui,9,0,"ForumScreens.kt, PortalModels.kt, PublicProfileScreen.kt, UserDashboardScreen.kt"
-আরও দেখুন,,ui,8,0,"ForumScreens.kt, UserDashboardScreen.kt"
 গান,,ui,8,0,"ListScreens.kt, NewMusicScreen.kt, PublicProfileScreen.kt, UserDashboardCharts.kt, UserDashboardScreen.kt"
 বন্ধ করুন,,ui,8,0,"ArticleScreen.kt, AttachmentViewer.kt, EditorialComponents.kt, HtmlArticleRenderer.kt, MusicPlayer.kt, UserDashboardScreen.kt, VideoPlayer.kt"
 লেখক,,ui,8,0,"EditorialComponents.kt, ListScreens.kt, NinghsingCheContentData.kt, PortalDrawer.kt, PortalPages.kt, SupabaseModels.kt"
@@ -16,6 +16,7 @@ bengali,bishnupriya,kind,uses,slots,screens
 সংস্কৃতি,,ui,6,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 সমাজ ও সংস্কৃতি,,ui,6,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 অধ্যাপক বারীন্দ্র কুমার সিংহ,,content,5,0,NinghsingCheContentData.kt
+উত্তর,,ui,5,0,"ForumScreens.kt, PublicProfileScreen.kt, UserDashboardScreen.kt"
 কবিতা,,ui,5,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 চালান,,ui,5,0,"EditorialComponents.kt, MusicBrowseScreens.kt, MusicPlayer.kt, VideosScreen.kt"
 নতুন প্রবন্ধ,,ui,5,0,"AppNotificationManager.kt, ContentNotice.kt, NewArticleScreen.kt, SettingsScreen.kt, WelcomeOnboardingScreen.kt"
@@ -25,6 +26,7 @@ bengali,bishnupriya,kind,uses,slots,screens
 বার্ষিক ও উৎসব সংখ্যা,,ui,5,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 বিজ্ঞান ও প্রযুক্তি,,ui,5,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 ভাষা আন্দোলন,,ui,5,0,"NinghsingCheAiAssistant.kt, NinghsingCheContentData.kt"
+ভিউ,,ui,5,0,"PublicProfileScreen.kt, SupabaseClient.kt, UserDashboardScreen.kt"
 মুছুন,,ui,5,0,"BookmarksScreen.kt, ForumScreens.kt, ListScreens.kt, MusicBrowseScreens.kt, MusicScreen.kt"
 সাইন ইন করুন,,ui,5,0,"ContributorScreen.kt, ForumScreens.kt, HomeScreen.kt"
 সিস্টেম আপডেট,,ui,5,0,"AppNotificationManager.kt, ContentNotice.kt, SettingsScreen.kt, WelcomeOnboardingScreen.kt"
@@ -44,7 +46,6 @@ bengali,bishnupriya,kind,uses,slots,screens
 প্রকাশিত,,ui,4,0,"UserDashboardCharts.kt, UserDashboardScreen.kt"
 ফোরাম,,ui,4,0,"AccountHeaderButton.kt, ForumScreens.kt, PortalDrawer.kt, UserDashboardScreen.kt"
 বার্ষিক সংখ্যা,,ui,4,0,"NinghsingCheContentData.kt, PortalDrawer.kt, ReaderNavHost.kt, Screen.kt"
-ভিউ,,ui,4,0,"SupabaseClient.kt, UserDashboardScreen.kt"
 ভিডিও,,ui,4,0,"EditorialComponents.kt, MusicPlayer.kt, VideosScreen.kt"
 শিল্পী,,ui,4,0,"MusicBrowseScreens.kt, MusicPlayer.kt, MusicScreen.kt, NewMusicScreen.kt"
 সম্পাদকীয়,,ui,4,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
@@ -58,7 +59,6 @@ Google সাইন-ইন সময় শেষ হয়েছে। আব�
 অ্যাকাউন্ট,,ui,3,0,"AccountHeaderButton.kt, SettingsScreen.kt"
 অ্যাডমিনের বার্তা,,ui,3,0,"ContentNotice.kt, ContentUpdateNotifier.kt"
 ইঞ্চৌঘর,,ui,3,0,"NinghsingCheAiAssistant.kt, NinghsingCheContentData.kt"
-উত্তর,,ui,3,0,"ForumScreens.kt, UserDashboardScreen.kt"
 উৎসব,,ui,3,0,"MusicGenres.kt, NinghsingCheAiAssistant.kt, NinghsingCheContentData.kt"
 এই গানের অডিও ফাইল নেই।,,ui,3,0,"MusicController.kt, UserDashboardScreen.kt"
 কভার ছবি,,ui,3,0,"ForumScreens.kt, NewArticleScreen.kt, NewMusicScreen.kt"
@@ -84,9 +84,11 @@ Google সাইন-ইন সময় শেষ হয়েছে। আব�
 ভুমিকা,,ui,3,0,"EditorialComponents.kt, NingshingCheWebsiteClient.kt"
 রকমারি,,ui,3,0,"EditorialComponents.kt, NingshingCheWebsiteClient.kt"
 রাসলীলা,,ui,3,0,"NinghsingCheAiAssistant.kt, NinghsingCheContentData.kt"
-লাইক,,ui,3,0,ForumScreens.kt
+লাইক,,ui,3,0,"ForumScreens.kt, PublicProfileScreen.kt"
 লোকসংগীত,,content,3,0,NinghsingCheContentData.kt
 শিরোনাম,,ui,3,0,"ForumScreens.kt, NewArticleScreen.kt, NewMusicScreen.kt"
+শিরোনামহীন,,ui,3,0,"PortalModels.kt, UserDashboardScreen.kt"
+শিরোনামহীন আলোচনা,,ui,3,0,PortalModels.kt
 শেয়ার,,ui,3,0,"ArticleScreen.kt, HtmlArticleRenderer.kt, PdfViewerScreen.kt"
 সংরক্ষণ করুন,,ui,3,0,"ArticleScreen.kt, EditorialComponents.kt"
 সংরক্ষণ বাতিল করুন,,ui,3,0,"ArticleScreen.kt, EditorialComponents.kt"
@@ -111,14 +113,15 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 অক্ষরের আকার,,ui,2,0,ArticleScreen.kt
 অনুমোদিত,,ui,2,0,ForumScreens.kt
 অন্যান্য,,ui,2,0,"AppNotificationManager.kt, SettingsScreen.kt"
-অপছন্দ,,ui,2,0,ForumScreens.kt
+অপছন্দ,,ui,2,0,"ForumScreens.kt, PublicProfileScreen.kt"
 অফলাইন,,ui,2,0,MusicScreen.kt
 আগস্ট,,ui,2,0,"ContributorScreen.kt, UserDashboardCharts.kt"
 আপনার সেশনের মেয়াদ শেষ হয়েছে। আবার সাইন ইন করলে তালিকা ও পয়েন্ট দেখা যাবে।,,ui,2,0,"ContributorScreen.kt, PortalModels.kt"
 আপনি,,ui,2,0,"ContributorScreen.kt, UserDashboardScreen.kt"
+আলোচনা খুঁজুন,,ui,2,0,ForumScreens.kt
 আলোচনা খোলা যায়নি।,,ui,2,0,ForumScreens.kt
 এই মাসের পয়েন্ট,,ui,2,0,PublicProfileScreen.kt
-একমত,,ui,2,0,ForumScreens.kt
+একমত,,ui,2,0,"ForumScreens.kt, PublicProfileScreen.kt"
 এখনো কোনো গান যোগ করা হয়নি।,,ui,2,0,MusicScreen.kt
 এখনো কোনো প্রবন্ধ জমা দেওয়া হয়নি।,,ui,2,0,"UserDashboardCharts.kt, UserDashboardScreen.kt"
 এখানে কোনো প্রবন্ধ পাওয়া যায়নি।,,ui,2,0,ListScreens.kt
@@ -199,8 +202,6 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 লোকগাথা,,content,2,0,NinghsingCheContentData.kt
 লোড হচ্ছে…,,ui,2,0,ForumScreens.kt
 শহীদ সুদেষ্ণা সিংহ,,content,2,0,NinghsingCheContentData.kt
-শিরোনামহীন,,ui,2,0,"PortalModels.kt, UserDashboardScreen.kt"
-শিরোনামহীন আলোচনা,,ui,2,0,PortalModels.kt
 শেয়ার করুন,,ui,2,0,"ArticleScreen.kt, EditorialComponents.kt"
 সংযুক্তি,,ui,2,0,"PortalModels.kt, UserDashboardScreen.kt"
 সংরক্ষণ সরানো হয়েছে,,ui,2,0,MainViewModels.kt
@@ -350,11 +351,11 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 আমি নিংশিং চে AI...,,ui,1,0,NinghsingCheAiAssistant.kt
 আরও,,ui,1,0,MusicPlayer.kt
 আরও {1} টি উত্তর — সব উত্তর দেখুন চাপুন,,ui,1,1,ForumScreens.kt
+আরও দেখুন ({1}),,ui,1,1,PublicProfileScreen.kt
 আরও লোড করুন,,ui,1,0,ForumScreens.kt
 আরতী,,ui,1,0,MusicGenres.kt
 আর্কাইভ,,content,1,0,NinghsingCheContentData.kt
 আলোচনা {1} · উত্তর {2},,ui,1,2,ForumScreens.kt
-আলোচনা খুঁজুন,,ui,1,0,ForumScreens.kt
 আলোচনা খুলুন,,ui,1,0,ForumScreens.kt
 আলোচনা পাওয়া যায়নি।,,ui,1,0,ForumScreens.kt
 আলোচনা লোড হয়নি।,,ui,1,0,ForumScreens.kt
@@ -393,6 +394,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 "উত্তর-পূর্ব ভারতের মণিপুরি জনজাতির বাস্তুসংস্থান, ইঞ্চৌঘরের স্থাপত্য ও পৌরাণিক লোকগাথা সংক্রান্ত গবেষণার জন্য সমাদৃত।",,content,1,0,NinghsingCheContentData.kt
 উত্তরগুলো লুকান,,ui,1,0,ForumScreens.kt
 উত্তরসমূহ,,ui,1,0,ForumScreens.kt
+উত্তরসমূহ (৩),,ui,1,0,ForumScreens.kt
 উপর-নিচ স্ক্রল করে পুরো বই পড়ুন।,,ui,1,0,PdfViewerScreen.kt
 এআই সহায়িকা,,ui,1,0,ArticleScreen.kt
 এই {1}-এ কোনো গান নেই।,,ui,1,1,MusicBrowseScreens.kt
@@ -412,7 +414,8 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 এই বিভাগ পাওয়া যায়নি।,,ui,1,0,ForumScreens.kt
 এই বিভাগে এখনো কোনো আলোচনা হয়নি।,,ui,1,0,ForumScreens.kt
 এই বিভাগের আলোচনাগুলো,,ui,1,0,ForumScreens.kt
-এই ব্যবহারকারী এখনো ফোরামে কিছু লেখেননি।,,ui,1,0,PublicProfileScreen.kt
+এই ব্যবহারকারী এখনো কোনো আলোচনা শুরু করেননি।,,ui,1,0,PublicProfileScreen.kt
+এই ব্যবহারকারী এখনো কোনো উত্তর লেখেননি।,,ui,1,0,PublicProfileScreen.kt
 এই ব্যবহারকারীর এখনো কোনো গান প্রকাশিত হয়নি।,,ui,1,0,PublicProfileScreen.kt
 এই ব্যবহারকারীর এখনো কোনো প্রকাশিত প্রবন্ধ নেই।,,ui,1,0,PublicProfileScreen.kt
 এই ব্যবহারকারীর পাতা পাওয়া যায়নি।,,ui,1,0,PublicProfileScreen.kt
@@ -483,6 +486,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 কোনো সংরক্ষিত প্রবন্ধ নেই,,ui,1,0,BookmarksScreen.kt
 ক্যাটাগরির প্রবন্ধহানি,,ui,1,0,ListScreens.kt
 ক্যাশ খালি করা হয়েছে এবং তথ্য হালনাগাদ করা হয়েছে,,ui,1,0,SettingsScreen.kt
+খোঁজ বন্ধ করুন,,ui,1,0,ForumScreens.kt
 খোঁজার ফলাফল,,ui,1,0,MusicScreen.kt
 গবেষণা,,content,1,0,NinghsingCheContentData.kt
 গল্প,,content,1,0,NinghsingCheContentData.kt
@@ -568,6 +572,8 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 "তথ্যকোষের উদ্দেশ্য, পরিকল্পনা ও বিষ্ণুপ্রিয়া মণিপুরি সাহিত্যের পটভূমি সংক্রান্ত সামগ্রিক ভূমিকা।",,content,1,0,NinghsingCheContentData.kt
 তথ্যসূত্র ও গবেষণা প্রবন্ধ:,,ui,1,0,AiAssistantScreen.kt
 তাক {1},,ui,1,1,PdfArchiveScreen.kt
+তালিকা পড়তে ডেটাবেস আপডেট দরকার — 033_profile_paging.sql চালান।,,ui,1,0,PublicProfileScreen.kt
+তালিকাটি লোড হয়নি।,,ui,1,0,PublicProfileScreen.kt
 "তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট",,ui,1,0,SiteFooter.kt
 তৈরি,,ui,1,0,MusicScreen.kt
 তৈরি করুন,,ui,1,0,MusicPlayer.kt
@@ -781,7 +787,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 ফোরাম লোড হয়নি।,,ui,1,0,ForumScreens.kt
 ফোরামে আপনার কাজ,,ui,1,0,ForumScreens.kt
 ফোরামে যান,,ui,1,0,ForumScreens.kt
-ফোরামের আলোচনা লোড হচ্ছে…,,ui,1,0,PublicProfileScreen.kt
 ফোরামের হিসাব লোড হচ্ছে…,,ui,1,0,ForumScreens.kt
 ফ্রেমে মিল,,ui,1,0,PdfViewerScreen.kt
 বংশনাম,,content,1,0,NinghsingCheContentData.kt
@@ -792,6 +797,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 বইটি খোলা যায়নি।,,ui,1,0,MainViewModels.kt
 বড় করুন,,ui,1,0,ArticleScreen.kt
 বড় করে দেখুন,,ui,1,0,HtmlArticleRenderer.kt
+বন্ধ বিভাগ,,ui,1,0,ForumScreens.kt
 বর্মেন্দ্র,,content,1,0,AuthorProfiles.kt
 বর্ষপূর্তি,,content,1,0,NinghsingCheContentData.kt
 বাঁকা,,ui,1,0,HtmlContentEditor.kt

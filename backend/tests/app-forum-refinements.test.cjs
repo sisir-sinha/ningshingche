@@ -68,7 +68,7 @@ function editorSource() {
 
 test('every forum screen has room at the top, and its own back arrow', async (t) => {
   await t.test('the space is one constant, used by all four screens', () => {
-    assert.match(FORUM_SCREENS, /private val FORUM_TOP_SPACE = EditorialSpace\.md/,
+    assert.match(FORUM_SCREENS, /private val FORUM_TOP_SPACE = EditorialSpace\.lg/,
       'the space is named, not a number typed four times');
     const uses = FORUM_SCREENS.match(/top = FORUM_TOP_SPACE/g) || [];
     assert.ok(uses.length >= 4,
@@ -99,9 +99,29 @@ test('every forum screen has room at the top, and its own back arrow', async (t)
     assert.match(account, /Icons\.Default\.Notifications|unreadCount/, 'and the account menu still counts them');
   });
 
-  await t.test('the search field is still on the page, where it can be typed into', () => {
-    assert.match(FORUM_SCREENS, /testTag\("forum_search"\)/);
-    assert.match(FORUM_SCREENS, /Icons\.Default\.Search/);
+  await t.test('the search is an icon in the bar, and the field slides out under it', () => {
+    // The owner's third correction to this screen: the field was a full-width box
+    // with type bigger than the page's own. The bar carries the magnifier now, and
+    // the field it opens is a 48 dp line with the forum's body size.
+    assert.match(FORUM_SCREENS, /testTag\("forum_search_toggle"\)/, 'the icon in the bar');
+    assert.match(FORUM_SCREENS, /onSearchClick: \(\(\) -> Unit\)\? = null/,
+      'which the scaffold takes');
+    assert.match(FORUM_SCREENS, /searchField: \(@Composable \(\) -> Unit\)\? = null/,
+      'and a slot for the field itself');
+    const scaffold = screen('ForumScaffold');
+    assert.match(scaffold, /AnimatedVisibility\(\s*\n\s*visible = searchOpen/, 'and what it opens animates');
+    assert.match(scaffold, /expandVertically\(/, 'out from the bar');
+    assert.match(scaffold, /shrinkVertically\(/, 'and back into it');
+    assert.match(scaffold, /Icons\.Default\.Close/, 'the icon becomes a way to put it away');
+    // Order in the actions row: the magnifier, then the reload icon.
+    const search = scaffold.indexOf('forum_search_toggle');
+    const refresh = scaffold.indexOf('forum_refresh');
+    assert.ok(search !== -1 && refresh !== -1 && search < refresh,
+      'the search sits before the reload icon, as the owner asked');
+    const field = screen('ForumSearchField');
+    assert.match(field, /testTag\("forum_search"\)/, 'the field is still the field');
+    assert.match(field, /fontSize = 13\.sp/, 'with the forum page\'s own size, not a size above it');
+    assert.ok(!/leadingIcon/.test(field), 'and no second magnifier inside it');
   });
 });
 
@@ -110,10 +130,19 @@ test('every forum screen has room at the top, and its own back arrow', async (t)
 // ---------------------------------------------------------------------------
 
 test('বিভাগসমূহ is one line that opens into wider rooms', async (t) => {
-  await t.test('a room is wider than it was', () => {
-    assert.match(FORUM_SCREENS, /private const val FORUM_ROOM_WIDTH = 232/,
-      'the room is 232 dp across, not 184');
+  await t.test('a room is wider than it was, and every room is the same height', () => {
+    assert.match(FORUM_SCREENS, /private const val FORUM_ROOM_WIDTH = 240/,
+      'the room is 240 dp across, not 184');
     assert.match(FORUM_SCREENS, /\.width\(FORUM_ROOM_WIDTH\.dp\)/);
+    // The owner's correction: the cards in this rail each ended somewhere else,
+    // because the descriptions are not the same length. One height, held by a
+    // two-line description, is what makes the row read as a row.
+    assert.match(FORUM_SCREENS, /private val FORUM_ROOM_HEIGHT = 128\.dp/,
+      'and one height for all of them');
+    const chip = screen('ForumRoomChip');
+    assert.match(chip, /\.height\(FORUM_ROOM_HEIGHT\)/, 'which the card takes');
+    assert.match(chip, /minLines = 2/, 'a short description keeps the space two lines need');
+    assert.match(chip, /Spacer\(Modifier\.weight\(1f\)\)/, 'and the counters stay on the floor of the card');
   });
 
   await t.test('the section is zipped until it is asked for', () => {
@@ -140,12 +169,23 @@ test('বিভাগসমূহ is one line that opens into wider rooms', asyn
       'বিভাগসমূহ (৫), not a separate number floating in the row');
   });
 
-  await t.test('the room card\'s two lines sit close together', () => {
+  await t.test('the room card\'s two lines sit close, and read a size bigger', () => {
     const chip = screen('ForumRoomChip');
-    assert.match(chip, /lineHeight = 13\.5\.sp/, 'the description sets its own line height');
-    assert.match(chip, /\.padding\(top = 1\.dp\)/, 'and starts a hair under the title');
+    assert.match(chip, /lineHeight = 15\.sp/, 'the description sets its own line height');
+    assert.match(chip, /\.padding\(top = 2\.dp\)/, 'and starts a hair under the title');
+    assert.match(chip, /fontSize = 16\.sp/, 'the room\'s own name, scaled up with the page');
+    assert.match(chip, /fontSize = 12\.5\.sp/, 'and so is its description');
     assert.ok(!/verticalArrangement = Arrangement\.spacedBy\(EditorialSpace\.xxs\)/.test(chip),
       'the loose column spacing is gone from the card');
+  });
+
+  await t.test('a collapsed section takes more room from the top', () => {
+    // The owner asked for more air above the heading when the rooms are shut: the
+    // section used to start against the app bar.
+    const section = screen('ForumRoomsSection');
+    assert.match(section, /top = EditorialSpace\.md/, 'more above the heading');
+    assert.match(section, /bottom = EditorialSpace\.xs/, 'than below it');
+    assert.match(section, /fontSize = 17\.sp/, 'and the heading is a size up with the rest of the page');
   });
 });
 
@@ -163,20 +203,31 @@ test('the filters speak for themselves, and a card reads at a glance', async (t)
 
   await t.test('a discussion title is bigger', () => {
     const card = screen('ForumDiscussionCard');
-    assert.match(card, /fontSize = 17\.sp/, 'the title a reader scans for');
+    // A card with a picture beside it has less width for its words, so its title
+    // is a size down from a full-width card's — both are bigger than the old 15.
+    assert.match(card, /fontSize = if \(discussion\.hasCover\) 16\.sp else 17\.sp/,
+      'the title a reader scans for');
     assert.ok(!/fontSize = 15\.sp[^]*maxLines = 2/.test(card),
       'and the old size is not left on the title');
   });
 
-  await t.test('the face on a card is bigger and the name is beside the date', () => {
+  await t.test('the face is on the left and the date is on the line under the name', () => {
+    // Re-anchored for the owner's correction: the date used to sit inline beside
+    // the name. It is a second line under it now, and the two lines together are
+    // the height of the face they stand beside — that is what "one unit" means.
     const card = screen('ForumDiscussionCard');
-    assert.match(card, /avatarSize = 36/, 'a face worth looking at');
+    assert.match(card, /avatarSize = if \(discussion\.hasCover\) 30 else 34/,
+      'a face worth looking at, a size down when a cover shares the row');
     const author = screen('ForumAuthorRow');
     const lines = author.split('\n').length;
-    assert.ok(lines < 60, `the author block is small (${lines} lines)`);
-    assert.match(author, /maxLines = 1,\s*\n\s*overflow = TextOverflow\.Ellipsis,\s*\n\s*\/\/ The name gives way before the date does/,
-      'the name and the date are on one line, the name giving way first');
-    assert.match(author, /Spacer\(Modifier\.width\(6\.dp\)\)/, 'with a small gap, not a stack');
+    assert.ok(lines < 70, `the author block is small (${lines} lines)`);
+    assert.match(author, /Column\(\s*\n\s*modifier = Modifier\.weight\(1f\)/,
+      'the name and the date are a column, not a row');
+    assert.match(author, /testTag\("forum_author_date"\)/, 'the date has a line of its own');
+    assert.match(author, /lineHeight = nameSize \* 1\.15f/, 'the name sets a tight line height');
+    assert.match(author, /lineHeight = 12\.sp/, 'and so does the date');
+    assert.ok(!/Spacer\(Modifier\.width\(6\.dp\)\)/.test(author),
+      'the inline gap is gone with the inline date');
   });
 
   await t.test('the same author block is on the thread, with the clock', () => {
@@ -197,7 +248,7 @@ test('the filters speak for themselves, and a card reads at a glance', async (t)
 // 7. Reactions are icons
 // ---------------------------------------------------------------------------
 
-test('reactions are icons on the card and three icons in the popup', async (t) => {
+test('reactions are icons on the card, and one tap counts', async (t) => {
   await t.test('the card shows the three as icons with their counts', () => {
     const row = screen('ForumReactionRow');
     for (const icon of ['Icons.Default.ThumbUp', 'Icons.Default.CheckCircle', 'Icons.Default.ThumbDown']) {
@@ -217,16 +268,16 @@ test('reactions are icons on the card and three icons in the popup', async (t) =
       'and the hint about long-pressing is gone');
   });
 
-  await t.test('the popup is the three and nothing else', () => {
-    const dialog = screen('ForumReactionDialog');
-    assert.match(dialog, /Row\(/, 'one row');
-    assert.equal((dialog.match(/ReactionChoice\(/g) || []).length, 3, 'three choices, no more');
-    assert.ok(!/Text\(/.test(dialog), 'no words in the popup');
-    assert.ok(!/toBengaliNumeral/.test(dialog), 'and no counters — the counters belong to the card');
-    const choice = screen('ReactionChoice');
-    assert.match(choice, /IconButton\(/, 'each is a button');
-    assert.match(choice, /contentDescription = label/, 'named for the screen reader');
-    assert.match(choice, /tokens\.accentSoft/, 'and the reader\'s own reaction is marked');
+  await t.test('there is no popup left to open, and no long press either', () => {
+    // The owner's ninth correction, and the last word on this control: a tap on a
+    // reaction is a count, not a question. The dialog and its three choices are
+    // gone from the app entirely.
+    assert.ok(!FORUM_SCREENS.includes('ForumReactionDialog'), 'the dialog is deleted');
+    assert.ok(!FORUM_SCREENS.includes('ReactionChoice'), 'and so are its choices');
+    assert.ok(!FORUM_SCREENS.includes('combinedClickable'), 'nothing reacts to a long press any more');
+    assert.ok(!/reactionTarget/.test(FORUM_SCREENS), 'and the screen keeps no reaction to open');
+    assert.ok(!/import androidx\.compose\.ui\.window\.Dialog/.test(FORUM_SCREENS),
+      'the dialog import went with it');
   });
 });
 

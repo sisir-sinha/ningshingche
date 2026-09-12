@@ -668,23 +668,39 @@ page prints the same table for the reader, in words.
 
 Every registered reader has a public page: `ui/screens/PublicProfileScreen.kt`, route
 `user/{userId}` (`ReaderRoute.PublicProfile`), reachable by tapping an uploader's name on a song. It
-shows their name and avatar, their songs (tapping one starts playback with that list as the queue)
-and the articles their submissions were converted into. It is one request —
+shows their name and avatar, their articles, their songs (tapping one starts playback with that list
+as the queue) and their forum work. The identity card is one request —
 `PortalRepository.publicProfile(userId)` → the `public_profile` RPC (**migration 028**, which replaces
 024 and widens its answer) —
 because `profiles` and `submitted_blogs` are both select-own and a submission row carries the
 writer's contact details. It opens for guests too.
 
+**The three lists are paged, five rows at a time.** `PortalRepository.profilePage(userId, kind,
+offset)` → `profile_items` (**migration 033**) asks for one window of five for one kind —
+`articles`, `songs`, `threads` or `answers` — and answers `{kind, total, items}`, so the screen
+knows how many rows exist without holding them: it draws the first five, and **আরও দেখুন (n)** asks
+for the next five at `offset = loaded` and appends them to what is on screen. The four counts the
+tabs are labelled with come from a second door of the same function, `kind = 'counts'`
+(`profileTotals`). Nothing is sliced in the app — a page is a page on both sides of the wire — and
+the order is the database's: articles and songs by `views_count desc nulls last`, a reader's
+discussions and answers newest first. A database without 033 fails the two list calls and nothing
+else: the identity card and the statistics card still open, and the list says which file to run.
+
 **The page is real data or nothing.** Three lines, in the order the owner asked for: the name, then
 the designation (`profiles.designation`, shown as muted **পাঠক** when the reader has not written one),
 then the first line of the address and only if there is an address. Nothing on the page is
 placeholder text, so a reader with no designation and no address simply has a shorter card. Under it,
-one statistics card — **মোট ভিউ / মোট পয়েন্ট / এই মাসের পয়েন্ট** — and then two tabs, **প্রবন্ধ (n)** and
-**গান (n)**, whose counts are the lengths of the two lists. Both lists arrive ordered by views,
-highest first (`views_count desc nulls last` in 028, and sorted a second time in `PublicProfile` so a
-cached list cannot disagree), and every row carries its published date through `formatBengaliDate`.
-The app bar is transparent over a scrolling list, so the content starts below the sticky back arrow
-rather than under it.
+one statistics card — **মোট ভিউ / মোট পয়েন্ট / এই মাসের পয়েন্ট** — and then three tabs: **প্রবন্ধ (n)**,
+**গান (n)** and **আলোচনা (n)**, whose counts are the database's totals. Every row carries its
+published date through `formatBengaliDate`, and a forum row carries the date at its right-hand edge
+and its three reactions as icons with their counts — the words লাইক / একমত / অপছন্দ are not written
+on this page any more than they are on the forum's own cards. The app bar is transparent over a
+scrolling list, so the content starts below the sticky back arrow rather than under it.
+
+**Inside আলোচনা, two filters and no third.** **আলোচনা** is this reader's discussions and **উত্তর** is
+the answers they wrote, one list at a time, each fetched for its own kind when it is picked. The
+third tab of the first cut — **প্রতিক্রিয়া** — is deleted: it was a fourth list of the same reader's
+work with the least to say, and the counts it showed are already on the answers themselves.
 
 The statistics card is the database's own totals: `points` for life, `month_points` for this month,
 both read through `contributor_score` with a `to_regprocedure` guard so the page still opens on a
@@ -735,7 +751,7 @@ are rows in `forum_categories`, seeded by the migration and editable from the da
 
 | Screen | Route | What it is |
 | --- | --- | --- |
-| `ForumHomeScreen` | `forum` | **বিভাগসমূহ** as a sideways-scrolling rail, then **সাম্প্রতিক আলোচনা** with its three filters, with the search field over both |
+| `ForumHomeScreen` | `forum` | **বিভাগসমূহ** as a sideways-scrolling rail, then **সাম্প্রতিক আলোচনা** with its three filters; the magnifier in the app bar opens the search field under it |
 | `ForumCategoryScreen` | `forum_room/{slug}` | one room, paged 30 at a time, with **নতুন আলোচনা** |
 | `ForumThreadScreen` | `forum_thread/{discussionId}` | the opening post, its answers with their reactions and their own answers, and a composer |
 | `NewDiscussionScreen` | `forum_new?room=` | room (a row of `FilterChip`s, preselected when a room sent the reader here), title, an optional cover, and the body in the compact editor |
@@ -807,22 +823,27 @@ because a draft is a few hundred bytes that has to be readable the instant a com
 nothing joins on it; per thread rather than one reply box because a reader may leave a half-written
 answer in one thread, read another, and come back to the first one as they left it.
 
-*Reactions, from a long press.* `forum_reactions` holds one row per reactor per answer — `like`,
+*Reactions, one tap, no popup.* `forum_reactions` holds one row per reactor per answer — `like`,
 `dislike` or `agree` — and `forum_react(reply_id, kind, device_id)` toggles: the same tap takes the
 reaction away, which is what 022's music love does and therefore what a reader already expects. A
 guest may react, keyed by `md5('ningshingche-forum:' || device_id)` from the device id the transport
 already carries for loved songs. Every answer comes back with its three counts and with the reader's
-own reaction (`my_reaction`), and the counts feed (10).
+own reaction (`my_reaction`), and the counts feed (10). The three icons are the whole control: each
+one sends its own kind, and nothing is asked twice — there is no `ForumReactionDialog` and no long
+press left in the app.
 
 *One step of indentation, and only the newest answer under each one.* A reply to a reply is folded
 onto its own answer (`coalesce(parent.parent_id, parent.id)`), so a thread can be argued in but never
 marches off the right of the screen. Under each answer the newest answer is drawn, with **সব উত্তর
 দেখুন (n)** opening the rest.
 
-*একটি ছোট «আরও দেখুন»* — no border, no fill, 12 sp, accent-coloured, on the opening post and on any
-answer long enough to need it. "Long enough" is 240 characters or an image, decided from the string
-rather than from a measurement: a card that had to be measured before it could decide would grow a
-"see more" on every short answer that happened to wrap. Open, the body goes through the article
+*একটি ছোট «আরও দেখুন»* — no border, no fill, 13.5 sp, accent-coloured, on the opening post and on
+any answer long enough to need it. "Long enough" is a hundred characters, decided from the string
+rather than from a measurement (`FORUM_FOLD_CHARS = 100`, one constant the model and the screen
+share); a card that had to be measured before it could decide would grow a "see more" on every short
+answer that happened to wrap. Folded, three lines of the body are drawn (`FORUM_FOLD_LINES`) with the
+renderer's own ellipsis on the last of them, and a discussion card's summary is cut at the same
+hundred characters with a `…` — one rule, three places. Open, the body goes through the article
 renderer, which is what knows how to draw the picture the editor can insert.
 
 *উত্তরসমূহ has its own filter* — **শীর্ষ উত্তর** (most liked or agreed first, the owner's "top
@@ -877,14 +898,18 @@ page's own bell is untouched. The search field stays on the page, where it can b
 (`AnimatedVisibility` with `expandVertically`/`shrinkVertically` and a fade, 220 ms) and the chevron
 turns as it goes. A room is 232 dp wide with its two lines tight together (`lineHeight = 13.5.sp`).
 
-*Cards.* A discussion title is 17 sp; the author block is one line — a 36 dp face, the name, and the
-date beside it, the name yielding first when space runs out. Answers and replies use the same block
-with `showTime`, so a thread reads `সিসির সিংহ · ১২ সেপ্টেম্বর, ৩:৪৫ অপরাহ্ণ` (`formatBengaliDateTime`,
-which parses the UTC the database wrote and renders the reader's own zone, without `java.time`).
+*Cards.* A discussion title is 17 sp (16 sp beside a cover, where the words have less width); the
+author block is a **column** — a 34–38 dp face on the left, the name and then the date under it, the
+two lines tight enough to be the height of the face beside them (`lineHeight = nameSize * 1.15f` for
+the name, 12 sp for the date) — and a card with a cover puts the picture on the left at 104 dp with
+everything else in the column beside it and the view/answer counters pinned to the card's top-right
+corner. Answers and replies use the same block with `showTime`, so a thread reads `সিসির সিংহ` and
+`১২ সেপ্টেম্বর, ৩:৪৫ অপরাহ্ণ` on two lines (`formatBengaliDateTime`, which parses the UTC the database
+wrote and renders the reader's own zone, without `java.time`).
 
-*Reactions are icons.* On a card: `ThumbUp`, `CheckCircle`, `ThumbDown`, each with its count and its
-own colour when it is the reader's. On a long press: those three icons in one row and nothing else —
-no name, no words, no counters. The hint line under the counts is gone.
+*Reactions are icons, and one tap counts.* `ThumbUp`, `CheckCircle`, `ThumbDown`, each with its count
+and its own colour when it is the reader's; tapping the kind that is already there takes it back.
+There is no popup and no long press: a tap that has to be repeated is a tap a reader stops making.
 
 *One card per answer.* The replies are drawn inside the answer's card, indented 22 dp, with a 2 dp
 line down their left (`drawBehind`), so an argument reads as the answer it belongs to. The database's
@@ -1084,7 +1109,7 @@ under it). That split is the fix for the second complaint of the same family: an
 `HtmlCompat` becomes U+FFFC, the platform's "an object I cannot draw", which a reader sees as a
 boxed **obj** — and a body used to fold on the strength of the tag, so the boxed obj was what the
 folded copy showed until "see more" was tapped. Folding now counts the words
-(`ForumReply.isLong` = `forumBodyText(body).length > 240`).
+(`ForumReply.isLong` = `forumBodyText(body).length > FORUM_FOLD_CHARS`, and that constant is 100).
 
 *And a tap opens it.* `AttachmentViewer` is a frame-less dialog: a picture fills the screen and can
 be pinched (1×–5×, panning only once it is larger than the screen), a PDF is opened by the app's own

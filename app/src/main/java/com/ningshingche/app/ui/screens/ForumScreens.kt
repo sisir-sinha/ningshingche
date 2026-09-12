@@ -10,10 +10,8 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -45,6 +43,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Image
@@ -96,6 +95,8 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -108,7 +109,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import com.ningshingche.app.data.local.ForumDraftStore
 import com.ningshingche.app.data.portal.ForumActivity
 import com.ningshingche.app.data.portal.ForumAttachment
@@ -125,6 +125,7 @@ import com.ningshingche.app.data.portal.ForumCategoryPage
 import com.ningshingche.app.data.portal.ForumDiscussion
 import com.ningshingche.app.data.portal.ForumOverview
 import com.ningshingche.app.data.portal.ForumReactionState
+import com.ningshingche.app.data.portal.FORUM_FOLD_CHARS
 import com.ningshingche.app.data.portal.ForumReply
 import com.ningshingche.app.data.portal.ForumSearchResult
 import com.ningshingche.app.data.portal.ForumText
@@ -193,14 +194,47 @@ import kotlinx.coroutines.launch
 private const val FORUM_SEARCH_DELAY_MS = 300L
 private const val FORUM_SEARCH_MIN_CHARS = 2
 
-/** How long a body may be before it folds, before anything is measured. */
-private const val FORUM_FOLD_CHARS = 240
+/**
+ * How long a body may be before it folds. One number for the whole app — the
+ * model's own [FORUM_FOLD_CHARS], which is 100 characters: the owner's rule is
+ * that a hundred characters of Bengali is about two lines, and two lines is where
+ * a card stops being something a reader takes in at a glance.
+ */
 
 /** A room card, wider than the first pass: two lines of Bengali need the room. */
-private const val FORUM_ROOM_WIDTH = 232
+private const val FORUM_ROOM_WIDTH = 240
+
+/**
+ * Every room is the same height, and that height is the *tallest* a room card can
+ * be: a title, two lines of description, and the counters. The owner's words were
+ * that the items "has different height for their subtitle text" — a rail of cards
+ * that each end somewhere else reads as a mistake, so the short descriptions are
+ * given the room the long ones need instead of the row being ragged.
+ */
+private val FORUM_ROOM_HEIGHT = 128.dp
 
 /** Room above and below a section, so nothing starts against the app bar. */
-private val FORUM_TOP_SPACE = EditorialSpace.md
+private val FORUM_TOP_SPACE = EditorialSpace.lg
+
+/** The cover, as a card shows it: a square beside the words, not above them. */
+private val FORUM_CARD_COVER = 104.dp
+
+/** How much of a card's first line the corner's counters keep for themselves. */
+private val FORUM_CORNER_RESERVE = 62.dp
+
+/**
+ * How many lines of a folded body a reader sees.
+ *
+ * `FORUM_FOLD_CHARS` says *when* a body folds — over a hundred characters. This
+ * says how much of it shows, and three lines of Bengali at the forum's new size
+ * is about that hundred: with the ellipsis the text renderer puts on the last
+ * line, the fold now happens where the owner said it should happen, rather than
+ * six lines down, which was nearer three hundred.
+ */
+private const val FORUM_FOLD_LINES = 3
+
+/** The cover, as the thread itself shows it: full width, and worth looking at. */
+private val FORUM_THREAD_COVER_HEIGHT = 208.dp
 
 /** How far a reply is indented inside its answer. */
 private val FORUM_REPLY_INDENT = 22.dp
@@ -244,6 +278,9 @@ fun ForumHomeScreen(
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<ForumSearchResult?>(null) }
     var searching by remember { mutableStateOf(false) }
+    // The field is behind the bar's magnifier now. Closing it clears the search,
+    // because a field that is not on screen is not a filter the reader can see.
+    var searchOpen by remember { mutableStateOf(false) }
 
     LaunchedEffect(reloadToken, order) {
         loading = true
@@ -278,7 +315,22 @@ fun ForumHomeScreen(
             "আলোচনা ${toBengaliNumeral(it.totalDiscussions)} · উত্তর ${toBengaliNumeral(it.totalReplies)}"
         } ?: "নিংশিং চে পাঠকদের আলোচনা",
         onBackClick = onBackClick,
-        onRefreshClick = { reloadToken += 1 }
+        onRefreshClick = { reloadToken += 1 },
+        searchOpen = searchOpen,
+        onSearchClick = {
+            searchOpen = !searchOpen
+            if (!searchOpen) {
+                query = ""
+                results = null
+            }
+        },
+        searchField = {
+            ForumSearchField(
+                value = query,
+                onValueChange = { query = it },
+                searching = searching
+            )
+        }
     ) { padding ->
         when {
             loading && overview == null -> ForumLoading(Modifier.padding(padding))
@@ -300,17 +352,15 @@ fun ForumHomeScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(EditorialSpace.sm)
             ) {
-                item {
-                    ForumSearchField(
-                        value = query,
-                        onValueChange = { query = it },
-                        searching = searching
-                    )
-                }
-
                 val found = results
                 if (found != null) {
-                    item { ForumSectionTitle("অনুসন্ধানের ফল", found.total) }
+                    item {
+                        ForumSectionTitle(
+                            title = "অনুসন্ধানের ফল",
+                            count = found.total,
+                            modifier = Modifier.padding(horizontal = EditorialSpace.gutter)
+                        )
+                    }
                     if (found.discussions.isEmpty()) {
                         item {
                             EmptyState(
@@ -434,7 +484,15 @@ private fun ForumRoomsSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { expanded = !expanded }
-                .padding(horizontal = EditorialSpace.gutter, vertical = EditorialSpace.xs)
+                // More room above the heading than below it: the section starts
+                // a little further down the page, which is what the owner asked
+                // for — a zipped section against the app bar reads as crammed.
+                .padding(
+                    start = EditorialSpace.gutter,
+                    end = EditorialSpace.gutter,
+                    top = EditorialSpace.md,
+                    bottom = EditorialSpace.xs
+                )
                 .testTag("forum_category_toggle"),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -442,7 +500,10 @@ private fun ForumRoomsSection(
                 text = "বিভাগসমূহ (${toBengaliNumeral(categories.size)})",
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
+                // Scaled up, with every other heading on the page: the owner
+                // asked the forum to grow a size rather than stay the one screen
+                // that reads small on a large phone.
+                fontSize = 17.sp,
                 modifier = Modifier.weight(1f)
             )
             Icon(
@@ -450,7 +511,7 @@ private fun ForumRoomsSection(
                 contentDescription = if (expanded) "বিভাগ গুটিয়ে নিন" else "বিভাগ দেখুন",
                 tint = LocalEditorialTokens.current.inkMuted,
                 modifier = Modifier
-                    .size(22.dp)
+                    .size(24.dp)
                     .graphicsLayer(rotationZ = arrow)
             )
         }
@@ -558,21 +619,22 @@ private fun ForumRoomChip(category: ForumCategory, onClick: () -> Unit) {
         color = tokens.surfaceSunken,
         modifier = Modifier
             .width(FORUM_ROOM_WIDTH.dp)
+            .height(FORUM_ROOM_HEIGHT)
             .clip(RoundedCornerShape(EditorialShape.card))
             .clickable(onClick = onClick)
             .testTag("forum_category_${category.slug}")
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = EditorialSpace.sm, vertical = 10.dp)
+                .fillMaxSize()
+                .padding(horizontal = EditorialSpace.sm, vertical = EditorialSpace.xs)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = category.title,
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.5.sp,
+                    fontSize = 16.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
@@ -580,31 +642,32 @@ private fun ForumRoomChip(category: ForumCategory, onClick: () -> Unit) {
                 if (category.isLocked) {
                     Icon(
                         imageVector = Icons.Default.Lock,
-                        contentDescription = null,
+                        contentDescription = "বন্ধ বিভাগ",
                         tint = tokens.inkMuted,
-                        modifier = Modifier.size(13.dp)
+                        modifier = Modifier.size(14.dp)
                     )
                 }
             }
-            if (category.description.isNotBlank()) {
-                Text(
-                    text = category.description,
-                    fontFamily = Kalpurush,
-                    fontSize = 11.5.sp,
-                    lineHeight = 13.5.sp,
-                    color = tokens.inkMuted,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 1.dp)
-                )
-            }
-            Box(Modifier.padding(top = EditorialSpace.xs)) {
-                ForumCountsRow(
-                    discussions = category.discussions,
-                    replies = category.replies,
-                    locked = false
-                )
-            }
+            // Always two lines, always the same place: a room with a one-line
+            // description keeps the height the two-line rooms need, so the rail
+            // reads as a row of one size. `minLines` is what holds the space.
+            Text(
+                text = category.description,
+                fontFamily = Kalpurush,
+                fontSize = 12.5.sp,
+                lineHeight = 15.sp,
+                color = tokens.inkMuted,
+                minLines = 2,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+            Spacer(Modifier.weight(1f))
+            ForumCountsRow(
+                discussions = category.discussions,
+                replies = category.replies,
+                locked = false
+            )
         }
     }
 }
@@ -679,7 +742,11 @@ fun ForumCategoryScreen(
                 verticalArrangement = Arrangement.spacedBy(EditorialSpace.sm)
             ) {
                 item {
-                    ForumSectionTitle("আলোচনাসমূহ", page?.total ?: 0)
+                    ForumSectionTitle(
+                        title = "আলোচনাসমূহ",
+                        count = page?.total ?: 0,
+                        modifier = Modifier.padding(horizontal = EditorialSpace.gutter)
+                    )
                 }
                 items(page?.discussions.orEmpty(), key = { it.id }) { discussion ->
                     ForumDiscussionCard(
@@ -795,7 +862,6 @@ fun ForumThreadScreen(
     // every reading is a screen that is two-thirds a thread.
     var composerOpen by remember { mutableStateOf(false) }
 
-    var reactionTarget by remember { mutableStateOf<ForumReply?>(null) }
     var viewerAttachment by remember { mutableStateOf<ForumAttachment?>(null) }
 
     // Opening the box: the animation takes this long, and the keyboard is asked
@@ -926,8 +992,9 @@ fun ForumThreadScreen(
         }
     }
 
+    // One tap, one call. No popup, nothing to dismiss: the icons on the card are
+    // the whole control, and the card underneath them keeps its counters.
     val reactTo: (ForumReply, String) -> Unit = { reply, kind ->
-        reactionTarget = null
         scope.launch {
             react(reply.id, kind).onSuccess { state ->
                 holder.thread = holder.thread?.with(
@@ -1035,7 +1102,10 @@ fun ForumThreadScreen(
                         top = FORUM_TOP_SPACE,
                         bottom = EditorialSpace.lg
                     ),
-                    verticalArrangement = Arrangement.spacedBy(EditorialSpace.sm)
+                    // The gaps between one answer and the next come down a step:
+                    // with the dividers, the faces and the reply rows all brought
+                    // in, the page reads as a thread instead of a list of cards.
+                    verticalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
                 ) {
                     item {
                         ForumOpeningPost(
@@ -1046,6 +1116,19 @@ fun ForumThreadScreen(
                             },
                             onAuthorClick = { onAuthorClick(loaded.discussion.authorId) },
                             onCardClick = { editor.dismiss() },
+                            // The cover, as large as the phone will show it: the
+                            // same viewer an attached picture opens in, so there
+                            // is one big-picture screen in the app, not two.
+                            onCoverClick = {
+                                loaded.discussion.coverImageUrl
+                                    ?.takeIf { it.isNotBlank() }
+                                    ?.let { url ->
+                                        viewerAttachment = ForumAttachment.fromReference(
+                                            url,
+                                            loaded.discussion.title
+                                        )
+                                    }
+                            },
                             onOpenAttachment = { file -> viewerAttachment = file }
                         )
                     }
@@ -1085,7 +1168,7 @@ fun ForumThreadScreen(
                             onToggleAll = { expandedThreads = expandedThreads.toggle(answer.id) },
                             onAuthorClick = onAuthorClick,
                             onReply = { openComposer(answer.id) },
-                            onReact = { target -> reactionTarget = target },
+                            onReact = { target, kind -> reactTo(target, kind) },
                             onCardClick = { editor.dismiss() },
                             onOpenAttachment = { file -> viewerAttachment = file },
                             expandedIds = expandedBodies
@@ -1096,15 +1179,6 @@ fun ForumThreadScreen(
                 }
             }
         }
-    }
-
-    // The long press: three reactions, one tap, and the same tap takes it back.
-    reactionTarget?.let { target ->
-        ForumReactionDialog(
-            reply = target,
-            onDismiss = { reactionTarget = null },
-            onPick = { kind -> reactTo(target, kind) }
-        )
     }
 
     // An attachment as large as the phone will show it.
@@ -1154,7 +1228,6 @@ private fun ForumAnswerOrderChips(selected: String, onSelect: (String) -> Unit) 
  * belongs to, in the database as well as here, so nothing marches off the right
  * of the screen however long the argument runs.
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ForumAnswerCard(
     answer: ForumReply,
@@ -1165,7 +1238,7 @@ private fun ForumAnswerCard(
     onToggleAll: () -> Unit,
     onAuthorClick: (String) -> Unit,
     onReply: () -> Unit,
-    onReact: (ForumReply) -> Unit,
+    onReact: (ForumReply, String) -> Unit,
     onCardClick: () -> Unit,
     onOpenAttachment: (ForumAttachment) -> Unit,
     expandedIds: Set<String> = emptySet()
@@ -1182,15 +1255,23 @@ private fun ForumAnswerCard(
             .fillMaxWidth()
             .padding(horizontal = EditorialSpace.gutter)
             .clip(RoundedCornerShape(EditorialShape.card))
-            .combinedClickable(
-                onLongClick = { onReact(answer) },
-                onClick = onCardClick
-            )
+            // A tap on the card is a tap on the card: it puts the keyboard away
+            // and nothing else. Reactions belong to the icons, and one tap there
+            // is a count — a long press used to open a popup, and the popup is
+            // gone.
+            .clickable(onClick = onCardClick)
             .testTag("forum_answer_${answer.id}")
     ) {
         Column(
-            modifier = Modifier.padding(EditorialSpace.sm),
-            verticalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
+            // Less air between the parts of an answer: the face, the words, the
+            // icons and the reply row are one block and were reading as four.
+            modifier = Modifier.padding(
+                start = EditorialSpace.sm,
+                end = EditorialSpace.sm,
+                top = EditorialSpace.xs,
+                bottom = EditorialSpace.xs
+            ),
+            verticalArrangement = Arrangement.spacedBy(EditorialSpace.xxs)
         ) {
             ForumAuthorRow(
                 name = answer.authorName,
@@ -1211,43 +1292,34 @@ private fun ForumAnswerCard(
             )
             ForumReactionRow(
                 reply = answer,
-                onReact = { onReact(answer) }
+                onReact = { kind -> onReact(answer, kind) }
             )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(
+            // The উত্তর দিন row, brought in off its own margins. TextButton's
+            // built-in height is forty-eight dp of nothing; a line of text with a
+            // small icon in front of it is what this row needs, and the padding
+            // below it is the next answer's.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(EditorialSpace.sm)
+            ) {
+                ForumInlineAction(
+                    label = "উত্তর দিন",
+                    icon = Icons.Default.Reply,
                     onClick = onReply,
                     modifier = Modifier.testTag("forum_reply_to_${answer.id}")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Reply,
-                        contentDescription = null,
-                        modifier = Modifier.size(15.dp)
-                    )
-                    Spacer(Modifier.width(EditorialSpace.xxs))
-                    Text(
-                        text = "উত্তর দিন",
-                        fontFamily = Kalpurush,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 12.5.sp
-                    )
-                }
+                )
                 if (replies.isNotEmpty()) {
-                    TextButton(
+                    ForumInlineAction(
+                        label = if (showAll) {
+                            "উত্তরগুলো লুকান"
+                        } else {
+                            "সব উত্তর দেখুন (${toBengaliNumeral(replies.size)})"
+                        },
+                        icon = null,
+                        color = tokens.accent,
                         onClick = onToggleAll,
                         modifier = Modifier.testTag("forum_replies_toggle_${answer.id}")
-                    ) {
-                        Text(
-                            text = if (showAll) {
-                                "উত্তরগুলো লুকান"
-                            } else {
-                                "সব উত্তর দেখুন (${toBengaliNumeral(replies.size)})"
-                            },
-                            fontFamily = Kalpurush,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 12.5.sp,
-                            color = tokens.accent
-                        )
-                    }
+                    )
                 }
             }
 
@@ -1257,7 +1329,7 @@ private fun ForumAnswerCard(
                     Text(
                         text = "আরও ${toBengaliNumeral(hidden)} টি উত্তর — সব উত্তর দেখুন চাপুন",
                         fontFamily = Kalpurush,
-                        fontSize = 11.sp,
+                        fontSize = 11.5.sp,
                         color = tokens.inkMuted,
                         modifier = Modifier.padding(start = FORUM_REPLY_INDENT)
                     )
@@ -1277,8 +1349,10 @@ private fun ForumAnswerCard(
                                 cornerRadius = CornerRadius(stroke)
                             )
                         }
-                        .padding(start = EditorialSpace.sm),
-                    verticalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
+                        .padding(start = EditorialSpace.xs),
+                    // Answers inside an answer sit closer together than the
+                    // answers themselves: they are one argument.
+                    verticalArrangement = Arrangement.spacedBy(EditorialSpace.xxs)
                 ) {
                     shown.forEach { nested ->
                         ForumNestedReply(
@@ -1298,7 +1372,6 @@ private fun ForumAnswerCard(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ForumNestedReply(
     reply: ForumReply,
@@ -1306,7 +1379,7 @@ private fun ForumNestedReply(
     onToggleExpand: () -> Unit,
     onAuthorClick: (String) -> Unit,
     onReply: () -> Unit,
-    onReact: (ForumReply) -> Unit,
+    onReact: (ForumReply, String) -> Unit,
     onCardClick: () -> Unit,
     onOpenAttachment: (ForumAttachment) -> Unit
 ) {
@@ -1317,15 +1390,17 @@ private fun ForumNestedReply(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(EditorialShape.thumb))
-            .combinedClickable(
-                onLongClick = { onReact(reply) },
-                onClick = onCardClick
-            )
+            .clickable(onClick = onCardClick)
             .testTag("forum_reply_${reply.id}")
     ) {
         Column(
-            modifier = Modifier.padding(EditorialSpace.sm),
-            verticalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
+            modifier = Modifier.padding(
+                start = EditorialSpace.xs,
+                end = EditorialSpace.xs,
+                top = 6.dp,
+                bottom = 6.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(EditorialSpace.xxs)
         ) {
             ForumAuthorRow(
                 name = reply.authorName,
@@ -1344,22 +1419,70 @@ private fun ForumNestedReply(
                 onOpenAttachment = onOpenAttachment,
                 testTag = "forum_reply_body_${reply.id}"
             )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                ForumReactionRow(reply = reply, onReact = { onReact(reply) }, small = true)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
+            ) {
+                ForumReactionRow(reply = reply, onReact = { kind -> onReact(reply, kind) }, small = true)
                 Spacer(Modifier.weight(1f))
-                TextButton(
+                // উত্তর, with the arrow icon it was missing: the owner asked for
+                // the same mark the top-level answers use, so the same gesture
+                // reads the same twice.
+                ForumInlineAction(
+                    label = "উত্তর",
+                    icon = Icons.Default.Reply,
                     onClick = onReply,
                     modifier = Modifier.testTag("forum_reply_nested_to_${reply.id}")
-                ) {
-                    Text(
-                        text = "উত্তর",
-                        fontFamily = Kalpurush,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 12.sp
-                    )
-                }
+                )
             }
         }
+    }
+}
+
+/**
+ * উত্তর দিন / উত্তর — a word, an icon, and no box around them.
+ *
+ * `TextButton` was carrying forty-eight dp of vertical padding and a ripple the
+ * size of a card; this is the same control at the size of the line it sits on,
+ * which is what the owner asked for when they said the row above the answers and
+ * the reaction row took too much room.
+ */
+@Composable
+private fun ForumInlineAction(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    color: Color = Color.Unspecified
+) {
+    val ink = if (color == Color.Unspecified) {
+        MaterialTheme.colorScheme.onSurface
+    } else {
+        color
+    }
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(EditorialShape.thumb))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 2.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = ink,
+                modifier = Modifier.size(15.dp)
+            )
+            Spacer(Modifier.width(4.dp))
+        }
+        Text(
+            text = label,
+            fontFamily = Kalpurush,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 13.sp,
+            color = ink
+        )
     }
 }
 
@@ -1367,26 +1490,33 @@ private fun ForumNestedReply(
  * The three reactions as icons — the count beside each one, and the reader's own
  * in the accent colour.
  *
- * The owner asked for icons instead of words: "লাইক" under every answer, three
- * times, is a wall of text where a thumb would do; the counts stay, because the
- * counts are what the thread is read by.
+ * **One tap counts it.** The owner's ninth correction, and the plainest of the
+ * nine: the icons used to raise a popup that asked again which reaction was
+ * meant, and a tap that has to be repeated is a tap the reader stops making. Each
+ * icon now sends its own kind straight out; tapping the kind that is already
+ * there takes it back, which is the database's own rule — the counters that come
+ * back are the ones the call left behind.
+ *
+ * The words are gone with the popup and the icons stay: "লাইক" under every answer,
+ * three times, is a wall of text where a thumb will do. The `contentDescription`
+ * keeps the words for a screen reader and for a long press.
  */
 @Composable
 private fun ForumReactionRow(
     reply: ForumReply,
-    onReact: () -> Unit,
+    onReact: (String) -> Unit,
     small: Boolean = false
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
+        horizontalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         ForumReactionCount(
             icon = Icons.Default.ThumbUp,
             label = "লাইক",
             count = reply.likes,
             mine = reply.myReaction == ForumReply.REACTION_LIKE,
-            onClick = onReact,
+            onClick = { onReact(ForumReply.REACTION_LIKE) },
             small = small,
             modifier = Modifier.testTag("forum_likes_${reply.id}")
         )
@@ -1395,7 +1525,7 @@ private fun ForumReactionRow(
             label = "একমত",
             count = reply.agrees,
             mine = reply.myReaction == ForumReply.REACTION_AGREE,
-            onClick = onReact,
+            onClick = { onReact(ForumReply.REACTION_AGREE) },
             small = small,
             modifier = Modifier.testTag("forum_agrees_${reply.id}")
         )
@@ -1404,7 +1534,7 @@ private fun ForumReactionRow(
             label = "অপছন্দ",
             count = reply.dislikes,
             mine = reply.myReaction == ForumReply.REACTION_DISLIKE,
-            onClick = onReact,
+            onClick = { onReact(ForumReply.REACTION_DISLIKE) },
             small = small,
             modifier = Modifier.testTag("forum_dislikes_${reply.id}")
         )
@@ -1427,99 +1557,24 @@ private fun ForumReactionCount(
         modifier = modifier
             .clip(RoundedCornerShape(EditorialShape.chip))
             .clickable(onClick = onClick)
-            .padding(horizontal = EditorialSpace.xs, vertical = EditorialSpace.xxs),
+            // Tight enough that three icons and their numbers sit in the width of
+            // the sentence they replaced, and still wide enough to hit.
+            .padding(horizontal = 6.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = icon,
             contentDescription = label,
             tint = colour,
-            modifier = Modifier.size(if (small) 14.dp else 16.dp)
+            modifier = Modifier.size(if (small) 15.dp else 17.dp)
         )
-        Spacer(Modifier.width(EditorialSpace.xxs))
+        Spacer(Modifier.width(3.dp))
         Text(
             text = toBengaliNumeral(count),
             fontFamily = Kalpurush,
-            fontSize = if (small) 11.sp else 11.5.sp,
+            fontSize = if (small) 12.sp else 12.5.sp,
             fontWeight = if (mine) FontWeight.Bold else FontWeight.Normal,
             color = colour
-        )
-    }
-}
-
-/**
- * The long-press popup: লাইক, অপছন্দ, একমত — three icons in a row.
- *
- * The name of the answer's author is not repeated here (the card it was pressed
- * on is right behind it), and neither are the counts: this is a control, not a
- * summary, and the summary is on the card.
- */
-@Composable
-private fun ForumReactionDialog(
-    reply: ForumReply,
-    onDismiss: () -> Unit,
-    onPick: (String) -> Unit
-) {
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(EditorialShape.sheet),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 3.dp,
-            modifier = Modifier.testTag("forum_reaction_dialog")
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = EditorialSpace.sm, vertical = EditorialSpace.xs),
-                horizontalArrangement = Arrangement.spacedBy(EditorialSpace.xs),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                ReactionChoice(
-                    icon = Icons.Default.ThumbUp,
-                    label = "লাইক",
-                    selected = reply.myReaction == ForumReply.REACTION_LIKE,
-                    onClick = { onPick(ForumReply.REACTION_LIKE) },
-                    testTag = "forum_react_like"
-                )
-                ReactionChoice(
-                    icon = Icons.Default.CheckCircle,
-                    label = "একমত",
-                    selected = reply.myReaction == ForumReply.REACTION_AGREE,
-                    onClick = { onPick(ForumReply.REACTION_AGREE) },
-                    testTag = "forum_react_agree"
-                )
-                ReactionChoice(
-                    icon = Icons.Default.ThumbDown,
-                    label = "অপছন্দ",
-                    selected = reply.myReaction == ForumReply.REACTION_DISLIKE,
-                    onClick = { onPick(ForumReply.REACTION_DISLIKE) },
-                    testTag = "forum_react_dislike"
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ReactionChoice(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    testTag: String
-) {
-    val tokens = LocalEditorialTokens.current
-    IconButton(
-        onClick = onClick,
-        modifier = Modifier
-            .size(48.dp)
-            .clip(CircleShape)
-            .background(if (selected) tokens.accentSoft else Color.Transparent)
-            .testTag(testTag)
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = if (selected) tokens.accent else MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.size(24.dp)
         )
     }
 }
@@ -1664,7 +1719,11 @@ fun NewDiscussionScreen(
             verticalArrangement = Arrangement.spacedBy(EditorialSpace.sm)
         ) {
             item {
-                ForumSectionTitle("বিভাগ", rooms?.size)
+                ForumSectionTitle(
+                    title = "বিভাগ",
+                    count = rooms?.size,
+                    modifier = Modifier.padding(horizontal = EditorialSpace.gutter)
+                )
                 when {
                     rooms == null && categoriesError == null -> ForumInlineLoading()
                     categoriesError != null -> Text(
@@ -1944,6 +2003,11 @@ private fun ForumScaffold(
     onBackClick: (() -> Unit)?,
     refreshing: Boolean = false,
     onRefreshClick: (() -> Unit)? = null,
+    /** Whether the search field is out. The icon in the bar is what opens it. */
+    searchOpen: Boolean = false,
+    onSearchClick: (() -> Unit)? = null,
+    /** The field itself — only the forum home has one to give. */
+    searchField: (@Composable () -> Unit)? = null,
     bottomBar: (@Composable () -> Unit)? = null,
     content: @Composable (PaddingValues) -> Unit
 ) {
@@ -1982,9 +2046,22 @@ private fun ForumScaffold(
                     }
                 },
                 // No bell here: notices are the dashboard's, and the forum's bar
-                // belongs to the forum. The search is on the page itself, where a
-                // field can be tapped and typed into.
+                // belongs to the forum. The search is an icon in the corner,
+                // **before** the reload icon — the owner's order — and the field
+                // it opens slides out under the bar rather than living on the
+                // page as a full-width box.
                 actions = {
+                    if (onSearchClick != null) {
+                        IconButton(
+                            onClick = onSearchClick,
+                            modifier = Modifier.testTag("forum_search_toggle")
+                        ) {
+                            Icon(
+                                imageVector = if (searchOpen) Icons.Default.Close else Icons.Default.Search,
+                                contentDescription = if (searchOpen) "খোঁজ বন্ধ করুন" else "আলোচনা খুঁজুন"
+                            )
+                        }
+                    }
                     if (onRefreshClick != null) {
                         IconButton(
                             onClick = onRefreshClick,
@@ -2001,6 +2078,23 @@ private fun ForumScaffold(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
             )
+            // The field slides out from under the bar and back into it, with the
+            // page underneath simply making room — no jump, no blank frame.
+            if (searchField != null) {
+                AnimatedVisibility(
+                    visible = searchOpen,
+                    enter = expandVertically(
+                        animationSpec = tween(durationMillis = 220),
+                        expandFrom = Alignment.Top
+                    ) + fadeIn(animationSpec = tween(durationMillis = 180)),
+                    exit = shrinkVertically(
+                        animationSpec = tween(durationMillis = 180),
+                        shrinkTowards = Alignment.Top
+                    ) + fadeOut(animationSpec = tween(durationMillis = 120))
+                ) {
+                    searchField()
+                }
+            }
             // A refresh behind content that is already on screen: a line under
             // the bar says so without taking the thread off the page.
             if (refreshing) {
@@ -2016,64 +2110,134 @@ private fun ForumScaffold(
     )
 }
 
+/**
+ * A section's heading, with its counter in brackets **on the left**, right after
+ * the word: "উত্তরসমূহ (৩)".
+ *
+ * The owner asked for exactly that — the number belongs to the word it counts,
+ * and a numeral floating at the far edge of the row reads as a different thing.
+ * The heading is a size bigger than it was, and its horizontal padding is the
+ * caller's: the thread's own heading starts at the very left edge (0 dp), while
+ * the forum home's keeps the page gutter.
+ */
 @Composable
 private fun ForumSectionTitle(title: String, count: Int? = null, modifier: Modifier = Modifier) {
-    val tokens = LocalEditorialTokens.current
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = EditorialSpace.gutter, vertical = EditorialSpace.xs),
+            .padding(vertical = EditorialSpace.xs),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = title,
+            text = if (count == null) title else "$title (${toBengaliNumeral(count)})",
             fontFamily = Kalpurush,
             fontWeight = FontWeight.Bold,
-            fontSize = 15.sp,
-            modifier = Modifier.weight(1f)
+            fontSize = 17.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.testTag("forum_section_title")
         )
-        if (count != null) {
-            Text(
-                text = toBengaliNumeral(count),
-                fontFamily = Kalpurush,
-                fontSize = 12.sp,
-                color = tokens.inkMuted
+    }
+}
+
+/**
+ * The search field, small.
+ *
+ * The owner's words were that the input was "too big text" and that the page
+ * wanted "only the search icon beside the header right corner before the reload
+ * icon". So the field is not on the page until it is asked for: the icon in the
+ * app bar opens it, it is a 48 dp line rather than a full-width box, and its text
+ * is the same size as the rest of the forum's body copy rather than larger. The
+ * leading magnifier is gone with it — the icon that opened the field is the
+ * magnifier.
+ */
+@Composable
+private fun ForumSearchField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    searching: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = EditorialSpace.gutter,
+                    end = EditorialSpace.gutter,
+                    bottom = EditorialSpace.xs
+                ),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                placeholder = { Text("আলোচনা খুঁজুন", fontFamily = Kalpurush, fontSize = 13.sp) },
+                trailingIcon = {
+                    when {
+                        searching -> CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                        value.isNotBlank() -> IconButton(onClick = { onValueChange("") }) {
+                            Icon(
+                                Icons.Default.Clear,
+                                contentDescription = "মুছুন",
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                },
+                singleLine = true,
+                textStyle = TextStyle(fontFamily = Kalpurush, fontSize = 13.sp),
+                shape = RoundedCornerShape(EditorialShape.chip),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .testTag("forum_search")
             )
         }
     }
 }
 
-@Composable
-private fun ForumSearchField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    searching: Boolean
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        placeholder = { Text("আলোচনা খুঁজুন", fontFamily = Kalpurush) },
-        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-        trailingIcon = {
-            when {
-                searching -> CircularProgressIndicator(
-                    modifier = Modifier.size(18.dp),
-                    strokeWidth = 2.dp
-                )
-                value.isNotBlank() -> IconButton(onClick = { onValueChange("") }) {
-                    Icon(Icons.Default.Clear, contentDescription = "মুছুন")
-                }
-            }
-        },
-        singleLine = true,
-        textStyle = TextStyle(fontFamily = Kalpurush, fontSize = 14.sp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = EditorialSpace.gutter)
-            .testTag("forum_search")
-    )
+/**
+ * The two lines a card shows of a discussion.
+ *
+ * A hundred characters, then an ellipsis: the same hundred the thread itself folds
+ * at, so the sentence a card cuts off is the sentence the thread finishes. The
+ * database hands the app a slightly longer excerpt than that, which is why the cut
+ * is made here rather than trusted to the server's own limit.
+ */
+private fun forumExcerpt(text: String, limit: Int = FORUM_FOLD_CHARS): String {
+    val plain = text.trim()
+    if (plain.length <= limit) return plain
+    return plain.take(limit).trimEnd() + "…"
 }
 
+/**
+ * One আলোচনা, as the home and the category screens show it.
+ *
+ * The owner's corrections, one by one:
+ *
+ *  * **Two columns once there is a cover.** The picture goes to the left — a
+ *    square thumbnail — and everything a reader needs stays in the column beside
+ *    it, so the eye never has to travel back across a full-width picture to find
+ *    out what the card is about. A card without a cover is one column, exactly as
+ *    before.
+ *  * **Tighter lines.** Line spacing here was the loosest thing on the page; the
+ *    title's own line height and the gaps between the parts of the card both came
+ *    down, so five cards fit where four did.
+ *  * **The counters live in the top-right corner.** Views and answers are what a
+ *    reader scans a rail of cards for, so they are pinned to the corner rather
+ *    than sitting in the flow: `align(Alignment.TopEnd)` inside a `Box`, on their
+ *    own faint pill so the corner stays legible over a picture.
+ *  * **The author block: face left, name over date.** The date is on its own
+ *    line under the name ([ForumAuthorRow]), and the two lines together are the
+ *    height of the face beside them.
+ */
 @Composable
 private fun ForumDiscussionCard(
     discussion: ForumDiscussion,
@@ -2091,83 +2255,110 @@ private fun ForumDiscussionCard(
             .clip(RoundedCornerShape(EditorialShape.card))
             .testTag("forum_discussion_${discussion.id}")
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick)
-                .padding(EditorialSpace.sm),
-            verticalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
-        ) {
-            if (discussion.hasCover) {
-                Surface(
-                    shape = RoundedCornerShape(EditorialShape.thumb),
-                    color = tokens.surfaceSunken,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(132.dp)
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onClick)
+                    .padding(EditorialSpace.sm),
+                verticalAlignment = Alignment.Top
+            ) {
+                if (discussion.hasCover) {
+                    Surface(
+                        shape = RoundedCornerShape(EditorialShape.thumb),
+                        color = tokens.surfaceSunken,
+                        modifier = Modifier
+                            .size(FORUM_CARD_COVER)
+                            .testTag("forum_card_cover_${discussion.id}")
+                    ) {
+                        PortalAsyncImage(
+                            url = discussion.coverImageUrl,
+                            contentDescription = discussion.title,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    Spacer(Modifier.width(EditorialSpace.xs))
+                }
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(1.dp)
                 ) {
-                    PortalAsyncImage(
-                        url = discussion.coverImageUrl,
-                        contentDescription = discussion.title,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = discussion.categoryTitle,
+                            fontFamily = Kalpurush,
+                            fontSize = 12.sp,
+                            lineHeight = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = tokens.accent,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            // Room for the counters, which are in the corner
+                            // above this line rather than beside it.
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = FORUM_CORNER_RESERVE)
+                        )
+                        if (discussion.isOfficial) {
+                            OfficialBadge()
+                        }
+                    }
+
+                    Text(
+                        text = discussion.title,
+                        fontFamily = Kalpurush,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = if (discussion.hasCover) 16.sp else 17.sp,
+                        lineHeight = if (discussion.hasCover) 19.sp else 20.sp,
+                        maxLines = if (discussion.hasCover) 2 else 3,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    val excerpt = forumExcerpt(discussion.excerpt)
+                    if (excerpt.isNotBlank()) {
+                        Text(
+                            text = excerpt,
+                            fontFamily = Kalpurush,
+                            fontSize = 13.sp,
+                            lineHeight = 15.5.sp,
+                            color = tokens.inkMuted,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(top = 1.dp)
+                        )
+                    }
+
+                    ForumAuthorRow(
+                        name = discussion.authorName,
+                        avatarUrl = discussion.authorAvatarUrl,
+                        date = discussion.lastActivityAt,
+                        avatarSize = if (discussion.hasCover) 30 else 34,
+                        nameSize = 12.5.sp,
+                        onClick = onAuthorClick,
+                        modifier = Modifier.padding(top = EditorialSpace.xxs)
                     )
                 }
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = discussion.categoryTitle,
-                    fontFamily = Kalpurush,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = tokens.accent,
-                    modifier = Modifier.weight(1f)
-                )
-                if (discussion.isOfficial) {
-                    OfficialBadge()
+            // The corner: how many have read it, how many have answered it.
+            Surface(
+                shape = RoundedCornerShape(EditorialShape.chip),
+                color = tokens.surfaceSunken,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = EditorialSpace.xs, end = EditorialSpace.xs)
+                    .testTag("forum_card_counters_${discussion.id}")
+            ) {
+                Box(Modifier.padding(horizontal = EditorialSpace.xs, vertical = 2.dp)) {
+                    ForumCounters(
+                        discussions = discussion.views,
+                        replies = discussion.replies,
+                        views = true,
+                        answered = discussion.hasReplies
+                    )
                 }
-            }
-
-            Text(
-                text = discussion.title,
-                fontFamily = Kalpurush,
-                fontWeight = FontWeight.Bold,
-                fontSize = 17.sp,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            if (discussion.excerpt.isNotBlank()) {
-                Text(
-                    text = discussion.excerpt,
-                    fontFamily = Kalpurush,
-                    fontSize = 12.5.sp,
-                    lineHeight = 15.sp,
-                    color = tokens.inkMuted,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            Hairline()
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                ForumAuthorRow(
-                    name = discussion.authorName,
-                    avatarUrl = discussion.authorAvatarUrl,
-                    date = discussion.lastActivityAt,
-                    avatarSize = 36,
-                    nameSize = 13.sp,
-                    onClick = onAuthorClick,
-                    modifier = Modifier.weight(1f)
-                )
-                ForumCounters(
-                    discussions = discussion.views,
-                    replies = discussion.replies,
-                    views = true,
-                    answered = discussion.hasReplies
-                )
             }
         }
     }
@@ -2259,13 +2450,13 @@ private fun ForumCounter(
             imageVector = icon,
             contentDescription = null,
             tint = tint,
-            modifier = Modifier.size(13.dp)
+            modifier = Modifier.size(14.dp)
         )
         Spacer(Modifier.width(3.dp))
         Text(
             text = toBengaliNumeral(value),
             fontFamily = Kalpurush,
-            fontSize = 11.5.sp,
+            fontSize = 12.5.sp,
             color = tint
         )
     }
@@ -2308,6 +2499,15 @@ private fun ForumAvatar(url: String, name: String, size: Int) {
  * down. [showTime] adds the clock, which is what an answer needs and a
  * discussion card does not.
  */
+/**
+ * A face, a name, and the date under it.
+ *
+ * The owner's third pass on this block: the date used to sit inline beside the
+ * name, and the two together were asked to read as **one** unit the height of the
+ * face beside them. So the name and the date are two tight lines — no gap between
+ * them, each with its own line height — and the pair is centred against a 34–38 dp
+ * avatar. The whole block is still the tap target for the reader's page.
+ */
 @Composable
 private fun ForumAuthorRow(
     name: String,
@@ -2330,26 +2530,30 @@ private fun ForumAuthorRow(
     ) {
         ForumAvatar(url = avatarUrl, name = name, size = avatarSize)
         Spacer(Modifier.width(EditorialSpace.xs))
-        Text(
-            text = name,
-            fontFamily = Kalpurush,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = nameSize,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            // The name gives way before the date does: a clipped name is still
-            // a name, a clipped date is a number that lies.
-            modifier = Modifier.weight(1f, fill = false)
-        )
-        if (stamp.isNotBlank()) {
-            Spacer(Modifier.width(6.dp))
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(0.dp)
+        ) {
             Text(
-                text = stamp,
+                text = name,
                 fontFamily = Kalpurush,
-                fontSize = 10.5.sp,
-                color = tokens.inkMuted,
-                maxLines = 1
+                fontWeight = FontWeight.SemiBold,
+                fontSize = nameSize,
+                lineHeight = nameSize * 1.15f,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
+            if (stamp.isNotBlank()) {
+                Text(
+                    text = stamp,
+                    fontFamily = Kalpurush,
+                    fontSize = 10.5.sp,
+                    lineHeight = 12.sp,
+                    color = tokens.inkMuted,
+                    maxLines = 1,
+                    modifier = Modifier.testTag("forum_author_date")
+                )
+            }
         }
     }
 }
@@ -2385,7 +2589,9 @@ private fun ForumBody(
             if (expanded) {
                 RichHtmlArticleBody(
                     html = markup,
-                    fontSizeSp = 14f,
+                    // A size up, with the rest of the forum: 14 sp was the
+                    // dashboard's body size, and a thread is read at arm's length.
+                    fontSizeSp = 15f,
                     lineSpacingMultiplier = 1.4f,
                     onOpenLink = { },
                     modifier = Modifier.testTag(testTag)
@@ -2393,8 +2599,8 @@ private fun ForumBody(
             } else {
                 com.ningshingche.app.ui.components.HtmlFormattedText(
                     html = markup,
-                    fontSize = 14.sp,
-                    maxLines = 6,
+                    fontSize = 15.sp,
+                    maxLines = FORUM_FOLD_LINES,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.testTag(testTag)
                 )
@@ -2428,7 +2634,7 @@ private fun ForumBody(
                 text = if (expanded) "কম দেখান" else "আরও দেখুন",
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
-                fontSize = 12.sp,
+                fontSize = 13.5.sp,
                 color = tokens.accent,
                 modifier = Modifier
                     .clip(RoundedCornerShape(EditorialShape.thumb))
@@ -2504,6 +2710,7 @@ private fun ForumOpeningPost(
     onToggleExpand: () -> Unit,
     onAuthorClick: () -> Unit,
     onCardClick: () -> Unit,
+    onCoverClick: () -> Unit,
     onOpenAttachment: (ForumAttachment) -> Unit
 ) {
     val tokens = LocalEditorialTokens.current
@@ -2518,17 +2725,18 @@ private fun ForumOpeningPost(
             .clickable(onClick = onCardClick)
             .testTag("forum_opening_post")
     ) {
-        Column(
-            modifier = Modifier.padding(EditorialSpace.sm),
-            verticalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
-        ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             if (discussion.hasCover) {
-                Surface(
-                    shape = RoundedCornerShape(EditorialShape.thumb),
-                    color = tokens.surfaceSunken,
+                // The cover is the thread's face: a picture with the category and
+                // the title written across its foot, over a gradient dark enough
+                // to read white on. Tapping it opens the picture on its own.
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(172.dp)
+                        .height(FORUM_THREAD_COVER_HEIGHT)
+                        .clip(RoundedCornerShape(topStart = EditorialShape.card, topEnd = EditorialShape.card))
+                        .clickable(onClick = onCoverClick)
+                        .testTag("forum_thread_cover")
                 ) {
                     PortalAsyncImage(
                         url = discussion.coverImageUrl,
@@ -2536,58 +2744,170 @@ private fun ForumOpeningPost(
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .drawWithContent {
+                                drawContent()
+                                drawRect(
+                                    brush = Brush.verticalGradient(
+                                        colors = listOf(Color.Transparent, Color(0xCC000000)),
+                                        startY = size.height * 0.42f
+                                    )
+                                )
+                            }
+                    )
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(
+                                start = EditorialSpace.sm,
+                                end = EditorialSpace.sm,
+                                bottom = EditorialSpace.sm
+                            ),
+                        verticalArrangement = Arrangement.spacedBy(0.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = discussion.categoryTitle,
+                                fontFamily = Kalpurush,
+                                fontSize = 12.sp,
+                                lineHeight = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                maxLines = 1
+                            )
+                            if (discussion.isOfficial) {
+                                Spacer(Modifier.width(EditorialSpace.xs))
+                                OfficialBadge()
+                            }
+                        }
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = discussion.title,
+                            fontFamily = Kalpurush,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 19.sp,
+                            lineHeight = 22.sp,
+                            color = Color.White,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+                Column(
+                    modifier = Modifier.padding(
+                        start = EditorialSpace.sm,
+                        end = EditorialSpace.sm,
+                        top = EditorialSpace.sm,
+                        bottom = EditorialSpace.xs
+                    )
+                ) {
+                    ForumOpeningMeta(
+                        discussion = discussion,
+                        onAuthorClick = onAuthorClick
+                    )
+                }
+                Column(
+                    modifier = Modifier.padding(
+                        start = EditorialSpace.sm,
+                        end = EditorialSpace.sm,
+                        bottom = EditorialSpace.sm
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(EditorialSpace.xxs)
+                ) {
+                    Hairline()
+                    ForumBody(
+                        html = discussion.body,
+                        expanded = expanded ||
+                            forumBodyText(discussion.body).length <= FORUM_FOLD_CHARS,
+                        canExpand = forumBodyText(discussion.body).length > FORUM_FOLD_CHARS,
+                        onToggleExpand = onToggleExpand,
+                        onOpenAttachment = onOpenAttachment,
+                        testTag = "forum_opening_body"
+                    )
+                }
+            } else {
+                Column(
+                    modifier = Modifier.padding(EditorialSpace.sm),
+                    verticalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = discussion.categoryTitle,
+                            fontFamily = Kalpurush,
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = tokens.accent,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (discussion.isOfficial) OfficialBadge()
+                    }
+
+                    Text(
+                        text = discussion.title,
+                        fontFamily = Kalpurush,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 19.sp,
+                        lineHeight = 22.sp
+                    )
+
+                    ForumOpeningMeta(
+                        discussion = discussion,
+                        onAuthorClick = onAuthorClick
+                    )
+
+                    Hairline()
+
+                    ForumBody(
+                        html = discussion.body,
+                        // The opening post folds on its words like an answer does;
+                        // its pictures are previews under the text, not a reason to
+                        // hide it.
+                        expanded = expanded ||
+                            forumBodyText(discussion.body).length <= FORUM_FOLD_CHARS,
+                        canExpand = forumBodyText(discussion.body).length > FORUM_FOLD_CHARS,
+                        onToggleExpand = onToggleExpand,
+                        onOpenAttachment = onOpenAttachment,
+                        testTag = "forum_opening_body"
+                    )
                 }
             }
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = discussion.categoryTitle,
-                    fontFamily = Kalpurush,
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = tokens.accent,
-                    modifier = Modifier.weight(1f)
-                )
-                if (discussion.isOfficial) OfficialBadge()
-            }
-
-            Text(
-                text = discussion.title,
-                fontFamily = Kalpurush,
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp
-            )
-
-            ForumAuthorRow(
-                name = discussion.authorName,
-                avatarUrl = discussion.authorAvatarUrl,
-                date = discussion.createdAt,
-                showTime = true,
-                avatarSize = 38,
-                nameSize = 13.5.sp,
-                onClick = onAuthorClick
-            )
-
-            Hairline()
-
-            ForumBody(
-                html = discussion.body,
-                // The opening post folds on its words like an answer does; its
-                // pictures are previews under the text, not a reason to hide it.
-                expanded = expanded || forumBodyText(discussion.body).length <= FORUM_FOLD_CHARS,
-                canExpand = forumBodyText(discussion.body).length > FORUM_FOLD_CHARS,
-                onToggleExpand = onToggleExpand,
-                onOpenAttachment = onOpenAttachment,
-                testTag = "forum_opening_body"
-            )
-
-            ForumCounters(
-                discussions = discussion.views,
-                replies = discussion.replies,
-                views = true,
-                answered = discussion.hasReplies
-            )
         }
+    }
+}
+
+/**
+ * Under the cover: the creator's face on the left, their name with the date on
+ * the next line, and the views and answers of the thread held to the right of
+ * that pair — "starting from the right side of that user info", which is where
+ * the owner put them.
+ */
+@Composable
+private fun ForumOpeningMeta(
+    discussion: ForumDiscussion,
+    onAuthorClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        ForumAuthorRow(
+            name = discussion.authorName,
+            avatarUrl = discussion.authorAvatarUrl,
+            date = discussion.createdAt,
+            showTime = true,
+            avatarSize = 38,
+            nameSize = 14.sp,
+            onClick = onAuthorClick
+        )
+        Spacer(Modifier.weight(1f))
+        ForumCounters(
+            discussions = discussion.views,
+            replies = discussion.replies,
+            views = true,
+            answered = discussion.hasReplies
+        )
     }
 }
 

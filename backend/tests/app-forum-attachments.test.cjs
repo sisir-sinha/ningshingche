@@ -380,8 +380,9 @@ test('a body is read as words, pictures and documents', async (t) => {
   });
 
   await t.test('a post with one picture is not a long post', () => {
-    assert.match(PORTAL_MODELS, /val isLong: Boolean get\(\) = forumBodyText\(body\)\.length > 240/,
-      'the fold counts the words');
+    assert.match(PORTAL_MODELS,
+      /val isLong: Boolean get\(\) = forumBodyText\(body\)\.length > FORUM_FOLD_CHARS/,
+      'the fold counts the words, at the one number the whole app shares');
     const opening = screen('ForumOpeningPost');
     assert.match(opening, /canExpand = forumBodyText\(discussion\.body\)\.length > FORUM_FOLD_CHARS/);
     assert.ok(!/contains\("<img"/.test(FORUM_SCREENS),

@@ -122,6 +122,17 @@ interface PortalApi {
         @Body body: Map<String, String>
     ): Response<PublicProfileDto?>
 
+    /**
+     * One page of one public-profile list (migration 033 RPC): five items at a
+     * time, with the total for that kind. `kind = "counts"` asks for the four
+     * totals alone, which is how the page labels its tabs before it has loaded
+     * anything.
+     */
+    @POST("rpc/profile_items")
+    suspend fun profileItems(
+        @Body body: Map<String, String>
+    ): Response<ProfileItemsDto?>
+
     // ------------------------------------------------------------------ views
 
     /**

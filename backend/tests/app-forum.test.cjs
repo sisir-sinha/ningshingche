@@ -46,6 +46,8 @@ const FORUM_SQL = fs.readFileSync(
   path.join(MIGRATIONS, '029_forum.sql'), 'utf8');
 const PROFILE_SQL = fs.readFileSync(
   path.join(MIGRATIONS, '028_public_profile_details.sql'), 'utf8');
+const PROFILE_PAGING_SQL = fs.readFileSync(
+  path.join(MIGRATIONS, '033_profile_paging.sql'), 'utf8');
 
 /** The text inside a balanced `(` … `)` that starts at `openIndex`. */
 function balanced(text, openIndex) {
@@ -498,27 +500,69 @@ test('a public profile is real data, in the order asked for', async (t) => {
       'the old article/song counts are not in the statistics card');
   });
 
-  await t.test('three tabs, each with its count', () => {
+  await t.test('three tabs, each with its count, five rows at a time', () => {
     assert.match(PUBLIC_PROFILE,
-      /val tabs = listOf\(\s*"প্রবন্ধ" to articles\.size,\s*"গান" to songs\.size,\s*"আলোচনা" to \(forumActivity\?\.total \?: 0\)\s*\)/,
+      /val tabs = listOf\(\s*"প্রবন্ধ" to shownTotals\.articles,\s*"গান" to shownTotals\.songs,\s*"আলোচনা" to \(shownTotals\.threads \+ shownTotals\.answers\)\s*\)/,
       'the three tabs and their counters');
     assert.match(PUBLIC_PROFILE, /TabRow\(/, 'rendered as tabs');
     assert.match(PUBLIC_PROFILE, /text = "\$label \(\$\{toBengaliNumeral\(count\)\}\)"/,
       'with the count in Bengali numerals');
     assert.match(PUBLIC_PROFILE, /testTag\("public_profile_tabs"\)/, 'and reachable in a UI test');
+    // The owner's first correction: five rows to a page, fetched from the API, and
+    // then আরও দেখুন for the next five.
+    assert.match(PUBLIC_PROFILE, /loadPage\(userId, kind, 0\)/,
+      'the first page is asked for by offset');
+    assert.match(PUBLIC_PROFILE, /loadPage\(userId, kind, current\.loaded\)/,
+      'and the next starts where the rows already held end');
+    assert.match(PUBLIC_PROFILE, /if \(page\.hasMore\)/, 'the button is drawn only while there is more');
+    assert.match(PUBLIC_PROFILE, /testTag\("public_profile_more"\)/,
+      'and it is the আরও দেখুন the owner asked for');
+    assert.match(PUBLIC_PROFILE, /items = held\.items \+ next\.items/,
+      'a page is added to the rows on screen, not swapped for them');
+    assert.match(PORTAL_REPOSITORY, /const val PROFILE_PAGE_SIZE = 5/,
+      'five, decided in one place');
+    assert.match(PROFILE_PAGING_SQL, /p_limit integer default 5/, 'and five again at the database');
+    assert.match(PROFILE_PAGING_SQL, /p_offset integer default 0/, 'with the offset the screen hands over');
+    assert.match(PORTAL_API, /rpc\/profile_items/, 'through a call of its own');
   });
 
-  await t.test('most-read first, and sorted in the app as well as the database', () => {
-    assert.match(PROFILE_SQL, /order by b\.views_count desc nulls last/,
-      'the SQL orders articles by views');
-    assert.match(PROFILE_SQL, /order by t\.views_count desc nulls last, t\.created_at desc/,
+  await t.test('inside আলোচনা it is আলোচনা and উত্তর — প্রতিক্রিয়া is gone', () => {
+    assert.match(PUBLIC_PROFILE, /testTag = "public_profile_forum_threads"/, 'the discussions filter');
+    assert.match(PUBLIC_PROFILE, /testTag = "public_profile_forum_answers"/, 'and the answers one');
+    assert.ok(!PUBLIC_PROFILE.includes('প্রতিক্রিয়া'), 'the reactions tab is deleted, not hidden');
+    assert.match(PUBLIC_PROFILE,
+      /else -> if \(forumTab == 0\) ProfileTotals\.THREADS else ProfileTotals\.ANSWERS/,
+      'and each filter asks for its own kind');
+    assert.match(PROFILE_PAGING_SQL, /'threads'/, 'which the database knows');
+    assert.match(PROFILE_PAGING_SQL, /'answers'/, 'both of them');
+  });
+
+  await t.test('a forum row shows its reactions as icons and its date at the edge', () => {
+    assert.match(PUBLIC_PROFILE, /ProfileReactionCount\(/, 'the reactions are icons');
+    assert.match(PUBLIC_PROFILE, /Icons\.Default\.ThumbUp|Icons\.Default\.ThumbDown/,
+      'the same three the forum draws');
+    assert.ok(!/text = "লাইক|text = "একমত|text = "অপছন্দ/.test(PUBLIC_PROFILE),
+      'never written out as words');
+    assert.match(PUBLIC_PROFILE, /text = formatBengaliDate\(thread\.createdAt\)/,
+      'and the date is on the row, at its right-hand edge');
+    assert.match(PUBLIC_PROFILE, /formatBengaliDate\(answer\.createdAt\)/, 'both kinds of row');
+  });
+
+  await t.test('most-read first, ordered where the rows are read', () => {
+    // The lists are paged now, so the order has to be the database one: the app can
+    // no longer sort a page it has only been given part of.
+    assert.match(PROFILE_PAGING_SQL, /order by b\.views_count desc nulls last/,
+      'the paging function orders articles by views');
+    assert.match(PROFILE_PAGING_SQL, /order by t\.views_count desc nulls last, t\.created_at desc/,
       'and songs the same way');
-    assert.match(PORTAL_MODELS, /val articlesByViews: List<PublicArticle>\s*\n\s*get\(\) = articles\.sortedWith\(/,
-      'the app sorts too, so a cached page cannot disagree');
-    assert.match(PORTAL_MODELS, /compareByDescending<MusicTrack> \{ it\.viewsCount \}/,
-      'the songs by their play count');
-    assert.match(PUBLIC_PROFILE, /val articles = remember\(loaded\) \{ loaded\.articlesByViews \}/,
-      'and the page reads the sorted lists');
+    assert.match(PROFILE_PAGING_SQL, /order by v\.created_at desc/,
+      'a reader discussions and answers are newest first');
+    assert.match(PROFILE_SQL, /order by b\.views_count desc nulls last/,
+      'and the identity card own lists keep the same order');
+    assert.match(PORTAL_MODELS, /val articlesByViews: List<PublicArticle>/,
+      'the model can still sort a page it holds in full');
+    assert.match(PUBLIC_PROFILE, /items\(rows, key = \{ it\.key \}\)/,
+      'and the rows are drawn in the order they arrived');
   });
 
   await t.test('every row carries a published date', () => {

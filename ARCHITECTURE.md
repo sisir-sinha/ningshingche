@@ -289,8 +289,9 @@ authors_directory, social_activities.
   own forum work shows on their dashboard and on their public page's third tab. The thread's bottom
   bar is one button — উত্তর যোগ করুন — until it is tapped, and the reply box then grows out of the
   bottom of the screen (a 96 dp editor that grows to 240 dp and rises with the keyboard; Back closes
-  the keyboard, then the box, then the screen). Reactions are icons on the card and three icons in
-  the long-press popup, and a reply is indented inside its answer behind a drawn line.
+  the keyboard, then the box, then the screen). Reactions are icons on the card and one tap counts —
+  there is no popup and no long press — a body folds at a hundred characters in one shared constant,
+  and a reply is indented inside its answer behind a drawn line.
 
   Files are attachments, never text: the paperclip on the row under the box takes up to five
   pictures and PDFs (ImgBB for a picture, the Catbox-compatible host for a document), each previewed
@@ -304,8 +305,10 @@ authors_directory, social_activities.
   through.
 - **Public profile** (`PublicProfileScreen.kt`, route `user/{userId}`): name, designation,
   short address, a statistics card (total views, lifetime points, this month's points) and
-  two tabs — articles and songs — each ordered by views and dated. One request,
-  `public_profile` (028).
+  three tabs — articles, songs and আলোচনা (which splits into this reader's আলোচনা and their
+  উত্তর). Each list is **five rows at a time**: `profile_items` (033) returns one window and a
+  total, the screen draws it and আরও দেখুন asks for the next window at the offset it has
+  reached. The identity card stays the `public_profile` request (028).
 
 ### 4.5 Signed-in user workspace (`ReaderWorkspaceViewModel` + `UserDashboardScreen`)
 

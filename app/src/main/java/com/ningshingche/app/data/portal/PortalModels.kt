@@ -299,6 +299,17 @@ data class ForumDiscussion(
  * one level of indentation — migration 030 folds a reply-to-a-reply back onto
  * its own answer — so a non-null parent always points at a top-level answer.
  */
+/**
+ * How many characters a post may run to before a card folds it behind "আরও দেখুন".
+ *
+ * The owner's rule, and a *character* count rather than a measurement: a hundred
+ * characters of Bengali is about two lines on a phone, which is where a card stops
+ * being something a reader takes in at a glance. The same number folds a thread's
+ * opening post, an answer and a reply — one rule, so no screen can disagree with
+ * another about what "too long" means.
+ */
+internal const val FORUM_FOLD_CHARS = 100
+
 data class ForumReply(
     val id: String,
     val discussionId: String,
@@ -319,6 +330,10 @@ data class ForumReply(
     /** What the "top answers" filter sorts on. A dislike is shown, never subtracted. */
     val reactionScore: Int get() = likes + agrees
 
+    /** The three reactions, in the order the row draws them. */
+    val reactions: List<String>
+        get() = listOf(REACTION_LIKE, REACTION_AGREE, REACTION_DISLIKE)
+
     /**
      * Whether a body is long enough to fold. The threshold is a length, not a
      * measurement: a card that has to be measured before it can decide would
@@ -329,7 +344,7 @@ data class ForumReply(
      * for the sake of a tag, and the folded copy drew the picture as the one
      * character HtmlCompat keeps for images (U+FFFC, "obj" to a reader).
      */
-    val isLong: Boolean get() = forumBodyText(body).length > 240
+    val isLong: Boolean get() = forumBodyText(body).length > FORUM_FOLD_CHARS
 
     companion object {
         const val REACTION_LIKE = "like"
@@ -446,6 +461,77 @@ data class ForumActivityAnswer(
     val agrees: Int,
     val createdAt: String
 )
+
+/**
+ * One page of one list, and how many there are in all.
+ *
+ * [total] is the database's count for the whole list, not the size of [items] —
+ * that is what lets a page say "৫" beside a tab and offer "আরও দেখুন" without
+ * having loaded the rest. [offset] is where this page started, so a screen that
+ * has stitched two pages together knows what to ask for next.
+ */
+data class Paged<T>(
+    val items: List<T>,
+    val total: Int,
+    val offset: Int = 0
+) {
+    /** How many rows the screen holds once this page has been added to it. */
+    val loaded: Int get() = offset + items.size
+
+    val hasMore: Boolean get() = loaded < total
+
+    /** True when the list is empty and the database says that is the whole truth. */
+    val isEmpty: Boolean get() = items.isEmpty() && total == 0
+
+    companion object {
+        val EMPTY: Paged<Nothing> get() = Paged(emptyList(), 0)
+    }
+}
+
+/**
+ * One row of a paged profile list, in the shape of the kind it belongs to.
+ *
+ * The database answers all four kinds through one function, so the app has one
+ * page type and this says which of the four a row is — the tab that asked for it
+ * already knows, and a `when` over these is exhaustive by construction.
+ */
+sealed interface ProfileItem {
+    /** Stable for the list, so a LazyColumn can key on it. */
+    val key: String
+
+    data class Article(val article: PublicArticle) : ProfileItem {
+        override val key: String get() = "article-${article.id}"
+    }
+
+    data class Song(val song: MusicTrack) : ProfileItem {
+        override val key: String get() = "song-${song.id}"
+    }
+
+    data class Thread(val thread: ForumActivityThread) : ProfileItem {
+        override val key: String get() = "thread-${thread.id}"
+    }
+
+    data class Answer(val answer: ForumActivityAnswer) : ProfileItem {
+        override val key: String get() = "answer-${answer.id}"
+    }
+}
+
+/** The four totals the profile's tabs are labelled with (migration 033). */
+data class ProfileTotals(
+    val articles: Int = 0,
+    val songs: Int = 0,
+    val threads: Int = 0,
+    val answers: Int = 0
+) {
+    companion object {
+        /** The kinds `profile_items` answers with, in the order the page shows them. */
+        const val ARTICLES = "articles"
+        const val SONGS = "songs"
+        const val THREADS = "threads"
+        const val ANSWERS = "answers"
+        const val COUNTS = "counts"
+    }
+}
 
 /**
  * The forum home: the rooms, and the discussions the reader asked to see.
@@ -618,6 +704,74 @@ internal fun ForumActivityReplyDto.toModel() = ForumActivityAnswer(
     likes = (likes ?: 0).coerceAtLeast(0),
     dislikes = (dislikes ?: 0).coerceAtLeast(0),
     agrees = (agrees ?: 0).coerceAtLeast(0),
+    createdAt = createdAt.orEmpty()
+)
+
+internal fun ProfileItemsDto.toTotals() = ProfileTotals(
+    articles = (totals?.articles ?: 0).coerceAtLeast(0),
+    songs = (totals?.songs ?: 0).coerceAtLeast(0),
+    threads = (totals?.threads ?: 0).coerceAtLeast(0),
+    answers = (totals?.answers ?: 0).coerceAtLeast(0)
+)
+
+internal fun ProfileItemsDto.toPage(offset: Int): Paged<ProfileItemDto> =
+    Paged(
+        items = items.orEmpty(),
+        total = (total ?: items.orEmpty().size).coerceAtLeast(0),
+        offset = offset
+    )
+
+/** The same article shape the profile always drew, from either image column. */
+internal fun ProfileItemDto.toArticle() = PublicArticle(
+    id = id.orEmpty(),
+    title = title.orEmpty().ifBlank { "শিরোনামহীন" },
+    slug = slug.orEmpty(),
+    thumbnailUrl = image.orEmpty().ifBlank { thumbnail.orEmpty() },
+    categoryTitle = categoryTitle.orEmpty(),
+    viewsCount = (viewsCount ?: 0L).coerceAtLeast(0L),
+    publishedAt = publishedDate.orEmpty().ifBlank { createdAt.orEmpty() }
+)
+
+internal fun ProfileItemDto.toSong(uploaderId: String, uploaderName: String) = MusicTrack(
+    id = id.orEmpty(),
+    title = title.orEmpty().trim(),
+    artist = artist.orEmpty().trim(),
+    album = album.orEmpty().trim(),
+    genre = genre.orEmpty().trim(),
+    description = "",
+    thumbnailUrl = thumbnailUrl.orEmpty(),
+    audioUrl = audioUrl.orEmpty(),
+    storagePath = fileStoragePath.orEmpty().trim(),
+    durationSeconds = (durationSeconds ?: 0).coerceAtLeast(0),
+    fileSizeMb = 0.0,
+    createdAt = createdAt.orEmpty(),
+    loveCount = (loveCount ?: 0).coerceAtLeast(0),
+    viewsCount = (viewsCount ?: 0L).coerceAtLeast(0L),
+    uploaderId = uploaderId,
+    uploaderName = uploaderName
+)
+
+internal fun ProfileItemDto.toActivityThread() = ForumActivityThread(
+    id = id.orEmpty(),
+    title = title.orEmpty().trim().ifBlank { "শিরোনামহীন আলোচনা" },
+    excerpt = excerpt.orEmpty().trim(),
+    categorySlug = categorySlug.orEmpty(),
+    categoryTitle = categoryTitle.orEmpty().ifBlank { "আলোচনা" },
+    views = (viewsCount ?: 0L).coerceAtLeast(0L),
+    replies = (repliesCount ?: 0).coerceAtLeast(0),
+    createdAt = createdAt.orEmpty()
+)
+
+internal fun ProfileItemDto.toActivityAnswer() = ForumActivityAnswer(
+    id = id.orEmpty(),
+    discussionId = discussionId.orEmpty(),
+    discussionTitle = discussionTitle.orEmpty().trim().ifBlank { "আলোচনা" },
+    // The excerpt the database sent; a row from an older function still has the
+    // body, and a card shows words either way.
+    excerpt = excerpt.orEmpty().ifBlank { forumBodyText(body.orEmpty()) }.trim(),
+    likes = (likeCount ?: 0).coerceAtLeast(0),
+    dislikes = (dislikeCount ?: 0).coerceAtLeast(0),
+    agrees = (agreeCount ?: 0).coerceAtLeast(0),
     createdAt = createdAt.orEmpty()
 )
 

@@ -83,6 +83,13 @@ class PortalRepository(
     @Volatile private var tagEndpointsAvailable: Boolean? = null
 
     private companion object {
+        /**
+         * How many items a profile tab shows before it offers "আরও দেখুন", and
+         * the size of every page after it. Five is the owner's number: a tab is a
+         * glance, and the button under it is the reader's decision.
+         */
+        const val PROFILE_PAGE_SIZE = 5
+
         val TTL_REFERENCE = TimeUnit.MINUTES.toMillis(10)
         val TTL_SETTINGS = TimeUnit.HOURS.toMillis(1)
 
@@ -455,6 +462,75 @@ class PortalRepository(
             callOne { api.publicProfile(mapOf("p_user_id" to id)) }
                 .mapCatching { dto -> dto?.toModel() ?: throw PortalError.NotFound }
         }
+
+    // ------------------------------------------------------------ profile paging
+
+    /**
+     * The four totals the public page labels its tabs with (migration 033 RPC).
+     *
+     * One call, no items: a profile used to arrive with both lists inside it, and
+     * a tab could only say what had already been downloaded. The totals are the
+     * database's own counts, so a tab is true before anything under it is read.
+     */
+    suspend fun profileTotals(userId: String): Result<ProfileTotals> =
+        withContext(Dispatchers.IO) {
+            val id = userId.trim()
+            if (id.isBlank()) return@withContext Result.failure(PortalError.NotFound)
+            callOne {
+                api.profileItems(
+                    mapOf(
+                        "p_user_id" to id,
+                        "p_kind" to ProfileTotals.COUNTS,
+                        "p_limit" to "1",
+                        "p_offset" to "0"
+                    )
+                )
+            }.mapCatching { it.toTotals() }
+        }
+
+    /**
+     * One page of one list: five items to start with, five more behind "আরও দেখুন".
+     *
+     * The four kinds answer with the same envelope and different rows, so this is
+     * one call and four mappings. A page is asked for by [offset], never by
+     * growing the limit — the same rows the reader has already read are not sent
+     * twice, which is what makes a second page cheap on a phone connection.
+     */
+    suspend fun profilePage(
+        userId: String,
+        kind: String,
+        profileName: String = "",
+        offset: Int = 0,
+        limit: Int = PROFILE_PAGE_SIZE
+    ): Result<Paged<ProfileItem>> = withContext(Dispatchers.IO) {
+        val id = userId.trim()
+        if (id.isBlank()) return@withContext Result.failure(PortalError.NotFound)
+        val wanted = kind.trim().lowercase()
+        callOne {
+            api.profileItems(
+                mapOf(
+                    "p_user_id" to id,
+                    "p_kind" to wanted,
+                    "p_limit" to limit.coerceIn(1, 50).toString(),
+                    "p_offset" to offset.coerceAtLeast(0).toString()
+                )
+            )
+        }.mapCatching { dto ->
+            val page = dto.toPage(offset)
+            Paged(
+                items = page.items.map { row ->
+                    when (wanted) {
+                        ProfileTotals.ARTICLES -> ProfileItem.Article(row.toArticle())
+                        ProfileTotals.SONGS -> ProfileItem.Song(row.toSong(id, profileName))
+                        ProfileTotals.THREADS -> ProfileItem.Thread(row.toActivityThread())
+                        else -> ProfileItem.Answer(row.toActivityAnswer())
+                    }
+                },
+                total = page.total,
+                offset = offset
+            )
+        }
+    }
 
     // ----------------------------------------------------------- contributors
 

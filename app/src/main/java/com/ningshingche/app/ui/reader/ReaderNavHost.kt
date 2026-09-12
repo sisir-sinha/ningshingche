@@ -743,7 +743,12 @@ fun EditorialReaderApp(
                 PublicProfileScreen(
                     userId = entry.arguments?.getString("userId").orEmpty(),
                     loadProfile = { userId -> app.portalRepository.publicProfile(userId) },
-                    loadForumActivity = { userId -> app.portalRepository.forumActivity(userId) },
+                    // Two doors for the lists: the four totals the tabs are
+                    // labelled with, and one page of five rows at a time.
+                    loadTotals = { userId -> app.portalRepository.profileTotals(userId) },
+                    loadPage = { userId, kind, offset ->
+                        app.portalRepository.profilePage(userId, kind, offset = offset)
+                    },
                     onBackClick = { navController.popBackStack() },
                     onArticleClick = { articleId -> navController.navigate(ReaderRoute.article(articleId)) },
                     onDiscussionClick = { id -> navController.navigate(ReaderRoute.forumThread(id)) }

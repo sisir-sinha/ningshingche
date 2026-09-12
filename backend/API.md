@@ -1276,6 +1276,7 @@ lightweight `GET …?select=…&limit=1` per table and reports:
 | `blogs` media columns | `select=id,imgbb_delete_url,image_meta,inline_media,pdf_file_provider,pdf_storage_path,pdf_file_size_mb` | `PGRST204`/`42703` → run migration `003` |
 | `submitted_blogs.inline_media` | `select=id,inline_media` | run migration `003` |
 | Forum columns | `forum_discussions` `select=id,status,replies_count,last_reply_at,is_official,author_name`; `forum_replies` `select=id,parent_id,status,author_name,is_official`; `forum_categories` `select=id,slug,position` | `PGRST205`/`PGRST204` → run `029_forum.sql`, then `030_forum_answers.sql`, then `032_forum_editorial.sql` (the banner names all three) |
+| The app's public profile lists | The app calls `rpc/profile_items` (`p_user_id, p_kind, p_limit, p_offset`); the dashboard itself never calls it, but the database it points at must have it | `PGRST202` → run `033_profile_paging.sql`; the app says so in words on the list it could not read |
 | Access control | presence of the `dashboard_login` RPC (client-side `isLegacy()` check) | run migration `004` |
 | Forum menu key | the snapshot's `valid_permissions` from `dashboard_access_snapshot`, compared with the routes in `config.js` (client-side) | a menu the database does not list cannot be granted → run `031_forum_menu_permission.sql` |
 

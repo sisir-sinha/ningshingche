@@ -286,6 +286,71 @@ data class PublicProfileDto(
     val songs: List<PublicSongDto>? = null
 )
 
+/**
+ * `profile_items` RPC — one page of one public-profile list (migration 033).
+ *
+ * [items] carries whichever kind was asked for, so one adapter reads four shapes:
+ * an article has `slug`/`published_date`, a song has `audio_url`/`duration_seconds`,
+ * a thread has `excerpt`/`replies_count`, an answer has `discussion_id`/
+ * `like_count`. Every field is nullable here and the mapping decides what a row
+ * of each kind actually needs — a profile page answers with one shape at a time
+ * and never mixes them.
+ */
+@JsonClass(generateAdapter = true)
+data class ProfileItemsDto(
+    val kind: String? = null,
+    val total: Int? = null,
+    val items: List<ProfileItemDto>? = null,
+    /** Present on `kind = "counts"`: the four totals, with no items at all. */
+    val totals: ProfileTotalsDto? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class ProfileTotalsDto(
+    val articles: Int? = null,
+    val songs: Int? = null,
+    val threads: Int? = null,
+    val answers: Int? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class ProfileItemDto(
+    val id: String? = null,
+    val title: String? = null,
+    // Article
+    val slug: String? = null,
+    /** `image` is the column; `thumbnail` is the same value under Moshi's name. */
+    val image: String? = null,
+    val thumbnail: String? = null,
+    @Json(name = "published_date") val publishedDate: String? = null,
+    @Json(name = "category_title") val categoryTitle: String? = null,
+    // Song
+    val artist: String? = null,
+    val album: String? = null,
+    val genre: String? = null,
+    @Json(name = "thumbnail_url") val thumbnailUrl: String? = null,
+    @Json(name = "audio_url") val audioUrl: String? = null,
+    @Json(name = "file_storage_path") val fileStoragePath: String? = null,
+    @Json(name = "duration_seconds") val durationSeconds: Int? = null,
+    @Json(name = "love_count") val loveCount: Int? = null,
+    // Forum, both kinds
+    val excerpt: String? = null,
+    val body: String? = null,
+    @Json(name = "category_slug") val categorySlug: String? = null,
+    @Json(name = "cover_image_url") val coverImageUrl: String? = null,
+    @Json(name = "is_official") val isOfficial: Boolean? = null,
+    // Forum, answers
+    @Json(name = "discussion_id") val discussionId: String? = null,
+    @Json(name = "discussion_title") val discussionTitle: String? = null,
+    @Json(name = "like_count") val likeCount: Int? = null,
+    @Json(name = "dislike_count") val dislikeCount: Int? = null,
+    @Json(name = "agree_count") val agreeCount: Int? = null,
+    // Both
+    @Json(name = "views_count") val viewsCount: Long? = null,
+    @Json(name = "replies_count") val repliesCount: Int? = null,
+    @Json(name = "created_at") val createdAt: String? = null
+)
+
 // ---------------------------------------------------------------------- forum
 //
 // Six RPCs, one row shape. `forum_discussion_rows` (migration 029) is a view the

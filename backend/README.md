@@ -87,7 +87,8 @@ backend/
         ├── 029_forum.sql                   # Forum boards, discussions, answers, RLS, the app's read RPCs
         ├── 030_forum_answers.sql           # Cover images, one indent level, reactions, notifications, forum activity
         ├── 031_forum_menu_permission.sql   # Forum as a menu permission: the allow-list, the roles, the tables behind it
-        └── 032_forum_editorial.sql         # Editorial threads and answers: a signature, no reader required, reactions for the dashboard
+        ├── 032_forum_editorial.sql         # Editorial threads and answers: a signature, no reader required, reactions for the dashboard
+        └── 033_profile_paging.sql          # The app's paged public profile: five rows of one kind at a time, and the four totals
 ```
 
 ## Database setup
@@ -150,6 +151,8 @@ For an existing installation, use this order:
 8. Run `029_forum.sql`, then `030_forum_answers.sql`, if the app's forum is in use. Between them they add the forum boards, discussions, answers and reactions, the public read policies the app needs, dashboard policies for the **Forum** page, the app's `forum_*` read/write RPCs, notifications, and the forum's share of contributor points. Supabase's SQL Editor may warn that the older `forum_*` function signatures are being replaced: that is expected — `030` drops the four `029` signatures it re-creates and re-states **Run and enable RLS** for each table it adds. Until these are installed, the dashboard's Forum page reports the migration it is missing (see **Troubleshooting**).
 9. Run `031_forum_menu_permission.sql` — the one that makes **Forum** a menu a role can actually hold. Until it is installed, `dashboard_save_role` filters the key through an allow-list that has never heard of it, so ticking *Forum* in Users & Roles saves without it and the sidebar shows no Forum row. It also replaces `029`'s blanket dashboard policy on the three tables with ones named after the menu (read: Forum or Analytics; every write: Forum), exactly as Comments and Music are guarded. A database that has not installed `029` or `004` is left alone by it.
 10. Run `032_forum_editorial.sql` to let the dashboard **write** in the forum: it makes `user_id` optional (an editorial post has no reader behind it), adds the `author_name` a dashboard post is signed with and the app shows, and opens `forum_reactions` to the dashboard so its counts can be read and its rows managed. It also adds a guard trigger, so a reader still cannot sign their post with someone else's name or award themselves the official badge through PostgREST. Without it the Forum page reads and moderates as before, and its editor reports the missing column.
+
+11. Run `033_profile_paging.sql` so the app's public profile can page its lists: it adds `profile_items(user, kind, limit, offset)`, which answers one window of five rows per kind (`articles`, `songs`, `threads`, `answers`) with the kind's total, and a `counts` kind that answers the four totals the tabs are labelled with. It reads the same tables `public_profile` does and exposes nothing else — no contact details, and no new table. Without it the app's public profile still opens: the identity card and the statistics card come from `public_profile`, and only the three lists wait, saying which file they need.
 
 ### Annual issues and tags (নিংশিং চে বার্ষিক সংখ্যা)
 
@@ -588,6 +591,7 @@ from the check that failed, so read it rather than assuming Blog uploads:
   `supabase/migrations/031_forum_menu_permission.sql` (then sign out and in, so the session carries the new menu key)
 - The Forum page's editor, or a thread written from the dashboard, reports a missing `author_name` column →
   `supabase/migrations/032_forum_editorial.sql`
+- The app's public profile says its lists need a database update, or a reader's tabs show an error where the rows should be → `supabase/migrations/033_profile_paging.sql` (the identity card and the statistics card open without it; only the three lists wait for it)
 - A table reported as *missing* → `supabase/schema.sql`, then the migrations in order
 
 Run that file in the Supabase SQL Editor, reload the dashboard, and check again in **Settings →

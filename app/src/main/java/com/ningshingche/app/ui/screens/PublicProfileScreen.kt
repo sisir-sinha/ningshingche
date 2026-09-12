@@ -16,6 +16,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ThumbDown
+import androidx.compose.material.icons.filled.ThumbUp
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.TextButton
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -27,8 +33,8 @@ import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Stars
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.WorkOutline
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -45,6 +51,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,8 +64,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.ningshingche.app.data.portal.ForumActivity
+import kotlinx.coroutines.launch
+import com.ningshingche.app.data.portal.ForumActivityAnswer
+import com.ningshingche.app.data.portal.ForumActivityThread
 import com.ningshingche.app.data.portal.MusicTrack
+import com.ningshingche.app.data.portal.Paged
+import com.ningshingche.app.data.portal.ProfileItem
+import com.ningshingche.app.data.portal.ProfileTotals
+import com.ningshingche.app.data.portal.forumBodyText
 import com.ningshingche.app.data.portal.PortalError
 import com.ningshingche.app.data.portal.PublicArticle
 import com.ningshingche.app.data.portal.PublicProfile
@@ -94,10 +107,14 @@ import com.ningshingche.app.ui.theme.Kalpurush
 fun PublicProfileScreen(
     userId: String,
     loadProfile: suspend (String) -> Result<PublicProfile>,
-    // The forum work is a second call, and a second, smaller one: it is a list
-    // that may well be empty, and a failure there should not cost the reader
-    // their articles.
-    loadForumActivity: suspend (String) -> Result<ForumActivity> = { Result.failure(PortalError.NotFound) },
+    // The lists are their own calls now, and they are paged: five rows to a page,
+    // and a page only when the reader asks for one. The identity card and the
+    // statistics above them come from `public_profile`; a list that fails is only
+    // ever "this tab could not be read".
+    loadTotals: suspend (String) -> Result<ProfileTotals> = { Result.failure(PortalError.NotFound) },
+    loadPage: suspend (String, String, Int) -> Result<Paged<ProfileItem>> = { _, _, _ ->
+        Result.failure(PortalError.NotFound)
+    },
     onBackClick: () -> Unit,
     onArticleClick: (String) -> Unit,
     onDiscussionClick: (String) -> Unit = {}
@@ -105,12 +122,20 @@ fun PublicProfileScreen(
     var profile by remember(userId) { mutableStateOf<PublicProfile?>(null) }
     var error by remember(userId) { mutableStateOf<String?>(null) }
     var loading by remember(userId) { mutableStateOf(true) }
-    // Bumped by Retry so the effect below runs again for the same user id.
+    // Bumped by Retry so the effects below run again for the same user id.
     var reloadToken by remember(userId) { mutableIntStateOf(0) }
     var selectedTab by remember(userId) { mutableIntStateOf(0) }
+    // The আলোচনা tab's own filter: this reader's আলোচনা, or their উত্তর.
+    var forumTab by remember(userId) { mutableIntStateOf(0) }
     val player = LocalMusicController.current
 
-    var forumActivity by remember(userId) { mutableStateOf<ForumActivity?>(null) }
+    var totals by remember(userId) { mutableStateOf(ProfileTotals()) }
+    // One page per kind, kept apart so switching tabs does not throw away a page
+    // the reader has already paid for.
+    var pages by remember(userId) { mutableStateOf(mapOf<String, Paged<ProfileItem>>()) }
+    var listError by remember(userId) { mutableStateOf<String?>(null) }
+    var listLoading by remember(userId) { mutableStateOf(false) }
+    var loadingMore by remember(userId) { mutableStateOf(false) }
 
     LaunchedEffect(userId, reloadToken) {
         loading = true
@@ -122,7 +147,66 @@ fun PublicProfileScreen(
     }
 
     LaunchedEffect(userId, reloadToken) {
-        forumActivity = loadForumActivity(userId).getOrNull()
+        totals = loadTotals(userId).getOrElse { ProfileTotals() }
+    }
+
+    // The four totals the tabs are labelled with, in the database's words. An
+    // old database without the paging function falls back to what the profile
+    // itself carried, so a tab still shows a number.
+    val loaded = profile
+    val shownTotals = if (totals.articles + totals.songs + totals.threads + totals.answers > 0) {
+        totals
+    } else {
+        ProfileTotals(
+            articles = loaded?.articles.orEmpty().size,
+            songs = loaded?.songs.orEmpty().size,
+            threads = totals.threads,
+            answers = totals.answers
+        )
+    }
+
+    val kind = when (selectedTab) {
+        0 -> ProfileTotals.ARTICLES
+        1 -> ProfileTotals.SONGS
+        else -> if (forumTab == 0) ProfileTotals.THREADS else ProfileTotals.ANSWERS
+    }
+    val page = pages[kind] ?: Paged(emptyList(), 0)
+
+    // Five rows, once per kind: the page a tab shows first. The guard keeps a
+    // kind that already has rows from asking again on every redraw.
+    LaunchedEffect(userId, kind, reloadToken) {
+        val already = pages[kind]?.items.orEmpty()
+        if (already.isNotEmpty() && reloadToken == 0) return@LaunchedEffect
+        listLoading = true
+        listError = null
+        loadPage(userId, kind, 0)
+            .onSuccess { loadedPage -> pages = pages + (kind to loadedPage) }
+            .onFailure { listError = profileListMessage(it) }
+        listLoading = false
+    }
+
+    // The next five. The offset is how many rows the screen already holds, so the
+    // database sends rows the reader has not read — never the same page twice.
+    val scope = rememberCoroutineScope()
+    val loadMore: () -> Unit = {
+        val current = pages[kind] ?: Paged(emptyList(), 0)
+        if (!loadingMore && current.hasMore) {
+            loadingMore = true
+            listError = null
+            scope.launch {
+                loadPage(userId, kind, current.loaded)
+                    .onSuccess { next ->
+                        val held = pages[kind] ?: current
+                        pages = pages + (kind to held.copy(
+                            items = held.items + next.items,
+                            total = next.total,
+                            offset = held.offset
+                        ))
+                    }
+                    .onFailure { listError = profileListMessage(it) }
+                loadingMore = false
+            }
+        }
     }
 
     Scaffold(
@@ -170,30 +254,29 @@ fun PublicProfileScreen(
                 )
 
                 else -> {
-                    val loaded = profile!!
-                    val articles = remember(loaded) { loaded.articlesByViews }
-                    val songs = remember(loaded) { loaded.songsByViews }
-                    // An empty tab is still a tab: hiding it would leave the
-                    // reader wondering whether the article list exists at all.
+                    val person = profile ?: return@Box
+                    // Three tabs, each with the database's own count. An empty tab
+                    // is still a tab: hiding it would leave the reader wondering
+                    // whether the list exists at all.
                     val tabs = listOf(
-                        "প্রবন্ধ" to articles.size,
-                        "গান" to songs.size,
-                        "আলোচনা" to (forumActivity?.total ?: 0)
+                        "প্রবন্ধ" to shownTotals.articles,
+                        "গান" to shownTotals.songs,
+                        "আলোচনা" to (shownTotals.threads + shownTotals.answers)
                     )
                     val activeTab = selectedTab.coerceIn(0, tabs.lastIndex)
 
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
-                            .testTag("public_profile_${loaded.id}"),
+                            .testTag("public_profile_${person.id}"),
                         // The top inset keeps the identity card clear of the app
                         // bar, whose back arrow stays put while this scrolls.
                         contentPadding = PaddingValues(top = EditorialSpace.sm, bottom = 96.dp),
                         verticalArrangement = Arrangement.spacedBy(EditorialSpace.sm)
                     ) {
-                        item { ProfileHeader(loaded) }
+                        item { ProfileHeader(person) }
 
-                        item { ProfileStatistics(loaded) }
+                        item { ProfileStatistics(person) }
 
                         item {
                             TabRow(
@@ -226,59 +309,124 @@ fun PublicProfileScreen(
                             }
                         }
 
-                        if (activeTab == 0) {
-                            if (articles.isEmpty()) {
-                                item {
-                                    EmptyState(
-                                        message = "এই ব্যবহারকারীর এখনো কোনো প্রকাশিত প্রবন্ধ নেই।",
-                                        modifier = Modifier.padding(EditorialSpace.lg)
-                                    )
-                                }
-                            }
-                            items(articles, key = { "article-${it.id}" }) { article ->
-                                PublicArticleCard(article) { onArticleClick(article.id) }
-                            }
-                        } else if (activeTab == 1) {
-                            if (songs.isEmpty()) {
-                                item {
-                                    EmptyState(
-                                        message = "এই ব্যবহারকারীর এখনো কোনো গান প্রকাশিত হয়নি।",
-                                        modifier = Modifier.padding(EditorialSpace.lg)
-                                    )
-                                }
-                            }
-                            items(songs, key = { "song-${it.id}" }) { track ->
-                                PublicSongCard(track) {
-                                    // The whole list becomes the queue, in the
-                                    // order the reader is looking at.
-                                    player.play(track, songs, expand = true)
-                                }
-                            }
-                        } else {
+                        // Inside আলোচনা: this reader's discussions, and the answers
+                        // they wrote. Two filters, and the one that is picked is
+                        // the list below — not a second copy of the same numbers.
+                        if (activeTab == 2) {
                             item {
-                                val activity = forumActivity
-                                if (activity == null) {
-                                    EmptyState(
-                                        message = "ফোরামের আলোচনা লোড হচ্ছে…",
-                                        modifier = Modifier
-                                            .padding(EditorialSpace.lg)
-                                            .testTag("public_profile_forum_loading")
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = EditorialSpace.gutter),
+                                    horizontalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
+                                ) {
+                                    ProfileForumChip(
+                                        label = "আলোচনা",
+                                        count = shownTotals.threads,
+                                        selected = forumTab == 0,
+                                        onClick = { forumTab = 0 },
+                                        testTag = "public_profile_forum_threads"
                                     )
-                                } else if (!activity.hasAnything) {
-                                    EmptyState(
-                                        message = "এই ব্যবহারকারী এখনো ফোরামে কিছু লেখেননি।",
-                                        modifier = Modifier
-                                            .padding(EditorialSpace.lg)
-                                            .testTag("public_profile_forum_empty")
+                                    ProfileForumChip(
+                                        label = "উত্তর",
+                                        count = shownTotals.answers,
+                                        selected = forumTab == 1,
+                                        onClick = { forumTab = 1 },
+                                        testTag = "public_profile_forum_answers"
                                     )
-                                } else {
-                                    ForumActivityBlock(
-                                        activity = activity,
-                                        onOpenDiscussion = onDiscussionClick,
-                                        modifier = Modifier
-                                            .padding(horizontal = EditorialSpace.gutter)
-                                            .testTag("public_profile_forum")
+                                }
+                            }
+                        }
+
+                        val rows = page.items
+                        when {
+                            listError != null && rows.isEmpty() -> item {
+                                ErrorState(
+                                    message = listError.orEmpty(),
+                                    onRetry = {
+                                        pages = pages - kind
+                                        reloadToken += 1
+                                    },
+                                    modifier = Modifier.testTag("public_profile_list_error")
+                                )
+                            }
+
+                            listLoading && rows.isEmpty() -> item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(EditorialSpace.lg),
+                                    contentAlignment = Alignment.Center
+                                ) { CircularProgressIndicator(modifier = Modifier.size(22.dp)) }
+                            }
+
+                            rows.isEmpty() -> item {
+                                EmptyState(
+                                    message = when (kind) {
+                                        ProfileTotals.ARTICLES -> "এই ব্যবহারকারীর এখনো কোনো প্রকাশিত প্রবন্ধ নেই।"
+                                        ProfileTotals.SONGS -> "এই ব্যবহারকারীর এখনো কোনো গান প্রকাশিত হয়নি।"
+                                        ProfileTotals.THREADS -> "এই ব্যবহারকারী এখনো কোনো আলোচনা শুরু করেননি।"
+                                        else -> "এই ব্যবহারকারী এখনো কোনো উত্তর লেখেননি।"
+                                    },
+                                    modifier = Modifier
+                                        .padding(EditorialSpace.lg)
+                                        .testTag("public_profile_list_empty")
+                                )
+                            }
+                        }
+
+                        items(rows, key = { it.key }) { row ->
+                            when (row) {
+                                is ProfileItem.Article -> PublicArticleCard(row.article) {
+                                    onArticleClick(row.article.id)
+                                }
+
+                                is ProfileItem.Song -> PublicSongCard(row.song) {
+                                    // The whole list becomes the queue, in the order
+                                    // the reader is looking at.
+                                    player.play(
+                                        row.song,
+                                        rows.filterIsInstance<ProfileItem.Song>().map { it.song },
+                                        expand = true
                                     )
+                                }
+
+                                is ProfileItem.Thread -> ProfileThreadRow(row.thread) {
+                                    onDiscussionClick(row.thread.id)
+                                }
+
+                                is ProfileItem.Answer -> ProfileAnswerRow(row.answer) {
+                                    onDiscussionClick(row.answer.discussionId)
+                                }
+                            }
+                        }
+
+                        // Five at a time, and the rest behind this button: the
+                        // owner's rule. It is never a page of its own — the rows
+                        // already on screen stay, and the next five are added.
+                        if (page.hasMore) {
+                            item {
+                                TextButton(
+                                    onClick = loadMore,
+                                    enabled = !loadingMore,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("public_profile_more")
+                                ) {
+                                    if (loadingMore) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            strokeWidth = 2.dp
+                                        )
+                                    } else {
+                                        Text(
+                                            text = "আরও দেখুন (${toBengaliNumeral(page.total - page.loaded)})",
+                                            fontFamily = Kalpurush,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 13.sp,
+                                            color = LocalEditorialTokens.current.accent
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -288,6 +436,264 @@ fun PublicProfileScreen(
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// The forum rows
+//
+// A reader's আলোচনা and উত্তর on their public page. Both are a card with the
+// subject at the top, the words under it, and a footer: the reactions as icons
+// with their counts, and the date **at the right-hand edge** — the owner's rule
+// for this page, and the same one the forum's own cards follow.
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun ProfileThreadRow(thread: ForumActivityThread, onClick: () -> Unit) {
+    val tokens = LocalEditorialTokens.current
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(EditorialShape.card),
+        tonalElevation = 1.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = EditorialSpace.gutter)
+            .clickable(onClick = onClick)
+            .testTag("public_profile_thread_${thread.id}")
+    ) {
+        Column(
+            modifier = Modifier.padding(EditorialSpace.md),
+            verticalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = thread.categoryTitle,
+                    fontFamily = Kalpurush,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 11.sp,
+                    color = tokens.accent,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = formatBengaliDate(thread.createdAt),
+                    fontFamily = Kalpurush,
+                    fontSize = 11.sp,
+                    color = tokens.inkMuted,
+                    maxLines = 1,
+                    modifier = Modifier.testTag("public_profile_thread_date_${thread.id}")
+                )
+            }
+            Text(
+                text = thread.title,
+                fontFamily = Kalpurush,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.5.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            // The excerpt folds on the same hundred characters a forum card does,
+            // so a profile is not the one place that shows a wall of text.
+            val words = profileExcerpt(thread.excerpt)
+            if (words.isNotBlank()) {
+                Text(
+                    text = words,
+                    fontFamily = Kalpurush,
+                    fontSize = 12.5.sp,
+                    lineHeight = 17.sp,
+                    color = tokens.inkMuted,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            ProfileForumCounters(views = thread.views, replies = thread.replies, answered = thread.replies > 0)
+        }
+    }
+}
+
+@Composable
+private fun ProfileAnswerRow(answer: ForumActivityAnswer, onClick: () -> Unit) {
+    val tokens = LocalEditorialTokens.current
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(EditorialShape.card),
+        tonalElevation = 1.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = EditorialSpace.gutter)
+            .clickable(onClick = onClick)
+            .testTag("public_profile_answer_${answer.id}")
+    ) {
+        Column(
+            modifier = Modifier.padding(EditorialSpace.md),
+            verticalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = answer.discussionTitle,
+                    fontFamily = Kalpurush,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp,
+                    color = tokens.accent,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = formatBengaliDate(answer.createdAt),
+                    fontFamily = Kalpurush,
+                    fontSize = 11.sp,
+                    color = tokens.inkMuted,
+                    maxLines = 1,
+                    modifier = Modifier.testTag("public_profile_answer_date_${answer.id}")
+                )
+            }
+            val words = profileExcerpt(answer.excerpt)
+            Text(
+                text = words,
+                fontFamily = Kalpurush,
+                fontSize = 12.5.sp,
+                lineHeight = 17.sp,
+                color = tokens.inkMuted,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
+            // The reactions as icons, never as a row of words with numbers after
+            // them: the owner has already made the forum's own row icons, and a
+            // profile that spelled them out was the last place that did.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
+            ) {
+                ProfileReactionCount(Icons.Default.ThumbUp, "লাইক", answer.likes, "public_profile_answer_likes_${answer.id}")
+                ProfileReactionCount(Icons.Default.CheckCircle, "একমত", answer.agrees, "public_profile_answer_agrees_${answer.id}")
+                ProfileReactionCount(Icons.Default.ThumbDown, "অপছন্দ", answer.dislikes, "public_profile_answer_dislikes_${answer.id}")
+            }
+        }
+    }
+}
+
+/** One reaction: an icon and its count. No words, no button — a profile is a read. */
+@Composable
+private fun ProfileReactionCount(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    count: Int,
+    testTag: String
+) {
+    val tokens = LocalEditorialTokens.current
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.testTag(testTag)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = tokens.inkMuted,
+            modifier = Modifier.size(13.dp)
+        )
+        Spacer(Modifier.width(3.dp))
+        Text(
+            text = toBengaliNumeral(count),
+            fontFamily = Kalpurush,
+            fontSize = 11.5.sp,
+            color = tokens.inkMuted
+        )
+    }
+}
+
+/** Views, then answers — the same two counters a forum card carries. */
+@Composable
+private fun ProfileForumCounters(views: Long, replies: Int, answered: Boolean) {
+    val tokens = LocalEditorialTokens.current
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Default.Visibility,
+                contentDescription = "ভিউ",
+                tint = tokens.inkMuted,
+                modifier = Modifier.size(13.dp)
+            )
+            Spacer(Modifier.width(3.dp))
+            Text(
+                text = toBengaliNumeral(views),
+                fontFamily = Kalpurush,
+                fontSize = 11.5.sp,
+                color = tokens.inkMuted
+            )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Default.ChatBubbleOutline,
+                contentDescription = "উত্তর",
+                tint = if (answered) tokens.accent else tokens.inkMuted,
+                modifier = Modifier.size(13.dp)
+            )
+            Spacer(Modifier.width(3.dp))
+            Text(
+                text = toBengaliNumeral(replies),
+                fontFamily = Kalpurush,
+                fontSize = 11.5.sp,
+                color = if (answered) tokens.accent else tokens.inkMuted
+            )
+        }
+    }
+}
+
+/** আলোচনা / উত্তর — the two filters inside the আলোচনা tab. */
+@Composable
+private fun ProfileForumChip(
+    label: String,
+    count: Int,
+    selected: Boolean,
+    onClick: () -> Unit,
+    testTag: String
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = {
+            Text(
+                text = "$label (${toBengaliNumeral(count)})",
+                fontFamily = Kalpurush,
+                fontWeight = FontWeight.SemiBold
+            )
+        },
+        modifier = Modifier.testTag(testTag)
+    )
+}
+
+/**
+ * Why a list would not load, in words a reader can act on.
+ *
+ * The lists come from `profile_items` — migration 033 — and PostgREST answers a
+ * database without it with a 404. The owner is the one who runs the SQL, so the
+ * message names the file rather than saying "server error": this is the only place
+ * in the app that can tell a missing migration from a flat network.
+ */
+private fun profileListMessage(error: Throwable): String =
+    if (error is PortalError.SchemaMissing) {
+        "তালিকা পড়তে ডেটাবেস আপডেট দরকার — 033_profile_paging.sql চালান।"
+    } else {
+        error.message ?: "তালিকাটি লোড হয়নি।"
+    }
+
+/** How much of an excerpt a profile card shows before it ellipsises. */
+private const val PROFILE_EXCERPT_CHARS = 100
+
+/**
+ * The hundred characters a profile row shows of a আলোচনা or an উত্তর, and then an
+ * ellipsis — the same rule the forum's own cards follow, so a reader who taps a
+ * name sees the same sentence cut in the same place twice.
+ */
+private fun profileExcerpt(text: String, limit: Int = PROFILE_EXCERPT_CHARS): String {
+    val plain = forumBodyText(text).trim()
+    if (plain.length <= limit) return plain
+    return plain.take(limit).trimEnd() + "…"
+}
+
 
 // ---------------------------------------------------------------------------
 // Identity
