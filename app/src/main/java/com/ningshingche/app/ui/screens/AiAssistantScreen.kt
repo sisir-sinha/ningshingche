@@ -89,11 +89,17 @@ fun AiAssistantScreen(
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
 
-    var isSkeletonLoading by remember { mutableStateOf(true) }
+    // The skeleton is a first impression, not a tax on every visit. It used to
+    // replay on every composition of this screen — a return from the reader, a
+    // rebuild of the activity — which the owner saw as the page reloading. It
+    // plays once per visit, never over a conversation that is already on screen,
+    // and `rememberSaveable` so a rebuilt screen does not play it again.
+    var introShown by rememberSaveable { mutableStateOf(false) }
+    val showSkeleton = !introShown && messages.isEmpty()
     var promptSent by rememberSaveable(initialQuestion) { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         delay(1000L) // Minimum 1 second skeleton view
-        isSkeletonLoading = false
+        introShown = true
     }
     LaunchedEffect(initialQuestion) {
         if (!promptSent && initialQuestion.isNotBlank()) {
@@ -128,7 +134,7 @@ fun AiAssistantScreen(
         if (keyboardVisible) scrollChatToBottom()
     }
 
-    if (isSkeletonLoading) {
+    if (showSkeleton) {
         AiAssistantSkeletonLayout()
         return
     }

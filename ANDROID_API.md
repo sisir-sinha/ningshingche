@@ -968,6 +968,25 @@ platform asks for one or the other depending on the API level), and popup window
 page's own background — no `Surface`, no tone of its own, nothing covering the bottom of the page.
 The scaffold still reserves its height, so no answer is ever underneath it.
 
+**The third hotfix (app 1.6 → 1.7).** "It reload the page and show the skeleton min for 0.5s" — the
+chat and a forum thread. Both were loading states tied to the *screen's lifetime* rather than to the
+data, so a screen that was rebuilt showed a skeleton or a spinner over content that was still in
+memory.
+
+  * **The assistant** played its one-second skeleton from
+    `remember { mutableStateOf(true) }`, which is `true` again every time the screen is composed — so
+    opening it, or coming back to it, always cost a second of shimmer, conversation or no
+    conversation. It is `rememberSaveable` now, and it never plays over a conversation that is already
+    on screen (`showSkeleton = !introShown && messages.isEmpty()`).
+  * **The thread** kept its answers in `remember`, so leaving the screen and coming back — an author's
+    page, an activity rebuilt — dropped them and re-fetched with a spinner. They live in
+    `ForumThreadHolder`, a `ViewModel` scoped to the destination: a return finds them, the screen
+    paints instantly, and a refresh runs behind the content with a thin `LinearProgressIndicator`
+    under the bar (`forum_thread_refreshing`) instead of a spinner over the page.
+  * **And the view count is honest again.** It used to be "the screen has not loaded before", so a
+    rebuilt screen counted the same reader a second time. The holder owns it: `counted` is set when
+    the count has actually been sent, `countView = reloadToken == 0 && !holder.counted`.
+
 *The formatting row is four buttons.* The compact editor no longer offers a picture button, and it
 no longer draws attachments — `HtmlContentEditor` is an editor again. Files are attached on the row
 under the box, which is also where they are previewed.

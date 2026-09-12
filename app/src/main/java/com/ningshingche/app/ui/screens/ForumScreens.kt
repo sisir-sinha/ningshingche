@@ -69,6 +69,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -86,6 +87,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -727,6 +730,29 @@ fun ForumCategoryScreen(
 // One discussion, its answers, and their answers
 // ---------------------------------------------------------------------------
 
+/**
+ * What the thread screen has already read.
+ *
+ * Scoped to the destination, so it survives leaving the screen and coming back —
+ * to an author's page and back, or an activity being rebuilt — without either
+ * blanking the thread or asking the database for it twice. It also holds the
+ * answer to "has this reader's view been counted", which used to be worked out
+ * from the screen's own lifetime: a rebuilt screen counted the same reader
+ * again. A view is counted once per discussion per visit, which is what the
+ * database meant by it in the first place.
+ */
+class ForumThreadHolder : ViewModel() {
+    var thread: ForumThread? by mutableStateOf(null)
+
+    /** Whether the one view this visit is worth has already been counted. */
+    var counted: Boolean = false
+        private set
+
+    fun markCounted() {
+        counted = true
+    }
+}
+
 @Composable
 fun ForumThreadScreen(
     discussionId: String,
@@ -744,10 +770,15 @@ fun ForumThreadScreen(
     val editor = remember { HtmlEditorController() }
     val density = LocalDensity.current
 
-    var thread by remember { mutableStateOf<ForumThread?>(null) }
+    // The thread lives in the destination's own view model: the screen can be
+    // rebuilt (a return from a profile, a rebuilt activity) and the answers are
+    // still here, so nothing flashes a spinner over content that never left.
+    val holder: ForumThreadHolder = viewModel()
+    val thread = holder.thread
     var error by remember { mutableStateOf<String?>(null) }
-    var loading by remember { mutableStateOf(true) }
+    var loading by remember { mutableStateOf(holder.thread == null) }
     var reloadToken by remember { mutableIntStateOf(0) }
+    var refreshing by remember { mutableStateOf(false) }
 
     var answerOrder by remember { mutableStateOf(ForumThread.ANSWER_RECENT) }
     var expandedBodies by remember { mutableStateOf(setOf<String>()) }
@@ -794,14 +825,21 @@ fun ForumThreadScreen(
     }
 
     LaunchedEffect(discussionId, reloadToken) {
-        loading = true
+        // A refresh of a thread that is already on screen shows a thin line, not
+        // a spinner: the reader is looking at the answers, not at a blank page.
+        if (holder.thread == null) loading = true else refreshing = true
         error = null
-        // Counting the view only on the first load: a refresh is the same reader
-        // looking again, not a second reader.
-        loadThread(discussionId, reloadToken == 0)
-            .onSuccess { thread = it }
+        // The view is counted once per discussion per destination: a rebuild of
+        // this screen is the same reader looking again, and so is a refresh.
+        val countView = reloadToken == 0 && !holder.counted
+        loadThread(discussionId, countView)
+            .onSuccess { loaded ->
+                if (countView) holder.markCounted()
+                holder.thread = loaded
+            }
             .onFailure { error = it.message ?: "আলোচনা খোলা যায়নি।" }
         loading = false
+        refreshing = false
     }
 
     // The draft comes back when the screen does, and is saved as it changes. A
@@ -862,7 +900,7 @@ fun ForumThreadScreen(
                 .onSuccess { posted ->
                     // Folded in locally, then re-read with countView = false so
                     // the answer arrives with the counts the database kept.
-                    thread = thread?.with(posted)
+                    holder.thread = holder.thread?.with(posted)
                     // Sent: the box closes and what was in it — words and files
                     // alike — is cleared here and in the draft. The editor is
                     // emptied through its own handle as well, because a WebView
@@ -875,7 +913,7 @@ fun ForumThreadScreen(
                     editor.clear()
                     editor.dismiss()
                     draftStore.clearReply(discussionId)
-                    thread = loadThread(discussionId, false).getOrNull() ?: thread
+                    holder.thread = loadThread(discussionId, false).getOrNull() ?: holder.thread
                 }
                 .onFailure { failure ->
                     replyError = failure.message ?: "উত্তর পাঠানো যায়নি।"
@@ -888,7 +926,7 @@ fun ForumThreadScreen(
         reactionTarget = null
         scope.launch {
             react(reply.id, kind).onSuccess { state ->
-                thread = thread?.with(
+                holder.thread = holder.thread?.with(
                     reply.copy(
                         likes = state.likes,
                         dislikes = state.dislikes,
@@ -905,6 +943,7 @@ fun ForumThreadScreen(
         subtitle = thread?.discussion?.let {
             "${it.categoryTitle} · ${formatBengaliDate(it.createdAt)}"
         } ?: "লোড হচ্ছে…",
+        refreshing = refreshing,
         onBackClick = onBackClick,
         // Refreshing re-reads without counting a second view — the reader is the
         // same reader looking again.
@@ -1899,6 +1938,7 @@ private fun ForumScaffold(
     title: String,
     subtitle: String,
     onBackClick: (() -> Unit)?,
+    refreshing: Boolean = false,
     onRefreshClick: (() -> Unit)? = null,
     bottomBar: (@Composable () -> Unit)? = null,
     content: @Composable (PaddingValues) -> Unit
@@ -1957,6 +1997,15 @@ private fun ForumScaffold(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
             )
+            // A refresh behind content that is already on screen: a line under
+            // the bar says so without taking the thread off the page.
+            if (refreshing) {
+                LinearProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("forum_thread_refreshing")
+                )
+            }
         },
         bottomBar = { bottomBar?.invoke() },
         content = content
