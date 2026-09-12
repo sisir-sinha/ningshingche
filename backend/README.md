@@ -85,7 +85,8 @@ backend/
         ├── 013_blog_tags.sql               # Tag keys, blog_tag_counts view, blogs_by_issue / blogs_by_tag RPCs
         ├── 014 … 028                       # Music, languages, uploader/profile, views, contributors, …
         ├── 029_forum.sql                   # Forum boards, discussions, answers, RLS, the app's read RPCs
-        └── 030_forum_answers.sql           # Cover images, one indent level, reactions, notifications, forum activity
+        ├── 030_forum_answers.sql           # Cover images, one indent level, reactions, notifications, forum activity
+        └── 031_forum_menu_permission.sql   # Forum as a menu permission: the allow-list, the roles, the tables behind it
 ```
 
 ## Database setup
@@ -145,7 +146,8 @@ For an existing installation, use this order:
 5. Open **Settings → Authentication & database → Run check**.
 6. Run the registered-user migrations `005`–`012` in order if the app's reader features are in use.
 7. Run `013_blog_tags.sql` (optional but recommended). It installs the **tag endpoints**: normalised tag keys (`blog_tag_key`), a generated `blogs.tag_keys` column with a GIN index, the `blog_tag_counts` view, and the `blogs_by_issue` / `blogs_by_tag` / `blog_issue_years` RPCs. Until it is installed, the Blogs page shows a small hint and runs the issue/tag filters in the browser instead.
-8. Run `029_forum.sql`, then `030_forum_answers.sql`, if the app's forum is in use. Between them they add the forum boards, discussions, answers and reactions, the public read policies the app needs, dashboard `select` policies for the **Forum** page, the app's `forum_*` read/write RPCs, notifications, and the forum's share of contributor points. Supabase's SQL Editor may warn that the older `forum_*` function signatures are being replaced: that is expected — `030` drops the four `029` signatures it re-creates and re-states **Run and enable RLS** for each table it adds. Until these are installed, the dashboard's Forum page reports the migration it is missing (see **Troubleshooting**).
+8. Run `029_forum.sql`, then `030_forum_answers.sql`, if the app's forum is in use. Between them they add the forum boards, discussions, answers and reactions, the public read policies the app needs, dashboard policies for the **Forum** page, the app's `forum_*` read/write RPCs, notifications, and the forum's share of contributor points. Supabase's SQL Editor may warn that the older `forum_*` function signatures are being replaced: that is expected — `030` drops the four `029` signatures it re-creates and re-states **Run and enable RLS** for each table it adds. Until these are installed, the dashboard's Forum page reports the migration it is missing (see **Troubleshooting**).
+9. Run `031_forum_menu_permission.sql` — the one that makes **Forum** a menu a role can actually hold. Until it is installed, `dashboard_save_role` filters the key through an allow-list that has never heard of it, so ticking *Forum* in Users & Roles saves without it and the sidebar shows no Forum row. It also replaces `029`'s blanket dashboard policy on the three tables with ones named after the menu (read: Forum or Analytics; every write: Forum), exactly as Comments and Music are guarded. A database that has not installed `029` or `004` is left alone by it.
 
 ### Annual issues and tags (নিংশিং চে বার্ষিক সংখ্যা)
 
@@ -446,6 +448,7 @@ Migration 004 requires **Submit Blogs** permission before the RPC can run, and i
 
 - **What it reads.** The three tables `forum_discussions`, `forum_replies`, and `forum_categories` — the doors migration `029` opens for the dashboard. It deliberately does **not** use the app's `forum_*` RPCs or the `forum_*_rows` views: those only ever show `status = 'Publish'`, so a hidden thread could never be found again to restore it, and the views are revoked from browser roles.
 - **What it writes.** One column: `status` → `Unpublish` to hide, `Publish` to restore, on a discussion or on a single answer. The app's RPCs filter on that same value, so the effect is immediate. Deleting a discussion offers the same ImgBB cover cleanup as every other delete, and the database cascade takes its answers with it.
+- **Who sees the menu.** *Forum* is an ordinary menu permission, like *Comments*: a Super Admin ticks it per role in **Users & Roles**. That needs `031_forum_menu_permission.sql`, which adds the key to the database's allow-list and gives it to the roles that already moderate comments — without it the tick cannot be saved and the sidebar has no row to show. The three tables are guarded by that same key (reads also allow *Analytics*, which draws the index dashboard's forum panel), and the Users & Roles page says so plainly if the database is still an older one.
 - **A post is shown as text.** The body is sanitised, block tags become line breaks, and the rest is escaped — a reader's markup is never parsed here, so nothing they wrote can act on the moderator's browser. Links inside the body are listed as attachments (that is where the app keeps a picture or a PDF), and a cover image only renders if it is a plain `http(s)` URL.
 - **Filtering.** Search (title, reader, board), status, board, and answers (*waiting for an answer* / *answered*). Active filters become removable chips and are encoded in the URL: `#/forum?filter=Waiting`, `#/forum?filter=Unpublish`, `?answers=waiting`, `?category=<slug>`, and `?action=view&id=<uuid>` to open one thread.
 - **On the index dashboard**, the forum appears as two metric cards (*Forum Threads*, *Forum Answers*, under the Forum permission rather than Analytics), a bar in the content distribution chart, a **Latest forum discussions** panel with the newest five threads and a link to the page, quick action *Review the forum*, Discussion/Answer entries in the live activity feed, and two Needs-attention queues — *waiting for an answer* and *hidden from readers* — that open the page already filtered. The overview reads the threads without their bodies: the text is only fetched when a moderator opens one.
@@ -517,6 +520,7 @@ Completed checks:
 - A genuine `.xlsx` workbook populated the first Author Add form row, including text, boolean, direct image URL, and Quill biography values.
 - The Author Description Quill editor preserved formatted, sanitized HTML in its live preview and intercepted Supabase payload; its 375 px toolbar stayed inside the modal with internal scrolling.
 - CSV and genuine Excel template downloads were generated successfully, and all eight list/Add workflows exposed their correct import controls while Settings exposed none.
+- The route list in `config.js` is checked against the newest `dashboard_valid_permissions()` in the migrations — every tickable menu must be a key `dashboard_save_role` will keep — and the Users & Roles page is exercised against an older allow-list to prove it names the missing file instead of reporting a save that dropped the key.
 - The Forum page was exercised against intercepted Supabase-shaped fixtures: readers' names joined from `profiles`, boards, the four counters, the two Needs-attention filters arriving from the index dashboard, opening one thread with its answers, and hiding/restoring a discussion and an answer — each asserting the exact `PATCH` (`status: Publish`↔`Unpublish`) it sends. A fixture body carrying a `<script>` tag and an `onerror` attribute rendered as text with no element, no attribute, and nothing executed.
 - All eight entity transformers passed valid schema-shaped rows; Blog relation lookup, tag parsing, direct-media metadata, reading time, and HTML sanitization were verified.
 - The import modal was checked at 375 px: it retained 10 px viewport margins, caused no document-level overflow, and confined its wide preview table to an internal horizontal scroller.
@@ -572,6 +576,8 @@ from the check that failed, so read it rather than assuming Blog uploads:
   `supabase/migrations/027_contributor_board_dashboard.sql`
 - The Forum page, or the forum cards on the index dashboard →
   `supabase/migrations/029_forum.sql`, then `030_forum_answers.sql`
+- **Forum** ticked in Users & Roles but no Forum row in the sidebar, or the Forum checkbox shown as *Not yet in the database* →
+  `supabase/migrations/031_forum_menu_permission.sql` (then sign out and in, so the session carries the new menu key)
 - A table reported as *missing* → `supabase/schema.sql`, then the migrations in order
 
 Run that file in the Supabase SQL Editor, reload the dashboard, and check again in **Settings →

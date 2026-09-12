@@ -1119,6 +1119,11 @@ kbd { display: inline-flex; min-height: 23px; align-items: center; gap: 3px; bor
 .permission-option small { margin-top: 2px; color: var(--muted-foreground); font-size: .61rem; }
 .permission-option > i { position: absolute; top: 8px; right: 8px; color: var(--brand); font-size: .72rem; opacity: 0; transform: scale(.7); transition: .14s ease; }
 .permission-option:hover > span { border-color: var(--border-strong); background: var(--surface-hover); }
+/* A menu the database does not accept yet: shown, not tuckable, and clear about why. */
+.permission-option.is-unavailable { cursor: not-allowed; }
+.permission-option.is-unavailable > span { border-style: dashed; opacity: .72; }
+.permission-option.is-unavailable small { color: var(--warning, #f59e0b); }
+.permission-option.is-unavailable:hover > span { border-color: var(--border); background: var(--surface-subtle); }
 .permission-option.is-selected > span { border-color: rgba(139,92,246,.42); background: var(--brand-soft); }
 .permission-option.is-selected > span > i { color: var(--brand); }
 .permission-option.is-selected > i { opacity: 1; transform: scale(1); }

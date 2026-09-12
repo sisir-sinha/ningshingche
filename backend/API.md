@@ -617,6 +617,7 @@ permission (migration 004 creates per-menu policies).
   breaks, so nothing a reader wrote is ever parsed as markup. `<a href>` targets found in the body
   are listed as attachments (that is where the app keeps a picture or a PDF), and
   `cover_image_url` is passed through `safeImage`.
+- **The menu key is `forum`, not `comments`.** Migration `031_forum_menu_permission.sql` adds it to `dashboard_valid_permissions()` (004's allow-list, already extended by 008 and 014) and appends it to the roles that hold Comments, because `dashboard_save_role` filters every requested permission through that list and drops an unknown key **without an error**. The three tables' dashboard policies are named after the same key: `select` for `dashboard_has_any_permission(array['forum','analytics'])` (Analytics draws the index dashboard panel), `insert`/`update`/`delete` for `dashboard_has_permission('forum')`. The public reader policies and the app's `security definer` RPCs are untouched.
 - Needs-attention queues on the index dashboard link to the page's own filters:
   `#/forum?filter=Waiting` (published, `replies_count = 0`) and `#/forum?filter=Unpublish`.
 - `body_text` is **not** a column and `forum_display_name` is **not** a function: search matches
@@ -1259,6 +1260,7 @@ lightweight `GET …?select=…&limit=1` per table and reports:
 | `submitted_blogs.inline_media` | `select=id,inline_media` | run migration `003` |
 | Forum columns | `forum_discussions` `select=id,status,replies_count,last_reply_at,is_official`; `forum_replies` `select=id,parent_id,status`; `forum_categories` `select=id,slug,position` | `PGRST205`/`PGRST204` → run migration `029_forum.sql` |
 | Access control | presence of the `dashboard_login` RPC (client-side `isLegacy()` check) | run migration `004` |
+| Forum menu key | the snapshot's `valid_permissions` from `dashboard_access_snapshot`, compared with the routes in `config.js` (client-side) | a menu the database does not list cannot be granted → run `031_forum_menu_permission.sql` |
 
 Returns `{ ok, results[], missing[], mismatched[], accessControlMissing }`.
 

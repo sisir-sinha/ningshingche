@@ -4,7 +4,7 @@
   const { escapeHTML, formatDateTime, qsa, validateFields } = NC.utils;
   let root = null;
   let renderContext = null;
-  let snapshot = { users: [], roles: [], active_sessions: 0 };
+  let snapshot = { users: [], roles: [], active_sessions: 0, valid_permissions: null };
 
   function rpcObject(value) {
     return Array.isArray(value) ? (value[0] || {}) : (value || {});
@@ -22,6 +22,38 @@
 
   function menuLabel(id) {
     return NC_CONFIG.routes.find((route) => route.id === id)?.label || id;
+  }
+
+  /** The file that adds a menu key to the database's allow-list. */
+  function menuMigrationFile(id) {
+    return NC_CONFIG.menuMigrations?.[id] || '';
+  }
+
+  /**
+   * Menus this dashboard offers that the database will not accept. The server
+   * filters every requested permission through `dashboard_valid_permissions()`
+   * (migration 004), so an unknown key is dropped in silence: the checkbox
+   * saves, the toast says success, and the role still cannot see the menu.
+   * Empty when the snapshot carries no list (an older database).
+   */
+  function unrecognisedMenus() {
+    if (!Array.isArray(snapshot.valid_permissions)) return [];
+    return menuRoutes().filter((route) => !snapshot.valid_permissions.includes(route.id));
+  }
+
+  function unrecognisedNotice() {
+    const missing = unrecognisedMenus();
+    if (!missing.length) return '';
+    const names = missing.map((route) => route.label).join(', ');
+    const files = [...new Set(missing.map((route) => menuMigrationFile(route.id)).filter(Boolean))];
+    return NC.components.notice(
+      `The database does not recognise ${missing.length === 1 ? 'this menu' : 'these menus'} yet: ${escapeHTML(names)}. `
+        + 'Saving a role cannot grant what the database will not accept — '
+        + (files.length
+          ? `run ${files.map((file) => `<code>${escapeHTML(file)}</code>`).join(', ')} in the Supabase SQL Editor, then reload this page.`
+          : 'read the migration that introduced it, then reload this page.'),
+      'warning', 'fa-triangle-exclamation'
+    );
   }
 
   function roleById(id) {
@@ -138,6 +170,7 @@
       </section>
       <section class="mt-6">
         <div class="section-heading-row"><div><p class="eyebrow">Menu permissions</p><h2>Roles</h2><p>Only Super Admins can open this page. Other roles receive exactly the selected sidebar menus.</p></div><button type="button" class="btn btn-secondary" data-add-role><i class="fa-regular fa-shield-plus" aria-hidden="true"></i>Create role</button></div>
+        ${unrecognisedNotice() ? `<div class="mt-4">${unrecognisedNotice()}</div>` : ''}
         <div class="role-grid">${roleCards()}</div>
       </section>`;
     bindPageEvents();
@@ -233,7 +266,16 @@
       if (!routes.length) return '';
       return `<fieldset class="permission-group"><legend>${escapeHTML(label)}</legend><div class="permission-option-grid">${routes.map((route) => {
         const fixed = route.id === 'dashboard';
-        return `<label class="permission-option ${selected.has(route.id) ? 'is-selected' : ''}"><input type="checkbox" data-menu-permission value="${escapeHTML(route.id)}" ${selected.has(route.id) ? 'checked' : ''} ${fixed ? 'disabled' : ''}><span><i class="fa-regular ${escapeHTML(route.icon)}" aria-hidden="true"></i><strong>${escapeHTML(route.label)}</strong><small>${fixed ? 'Required home menu' : 'Show this sidebar menu'}</small></span><i class="fa-solid fa-circle-check" aria-hidden="true"></i></label>`;
+        // A menu the database does not know cannot be granted. It is shown
+        // rather than hidden — a missing checkbox would be its own puzzle — but
+        // it is honest about why it cannot be ticked.
+        const unknown = Array.isArray(snapshot.valid_permissions) && !snapshot.valid_permissions.includes(route.id);
+        const hint = fixed
+          ? 'Required home menu'
+          : (unknown
+            ? `Not yet in the database — run ${escapeHTML(menuMigrationFile(route.id) || 'the migration that adds it')}`
+            : 'Show this sidebar menu');
+        return `<label class="permission-option ${selected.has(route.id) ? 'is-selected' : ''} ${unknown ? 'is-unavailable' : ''}"><input type="checkbox" data-menu-permission value="${escapeHTML(route.id)}" ${selected.has(route.id) ? 'checked' : ''} ${fixed || unknown ? 'disabled' : ''}><span><i class="fa-regular ${escapeHTML(route.icon)}" aria-hidden="true"></i><strong>${escapeHTML(route.label)}</strong><small>${hint}</small></span><i class="fa-solid fa-circle-check" aria-hidden="true"></i></label>`;
       }).join('')}</div></fieldset>`;
     }).join('');
   }
@@ -244,7 +286,7 @@
       <form id="access-role-form" class="form-stack" novalidate>
         <div class="field"><label class="field-label" for="access-role-name">Role name <span aria-hidden="true">*</span></label><input class="form-input" id="access-role-name" name="name" value="${escapeHTML(role?.name || '')}" maxlength="80" required>${fieldError('name')}</div>
         <div class="field"><label class="field-label" for="access-role-description">Description</label><textarea class="form-textarea" id="access-role-description" name="description" rows="2" maxlength="300">${escapeHTML(role?.description || '')}</textarea></div>
-        <div class="field"><span class="field-label">Visible dashboard menus</span><p class="field-hint mb-3">Dashboard is required. Users & Roles remains exclusive to the protected Super Admin role.</p>${permissionOptions(role)}</div>
+        <div class="field"><span class="field-label">Visible dashboard menus</span><p class="field-hint mb-3">Dashboard is required. Users & Roles remains exclusive to the protected Super Admin role.</p>${unrecognisedNotice() ? `<div class="mb-3">${unrecognisedNotice()}</div>` : ''}${permissionOptions(role)}</div>
       </form>`;
     const modal = NC.components.openModal({
       id: 'access-role', size: 'xl', eyebrow: editing ? 'Edit role' : 'New role',
@@ -265,14 +307,27 @@
       const button = modal.element.querySelector('[data-save-access-role]');
       NC.utils.setButtonLoading(button, true, 'Saving…');
       try {
-        await NC.api.rpc('dashboard_save_role', {
+        // The server answers with the permissions it actually stored, so a key
+        // its allow-list rejected is reported rather than toasted away.
+        const saved = rpcObject(await NC.api.rpc('dashboard_save_role', {
           p_role_id: role?.id || null,
           p_name: data.name,
           p_description: data.description,
           p_menu_permissions: permissions
-        });
+        }));
+        const kept = Array.isArray(saved.permissions) ? saved.permissions : permissions;
+        const dropped = permissions.filter((id) => !kept.includes(id));
         NC.components.closeModal('saved');
-        NC.components.toast(editing ? 'Role permissions updated.' : 'New role created.', 'success');
+        if (dropped.length) {
+          const files = [...new Set(dropped.map(menuMigrationFile).filter(Boolean))];
+          NC.components.toast(
+            `Role saved, but the database refused ${dropped.map(menuLabel).join(', ')} — run `
+              + (files.length ? files.join(', ') : 'the migration that adds it') + '.',
+            'warning'
+          );
+        } else {
+          NC.components.toast(editing ? 'Role permissions updated.' : 'New role created.', 'success');
+        }
         await refresh();
       } catch (error) {
         console.error(error);

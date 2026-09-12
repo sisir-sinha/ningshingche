@@ -34,13 +34,20 @@ npm install --no-save jsdom      # then rm -rf node_modules when finished
 node --test tests/*.test.cjs
 ```
 
-`nav`, `languages-page`, `contributors-page`, and `forum-page` load a real page script into a jsdom
+`nav`, `languages-page`, `contributors-page`, `forum-page`, and `menu-permissions` load a real page
+script into a jsdom
 document with a fixture `NC` namespace and assert what it renders and what it sends. `forum-page`
 covers the Forum moderation page (the three granted forum tables, readers' names joined from
 `profiles`, the counters, `?filter=Waiting` / `?filter=Unpublish` deep links, opening one thread
 with its answers, and the exact `PATCH` each hide/restore sends) plus the forum's place on the index
 dashboard. It also plants a `<script>` and an `onerror` in a fixture body to prove the page shows a
-reader's post as text. A suite that needs jsdom **skips itself** when the module is absent, so
+reader's post as text. `menu-permissions` is about the one thing a dashboard menu needs twice: a route in `config.js` and
+a key in the database's `dashboard_valid_permissions()` allow-list. It walks the real route list
+against the newest allow-list in the migrations, holds migration `031` (the guards either side of
+its install, and the policies that name the Forum key), and renders Users & Roles against an older
+allow-list to prove the page says *run 031* rather than reporting a save that dropped the key.
+
+A suite that needs jsdom **skips itself** when the module is absent, so
 `node --test tests/*.test.cjs` is safe to run with or without it.
 
 ## Isolated Chromium tests

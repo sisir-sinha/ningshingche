@@ -14,7 +14,7 @@
     app: Object.freeze({
       name: 'Ningshing Che',
       subtitle: 'Editorial Command Center',
-      version: '1.8.5',
+      version: '1.8.7',
       websiteUrl: 'https://ningshingche.com',
       locale: 'en-BD',
       timeZone: 'Asia/Dhaka',
@@ -78,6 +78,16 @@
       forum: 'forum_discussions',
       forumReplies: 'forum_replies',
       forumCategories: 'forum_categories'
+    }),
+
+    // The migration that first taught the database each menu key. A key the
+    // allow-list does not know is a key `dashboard_save_role` drops without a
+    // word, so the Users & Roles page names the file to run instead of letting
+    // an editor tick a box that cannot be saved.
+    menuMigrations: Object.freeze({
+      'registered-users': '008_registered_users.sql',
+      music: '014_music_tracks.sql',
+      forum: '031_forum_menu_permission.sql'
     }),
 
     routes: Object.freeze([
