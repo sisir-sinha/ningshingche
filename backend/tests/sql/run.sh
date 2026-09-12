@@ -37,7 +37,7 @@ ok()   { printf '  ok    %s\n' "$1"; }
 bad()  { printf '  FAIL  %s\n' "$1"; fail=1; }
 
 # --- each migration on its own, from an empty fixture ------------------------
-for file in 024_uploader_and_public_profile.sql 025_content_views.sql; do
+for file in 024_uploader_and_public_profile.sql 025_content_views.sql 026_contributors.sql; do
   step "$file alone"
   psql -c "drop database if exists alone" >/dev/null 2>&1 || true
   psql -c "create database alone" >/dev/null
@@ -51,7 +51,7 @@ for file in 024_uploader_and_public_profile.sql 025_content_views.sql; do
 done
 
 # --- both orders, then both again (idempotency) ------------------------------
-for order in "024 025" "025 024"; do
+for order in "024 025 026" "025 024 026" "026 025 024"; do
   for pass in 1 2; do
     step "order $order (pass $pass)"
     psql -c "drop database if exists ordered" >/dev/null 2>&1 || true
@@ -90,8 +90,9 @@ insert into public.submitted_blogs (user_id, converted_blog_id, status) values (
 insert into public.music_tracks (id, title, artist, file_storage_path, duration_seconds, love_count, user_id) values ('$TRACK', 'পাঠকের গান', 'গায়ক', 'reader/track.mp3', 200, 3, '$READER');
 SQL
 
-psql -d behaviour -f "$MIGRATIONS/$(ls "$MIGRATIONS" | grep '^024')" >/dev/null
-psql -d behaviour -f "$MIGRATIONS/$(ls "$MIGRATIONS" | grep '^025')" >/dev/null
+for n in 024 025 026; do
+  psql -d behaviour -f "$MIGRATIONS/$(ls "$MIGRATIONS" | grep "^$n")" >/dev/null
+done
 
 # the uploader name is backfilled onto a row that predates the migration
 name="$(psql -d behaviour -tAc "set request.jwt.claim.sub = '$READER'; set role anon; select uploader_name from public.music_tracks where id = '$TRACK'")"
@@ -132,6 +133,43 @@ profile="$(psql -d behaviour -tAc "select public.public_profile('$READER')")"
 echo "$profile" | grep -q 'নতুন নাম' && ok "public profile returns the current name" || bad "profile: $profile"
 echo "$profile" | grep -q 'reader-article' && ok "public profile lists the published article" || bad "profile article missing"
 echo "$profile" | grep -q 'পাঠকের গান' && ok "public profile lists the song" || bad "profile song missing"
+
+# --- contributors -------------------------------------------------------------
+step "contributors"
+
+as_anon() { psql -d behaviour -tAc "set role anon; set request.jwt.claim.sub = ''; select public.$1;" 2>&1; }
+reader_call() { psql -d behaviour -tAc "set role authenticated; set request.jwt.claim.sub = '$READER'; select public.$1;" 2>&1; }
+
+guest_result="$(as_anon "record_app_time(600)" || true)"
+echo "$guest_result" | grep -qi "permission denied" && ok "a guest cannot report app time at all" \
+  || bad "guest app time (got '$guest_result')"
+
+recorded="$(reader_call "record_app_time(600)")"
+[ "$recorded" = "600" ] && ok "a signed-in reader's time is recorded" || bad "record_app_time (got '$recorded')"
+
+clamped="$(reader_call "record_app_time(99999)")"
+[ "$clamped" = "4200" ] && ok "one call is clamped to an hour (600 + 3600)" || bad "clamp (got '$clamped')"
+
+# The reader now has: 1 published article, 2 songs (the fixture's and the one the
+# trigger test added), 1 comment, 2 views of their own work (the guest's article
+# read and the reader's play both belong to the owner), 4200s of app time.
+#   50 + 2x30 + 5 + 2x1 + 4200/120 = 50 + 60 + 5 + 2 + 35 = 152
+psql -d behaviour -c "insert into public.comments (blog_id, content, user_id, status) values ('$BLOG', 'মন্তব্য', '$READER', 'Publish')" >/dev/null
+points="$(reader_call "contributor_points('$READER')")"
+for want in '"articles": 1' '"songs": 2' '"comments": 1' '"views": 2' '"seconds": 4200' '"points": 152'; do
+  echo "$points" | grep -q "$want" && ok "score has $want" || bad "score missing $want: $points"
+done
+
+board="$(reader_call "contributor_leaderboard(20, null)")"
+echo "$board" | grep -q 'নতুন নাম' && ok "the board names the reader" || bad "board: $board"
+echo "$board" | grep -q '"points": 152' && ok "the board carries the monthly points" || bad "board points: $board"
+echo "$board" | grep -q '"avatar_url"' && ok "the board carries the avatar for the card" || bad "board avatar missing"
+
+gate="$(as_anon "contributor_leaderboard(20, null)" || true)"
+echo "$gate" | grep -qi "permission denied\|signed-in" && ok "a guest is refused the board" || bad "gate (got '$gate')"
+
+empty_month="$(reader_call "contributor_leaderboard(20, (timezone('utc', now())::date - 400))")"
+echo "$empty_month" | grep -q '"contributors": \[\]' && ok "a month with no work is an empty board" || bad "empty month: $empty_month"
 
 # the trigger has to survive a delete, and only a delete
 psql -d behaviour -c "delete from public.content_views where content_type = 'blog' and content_id = '$BLOG'" >/dev/null

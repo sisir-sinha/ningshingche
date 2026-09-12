@@ -13,6 +13,8 @@ import com.ningshingche.app.data.remote.InboxSync
 import com.ningshingche.app.data.remote.SubmittedBlogRecord
 import com.ningshingche.app.data.remote.SubmittedMusicRecord
 import com.ningshingche.app.data.remote.SatoruUploadClient
+import com.ningshingche.app.data.portal.ContributorScore
+import com.ningshingche.app.data.portal.PortalRepository
 import com.ningshingche.app.data.portal.ViewDay
 import com.ningshingche.app.data.remote.SupabaseClient
 import com.ningshingche.app.data.remote.UserNotificationRecord
@@ -43,7 +45,8 @@ private const val VIEW_SERIES_DAYS = 30
 
 class ReaderWorkspaceViewModel(
     private val googleAuthRepository: GoogleAuthRepository,
-    private val supabaseClient: SupabaseClient
+    private val supabaseClient: SupabaseClient,
+    private val portalRepository: PortalRepository
 ) : ViewModel() {
 
     val currentUser: StateFlow<UserProfile?> = googleAuthRepository.currentUser
@@ -68,6 +71,10 @@ class ReaderWorkspaceViewModel(
 
     private val _metrics = MutableStateFlow(ReaderMetrics())
     val metrics: StateFlow<ReaderMetrics> = _metrics.asStateFlow()
+
+    /** The reader's own contributor points: this month and since they joined. */
+    private val _contributorScore = MutableStateFlow<ContributorScore?>(null)
+    val contributorScore: StateFlow<ContributorScore?> = _contributorScore.asStateFlow()
 
     /** The reader's views per day, for the dashboard's views-over-time chart. */
     private val _viewSeries = MutableStateFlow<List<ViewDay>>(emptyList())
@@ -104,6 +111,7 @@ class ReaderWorkspaceViewModel(
             val viewTotals = supabaseClient.userViewTotals(user.id).getOrNull()
             val series = supabaseClient.userViewSeries(user.id, VIEW_SERIES_DAYS)
                 .getOrDefault(_viewSeries.value)
+            val score = portalRepository.contributorPoints(user.id).getOrNull()
             _articles.value = articles
             _tracks.value = tracks
             _comments.value = comments
@@ -120,6 +128,7 @@ class ReaderWorkspaceViewModel(
                 musicViews = viewTotals?.musicViews ?: 0L
             )
             _viewSeries.value = series
+            _contributorScore.value = score
             articleResult.exceptionOrNull()?.message?.let { _message.value = it }
             commentResult.exceptionOrNull()?.message?.let { if (_message.value == null) _message.value = it }
             refreshInbox(user.id, articles, comments, notifySystem = true, markSeen = false)

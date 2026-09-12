@@ -432,6 +432,42 @@ class PortalRepository(
                 .mapCatching { dto -> dto?.toModel() ?: throw PortalError.NotFound }
         }
 
+    // ----------------------------------------------------------- contributors
+
+    /**
+     * The monthly contributor board (migration 026 RPC).
+     *
+     * Signed-in readers only — the function is granted to `authenticated` alone,
+     * so a guest gets a 401/403 here rather than an empty board, and the screen
+     * turns that into its sign-in gate.
+     */
+    suspend fun contributorBoard(limit: Int = 50): Result<ContributorBoard> =
+        withContext(Dispatchers.IO) {
+            callOne {
+                api.contributorLeaderboard(mapOf("p_limit" to limit.coerceIn(1, 100).toString()))
+            }.mapCatching { it.toModel() }
+        }
+
+    /** The reader's own points, this month and lifetime (migration 026 RPC). */
+    suspend fun contributorPoints(userId: String): Result<ContributorScore> =
+        withContext(Dispatchers.IO) {
+            val id = userId.trim()
+            if (id.isBlank()) return@withContext Result.failure(PortalError.NotFound)
+            callOne { api.contributorPoints(mapOf("p_user_id" to id)) }
+                .mapCatching { it.toModel() }
+        }
+
+    /**
+     * Reports seconds spent in the app (migration 026 RPC) and returns the
+     * reader's total for today, so the caller can tell a stored report from a
+     * dropped one.
+     */
+    suspend fun recordAppTime(seconds: Int): Result<Int> = withContext(Dispatchers.IO) {
+        val granted = seconds.coerceIn(0, 3600)
+        if (granted == 0) return@withContext Result.success(0)
+        callOne { api.recordAppTime(mapOf("p_seconds" to granted.toString())) }
+    }
+
     // ------------------------------------------------------------------ views
 
     /** Counts one article view; the result is the item's new public total. */

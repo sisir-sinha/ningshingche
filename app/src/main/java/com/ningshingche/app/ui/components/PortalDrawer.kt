@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
@@ -170,6 +171,17 @@ fun PortalDrawerContent(
             }
             DrawerRow("লেখক", Icons.Default.People, currentRoute == Screen.AuthorsDirectory.route) {
                 onCloseDrawer(); onNavigate(Screen.AuthorsDirectory.route)
+            }
+            // Registered readers only, as the owner asked. The row stays visible
+            // to everyone so the page can be found; the page itself explains and
+            // offers the sign-in when there is no session, and the database
+            // refuses the read besides.
+            DrawerRow(
+                "সেরা অবদানকারী",
+                Icons.Default.EmojiEvents,
+                currentRoute == Screen.Contributors.route
+            ) {
+                onCloseDrawer(); onNavigate(Screen.Contributors.route)
             }
             DrawerRow("সামাজিক কার্যকলাপ", Icons.Default.Groups, currentRoute == Screen.SocialActivities.route) {
                 onCloseDrawer(); onNavigate(Screen.SocialActivities.route)

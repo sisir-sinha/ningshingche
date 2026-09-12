@@ -578,3 +578,82 @@ internal fun PublicProfileDto.toModel(): PublicProfile {
     }
     )
 }
+
+
+/**
+ * What one reader has contributed over a window — a month, or everything.
+ *
+ * The counts are raw; [points] is what the database makes of them (its weights,
+ * not the app's: `contributor_points_from`, migration 026). Keeping the parts
+ * around is what lets a card say "৩টি প্রবন্ধ · ৫টি গান · ৯২০ পয়েন্ট" without
+ * another request.
+ */
+data class ContributionStats(
+    val articles: Int,
+    val songs: Int,
+    val comments: Int,
+    val views: Long,
+    val seconds: Int,
+    val points: Int
+) {
+    val minutes: Int get() = seconds / 60
+    val isEmpty: Boolean get() = points <= 0
+}
+
+/** One row of the monthly contributor board. */
+data class Contributor(
+    val userId: String,
+    val name: String,
+    val avatarUrl: String,
+    val stats: ContributionStats
+) {
+    val points: Int get() = stats.points
+}
+
+/** The board for one month, best first. */
+data class ContributorBoard(
+    /** `YYYY-MM`, as the database reports it. */
+    val monthKey: String,
+    val contributors: List<Contributor>
+)
+
+/** A reader's own points: the month the board covers, and everything before it. */
+data class ContributorScore(
+    val monthKey: String,
+    val month: ContributionStats,
+    val lifetime: ContributionStats
+)
+
+internal fun ContributionBlockDto.toStats(): ContributionStats = ContributionStats(
+    articles = (articles ?: 0).coerceAtLeast(0),
+    songs = (songs ?: 0).coerceAtLeast(0),
+    comments = (comments ?: 0).coerceAtLeast(0),
+    views = (views ?: 0L).coerceAtLeast(0L),
+    seconds = (seconds ?: 0).coerceAtLeast(0),
+    points = (points ?: 0).coerceAtLeast(0)
+)
+
+internal fun ContributorDto.toModel(): Contributor = Contributor(
+    userId = userId,
+    name = name.orEmpty().ifBlank { "নিংশিং চে পাঠক" },
+    avatarUrl = avatarUrl.orEmpty(),
+    stats = ContributionStats(
+        articles = (articles ?: 0).coerceAtLeast(0),
+        songs = (songs ?: 0).coerceAtLeast(0),
+        comments = (comments ?: 0).coerceAtLeast(0),
+        views = (views ?: 0L).coerceAtLeast(0L),
+        seconds = (seconds ?: 0).coerceAtLeast(0),
+        points = (points ?: 0).coerceAtLeast(0)
+    )
+)
+
+internal fun ContributorBoardDto.toModel(): ContributorBoard = ContributorBoard(
+    monthKey = monthKey.orEmpty(),
+    contributors = contributors.orEmpty().map { it.toModel() }
+)
+
+internal fun ContributorScoreDto.toModel(): ContributorScore = ContributorScore(
+    monthKey = monthKey.orEmpty(),
+    month = (month ?: ContributionBlockDto()).toStats(),
+    lifetime = (lifetime ?: ContributionBlockDto()).toStats()
+)

@@ -579,7 +579,38 @@ All use `stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), …)`.
 the signed-in user workspace, `ui/screens/UserDashboardScreen.kt` (dashboard tabs, notices, inbox).
 `ui/dashboard/` and its `views/` no longer exist.
 
-### 12.3 Public user pages and view counting
+### 12.3 Contributors
+
+The owner asked for a contributor page that only registered readers can see, reachable from the
+sidebar, with the month's best on the home page — as a list — and the reader's own points on their
+dashboard.
+
+| Where | What |
+| --- | --- |
+| `ui/screens/ContributorScreen.kt`, route `contributors`, drawer row **সেরা অবদানকারী** | The month's board: rank, picture, name, article and music counts, points |
+| `HomeScreen` — "এই মাসের সেরা অবদানকারী" | The top five as a list, with **সব দেখুন**; only rendered for a signed-in reader |
+| `UserDashboardScreen` — অবদান পয়েন্ট card | The reader's own lifetime and monthly points, with the parts they are made of |
+
+**The gate is the database's, not the screen's.** `contributor_leaderboard` and `contributor_points`
+are granted to `authenticated` alone and raise `42501` without an `auth.uid()`, so a guest's request
+fails however it is made. The app then shows its own gate — a lock, an explanation and a sign-in
+button — and `HomeViewModel.loadContributors(isSignedIn)` does not even issue the request when
+signed out.
+
+**Tapping a card opens that reader's public page** (`ReaderRoute.publicProfile`), where their songs and
+published articles are listed.
+
+**Time in the app** is part of the score, and the database cannot know about time it never hears:
+`analytics/AppTimeTracker.kt` measures foreground time (started and stopped by `MainActivity`) and
+reports it every five minutes and on leaving. Seconds are held in preferences until the server takes
+them, so an offline batch is folded into the next one instead of vanishing. Guests are dropped rather
+than carried over — on a shared device their minutes would otherwise land on the next reader.
+
+The weights (article 50, song 30, comment 5, view 1, two minutes 1) live in the database —
+`contributor_points_from` — so the app never computes a score it can disagree with. The contributor
+page prints the same table for the reader, in words.
+
+### 12.4 Public user pages and view counting
 
 Every registered reader has a public page: `ui/screens/PublicProfileScreen.kt`, route
 `user/{userId}` (`ReaderRoute.PublicProfile`), reachable by tapping an uploader's name on a song. It

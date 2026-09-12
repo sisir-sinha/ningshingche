@@ -279,3 +279,44 @@ data class PublicProfileDto(
     val articles: List<PublicArticleDto>? = null,
     val songs: List<PublicSongDto>? = null
 )
+
+
+/** One reader on the monthly contributor board (migration 026 RPC). */
+@JsonClass(generateAdapter = true)
+data class ContributorDto(
+    @Json(name = "user_id") val userId: String,
+    val name: String? = null,
+    @Json(name = "avatar_url") val avatarUrl: String? = null,
+    val articles: Int? = null,
+    val songs: Int? = null,
+    val comments: Int? = null,
+    val views: Long? = null,
+    val seconds: Int? = null,
+    val points: Int? = null
+)
+
+/** The board: which month it is, and who earned the most in it. */
+@JsonClass(generateAdapter = true)
+data class ContributorBoardDto(
+    @Json(name = "month_key") val monthKey: String? = null,
+    val contributors: List<ContributorDto>? = null
+)
+
+/** One window of a reader's own contribution (a month, or everything). */
+@JsonClass(generateAdapter = true)
+data class ContributionBlockDto(
+    val articles: Int? = null,
+    val songs: Int? = null,
+    val comments: Int? = null,
+    val views: Long? = null,
+    val seconds: Int? = null,
+    val points: Int? = null
+)
+
+/** A reader's own points: this month and since they joined. */
+@JsonClass(generateAdapter = true)
+data class ContributorScoreDto(
+    @Json(name = "month_key") val monthKey: String? = null,
+    val month: ContributionBlockDto? = null,
+    val lifetime: ContributionBlockDto? = null
+)

@@ -70,6 +70,16 @@ create table if not exists public.submitted_blogs (
   created_at timestamptz not null default timezone('utc', now())
 );
 
+-- 006 / schema.sql ------------------------------------------------------------
+create table if not exists public.comments (
+  id uuid primary key default gen_random_uuid(),
+  blog_id uuid,
+  content text not null default '',
+  status text not null default 'Unpublish',
+  user_id uuid,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
 -- 014 / 018 -------------------------------------------------------------------
 create table if not exists public.music_tracks (
   id uuid primary key default gen_random_uuid(),
@@ -93,7 +103,8 @@ create table if not exists public.music_tracks (
 -- Supabase grants these to the publishable key by default; without them the
 -- guest paths below could not even read the row they just wrote.
 grant usage on schema public to anon, authenticated;
-grant select on public.profiles, public.blogs, public.music_tracks, public.submitted_blogs
+grant select on public.profiles, public.blogs, public.music_tracks, public.submitted_blogs,
+  public.comments
   to anon, authenticated;
 
 -- Deliberately *not* created: `music_tracks.views_count` and

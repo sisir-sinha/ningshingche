@@ -1,0 +1,550 @@
+package com.ningshingche.app.ui.screens
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Article
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Stars
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import com.ningshingche.app.data.portal.Contributor
+import com.ningshingche.app.data.portal.ContributorBoard
+import com.ningshingche.app.data.portal.ContributionStats
+import com.ningshingche.app.ui.editorial.EditorialSpace
+import com.ningshingche.app.ui.editorial.EmptyState
+import com.ningshingche.app.ui.editorial.ErrorState
+import com.ningshingche.app.ui.editorial.Hairline
+import com.ningshingche.app.ui.editorial.LocalEditorialTokens
+import com.ningshingche.app.ui.editorial.toBengaliNumeral
+import com.ningshingche.app.ui.theme.Kalpurush
+
+/**
+ * সেরা অবদানকারী — the monthly contributor board.
+ *
+ * A registered-reader page: the database refuses the RPC to anyone without a
+ * session (the function is granted to `authenticated` alone), so the gate is
+ * real and this screen only has to present it. A guest gets [onSignInClick].
+ *
+ * Every card opens that reader's public page, where their songs and articles
+ * are listed — "linked to user_profile", as the owner asked.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ContributorScreen(
+    isSignedIn: Boolean,
+    currentUserId: String?,
+    loadBoard: suspend () -> Result<ContributorBoard>,
+    loadOwnScore: suspend () -> ContributionStats?,
+    onBackClick: () -> Unit,
+    onSignInClick: () -> Unit,
+    onContributorClick: (String) -> Unit
+) {
+    var board by remember { mutableStateOf<ContributorBoard?>(null) }
+    var own by remember { mutableStateOf<ContributionStats?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var loading by remember { mutableStateOf(false) }
+    var reloadToken by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(isSignedIn, reloadToken) {
+        if (!isSignedIn) {
+            board = null
+            own = null
+            return@LaunchedEffect
+        }
+        loading = true
+        error = null
+        loadBoard()
+            .onSuccess { board = it }
+            .onFailure { error = it.message ?: "তালিকা আনা যায়নি।" }
+        own = loadOwnScore()
+        loading = false
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text(
+                            text = "সেরা অবদানকারী",
+                            fontFamily = Kalpurush,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 17.sp
+                        )
+                        val month = board?.monthKey.orEmpty()
+                        if (month.isNotBlank()) {
+                            Text(
+                                text = "${monthLabel(month)}-এর তালিকা",
+                                fontFamily = Kalpurush,
+                                fontSize = 11.5.sp,
+                                color = LocalEditorialTokens.current.inkMuted
+                            )
+                        }
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBackClick, modifier = Modifier.testTag("contributors_back")) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "পেছনে")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
+            )
+        }
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .testTag("contributors_screen")
+        ) {
+            when {
+                !isSignedIn -> SignedOutGate(onSignInClick)
+
+                loading && board == null -> Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) { CircularProgressIndicator() }
+
+                board == null -> ErrorState(
+                    message = error ?: "তালিকা আনা যায়নি।",
+                    onRetry = { reloadToken += 1 }
+                )
+
+                else -> {
+                    val rows = board!!.contributors
+                    val mine = own
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 88.dp),
+                        verticalArrangement = Arrangement.spacedBy(EditorialSpace.sm)
+                    ) {
+                        item {
+                            PointsExplainer(
+                                own = mine,
+                                modifier = Modifier.padding(
+                                    horizontal = EditorialSpace.gutter,
+                                    vertical = EditorialSpace.sm
+                                )
+                            )
+                        }
+
+                        if (rows.isEmpty()) {
+                            item {
+                                EmptyState(
+                                    message = "এই মাসে এখনো কেউ পয়েন্ট নেয়নি।",
+                                    modifier = Modifier.padding(EditorialSpace.lg)
+                                )
+                            }
+                        }
+
+                        itemsIndexed(rows, key = { _, row -> row.userId }) { index, row ->
+                            ContributorCard(
+                                rank = index + 1,
+                                contributor = row,
+                                highlight = currentUserId != null && row.userId == currentUserId,
+                                onClick = { onContributorClick(row.userId) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** The reader's own standing, and what the points are made of. */
+@Composable
+private fun PointsExplainer(own: ContributionStats?, modifier: Modifier = Modifier) {
+    val tokens = LocalEditorialTokens.current
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.padding(EditorialSpace.md), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Stars,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = if (own != null && !own.isEmpty) "আপনার অবদান" else "পয়েন্ট কীভাবে জমে",
+                    fontFamily = Kalpurush,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+            }
+            if (own != null && !own.isEmpty) {
+                Text(
+                    text = "${toBengaliNumeral(own.points)} পয়েন্ট",
+                    fontFamily = Kalpurush,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 22.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                StatsRow(own)
+            }
+            Hairline()
+            Text(
+                text = "প্রতিটি প্রকাশিত প্রবন্ধ ৫০ পয়েন্ট, প্রতিটি গান ৩০ পয়েন্ট, " +
+                    "প্রতিটি মন্তব্য ৫ পয়েন্ট, আপনার লেখা পড়া বা গান শোনার প্রতিটি ভিউ ১ পয়েন্ট " +
+                    "এবং অ্যাপে কাটানো প্রতি ২ মিনিটে ১ পয়েন্ট যোগ হয়।",
+                fontFamily = Kalpurush,
+                fontSize = 12.sp,
+                color = tokens.inkMuted
+            )
+        }
+    }
+}
+
+/** The gate a guest sees instead of the board. */
+@Composable
+private fun SignedOutGate(onSignInClick: () -> Unit) {
+    val tokens = LocalEditorialTokens.current
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(EditorialSpace.xl),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            imageVector = Icons.Default.Lock,
+            contentDescription = null,
+            tint = tokens.inkMuted,
+            modifier = Modifier.size(40.dp)
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            text = "এই পাতা নিবন্ধিত পাঠকের জন্য",
+            fontFamily = Kalpurush,
+            fontWeight = FontWeight.Bold,
+            fontSize = 17.sp,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = "অবদানকারীর তালিকা ও আপনার নিজের পয়েন্ট দেখতে সাইন ইন করুন।",
+            fontFamily = Kalpurush,
+            fontSize = 13.sp,
+            color = tokens.inkMuted,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(16.dp))
+        Button(onClick = onSignInClick, modifier = Modifier.testTag("contributors_sign_in")) {
+            Text("সাইন ইন করুন", fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+/**
+ * One contributor: rank, picture, name, what they published, and their points.
+ * The whole card is the link to that reader's public page.
+ */
+@Composable
+private fun ContributorCard(
+    rank: Int,
+    contributor: Contributor,
+    highlight: Boolean = false,
+    onClick: () -> Unit
+) {
+    val tokens = LocalEditorialTokens.current
+    val medal = when (rank) {
+        1 -> Color(0xFFD4A017)
+        2 -> Color(0xFF9AA0A6)
+        3 -> Color(0xFFB06E3B)
+        else -> tokens.inkMuted
+    }
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = if (highlight) tokens.accentSoft else MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = EditorialSpace.gutter)
+            .clickable(onClick = onClick)
+            .testTag("contributor_card_$rank")
+    ) {
+        Row(
+            modifier = Modifier.padding(EditorialSpace.md),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(if (rank <= 3) medal.copy(alpha = 0.18f) else tokens.surfaceSunken),
+                contentAlignment = Alignment.Center
+            ) {
+                if (rank <= 3) {
+                    Icon(
+                        imageVector = Icons.Default.EmojiEvents,
+                        contentDescription = null,
+                        tint = medal,
+                        modifier = Modifier.size(18.dp)
+                    )
+                } else {
+                    Text(
+                        text = toBengaliNumeral(rank),
+                        fontFamily = Kalpurush,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = tokens.inkMuted
+                    )
+                }
+            }
+            Spacer(Modifier.width(EditorialSpace.sm))
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(tokens.surfaceSunken),
+                contentAlignment = Alignment.Center
+            ) {
+                if (contributor.avatarUrl.isNotBlank()) {
+                    AsyncImage(
+                        model = contributor.avatarUrl,
+                        contentDescription = contributor.name,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Text(
+                        text = contributor.name.trim().take(1).ifBlank { "ন" },
+                        fontFamily = Kalpurush,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            Spacer(Modifier.width(EditorialSpace.md))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    text = contributor.name,
+                    fontFamily = Kalpurush,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                StatsRow(contributor.stats)
+            }
+            Spacer(Modifier.width(EditorialSpace.sm))
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = toBengaliNumeral(contributor.points),
+                    fontFamily = Kalpurush,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "পয়েন্ট",
+                    fontFamily = Kalpurush,
+                    fontSize = 10.5.sp,
+                    color = tokens.inkMuted
+                )
+            }
+        }
+    }
+}
+
+/** The article / music / time counts, as icons with their numbers. */
+@Composable
+private fun StatsRow(stats: ContributionStats) {
+    val tokens = LocalEditorialTokens.current
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        StatPill(Icons.AutoMirrored.Filled.Article, stats.articles, tokens.inkMuted)
+        StatPill(Icons.Default.MusicNote, stats.songs, tokens.inkMuted)
+        if (stats.views > 0L) {
+            StatPill(Icons.Default.Visibility, stats.views.toInt(), tokens.inkMuted)
+        }
+        if (stats.minutes > 0) {
+            StatPill(Icons.Default.Timer, stats.minutes, tokens.inkMuted, suffix = "মি")
+        }
+    }
+}
+
+@Composable
+private fun StatPill(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    value: Int,
+    tint: Color,
+    suffix: String = ""
+) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier.size(13.dp)
+        )
+        Text(
+            text = toBengaliNumeral(value) + suffix,
+            fontFamily = Kalpurush,
+            fontSize = 11.5.sp,
+            color = tint
+        )
+    }
+}
+
+/**
+ * `2026-09` → `সেপ্টেম্বর ২০২৬`. The month key is the database's; the label is
+ * the reader's, so the two never have to agree on a date format.
+ */
+internal fun monthLabel(monthKey: String): String {
+    val parts = monthKey.split("-")
+    val year = parts.getOrNull(0)?.toIntOrNull()
+    val month = parts.getOrNull(1)?.toIntOrNull()
+    if (year == null || month == null || month !in 1..12) return monthKey
+    val names = listOf(
+        "জানুয়ারি", "ফেব্রুয়ারি", "মার্চ", "এপ্রিল", "মে", "জুন",
+        "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর"
+    )
+    return "${names[month - 1]} ${toBengaliNumeral(year)}"
+}
+
+/** Used by the home page's list of the same board. */
+@Composable
+internal fun ContributorMiniRow(contributor: Contributor, rank: Int, onClick: () -> Unit) {
+    val tokens = LocalEditorialTokens.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = EditorialSpace.md, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = toBengaliNumeral(rank),
+            fontFamily = Kalpurush,
+            fontWeight = FontWeight.Bold,
+            fontSize = 13.sp,
+            color = if (rank <= 3) MaterialTheme.colorScheme.primary else tokens.inkMuted,
+            modifier = Modifier.width(20.dp)
+        )
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(CircleShape)
+                .background(tokens.surfaceSunken),
+            contentAlignment = Alignment.Center
+        ) {
+            if (contributor.avatarUrl.isNotBlank()) {
+                AsyncImage(
+                    model = contributor.avatarUrl,
+                    contentDescription = contributor.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Text(
+                    text = contributor.name.trim().take(1).ifBlank { "ন" },
+                    fontFamily = Kalpurush,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+        Spacer(Modifier.width(EditorialSpace.sm))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = contributor.name,
+                fontFamily = Kalpurush,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            StatsRow(contributor.stats)
+        }
+        Text(
+            text = "${toBengaliNumeral(contributor.points)} পয়েন্ট",
+            fontFamily = Kalpurush,
+            fontWeight = FontWeight.Bold,
+            fontSize = 12.5.sp,
+            color = MaterialTheme.colorScheme.primary
+        )
+    }
+}
+
+/** Convenience for callers that have the board rows as a list. */
+@Composable
+internal fun ContributorList(
+    contributors: List<Contributor>,
+    onContributorClick: (String) -> Unit,
+    header: (@Composable () -> Unit)? = null
+) {
+    Column(Modifier.fillMaxWidth()) {
+        header?.invoke()
+        contributors.forEachIndexed { index, contributor ->
+            if (index > 0) Hairline(Modifier.padding(horizontal = EditorialSpace.md))
+            ContributorMiniRow(
+                contributor = contributor,
+                rank = index + 1,
+                onClick = { onContributorClick(contributor.userId) }
+            )
+        }
+    }
+}

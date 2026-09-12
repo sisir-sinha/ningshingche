@@ -109,6 +109,21 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Foreground time is contributor points (migration 026), so the clock starts
+     * and stops with the activity rather than with a screen: moving between
+     * screens is one session, and leaving the app is the end of it.
+     */
+    override fun onStart() {
+        super.onStart()
+        (application as? NinghsingCheApp)?.appTimeTracker?.onForeground()
+    }
+
+    override fun onStop() {
+        (application as? NinghsingCheApp)?.appTimeTracker?.onBackground()
+        super.onStop()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)

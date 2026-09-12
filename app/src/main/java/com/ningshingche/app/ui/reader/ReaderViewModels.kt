@@ -19,6 +19,7 @@ import com.ningshingche.app.data.portal.VideoItem
 import com.ningshingche.app.data.portal.Page
 import com.ningshingche.app.data.portal.PortalError
 import com.ningshingche.app.NinghsingCheApp
+import com.ningshingche.app.data.portal.Contributor
 import com.ningshingche.app.data.portal.PortalRepository
 import com.ningshingche.app.data.portal.GalleryItem
 import com.ningshingche.app.data.portal.IssueSummary
@@ -58,6 +59,9 @@ sealed interface HomeUiState {
     data class Error(val message: String) : HomeUiState
 }
 
+/** How many names the home page shows before "সব দেখুন". */
+private const val HOME_CONTRIBUTOR_COUNT = 5
+
 class HomeViewModel(private val repository: PortalRepository) : ViewModel() {
 
     private val _state = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
@@ -72,6 +76,16 @@ class HomeViewModel(private val repository: PortalRepository) : ViewModel() {
 
     private val _videosLoading = MutableStateFlow(false)
     val videosLoading: StateFlow<Boolean> = _videosLoading.asStateFlow()
+
+    /**
+     * This month's contributor board. Empty for a guest: the database refuses the
+     * read without a session, so there is nothing to ask for.
+     */
+    private val _contributors = MutableStateFlow<List<Contributor>>(emptyList())
+    val contributors: StateFlow<List<Contributor>> = _contributors.asStateFlow()
+
+    private val _contributorsLoading = MutableStateFlow(false)
+    val contributorsLoading: StateFlow<Boolean> = _contributorsLoading.asStateFlow()
 
     private val _musicCatalog = MutableStateFlow<List<MusicTrack>>(emptyList())
     val musicCatalog: StateFlow<List<MusicTrack>> = _musicCatalog.asStateFlow()
@@ -96,6 +110,26 @@ class HomeViewModel(private val repository: PortalRepository) : ViewModel() {
                     }
                 }
             _videosLoading.value = false
+        }
+    }
+
+    /**
+     * The top contributors, for the home page. `isSignedIn` gates the request
+     * rather than the display: an unsigned reader never calls the RPC, so the
+     * board is not merely hidden from them.
+     */
+    fun loadContributors(isSignedIn: Boolean, force: Boolean = false) {
+        if (!isSignedIn) {
+            _contributors.value = emptyList()
+            return
+        }
+        if (_contributorsLoading.value) return
+        if (!force && _contributors.value.isNotEmpty()) return
+        viewModelScope.launch {
+            _contributorsLoading.value = true
+            repository.contributorBoard(limit = HOME_CONTRIBUTOR_COUNT)
+                .onSuccess { _contributors.value = it.contributors }
+            _contributorsLoading.value = false
         }
     }
 

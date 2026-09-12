@@ -846,7 +846,57 @@ never stored, only its hash.
 
 ---
 
-### 7.15 `public_profile` (`024_uploader_and_public_profile.sql`, publishable key allowed)
+### 7.15 Contributor points (`026_contributors.sql`, signed-in readers only)
+
+Points are what the contributor board ranks. The weights live in exactly one function, so changing
+what a contributor is means one edit:
+
+| contribution | points |
+| --- | --- |
+| published article (a submission that became a `blogs` row of status `Publish`) | 50 |
+| song uploaded (`music_tracks.user_id`) | 30 |
+| comment (`comments.user_id`) | 5 |
+| view of their article or song | 1 |
+| time in the app | 1 per 2 minutes |
+
+**`record_app_time(p_seconds integer) → integer`**
+
+Adds to the caller's total for today (UTC) and answers with that total. Returns `0` when there is no
+session. One call is capped at an hour and a day at 16 hours, so a bug in the app cannot mint points.
+The app calls it every five minutes while it is open and again when it goes to the background.
+
+**`contributor_points(p_user_id uuid) → jsonb`**
+
+```
+{ "month_key": "2026-09",
+  "month":    { "articles": 2, "songs": 1, "comments": 4, "views": 61, "seconds": 5400, "points": 271 },
+  "lifetime": { … same shape … } }
+```
+
+**`contributor_leaderboard(p_limit integer default 20, p_month date default null) → jsonb`**
+
+```
+{ "month_key": "2026-09",
+  "contributors": [ { "user_id", "name", "avatar_url",
+                      "articles", "songs", "comments", "views", "seconds", "points" } ] }
+```
+
+Ordered by points, then articles, then songs. Readers with nothing in the month are left out.
+`p_month` is any date inside the month wanted; `p_limit` is clamped to 1–100.
+
+**Who may call what.** All three functions are `revoke`d from `public` and granted to
+`authenticated` only — a guest with the publishable key is refused by the database, which is what
+makes "only registered users" true rather than merely drawn. The two read functions also raise
+`42501` when `auth.uid()` is null. `contributor_score`, `contributor_month_range` and
+`contributor_points_from` are internal: they are revoked from everyone and are reached only through
+the entry points above.
+
+`reader_activity` (one row per reader per UTC day) has RLS on and no grants or policies: only
+`record_app_time` touches it.
+
+---
+
+### 7.16 `public_profile` (`024_uploader_and_public_profile.sql`, publishable key allowed)
 
 One registered reader's public page: their name and avatar, the published articles their submissions
 were converted into, and the songs they uploaded — with the view totals for both. Exists because
@@ -868,7 +918,7 @@ what the player's `Uploader: …` line reads, with no extra request.
 
 ---
 
-### 7.16 View counting (`025_content_views.sql`, publishable key allowed)
+### 7.17 View counting (`025_content_views.sql`, publishable key allowed)
 
 A running total cannot draw a graph, so the counts are derived from events: every view is one row in
 `public.content_views`, a trigger keeps `blogs.views_count` / `music_tracks.views_count` in step, and

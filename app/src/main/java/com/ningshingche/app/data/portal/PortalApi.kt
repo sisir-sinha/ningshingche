@@ -146,6 +146,33 @@ interface PortalApi {
         @Body body: Map<String, String>
     ): Response<List<ViewDayDto>>
 
+    // ---------------------------------------------------------- contributors
+
+    /**
+     * The monthly contributor board (migration 026 RPC). Signed-in readers only:
+     * the function is granted to `authenticated` alone, so a guest gets 401/403
+     * rather than an empty board.
+     */
+    @POST("rpc/contributor_leaderboard")
+    suspend fun contributorLeaderboard(
+        @Body body: Map<String, String>
+    ): Response<ContributorBoardDto?>
+
+    /** The reader's own points, this month and lifetime (migration 026 RPC). */
+    @POST("rpc/contributor_points")
+    suspend fun contributorPoints(
+        @Body body: Map<String, String>
+    ): Response<ContributorScoreDto?>
+
+    /**
+     * Reports seconds spent in the app (migration 026 RPC), answering with the
+     * reader's total for today. Signed-in only; a guest is refused.
+     */
+    @POST("rpc/record_app_time")
+    suspend fun recordAppTime(
+        @Body body: Map<String, String>
+    ): Response<Int?>
+
     /** Published article count per annual issue (migration 013 RPC). */
     @POST("rpc/blog_issue_years")
     suspend fun issueYears(

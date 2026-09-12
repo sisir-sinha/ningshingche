@@ -57,6 +57,11 @@ Three components share one Supabase project (`slcpvmpsynkqdozvlsii`):
   `public_profile` RPC — `profiles` and `submitted_blogs` are select-own, and the latter carries the
   writer's contact details, so the page is assembled by the definer and returns only safe fields.
   The uploader's name is also denormalised onto the track (`music_tracks.uploader_name`).
+- **Contributor points** (migration 026) are a database concern: `contributor_points_from` holds the
+  weights, `contributor_score` reads them over a window, and `record_app_time` accepts the app's
+  reporting of foreground time with a per-call and per-day cap. The board and a reader's own figures
+  are two more RPCs, granted to `authenticated` alone — the "registered readers only" rule is the
+  grant, not a screen. `reader_activity` keeps one row per reader per day, RLS on and no grants.
 - **GitHub Pages** deploys `backend/` as a static site (`.github/workflows/jekyll-gh-pages.yml`).
 
 ---

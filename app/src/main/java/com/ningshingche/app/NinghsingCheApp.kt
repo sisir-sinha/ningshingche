@@ -21,6 +21,7 @@ import com.ningshingche.app.notifications.ContentCheckWorker
 import com.ningshingche.app.notifications.ContentUpdateNotifier
 import com.ningshingche.app.notifications.SeenContentStore
 import com.ningshingche.app.data.i18n.TranslationRepository
+import com.ningshingche.app.analytics.AppTimeTracker
 import com.ningshingche.app.data.music.MusicLibraryStore
 import com.ningshingche.app.playback.MusicController
 import kotlinx.coroutines.CoroutineScope
@@ -77,6 +78,10 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
         private set
 
     lateinit var musicController: MusicController
+        private set
+
+    /** Foreground time, which is part of the contributor points (migration 026). */
+    lateinit var appTimeTracker: AppTimeTracker
         private set
 
     /** Interface language files, fetched from the dashboard and cached on disk. */
@@ -158,6 +163,7 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
         // react uses, so one phone is one viewer for both.
         portalRepository.guestViewerId = musicStore.deviceId
         musicController = MusicController(this, musicStore)
+        appTimeTracker = AppTimeTracker(this, portalRepository, supabaseClient)
         // The player reports what it starts; the count itself belongs to the
         // database, so the song's total in the UI is read back from the RPC.
         musicController.onTrackStarted = { trackId ->

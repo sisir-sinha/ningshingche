@@ -37,6 +37,7 @@ sealed class Screen(val route: String) {
     data object Featured : Screen("featured")
     data object About : Screen("about")
     data object SocialActivities : Screen("social_activities")
+    data object Contributors : Screen("contributors")
     data object AuthorsDirectory : Screen("authors_directory")
 
     /** `explore?tab=<key>`; `route` (no argument) opens the first tab. */

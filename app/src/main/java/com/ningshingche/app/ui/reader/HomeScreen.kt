@@ -34,6 +34,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -54,6 +55,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.ningshingche.app.ui.editorial.EditorialSpace
+import com.ningshingche.app.ui.screens.ContributorList
 import com.ningshingche.app.ui.theme.Kalpurush
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -121,6 +124,8 @@ fun HomeScreen(
     onSeeAllSpecial: (() -> Unit)? = null,
     onSeeAllVideos: () -> Unit = {},
     onSeeAllMusic: () -> Unit = {},
+    onSeeAllContributors: () -> Unit = {},
+    onContributorClick: (String) -> Unit = {},
     onMenuClick: () -> Unit = {},
     onAiClick: () -> Unit = {},
     onAiPrompt: (String) -> Unit = {},
@@ -137,6 +142,8 @@ fun HomeScreen(
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsState()
+    val contributors by viewModel.contributors.collectAsState()
+    LaunchedEffect(isSignedIn) { viewModel.loadContributors(isSignedIn) }
     val offlineNotice by viewModel.offlineNotice.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
@@ -482,6 +489,36 @@ private fun HomeContent(
                     onTrackClick = { musicController.play(it, feed.music, expand = true) },
                     onSeeAll = onSeeAllMusic
                 )
+            }
+        }
+
+        // Contributor board. Only for a signed-in reader: the owner asked for it
+        // to be that way, and the request itself is gated in the view model, so
+        // a guest does not even ask.
+        if (isSignedIn && contributors.isNotEmpty()) {
+            item {
+                Surface(
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(16.dp),
+                    tonalElevation = 1.dp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = EditorialSpace.gutter)
+                ) {
+                    Column(Modifier.padding(vertical = EditorialSpace.sm)) {
+                        SectionHeader(
+                            title = "এই মাসের সেরা অবদানকারী",
+                            subtitle = "প্রবন্ধ, গান ও অ্যাপে সময় — সব মিলিয়ে",
+                            actionLabel = "সব দেখুন",
+                            onAction = onSeeAllContributors,
+                            modifier = Modifier.padding(horizontal = 0.dp)
+                        )
+                        ContributorList(
+                            contributors = contributors,
+                            onContributorClick = onContributorClick
+                        )
+                    }
+                }
             }
         }
 

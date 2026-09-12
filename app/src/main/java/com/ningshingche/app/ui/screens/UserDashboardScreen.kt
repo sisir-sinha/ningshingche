@@ -47,6 +47,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Comment
+import androidx.compose.material.icons.filled.Stars
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
@@ -126,12 +128,15 @@ import com.ningshingche.app.data.remote.SubmittedBlogRecord
 import com.ningshingche.app.data.remote.SubmittedMusicRecord
 import com.ningshingche.app.data.remote.UserNotificationRecord
 import com.ningshingche.app.data.portal.MusicTrack
+import com.ningshingche.app.data.portal.ContributionStats
+import com.ningshingche.app.data.portal.ContributorScore
 import com.ningshingche.app.data.portal.ViewDay
 import com.ningshingche.app.data.remote.UserProfile
 import com.ningshingche.app.data.remote.messageAttachmentUrls
 import com.ningshingche.app.data.remote.shortDateTime
 import com.ningshingche.app.ui.components.AppToasts
 import com.ningshingche.app.ui.editorial.Hairline
+import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.editorial.toBengaliNumeral
 import com.ningshingche.app.ui.components.LocalMusicController
 import com.ningshingche.app.ui.reader.RichHtmlArticleBody
@@ -177,6 +182,7 @@ fun UserDashboardScreen(
     val messages by viewModel.adminMessages.collectAsStateWithLifecycle()
     val metrics by viewModel.metrics.collectAsStateWithLifecycle()
     val viewSeries by viewModel.viewSeries.collectAsStateWithLifecycle()
+    val contributorScore by viewModel.contributorScore.collectAsStateWithLifecycle()
     val loading by viewModel.isLoading.collectAsStateWithLifecycle()
     val saving by viewModel.isSaving.collectAsStateWithLifecycle()
     val status by viewModel.message.collectAsStateWithLifecycle()
@@ -382,6 +388,7 @@ fun UserDashboardScreen(
                     TAB_HOME -> HomePane(
                         user = user,
                         metrics = metrics,
+                        contributorScore = contributorScore,
                         viewSeries = viewSeries,
                         viewSeriesDays = viewModel.viewSeriesDays,
                         articles = articles,
@@ -471,6 +478,7 @@ private fun DashboardBottomBar(
 private fun HomePane(
     user: UserProfile?,
     metrics: ReaderMetrics,
+    contributorScore: ContributorScore?,
     viewSeries: List<ViewDay>,
     viewSeriesDays: Int,
     articles: List<SubmittedBlogRecord>,
@@ -504,6 +512,8 @@ private fun HomePane(
             }
         }
         MetricsGrid(metrics = metrics)
+        // Points, from the same place the contributor board gets them.
+        contributorScore?.let { ContributorPointsCard(score = it) }
         // The one graph that comes from the server: the views the database has
         // counted on the reader's articles and songs, day by day.
         ViewsOverTimeChart(
@@ -1334,6 +1344,95 @@ private fun MetricsGrid(metrics: ReaderMetrics) {
 }
 
 @Composable
+/**
+ * The reader's own points, on their dashboard.
+ *
+ * Lifetime is the headline; the month is beside it, because that is the figure
+ * the board ranks. The parts are listed underneath so the number is never just a
+ * number — the same weights the contributor page explains.
+ */
+@Composable
+private fun ContributorPointsCard(score: ContributorScore, modifier: Modifier = Modifier) {
+    val tokens = LocalEditorialTokens.current
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp,
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("dashboard_points")
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Stars,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = "অবদান পয়েন্ট",
+                    fontFamily = Kalpurush,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    text = "${toBengaliNumeral(score.lifetime.points)} পয়েন্ট",
+                    fontFamily = Kalpurush,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            Text(
+                text = "${monthLabel(score.monthKey)} মাসে ${toBengaliNumeral(score.month.points)} পয়েন্ট",
+                fontFamily = Kalpurush,
+                fontSize = 12.sp,
+                color = tokens.inkMuted
+            )
+            Hairline()
+            PointsBreakdown(score.lifetime)
+        }
+    }
+}
+
+/** What the score is made of, in the reader's own numbers. */
+@Composable
+private fun PointsBreakdown(stats: ContributionStats) {
+    val tokens = LocalEditorialTokens.current
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        BreakdownItem("প্রবন্ধ", stats.articles, Icons.AutoMirrored.Filled.Article, tokens.inkMuted)
+        BreakdownItem("গান", stats.songs, Icons.Default.MusicNote, tokens.inkMuted)
+        BreakdownItem("মন্তব্য", stats.comments, Icons.Default.Comment, tokens.inkMuted)
+        BreakdownItem("ভিউ", stats.views.toInt(), Icons.Default.Visibility, tokens.inkMuted)
+        BreakdownItem("মিনিট", stats.minutes, Icons.Default.Timer, tokens.inkMuted)
+    }
+}
+
+@Composable
+private fun BreakdownItem(
+    label: String,
+    value: Int,
+    icon: ImageVector,
+    tint: Color
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Icon(imageVector = icon, contentDescription = null, tint = tint, modifier = Modifier.size(15.dp))
+        Text(
+            text = toBengaliNumeral(value),
+            fontFamily = Kalpurush,
+            fontWeight = FontWeight.Bold,
+            fontSize = 13.sp
+        )
+        Text(text = label, fontFamily = Kalpurush, fontSize = 10.sp, color = tint)
+    }
+}
+
 private fun MetricCard(label: String, value: String, icon: ImageVector, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier,

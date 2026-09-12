@@ -57,6 +57,7 @@ import com.ningshingche.app.ui.screens.NewArticleScreen
 import com.ningshingche.app.ui.screens.NewMusicScreen
 import com.ningshingche.app.data.music.MusicShelfKind
 import com.ningshingche.app.ui.screens.PdfArchiveScreen
+import com.ningshingche.app.ui.screens.ContributorScreen
 import com.ningshingche.app.ui.screens.PublicProfileScreen
 import com.ningshingche.app.ui.screens.PdfViewerScreen
 import com.ningshingche.app.ui.screens.SettingsScreen
@@ -127,6 +128,8 @@ object ReaderRoute {
     const val About = "about"
     const val AuthorsDirectory = "authors_directory"
     const val SocialActivities = "social_activities"
+    // সেরা অবদানকারী — the monthly board, for signed-in readers.
+    const val Contributors = "contributors"
 
     fun ai(question: String = ""): String {
         return if (question.isBlank()) AiAssistant else "ai_assistant?q=${encode(question)}"
@@ -437,6 +440,8 @@ fun EditorialReaderApp(
                     onSeeAllSpecial = { openExploreTab(ExploreTab.Popular) },
                     onSeeAllVideos = { navController.navigate(ReaderRoute.Videos) },
                     onSeeAllMusic = { navController.navigate(ReaderRoute.Music) },
+                    onSeeAllContributors = { navController.navigate(ReaderRoute.Contributors) },
+                    onContributorClick = { navController.navigate(ReaderRoute.publicProfile(it)) },
                     onMenuClick = {
                         coroutineScope.launch { drawerState.open() }
                     },
@@ -943,6 +948,23 @@ fun EditorialReaderApp(
                     viewModel = homeViewModel,
                     onBackClick = { navController.popBackStack() },
                     onArticleClick = { navController.navigate(ReaderRoute.article(it)) }
+                )
+            }
+
+            // Contributor board (signed-in readers)
+            composable(ReaderRoute.Contributors, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
+                ContributorScreen(
+                    isSignedIn = isSignedIn,
+                    currentUserId = currentUser?.id,
+                    loadBoard = { app.portalRepository.contributorBoard() },
+                    loadOwnScore = {
+                        currentUser?.id?.let { id ->
+                            app.portalRepository.contributorPoints(id).getOrNull()?.month
+                        }
+                    },
+                    onBackClick = { navController.popBackStack() },
+                    onSignInClick = { navController.navigate(ReaderRoute.Login) },
+                    onContributorClick = { navController.navigate(ReaderRoute.publicProfile(it)) }
                 )
             }
 

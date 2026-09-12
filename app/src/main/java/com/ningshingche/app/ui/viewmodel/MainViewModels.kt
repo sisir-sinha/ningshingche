@@ -602,7 +602,8 @@ class ViewModelFactory(
             modelClass.isAssignableFrom(PdfArchiveViewModel::class.java) -> PdfArchiveViewModel(repository) as T
             modelClass.isAssignableFrom(PdfViewerViewModel::class.java) ->
                 PdfViewerViewModel(repository, portalRepository, context, preferencesRepository) as T
-            modelClass.isAssignableFrom(ReaderWorkspaceViewModel::class.java) -> ReaderWorkspaceViewModel(googleAuthRepository, supabaseClient) as T
+            modelClass.isAssignableFrom(ReaderWorkspaceViewModel::class.java) ->
+                ReaderWorkspaceViewModel(googleAuthRepository, supabaseClient, portalRepository) as T
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
     }

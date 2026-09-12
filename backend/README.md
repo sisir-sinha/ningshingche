@@ -548,6 +548,7 @@ from the check that failed, so read it rather than assuming Blog uploads:
 - A track's uploader or a public user page → `supabase/migrations/024_uploader_and_public_profile.sql`
 - View counts, the dashboard's ভিউ counter and its views-over-time chart →
   `supabase/migrations/025_content_views.sql`
+- Contributor points and the সেরা অবদানকারী board → `supabase/migrations/026_contributors.sql`
 - A table reported as *missing* → `supabase/schema.sql`, then the migrations in order
 
 Run that file in the Supabase SQL Editor, reload the dashboard, and check again in **Settings →
