@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
@@ -1277,7 +1278,7 @@ fun ForumThreadScreen(
                             onToggleExpand = {
                                 expandedBodies = expandedBodies.toggle(loaded.discussion.id)
                             },
-                            onAuthorClick = openAuthor,
+                            onAuthorClick = { openAuthor(loaded.discussion.authorId) },
                             onCardClick = { editor.dismiss() },
                             // The cover, as large as the phone will show it: the
                             // same viewer an attached picture opens in, so there
@@ -1551,7 +1552,7 @@ private fun ForumAnswerCard(
                             reply = nested,
                             expanded = expandedIds.contains(nested.id),
                             onToggleExpand = onToggleExpand,
-                            onAuthorClick = openAuthor,
+                            onAuthorClick = onAuthorClick,
                             onReply = onReply,
                             onReact = onReact,
                             onCardClick = onCardClick,

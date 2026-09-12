@@ -379,6 +379,27 @@ test('an answer the dashboard wrote says so', async (t) => {
 });
 
 // ---------------------------------------------------------------------------
+// 6b. A name with no reader behind it
+// ---------------------------------------------------------------------------
+
+test('an editorial name is drawn but never opens anything', async (t) => {
+  await t.test('the guard is at the call, because the parameter is not the same shape', () => {
+    // The opening post takes a click with no argument — it draws one face and
+    // knows whose it is — while an answer card takes the reader's id. Handing the
+    // same lambda to both is a compile error, which is how the owner's build
+    // found this; the assertion is here so the next edit finds it first.
+    assert.match(FORUM_SCREENS,
+      /onAuthorClick = \{ openAuthor\(loaded\.discussion\.authorId\) \}/,
+      'the opening post guards the call it can make');
+    assert.equal((FORUM_SCREENS.match(/onAuthorClick = openAuthor,/g) || []).length, 1,
+      'and the answer cards are the one place the lambda itself is handed down');
+    assert.match(FORUM_SCREENS,
+      /val openAuthor: \(String\) -> Unit = \{ id -> if \(id\.isNotBlank\(\)\) onAuthorClick\(id\) \}/,
+      'which refuses an empty id — an editorial row has no reader behind it');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 7. The cards: one shape
 // ---------------------------------------------------------------------------
 
