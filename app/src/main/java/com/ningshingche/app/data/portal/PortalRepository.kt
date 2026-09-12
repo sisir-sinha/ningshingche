@@ -74,6 +74,13 @@ class PortalRepository(
     private companion object {
         val TTL_REFERENCE = TimeUnit.MINUTES.toMillis(10)
         val TTL_SETTINGS = TimeUnit.HOURS.toMillis(1)
+
+        /** The three reactions the popup offers, checked before a request is made. */
+        val REACTIONS = setOf(
+            ForumReply.REACTION_LIKE,
+            ForumReply.REACTION_DISLIKE,
+            ForumReply.REACTION_AGREE
+        )
     }
 
     // ------------------------------------------------------------ home feed
@@ -688,10 +695,24 @@ class PortalRepository(
      * Readable by anyone — a guest included — because the migration grants
      * these five reads to `anon` as well. Only the two writes need a session.
      */
-    suspend fun forumOverview(limit: Int = 20): Result<ForumOverview> =
+    suspend fun forumOverview(
+        limit: Int = 20,
+        order: String = ForumOverview.ORDER_RECENT
+    ): Result<ForumOverview> =
         withContext(Dispatchers.IO) {
+            // The filter the reader picked travels as a word the database knows;
+            // anything else is `recent`, which is also what it answers with when
+            // it does not recognise the word.
+            val wanted = order.trim().lowercase()
+                .takeIf { it in ForumOverview.orders }
+                ?: ForumOverview.ORDER_RECENT
             callOne {
-                api.forumOverview(mapOf("p_limit" to limit.coerceIn(1, 50).toString()))
+                api.forumOverview(
+                    mapOf(
+                        "p_limit" to limit.coerceIn(1, 50).toString(),
+                        "p_order" to wanted
+                    )
+                )
             }.mapCatching { it.toModel() }
         }
 
@@ -765,7 +786,59 @@ class PortalRepository(
             if (clean.isBlank()) return@withContext Result.failure(PortalError.NotFound)
             callOne {
                 api.forumDiscussion(
-                    mapOf("p_id" to clean, "p_count_view" to countView.toString())
+                    mapOf(
+                        "p_id" to clean,
+                        "p_count_view" to countView.toString(),
+                        // Only a guest's own reaction needs this, and a blank is
+                        // fine: it simply means no answer comes back marked as
+                        // theirs.
+                        "p_device_id" to guestViewerId
+                    )
+                )
+            }.mapCatching { dto ->
+                dto?.toModel() ?: throw PortalError.NotFound
+            }
+        }
+
+    /**
+     * Like, dislike or agree with one answer. Tapping the kind that is already
+     * there takes it back, which is the database's rule and not the app's — the
+     * counters come back from the same call that changed them.
+     *
+     * A guest may react too, keyed by their device, exactly as they may love a
+     * song; the key is the transport's `p_device_id`, never a parameter here.
+     */
+    suspend fun reactToForumReply(
+        replyId: String,
+        kind: String
+    ): Result<ForumReactionState> = withContext(Dispatchers.IO) {
+        val clean = replyId.trim()
+        val wanted = kind.trim().lowercase()
+        if (clean.isBlank()) return@withContext Result.failure(PortalError.NotFound)
+        if (wanted !in REACTIONS) {
+            return@withContext Result.failure(PortalError.Unknown())
+        }
+        callOne {
+            api.forumReact(
+                mapOf(
+                    "p_reply_id" to clean,
+                    "p_kind" to wanted,
+                    "p_device_id" to guestViewerId
+                )
+            )
+        }.mapCatching { dto ->
+            dto?.toModel() ?: throw PortalError.NotFound
+        }
+    }
+
+    /** One reader's forum work, for their dashboard and their public page. */
+    suspend fun forumActivity(userId: String, limit: Int = 20): Result<ForumActivity> =
+        withContext(Dispatchers.IO) {
+            val id = userId.trim()
+            if (id.isBlank()) return@withContext Result.failure(PortalError.NotFound)
+            callOne {
+                api.forumActivity(
+                    mapOf("p_user_id" to id, "p_limit" to limit.coerceIn(1, 50).toString())
                 )
             }.mapCatching { dto ->
                 dto?.toModel() ?: throw PortalError.NotFound
@@ -776,7 +849,9 @@ class PortalRepository(
     suspend fun createForumDiscussion(
         categorySlug: String,
         title: String,
-        body: String
+        body: String,
+        coverImageUrl: String = "",
+        coverDeleteUrl: String = ""
     ): Result<ForumThread> = withContext(Dispatchers.IO) {
         val slug = categorySlug.trim()
         if (slug.isBlank()) return@withContext Result.failure(PortalError.NotFound)
@@ -785,7 +860,12 @@ class PortalRepository(
                 mapOf(
                     "p_category_slug" to slug,
                     "p_title" to title.trim(),
-                    "p_body" to body.trim()
+                    "p_body" to body.trim(),
+                    // The cover is optional, and the delete url is only ever
+                    // carried so the dashboard can clean up after a deleted
+                    // thread; neither is required for the post to go up.
+                    "p_cover_image_url" to coverImageUrl.trim(),
+                    "p_cover_delete_url" to coverDeleteUrl.trim()
                 )
             )
         }.mapCatching { dto ->
@@ -797,17 +877,34 @@ class PortalRepository(
         }
     }
 
-    /** Answers a discussion. Signed in only, like opening one. */
-    suspend fun forumReply(id: String, body: String): Result<ForumReply> =
+    /**
+     * Answers a discussion, or answers an answer.
+     *
+     * `parentId` is a top-level answer's id or nothing; the database folds a
+     * reply-to-a-reply back onto its own answer, so passing the id of a nested
+     * reply is allowed here and lands where it belongs.
+     */
+    suspend fun forumReply(
+        id: String,
+        body: String,
+        parentId: String = ""
+    ): Result<ForumReply> =
         withContext(Dispatchers.IO) {
             val clean = id.trim()
             if (clean.isBlank()) return@withContext Result.failure(PortalError.NotFound)
             callOne {
-                api.forumReply(mapOf("p_id" to clean, "p_body" to body.trim()))
+                api.forumReply(
+                    mapOf(
+                        "p_id" to clean,
+                        "p_body" to body.trim(),
+                        "p_parent_id" to parentId.trim()
+                    )
+                )
             }.mapCatching { dto ->
                 dto?.toModel() ?: throw PortalError.NotFound
             }
         }
+
 
     // -------------------------------------------------------------- plumbing
 

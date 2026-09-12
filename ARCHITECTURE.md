@@ -94,8 +94,8 @@ Key rules that bite if broken:
 
 ## 3. Database (Postgres)
 
-Base: `backend/supabase/schema.sql` + numbered migrations `002`–`029` in `migrations/`.
-Order matters: `schema.sql` (or 002 legacy, **never after 004**) → 003 → 004 → 005…029. Every file is
+Base: `backend/supabase/schema.sql` + numbered migrations `002`–`030` in `migrations/`.
+Order matters: `schema.sql` (or 002 legacy, **never after 004**) → 003 → 004 → 005…030. Every file is
 one transaction and 024–029 are order-independent between themselves (proved by
 `backend/tests/sql/run.sh`, which applies all six permutations into a throwaway cluster).
 
@@ -112,7 +112,7 @@ one transaction and 024–029 are order-independent between themselves (proved b
 | `music_tracks` (014–021) | `title/artist/album/genre/description`, `thumbnail_url`, `audio_url`, `file_provider ('url'/'supabase-storage')`, `file_storage_path`, `duration_seconds`, `file_size_mb`, `sort_order`, `lyrics` (015), `video_link` (017), `user_id` (018), artist/album images+bios (019), `love_count` (020, trigger-synced from `music_loves`) |
 | `music_playlists` / `music_playlist_tracks` (015) | per user (`kind in ('custom','loved')`; loved is unique per user) |
 | `music_loves` (020) | `(track_id, user_id)` PK; public read; triggers update `music_tracks.love_count`. No `anon` write access: signed-out loves go through the `toggle_music_love` security-definer RPC (022), which keys a guest by `md5('ningshingche:' \|\| device_id)` |
-| `forum_categories` / `forum_discussions` / `forum_replies` (029) | The forum. Rooms are rows (a `slug`, a Bengali `title`, `description`, `sort_order`, `is_locked`) and read in `sort_order`; a discussion carries `title`, `body (text)`, `category_slug`, `author_id`/`author_name`/`author_avatar_url`, `views_count`, `replies_count`, `last_reply_at`, `status in ('Publish','Unpublish')`; a reply carries its thread, author and body. `forum_replies_sync_count` keeps `replies_count`/`last_reply_at` (publish-only, survives deletes) and `forum_discussions_touch` maintains `updated_at`. **No client reads the tables**: the view `forum_discussion_rows` and the six `security definer` functions (`forum_overview`, `forum_category`, `forum_search`, `forum_discussion`, `forum_create_discussion`, `forum_reply`) are the door, reads granted to `anon` + `authenticated`, writes to `authenticated` alone (`42501` for a guest), and the dashboard moderates through `is_dashboard_request()` policies. `forum_text_units(text)` is the Bengali character counter the guards use |
+| `forum_categories` / `forum_discussions` / `forum_replies` (029) / `forum_reactions` (030) | The forum. Rooms are rows (a `slug`, a Bengali `title`, `description`, `sort_order`, `is_locked`) and read in `sort_order`; a discussion carries `title`, `body (text)`, `category_slug`, `author_id`/`author_name`/`author_avatar_url`, `views_count`, `replies_count`, `last_reply_at`, `status in ('Publish','Unpublish')`; a reply carries its thread, author and body. `forum_replies_sync_count` keeps `replies_count`/`last_reply_at` (publish-only, survives deletes) and `forum_discussions_touch` maintains `updated_at`. 030 adds a discussion's optional ImgBB cover (`cover_image_url`, `cover_delete_url`), its `is_official` badge (set by a `before insert` trigger on a dashboard session, never by the caller), an answer's `parent_id` (one level: a reply to a reply is folded onto its own answer), the `forum_reactions` table (one row per reactor per answer, `like`/`dislike`/`agree`, guests keyed by device), and the two notification triggers — a new thread reaches the readers who asked to be told, a new answer reaches the thread's author and everyone who answered in it, one row per reader per thread re-armed on conflict. **No client reads the tables**: the views `forum_discussion_rows` / `forum_reply_rows` and the functions (`forum_overview`, `forum_category`, `forum_search`, `forum_discussion`, `forum_create_discussion`, `forum_reply`, `forum_react`, plus `forum_activity` for one reader's own work) are the door, reads granted to `anon` + `authenticated`, writes to `authenticated` alone (`42501` for a guest), and the dashboard moderates through `is_dashboard_request()` policies. `forum_text_units(text)` is the Bengali character counter the guards use, `forum_plain_text(text)` what they count the app's HTML-editor bodies with, and `contributor_score` adds 20 a discussion, 5 an answer and 1 a reaction received on top of 026's five inputs |
 
 ### 3.2 App-user workspace tables
 
@@ -279,10 +279,14 @@ authors_directory, social_activities.
 - **PDF/Video**: `VideosScreen` with provider-aware iframes; `PdfViewerScreen` renders
   pages to bitmaps.
 - **Forum** (`ForumScreens.kt`, routes `forum` / `forum_room/{slug}` / `forum_thread/{id}` /
-  `forum_new?room=`): rooms, latest discussions, server-side search, one thread with its
-  replies, and a composer. Public read, signed-in write, through six RPCs; the drawer's
-  **ফোরাম** row replaced **সামাজিক কার্যকলাপ** (a hard-coded gallery grid the home page
-  already draws, whose screen and state were removed with the row).
+  `forum_new?room=`): a sideways-scrolling rail of rooms, সাম্প্রতিক আলোচনা with its three
+  filters, server-side search, one thread with its answers, their reactions and one step of
+  nested answers, and a composer carrying an optional ImgBB cover. Bodies are written in the
+  compact `HtmlContentEditor` and kept as drafts (`data/local/ForumDraftStore.kt`) until they
+  post. Public read, signed-in write, through the RPCs; the drawer's **ফোরাম** row replaced
+  **সামাজিক কার্যকলাপ** (a hard-coded gallery grid the home page already draws, whose screen and
+  state were removed with the row), and the account menu carries **ফোরাম** as well. The reader's
+  own forum work shows on their dashboard and on their public page's third tab.
 - **Public profile** (`PublicProfileScreen.kt`, route `user/{userId}`): name, designation,
   short address, a statistics card (total views, lifetime points, this month's points) and
   two tabs — articles and songs — each ordered by views and dated. One request,
@@ -425,12 +429,13 @@ Dashboard-specific conventions:
 - Dashboard: `backend/tests/` — fixture-only node unit tests + Playwright browser checks
   (backup, filters); no production Supabase writes.
 - Database: `bash backend/tests/sql/run.sh` — a throwaway UTF-8 cluster (`initdb … --encoding=UTF8
-  --locale=C`), migration `schema.sql` + `002`–`029` applied in six orders, then both a structure
+  --locale=C`), migration `schema.sql` + `002`–`030` applied in six orders, then both a structure
   check and a behaviour check against a real database: RLS enabled on every table the app can
-  reach, the contributor board's refusal for a guest, the forum's guards and counters, and the
-  dashboard's own doors.
+  reach, the contributor board's refusal for a guest, the forum's guards, carries, reactions,
+  nested answers, notifications and counters, and the dashboard's own doors.
 - App sources, without a JVM: `backend/tests/app-reader-session.test.cjs` (the reader's token
-  reaches every request) and `backend/tests/app-forum.test.cjs` (the forum, the contributor board
-  and the public profile as the sources declare them — including a call-site check that every
-  component is handed exactly the parameters its declaration names, which is the closest this
-  repository gets to a compiler).
+  reaches every request) and `backend/tests/app-forum.test.cjs` plus
+  `backend/tests/app-forum-corrections.test.cjs` (the forum, the contributor board and the public
+  profile as the sources declare them — including a call-site check that every component is handed
+  exactly the parameters its declaration names, which is the closest this repository gets to a
+  compiler).

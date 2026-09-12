@@ -118,8 +118,18 @@ function kotlinSources(dir = APP) {
   return found;
 }
 
+/**
+ * Comments are not code: a comma in an aside, or a bracket in a note about a
+ * parameter, must not be read as an argument. Both the declaration and the call
+ * site are cleaned before either is split.
+ */
+function stripComments(text) {
+  return text.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');
+}
+
 /** The arguments of a call: top-level commas only, `->` is not a bracket. */
-function splitTopLevel(text) {
+function splitTopLevel(raw) {
+  const text = stripComments(raw);
   const parts = [];
   let depth = 0;
   let current = '';
@@ -200,16 +210,19 @@ test('guests read, signed-in readers write', async (t) => {
   await t.test('which the app recognises as a session problem', () => {
     assert.match(FORUM_SQL, /using errcode = '42501'/,
       'both writes raise the code the transport already classifies');
-    assert.match(FORUM_SCREENS, /failure is PortalError\.SignedOut/,
+    assert.match(FORUM_SCREENS, /is PortalError\.SignedOut ->/,
       'and the screens answer it with the way back in');
     assert.match(FORUM_SCREENS, /PortalError\.SignedOut\.SESSION_EXPIRED/,
       'in the app\'s words, never the database\'s English');
   });
 
   await t.test('a guest is offered sign-in, not an error', () => {
-    assert.match(FORUM_SCREENS, /if \(!isSignedIn\) \{\s*ForumSignInPrompt\(onSignInClick\)/,
+    assert.match(FORUM_SCREENS, /else \{\s*ForumSignInPrompt\(onSignInClick\)\s*\}/,
       'the reply box becomes the prompt for a guest');
-    assert.match(FORUM_SCREENS, /if \(isSignedIn\) onNewDiscussion\(\) else onSignInClick\(\)/,
+    // Two controls open a discussion — the home page's and a room's — and a guest
+    // gets the way in from both.
+    const guestButtons = FORUM_SCREENS.match(/onClick = onSignInClick/g) || [];
+    assert.ok(guestButtons.length >= 2,
       'and the new-discussion button leads to sign-in instead of a refusal');
   });
 });
@@ -271,8 +284,8 @@ test('a discussion can be read from the list to the last reply', async (t) => {
 
   await t.test('the thread shows the opening post and every reply', () => {
     const thread = bodyOf(FORUM_SCREENS, 'ForumThreadScreen');
-    assert.match(thread, /ForumOpeningPost\(loaded\.discussion\)/, 'the opening post');
-    assert.match(thread, /items\(loaded\.replies/, 'and the answers');
+    assert.match(thread, /ForumOpeningPost\(\s*discussion = loaded\.discussion/, 'the opening post');
+    assert.match(thread, /items\(loaded\.answersIn\(answerOrder\)/, 'and the answers');
     assert.match(thread, /ForumReplyComposer\(/, 'with a box to add one');
   });
 
@@ -282,8 +295,11 @@ test('a discussion can be read from the list to the last reply', async (t) => {
   });
 
   await t.test('search waits for a word, not a letter', () => {
-    assert.match(FORUM_SCREENS, /if \(term\.length < 2\) \{/, 'one keystroke asks nothing');
-    assert.match(FORUM_SCREENS, /delay\(300\)/, 'and typing pauses before the request');
+    assert.match(FORUM_SCREENS, /if \(term\.length < FORUM_SEARCH_MIN_CHARS\) \{/,
+      'one keystroke asks nothing');
+    assert.match(FORUM_SCREENS, /delay\(FORUM_SEARCH_DELAY_MS\)/,
+      'and typing pauses before the request');
+    assert.match(FORUM_SCREENS, /FORUM_SEARCH_DELAY_MS = 300L/, 'for a third of a second');
   });
 
   await t.test('paging a room is not cached as its first page', () => {
@@ -477,9 +493,10 @@ test('a public profile is real data, in the order asked for', async (t) => {
       'the old article/song counts are not in the statistics card');
   });
 
-  await t.test('two tabs, each with its count', () => {
-    assert.match(PUBLIC_PROFILE, /val tabs = listOf\(\s*"প্রবন্ধ" to articles\.size,\s*"গান" to songs\.size\s*\)/,
-      'the two tabs and their counters');
+  await t.test('three tabs, each with its count', () => {
+    assert.match(PUBLIC_PROFILE,
+      /val tabs = listOf\(\s*"প্রবন্ধ" to articles\.size,\s*"গান" to songs\.size,\s*"আলোচনা" to \(forumActivity\?\.total \?: 0\)\s*\)/,
+      'the three tabs and their counters');
     assert.match(PUBLIC_PROFILE, /TabRow\(/, 'rendered as tabs');
     assert.match(PUBLIC_PROFILE, /text = "\$label \(\$\{toBengaliNumeral\(count\)\}\)"/,
       'with the count in Bengali numerals');

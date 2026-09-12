@@ -717,10 +717,10 @@ are rows in `forum_categories`, seeded by the migration and editable from the da
 
 | Screen | Route | What it is |
 | --- | --- | --- |
-| `ForumHomeScreen` | `forum` | **বিভাগসমূহ** — the rooms with their thread counts — and **সর্বশেষ আলোচনা**, the newest threads, with a search field over both |
+| `ForumHomeScreen` | `forum` | **বিভাগসমূহ** as a sideways-scrolling rail, then **সাম্প্রতিক আলোচনা** with its three filters, with the search field over both |
 | `ForumCategoryScreen` | `forum_room/{slug}` | one room, paged 30 at a time, with **নতুন আলোচনা** |
-| `ForumThreadScreen` | `forum_thread/{discussionId}` | the opening post, every reply, and a box to add one |
-| `NewDiscussionScreen` | `forum_new?room=` | room (a row of `FilterChip`s, preselected when a room sent the reader here), title, body |
+| `ForumThreadScreen` | `forum_thread/{discussionId}` | the opening post, its answers with their reactions and their own answers, and a composer |
+| `NewDiscussionScreen` | `forum_new?room=` | room (a row of `FilterChip`s, preselected when a room sent the reader here), title, an optional cover, and the body in the compact editor |
 
 Every discussion shows its room, author and avatar, the date **as the reader reads it**
 (`formatBengaliDate`), its views and its reply count. The reply counter is the one counter whose
@@ -755,6 +755,98 @@ the one that decides. The minimums use it (title 4 units, body 1); the maximums 
 **Search waits.** Nothing is asked for a single character; from two characters on, the request waits
 300 ms after the last keystroke, and the search is `strpos` in the database — so `%` searches for a
 per cent sign rather than matching everything.
+
+**The second pass (migration 030).** The forum the owner reviewed came back with ten corrections
+and four extras; this is what was done with them, and why.
+
+*বিভাগসমূহ is a rail, not a page.* The rooms are one row that scrolls sideways, above সাম্প্রতিক
+আলোচনা — a reader reaches the discussions without scrolling past the rooms to get there. A room is
+184 dp wide, carries its name, its description and its two counters, and keeps its
+`forum_category_{slug}` tag, so a UI test that clicked a room card still finds its room.
+
+*সাম্প্রতিক আলোচনা has three filters, and the database decides what they mean.* `সাম্প্রতিক` is the
+newest activity, `জনপ্রিয়` is the most answers (ties broken on views), `অনুমোদিত` is the threads the
+NingshingChe admin opened. `is_official` is a column, not a rule the app computes: 030's
+`before insert` trigger sets it when the row arrives on a dashboard session, because the app cannot
+know who is staff and a filter that asked it to guess would be a filter that lies. A chip carries the
+count of official threads, and every card that is one wears a small **অনুমোদিত** badge.
+
+*A cover, and an editor.* A new discussion can carry an ImgBB cover — optional, uploaded with the
+uploader the article composer already uses, kept with its delete URL so the dashboard can clean up
+after it. The body is written in `HtmlContentEditor`, in its **compact** shape: bold, italic,
+underline, a bullet list and an image, and none of the article editor's other furniture (no HTML
+switch, no height controls, no resize handle, no help text). The owner asked for the article editor's
+idea without its selection popup, so the editor grew a `selectionPopup` switch and the forum passes
+`false` — the little bar over a selected word is useful over a page of prose and in the way over
+three lines of a reply. The list button was added to the shared toolbar, so the article composer has
+one too. What is counted and refused is the *text*, not the markup: `forum_plain_text()` strips the
+tags server-side (`<p></p>` is not a post) and the screens do the same before they enable a button.
+
+*Drafts.* `ForumDraftStore` (`data/local/`, DataStore, `filesDir/forum_drafts`) remembers the
+composer — room, title, body, cover and its delete URL — and one reply per thread, and clears an
+entry only after the database has accepted the post. Preferences rather than the Room database
+because a draft is a few hundred bytes that has to be readable the instant a composer opens and
+nothing joins on it; per thread rather than one reply box because a reader may leave a half-written
+answer in one thread, read another, and come back to the first one as they left it.
+
+*Reactions, from a long press.* `forum_reactions` holds one row per reactor per answer — `like`,
+`dislike` or `agree` — and `forum_react(reply_id, kind, device_id)` toggles: the same tap takes the
+reaction away, which is what 022's music love does and therefore what a reader already expects. A
+guest may react, keyed by `md5('ningshingche-forum:' || device_id)` from the device id the transport
+already carries for loved songs. Every answer comes back with its three counts and with the reader's
+own reaction (`my_reaction`), and the counts feed (10).
+
+*One step of indentation, and only the newest answer under each one.* A reply to a reply is folded
+onto its own answer (`coalesce(parent.parent_id, parent.id)`), so a thread can be argued in but never
+marches off the right of the screen. Under each answer the newest answer is drawn, with **সব উত্তর
+দেখুন (n)** opening the rest.
+
+*একটি ছোট «আরও দেখুন»* — no border, no fill, 12 sp, accent-coloured, on the opening post and on any
+answer long enough to need it. "Long enough" is 240 characters or an image, decided from the string
+rather than from a measurement: a card that had to be measured before it could decide would grow a
+"see more" on every short answer that happened to wrap. Open, the body goes through the article
+renderer, which is what knows how to draw the picture the editor can insert.
+
+*উত্তরসমূহ has its own filter* — **শীর্ষ উত্তর** (most liked or agreed first, the owner's "top
+answers") and **সাম্প্রতিক**. The sort is the sum of likes and agrees; a dislike is shown and never
+subtracted, because an answer should not be buried by people who disagree with it, and never paid
+for either (see the points below).
+
+*The author is a door.* An answer's picture and name open that reader's public page
+(§12.4), by the same `ReaderRoute.publicProfile` the contributor cards use.
+
+*Notifications.* A new thread tells every reader who has notifications switched on, and a new answer
+tells the thread's author and everyone else who has answered in it — in Bengali, with the post as the
+body and the thread as the link. One row per reader per thread (`user_notifications` is unique on
+`(user_id, kind, related_id)`), so a second answer re-arms the first row instead of stacking a second
+one, and the writer is never told about their own post. The dashboard's `NotificationCard` gives the
+two kinds their own icon and badge, and tapping one opens the thread.
+
+*The bell replaces the search icon, and the search does not leave.* On the forum the app bar carries
+the notification bell with the unread count; the magnifier is **not** deleted — it is still on the
+home screen, and the forum is still searched, with the field that was already on the page. The owner
+asked for the icon to move, not for the feature to go.
+
+*ফোরাম is in the account menu*, on the home page's header, where the dashboard, profile and notices
+already are.
+
+*Forum work is on the reader's dashboard and on their public page.* The dashboard's home pane gains a
+**ফোরামে আপনার কাজ** card (three counts and the recent threads and answers, each one a tap from the
+thread), and the public page gains a third tab, **আলোচনা (n)**. The card's breakdown line now names
+আলোচনা and উত্তর alongside articles, songs, comments, views and minutes.
+
+*And the points include it*: a discussion is 20, an answer 5, a reaction received (`like` or `agree`)
+1 — `contributor_forum_points_from`, summed with 026's `contributor_points_from` inside
+`contributor_score`, whose five existing keys are unchanged and which now also answers
+`discussions`, `replies` and `reactions`. The weights live in the database; the app shows the numbers
+and never works the arithmetic out itself.
+
+**The API is seven functions** — 029's six plus `forum_react`, with `forum_overview`,
+`forum_discussion`, `forum_create_discussion` and `forum_reply` replaced on new signatures by 030, and
+`forum_activity(user, limit)` reading one reader's forum work for their dashboard and their public
+page. 030 drops the four old signatures first (a new parameter makes a new function, and
+`forum_overview(20)` was "not unique" until it did), re-grants them after creating them, and guards
+the two grants that belong to 029 so it still applies to a database that has never seen it.
 
 **Reusable components** — reuse these instead of writing new ones:
 

@@ -17,6 +17,17 @@ data class UserNotificationRecord(
     val isComment: Boolean get() = kind == KIND_COMMENT
     val isAdminMessage: Boolean get() = kind == KIND_ADMIN
 
+    /** A thread opened in the forum (migration 030's trigger writes these). */
+    val isForumThread: Boolean get() = kind == KIND_FORUM_THREAD
+
+    /** A new answer in a thread this reader is already part of. */
+    val isForumReply: Boolean get() = kind == KIND_FORUM_REPLY
+
+    val isForum: Boolean get() = isForumThread || isForumReply
+
+    /** The thread to open: both kinds carry the discussion id. */
+    val forumDiscussionId: String get() = if (isForum) relatedId else ""
+
     fun toJson(): JSONObject = JSONObject().apply {
         put("id", id)
         put("user_id", userId)
@@ -31,6 +42,14 @@ data class UserNotificationRecord(
         const val KIND_ARTICLE = "article_published"
         const val KIND_COMMENT = "comment_published"
         const val KIND_ADMIN = "admin_message"
+
+        /**
+         * The forum's two kinds, written by migration 030's triggers: one row per
+         * reader per thread. `related_id` is the discussion — that is what the
+         * bell opens, whichever kind it is.
+         */
+        const val KIND_FORUM_THREAD = "forum_thread"
+        const val KIND_FORUM_REPLY = "forum_reply"
 
         fun fromJson(json: JSONObject): UserNotificationRecord = UserNotificationRecord(
             id = json.optString("id", UUID.randomUUID().toString()),

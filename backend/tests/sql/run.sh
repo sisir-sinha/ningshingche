@@ -40,7 +40,7 @@ ok()   { printf '  ok    %s\n' "$1"; }
 bad()  { printf '  FAIL  %s\n' "$1"; fail=1; }
 
 # --- each migration on its own, from an empty fixture ------------------------
-for file in 024_uploader_and_public_profile.sql 025_content_views.sql 026_contributors.sql 027_contributor_board_dashboard.sql 028_public_profile_details.sql 029_forum.sql; do
+for file in 024_uploader_and_public_profile.sql 025_content_views.sql 026_contributors.sql 027_contributor_board_dashboard.sql 028_public_profile_details.sql 029_forum.sql 030_forum_answers.sql; do
   step "$file alone"
   psql -c "drop database if exists alone" >/dev/null 2>&1 || true
   psql -c "create database alone" >/dev/null
@@ -54,7 +54,9 @@ for file in 024_uploader_and_public_profile.sql 025_content_views.sql 026_contri
 done
 
 # --- both orders, then both again (idempotency) ------------------------------
-for order in "024 025 026 027 028 029" "025 024 026 027 028 029" "026 025 024 027 028 029" "027 026 025 024 028 029" "029 028 027 026 025 024" "028 029 024 025 026 027"; do
+# 030 comes last in every order: it replaces functions 029 and 026 wrote, so it
+# is the one file with a direction. 024-029 stay order-free among themselves.
+for order in "024 025 026 027 028 029 030" "025 024 026 027 028 029 030" "026 025 024 027 028 029 030" "027 026 025 024 028 029 030" "029 028 027 026 025 024 030" "028 029 024 025 026 027 030"; do
   for pass in 1 2; do
     step "order $order (pass $pass)"
     psql -c "drop database if exists ordered" >/dev/null 2>&1 || true
@@ -93,7 +95,7 @@ insert into public.submitted_blogs (user_id, converted_blog_id, status) values (
 insert into public.music_tracks (id, title, artist, file_storage_path, duration_seconds, love_count, user_id) values ('$TRACK', 'পাঠকের গান', 'গায়ক', 'reader/track.mp3', 200, 3, '$READER');
 SQL
 
-for n in 024 025 026 027 028 029; do
+for n in 024 025 026 027 028 029 030; do
   psql -d behaviour -f "$MIGRATIONS/$(ls "$MIGRATIONS" | grep "^$n")" >/dev/null
 done
 
@@ -144,7 +146,7 @@ echo "$profile" | grep -q 'পাঠকের গান' && ok "public profile l
 # the same check, run against the result instead of the text.
 step "row level security"
 
-for table in content_views reader_activity profile_locks forum_categories forum_discussions forum_replies; do
+for table in content_views reader_activity profile_locks forum_categories forum_discussions forum_replies forum_reactions; do
   [ "$table" = "profile_locks" ] && continue
   rls="$(psql -d ordered -tAc "select relrowsecurity from pg_class where relname = '$table' and relnamespace = 'public'::regnamespace")"
   [ "$rls" = "t" ] && ok "$table has RLS enabled" || bad "$table has RLS = '$rls'"
@@ -278,6 +280,113 @@ visible="$(as_anyone "forum_overview(20)" anon "''" | grep -c 'পরীক্�
 [ "$visible" = "0" ] && ok "but it is gone from the public lists" || bad "hidden thread is listed"
 psql -d behaviour -c "update public.forum_discussions set status = 'Publish' where id = '$DISCUSSION'" >/dev/null
 
+# --- the forum's second pass --------------------------------------------------
+step "forum answers"
+
+SECOND_READER=77777777-7777-7777-7777-777777777777
+psql -d behaviour <<SQL >/dev/null
+insert into public.profiles (id, name) values ('$SECOND_READER', 'উত্তরদাতা পাঠক');
+SQL
+
+# the discussion the first pass created is still there; add an answer to it and
+# one answer to that answer, which has to land on the same top-level answer.
+reply_one="$(as_anyone "forum_reply('$DISCUSSION', 'প্রথম উত্তর।')" authenticated "'$READER'")"
+ANSWER="$(echo "$reply_one" | grep -o '"id": "[^"]*"' | head -1 | cut -d'"' -f4)"
+echo "$reply_one" | grep -q '"like_count": 0' && ok "an answer arrives with its counts" || bad "answer counts: $reply_one"
+
+nested="$(as_anyone "forum_reply('$DISCUSSION', 'উত্তরের উত্তর।', '$ANSWER')" authenticated "'$SECOND_READER'")"
+echo "$nested" | grep -q "\"parent_id\": \"$ANSWER\"" && ok "a reply to an answer is attached to it" || bad "parent: $nested"
+
+deeper="$(as_anyone "forum_reply('$DISCUSSION', 'আরও গভীর উত্তর।', '$ANSWER')" authenticated "'$SECOND_READER'")"
+DEPTH="$(psql -d behaviour -tAc "select count(*) from public.forum_discussions d join public.forum_replies r on r.discussion_id = d.id where d.id = '$DISCUSSION' and r.parent_id is not null")"
+[ "$DEPTH" = "2" ] && ok "and the indentation never grows a second step" || bad "depth (got '$DEPTH')"
+
+# reactions: three kinds, one per reactor, and a second tap takes it back
+# The bodies the app sends are HTML, and what is counted is the text in them:
+# a post of empty paragraphs is not a post, and markup does not eat the budget.
+markup_ok="$(as_anyone "forum_reply('$DISCUSSION', '<p>হ্যালো <b>বন্ধু</b></p>', null, null)" authenticated "'$SECOND_READER'")"
+echo "$markup_ok" | grep -q '<b>বন্ধু</b>' && ok "markup is a body, and its text is what counts" || bad "markup body: $markup_ok"
+
+empty_markup="$(as_anyone "forum_reply('$DISCUSSION', '<p>&nbsp;</p><p><br></p>', null, null)" authenticated "'$SECOND_READER'" 2>&1 || true)"
+echo "$empty_markup" | grep -q "at least 1 character" && ok "empty paragraphs are not an answer" || bad "empty markup accepted (got '$empty_markup')"
+
+empty_thread="$(as_anyone "forum_create_discussion('general', 'খালি আলোচনা', '<p>&nbsp;</p>')" authenticated "'$READER'" 2>&1 || true)"
+echo "$empty_thread" | grep -q "at least 1 character" && ok "and not a discussion either" || bad "empty thread accepted (got '$empty_thread')"
+
+reacted="$(as_anyone "forum_react('$ANSWER', 'like', null)" authenticated "'$SECOND_READER'")"
+echo "$reacted" | grep -q '"likes": 1' && ok "an answer can be liked" || bad "like: $reacted"
+echo "$reacted" | grep -q '"mine": "like"' && ok "and the reaction comes back as the reactor's own" || bad "mine: $reacted"
+
+again="$(as_anyone "forum_react('$ANSWER', 'like', null)" authenticated "'$SECOND_READER'")"
+echo "$again" | grep -q '"likes": 0' && ok "tapping the same reaction withdraws it" || bad "untoggle: $again"
+
+guest_react="$(as_anyone "forum_react('$ANSWER', 'agree', 'device-abcdefgh')" anon "''")"
+echo "$guest_react" | grep -q '"agrees": 1' && ok "a guest can agree, keyed by device" || bad "guest react: $guest_react"
+echo "$guest_react" | grep -q '"mine": "agree"' && ok "and the guest sees their own reaction back" || bad "guest mine: $guest_react"
+
+short_device="$(as_anyone "forum_react('$ANSWER', 'like', 'abc')" anon "''" 2>&1 || true)"
+echo "$short_device" | grep -qi "device id of at least 8" && ok "a device id too short to be one is refused" || bad "short device (got '$short_device')"
+
+bad_kind="$(as_anyone "forum_react('$ANSWER', 'love', null)" authenticated "'$READER'" 2>&1 || true)"
+echo "$bad_kind" | grep -qi "like, dislike or agree" && ok "and an unknown reaction is refused" || bad "kind guard (got '$bad_kind')"
+
+thread="$(as_anyone "forum_discussion('$DISCUSSION', false, 'device-abcdefgh')" anon "''")"
+echo "$thread" | grep -q '"agree_count": 1' && ok "the thread carries the reaction counts" || bad "thread counts: $thread"
+echo "$thread" | grep -q '"parent_id"' && ok "and the answers carry their parent" || bad "thread parents missing"
+
+# the list orders the app offers
+official="$(as_anyone "forum_overview(20, 'official')" anon "''")"
+echo "$official" | grep -q '"latest": \[\]' && ok "official-only is empty while the admin has written nothing" || bad "official filter: $official"
+popular="$(as_anyone "forum_overview(20, 'popular')" anon "''")"
+echo "$popular" | grep -q '"order": "popular"' && ok "the popular order is accepted" || bad "popular order: $popular"
+echo "$popular" | grep -q '"replies_count": [1-9]' && ok "and carries the reply counts it sorts on" || bad "popular sort: $popular"
+unknown="$(as_anyone "forum_overview(20, 'nonsense')" anon "''")"
+echo "$unknown" | grep -q '"order": "recent"' && ok "an order the app does not know falls back to recent" || bad "order fallback: $unknown"
+
+# an admin's thread is official without anyone ticking a box
+psql -d behaviour -c "set test.dashboard = 'on'; insert into public.forum_discussions (category_id, user_id, title, body) select k.id, '$READER', 'প্রশাসকের আলোচনা', 'নীতিমালা।' from public.forum_categories k where k.slug = 'general'" >/dev/null
+marked="$(psql -d behaviour -tAc "select is_official from public.forum_discussions where title = 'প্রশাসকের আলোচনা'")"
+[ "$marked" = "t" ] && ok "a thread written from the dashboard is marked authorized" || bad "official marking (got '$marked')"
+official="$(as_anyone "forum_overview(20, 'official')" anon "''")"
+echo "$official" | grep -q 'প্রশাসকের আলোচনা' && ok "and the filter finds it" || bad "official list: $official"
+
+# the cover image travels with the thread
+covered="$(as_anyone "forum_create_discussion('general', 'ছবি সহ আলোচনা', 'লেখা।', 'https://i.ibb.co/abc/cover.jpg', 'https://ibb.co/delete/abc')" authenticated "'$READER'")"
+echo "$covered" | grep -q '"cover_image_url": "https://i.ibb.co/abc/cover.jpg"' && ok "a thread can carry a cover image" || bad "cover: $covered"
+bad_cover="$(as_anyone "forum_create_discussion('general', 'খারাপ ছবি', 'লেখা।', 'javascript:alert(1)')" authenticated "'$READER'" 2>&1 || true)"
+echo "$bad_cover" | grep -qi "cover image is an http" && ok "and a cover that is not a url is refused" || bad "cover guard (got '$bad_cover')"
+
+# who hears about it
+psql -d behaviour -c "update public.profiles set id = id" >/dev/null
+notices="$(psql -d behaviour -tAc "select count(*) from public.user_notifications where kind = 'forum_thread' and related_id in (select id::text from public.forum_discussions where title = 'ছবি সহ আলোচনা')")"
+[ "$notices" -ge 2 ] && ok "a new thread notifies the readers who want to hear" || bad "new-thread notices (got '$notices')"
+told="$(psql -d behaviour -tAc "select count(*) from public.user_notifications where user_id = '$READER' and kind = 'forum_reply' and related_id = '$DISCUSSION' and not is_read")"
+[ "$told" -ge 1 ] && ok "and a reply tells the thread's author, unread" || bad "reply notices (got '$told')"
+self_notice="$(psql -d behaviour -tAc "select count(*) from public.user_notifications where user_id = '$SECOND_READER' and kind = 'forum_reply' and related_id = '$DISCUSSION'")"
+[ "$self_notice" = "0" ] && ok "but never the person who just wrote it" || bad "self notice (got '$self_notice')"
+rearmed="$(psql -d behaviour -tAc "select count(*) from public.user_notifications where user_id = '$READER' and kind = 'forum_reply' and related_id = '$DISCUSSION'")"
+[ "$rearmed" = "1" ] && ok "one row per thread, not one per answer" || bad "notice rows (got '$rearmed')"
+psql -d behaviour -c "update public.profiles set notifications_enabled = false where id = '$SECOND_READER'" >/dev/null
+psql -d behaviour -c "insert into public.forum_replies (discussion_id, user_id, body) values ('$DISCUSSION', '$READER', 'নীরব উত্তর।')" >/dev/null
+muted="$(psql -d behaviour -tAc "select is_read from public.user_notifications where user_id = '$SECOND_READER' and kind = 'forum_reply' and related_id = '$DISCUSSION'")"
+[ -z "$muted" ] && ok "and a reader who turned notices off is not written to" || bad "muted reader (got '$muted')"
+psql -d behaviour -c "update public.profiles set notifications_enabled = true where id = '$SECOND_READER'" >/dev/null
+
+# the forum counts towards the score now
+score="$(psql -d behaviour -tAc "select public.contributor_score('$READER', null, null)")"
+echo "$score" | grep -q '"discussions": [1-9]' && ok "the score counts an opened discussion" || bad "score discussions: $score"
+echo "$score" | grep -q '"replies":' && ok "and the answers" || bad "score replies: $score"
+echo "$score" | grep -q '"reactions":' && ok "and the reactions received" || bad "score reactions: $score"
+points="$(psql -d behaviour -tAc "select (public.contributor_score('$READER', null, null) ->> 'points')::integer")"
+[ "$points" -gt 152 ] && ok "so the reader's total went up ($points > 152)" || bad "forum points (got '$points')"
+
+# a reader's forum work, for their dashboard and their public page
+activity="$(as_anyone "forum_activity('$READER', 20)" anon "''")"
+echo "$activity" | grep -q '"discussions": [1-9]' && ok "the activity card counts their threads" || bad "activity: $activity"
+echo "$activity" | grep -q 'ছবি সহ আলোচনা' && ok "and lists them" || bad "activity list: $activity"
+missing_activity="$(psql -d behaviour -tAc "select public.forum_activity('99999999-9999-9999-9999-999999999999'::uuid, 20)")"
+[ "$missing_activity" = "" ] && ok "and a reader who does not exist has none" || bad "missing activity (got '$missing_activity')"
+
 # --- the dashboard's door -----------------------------------------------------
 step "dashboard board"
 
@@ -287,14 +396,16 @@ as_dashboard() {
 
 board="$(as_dashboard "contributor_leaderboard_dashboard(50, null, false)")"
 echo "$board" | grep -q 'নতুন নাম' && ok "the dashboard reads the board" || bad "dashboard board: $board"
-echo "$board" | grep -q '"points": 152' && ok "the dashboard sees the same points as the app" || bad "dashboard points: $board"
+# Whatever the reader has earned — the forum included — the two doors must agree.
+app_points="$(psql -d behaviour -tAc "select (public.contributor_score('$READER', null, null) ->> 'points')::integer")"
+echo "$board" | grep -q "\"points\": $app_points" && ok "the dashboard sees the same points as the app ($app_points)" || bad "dashboard points: $board"
 
 forum_board="$(as_dashboard "forum_overview(20)")"
 echo "$forum_board" | grep -q 'সাধারণ আলোচনা' && ok "the dashboard reads the forum too" || bad "dashboard forum: $forum_board"
 echo "$board" | grep -q '"email"' && ok "each row carries the e-mail the dashboard links on" || bad "email missing: $board"
 
 lifetime="$(as_dashboard "contributor_leaderboard_dashboard(50, null, true)")"
-echo "$lifetime" | grep -q '"points": 152' && ok "the Lifetime switch spans everything" || bad "lifetime: $lifetime"
+echo "$lifetime" | grep -q "\"points\": $app_points" && ok "the Lifetime switch spans everything" || bad "lifetime: $lifetime"
 echo "$lifetime" | grep -q '"month_key": ""' && ok "and reports no month when it is asked for everything" || bad "lifetime key: $lifetime"
 
 no_session="$(as_anon "contributor_leaderboard_dashboard(50, null, false)" || true)"

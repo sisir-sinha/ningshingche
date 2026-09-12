@@ -135,6 +135,8 @@ fun HomeScreen(
     onProfileClick: () -> Unit = {},
     onNotificationsClick: () -> Unit = {},
     unreadCount: Int = 0,
+    // The forum sits in the account menu, next to the dashboard it belongs to.
+    onForumClick: () -> Unit = {},
     onLogoutClick: () -> Unit = {},
     isSignedIn: Boolean = false,
     avatarUrl: String = "",
@@ -210,6 +212,7 @@ fun HomeScreen(
                         onProfileClick = onProfileClick,
                         onNotificationsClick = onNotificationsClick,
                         unreadCount = unreadCount,
+                        onForumClick = onForumClick,
                         onLogoutClick = onLogoutClick
                     )
                     IconButton(

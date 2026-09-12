@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.DropdownMenu
@@ -38,6 +39,7 @@ fun AccountHeaderButton(
     onProfileClick: () -> Unit,
     onNotificationsClick: () -> Unit = {},
     unreadCount: Int = 0,
+    onForumClick: () -> Unit = {},
     onLogoutClick: () -> Unit
 ) {
     var menuOpen by remember { mutableStateOf(false) }
@@ -105,6 +107,17 @@ fun AccountHeaderButton(
                     onNotificationsClick()
                 },
                 modifier = Modifier.testTag("account_menu_notifications")
+            )
+            DropdownMenuItem(
+                text = {
+                    Text("ফোরাম", fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold)
+                },
+                leadingIcon = { Icon(Icons.Default.Forum, contentDescription = null) },
+                onClick = {
+                    menuOpen = false
+                    onForumClick()
+                },
+                modifier = Modifier.testTag("account_menu_forum")
             )
             DropdownMenuItem(
                 text = {

@@ -57,7 +57,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ningshingche.app.data.portal.ForumActivity
 import com.ningshingche.app.data.portal.MusicTrack
+import com.ningshingche.app.data.portal.PortalError
 import com.ningshingche.app.data.portal.PublicArticle
 import com.ningshingche.app.data.portal.PublicProfile
 import com.ningshingche.app.ui.components.LocalMusicController
@@ -92,8 +94,13 @@ import com.ningshingche.app.ui.theme.Kalpurush
 fun PublicProfileScreen(
     userId: String,
     loadProfile: suspend (String) -> Result<PublicProfile>,
+    // The forum work is a second call, and a second, smaller one: it is a list
+    // that may well be empty, and a failure there should not cost the reader
+    // their articles.
+    loadForumActivity: suspend (String) -> Result<ForumActivity> = { Result.failure(PortalError.NotFound) },
     onBackClick: () -> Unit,
-    onArticleClick: (String) -> Unit
+    onArticleClick: (String) -> Unit,
+    onDiscussionClick: (String) -> Unit = {}
 ) {
     var profile by remember(userId) { mutableStateOf<PublicProfile?>(null) }
     var error by remember(userId) { mutableStateOf<String?>(null) }
@@ -103,6 +110,8 @@ fun PublicProfileScreen(
     var selectedTab by remember(userId) { mutableIntStateOf(0) }
     val player = LocalMusicController.current
 
+    var forumActivity by remember(userId) { mutableStateOf<ForumActivity?>(null) }
+
     LaunchedEffect(userId, reloadToken) {
         loading = true
         error = null
@@ -110,6 +119,10 @@ fun PublicProfileScreen(
             .onSuccess { profile = it }
             .onFailure { error = it.message ?: "প্রোফাইল লোড হয়নি।" }
         loading = false
+    }
+
+    LaunchedEffect(userId, reloadToken) {
+        forumActivity = loadForumActivity(userId).getOrNull()
     }
 
     Scaffold(
@@ -164,7 +177,8 @@ fun PublicProfileScreen(
                     // reader wondering whether the article list exists at all.
                     val tabs = listOf(
                         "প্রবন্ধ" to articles.size,
-                        "গান" to songs.size
+                        "গান" to songs.size,
+                        "আলোচনা" to (forumActivity?.total ?: 0)
                     )
                     val activeTab = selectedTab.coerceIn(0, tabs.lastIndex)
 
@@ -224,7 +238,7 @@ fun PublicProfileScreen(
                             items(articles, key = { "article-${it.id}" }) { article ->
                                 PublicArticleCard(article) { onArticleClick(article.id) }
                             }
-                        } else {
+                        } else if (activeTab == 1) {
                             if (songs.isEmpty()) {
                                 item {
                                     EmptyState(
@@ -238,6 +252,33 @@ fun PublicProfileScreen(
                                     // The whole list becomes the queue, in the
                                     // order the reader is looking at.
                                     player.play(track, songs, expand = true)
+                                }
+                            }
+                        } else {
+                            item {
+                                val activity = forumActivity
+                                if (activity == null) {
+                                    EmptyState(
+                                        message = "ফোরামের আলোচনা লোড হচ্ছে…",
+                                        modifier = Modifier
+                                            .padding(EditorialSpace.lg)
+                                            .testTag("public_profile_forum_loading")
+                                    )
+                                } else if (!activity.hasAnything) {
+                                    EmptyState(
+                                        message = "এই ব্যবহারকারী এখনো ফোরামে কিছু লেখেননি।",
+                                        modifier = Modifier
+                                            .padding(EditorialSpace.lg)
+                                            .testTag("public_profile_forum_empty")
+                                    )
+                                } else {
+                                    ForumActivityBlock(
+                                        activity = activity,
+                                        onOpenDiscussion = onDiscussionClick,
+                                        modifier = Modifier
+                                            .padding(horizontal = EditorialSpace.gutter)
+                                            .testTag("public_profile_forum")
+                                    )
                                 }
                             }
                         }

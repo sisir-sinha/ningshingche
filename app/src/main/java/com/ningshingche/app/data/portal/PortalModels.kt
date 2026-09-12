@@ -280,29 +280,132 @@ data class ForumDiscussion(
     val views: Long,
     val replies: Int,
     val createdAt: String,
-    val lastActivityAt: String
+    val lastActivityAt: String,
+    /** ImgBB cover, blank when the thread has none. */
+    val coverImageUrl: String = "",
+    /** Opened by the NingshingChe admin — the সাম্প্রতিক filter's third option. */
+    val isOfficial: Boolean = false
 ) {
     /** A discussion nobody has answered reads differently on a card. */
     val hasReplies: Boolean get() = replies > 0
+
+    val hasCover: Boolean get() = coverImageUrl.isNotBlank()
 }
 
-/** One answer under a discussion. */
+/**
+ * One answer under a discussion.
+ *
+ * [parentId] is set when this answer answers another one. The app draws exactly
+ * one level of indentation — migration 030 folds a reply-to-a-reply back onto
+ * its own answer — so a non-null parent always points at a top-level answer.
+ */
 data class ForumReply(
     val id: String,
+    val discussionId: String,
+    val parentId: String,
     val authorId: String,
     val authorName: String,
     val authorAvatarUrl: String,
     val body: String,
+    val createdAt: String,
+    val likes: Int = 0,
+    val dislikes: Int = 0,
+    val agrees: Int = 0,
+    /** `like`, `dislike`, `agree`, or blank when the reader has not reacted. */
+    val myReaction: String = ""
+) {
+    val isTopLevel: Boolean get() = parentId.isBlank()
+
+    /** What the "top answers" filter sorts on. A dislike is shown, never subtracted. */
+    val reactionScore: Int get() = likes + agrees
+
+    val hasReactions: Boolean get() = likes + dislikes + agrees > 0
+
+    /**
+     * Whether a body is long enough to fold. The threshold is a length, not a
+     * measurement: a card that has to be measured before it can decide would
+     * push a "see more" onto every short answer that happens to wrap.
+     */
+    val isLong: Boolean get() = body.length > 240 || body.contains("<img", ignoreCase = true)
+
+    companion object {
+        const val REACTION_LIKE = "like"
+        const val REACTION_DISLIKE = "dislike"
+        const val REACTION_AGREE = "agree"
+    }
+}
+
+/** What one tap on the reaction popup answers with. */
+data class ForumReactionState(
+    val replyId: String,
+    val likes: Int,
+    val dislikes: Int,
+    val agrees: Int,
+    val mine: String
+)
+
+/**
+ * One reader's forum work — their dashboard card, and the third tab of their
+ * public page. [counts] are the database's, and so is the order of both lists.
+ */
+data class ForumActivity(
+    val userId: String,
+    val discussions: Int,
+    val replies: Int,
+    val reactions: Int,
+    val threads: List<ForumActivityThread>,
+    val answers: List<ForumActivityAnswer>
+) {
+    val hasAnything: Boolean get() = threads.isNotEmpty() || answers.isNotEmpty()
+
+    val total: Int get() = discussions + replies
+}
+
+data class ForumActivityThread(
+    val id: String,
+    val title: String,
+    val excerpt: String,
+    val categorySlug: String,
+    val categoryTitle: String,
+    val views: Long,
+    val replies: Int,
     val createdAt: String
 )
 
-/** The forum home: the rooms, and what moved most recently. */
+data class ForumActivityAnswer(
+    val id: String,
+    val discussionId: String,
+    val discussionTitle: String,
+    val excerpt: String,
+    val likes: Int,
+    val dislikes: Int,
+    val agrees: Int,
+    val createdAt: String
+)
+
+/**
+ * The forum home: the rooms, and the discussions the reader asked to see.
+ *
+ * [order] is the filter that produced [latest] — `recent`, `popular` or
+ * `official` — echoed by the database so a screen can never label one list with
+ * another's name.
+ */
 data class ForumOverview(
     val categories: List<ForumCategory>,
     val latest: List<ForumDiscussion>,
     val totalDiscussions: Int,
-    val totalReplies: Int
-)
+    val totalReplies: Int,
+    val order: String = ORDER_RECENT,
+    val officialCount: Int = 0
+) {
+    companion object {
+        const val ORDER_RECENT = "recent"
+        const val ORDER_POPULAR = "popular"
+        const val ORDER_OFFICIAL = "official"
+
+        val orders = listOf(ORDER_RECENT, ORDER_POPULAR, ORDER_OFFICIAL)
+    }
+}
 
 data class ForumCategoryPage(
     val category: ForumCategory,
@@ -316,11 +419,47 @@ data class ForumSearchResult(
     val total: Int
 )
 
-/** A discussion with its replies, in the order they were written. */
+/**
+ * A discussion with its answers, in the order they were written.
+ *
+ * The database answers flat and the nesting happens here, because "one step of
+ * indentation, and only the newest answer under each one until the reader asks
+ * for the rest" is a rule about reading a thread, not about storing one.
+ */
 data class ForumThread(
     val discussion: ForumDiscussion,
     val replies: List<ForumReply>
-)
+) {
+    /** The answers themselves, newest first — what the উত্তরসমূহ filter reorders. */
+    val answers: List<ForumReply> get() = replies.filter { it.isTopLevel }
+
+    /** Everything written under one answer, oldest first. */
+    fun repliesUnder(answerId: String): List<ForumReply> =
+        replies.filter { it.parentId == answerId }.sortedBy { it.createdAt }
+
+    /** The answers in the order the filter asked for. */
+    fun answersIn(order: String): List<ForumReply> = when (order) {
+        ANSWER_TOP -> answers.sortedWith(
+            compareByDescending<ForumReply> { it.reactionScore }.thenBy { it.createdAt }
+        )
+        else -> answers.sortedBy { it.createdAt }
+    }
+
+    /** With [reply] folded in — a post, or a reaction the reader just made. */
+    fun with(reply: ForumReply): ForumThread {
+        val replaced = replies.map { if (it.id == reply.id) reply else it }
+        return copy(replies = if (replaced.any { it.id == reply.id }) replaced else replaced + reply)
+    }
+
+    companion object {
+        /** Newest first, the way a conversation is usually read. */
+        const val ANSWER_RECENT = "recent"
+        /** Most liked or agreed first — the owner's "top answers". */
+        const val ANSWER_TOP = "top"
+
+        val answerOrders = listOf(ANSWER_TOP, ANSWER_RECENT)
+    }
+}
 
 internal fun ForumCategoryDto.toModel() = ForumCategory(
     id = id.orEmpty(),
@@ -347,15 +486,74 @@ internal fun ForumDiscussionDto.toModel() = ForumDiscussion(
     createdAt = createdAt.orEmpty(),
     // A thread nobody answered is as old as its own post, which is what a card
     // showing "শেষ উত্তর" has to fall back to.
-    lastActivityAt = lastReplyAt.orEmpty().ifBlank { createdAt.orEmpty() }
+    lastActivityAt = lastReplyAt.orEmpty().ifBlank { createdAt.orEmpty() },
+    coverImageUrl = coverImageUrl.orEmpty().trim(),
+    isOfficial = isOfficial ?: false
 )
 
 internal fun ForumReplyDto.toModel() = ForumReply(
     id = id.orEmpty(),
+    discussionId = discussionId.orEmpty(),
+    parentId = parentId.orEmpty(),
     authorId = authorId.orEmpty(),
     authorName = authorName.orEmpty().trim().ifBlank { "নিংশিং চে পাঠক" },
     authorAvatarUrl = authorAvatarUrl.orEmpty(),
     body = body.orEmpty(),
+    createdAt = createdAt.orEmpty(),
+    likes = (likes ?: 0).coerceAtLeast(0),
+    dislikes = (dislikes ?: 0).coerceAtLeast(0),
+    agrees = (agrees ?: 0).coerceAtLeast(0),
+    // Anything the database does not call one of the three is "no reaction":
+    // a screen that showed an unknown word back at the reader would be worse
+    // than a screen that showed none.
+    myReaction = when (myReaction.orEmpty().trim()) {
+        ForumReply.REACTION_LIKE, ForumReply.REACTION_DISLIKE, ForumReply.REACTION_AGREE ->
+            myReaction.orEmpty().trim()
+        else -> ""
+    }
+)
+
+/** The reaction the popup just set, as the model the card redraws from. */
+internal fun ForumReactionDto.toModel(): ForumReactionState = ForumReactionState(
+    replyId = replyId.orEmpty(),
+    likes = (likes ?: 0).coerceAtLeast(0),
+    dislikes = (dislikes ?: 0).coerceAtLeast(0),
+    agrees = (agrees ?: 0).coerceAtLeast(0),
+    mine = mine.orEmpty().trim()
+)
+
+internal fun ForumActivityDto.toModel(): ForumActivity? {
+    val id = userId.orEmpty()
+    if (id.isBlank()) return null
+    return ForumActivity(
+        userId = id,
+        discussions = (counts?.discussions ?: discussions.orEmpty().size).coerceAtLeast(0),
+        replies = (counts?.replies ?: replies.orEmpty().size).coerceAtLeast(0),
+        reactions = (counts?.reactions ?: 0).coerceAtLeast(0),
+        threads = discussions.orEmpty().map { it.toModel() },
+        answers = replies.orEmpty().map { it.toModel() }
+    )
+}
+
+internal fun ForumActivityDiscussionDto.toModel() = ForumActivityThread(
+    id = id.orEmpty(),
+    title = title.orEmpty().trim().ifBlank { "শিরোনামহীন আলোচনা" },
+    excerpt = excerpt.orEmpty().trim(),
+    categorySlug = categorySlug.orEmpty(),
+    categoryTitle = categoryTitle.orEmpty().ifBlank { "আলোচনা" },
+    views = (views ?: 0L).coerceAtLeast(0L),
+    replies = (replies ?: 0).coerceAtLeast(0),
+    createdAt = createdAt.orEmpty()
+)
+
+internal fun ForumActivityReplyDto.toModel() = ForumActivityAnswer(
+    id = id.orEmpty(),
+    discussionId = discussionId.orEmpty(),
+    discussionTitle = discussionTitle.orEmpty().trim().ifBlank { "আলোচনা" },
+    excerpt = excerpt.orEmpty().trim(),
+    likes = (likes ?: 0).coerceAtLeast(0),
+    dislikes = (dislikes ?: 0).coerceAtLeast(0),
+    agrees = (agrees ?: 0).coerceAtLeast(0),
     createdAt = createdAt.orEmpty()
 )
 
@@ -363,7 +561,9 @@ internal fun ForumOverviewDto.toModel() = ForumOverview(
     categories = categories.orEmpty().map { it.toModel() },
     latest = latest.orEmpty().map { it.toModel() },
     totalDiscussions = (totalDiscussions ?: 0).coerceAtLeast(0),
-    totalReplies = (totalReplies ?: 0).coerceAtLeast(0)
+    totalReplies = (totalReplies ?: 0).coerceAtLeast(0),
+    order = order.orEmpty().ifBlank { ForumOverview.ORDER_RECENT },
+    officialCount = (officialCount ?: 0).coerceAtLeast(0)
 )
 
 internal fun ForumCategoryPageDto.toModel(): ForumCategoryPage? {
@@ -788,7 +988,13 @@ data class ContributionStats(
     val comments: Int,
     val views: Long,
     val seconds: Int,
-    val points: Int
+    val points: Int,
+    // The forum joined the score in migration 030: a discussion is worth 20, an
+    // answer 5, and a reaction received 1. The weights stay in the database; the
+    // app only shows what it is handed.
+    val discussions: Int = 0,
+    val replies: Int = 0,
+    val reactions: Int = 0
 ) {
     val minutes: Int get() = seconds / 60
     val isEmpty: Boolean get() = points <= 0
@@ -824,7 +1030,10 @@ internal fun ContributionBlockDto.toStats(): ContributionStats = ContributionSta
     comments = (comments ?: 0).coerceAtLeast(0),
     views = (views ?: 0L).coerceAtLeast(0L),
     seconds = (seconds ?: 0).coerceAtLeast(0),
-    points = (points ?: 0).coerceAtLeast(0)
+    points = (points ?: 0).coerceAtLeast(0),
+    discussions = (discussions ?: 0).coerceAtLeast(0),
+    replies = (replies ?: 0).coerceAtLeast(0),
+    reactions = (reactions ?: 0).coerceAtLeast(0)
 )
 
 internal fun ContributorDto.toModel(): Contributor = Contributor(

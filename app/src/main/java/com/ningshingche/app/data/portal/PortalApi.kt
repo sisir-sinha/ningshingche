@@ -197,7 +197,13 @@ interface PortalApi {
         @Body body: Map<String, String>
     ): Response<ForumSearchDto?>
 
-    /** One discussion with its replies. `p_count_view` bumps the view count. */
+    /**
+     * One discussion with its answers (migration 030 rewrote it).
+     *
+     * `p_count_view` bumps the view count; `p_device_id` only matters for a
+     * guest, and only so the answers can come back with the reaction *they*
+     * already made.
+     */
     @POST("rpc/forum_discussion")
     suspend fun forumDiscussion(
         @Body body: Map<String, String>
@@ -209,11 +215,23 @@ interface PortalApi {
         @Body body: Map<String, String>
     ): Response<ForumThreadDto?>
 
-    /** A reply. Signed in only; answers with the reply it created. */
+    /** A reply — or an answer to an answer. Signed in only. */
     @POST("rpc/forum_reply")
     suspend fun forumReply(
         @Body body: Map<String, String>
     ): Response<ForumReplyDto?>
+
+    /** Like, dislike or agree with one answer; the same tap takes it back. */
+    @POST("rpc/forum_react")
+    suspend fun forumReact(
+        @Body body: Map<String, String>
+    ): Response<ForumReactionDto?>
+
+    /** One reader's forum work — their dashboard card and their public page. */
+    @POST("rpc/forum_activity")
+    suspend fun forumActivity(
+        @Body body: Map<String, String>
+    ): Response<ForumActivityDto?>
 
     /** Published article count per annual issue (migration 013 RPC). */
     @POST("rpc/blog_issue_years")

@@ -319,22 +319,84 @@ data class ForumDiscussionDto(
     @Json(name = "views_count") val views: Long? = null,
     @Json(name = "replies_count") val replies: Int? = null,
     @Json(name = "created_at") val createdAt: String? = null,
-    @Json(name = "last_reply_at") val lastReplyAt: String? = null
+    @Json(name = "last_reply_at") val lastReplyAt: String? = null,
+    // Migration 030: the thread's cover image, and whether the NingshingChe
+    // admin opened it (the app offers that as a filter, and cannot work it out).
+    @Json(name = "cover_image_url") val coverImageUrl: String? = null,
+    @Json(name = "is_official") val isOfficial: Boolean? = null
 )
 
 @JsonClass(generateAdapter = true)
 data class ForumReplyDto(
     val id: String? = null,
+    @Json(name = "discussion_id") val discussionId: String? = null,
+    // Set when this answer answers another one. Null is the common case, and the
+    // only depth the app ever shows is one.
+    @Json(name = "parent_id") val parentId: String? = null,
     @Json(name = "author_id") val authorId: String? = null,
     @Json(name = "author_name") val authorName: String? = null,
     @Json(name = "author_avatar_url") val authorAvatarUrl: String? = null,
     val body: String? = null,
+    @Json(name = "created_at") val createdAt: String? = null,
+    @Json(name = "like_count") val likes: Int? = null,
+    @Json(name = "dislike_count") val dislikes: Int? = null,
+    @Json(name = "agree_count") val agrees: Int? = null,
+    // '' when the reader has not reacted, or when the caller did not say who
+    // they are (a guest with no device id).
+    @Json(name = "my_reaction") val myReaction: String? = null
+)
+
+/** What one tap on the reaction popup answers with. */
+data class ForumReactionDto(
+    @Json(name = "reply_id") val replyId: String? = null,
+    val likes: Int? = null,
+    val dislikes: Int? = null,
+    val agrees: Int? = null,
+    val mine: String? = null
+)
+
+/** One reader's forum work: what they wrote, and what it earned. */
+data class ForumActivityDto(
+    @Json(name = "user_id") val userId: String? = null,
+    val counts: ForumActivityCountsDto? = null,
+    val discussions: List<ForumActivityDiscussionDto>? = null,
+    val replies: List<ForumActivityReplyDto>? = null
+)
+
+data class ForumActivityCountsDto(
+    val discussions: Int? = null,
+    val replies: Int? = null,
+    val reactions: Int? = null
+)
+
+data class ForumActivityDiscussionDto(
+    val id: String? = null,
+    val title: String? = null,
+    val excerpt: String? = null,
+    @Json(name = "category_slug") val categorySlug: String? = null,
+    @Json(name = "category_title") val categoryTitle: String? = null,
+    @Json(name = "views_count") val views: Long? = null,
+    @Json(name = "replies_count") val replies: Int? = null,
+    @Json(name = "created_at") val createdAt: String? = null
+)
+
+data class ForumActivityReplyDto(
+    val id: String? = null,
+    @Json(name = "discussion_id") val discussionId: String? = null,
+    @Json(name = "discussion_title") val discussionTitle: String? = null,
+    val excerpt: String? = null,
+    @Json(name = "like_count") val likes: Int? = null,
+    @Json(name = "dislike_count") val dislikes: Int? = null,
+    @Json(name = "agree_count") val agrees: Int? = null,
     @Json(name = "created_at") val createdAt: String? = null
 )
 
 /** The forum home: rooms, latest activity, and the two totals. */
 @JsonClass(generateAdapter = true)
 data class ForumOverviewDto(
+    /** What the list was ordered by — `recent`, `popular` or `official`. */
+    val order: String? = null,
+    @Json(name = "official_count") val officialCount: Int? = null,
     val categories: List<ForumCategoryDto>? = null,
     val latest: List<ForumDiscussionDto>? = null,
     @Json(name = "total_discussions") val totalDiscussions: Int? = null,
@@ -392,7 +454,12 @@ data class ContributionBlockDto(
     val comments: Int? = null,
     val views: Long? = null,
     val seconds: Int? = null,
-    val points: Int? = null
+    val points: Int? = null,
+    // Migration 030 added these three to `contributor_score`; a database without
+    // it simply has no forum in the score and answers nothing here.
+    val discussions: Int? = null,
+    val replies: Int? = null,
+    val reactions: Int? = null
 )
 
 /** A reader's own points: this month and since they joined. */

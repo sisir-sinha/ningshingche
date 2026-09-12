@@ -65,13 +65,27 @@ import com.ningshingche.app.ui.theme.Kalpurush
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
+/**
+ * The app's rich text editor: a WebView with a toolbar over it.
+ *
+ * Two shapes, one component. The article composer takes the full editor — the
+ * HTML switch, the height controls, the resize handle, and the little bar that
+ * appears over selected text. The forum takes [compact], which is the same
+ * editing surface without any of that: bold, italic, underline, a bullet list
+ * and an image, and no selection popup at all, because a reply box is not a
+ * page and a popup over three lines of text covers most of them.
+ */
 @Composable
 fun HtmlContentEditor(
     value: String,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
     editorHeight: Int = 280,
-    onEditorHeightChange: (Int) -> Unit = {}
+    onEditorHeightChange: (Int) -> Unit = {},
+    selectionPopup: Boolean = true,
+    compact: Boolean = false,
+    placeholder: String = "লেখা লিখুন… নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি, কাট ও পেস্ট আসবে।",
+    testTag: String = "article_content"
 ) {
     var htmlMode by remember { mutableStateOf(false) }
     var webView by remember { mutableStateOf<WebView?>(null) }
@@ -134,35 +148,46 @@ fun HtmlContentEditor(
                     ToolIcon("মোটা", Icons.Default.FormatBold) { run("bold") }
                     ToolIcon("বাঁকা", Icons.Default.FormatItalic) { run("italic") }
                     ToolIcon("নিচে দাগ", Icons.Default.FormatUnderlined) { run("underline") }
-                    ToolIcon("পেস্ট", Icons.Default.ContentPaste) { pasteClipboard() }
+                    ToolIcon("তালিকা", Icons.Default.FormatListBulleted) { run("insertUnorderedList") }
+                    if (!compact) {
+                        ToolIcon("পেস্ট", Icons.Default.ContentPaste) { pasteClipboard() }
+                    }
                     ToolIcon("ছবি যোগ", Icons.Default.Image) {
                         if (!uploading) imagePicker.launch("image/*")
                     }
-                    ToolIcon("আগের কাজ", Icons.Default.Undo) { run("undo") }
+                    if (!compact) {
+                        ToolIcon("আগের কাজ", Icons.Default.Undo) { run("undo") }
+                    }
                 }
-                FilterChip(
-                    selected = htmlMode,
-                    onClick = {
-                        if (!htmlMode) {
-                            webView?.evaluateJavascript("(document.getElementById('e')||{}).innerHTML||''") { raw ->
-                                val html = unescapeJsString(raw)
-                                if (html.isNotBlank()) onValueChange(html)
+                // The HTML switch belongs to the article composer: a forum reply
+                // is written in the toolbar and nowhere else.
+                if (!compact) {
+                    FilterChip(
+                        selected = htmlMode,
+                        onClick = {
+                            if (!htmlMode) {
+                                webView?.evaluateJavascript("(document.getElementById('e')||{}).innerHTML||''") { raw ->
+                                    val html = unescapeJsString(raw)
+                                    if (html.isNotBlank()) onValueChange(html)
+                                }
                             }
-                        }
-                        htmlMode = !htmlMode
-                    },
-                    label = { Text("HTML", fontFamily = Kalpurush, fontWeight = FontWeight.Bold) },
-                    leadingIcon = { Icon(Icons.Default.Code, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                )
+                            htmlMode = !htmlMode
+                        },
+                        label = { Text("HTML", fontFamily = Kalpurush, fontWeight = FontWeight.Bold) },
+                        leadingIcon = { Icon(Icons.Default.Code, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                    )
+                }
             }
         }
 
-        Text(
-            "লেখা নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি, কাট ও পেস্ট দেখাবে। ছবি ImgBB-তে আপলোড হয়।",
+        if (!compact) {
+            Text(
+                "লেখা নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি, কাট ও পেস্ট দেখাবে। ছবি ImgBB-তে আপলোড হয়।",
             fontFamily = Kalpurush,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
 
         if (htmlMode) {
             OutlinedTextField(
@@ -173,7 +198,7 @@ fun HtmlContentEditor(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(height.dp)
-                    .testTag("article_content"),
+                    .testTag(testTag),
                 textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace)
             )
         } else {
@@ -188,7 +213,7 @@ fun HtmlContentEditor(
                         .height(height.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .border(1.dp, outline, RoundedCornerShape(12.dp))
-                        .testTag("article_content"),
+                        .testTag(testTag),
                     factory = { viewContext ->
                         @SuppressLint("SetJavaScriptEnabled")
                         RichEditorWebView(viewContext).apply {
@@ -229,7 +254,9 @@ fun HtmlContentEditor(
                                     background.toArgb(),
                                     onSurface.toArgb(),
                                     accent.toArgb(),
-                                    KalpurushWebFont.css(viewContext)
+                                    KalpurushWebFont.css(viewContext),
+                                    selectionPopup,
+                                    placeholder
                                 ),
                                 "text/html",
                                 "utf-8",
@@ -256,6 +283,7 @@ fun HtmlContentEditor(
                     }
                 }
             }
+            if (!compact) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -275,6 +303,7 @@ fun HtmlContentEditor(
                         .background(MaterialTheme.colorScheme.outline)
                 )
             }
+            }
             DisposableEffect(Unit) {
                 onDispose {
                     webView?.destroy()
@@ -287,11 +316,12 @@ fun HtmlContentEditor(
             Text(error, color = MaterialTheme.colorScheme.error, fontFamily = Kalpurush, style = MaterialTheme.typography.bodySmall)
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        if (!compact) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
             FilledTonalIconButton(
                 onClick = { onEditorHeightChange((height - 80).coerceAtLeast(200)) },
                 enabled = height > 200
@@ -303,6 +333,7 @@ fun HtmlContentEditor(
                 enabled = height < 720
             ) {
                 Text("+", fontWeight = FontWeight.Bold)
+            }
             }
         }
     }
@@ -373,7 +404,14 @@ private object KalpurushWebFont {
     }
 }
 
-private fun editorHtml(bgArgb: Int, fgArgb: Int, accentArgb: Int, fontFaceCss: String): String {
+private fun editorHtml(
+    bgArgb: Int,
+    fgArgb: Int,
+    accentArgb: Int,
+    fontFaceCss: String,
+    selectionPopup: Boolean = true,
+    placeholder: String = "লেখা লিখুন… নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি, কাট ও পেস্ট আসবে।"
+): String {
     val bg = hexColor(bgArgb)
     val fg = hexColor(fgArgb)
     val accent = hexColor(accentArgb)
@@ -392,7 +430,7 @@ private fun editorHtml(bgArgb: Int, fgArgb: Int, accentArgb: Int, fontFaceCss: S
             #e { min-height:100%; padding:14px 14px 56px; outline:none; line-height:1.65;
               font-family:'Kalpurush', sans-serif !important;
               -webkit-touch-callout:none; -webkit-user-select:text; user-select:text; }
-            #e:empty:before { content:'লেখা লিখুন… নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি, কাট ও পেস্ট আসবে।'; color:#888; font-family:'Kalpurush', sans-serif !important; }
+            #e:empty:before { content:'${placeholder.replace("'", "")}'; color:#888; font-family:'Kalpurush', sans-serif !important; }
             #e img { max-width:100%; height:auto; border-radius:8px; margin:8px 0; }
             #selbar {
               position:absolute; display:none; z-index:20;
@@ -440,7 +478,9 @@ private fun editorHtml(bgArgb: Int, fgArgb: Int, accentArgb: Int, fontFaceCss: S
                 emit();
               });
             });
-            document.addEventListener('selectionchange', function(){
+            // The selection bar belongs to the article composer alone: over three
+            // lines of reply it is in the way, which is why the forum turns it off.
+            if (${selectionPopup}) document.addEventListener('selectionchange', function(){
               const sel = window.getSelection();
               if (!sel || sel.rangeCount === 0 || sel.isCollapsed || !e.contains(sel.anchorNode)) {
                 bar.style.display = 'none';

@@ -10,6 +10,7 @@ import coil.memory.MemoryCache
 import com.ningshingche.app.data.ai.NinghsingCheAiAssistant
 import com.ningshingche.app.data.auth.GoogleAuthRepository
 import com.ningshingche.app.data.local.AppDatabase
+import com.ningshingche.app.data.local.ForumDraftStore
 import com.ningshingche.app.data.preferences.UserPreferencesRepository
 import com.ningshingche.app.data.portal.PortalProvider
 import com.ningshingche.app.data.portal.PortalRepository
@@ -86,6 +87,15 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
 
     /** Interface language files, fetched from the dashboard and cached on disk. */
     lateinit var translations: TranslationRepository
+        private set
+
+    /**
+     * Half-written forum posts and replies, kept until they are posted.
+     *
+     * Preferences, not the database: a draft is a few hundred bytes that has to
+     * be readable the instant a composer opens, and nothing joins on it.
+     */
+    lateinit var forumDraftStore: ForumDraftStore
         private set
 
     /** Shared OkHttp client used by both the Portal API and Coil image loading,
@@ -181,6 +191,7 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
                 }
             }
         }
+        forumDraftStore = ForumDraftStore(this)
         translations = TranslationRepository(this)
         if (android.os.Build.FINGERPRINT != "robolectric") {
             musicController.ensureConnected()

@@ -473,6 +473,7 @@ fun EditorialReaderApp(
                     onProfileClick = { navController.navigate(ReaderRoute.UserProfile) },
                     onNotificationsClick = { navController.navigate(ReaderRoute.dashboard("notices")) },
                     unreadCount = unreadCount,
+                    onForumClick = { navController.navigate(ReaderRoute.Forum) },
                     onLogoutClick = { workspaceViewModel.signOut() },
                     isSignedIn = isSignedIn,
                     avatarUrl = currentUser?.avatarUrl.orEmpty(),
@@ -722,7 +723,9 @@ fun EditorialReaderApp(
                         if (comment.blogId.isNotBlank()) {
                             navController.navigate(ReaderRoute.article(comment.blogId, "comments"))
                         }
-                    }
+                    },
+                    onOpenForumThread = { id -> navController.navigate(ReaderRoute.forumThread(id)) },
+                    onOpenForum = { navController.navigate(ReaderRoute.Forum) }
                 )
             }
 
@@ -737,8 +740,10 @@ fun EditorialReaderApp(
                 PublicProfileScreen(
                     userId = entry.arguments?.getString("userId").orEmpty(),
                     loadProfile = { userId -> app.portalRepository.publicProfile(userId) },
+                    loadForumActivity = { userId -> app.portalRepository.forumActivity(userId) },
                     onBackClick = { navController.popBackStack() },
-                    onArticleClick = { articleId -> navController.navigate(ReaderRoute.article(articleId)) }
+                    onArticleClick = { articleId -> navController.navigate(ReaderRoute.article(articleId)) },
+                    onDiscussionClick = { id -> navController.navigate(ReaderRoute.forumThread(id)) }
                 )
             }
 
@@ -776,6 +781,8 @@ fun EditorialReaderApp(
                             navController.navigate(ReaderRoute.article(comment.blogId, "comments"))
                         }
                     },
+                    onOpenForumThread = { id -> navController.navigate(ReaderRoute.forumThread(id)) },
+                    onOpenForum = { navController.navigate(ReaderRoute.Forum) },
                     initialTab = tab,
                     focusMessageId = if (tabKey == "messages") focus else "",
                     focusContentId = if (tabKey == "content") focus else "",
@@ -1004,13 +1011,19 @@ fun EditorialReaderApp(
             composable(ReaderRoute.Forum, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
                 ForumHomeScreen(
                     isSignedIn = isSignedIn,
-                    loadOverview = { app.portalRepository.forumOverview() },
+                    // The filter the reader picked travels to the database, which
+                    // decides what "popular" and "official" mean.
+                    loadOverview = { order -> app.portalRepository.forumOverview(order = order) },
                     search = { term -> app.portalRepository.forumSearch(term) },
-                    onBackClick = { navController.popBackStack() },
                     onCategoryClick = { slug -> navController.navigate(ReaderRoute.forumRoom(slug)) },
                     onDiscussionClick = { id -> navController.navigate(ReaderRoute.forumThread(id)) },
+                    onAuthorClick = { id -> navController.navigate(ReaderRoute.publicProfile(id)) },
                     onNewDiscussion = { navController.navigate(ReaderRoute.newDiscussion()) },
-                    onSignInClick = { navController.navigate(ReaderRoute.Login) }
+                    onSignInClick = { navController.navigate(ReaderRoute.Login) },
+                    onNotificationsClick = {
+                        navController.navigate(ReaderRoute.dashboard("notices"))
+                    },
+                    unreadCount = unreadCount
                 )
             }
 
@@ -1030,6 +1043,7 @@ fun EditorialReaderApp(
                     loadCategory = { room -> app.portalRepository.forumCategory(room) },
                     onBackClick = { navController.popBackStack() },
                     onDiscussionClick = { id -> navController.navigate(ReaderRoute.forumThread(id)) },
+                    onAuthorClick = { id -> navController.navigate(ReaderRoute.publicProfile(id)) },
                     onNewDiscussion = { room -> navController.navigate(ReaderRoute.newDiscussion(room)) },
                     onSignInClick = { navController.navigate(ReaderRoute.Login) }
                 )
@@ -1048,9 +1062,14 @@ fun EditorialReaderApp(
                     discussionId = entry.arguments?.getString("discussionId").orEmpty(),
                     isSignedIn = isSignedIn,
                     loadThread = { id, countView -> app.portalRepository.forumDiscussion(id, countView) },
-                    postReply = { id, body -> app.portalRepository.forumReply(id, body) },
+                    postReply = { id, body, parentId ->
+                        app.portalRepository.forumReply(id, body, parentId)
+                    },
+                    react = { replyId, kind -> app.portalRepository.reactToForumReply(replyId, kind) },
+                    draftStore = app.forumDraftStore,
                     onBackClick = { navController.popBackStack() },
-                    onSignInClick = { navController.navigate(ReaderRoute.Login) }
+                    onSignInClick = { navController.navigate(ReaderRoute.Login) },
+                    onAuthorClick = { id -> navController.navigate(ReaderRoute.publicProfile(id)) }
                 )
             }
 
@@ -1070,15 +1089,22 @@ fun EditorialReaderApp(
                     loadCategories = { slug ->
                         app.portalRepository.forumOverview(limit = 1).map { it.categories }
                     },
+                    draftStore = app.forumDraftStore,
                     isSignedIn = isSignedIn,
-                    post = { slug, title, body ->
-                        app.portalRepository.createForumDiscussion(slug, title, body)
+                    post = { slug, title, body, coverUrl, coverDeleteUrl ->
+                        app.portalRepository.createForumDiscussion(
+                            categorySlug = slug,
+                            title = title,
+                            body = body,
+                            coverImageUrl = coverUrl,
+                            coverDeleteUrl = coverDeleteUrl
+                        )
                     },
                     onBackClick = { navController.popBackStack() },
-                    onPosted = { id ->
+                    onPosted = { created ->
                         // The thread replaces this screen: the writer sees what
                         // they wrote, and Back goes to the list they came from.
-                        navController.navigate(ReaderRoute.forumThread(id)) {
+                        navController.navigate(ReaderRoute.forumThread(created.discussion.id)) {
                             popUpTo(ReaderRoute.ForumNewPattern) { inclusive = true }
                         }
                     },

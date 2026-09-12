@@ -14,6 +14,7 @@ import com.ningshingche.app.data.remote.SubmittedBlogRecord
 import com.ningshingche.app.data.remote.SubmittedMusicRecord
 import com.ningshingche.app.data.remote.SatoruUploadClient
 import com.ningshingche.app.data.portal.ContributorScore
+import com.ningshingche.app.data.portal.ForumActivity
 import com.ningshingche.app.data.portal.PortalRepository
 import com.ningshingche.app.data.portal.ViewDay
 import com.ningshingche.app.data.remote.SupabaseClient
@@ -77,6 +78,9 @@ class ReaderWorkspaceViewModel(
     val contributorScore: StateFlow<ContributorScore?> = _contributorScore.asStateFlow()
 
     /** The reader's views per day, for the dashboard's views-over-time chart. */
+    private val _forumActivity = MutableStateFlow<ForumActivity?>(null)
+    val forumActivity: StateFlow<ForumActivity?> = _forumActivity.asStateFlow()
+
     private val _viewSeries = MutableStateFlow<List<ViewDay>>(emptyList())
     val viewSeries: StateFlow<List<ViewDay>> = _viewSeries.asStateFlow()
 
@@ -112,6 +116,9 @@ class ReaderWorkspaceViewModel(
             val series = supabaseClient.userViewSeries(user.id, VIEW_SERIES_DAYS)
                 .getOrDefault(_viewSeries.value)
             val score = portalRepository.contributorPoints(user.id).getOrNull()
+            // The reader's own forum work: three counts and the two lists, in one
+            // call, read from the same function their public page uses.
+            val forum = portalRepository.forumActivity(user.id).getOrNull()
             _articles.value = articles
             _tracks.value = tracks
             _comments.value = comments
@@ -129,6 +136,7 @@ class ReaderWorkspaceViewModel(
             )
             _viewSeries.value = series
             _contributorScore.value = score
+            _forumActivity.value = forum
             articleResult.exceptionOrNull()?.message?.let { _message.value = it }
             commentResult.exceptionOrNull()?.message?.let { if (_message.value == null) _message.value = it }
             refreshInbox(user.id, articles, comments, notifySystem = true, markSeen = false)

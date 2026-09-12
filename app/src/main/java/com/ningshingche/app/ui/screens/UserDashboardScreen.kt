@@ -49,6 +49,8 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Comment
 import androidx.compose.material.icons.filled.Stars
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Forum
+import androidx.compose.material.icons.filled.Reply
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
@@ -169,6 +171,9 @@ fun UserDashboardScreen(
     // dashboard shows its own preview instead.
     onOpenArticle: suspend (SubmittedBlogRecord) -> Boolean = { false },
     onOpenComment: (CommentRecord) -> Unit = {},
+    // A forum notice opens its thread; the forum itself is one tap away too.
+    onOpenForumThread: (String) -> Unit = {},
+    onOpenForum: () -> Unit = {},
     initialTab: Int = 0,
     focusMessageId: String = "",
     focusContentId: String = "",
@@ -183,6 +188,7 @@ fun UserDashboardScreen(
     val metrics by viewModel.metrics.collectAsStateWithLifecycle()
     val viewSeries by viewModel.viewSeries.collectAsStateWithLifecycle()
     val contributorScore by viewModel.contributorScore.collectAsStateWithLifecycle()
+    val forumActivity by viewModel.forumActivity.collectAsStateWithLifecycle()
     val loading by viewModel.isLoading.collectAsStateWithLifecycle()
     val saving by viewModel.isSaving.collectAsStateWithLifecycle()
     val status by viewModel.message.collectAsStateWithLifecycle()
@@ -229,6 +235,10 @@ fun UserDashboardScreen(
     // pushing a second dashboard screen on top.
     val openNotice: (UserNotificationRecord) -> Unit = { notice ->
         viewModel.markNotificationRead(notice.id)
+        // A forum notice is not a card in a tab — it is a thread to open.
+        if (notice.isForum && notice.forumDiscussionId.isNotBlank()) {
+            onOpenForumThread(notice.forumDiscussionId)
+        } else {
         val targetTab = when {
             notice.isAdminMessage || notice.kind == "staff_notice" -> TAB_MESSAGES
             notice.isComment -> TAB_COMMENTS
@@ -240,6 +250,7 @@ fun UserDashboardScreen(
             else -> contentFocus = notice.relatedId
         }
         scope.launch { pagerState.animateScrollToPage(targetTab) }
+        }
     }
     LaunchedEffect(initialTab) {
         pagerState.scrollToPage(initialTab.coerceIn(0, TAB_COMMENTS))
@@ -514,6 +525,12 @@ private fun HomePane(
         MetricsGrid(metrics = metrics)
         // Points, from the same place the contributor board gets them.
         contributorScore?.let { ContributorPointsCard(score = it) }
+        ForumCard(
+            activity = forumActivity,
+            onOpenForum = onOpenForum,
+            onOpenThread = onOpenForumThread,
+            modifier = Modifier.testTag("dashboard_forum")
+        )
         // The one graph that comes from the server: the views the database has
         // counted on the reader's articles and songs, day by day.
         ViewsOverTimeChart(
@@ -1411,6 +1428,8 @@ private fun PointsBreakdown(stats: ContributionStats) {
         BreakdownItem("মন্তব্য", stats.comments, Icons.Default.Comment, tokens.inkMuted)
         BreakdownItem("ভিউ", stats.views.toInt(), Icons.Default.Visibility, tokens.inkMuted)
         BreakdownItem("মিনিট", stats.minutes, Icons.Default.Timer, tokens.inkMuted)
+        BreakdownItem("আলোচনা", stats.discussions, Icons.Default.Forum, tokens.inkMuted)
+        BreakdownItem("উত্তর", stats.replies, Icons.Default.Reply, tokens.inkMuted)
     }
 }
 
@@ -1486,6 +1505,7 @@ private fun NotificationCard(
         Row(Modifier.padding(14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Icon(
                 imageVector = when {
+                    notice.isForum -> Icons.Default.Forum
                     notice.isComment -> Icons.Default.Comment
                     notice.isAdminMessage || notice.kind == "staff_notice" -> Icons.Default.Mail
                     else -> Icons.AutoMirrored.Filled.Article
@@ -1500,6 +1520,8 @@ private fun NotificationCard(
                 }
                 Text(
                     when {
+                        notice.isForumReply -> "ফোরাম · উত্তর"
+                        notice.isForumThread -> "ফোরাম · আলোচনা"
                         notice.isComment -> "মন্তব্য"
                         notice.isAdminMessage || notice.kind == "staff_notice" -> "বার্তা"
                         notice.isArticle -> "প্রবন্ধ"
