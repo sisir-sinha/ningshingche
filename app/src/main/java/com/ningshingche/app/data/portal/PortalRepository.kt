@@ -30,6 +30,17 @@ import java.util.concurrent.TimeUnit
  *    `Content-Range`, which is what drives "load more" and the result counter in
  *    search.
  */
+/**
+ * PostgREST reads a JSON `""` as the empty string and casts it to whatever the
+ * function expects. For a `uuid` parameter that cast fails, and the reader who
+ * was answering a thread — with no answer above them, so no parent — was shown
+ * `invalid input syntax for type uuid: ""` instead of their reply going up. A
+ * parameter with nothing in it is a parameter the call does not need: the
+ * defaults in the migrations are what an omitted argument becomes.
+ */
+private fun Map<String, String>.withoutBlanks(): Map<String, String> =
+    filterValues { it.isNotBlank() }
+
 class PortalRepository(
     private val api: PortalApi
 ) {
@@ -793,7 +804,7 @@ class PortalRepository(
                         // fine: it simply means no answer comes back marked as
                         // theirs.
                         "p_device_id" to guestViewerId
-                    )
+                    ).withoutBlanks()
                 )
             }.mapCatching { dto ->
                 dto?.toModel() ?: throw PortalError.NotFound
@@ -824,7 +835,7 @@ class PortalRepository(
                     "p_reply_id" to clean,
                     "p_kind" to wanted,
                     "p_device_id" to guestViewerId
-                )
+                ).withoutBlanks()
             )
         }.mapCatching { dto ->
             dto?.toModel() ?: throw PortalError.NotFound
@@ -866,7 +877,7 @@ class PortalRepository(
                     // thread; neither is required for the post to go up.
                     "p_cover_image_url" to coverImageUrl.trim(),
                     "p_cover_delete_url" to coverDeleteUrl.trim()
-                )
+                ).withoutBlanks()
             )
         }.mapCatching { dto ->
             val created = dto?.toModel() ?: throw PortalError.NotFound
@@ -897,8 +908,11 @@ class PortalRepository(
                     mapOf(
                         "p_id" to clean,
                         "p_body" to body.trim(),
+                        // An answer to the thread itself has no parent, and an
+                        // empty one must not be sent: `uuid = ''` is a cast error,
+                        // not a missing parent.
                         "p_parent_id" to parentId.trim()
-                    )
+                    ).withoutBlanks()
                 )
             }.mapCatching { dto ->
                 dto?.toModel() ?: throw PortalError.NotFound

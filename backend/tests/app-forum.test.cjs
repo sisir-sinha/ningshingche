@@ -279,7 +279,12 @@ test('a discussion can be read from the list to the last reply', async (t) => {
       'lastActivityAt', 'views', 'replies']) {
       assert.ok(card.includes(field), `the card shows ${field}`);
     }
-    assert.match(card, /formatBengaliDate\(/, 'the date is the reader\'s, not ISO text');
+    // The date moved into the author block the card shares with the thread: a
+    // picture, the name, and the date beside it.
+    assert.match(card, /ForumAuthorRow\(/,
+      'the card hands its author to the shared block');
+    assert.match(FORUM_SCREENS, /formatBengaliDate\(date\)/,
+      'which is where the reader\'s own date format lives');
   });
 
   await t.test('the thread shows the opening post and every reply', () => {

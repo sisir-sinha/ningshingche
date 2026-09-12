@@ -92,6 +92,7 @@ import com.ningshingche.app.data.portal.excerptOf
 import com.ningshingche.app.data.portal.stripHtml
 import java.text.SimpleDateFormat
 import java.util.Locale
+import java.util.TimeZone
 
 /**
  * Reusable building blocks for the modern-editorial reader.
@@ -252,6 +253,37 @@ fun formatBengaliDate(iso: String): String {
         SimpleDateFormat("d MMMM, yyyy", Locale("bn", "BD")).format(parsed)
     }.getOrDefault(iso.take(10))
 }
+
+/**
+ * Formats a timestamp as `১২ সেপ্টেম্বর, ৩:৪৫ অপরাহ্ণ`.
+ *
+ * The companion to [formatBengaliDate] for the places where a date alone says too
+ * little — an answer in a thread is read within the hour it was written, and "১২
+ * সেপ্টেম্বর" would not tell the reader whether it is the answer above or the one
+ * below. The stored value is UTC (Supabase writes `timestamptz`), so it is parsed
+ * as UTC and rendered in the phone's own zone: the reader sees the clock on their
+ * wall, not the database's.
+ *
+ * `SimpleDateFormat`, like [formatBengaliDate], because `minSdk` is 24 and this
+ * module does not enable core library desugaring.
+ */
+fun formatBengaliDateTime(iso: String): String {
+    if (iso.isBlank()) return ""
+    return runCatching {
+        val utc = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }
+        val parsed = utc.parse(iso.take(19)) ?: return ""
+        val date = SimpleDateFormat("d MMMM", Locale("bn", "BD")).format(parsed)
+        val clock = SimpleDateFormat("h:mm", Locale.US).format(parsed)
+        val hour = SimpleDateFormat("H", Locale.US).format(parsed).toIntOrNull() ?: 0
+        bengaliDigits("$date, $clock ${if (hour < 12) "পূর্বাহ্ণ" else "অপরাহ্ণ"}")
+    }.getOrDefault("")
+}
+
+/** Every digit of [text] in Bengali numerals — dates and clocks included. */
+private fun bengaliDigits(text: String): String =
+    text.map { if (it in '0'..'9') '০' + (it - '0') else it }.joinToString("")
 
 @Composable
 fun Byline(

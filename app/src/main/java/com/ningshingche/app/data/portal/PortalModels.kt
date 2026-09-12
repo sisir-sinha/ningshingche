@@ -319,8 +319,6 @@ data class ForumReply(
     /** What the "top answers" filter sorts on. A dislike is shown, never subtracted. */
     val reactionScore: Int get() = likes + agrees
 
-    val hasReactions: Boolean get() = likes + dislikes + agrees > 0
-
     /**
      * Whether a body is long enough to fold. The threshold is a length, not a
      * measurement: a card that has to be measured before it can decide would

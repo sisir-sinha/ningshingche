@@ -841,6 +841,50 @@ thread), and the public page gains a third tab, **আলোচনা (n)**. The 
 `discussions`, `replies` and `reactions`. The weights live in the database; the app shows the numbers
 and never works the arithmetic out itself.
 
+**The third pass (app 1.3 → 1.4).** Thirteen notes came back from reading the second pass on a
+phone. None of them changed the database; all of them changed how the forum is drawn, and one of
+them was a bug worth naming.
+
+*A bug: `invalid input syntax for type uuid: ""`.* Answering a thread with no answer above it sent
+`p_parent_id: ""`, and PostgREST casts an empty string to `uuid` and fails. `PortalRepository` now
+sends `withoutBlanks()` — a parameter with nothing in it is a parameter the call does not need, and
+the migration's default (a reply with no parent) is what an omitted argument becomes. It is applied
+to every call that takes a uuid or an id.
+
+*Spacing and the bar.* Every forum screen clears the app bar by `FORUM_TOP_SPACE`; the forum's own
+bar carries a back arrow and a refresh, and **no bell** — notices are the dashboard's, and the home
+page's own bell is untouched. The search field stays on the page, where it can be typed into.
+
+*বিভাগসমূহ is one line* — `বিভাগসমূহ (৫)` and a chevron — and it starts zipped. Opening it animates
+(`AnimatedVisibility` with `expandVertically`/`shrinkVertically` and a fade, 220 ms) and the chevron
+turns as it goes. A room is 232 dp wide with its two lines tight together (`lineHeight = 13.5.sp`).
+
+*Cards.* A discussion title is 17 sp; the author block is one line — a 36 dp face, the name, and the
+date beside it, the name yielding first when space runs out. Answers and replies use the same block
+with `showTime`, so a thread reads `সিসির সিংহ · ১২ সেপ্টেম্বর, ৩:৪৫ অপরাহ্ণ` (`formatBengaliDateTime`,
+which parses the UTC the database wrote and renders the reader's own zone, without `java.time`).
+
+*Reactions are icons.* On a card: `ThumbUp`, `CheckCircle`, `ThumbDown`, each with its count and its
+own colour when it is the reader's. On a long press: those three icons in one row and nothing else —
+no name, no words, no counters. The hint line under the counts is gone.
+
+*One card per answer.* The replies are drawn inside the answer's card, indented 22 dp, with a 2 dp
+line down their left (`drawBehind`), so an argument reads as the answer it belongs to. The database's
+one-level fold is unchanged.
+
+*The reply box* is the thread's `bottomBar`, not an item in the list: a strip with the editor at 96 dp
+that grows to 240 dp and scrolls inside itself beyond that (the page reports its own `scrollHeight`
+through the bridge), small 30 dp toolbar buttons, and `imePadding()` so the keyboard lifts it rather
+than covering it. Back while the keyboard is up closes the keyboard first (`BackHandler` on
+`WindowInsets.ime`), and a tap that no control claimed does the same (`detectTapGestures` on the
+list, plus each card's own tap).
+
+*Pictures are attached, not typed.* `HtmlContentEditor` takes `attachments`, `onAttachImage` and
+`onRemoveAttachment`: thumbnails drawn above the box with a cross to take them back, and never an
+image inside the body — the caller appends the URLs to the HTML as the post is sent
+(`forumWithAttachments`). The compact editor's own picker is only ever used where the full editor is.
+Attachments are part of the draft, so they survive a wrong turn like the text does.
+
 **The API is seven functions** — 029's six plus `forum_react`, with `forum_overview`,
 `forum_discussion`, `forum_create_discussion` and `forum_reply` replaced on new signatures by 030, and
 `forum_activity(user, limit)` reading one reader's forum work for their dashboard and their public

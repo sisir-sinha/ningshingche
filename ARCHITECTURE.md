@@ -286,7 +286,12 @@ authors_directory, social_activities.
   post. Public read, signed-in write, through the RPCs; the drawer's **ফোরাম** row replaced
   **সামাজিক কার্যকলাপ** (a hard-coded gallery grid the home page already draws, whose screen and
   state were removed with the row), and the account menu carries **ফোরাম** as well. The reader's
-  own forum work shows on their dashboard and on their public page's third tab.
+  own forum work shows on their dashboard and on their public page's third tab. The reply box is
+  the thread's bottom bar (a 96 dp editor that grows to 240 dp and rises with the keyboard; Back
+  closes the keyboard first), reactions are icons on the card and three icons in the long-press
+  popup, a reply is indented inside its answer behind a drawn line, and a picture in an answer is an
+  attachment above the box with a cross to remove it — appended to the post as it is sent, never
+  typed into the body.
 - **Public profile** (`PublicProfileScreen.kt`, route `user/{userId}`): name, designation,
   short address, a statistics card (total views, lifetime points, this month's points) and
   two tabs — articles and songs — each ordered by views and dated. One request,

@@ -36,11 +36,14 @@ class ForumDraftStore(private val context: Context) {
         val title: String = "",
         val body: String = "",
         val coverImageUrl: String = "",
-        val coverDeleteUrl: String = ""
+        val coverDeleteUrl: String = "",
+        /** Pictures attached to the post, which never enter the editor's HTML. */
+        val images: List<String> = emptyList()
     ) {
         /** True when there is nothing worth coming back for. */
         val isEmpty: Boolean
-            get() = title.isBlank() && bodyIsEmpty(body) && coverImageUrl.isBlank()
+            get() = title.isBlank() && bodyIsEmpty(body) &&
+                coverImageUrl.isBlank() && images.isEmpty()
 
         companion object {
             /**
@@ -57,10 +60,11 @@ class ForumDraftStore(private val context: Context) {
         }
     }
 
-    /** One reply box: the text, and which answer it was answering. */
+    /** One reply box: the text, the pictures, and which answer it was answering. */
     data class ReplyDraft(
         val body: String = "",
-        val parentId: String = ""
+        val parentId: String = "",
+        val images: List<String> = emptyList()
     ) {
         val isEmpty: Boolean get() = ComposerDraft.bodyIsEmpty(body)
     }
@@ -81,7 +85,8 @@ class ForumDraftStore(private val context: Context) {
                 title = json.optString("title", ""),
                 body = json.optString("body", ""),
                 coverImageUrl = json.optString("coverImageUrl", ""),
-                coverDeleteUrl = json.optString("coverDeleteUrl", "")
+                coverDeleteUrl = json.optString("coverDeleteUrl", ""),
+                images = json.optJSONArray("images").toStringList()
             ).takeUnless { it.isEmpty }
         }.getOrNull()
     }
@@ -98,6 +103,7 @@ class ForumDraftStore(private val context: Context) {
             .put("body", draft.body)
             .put("coverImageUrl", draft.coverImageUrl)
             .put("coverDeleteUrl", draft.coverDeleteUrl)
+            .put("images", org.json.JSONArray(draft.images))
             .toString()
         context.forumDrafts.edit { it[Keys.COMPOSER] = json }
     }
@@ -120,7 +126,8 @@ class ForumDraftStore(private val context: Context) {
                 val json = JSONObject(raw)
                 ReplyDraft(
                     body = json.optString("body", ""),
-                    parentId = json.optString("parentId", "")
+                    parentId = json.optString("parentId", ""),
+                    images = json.optJSONArray("images").toStringList()
                 ).takeUnless { it.isEmpty }
             }.getOrNull()
         }
@@ -136,6 +143,7 @@ class ForumDraftStore(private val context: Context) {
         val json = JSONObject()
             .put("body", draft.body)
             .put("parentId", draft.parentId)
+            .put("images", org.json.JSONArray(draft.images))
             .toString()
         context.forumDrafts.edit { it[Keys.reply(id)] = json }
     }
@@ -148,4 +156,12 @@ class ForumDraftStore(private val context: Context) {
 
     private suspend fun read(key: Preferences.Key<String>): String? =
         context.forumDrafts.data.first()[key]
+
+    /** A missing or malformed list of pictures is an empty one, never a crash. */
+    private fun org.json.JSONArray?.toStringList(): List<String> {
+        val array = this ?: return emptyList()
+        return (0 until array.length()).mapNotNull { index ->
+            array.optString(index, "").takeIf { it.isNotBlank() }
+        }
+    }
 }

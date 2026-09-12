@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.view.ActionMode
 import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -26,6 +28,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.FormatBold
@@ -44,7 +47,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -66,14 +72,46 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 /**
+ * A handle on the editor's keyboard, for the screen that owns it.
+ *
+ * A WebView is not a Compose text field, so `focusManager.clearFocus()` does not
+ * close its keyboard. A screen that wants to dismiss it — because the reader
+ * tapped outside, or because Back was pressed while the keyboard was up — asks
+ * the editor through this instead, and the editor blurs the page and hides the
+ * input method from the view that actually opened it.
+ */
+class HtmlEditorController {
+    internal var hideKeyboard: (() -> Unit)? = null
+
+    /** Blur the editing surface and put the keyboard away. */
+    fun dismiss() {
+        hideKeyboard?.invoke()
+    }
+}
+
+/** The smallest a box may be. A reply starts near this and grows from there. */
+private const val EDITOR_MIN_HEIGHT = 88
+
+/**
  * The app's rich text editor: a WebView with a toolbar over it.
  *
  * Two shapes, one component. The article composer takes the full editor — the
  * HTML switch, the height controls, the resize handle, and the little bar that
  * appears over selected text. The forum takes [compact], which is the same
- * editing surface without any of that: bold, italic, underline, a bullet list
- * and an image, and no selection popup at all, because a reply box is not a
- * page and a popup over three lines of text covers most of them.
+ * editing surface without any of that: bold, italic, underline and a bullet
+ * list, no selection popup (a popup over three lines of reply covers most of
+ * them), and no way to put a picture *into* the text.
+ *
+ * [attachments] are pictures the reader added. They are drawn as small
+ * thumbnails, each with a cross to take it back, and they are never inserted
+ * into the body: the caller is handed [onAttachImage] to open its own picker,
+ * uploads, and appends the URLs to the HTML when the post is sent. A picture in
+ * the middle of a sentence is easy to tap into accidentally and hard to take out
+ * again; a strip of attachments above the box is neither.
+ *
+ * The box grows with what is written in it ([autoGrow]) up to [maxGrow], and
+ * scrolls inside itself beyond that — a reply of three lines does not open a
+ * box the height of a page, and a reply of thirty does not become unreadable.
  */
 @Composable
 fun HtmlContentEditor(
@@ -85,15 +123,38 @@ fun HtmlContentEditor(
     selectionPopup: Boolean = true,
     compact: Boolean = false,
     placeholder: String = "লেখা লিখুন… নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি, কাট ও পেস্ট আসবে।",
-    testTag: String = "article_content"
+    testTag: String = "article_content",
+    controller: HtmlEditorController? = null,
+    attachments: List<String> = emptyList(),
+    onAttachImage: (() -> Unit)? = null,
+    onRemoveAttachment: (String) -> Unit = {},
+    autoGrow: Boolean = true,
+    maxGrow: Int = if (compact) 260 else 720
 ) {
     var htmlMode by remember { mutableStateOf(false) }
     var webView by remember { mutableStateOf<WebView?>(null) }
     var uploading by remember { mutableStateOf(false) }
     var uploadError by remember { mutableStateOf<String?>(null) }
-    val height = editorHeight.coerceIn(200, 720)
+    // What the box measures: the caller's height is the floor, what the reader
+    // has written raises it, and `maxGrow` is the ceiling beyond which the box
+    // scrolls instead of growing.
+    var contentHeight by remember { mutableIntStateOf(0) }
+    val baseHeight = editorHeight.coerceIn(EDITOR_MIN_HEIGHT, 720)
+    val height = maxOf(baseHeight, contentHeight).coerceAtMost(maxGrow)
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
+    // The reader's own Back, while the keyboard is up, is the keyboard's first.
+    SideEffect {
+        controller?.hideKeyboard = {
+            webView?.evaluateJavascript(
+                "if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();",
+                null
+            )
+            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            imm?.hideSoftInputFromWindow(webView?.windowToken, 0)
+        }
+    }
 
     fun run(command: String, arg: String? = null) {
         val script = if (arg == null) {
@@ -131,12 +192,58 @@ fun HtmlContentEditor(
         }
     }
 
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 8.dp)) {
         Surface(
             shape = RoundedCornerShape(12.dp),
             tonalElevation = 1.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
+            // What is attached sits above the box it will be sent with.
+            if (attachments.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(start = 8.dp, end = 8.dp, top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    attachments.forEach { url ->
+                        Box(modifier = Modifier.size(52.dp).testTag("editor_attachment")) {
+                            PortalAsyncImage(
+                                url = url,
+                                contentDescription = "সংযুক্ত ছবি",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(52.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                            )
+                            // Small, and on the corner: the picture is the thing
+                            // being looked at, and the cross only says it can go.
+                            IconButton(
+                                onClick = { onRemoveAttachment(url) },
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .size(20.dp)
+                                    .testTag("editor_attachment_remove")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "ছবি সরান",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier
+                                        .size(14.dp)
+                                        .background(
+                                            MaterialTheme.colorScheme.surface,
+                                            RoundedCornerShape(50)
+                                        )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -145,15 +252,20 @@ fun HtmlContentEditor(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (!htmlMode) {
-                    ToolIcon("মোটা", Icons.Default.FormatBold) { run("bold") }
-                    ToolIcon("বাঁকা", Icons.Default.FormatItalic) { run("italic") }
-                    ToolIcon("নিচে দাগ", Icons.Default.FormatUnderlined) { run("underline") }
-                    ToolIcon("তালিকা", Icons.Default.FormatListBulleted) { run("insertUnorderedList") }
+                    ToolIcon("মোটা", Icons.Default.FormatBold, compact) { run("bold") }
+                    ToolIcon("বাঁকা", Icons.Default.FormatItalic, compact) { run("italic") }
+                    ToolIcon("নিচে দাগ", Icons.Default.FormatUnderlined, compact) { run("underline") }
+                    ToolIcon("তালিকা", Icons.Default.FormatListBulleted, compact) { run("insertUnorderedList") }
                     if (!compact) {
                         ToolIcon("পেস্ট", Icons.Default.ContentPaste) { pasteClipboard() }
                     }
-                    ToolIcon("ছবি যোগ", Icons.Default.Image) {
-                        if (!uploading) imagePicker.launch("image/*")
+                    if (!compact) {
+                        ToolIcon("ছবি যোগ", Icons.Default.Image) {
+                            if (!uploading) imagePicker.launch("image/*")
+                        }
+                    } else if (onAttachImage != null) {
+                        // The forum's picture: attached, never typed into the body.
+                        ToolIcon("ছবি সংযুক্ত করুন", Icons.Default.Image, true) { onAttachImage() }
                     }
                     if (!compact) {
                         ToolIcon("আগের কাজ", Icons.Default.Undo) { run("undo") }
@@ -235,7 +347,15 @@ fun HtmlContentEditor(
                             addJavascriptInterface(
                                 HtmlBridge(
                                     host = this,
-                                    emit = { html -> post { onValueChange(html) } }
+                                    emit = { html -> post { onValueChange(html) } },
+                                    emitHeight = { measured ->
+                                        post {
+                                            // Reported by the page as it grows;
+                                            // ignored entirely when the caller
+                                            // has asked for a fixed box.
+                                            if (autoGrow) contentHeight = measured.coerceIn(0, 720)
+                                        }
+                                    }
                                 ),
                                 "Android"
                             )
@@ -288,9 +408,9 @@ fun HtmlContentEditor(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(18.dp)
-                    .pointerInput(height) {
+                    .pointerInput(baseHeight) {
                         detectVerticalDragGestures { _, dragAmount ->
-                            onEditorHeightChange((height + dragAmount).toInt().coerceIn(200, 720))
+                            onEditorHeightChange((baseHeight + dragAmount).toInt().coerceIn(200, 720))
                         }
                     },
                 contentAlignment = Alignment.Center
@@ -323,14 +443,14 @@ fun HtmlContentEditor(
                 verticalAlignment = Alignment.CenterVertically
             ) {
             FilledTonalIconButton(
-                onClick = { onEditorHeightChange((height - 80).coerceAtLeast(200)) },
-                enabled = height > 200
+                onClick = { onEditorHeightChange((baseHeight - 80).coerceAtLeast(200)) },
+                enabled = baseHeight > 200
             ) {
                 Text("−", fontWeight = FontWeight.Bold)
             }
             FilledTonalIconButton(
-                onClick = { onEditorHeightChange((height + 80).coerceAtMost(720)) },
-                enabled = height < 720
+                onClick = { onEditorHeightChange((baseHeight + 80).coerceAtMost(720)) },
+                enabled = baseHeight < 720
             ) {
                 Text("+", fontWeight = FontWeight.Bold)
             }
@@ -340,25 +460,38 @@ fun HtmlContentEditor(
 }
 
 @Composable
+/**
+ * One toolbar button. [compact] shrinks it: the reply box is a strip at the
+ * bottom of the screen, and three 40 dp buttons over a 96 dp box would be most
+ * of the box.
+ */
+@Composable
 private fun ToolIcon(
     label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
+    compact: Boolean = false,
     onClick: () -> Unit
 ) {
-    IconButton(onClick = onClick, modifier = Modifier.size(40.dp)) {
-        Icon(icon, contentDescription = label, modifier = Modifier.size(20.dp))
+    IconButton(onClick = onClick, modifier = Modifier.size(if (compact) 30.dp else 40.dp)) {
+        Icon(icon, contentDescription = label, modifier = Modifier.size(if (compact) 16.dp else 20.dp))
     }
 }
 
 private class HtmlBridge(
     private val host: WebView,
-    private val emit: (String) -> Unit
+    private val emit: (String) -> Unit,
+    private val emitHeight: (Int) -> Unit
 ) {
     @JavascriptInterface
     fun onHtml(html: String) {
         emit(html)
     }
 
+    /** How tall the writing is, in CSS pixels — which is what a dp is here. */
+    @JavascriptInterface
+    fun onHeight(px: Int) {
+        host.post { emitHeight(px) }
+    }
 }
 
 private fun clipboardText(context: Context): String {
@@ -459,11 +592,19 @@ private fun editorHtml(
             const e = document.getElementById('e');
             const bar = document.getElementById('selbar');
             function emit(){ if (window.Android) Android.onHtml(e.innerHTML); }
-            e.addEventListener('input', emit);
+            // How tall the writing is. The box on the other side of the bridge
+            // grows to fit it, up to the ceiling the caller set, and scrolls past
+            // that — so a long reply is readable inside a box that never takes
+            // more of the screen than it has to.
+            function grow(){ if (window.Android && Android.onHeight) Android.onHeight(Math.ceil(e.scrollHeight)); }
+            e.addEventListener('input', function(){ emit(); grow(); });
             e.addEventListener('blur', emit);
+            window.addEventListener('resize', grow);
+            setTimeout(grow, 60);
             document.addEventListener('contextmenu', function(ev){ ev.preventDefault(); });
             window.setHtml = function(html){
               if (typeof html === 'string' && html !== e.innerHTML) e.innerHTML = html;
+              grow();
             };
             window.insertImage = function(url){
               if (!url) return;

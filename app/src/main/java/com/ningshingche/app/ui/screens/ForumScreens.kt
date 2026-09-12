@@ -1,11 +1,20 @@
 package com.ningshingche.app.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,10 +22,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -30,14 +42,18 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Reply
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.ThumbDown
+import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Visibility
@@ -59,6 +75,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -68,9 +85,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -92,6 +116,7 @@ import com.ningshingche.app.data.portal.ForumThread
 import com.ningshingche.app.data.portal.PortalError
 import com.ningshingche.app.data.remote.ImgBbUploader
 import com.ningshingche.app.ui.components.HtmlContentEditor
+import com.ningshingche.app.ui.components.HtmlEditorController
 import com.ningshingche.app.ui.components.PortalAsyncImage
 import com.ningshingche.app.ui.editorial.EditorialShape
 import com.ningshingche.app.ui.editorial.EditorialSpace
@@ -100,6 +125,7 @@ import com.ningshingche.app.ui.editorial.ErrorState
 import com.ningshingche.app.ui.editorial.Hairline
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.editorial.formatBengaliDate
+import com.ningshingche.app.ui.editorial.formatBengaliDateTime
 import com.ningshingche.app.ui.editorial.toBengaliNumeral
 import com.ningshingche.app.ui.reader.RichHtmlArticleBody
 import com.ningshingche.app.ui.theme.Kalpurush
@@ -113,24 +139,31 @@ import kotlinx.coroutines.launch
  * shared vocabulary between them (a card, a counter, an author block) is longer
  * than any of them on its own.
  *
- * What the second pass added, all of it asked for by the owner:
+ * The shape of the third pass, after the owner read the second one:
  *
- *   * বিভাগসমূহ is an inline rail that scrolls sideways, not a stack of cards;
- *   * সাম্প্রতিক আলোচনা has a filter — সাম্প্রতিক, জনপ্রিয় (most answers),
- *     অনুমোদিত (the threads the admin opened);
- *   * a new thread can carry an ImgBB cover image, and its body is written in the
- *     app's rich editor in its compact shape — bold, italic, underline, a list
- *     and an image, with no selection popup;
- *   * the composer and every reply box remember what was typed until it posts;
- *   * answers take reactions from a long press — লাইক, অপছন্দ, একমত;
- *   * a long body folds behind a small **আরও দেখুন**, with no border and no fill;
- *   * answers can be answered, indented once and never twice, with only the
- *     newest reply under each one until **সব উত্তর দেখুন** is tapped;
- *   * উত্তরসমূহ has its own filter — শীর্ষ (most liked or agreed) and সাম্প্রতিক;
- *   * an author's picture and name open their public page;
- *   * the top bar carries the notification bell rather than a search icon. The
- *     search *field* is still there, because a forum that cannot be searched is
- *     not a forum; the icon is what the owner did not want.
+ *   * the top of every screen has room to breathe, and the forum's own bar
+ *     carries a back arrow — no bell: notices belong to the dashboard, and the
+ *     bar was being asked to do too much;
+ *   * বিভাগসমূহ is one line — `বিভাগসমূহ (৫)` and a chevron — that opens
+ *     sideways-scrolling room cards, zipped on the first load and animated both
+ *     ways. A room is wider than it was, and its two lines of text sit close
+ *     together;
+ *   * সাম্প্রতিক আলোচনা and উত্তরসমূহ are filters and nothing else: no line of
+ *     explanation under them, and the number a filter stands for is on the chip;
+ *   * a discussion's title is bigger, and an author is a picture with a name and
+ *     a date beside it — never a name stacked over an empty gap;
+ *   * reactions are icons. On a card they are icons with their counts; on a long
+ *     press they are three icons in a row and nothing else — no words, no
+ *     numbers, no "chепе ধরে প্রতিক্রিয়া দিন";
+ *   * an answer and its answers are one card: the replies are indented well
+ *     inside it, behind a line that runs down their left, so the whole argument
+ *     reads as the answer it belongs to;
+ *   * the reply box is a strip fixed to the bottom of the thread, small to start
+ *     with and growing with what is written in it, and it rises with the keyboard.
+ *     Back, while the keyboard is up, puts the keyboard away first, and a tap
+ *     anywhere outside the editor does the same;
+ *   * a picture in an answer is attached, not typed: a thumbnail over the box
+ *     with a cross to take it back, appended to the post when it is sent.
  *
  * Nothing here holds content of its own: rooms are rows, threads are rows, and a
  * number on a card is a number the database sent.
@@ -141,6 +174,19 @@ private const val FORUM_SEARCH_MIN_CHARS = 2
 
 /** How long a body may be before it folds, before anything is measured. */
 private const val FORUM_FOLD_CHARS = 240
+
+/** A room card, wider than the first pass: two lines of Bengali need the room. */
+private const val FORUM_ROOM_WIDTH = 232
+
+/** Room above and below a section, so nothing starts against the app bar. */
+private val FORUM_TOP_SPACE = EditorialSpace.md
+
+/** How far a reply is indented inside its answer. */
+private val FORUM_REPLY_INDENT = 22.dp
+
+/** The reply box's first height, and the ceiling it grows to. */
+private const val FORUM_COMPOSER_HEIGHT = 96
+private const val FORUM_COMPOSER_MAX = 240
 
 // ---------------------------------------------------------------------------
 // ফোরাম — the home
@@ -156,8 +202,7 @@ fun ForumHomeScreen(
     onAuthorClick: (String) -> Unit,
     onNewDiscussion: () -> Unit,
     onSignInClick: () -> Unit,
-    onNotificationsClick: () -> Unit,
-    unreadCount: Int = 0
+    onBackClick: () -> Unit
 ) {
     val tokens = LocalEditorialTokens.current
     var overview by remember { mutableStateOf<ForumOverview?>(null) }
@@ -202,9 +247,7 @@ fun ForumHomeScreen(
         subtitle = overview?.let {
             "আলোচনা ${toBengaliNumeral(it.totalDiscussions)} · উত্তর ${toBengaliNumeral(it.totalReplies)}"
         } ?: "নিংশিং চে পাঠকদের আলোচনা",
-        onBackClick = null,
-        onNotificationsClick = onNotificationsClick,
-        unreadCount = unreadCount,
+        onBackClick = onBackClick,
         onRefreshClick = { reloadToken += 1 }
     ) { padding ->
         when {
@@ -221,7 +264,10 @@ fun ForumHomeScreen(
                     .fillMaxSize()
                     .padding(padding)
                     .testTag("forum_home_screen"),
-                contentPadding = PaddingValues(bottom = 96.dp),
+                contentPadding = PaddingValues(
+                    top = FORUM_TOP_SPACE,
+                    bottom = 96.dp
+                ),
                 verticalArrangement = Arrangement.spacedBy(EditorialSpace.sm)
             ) {
                 item {
@@ -246,7 +292,8 @@ fun ForumHomeScreen(
                         items(found.discussions, key = { "search-${it.id}" }) { discussion ->
                             ForumDiscussionCard(
                                 discussion = discussion,
-                                onClick = { onDiscussionClick(discussion.id) }
+                                onClick = { onDiscussionClick(discussion.id) },
+                                onAuthorClick = { onAuthorClick(discussion.authorId) }
                             )
                         }
                     }
@@ -255,26 +302,14 @@ fun ForumHomeScreen(
 
                 val loaded = overview ?: return@LazyColumn
 
-                // বিভাগসমূহ — inline and scrollable, the way the owner asked for
-                // it: rooms are a row you push sideways through, not a page of
-                // cards you scroll past to reach the discussions.
-                item { ForumSectionTitle("বিভাগসমূহ", loaded.categories.size) }
+                // বিভাগসমূহ — one line, and the rooms behind a chevron. The owner
+                // asked for it zipped on the first load: a reader arriving at the
+                // forum wants the discussions, and the rooms are one tap away.
                 item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = EditorialSpace.gutter)
-                            .testTag("forum_category_rail"),
-                        horizontalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
-                    ) {
-                        loaded.categories.forEach { category ->
-                            ForumRoomChip(
-                                category = category,
-                                onClick = { onCategoryClick(category.slug) }
-                            )
-                        }
-                    }
+                    ForumRoomsSection(
+                        categories = loaded.categories,
+                        onCategoryClick = { slug -> onCategoryClick(slug) }
+                    )
                 }
 
                 item {
@@ -318,39 +353,100 @@ fun ForumHomeScreen(
         }
     }
 
-    if (isSignedIn) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(EditorialSpace.lg),
-            contentAlignment = Alignment.BottomEnd
-        ) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(EditorialSpace.lg),
+        contentAlignment = Alignment.BottomEnd
+    ) {
+        if (isSignedIn) {
             ExtendedFloatingActionButton(
                 onClick = onNewDiscussion,
                 icon = { Icon(Icons.Default.Add, contentDescription = null) },
                 text = { Text("নতুন আলোচনা", fontFamily = Kalpurush, fontWeight = FontWeight.Bold) },
                 containerColor = tokens.accent,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .testTag("forum_new_discussion")
+                modifier = Modifier.testTag("forum_new_discussion")
             )
-        }
-    } else {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(EditorialSpace.lg),
-            contentAlignment = Alignment.BottomEnd
-        ) {
+        } else {
             ExtendedFloatingActionButton(
                 onClick = onSignInClick,
                 icon = { Icon(Icons.Default.Lock, contentDescription = null) },
                 text = { Text("সাইন ইন করুন", fontFamily = Kalpurush, fontWeight = FontWeight.Bold) },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .testTag("forum_sign_in")
+                modifier = Modifier.testTag("forum_sign_in")
             )
+        }
+    }
+}
+
+/**
+ * বিভাগসমূহ: a heading with the count, a chevron, and the rooms.
+ *
+ * `AnimatedVisibility` rather than a conditional: the owner asked for the
+ * transition, and a section that appears by teleporting reads as a glitch on a
+ * phone. Zipped to start — [expanded] begins false — and the chevron turns as it
+ * opens, so the control says which way the section is going before it goes.
+ */
+@Composable
+private fun ForumRoomsSection(
+    categories: List<ForumCategory>,
+    onCategoryClick: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val arrow by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = tween(durationMillis = 220),
+        label = "forum-rooms-arrow"
+    )
+
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded }
+                .padding(horizontal = EditorialSpace.gutter, vertical = EditorialSpace.xs)
+                .testTag("forum_category_toggle"),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "বিভাগসমূহ (${toBengaliNumeral(categories.size)})",
+                fontFamily = Kalpurush,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+                modifier = Modifier.weight(1f)
+            )
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowDown,
+                contentDescription = if (expanded) "বিভাগ গুটিয়ে নিন" else "বিভাগ দেখুন",
+                tint = LocalEditorialTokens.current.inkMuted,
+                modifier = Modifier
+                    .size(22.dp)
+                    .graphicsLayer(rotationZ = arrow)
+            )
+        }
+
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically(animationSpec = tween(durationMillis = 220)) +
+                fadeIn(animationSpec = tween(durationMillis = 200)),
+            exit = shrinkVertically(animationSpec = tween(durationMillis = 200)) +
+                fadeOut(animationSpec = tween(durationMillis = 140))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = EditorialSpace.gutter)
+                    .testTag("forum_category_rail"),
+                horizontalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
+            ) {
+                categories.forEach { category ->
+                    ForumRoomChip(
+                        category = category,
+                        onClick = { onCategoryClick(category.slug) }
+                    )
+                }
+            }
         }
     }
 }
@@ -362,7 +458,6 @@ private fun ForumOrderChips(
     officialCount: Int,
     onSelect: (String) -> Unit
 ) {
-    val tokens = LocalEditorialTokens.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -396,14 +491,6 @@ private fun ForumOrderChips(
             onClick = { onSelect(ForumOverview.ORDER_OFFICIAL) },
             modifier = Modifier.testTag("forum_order_official")
         )
-        Spacer(Modifier.width(EditorialSpace.xs))
-        Text(
-            text = "কোন আলোচনা দেখাবে",
-            fontFamily = Kalpurush,
-            fontSize = 11.sp,
-            color = tokens.inkMuted,
-            modifier = Modifier.align(Alignment.CenterVertically)
-        )
     }
 }
 
@@ -428,6 +515,10 @@ private fun ForumOrderChip(
 
 /**
  * One room, inline. The count is the database's, and tapping it opens the room.
+ *
+ * Wider than the first pass and tighter inside it: the description sits directly
+ * under the title — two lines of Bengali with a gap between them read as two
+ * separate things.
  */
 @Composable
 private fun ForumRoomChip(category: ForumCategory, onClick: () -> Unit) {
@@ -436,23 +527,22 @@ private fun ForumRoomChip(category: ForumCategory, onClick: () -> Unit) {
         shape = RoundedCornerShape(EditorialShape.card),
         color = tokens.surfaceSunken,
         modifier = Modifier
-            .width(184.dp)
+            .width(FORUM_ROOM_WIDTH.dp)
             .clip(RoundedCornerShape(EditorialShape.card))
+            .clickable(onClick = onClick)
             .testTag("forum_category_${category.slug}")
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickableRow(onClick)
-                .padding(EditorialSpace.sm),
-            verticalArrangement = Arrangement.spacedBy(EditorialSpace.xxs)
+                .padding(horizontal = EditorialSpace.sm, vertical = 10.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = category.title,
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
+                    fontSize = 14.5.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
@@ -471,16 +561,20 @@ private fun ForumRoomChip(category: ForumCategory, onClick: () -> Unit) {
                     text = category.description,
                     fontFamily = Kalpurush,
                     fontSize = 11.5.sp,
+                    lineHeight = 13.5.sp,
                     color = tokens.inkMuted,
                     maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 1.dp)
                 )
             }
-            ForumCountsRow(
-                discussions = category.discussions,
-                replies = category.replies,
-                locked = false
-            )
+            Box(Modifier.padding(top = EditorialSpace.xs)) {
+                ForumCountsRow(
+                    discussions = category.discussions,
+                    replies = category.replies,
+                    locked = false
+                )
+            }
         }
     }
 }
@@ -549,7 +643,7 @@ fun ForumCategoryScreen(
                     .padding(padding)
                     .testTag("forum_category_screen"),
                 contentPadding = PaddingValues(
-                    top = EditorialSpace.sm,
+                    top = FORUM_TOP_SPACE,
                     bottom = 96.dp
                 ),
                 verticalArrangement = Arrangement.spacedBy(EditorialSpace.sm)
@@ -618,8 +712,10 @@ fun ForumThreadScreen(
     onAuthorClick: (String) -> Unit,
     onBackClick: () -> Unit
 ) {
-    val tokens = LocalEditorialTokens.current
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val editor = remember { HtmlEditorController() }
+    val density = LocalDensity.current
 
     var thread by remember { mutableStateOf<ForumThread?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -631,11 +727,19 @@ fun ForumThreadScreen(
     var expandedThreads by remember { mutableStateOf(setOf<String>()) }
 
     var replyBody by remember { mutableStateOf("") }
+    var replyImages by remember { mutableStateOf(listOf<String>()) }
     var replyTarget by remember { mutableStateOf("") }
     var posting by remember { mutableStateOf(false) }
     var replyError by remember { mutableStateOf<String?>(null) }
+    var attaching by remember { mutableStateOf(false) }
 
     var reactionTarget by remember { mutableStateOf<ForumReply?>(null) }
+
+    // The keyboard is the editor's; Back, while it is up, belongs to it.
+    val keyboardUp by remember {
+        derivedStateOf { WindowInsets.ime.getBottom(density) > 0 }
+    }
+    BackHandler(enabled = keyboardUp) { editor.dismiss() }
 
     LaunchedEffect(discussionId, reloadToken) {
         loading = true
@@ -654,12 +758,31 @@ fun ForumThreadScreen(
         if (saved != null) {
             replyBody = saved.body
             replyTarget = saved.parentId
+            replyImages = saved.images
         }
     }
-    LaunchedEffect(replyBody, replyTarget, discussionId) {
+    LaunchedEffect(replyBody, replyTarget, replyImages, discussionId) {
         if (!isSignedIn) return@LaunchedEffect
         delay(FORUM_SEARCH_DELAY_MS)
-        draftStore.saveReply(discussionId, ForumDraftStore.ReplyDraft(replyBody, replyTarget))
+        draftStore.saveReply(
+            discussionId,
+            ForumDraftStore.ReplyDraft(replyBody, replyTarget, replyImages)
+        )
+    }
+
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            attaching = true
+            replyError = null
+            ImgBbUploader.uploadFromUri(context, uri, "forum_reply_${System.currentTimeMillis()}")
+                .onSuccess { image ->
+                    val url = image.displayUrl.ifBlank { image.url }
+                    if (url.isNotBlank()) replyImages = replyImages + url
+                }
+                .onFailure { replyError = it.message ?: "ছবি আপলোড হয়নি।" }
+            attaching = false
+        }
     }
 
     val submit: () -> Unit = submit@{
@@ -668,13 +791,16 @@ fun ForumThreadScreen(
         scope.launch {
             posting = true
             replyError = null
-            postReply(discussionId, body, replyTarget)
+            // The pictures are attached, never typed: they are appended to the
+            // post here, on their way out, and never appear in the editor.
+            postReply(discussionId, forumWithAttachments(body, replyImages), replyTarget)
                 .onSuccess { posted ->
                     // Folded in locally, then re-read with countView = false so
                     // the answer arrives with the counts the database kept.
                     thread = thread?.with(posted)
                     replyBody = ""
                     replyTarget = ""
+                    replyImages = emptyList()
                     draftStore.clearReply(discussionId)
                     thread = loadThread(discussionId, false).getOrNull() ?: thread
                 }
@@ -709,7 +835,29 @@ fun ForumThreadScreen(
         onBackClick = onBackClick,
         // Refreshing re-reads without counting a second view — the reader is the
         // same reader looking again.
-        onRefreshClick = { reloadToken += 1 }
+        onRefreshClick = { reloadToken += 1 },
+        bottomBar = {
+            if (isSignedIn) {
+                ForumReplyComposer(
+                    body = replyBody,
+                    onBodyChange = { replyBody = it },
+                    images = replyImages,
+                    attaching = attaching,
+                    onAttachImage = { imagePicker.launch("image/*") },
+                    onRemoveImage = { url -> replyImages = replyImages - url },
+                    targetName = thread?.replies
+                        ?.firstOrNull { it.id == replyTarget }
+                        ?.authorName,
+                    onClearTarget = { replyTarget = "" },
+                    posting = posting,
+                    error = replyError,
+                    onSubmit = submit,
+                    controller = editor
+                )
+            } else {
+                ForumSignInPrompt(onSignInClick)
+            }
+        }
     ) { padding ->
         when {
             loading && thread == null -> ForumLoading(Modifier.padding(padding))
@@ -732,8 +880,17 @@ fun ForumThreadScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
+                        // A tap on anything that is not a control puts the
+                        // keyboard away. Controls consume their own taps, so this
+                        // only ever sees the taps that had no other job.
+                        .pointerInput(Unit) {
+                            detectTapGestures(onTap = { editor.dismiss() })
+                        }
                         .testTag("forum_thread_screen"),
-                    contentPadding = PaddingValues(bottom = 96.dp),
+                    contentPadding = PaddingValues(
+                        top = FORUM_TOP_SPACE,
+                        bottom = EditorialSpace.lg
+                    ),
                     verticalArrangement = Arrangement.spacedBy(EditorialSpace.sm)
                 ) {
                     item {
@@ -743,7 +900,8 @@ fun ForumThreadScreen(
                             onToggleExpand = {
                                 expandedBodies = expandedBodies.toggle(loaded.discussion.id)
                             },
-                            onAuthorClick = { onAuthorClick(loaded.discussion.authorId) }
+                            onAuthorClick = { onAuthorClick(loaded.discussion.authorId) },
+                            onCardClick = { editor.dismiss() }
                         )
                     }
 
@@ -771,6 +929,8 @@ fun ForumThreadScreen(
                     }
 
                     items(loaded.answersIn(answerOrder), key = { it.id }) { answer ->
+                        // The card's own expansion set: its body, and each of the
+                        // replies inside it, fold on their own id.
                         ForumAnswerCard(
                             answer = answer,
                             replies = loaded.repliesUnder(answer.id),
@@ -779,57 +939,17 @@ fun ForumThreadScreen(
                             onToggleExpand = { expandedBodies = expandedBodies.toggle(answer.id) },
                             onToggleAll = { expandedThreads = expandedThreads.toggle(answer.id) },
                             onAuthorClick = onAuthorClick,
-                            onReply = { replyTarget = answer.id; replyBody = "" },
-                            onReact = { target -> reactionTarget = target }
+                            onReply = {
+                                replyTarget = answer.id
+                                editor.dismiss()
+                            },
+                            onReact = { target -> reactionTarget = target },
+                            onCardClick = { editor.dismiss() },
+                            expandedIds = expandedBodies
                         )
                     }
 
-                    item {
-                        if (isSignedIn) {
-                            ForumReplyComposer(
-                                body = replyBody,
-                                onBodyChange = { replyBody = it },
-                                targetName = loaded.replies.firstOrNull { it.id == replyTarget }?.authorName,
-                                onClearTarget = { replyTarget = "" },
-                                posting = posting,
-                                error = replyError,
-                                onSubmit = submit
-                            )
-                        } else {
-                            ForumSignInPrompt(onSignInClick)
-                        }
-                    }
-
-                    if (!isSignedIn) {
-                        item {
-                            Surface(
-                                shape = RoundedCornerShape(EditorialShape.card),
-                                color = tokens.accentSoft,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = EditorialSpace.gutter)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(EditorialSpace.sm),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Lock,
-                                        contentDescription = null,
-                                        tint = tokens.accent,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(Modifier.width(EditorialSpace.xs))
-                                    Text(
-                                        text = "উত্তর দিতে ও প্রতিক্রিয়া জানাতে সাইন ইন করুন।",
-                                        fontFamily = Kalpurush,
-                                        fontSize = 12.sp,
-                                        color = tokens.inkSoft
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    item { Spacer(Modifier.height(EditorialSpace.sm)) }
                 }
             }
         }
@@ -845,10 +965,9 @@ fun ForumThreadScreen(
     }
 }
 
-/** শীর্ষ / সাম্প্রতিক — the order the answers are read in. */
+/** শীর্ষ / সাম্প্রতিক — the order the answers are read in, and nothing else. */
 @Composable
 private fun ForumAnswerOrderChips(selected: String, onSelect: (String) -> Unit) {
-    val tokens = LocalEditorialTokens.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -871,23 +990,18 @@ private fun ForumAnswerOrderChips(selected: String, onSelect: (String) -> Unit) 
             leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp)) },
             modifier = Modifier.testTag("forum_answers_recent")
         )
-        Spacer(Modifier.width(EditorialSpace.xs))
-        Text(
-            text = "বেশি লাইক বা একমত থাকা উত্তর আগে",
-            fontFamily = Kalpurush,
-            fontSize = 11.sp,
-            color = tokens.inkMuted,
-            modifier = Modifier.align(Alignment.CenterVertically)
-        )
     }
 }
 
 /**
- * One answer, with its own answers under it.
+ * One answer, with its own answers inside it.
  *
- * The indentation is one step and only one: an answer to an answer is attached to
- * the answer it belongs to (the database folds it there as well), so nothing
- * marches off the right of the screen however long the argument runs.
+ * The replies are drawn *within* the answer's card, indented 22 dp and behind a
+ * line down their left: the owner asked for the argument to read as one answer,
+ * and one card with a marked-out inside is what that looks like. The indentation
+ * is one step and only one — an answer to an answer is attached to the answer it
+ * belongs to, in the database as well as here, so nothing marches off the right
+ * of the screen however long the argument runs.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -900,112 +1014,132 @@ private fun ForumAnswerCard(
     onToggleAll: () -> Unit,
     onAuthorClick: (String) -> Unit,
     onReply: () -> Unit,
-    onReact: (ForumReply) -> Unit
+    onReact: (ForumReply) -> Unit,
+    onCardClick: () -> Unit,
+    expandedIds: Set<String> = emptySet()
 ) {
     val tokens = LocalEditorialTokens.current
     val shown = if (showAll) replies else replies.takeLast(1)
     val hidden = (replies.size - shown.size).coerceAtLeast(0)
 
-    Column(
+    Surface(
+        shape = RoundedCornerShape(EditorialShape.card),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = EditorialSpace.gutter),
-        verticalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
+            .padding(horizontal = EditorialSpace.gutter)
+            .clip(RoundedCornerShape(EditorialShape.card))
+            .combinedClickable(
+                onLongClick = { onReact(answer) },
+                onClick = onCardClick
+            )
+            .testTag("forum_answer_${answer.id}")
     ) {
-        Surface(
-            shape = RoundedCornerShape(EditorialShape.card),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 1.dp,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(EditorialShape.card))
-                .combinedClickable(
-                    onLongClick = { onReact(answer) },
-                    onClick = { }
-                )
-                .testTag("forum_answer_${answer.id}")
+        Column(
+            modifier = Modifier.padding(EditorialSpace.sm),
+            verticalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
         ) {
-            Column(
-                modifier = Modifier.padding(EditorialSpace.sm),
-                verticalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
-            ) {
-                ForumAuthorRow(
-                    name = answer.authorName,
-                    avatarUrl = answer.authorAvatarUrl,
-                    date = answer.createdAt,
-                    onClick = { onAuthorClick(answer.authorId) }
-                )
-                ForumBody(
-                    html = answer.body,
-                    expanded = expanded || !answer.isLong,
-                    canExpand = answer.isLong,
-                    onToggleExpand = onToggleExpand,
-                    testTag = "forum_answer_body_${answer.id}"
-                )
-                ForumReactionRow(
-                    reply = answer,
-                    onReact = { onReact(answer) }
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
+            ForumAuthorRow(
+                name = answer.authorName,
+                avatarUrl = answer.authorAvatarUrl,
+                date = answer.createdAt,
+                showTime = true,
+                avatarSize = 34,
+                nameSize = 13.5.sp,
+                onClick = { onAuthorClick(answer.authorId) }
+            )
+            ForumBody(
+                html = answer.body,
+                expanded = expanded || !answer.isLong,
+                canExpand = answer.isLong,
+                onToggleExpand = onToggleExpand,
+                testTag = "forum_answer_body_${answer.id}"
+            )
+            ForumReactionRow(
+                reply = answer,
+                onReact = { onReact(answer) }
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(
+                    onClick = onReply,
+                    modifier = Modifier.testTag("forum_reply_to_${answer.id}")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Reply,
+                        contentDescription = null,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(Modifier.width(EditorialSpace.xxs))
+                    Text(
+                        text = "উত্তর দিন",
+                        fontFamily = Kalpurush,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.5.sp
+                    )
+                }
+                if (replies.isNotEmpty()) {
                     TextButton(
-                        onClick = onReply,
-                        modifier = Modifier.testTag("forum_reply_to_${answer.id}")
+                        onClick = onToggleAll,
+                        modifier = Modifier.testTag("forum_replies_toggle_${answer.id}")
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Reply,
-                            contentDescription = null,
-                            modifier = Modifier.size(15.dp)
-                        )
-                        Spacer(Modifier.width(EditorialSpace.xxs))
                         Text(
-                            text = "উত্তর দিন",
+                            text = if (showAll) {
+                                "উত্তরগুলো লুকান"
+                            } else {
+                                "সব উত্তর দেখুন (${toBengaliNumeral(replies.size)})"
+                            },
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 12.5.sp
+                            fontSize = 12.5.sp,
+                            color = tokens.accent
                         )
-                    }
-                    if (replies.isNotEmpty()) {
-                        TextButton(
-                            onClick = onToggleAll,
-                            modifier = Modifier.testTag("forum_replies_toggle_${answer.id}")
-                        ) {
-                            Text(
-                                text = if (showAll) {
-                                    "উত্তরগুলো লুকান"
-                                } else {
-                                    "সব উত্তর দেখুন (${toBengaliNumeral(replies.size)})"
-                                },
-                                fontFamily = Kalpurush,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 12.5.sp,
-                                color = tokens.accent
-                            )
-                        }
                     }
                 }
             }
-        }
 
-        if (replies.isNotEmpty() && hidden > 0) {
-            Text(
-                text = "আরও ${toBengaliNumeral(hidden)} টি উত্তর — সব উত্তর দেখুন চাপুন",
-                fontFamily = Kalpurush,
-                fontSize = 11.5.sp,
-                color = tokens.inkMuted,
-                modifier = Modifier.padding(start = EditorialSpace.md)
-            )
-        }
-
-        // One step in, never two: the answers to this answer live here.
-        shown.forEach { nested ->
-            ForumNestedReply(
-                reply = nested,
-                expanded = expanded,
-                onToggleExpand = onToggleExpand,
-                onAuthorClick = onAuthorClick,
-                onReply = onReply,
-                onReact = onReact
-            )
+            if (replies.isNotEmpty()) {
+                Hairline()
+                if (hidden > 0) {
+                    Text(
+                        text = "আরও ${toBengaliNumeral(hidden)} টি উত্তর — সব উত্তর দেখুন চাপুন",
+                        fontFamily = Kalpurush,
+                        fontSize = 11.sp,
+                        color = tokens.inkMuted,
+                        modifier = Modifier.padding(start = FORUM_REPLY_INDENT)
+                    )
+                }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = FORUM_REPLY_INDENT)
+                        // A line down the left of the replies: they are inside
+                        // this answer, and the line is what says so.
+                        .drawBehind {
+                            val stroke = 2.dp.toPx()
+                            drawRoundRect(
+                                color = tokens.accentSoft,
+                                topLeft = Offset(0f, 0f),
+                                size = Size(stroke, size.height),
+                                cornerRadius = CornerRadius(stroke)
+                            )
+                        }
+                        .padding(start = EditorialSpace.sm),
+                    verticalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
+                ) {
+                    shown.forEach { nested ->
+                        ForumNestedReply(
+                            reply = nested,
+                            expanded = expandedIds.contains(nested.id),
+                            onToggleExpand = onToggleExpand,
+                            onAuthorClick = onAuthorClick,
+                            onReply = onReply,
+                            onReact = onReact,
+                            onCardClick = onCardClick
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -1018,28 +1152,33 @@ private fun ForumNestedReply(
     onToggleExpand: () -> Unit,
     onAuthorClick: (String) -> Unit,
     onReply: () -> Unit,
-    onReact: (ForumReply) -> Unit
+    onReact: (ForumReply) -> Unit,
+    onCardClick: () -> Unit
 ) {
     val tokens = LocalEditorialTokens.current
     Surface(
-        shape = RoundedCornerShape(EditorialShape.card),
+        shape = RoundedCornerShape(EditorialShape.thumb),
         color = tokens.surfaceSunken,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = EditorialSpace.md)
-            .clip(RoundedCornerShape(EditorialShape.card))
-            .combinedClickable(onLongClick = { onReact(reply) }, onClick = { })
+            .clip(RoundedCornerShape(EditorialShape.thumb))
+            .combinedClickable(
+                onLongClick = { onReact(reply) },
+                onClick = onCardClick
+            )
             .testTag("forum_reply_${reply.id}")
     ) {
         Column(
             modifier = Modifier.padding(EditorialSpace.sm),
-            verticalArrangement = Arrangement.spacedBy(EditorialSpace.xxs)
+            verticalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
         ) {
             ForumAuthorRow(
                 name = reply.authorName,
                 avatarUrl = reply.authorAvatarUrl,
                 date = reply.createdAt,
-                small = true,
+                showTime = true,
+                avatarSize = 26,
+                nameSize = 12.5.sp,
                 onClick = { onAuthorClick(reply.authorId) }
             )
             ForumBody(
@@ -1050,7 +1189,7 @@ private fun ForumNestedReply(
                 testTag = "forum_reply_body_${reply.id}"
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
-                ForumReactionRow(reply = reply, onReact = { onReact(reply) })
+                ForumReactionRow(reply = reply, onReact = { onReact(reply) }, small = true)
                 Spacer(Modifier.weight(1f))
                 TextButton(
                     onClick = onReply,
@@ -1068,52 +1207,62 @@ private fun ForumNestedReply(
     }
 }
 
-/** The three reactions, as counts — and the reader's own, in the accent colour. */
+/**
+ * The three reactions as icons — the count beside each one, and the reader's own
+ * in the accent colour.
+ *
+ * The owner asked for icons instead of words: "লাইক" under every answer, three
+ * times, is a wall of text where a thumb would do; the counts stay, because the
+ * counts are what the thread is read by.
+ */
 @Composable
-private fun ForumReactionRow(reply: ForumReply, onReact: () -> Unit) {
-    val tokens = LocalEditorialTokens.current
+private fun ForumReactionRow(
+    reply: ForumReply,
+    onReact: () -> Unit,
+    small: Boolean = false
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(EditorialSpace.sm)
+        horizontalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
     ) {
         ForumReactionCount(
+            icon = Icons.Default.ThumbUp,
             label = "লাইক",
             count = reply.likes,
             mine = reply.myReaction == ForumReply.REACTION_LIKE,
             onClick = onReact,
+            small = small,
             modifier = Modifier.testTag("forum_likes_${reply.id}")
         )
         ForumReactionCount(
+            icon = Icons.Default.CheckCircle,
             label = "একমত",
             count = reply.agrees,
             mine = reply.myReaction == ForumReply.REACTION_AGREE,
             onClick = onReact,
+            small = small,
             modifier = Modifier.testTag("forum_agrees_${reply.id}")
         )
         ForumReactionCount(
+            icon = Icons.Default.ThumbDown,
             label = "অপছন্দ",
             count = reply.dislikes,
             mine = reply.myReaction == ForumReply.REACTION_DISLIKE,
             onClick = onReact,
+            small = small,
             modifier = Modifier.testTag("forum_dislikes_${reply.id}")
         )
-        if (!reply.hasReactions) {
-            Text(
-                text = "চেপে ধরে প্রতিক্রিয়া দিন",
-                fontFamily = Kalpurush,
-                fontSize = 10.5.sp,
-                color = tokens.inkMuted
-            )
-        }
     }
 }
 
 @Composable
 private fun ForumReactionCount(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     count: Int,
     mine: Boolean,
     onClick: () -> Unit,
+    small: Boolean,
     modifier: Modifier = Modifier
 ) {
     val tokens = LocalEditorialTokens.current
@@ -1121,36 +1270,40 @@ private fun ForumReactionCount(
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(EditorialShape.chip))
-            .clickableRow(onClick)
+            .clickable(onClick = onClick)
             .padding(horizontal = EditorialSpace.xs, vertical = EditorialSpace.xxs),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = label,
-            fontFamily = Kalpurush,
-            fontSize = 11.5.sp,
-            fontWeight = if (mine) FontWeight.Bold else FontWeight.Normal,
-            color = colour
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = colour,
+            modifier = Modifier.size(if (small) 14.dp else 16.dp)
         )
         Spacer(Modifier.width(EditorialSpace.xxs))
         Text(
             text = toBengaliNumeral(count),
             fontFamily = Kalpurush,
-            fontSize = 11.5.sp,
-            fontWeight = FontWeight.Bold,
+            fontSize = if (small) 11.sp else 11.5.sp,
+            fontWeight = if (mine) FontWeight.Bold else FontWeight.Normal,
             color = colour
         )
     }
 }
 
-/** The long-press popup: লাইক, অপছন্দ, একমত. */
+/**
+ * The long-press popup: লাইক, অপছন্দ, একমত — three icons in a row.
+ *
+ * The name of the answer's author is not repeated here (the card it was pressed
+ * on is right behind it), and neither are the counts: this is a control, not a
+ * summary, and the summary is on the card.
+ */
 @Composable
 private fun ForumReactionDialog(
     reply: ForumReply,
     onDismiss: () -> Unit,
     onPick: (String) -> Unit
 ) {
-    val tokens = LocalEditorialTokens.current
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(EditorialShape.sheet),
@@ -1158,43 +1311,31 @@ private fun ForumReactionDialog(
             tonalElevation = 3.dp,
             modifier = Modifier.testTag("forum_reaction_dialog")
         ) {
-            Column(
-                modifier = Modifier.padding(EditorialSpace.md),
-                verticalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
+            Row(
+                modifier = Modifier.padding(horizontal = EditorialSpace.sm, vertical = EditorialSpace.xs),
+                horizontalArrangement = Arrangement.spacedBy(EditorialSpace.xs),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = reply.authorName,
-                    fontFamily = Kalpurush,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp
-                )
-                Text(
-                    text = "প্রতিক্রিয়া জানান",
-                    fontFamily = Kalpurush,
-                    fontSize = 12.sp,
-                    color = tokens.inkMuted
-                )
-                Hairline()
                 ReactionChoice(
+                    icon = Icons.Default.ThumbUp,
                     label = "লাইক",
-                    count = reply.likes,
                     selected = reply.myReaction == ForumReply.REACTION_LIKE,
                     onClick = { onPick(ForumReply.REACTION_LIKE) },
                     testTag = "forum_react_like"
                 )
                 ReactionChoice(
-                    label = "অপছন্দ",
-                    count = reply.dislikes,
-                    selected = reply.myReaction == ForumReply.REACTION_DISLIKE,
-                    onClick = { onPick(ForumReply.REACTION_DISLIKE) },
-                    testTag = "forum_react_dislike"
-                )
-                ReactionChoice(
+                    icon = Icons.Default.CheckCircle,
                     label = "একমত",
-                    count = reply.agrees,
                     selected = reply.myReaction == ForumReply.REACTION_AGREE,
                     onClick = { onPick(ForumReply.REACTION_AGREE) },
                     testTag = "forum_react_agree"
+                )
+                ReactionChoice(
+                    icon = Icons.Default.ThumbDown,
+                    label = "অপছন্দ",
+                    selected = reply.myReaction == ForumReply.REACTION_DISLIKE,
+                    onClick = { onPick(ForumReply.REACTION_DISLIKE) },
+                    testTag = "forum_react_dislike"
                 )
             }
         }
@@ -1203,35 +1344,26 @@ private fun ForumReactionDialog(
 
 @Composable
 private fun ReactionChoice(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
-    count: Int,
     selected: Boolean,
     onClick: () -> Unit,
     testTag: String
 ) {
     val tokens = LocalEditorialTokens.current
-    Row(
+    IconButton(
+        onClick = onClick,
         modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(EditorialShape.chip))
-            .clickableRow(onClick)
-            .padding(vertical = EditorialSpace.xs)
-            .testTag(testTag),
-        verticalAlignment = Alignment.CenterVertically
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(if (selected) tokens.accentSoft else Color.Transparent)
+            .testTag(testTag)
     ) {
-        Text(
-            text = label,
-            fontFamily = Kalpurush,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
-            fontSize = 14.sp,
-            color = if (selected) tokens.accent else MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f)
-        )
-        Text(
-            text = if (selected) "আপনার প্রতিক্রিয়া" else toBengaliNumeral(count),
-            fontFamily = Kalpurush,
-            fontSize = 12.sp,
-            color = if (selected) tokens.accent else tokens.inkMuted
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = if (selected) tokens.accent else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.size(24.dp)
         )
     }
 }
@@ -1341,7 +1473,7 @@ fun NewDiscussionScreen(
             contentPadding = PaddingValues(
                 start = EditorialSpace.gutter,
                 end = EditorialSpace.gutter,
-                top = EditorialSpace.sm,
+                top = FORUM_TOP_SPACE,
                 bottom = 96.dp
             ),
             verticalArrangement = Arrangement.spacedBy(EditorialSpace.sm)
@@ -1419,15 +1551,17 @@ fun NewDiscussionScreen(
                     fontSize = 13.sp
                 )
                 Spacer(Modifier.height(EditorialSpace.xs))
-                // The article composer's editor in its compact shape: the same
-                // editing surface, without the selection popup the owner did not
-                // want over a forum post.
+                // The article composer's editor in its compact shape: bold,
+                // italic, underline and a list, without the selection popup the
+                // owner did not want over a forum post. A thread's picture is its
+                // cover, so there is nothing to attach here.
                 HtmlContentEditor(
                     value = body,
                     onValueChange = { body = it },
-                    editorHeight = 220,
+                    editorHeight = 180,
                     selectionPopup = false,
                     compact = true,
+                    maxGrow = 420,
                     placeholder = "আলোচনার কথা লিখুন…",
                     testTag = "forum_new_body"
                 )
@@ -1492,7 +1626,11 @@ fun NewDiscussionScreen(
                             color = MaterialTheme.colorScheme.onPrimary
                         )
                     } else {
-                        Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Send,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
                         Spacer(Modifier.width(EditorialSpace.xs))
                         Text(
                             text = "আলোচনা খুলুন",
@@ -1592,9 +1730,8 @@ private fun ForumScaffold(
     title: String,
     subtitle: String,
     onBackClick: (() -> Unit)?,
-    onNotificationsClick: (() -> Unit)? = null,
-    unreadCount: Int = 0,
     onRefreshClick: (() -> Unit)? = null,
+    bottomBar: (@Composable () -> Unit)? = null,
     content: @Composable (PaddingValues) -> Unit
 ) {
     val tokens = LocalEditorialTokens.current
@@ -1602,7 +1739,7 @@ private fun ForumScaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
+                    Column(Modifier.padding(vertical = EditorialSpace.xxs)) {
                         Text(
                             text = title,
                             fontFamily = Kalpurush,
@@ -1631,12 +1768,10 @@ private fun ForumScaffold(
                         }
                     }
                 },
-                // The bell, not a magnifier: the forum is searched with the field
-                // on the page, and the one thing the top bar is for here is the
-                // reader's notices.
+                // No bell here: notices are the dashboard's, and the forum's bar
+                // belongs to the forum. The search is on the page itself, where a
+                // field can be tapped and typed into.
                 actions = {
-                    // A forum is read again and again; the refresh is one tap
-                    // rather than a screen the reader has to leave and re-enter.
                     if (onRefreshClick != null) {
                         IconButton(
                             onClick = onRefreshClick,
@@ -1648,54 +1783,15 @@ private fun ForumScaffold(
                             )
                         }
                     }
-                    if (onNotificationsClick != null) {
-                        Box {
-                            IconButton(
-                                onClick = onNotificationsClick,
-                                modifier = Modifier.testTag("forum_notifications")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Notifications,
-                                    contentDescription = "বিজ্ঞপ্তি"
-                                )
-                            }
-                            if (unreadCount > 0) {
-                                ForumUnreadBadge(
-                                    count = unreadCount,
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .padding(top = 6.dp, end = 4.dp)
-                                )
-                            }
-                        }
-                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
+        bottomBar = { bottomBar?.invoke() },
         content = content
     )
-}
-
-/** The unread dot on the bell. */
-@Composable
-private fun ForumUnreadBadge(count: Int, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.error)
-            .padding(horizontal = 5.dp, vertical = 1.dp)
-    ) {
-        Text(
-            text = toBengaliNumeral(count),
-            fontFamily = Kalpurush,
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onError
-        )
-    }
 }
 
 @Composable
@@ -1760,7 +1856,7 @@ private fun ForumSearchField(
 private fun ForumDiscussionCard(
     discussion: ForumDiscussion,
     onClick: () -> Unit,
-    onAuthorClick: (() -> Unit)? = null
+    onAuthorClick: () -> Unit
 ) {
     val tokens = LocalEditorialTokens.current
     Surface(
@@ -1776,7 +1872,7 @@ private fun ForumDiscussionCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickableRow(onClick)
+                .clickable(onClick = onClick)
                 .padding(EditorialSpace.sm),
             verticalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
         ) {
@@ -1815,8 +1911,8 @@ private fun ForumDiscussionCard(
                 text = discussion.title,
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
-                maxLines = 2,
+                fontSize = 17.sp,
+                maxLines = 3,
                 overflow = TextOverflow.Ellipsis
             )
 
@@ -1825,6 +1921,7 @@ private fun ForumDiscussionCard(
                     text = discussion.excerpt,
                     fontFamily = Kalpurush,
                     fontSize = 12.5.sp,
+                    lineHeight = 15.sp,
                     color = tokens.inkMuted,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -1834,32 +1931,15 @@ private fun ForumDiscussionCard(
             Hairline()
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                ForumAvatar(
-                    url = discussion.authorAvatarUrl,
+                ForumAuthorRow(
                     name = discussion.authorName,
-                    size = 24
+                    avatarUrl = discussion.authorAvatarUrl,
+                    date = discussion.lastActivityAt,
+                    avatarSize = 36,
+                    nameSize = 13.sp,
+                    onClick = onAuthorClick,
+                    modifier = Modifier.weight(1f)
                 )
-                Spacer(Modifier.width(EditorialSpace.xs))
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickableRowOrNull(onAuthorClick)
-                ) {
-                    Text(
-                        text = discussion.authorName,
-                        fontFamily = Kalpurush,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = formatBengaliDate(discussion.lastActivityAt),
-                        fontFamily = Kalpurush,
-                        fontSize = 10.5.sp,
-                        color = tokens.inkMuted
-                    )
-                }
                 ForumCounters(
                     discussions = discussion.views,
                     replies = discussion.replies,
@@ -1900,17 +1980,27 @@ private fun OfficialBadge() {
     }
 }
 
-private fun Modifier.clickableRow(onClick: () -> Unit): Modifier = clickable(onClick = onClick)
-
-private fun Modifier.clickableRowOrNull(onClick: (() -> Unit)?): Modifier =
-    if (onClick == null) this else clickable(onClick = onClick)
-
 /** What the reader typed, without the editor's markup. */
 private fun forumPlainText(html: String): String =
     html.replace(Regex("<[^>]*>"), " ").replace("&nbsp;", " ").trim()
 
 /** Whether the editor has anything in it, empty markup aside. */
 private fun forumHasText(html: String): Boolean = forumPlainText(html).isNotBlank()
+
+/**
+ * The post as it goes out: what was typed, then the pictures that were attached.
+ *
+ * A picture is never typed into the body — it is attached, and it is added here,
+ * last, on its way to the database.
+ */
+private fun forumWithAttachments(body: String, images: List<String>): String =
+    if (images.isEmpty()) {
+        body
+    } else {
+        body + images.joinToString(separator = "") { url ->
+            "<p><img src=\"${url.replace("\"", "")}\" alt=\"\"></p>"
+        }
+    }
 
 /** The room card's counters, for a room seen on its own. */
 @Composable
@@ -2009,39 +2099,55 @@ private fun ForumAvatar(url: String, name: String, size: Int) {
     }
 }
 
-/** Picture, name, date — the whole block opens the reader's public page. */
+/**
+ * Picture, then the name with the date beside it.
+ *
+ * The owner's note was that the name and the date were stacked with a gap
+ * between them; they are one line now, the date in the muted ink and a size
+ * down. [showTime] adds the clock, which is what an answer needs and a
+ * discussion card does not.
+ */
 @Composable
 private fun ForumAuthorRow(
     name: String,
     avatarUrl: String,
     date: String,
     onClick: () -> Unit,
-    small: Boolean = false
+    avatarSize: Int = 34,
+    nameSize: androidx.compose.ui.unit.TextUnit = 13.sp,
+    showTime: Boolean = false,
+    modifier: Modifier = Modifier
 ) {
     val tokens = LocalEditorialTokens.current
+    val stamp = if (showTime) formatBengaliDateTime(date) else formatBengaliDate(date)
     Row(
-        modifier = Modifier
+        modifier = modifier
             .clip(RoundedCornerShape(EditorialShape.thumb))
-            .clickableRow(onClick)
+            .clickable(onClick = onClick)
             .testTag("forum_author_$name"),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        ForumAvatar(url = avatarUrl, name = name, size = if (small) 22 else 28)
+        ForumAvatar(url = avatarUrl, name = name, size = avatarSize)
         Spacer(Modifier.width(EditorialSpace.xs))
-        Column {
+        Text(
+            text = name,
+            fontFamily = Kalpurush,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = nameSize,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            // The name gives way before the date does: a clipped name is still
+            // a name, a clipped date is a number that lies.
+            modifier = Modifier.weight(1f, fill = false)
+        )
+        if (stamp.isNotBlank()) {
+            Spacer(Modifier.width(6.dp))
             Text(
-                text = name,
-                fontFamily = Kalpurush,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = if (small) 12.sp else 13.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = formatBengaliDate(date),
+                text = stamp,
                 fontFamily = Kalpurush,
                 fontSize = 10.5.sp,
-                color = tokens.inkMuted
+                color = tokens.inkMuted,
+                maxLines = 1
             )
         }
     }
@@ -2052,7 +2158,7 @@ private fun ForumAuthorRow(
  *
  * Folded it is drawn as an annotated string — cheap, and never more than a screen
  * tall. Opened it goes through the app's article renderer, which is what knows
- * how to draw the images the editor can insert.
+ * how to draw the pictures the editor can hold.
  */
 @Composable
 private fun ForumBody(
@@ -2092,7 +2198,7 @@ private fun ForumBody(
                 color = tokens.accent,
                 modifier = Modifier
                     .clip(RoundedCornerShape(EditorialShape.thumb))
-                    .clickableRow(onToggleExpand)
+                    .clickable(onClick = onToggleExpand)
                     .padding(vertical = EditorialSpace.xxs)
                     .testTag("${testTag}_more")
             )
@@ -2106,7 +2212,8 @@ private fun ForumOpeningPost(
     discussion: ForumDiscussion,
     expanded: Boolean,
     onToggleExpand: () -> Unit,
-    onAuthorClick: () -> Unit
+    onAuthorClick: () -> Unit,
+    onCardClick: () -> Unit
 ) {
     val tokens = LocalEditorialTokens.current
     Surface(
@@ -2116,6 +2223,8 @@ private fun ForumOpeningPost(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = EditorialSpace.gutter)
+            .clip(RoundedCornerShape(EditorialShape.card))
+            .clickable(onClick = onCardClick)
             .testTag("forum_opening_post")
     ) {
         Column(
@@ -2162,6 +2271,9 @@ private fun ForumOpeningPost(
                 name = discussion.authorName,
                 avatarUrl = discussion.authorAvatarUrl,
                 date = discussion.createdAt,
+                showTime = true,
+                avatarSize = 38,
+                nameSize = 13.5.sp,
                 onClick = onAuthorClick
             )
 
@@ -2186,41 +2298,64 @@ private fun ForumOpeningPost(
     }
 }
 
-/** The box a reply is written in: the editor, a target line, and send. */
+/**
+ * The reply box: a strip fixed to the bottom of the thread.
+ *
+ * It starts at [FORUM_COMPOSER_HEIGHT] — a reply is usually a line or two, and a
+ * box the height of a paragraph is a box that has taken the thread off the
+ * screen — and grows with what is written in it up to [FORUM_COMPOSER_MAX], after
+ * which it scrolls inside itself. The keyboard lifts the whole strip
+ * (`imePadding`) rather than covering it.
+ */
 @Composable
 private fun ForumReplyComposer(
     body: String,
     onBodyChange: (String) -> Unit,
+    images: List<String>,
+    attaching: Boolean,
+    onAttachImage: () -> Unit,
+    onRemoveImage: (String) -> Unit,
     targetName: String?,
     onClearTarget: () -> Unit,
     posting: Boolean,
     error: String?,
-    onSubmit: () -> Unit
+    onSubmit: () -> Unit,
+    controller: HtmlEditorController
 ) {
     val tokens = LocalEditorialTokens.current
     Surface(
-        shape = RoundedCornerShape(EditorialShape.card),
         color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp,
+        tonalElevation = 3.dp,
+        shadowElevation = 8.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = EditorialSpace.gutter)
+            .imePadding()
+            .navigationBarsPadding()
             .testTag("forum_reply_box")
     ) {
         Column(
-            modifier = Modifier.padding(EditorialSpace.sm),
-            verticalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
+            modifier = Modifier.padding(
+                start = EditorialSpace.sm,
+                end = EditorialSpace.sm,
+                top = EditorialSpace.xs,
+                bottom = EditorialSpace.xs
+            ),
+            verticalArrangement = Arrangement.spacedBy(EditorialSpace.xxs)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = if (targetName != null) "$targetName কে উত্তর" else "আপনার উত্তর",
-                    fontFamily = Kalpurush,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
-                    modifier = Modifier.weight(1f)
-                )
-                if (targetName != null) {
-                    TextButton(onClick = onClearTarget, modifier = Modifier.testTag("forum_reply_target_clear")) {
+            if (targetName != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "$targetName কে উত্তর",
+                        fontFamily = Kalpurush,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        color = tokens.accent,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(
+                        onClick = onClearTarget,
+                        modifier = Modifier.testTag("forum_reply_target_clear")
+                    ) {
                         Text("বাতিল", fontFamily = Kalpurush, fontSize = 12.sp, color = tokens.inkMuted)
                     }
                 }
@@ -2229,11 +2364,16 @@ private fun ForumReplyComposer(
             HtmlContentEditor(
                 value = body,
                 onValueChange = onBodyChange,
-                editorHeight = 200,
+                editorHeight = FORUM_COMPOSER_HEIGHT,
+                maxGrow = FORUM_COMPOSER_MAX,
                 selectionPopup = false,
                 compact = true,
                 placeholder = "উত্তর লিখুন…",
-                testTag = "forum_reply_field"
+                testTag = "forum_reply_field",
+                controller = controller,
+                attachments = images,
+                onAttachImage = onAttachImage,
+                onRemoveAttachment = onRemoveImage
             )
 
             error?.let { message ->
@@ -2247,13 +2387,25 @@ private fun ForumReplyComposer(
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "খসড়া স্বয়ংক্রিয়ভাবে সংরক্ষিত",
-                    fontFamily = Kalpurush,
-                    fontSize = 10.5.sp,
-                    color = tokens.inkMuted,
-                    modifier = Modifier.weight(1f)
-                )
+                TextButton(
+                    onClick = onAttachImage,
+                    enabled = !attaching,
+                    modifier = Modifier.testTag("forum_reply_attach")
+                ) {
+                    if (attaching) {
+                        CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(EditorialSpace.xxs))
+                        Text(
+                            text = "ছবি",
+                            fontFamily = Kalpurush,
+                            fontSize = 12.sp,
+                            color = tokens.inkMuted
+                        )
+                    }
+                }
+                Spacer(Modifier.weight(1f))
                 Button(
                     onClick = onSubmit,
                     enabled = !posting && ForumText.replyProblem(forumPlainText(body)) == null,
@@ -2292,29 +2444,32 @@ private fun ForumReplyComposer(
 private fun ForumSignInPrompt(onSignInClick: () -> Unit) {
     val tokens = LocalEditorialTokens.current
     Surface(
-        shape = RoundedCornerShape(EditorialShape.card),
         color = tokens.surfaceSunken,
+        tonalElevation = 3.dp,
+        shadowElevation = 8.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = EditorialSpace.gutter)
+            .navigationBarsPadding()
             .testTag("forum_reply_sign_in")
     ) {
-        Column(
-            modifier = Modifier.padding(EditorialSpace.md),
-            verticalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
+        Row(
+            modifier = Modifier.padding(EditorialSpace.sm),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "উত্তর দিতে সাইন ইন করুন",
-                fontFamily = Kalpurush,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp
-            )
-            Text(
-                text = "পড়া যায় সবার — লেখা যায় নিজের নামে।",
-                fontFamily = Kalpurush,
-                fontSize = 12.sp,
-                color = tokens.inkSoft
-            )
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = "উত্তর দিতে সাইন ইন করুন",
+                    fontFamily = Kalpurush,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+                Text(
+                    text = "পড়া যায় সবার — লেখা যায় নিজের নামে।",
+                    fontFamily = Kalpurush,
+                    fontSize = 11.5.sp,
+                    color = tokens.inkSoft
+                )
+            }
             Button(
                 onClick = onSignInClick,
                 colors = ButtonDefaults.buttonColors(
@@ -2383,7 +2538,7 @@ fun ForumActivityBlock(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(EditorialShape.card))
-                    .clickableRow { onOpenDiscussion(thread.id) }
+                    .clickable { onOpenDiscussion(thread.id) }
                     .testTag("forum_activity_thread_${thread.id}")
             ) {
                 Column(
@@ -2420,7 +2575,7 @@ fun ForumActivityBlock(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(EditorialShape.card))
-                    .clickableRow { onOpenDiscussion(answer.discussionId) }
+                    .clickable { onOpenDiscussion(answer.discussionId) }
                     .testTag("forum_activity_reply_${answer.id}")
             ) {
                 Column(
@@ -2447,7 +2602,7 @@ fun ForumActivityBlock(
                         text = "লাইক ${toBengaliNumeral(answer.likes)} · " +
                             "একমত ${toBengaliNumeral(answer.agrees)} · " +
                             "অপছন্দ ${toBengaliNumeral(answer.dislikes)} · " +
-                            formatBengaliDate(answer.createdAt),
+                            formatBengaliDateTime(answer.createdAt),
                         fontFamily = Kalpurush,
                         fontSize = 10.5.sp,
                         color = tokens.inkMuted

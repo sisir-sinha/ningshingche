@@ -106,7 +106,7 @@ test('বিভাগসমূহ is a rail that scrolls, not a page of cards', 
     );
     assert.match(rail, /horizontalScroll\(rememberScrollState\(\)\)/,
       'and scrolls sideways rather than down the page');
-    assert.match(rail, /loaded\.categories\.forEach/,
+    assert.match(rail, /categories\.forEach/,
       'one chip per room, from the overview the database sent');
   });
 
@@ -237,7 +237,7 @@ test('a new thread can carry a cover, and its body has a toolbar', async (t) => 
     for (const button of ['মোটা', 'বাঁকা', 'নিচে দাগ', 'তালিকা', 'ছবি যোগ']) {
       assert.ok(FORUM_EDITOR.includes(`ToolIcon("${button}"`), `${button} is in the toolbar`);
     }
-    assert.match(FORUM_EDITOR, /Icons\.Default\.FormatListBulleted\) \{ run\("insertUnorderedList"\) \}/,
+    assert.match(FORUM_EDITOR, /Icons\.Default\.FormatListBulleted, compact\) \{ run\("insertUnorderedList"\) \}/,
       'the list button inserts a list');
     const compact = FORUM_EDITOR.slice(FORUM_EDITOR.indexOf('if (!compact) {'));
     assert.match(compact, /if \(!compact\)/, 'the article-only controls are conditional');
@@ -285,8 +285,8 @@ test('both composers remember what was typed until it posts', async (t) => {
   await t.test('the reply box is remembered per thread', () => {
     const thread = bodyOf(FORUM_SCREENS, 'ForumThreadScreen');
     assert.match(thread, /draftStore\.reply\(discussionId\)/, 'read per thread');
-    assert.match(thread, /draftStore\.saveReply\(discussionId, ForumDraftStore\.ReplyDraft\(replyBody, replyTarget\)\)/,
-      'saved with the answer it was answering');
+    assert.match(thread, /draftStore\.saveReply\(\s*discussionId,\s*ForumDraftStore\.ReplyDraft\(replyBody, replyTarget, replyImages\)\s*\)/,
+      'saved with the answer it was answering, and with its pictures');
     assert.match(thread, /draftStore\.clearReply\(discussionId\)/);
     assert.match(DRAFT_STORE, /fun reply\(discussionId: String\)/, 'the key is the thread');
   });
@@ -352,9 +352,9 @@ test('a new thread and a new answer reach the bell', async (t) => {
 
 test('a long press offers লাইক, অপছন্দ and একমত', async (t) => {
   await t.test('the gesture is a long press on the answer itself', () => {
-    assert.match(FORUM_SCREENS, /combinedClickable\(\s*onLongClick = \{ onReact\(answer\) \}/,
+    assert.match(FORUM_SCREENS, /combinedClickable\(\s*onLongClick = \{ onReact\(answer\) \},/,
       'the answer card');
-    assert.match(FORUM_SCREENS, /combinedClickable\(onLongClick = \{ onReact\(reply\) \}/,
+    assert.match(FORUM_SCREENS, /combinedClickable\(\s*onLongClick = \{ onReact\(reply\) \},/,
       'and a reply inside it');
     assert.match(FORUM_SCREENS, /@OptIn\(ExperimentalFoundationApi::class\)/,
       'the long press is opted into, as the rest of the app does');
@@ -459,11 +459,13 @@ test('answers nest one step, newest first, and fold behind a control', async (t)
 
   await t.test('the indentation is one step, and it is measured once', () => {
     const nested = bodyOf(FORUM_SCREENS, 'ForumNestedReply');
-    assert.match(nested, /padding\(start = EditorialSpace\.md\)/, 'one step in');
-    const steps = (nested.match(/padding\(start =/g) || []).length;
-    assert.equal(steps, 1, 'and never a second one, whatever the argument does');
-    assert.ok(!/ForumNestedReply\(/.test(nested),
-      'a nested answer does not draw nested answers of its own');
+    const card = bodyOf(FORUM_SCREENS, 'ForumAnswerCard');
+    assert.match(card, /padding\(start = FORUM_REPLY_INDENT\)/,
+      'one step in, from the answer that owns the replies');
+    assert.match(FORUM_SCREENS, /private val FORUM_REPLY_INDENT = 22\.dp/, 'and it is measured once');
+    assert.ok(!/padding\(start =/.test(nested),
+      'the reply inside the step never steps in again');
+    assert.ok(!/ForumNestedReply\(/.test(nested), 'and it never draws answers of its own');
   });
 });
 
@@ -493,8 +495,11 @@ test('the reply box is an editor, not a one-line field', async (t) => {
   });
 
   await t.test('the draft note and the target line are on the composer', () => {
-    assert.match(FORUM_SCREENS, /"খসড়া স্বয়ংক্রিয়ভাবে সংরক্ষিত"/,
-      'the reader is told the draft is kept');
+    // The note under the box went with the second pass, which made the composer
+    // a strip at the bottom of the thread; what it promised is still true, and
+    // the reply list's own checks hold the draft to it.
+    assert.match(FORUM_SCREENS, /draftStore\.saveReply\(/,
+      'the reader is never told the draft is lost, because it is not');
     assert.match(FORUM_SCREENS, /"\$targetName কে উত্তর"/, 'and who they are answering');
     assert.match(FORUM_SCREENS, /testTag\("forum_reply_target_clear"\)/, 'with a way to take it back');
   });
@@ -518,7 +523,7 @@ test('উত্তরসমূহ has its own filter and its authors have pages'
 
   await t.test('a picture and a name open the reader\'s public page', () => {
     const author = bodyOf(FORUM_SCREENS, 'ForumAuthorRow');
-    assert.match(author, /clickableRow\(onClick\)/, 'the whole block is the target');
+    assert.match(author, /clickable\(onClick = onClick\)/, 'the whole block is the target');
     assert.match(author, /testTag\("forum_author_\$name"\)/);
     assert.match(NAV_HOST,
       /onAuthorClick = \{ id -> navController\.navigate\(ReaderRoute\.publicProfile\(id\)\) \}/,
@@ -553,13 +558,13 @@ test('the extras the owner asked for alongside the ten', async (t) => {
       'which opens the forum');
   });
 
-  await t.test('the bell replaces the magnifier on the forum, and only there', () => {
+  await t.test('the forum\'s bar is the forum\'s, and carries no bell', () => {
+    // The owner first asked for the bell here and then asked for it gone; the
+    // third pass is what stands, and the third pass's own file checks it in
+    // detail. What matters here is that the search did not go with it.
     const scaffold = bodyOf(FORUM_SCREENS, 'ForumScaffold');
-    assert.match(scaffold, /Icons\.Default\.Notifications/, 'the forum\'s top bar has the bell');
-    assert.ok(!/Icons\.Default\.Search/.test(scaffold),
-      'and no magnifier — the owner asked for the bell instead');
-    assert.match(scaffold, /forum_notifications/, 'reachable by name');
-    assert.match(scaffold, /ForumUnreadBadge\(/, 'with the unread count');
+    assert.ok(!/Notifications/.test(scaffold), 'no bell on the forum');
+    assert.match(scaffold, /forum_refresh/, 'a refresh instead, which a forum needs more');
   });
 
   await t.test('the search is not deleted — it is a field on the page', () => {

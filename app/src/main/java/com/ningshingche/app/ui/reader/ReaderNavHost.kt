@@ -1020,10 +1020,10 @@ fun EditorialReaderApp(
                     onAuthorClick = { id -> navController.navigate(ReaderRoute.publicProfile(id)) },
                     onNewDiscussion = { navController.navigate(ReaderRoute.newDiscussion()) },
                     onSignInClick = { navController.navigate(ReaderRoute.Login) },
-                    onNotificationsClick = {
-                        navController.navigate(ReaderRoute.dashboard("notices"))
-                    },
-                    unreadCount = unreadCount
+                    // The forum's own bar carries a back arrow and a refresh; the
+                    // bell it used to hold was taken away by the owner, who wanted
+                    // the forum to look like a page and not a dashboard.
+                    onBackClick = { navController.popBackStack() }
                 )
             }
 
