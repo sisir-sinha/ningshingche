@@ -753,7 +753,7 @@ are rows in `forum_categories`, seeded by the migration and editable from the da
 | --- | --- | --- |
 | `ForumHomeScreen` | `forum` | **বিভাগসমূহ** as a sideways-scrolling rail, then **সাম্প্রতিক আলোচনা** with its three filters; the magnifier in the app bar opens the search field under it |
 | `ForumCategoryScreen` | `forum_room/{slug}` | one room, paged 30 at a time, with **নতুন আলোচনা** |
-| `ForumThreadScreen` | `forum_thread/{discussionId}` | the opening post, its answers with their reactions and their own answers, and a composer |
+| `ForumThreadScreen` | `forum_thread/{discussionId}` | the opening post, its answers with their reactions and their own answers, a composer, and — on a long tap — the reader's own two actions |
 | `NewDiscussionScreen` | `forum_new?room=` | room (a row of `FilterChip`s, preselected when a room sent the reader here), title, an optional cover, and the body in the compact editor |
 
 Every discussion shows its room, author and avatar, the date **as the reader reads it**
@@ -768,6 +768,25 @@ as tables — migration 029 grants nothing on them to a client, and every read g
 security-definer functions, which is also what makes an unpublished thread disappear from the lists
 while staying readable by id. Reads are granted to `anon` and `authenticated`; the two writes are
 granted to `authenticated` alone and raise `42501` for a guest.
+
+A row the dashboard wrote carries **অ্যাডমিন**, at the right-hand end of its own header, in the
+accent colour on `accentSoft` with `Icons.Default.Verified` beside it. It reads `is_official`, which
+`032` put on the view and `034` re-publishes on the function — the same fact as the অনুমোদিত badge on a
+thread, in the place a reader looks for it on an answer. The badge is never about the reader: the
+long press beside it is the thing that is (`is_mine`), and the two never stand in for each other.
+
+**An answer of the reader's own carries two actions, behind a long tap.** A long tap on your own
+answer opens **সম্পাদনা** and **মুছে ফেলুন** inside the answer itself — no window, no sheet — and a long
+tap on anyone else's, or on one the dashboard wrote, does nothing at all. The whole screen shares one
+`ForumReplyActions` holder (which answer is open, and which is asking to be confirmed), so a nested
+reply is drawn by the same code as the answer over it. **সম্পাদনা** opens the thread's own composer with
+the answer already in it: `HtmlContentEditor` takes its `value` from the screen, so the box is handed
+`replyBody` and the editor follows — nothing reaches into the WebView. The line above the box says
+**উত্তর সম্পাদনা** instead of naming somebody being answered, and while an edit is open the draft store
+is left alone, because half an edit is not a draft and must not come back as one. **মুছে ফেলুন** asks
+once (`হ্যাঁ` / `না`), then the answer leaves the screen at once and the thread is read again with
+`countView = false`, because only the database knows which answers were handed up to the answer it
+answered. A refusal is said in a toast: the row the reader was looking at is already gone.
 
 **Which the app answers as a session problem, not a permission one** — the same call the contributor
 board makes (§12.3): a refusal becomes `PortalError.SignedOut`, and the screens answer it with the way
@@ -1100,6 +1119,14 @@ seat). The keyboard is asked for once the box has arrived (`FORUM_COMPOSER_APPEA
 on the box's header puts it away without posting anything, and Back goes keyboard → box → screen
 (the box's `BackHandler` is disabled while the IME is up, so the order cannot invert).
 
+*The forum's cards are one shape.* On **সাম্প্রতিক আলোচনা** the view and answer counters sit inline
+at the right of the category, with no pill, no border and no fill of their own — the owner's first
+correction to that card, and where it started. Beside a cover the title keeps **two** lines and the
+summary **one**; without a cover they keep three and two, because the words have the whole width.
+Every card is `FORUM_CARD_HEIGHT` (140 dp) as a **floor** rather than a lid, so a card whose words ask
+for more grows instead of having its last line cut off, and the cover is a 116 dp column filling that
+height beside the words, with the face, the name and the date on the floor of the card.
+
 *Files are attached, previewed and opened.* `ForumAttachment` (a URL, a name, a type, a size) is
 the model; `forumWithAttachments` appends `<p><img src="…" alt="…"></p>` for a picture and
 `<p><a href="…">name</a></p>` for a document — **on the way out**, so nothing is ever inserted into
@@ -1126,10 +1153,12 @@ takes `value` on page load, so an emptied box stayed full on screen. `HtmlConten
 an outside change into the page (`lastEmitted` / `lastPushed`: a value from the page is never pushed
 back at it, one from anywhere else is) and `window.setHtml` leaves the caret at the end.
 
-**The API is seven functions** — 029's six plus `forum_react`, with `forum_overview`,
+**The API is nine functions** — 029's six plus `forum_react`, with `forum_overview`,
 `forum_discussion`, `forum_create_discussion` and `forum_reply` replaced on new signatures by 030, and
 `forum_activity(user, limit)` reading one reader's forum work for their dashboard and their public
-page. 030 drops the four old signatures first (a new parameter makes a new function, and
+page. `034` adds the two that belong to the reader: `forum_edit_reply(p_id, p_body)` and
+`forum_delete_reply(p_id)`, both granted to `authenticated` alone and both author-only, and re-states
+`is_official` and `is_mine` on every reply `forum_discussion` and `forum_reply` hand back. 030 drops the four old signatures first (a new parameter makes a new function, and
 `forum_overview(20)` was "not unique" until it did), re-grants them after creating them, and guards
 the two grants that belong to 029 so it still applies to a database that has never seen it.
 

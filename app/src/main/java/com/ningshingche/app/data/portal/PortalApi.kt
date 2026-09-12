@@ -232,6 +232,25 @@ interface PortalApi {
         @Body body: Map<String, String>
     ): Response<ForumReplyDto?>
 
+    /**
+     * Change one of the reader's own answers (migration 034). The database decides
+     * who the author is; the app only ever sends the id and the new body.
+     */
+    @POST("rpc/forum_edit_reply")
+    suspend fun forumEditReply(
+        @Body body: Map<String, String>
+    ): Response<ForumReplyDto?>
+
+    /**
+     * Take one of the reader's own answers out of the thread. The answer is
+     * removed rather than deleted, and answers written under it are folded onto the
+     * answer it answered, which is what the response says happened.
+     */
+    @POST("rpc/forum_delete_reply")
+    suspend fun forumDeleteReply(
+        @Body body: Map<String, String>
+    ): Response<ForumReplyDeletionDto?>
+
     /** Like, dislike or agree with one answer; the same tap takes it back. */
     @POST("rpc/forum_react")
     suspend fun forumReact(

@@ -274,7 +274,13 @@ test('reactions are icons on the card, and one tap counts', async (t) => {
     // gone from the app entirely.
     assert.ok(!FORUM_SCREENS.includes('ForumReactionDialog'), 'the dialog is deleted');
     assert.ok(!FORUM_SCREENS.includes('ReactionChoice'), 'and so are its choices');
-    assert.ok(!FORUM_SCREENS.includes('combinedClickable'), 'nothing reacts to a long press any more');
+    // Re-anchored for the ninth batch, which brought a long press back for a
+    // different job — see the correction's own file: it opens সম্পাদনা and মুছে ফেলুন
+    // on the reader's own answer, and it never counts a reaction.
+    assert.ok(!/onLongClick = \{ onReact/.test(FORUM_SCREENS),
+      'nothing reacts to a long press any more');
+    assert.match(FORUM_SCREENS, /onLongClick = if \(answer\.isMine\)/,
+      'the long press belongs to the author of the answer');
     assert.ok(!/reactionTarget/.test(FORUM_SCREENS), 'and the screen keeps no reaction to open');
     assert.ok(!/import androidx\.compose\.ui\.window\.Dialog/.test(FORUM_SCREENS),
       'the dialog import went with it');

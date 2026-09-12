@@ -996,6 +996,55 @@ class PortalRepository(
         }
 
 
+    /**
+     * Change one of the reader's own answers.
+     *
+     * The database decides who the author is — this sends an id and a body and
+     * nothing else — and it refuses anyone else's answer, an editorial answer
+     * (`user_id` is null) and a body that is empty once its markup is read. The
+     * answer comes back in the shape the card draws from, so the thread does not
+     * have to be re-read to show the new words.
+     */
+    suspend fun editForumReply(
+        replyId: String,
+        body: String
+    ): Result<ForumReply> =
+        withContext(Dispatchers.IO) {
+            val clean = replyId.trim()
+            if (clean.isBlank()) return@withContext Result.failure(PortalError.NotFound)
+            callOne {
+                api.forumEditReply(
+                    mapOf(
+                        "p_id" to clean,
+                        "p_body" to body.trim()
+                    )
+                )
+            }.mapCatching { dto ->
+                dto?.toModel() ?: throw PortalError.NotFound
+            }
+        }
+
+    /**
+     * Take one of the reader's own answers out of the thread.
+     *
+     * A removal rather than a `delete`: the answers written under it are folded
+     * onto the answer it answered and stay in the thread, and the dashboard can
+     * still see what was there. `true` means the database accepted it — a refusal
+     * (someone else's answer, an editorial one, one already gone) arrives as a
+     * failure with the reason in it.
+     */
+    suspend fun deleteForumReply(replyId: String): Result<Boolean> =
+        withContext(Dispatchers.IO) {
+            val clean = replyId.trim()
+            if (clean.isBlank()) return@withContext Result.failure(PortalError.NotFound)
+            callOne {
+                api.forumDeleteReply(mapOf("p_id" to clean))
+            }.mapCatching { dto ->
+                dto?.id?.isNotBlank() == true
+            }
+        }
+
+
     // -------------------------------------------------------------- plumbing
 
     /** Unwraps a list response, mapping HTTP/transport failures to [PortalError]. */

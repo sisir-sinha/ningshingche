@@ -408,7 +408,26 @@ data class ForumReplyDto(
     @Json(name = "agree_count") val agrees: Int? = null,
     // '' when the reader has not reacted, or when the caller did not say who
     // they are (a guest with no device id).
-    @Json(name = "my_reaction") val myReaction: String? = null
+    @Json(name = "my_reaction") val myReaction: String? = null,
+    // True when the dashboard wrote this answer (032's own mark on the row, handed
+    // to the app by 034). Null on a database that has not run 034: a missing badge
+    // is a smaller thing than a screen that will not open.
+    @Json(name = "is_official") val isOfficial: Boolean? = null,
+    // True when this reader wrote it. The long press — edit, delete — is offered
+    // on exactly these answers, and the database is what says so.
+    @Json(name = "is_mine") val isMine: Boolean? = null
+)
+
+/**
+ * What removing one of the reader's own answers answers with (migration 034):
+ * the id that went, where it sat, and how many answers were folded up onto the
+ * answer it answered.
+ */
+data class ForumReplyDeletionDto(
+    val id: String? = null,
+    @Json(name = "discussion_id") val discussionId: String? = null,
+    @Json(name = "parent_id") val parentId: String? = null,
+    @Json(name = "answers_moved") val answersMoved: Int? = null
 )
 
 /** What one tap on the reaction popup answers with. */

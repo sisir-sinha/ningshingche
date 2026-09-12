@@ -454,10 +454,14 @@ test('the setup check knows a forum column that came later', async (t) => {
   });
 
   await t.test('and names every file that builds them, in order', () => {
-    const entry = /forum: \['([^']+)', '([^']+)', '([^']+)'\]/.exec(API_JS);
+    const entry = /forum: \[([^\]]+)\]/.exec(API_JS);
     assert.ok(entry, 'the forum maps to a list of migrations, not one');
-    assert.deepEqual(entry.slice(1).map((file) => file.split('/').pop()),
-      ['029_forum.sql', '030_forum_answers.sql', '032_forum_editorial.sql']);
+    // 034 joined the list with the forum's own edit and delete: the page cannot
+    // sign an answer without `is_official`, and cannot offer the reader their own
+    // answer back without `is_mine`, which is what that file adds.
+    assert.deepEqual(entry[1].split(',').map((file) => file.trim().replace(/'/g, '').split('/').pop()),
+      ['029_forum.sql', '030_forum_answers.sql', '032_forum_editorial.sql',
+        '034_forum_reply_edit.sql']);
     assert.match(API_JS, /const files = \(items\) => \[\.\.\.new Set\(items\.flatMap/,
       'and the banner can read a list');
   });

@@ -1107,10 +1107,18 @@ calls, and they only ever return `status = 'Publish'` rows.
 | `forum_create_discussion` | `p_category_slug text`, `p_title text`, `p_body text`, `p_cover_image_url text = ''`, `p_cover_delete_url text = ''` | jsonb | Signed-in (`authenticated`) only |
 | `forum_reply` | `p_id uuid`, `p_body text`, `p_parent_id uuid = null`, `p_device_id text = null` | jsonb | Signed-in only; `p_parent_id` is the one indent level |
 | `forum_activity` | `p_user_id uuid`, `p_limit integer = 20` | jsonb | A reader's own forum history — threads, answers, points (used by the public profile and the app dashboard) |
+| `forum_edit_reply` (`034`) | `p_id uuid`, `p_body text` | jsonb | The reader's **own** answer, re-worded. Author only: anyone else — and an editorial answer, which has no reader behind it — is refused with `42501`. Returns the reply as it now is, with `is_official` and `is_mine` |
+| `forum_delete_reply` (`034`) | `p_id uuid` | jsonb | The reader's **own** answer, removed: `status = 'Removed'`, with the answers under it handed to the answer it answered. Returns `{id, discussion_id, parent_id, answers_moved}`. Author only, `42501` otherwise |
 
 `030` re-creates `forum_overview`, `forum_discussion`, `forum_create_discussion` and `forum_reply`
 with the signatures above and **drops the four `029` signatures** they replace, so an old call shape
-is a hard `404` rather than a silent wrong answer. Bodies are flattened with the same
+is a hard `404` rather than a silent wrong answer.
+
+`034` re-creates `forum_discussion` and `forum_reply` once more — the same signatures, the same
+columns in the same order, with `is_official` and `is_mine` **appended** to each reply. A function
+whose shape is a promise may only grow at the end, and the app reads it by name. `is_mine` is
+`(author_id is not null and author_id = auth.uid())`: an editorial answer has no reader, and
+`null = null` is null, which is not true. Bodies are flattened with the same
 `forum_plain_text` helper the app's reader uses, which is where the plain-text search and length
 limits come from. Points a reader earns from the forum come through `contributor_score`
 (§7.15) — `contributor_forum_points_from` is internal.
@@ -1275,7 +1283,7 @@ lightweight `GET …?select=…&limit=1` per table and reports:
 | Content tables | `select=id` | `PGRST205` → table missing → run `schema.sql` |
 | `blogs` media columns | `select=id,imgbb_delete_url,image_meta,inline_media,pdf_file_provider,pdf_storage_path,pdf_file_size_mb` | `PGRST204`/`42703` → run migration `003` |
 | `submitted_blogs.inline_media` | `select=id,inline_media` | run migration `003` |
-| Forum columns | `forum_discussions` `select=id,status,replies_count,last_reply_at,is_official,author_name`; `forum_replies` `select=id,parent_id,status,author_name,is_official`; `forum_categories` `select=id,slug,position` | `PGRST205`/`PGRST204` → run `029_forum.sql`, then `030_forum_answers.sql`, then `032_forum_editorial.sql` (the banner names all three) |
+| Forum columns | `forum_discussions` `select=id,status,replies_count,last_reply_at,is_official,author_name`; `forum_replies` `select=id,parent_id,status,author_name,is_official`; `forum_categories` `select=id,slug,position` | `PGRST205`/`PGRST204` → run `029_forum.sql`, then `030_forum_answers.sql`, then `032_forum_editorial.sql` (the banner names them all) |
 | The app's public profile lists | The app calls `rpc/profile_items` (`p_user_id, p_kind, p_limit, p_offset`); the dashboard itself never calls it, but the database it points at must have it | `PGRST202` → run `033_profile_paging.sql`; the app says so in words on the list it could not read |
 | Access control | presence of the `dashboard_login` RPC (client-side `isLegacy()` check) | run migration `004` |
 | Forum menu key | the snapshot's `valid_permissions` from `dashboard_access_snapshot`, compared with the routes in `config.js` (client-side) | a menu the database does not list cannot be granted → run `031_forum_menu_permission.sql` |

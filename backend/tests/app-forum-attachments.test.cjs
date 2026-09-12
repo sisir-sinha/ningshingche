@@ -230,8 +230,11 @@ test('the reply box appears when it is asked for', async (t) => {
     assert.match(composer, /onClick = onCollapse/, 'a chevron, not a bar of buttons');
     assert.match(composer, /testTag\("forum_reply_collapse"\)/);
     const thread = screen('ForumThreadScreen');
-    assert.match(thread, /onCollapse = \{\s*composerOpen = false\s*editor\.dismiss\(\)\s*\}/,
-      'and it leaves the draft where it is');
+    // Re-anchored for the ninth batch: closing the box is one door now, because
+    // closing it must also put away an answer that was being edited.
+    assert.match(thread, /onCollapse = closeComposer/, 'one way to close the box');
+    assert.match(thread, /val closeComposer: \(\) -> Unit = \{[\s\S]{0,240}editing = null[\s\S]{0,160}editor\.dismiss\(\)/,
+      'which clears the edit and puts the keyboard away');
     assert.ok(!/draftStore\.clearReply\(discussionId\)\s*\}\s*$/.test(thread.slice(thread.indexOf('onCollapse'))),
       'nothing is thrown away by closing it');
   });

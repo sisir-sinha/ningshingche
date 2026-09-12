@@ -88,7 +88,8 @@ backend/
         ├── 030_forum_answers.sql           # Cover images, one indent level, reactions, notifications, forum activity
         ├── 031_forum_menu_permission.sql   # Forum as a menu permission: the allow-list, the roles, the tables behind it
         ├── 032_forum_editorial.sql         # Editorial threads and answers: a signature, no reader required, reactions for the dashboard
-        └── 033_profile_paging.sql          # The app's paged public profile: five rows of one kind at a time, and the four totals
+        ├── 033_profile_paging.sql          # The app's paged public profile: five rows of one kind at a time, and the four totals
+        └── 034_forum_reply_edit.sql        # An answer is its author's: is_mine for every reply, and the edit/delete RPCs behind a long tap
 ```
 
 ## Database setup
@@ -153,6 +154,8 @@ For an existing installation, use this order:
 10. Run `032_forum_editorial.sql` to let the dashboard **write** in the forum: it makes `user_id` optional (an editorial post has no reader behind it), adds the `author_name` a dashboard post is signed with and the app shows, and opens `forum_reactions` to the dashboard so its counts can be read and its rows managed. It also adds a guard trigger, so a reader still cannot sign their post with someone else's name or award themselves the official badge through PostgREST. Without it the Forum page reads and moderates as before, and its editor reports the missing column.
 
 11. Run `033_profile_paging.sql` so the app's public profile can page its lists: it adds `profile_items(user, kind, limit, offset)`, which answers one window of five rows per kind (`articles`, `songs`, `threads`, `answers`) with the kind's total, and a `counts` kind that answers the four totals the tabs are labelled with. It reads the same tables `public_profile` does and exposes nothing else — no contact details, and no new table. Without it the app's public profile still opens: the identity card and the statistics card come from `public_profile`, and only the three lists wait, saying which file they need.
+
+12. Run `034_forum_reply_edit.sql` so a reader can change or remove **their own** answer in the app. It does two things. It re-creates `forum_discussion` and `forum_reply` with `is_official` and `is_mine` appended to every reply, so the app can mark an answer the dashboard wrote (**অ্যাডমিন**, on the right of the header) and can offer its own two actions (long tap → **সম্পাদনা** / **মুছে ফেলুন**) only on an answer that is the reader's. And it adds the two functions those actions call: `forum_edit_reply(p_id, p_body)` and `forum_delete_reply(p_id)`, both **author-only** — anyone else, including an editorial answer with no reader behind it, is refused with `42501`. A removal is `status = 'Removed'` rather than a `delete`, and the answers written under it are handed to the answer it answered, so nothing falls into a hole. Without it, the app still reads the forum: no অ্যাডমিন mark, and a long tap does nothing.
 
 ### Annual issues and tags (নিংশিং চে বার্ষিক সংখ্যা)
 
@@ -592,6 +595,8 @@ from the check that failed, so read it rather than assuming Blog uploads:
 - The Forum page's editor, or a thread written from the dashboard, reports a missing `author_name` column →
   `supabase/migrations/032_forum_editorial.sql`
 - The app's public profile says its lists need a database update, or a reader's tabs show an error where the rows should be → `supabase/migrations/033_profile_paging.sql` (the identity card and the statistics card open without it; only the three lists wait for it)
+- A reader cannot edit or remove their own answer in the app, or no answer carries the অ্যাডমিন mark →
+  `supabase/migrations/034_forum_reply_edit.sql`
 - A table reported as *missing* → `supabase/schema.sql`, then the migrations in order
 
 Run that file in the Supabase SQL Editor, reload the dashboard, and check again in **Settings →

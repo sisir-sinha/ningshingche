@@ -115,6 +115,7 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 অন্যান্য,,ui,2,0,"AppNotificationManager.kt, SettingsScreen.kt"
 অপছন্দ,,ui,2,0,"ForumScreens.kt, PublicProfileScreen.kt"
 অফলাইন,,ui,2,0,MusicScreen.kt
+অ্যাডমিন,,ui,2,0,"ForumScreens.kt, UserDashboardScreen.kt"
 আগস্ট,,ui,2,0,"ContributorScreen.kt, UserDashboardCharts.kt"
 আপনার সেশনের মেয়াদ শেষ হয়েছে। আবার সাইন ইন করলে তালিকা ও পয়েন্ট দেখা যাবে।,,ui,2,0,"ContributorScreen.kt, PortalModels.kt"
 আপনি,,ui,2,0,"ContributorScreen.kt, UserDashboardScreen.kt"
@@ -310,7 +311,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 অবদানকারীর তালিকা ও আপনার নিজের পয়েন্ট দেখতে সাইন ইন করুন।,,ui,1,0,ContributorScreen.kt
 অরুন,,content,1,0,AuthorProfiles.kt
 অর্চনা,,content,1,0,AuthorProfiles.kt
-অ্যাডমিন,,ui,1,0,UserDashboardScreen.kt
 অ্যাডমিন নতুন বার্তা পাঠালে,,ui,1,0,AppNotificationManager.kt
 অ্যাডমিন বার্তা,,ui,1,0,AppNotificationManager.kt
 অ্যাডমিনকে প্রশ্ন বা অনুরোধ পাঠান। উত্তর এখানে দেখাবে।,,ui,1,0,UserDashboardScreen.kt
@@ -335,6 +335,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 আধুনিক যুগে মণিপুরি ইঞ্চৌঘরের ঐতিহ্য কীভাবে সংরক্ষিত হচ্ছে?,,ui,1,0,NinghsingCheAiAssistant.kt
 আধুনিক সাহিত্য,,content,1,0,NinghsingCheContentData.kt
 আধ্যাত্মিক,,ui,1,0,MusicGenres.kt
+আপনার উত্তর,,ui,1,0,ForumScreens.kt
 আপনার কোনো মন্তব্য পাওয়া যায়নি।,,ui,1,0,UserDashboardScreen.kt
 আপনার নাম *,,ui,1,0,ArticleCommentForm.kt
 আপনার পছন্দের প্রদর্শন শৈলী নির্বাচন করুন:,,ui,1,0,SettingsScreen.kt
@@ -387,9 +388,11 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 উত্তর দিতে সাইন ইন করুন,,ui,1,0,ForumScreens.kt
 উত্তর দিন,,ui,1,0,ForumScreens.kt
 উত্তর পাঠানো যায়নি।,,ui,1,0,ForumScreens.kt
+উত্তর মুছে ফেলা যায়নি।,,ui,1,0,ForumScreens.kt
 উত্তর যোগ করুন,,ui,1,0,ForumScreens.kt
 উত্তর লিখুন।,,ui,1,0,ForumText.kt
 উত্তর লিখুন…,,ui,1,0,ForumScreens.kt
+উত্তর সম্পাদনা,,ui,1,0,ForumScreens.kt
 উত্তর ৪০০০ অক্ষরের বেশি হতে পারবে না।,,ui,1,0,ForumText.kt
 "উত্তর-পূর্ব ভারতের মণিপুরি জনজাতির বাস্তুসংস্থান, ইঞ্চৌঘরের স্থাপত্য ও পৌরাণিক লোকগাথা সংক্রান্ত গবেষণার জন্য সমাদৃত।",,content,1,0,NinghsingCheContentData.kt
 উত্তরগুলো লুকান,,ui,1,0,ForumScreens.kt
@@ -612,6 +615,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 নভেম্বর,,ui,1,0,ContributorScreen.kt
 "নমস্কার! আমি এই নিবন্ধের এআই সহায়িকা।  📌 **""{1}""** নিবন্ধটির যেকোনো তথ্য, বিশ্লেষণ বা মূল ভাব সম্পর্কে জানতে নিচের দ্রুত প্রশ্ন বেছে নিন অথবা নিচে আপনার প্রশ্ন লিখুন।",,ui,1,1,ArticleScreen.kt
 "নমস্কার! আমি নিংশিং চে AI সহকারী। বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, ঐতিহ্য ও সাধারণ জ্ঞানের প্রবন্ধ বিশ্লেষণ করে আমি সঠিক তথ্য প্রদান করি। ইঞ্চৌঘর, মিংকৌ, ভাষা আন্দোলন বা যেকোনো বিষয়ে প্রশ্ন করতে পারেন।",,ui,1,0,MainViewModels.kt
+না,,ui,1,0,ForumScreens.kt
 নাটক,,ui,1,0,EditorialComponents.kt
 নাম,,ui,1,0,NinghsingCheAiAssistant.kt
 নাম ও মন্তব্য আবশ্যক।,,ui,1,0,ReaderViewModels.kt
@@ -912,6 +916,8 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 মিংকৌ এবং মূল নামের মধ্যে সামাজিক পার্থক্য ও প্রয়োগ কী?,,ui,1,0,NinghsingCheAiAssistant.kt
 মিংকৌ প্রথা,,ui,1,0,EditorialComponents.kt
 মিনিট,,ui,1,0,UserDashboardScreen.kt
+মুছে ফেলবেন?,,ui,1,0,ForumScreens.kt
+মুছে ফেলুন,,ui,1,0,ForumScreens.kt
 মুদ্রিত সংখ্যা,,content,1,0,NinghsingCheContentData.kt
 মূল তাক,,ui,1,0,PdfArchiveScreen.kt
 মূল বিষয়,,ui,1,0,NinghsingCheAiAssistant.kt
@@ -1028,7 +1034,9 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 সম্পর্কিত জিজ্ঞাসা:,,ui,1,0,NinghsingCheAiAssistant.kt
 সম্পর্কিত প্রশ্ন:,,ui,1,0,NinghsingCheAiAssistant.kt
 সম্পাদকীয়: নিংশিং চে-র দশম বর্ষপূর্তি ও আমাদের আগামী,,content,1,0,NinghsingCheContentData.kt
+সম্পাদনা,,ui,1,0,ForumScreens.kt
 সম্পাদনা পরিষদ,,content,1,0,NinghsingCheContentData.kt
+সম্পাদনা সংরক্ষণ হয়নি।,,ui,1,0,ForumScreens.kt
 সরাত,,ui,1,0,MusicGenres.kt
 সর্বশেষ আপডেট পেতে আমাদের অ্যাপটি ডাউনলোড করুন,,ui,1,0,SiteFooter.kt
 সর্বোচ্চ {1},,ui,1,1,UserDashboardCharts.kt
@@ -1083,6 +1091,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 হেমতা,,content,1,0,AuthorProfiles.kt
 হেমন্ত,,content,1,0,AuthorProfiles.kt
 হোলি কীর্তন,,ui,1,0,MusicGenres.kt
+হ্যাঁ,,ui,1,0,ForumScreens.kt
 ০১ জানুয়ারি ২০২৫,,content,1,0,NinghsingCheContentData.kt
 ০২ জানুয়ারি ২০২৫,,content,1,0,NinghsingCheContentData.kt
 ০৫ জানুয়ারি ২০২৫,,content,1,0,NinghsingCheContentData.kt

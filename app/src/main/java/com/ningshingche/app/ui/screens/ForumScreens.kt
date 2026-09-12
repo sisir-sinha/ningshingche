@@ -3,6 +3,7 @@ package com.ningshingche.app.ui.screens
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -10,8 +11,10 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -21,6 +24,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -44,6 +48,9 @@ import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Image
@@ -216,11 +223,19 @@ private val FORUM_ROOM_HEIGHT = 128.dp
 /** Room above and below a section, so nothing starts against the app bar. */
 private val FORUM_TOP_SPACE = EditorialSpace.lg
 
-/** The cover, as a card shows it: a square beside the words, not above them. */
-private val FORUM_CARD_COVER = 104.dp
+/** The cover, as a card shows it: the full height of the card, on the left. */
+private val FORUM_CARD_COVER_WIDTH = 116.dp
 
-/** How much of a card's first line the corner's counters keep for themselves. */
-private val FORUM_CORNER_RESERVE = 62.dp
+/**
+ * One height for every আলোচনা card.
+ *
+ * The owner's third correction to this list: the cards each ended somewhere else,
+ * because a title may run to two lines and a summary to one, and a rail of cards
+ * that stop at different heights reads as a mistake. The height is fixed and the
+ * words fit themselves into it — the title ellipsises at two lines, the summary at
+ * one when there is a cover, and the author block sits on the floor of the card.
+ */
+private val FORUM_CARD_HEIGHT = 140.dp
 
 /**
  * How many lines of a folded body a reader sees.
@@ -373,7 +388,13 @@ fun ForumHomeScreen(
                             ForumDiscussionCard(
                                 discussion = discussion,
                                 onClick = { onDiscussionClick(discussion.id) },
-                                onAuthorClick = { onAuthorClick(discussion.authorId) }
+                                // A thread the dashboard wrote has no reader behind it, so there
+                                // is no profile to open.
+                                onAuthorClick = {
+                                    if (discussion.authorId.isNotBlank()) {
+                                        onAuthorClick(discussion.authorId)
+                                    }
+                                }
                             )
                         }
                     }
@@ -423,7 +444,13 @@ fun ForumHomeScreen(
                         ForumDiscussionCard(
                             discussion = discussion,
                             onClick = { onDiscussionClick(discussion.id) },
-                            onAuthorClick = { onAuthorClick(discussion.authorId) }
+                            // A thread the dashboard wrote has no reader behind it, so there
+                                // is no profile to open.
+                                onAuthorClick = {
+                                    if (discussion.authorId.isNotBlank()) {
+                                        onAuthorClick(discussion.authorId)
+                                    }
+                                }
                         )
                     }
                 }
@@ -752,7 +779,13 @@ fun ForumCategoryScreen(
                     ForumDiscussionCard(
                         discussion = discussion,
                         onClick = { onDiscussionClick(discussion.id) },
-                        onAuthorClick = { onAuthorClick(discussion.authorId) }
+                        // A thread the dashboard wrote has no reader behind it, so there
+                                // is no profile to open.
+                                onAuthorClick = {
+                                    if (discussion.authorId.isNotBlank()) {
+                                        onAuthorClick(discussion.authorId)
+                                    }
+                                }
                     )
                 }
             }
@@ -827,6 +860,17 @@ fun ForumThreadScreen(
     loadThread: suspend (String, Boolean) -> Result<ForumThread>,
     postReply: suspend (String, String, String) -> Result<ForumReply>,
     react: suspend (String, String) -> Result<ForumReactionState>,
+    /**
+     * Change one of the reader's own answers (migration 034).
+     *
+     * No default: a lambda in a signature opens a brace before the body, and
+     * everything that reads this screen's body — the tests, and anyone with
+     * `grep` — would find that instead of the screen. The caller always has
+     * something to pass.
+     */
+    editReply: suspend (String, String) -> Result<ForumReply>,
+    /** Take one of the reader's own answers out of the thread (migration 034). */
+    deleteReply: suspend (String) -> Result<Boolean>,
     draftStore: ForumDraftStore,
     onSignInClick: () -> Unit,
     onAuthorClick: (String) -> Unit,
@@ -862,13 +906,53 @@ fun ForumThreadScreen(
     // every reading is a screen that is two-thirds a thread.
     var composerOpen by remember { mutableStateOf(false) }
 
+    // The author's own actions. A long press on your own answer opens two rows
+    // inside that answer; the second is the delete's own confirmation, and the
+    // first puts the answer into the composer above. Nothing opens a window.
+    var actionsOpen by remember { mutableStateOf("") }
+    var confirmDelete by remember { mutableStateOf("") }
+    var editing by remember { mutableStateOf<ForumReply?>(null) }
+    var deleting by remember { mutableStateOf(false) }
+
     var viewerAttachment by remember { mutableStateOf<ForumAttachment?>(null) }
 
     // Opening the box: the animation takes this long, and the keyboard is asked
     // for after it, so the two movements do not fight each other.
     val openComposer: (String) -> Unit = { parentId ->
+        editing = null
+        replyBody = ""
+        attachments = emptyList()
+        editor.clear()
         if (parentId.isNotBlank()) replyTarget = parentId
         composerOpen = true
+    }
+
+    /**
+     * সম্পাদনা: the reader's own answer, in the thread's own composer.
+     *
+     * The box already knows how to hold HTML — it is what a reply is written in —
+     * so an edit is the same box with the answer already in it. The actions row
+     * closes behind it, and the draft store is left alone while an edit is open:
+     * a half-finished edit of an existing answer is not a draft, and restoring it
+     * into a new reply would be a surprise.
+     */
+    val startEditing: (ForumReply) -> Unit = { reply ->
+        actionsOpen = ""
+        confirmDelete = ""
+        editing = reply
+        replyTarget = ""
+        attachments = emptyList()
+        replyError = null
+        replyBody = reply.body
+        composerOpen = true
+    }
+
+    /** Closing the box, whether the reader finished, cancelled or went Back. */
+    val closeComposer: () -> Unit = {
+        composerOpen = false
+        editing = null
+        replyTarget = ""
+        editor.dismiss()
     }
 
     // Back, in the order the reader expects: the keyboard first, then the box,
@@ -883,6 +967,8 @@ fun ForumThreadScreen(
     }
     BackHandler(enabled = composerOpen && !keyboardUp) {
         composerOpen = false
+        editing = null
+        replyTarget = ""
         editor.dismiss()
     }
     BackHandler(enabled = keyboardUp) { editor.dismiss() }
@@ -924,8 +1010,12 @@ fun ForumThreadScreen(
             if (forumHasText(saved.body) || saved.attachments.isNotEmpty()) composerOpen = true
         }
     }
-    LaunchedEffect(replyBody, replyTarget, attachments, discussionId, isSignedIn) {
+    LaunchedEffect(replyBody, replyTarget, attachments, discussionId, isSignedIn, editing) {
         if (!isSignedIn) return@LaunchedEffect
+        // An edit is not a draft: what is in the box is already in the database,
+        // and a copy of it under the reply draft's key would come back as a new
+        // answer the next time the reader opened the box.
+        if (editing != null) return@LaunchedEffect
         delay(FORUM_SEARCH_DELAY_MS)
         draftStore.saveReply(
             discussionId,
@@ -961,6 +1051,25 @@ fun ForumThreadScreen(
     val submit: () -> Unit = submit@{
         val body = replyBody.trim()
         if (!forumHasText(body)) return@submit
+        // An edit goes through its own door and stops here: the answer already
+        // exists, so nothing is folded in and no draft is cleared.
+        editing?.let { target ->
+            scope.launch {
+                posting = true
+                replyError = null
+                editReply(target.id, forumWithAttachments(body, attachments))
+                    .onSuccess { changed ->
+                        holder.thread = holder.thread?.with(changed)
+                        actionsOpen = ""
+                        closeComposer()
+                    }
+                    .onFailure { failure ->
+                        replyError = failure.message ?: "সম্পাদনা সংরক্ষণ হয়নি।"
+                    }
+                posting = false
+            }
+            return@submit
+        }
         scope.launch {
             posting = true
             replyError = null
@@ -994,6 +1103,11 @@ fun ForumThreadScreen(
 
     // One tap, one call. No popup, nothing to dismiss: the icons on the card are
     // the whole control, and the card underneath them keeps its counters.
+    // An answer the dashboard wrote has no reader behind it (`user_id` is null,
+    // which is why `is_mine` is false for it too), so tapping its name must not
+    // try to open a profile that does not exist.
+    val openAuthor: (String) -> Unit = { id -> if (id.isNotBlank()) onAuthorClick(id) }
+
     val reactTo: (ForumReply, String) -> Unit = { reply, kind ->
         scope.launch {
             react(reply.id, kind).onSuccess { state ->
@@ -1008,6 +1122,51 @@ fun ForumThreadScreen(
             }
         }
     }
+
+    /**
+     * মুছে ফেলুন. The answer goes off the screen first — the reader pressed a
+     * button, so it should not sit there waiting for a round trip — and the thread
+     * is read again behind it, because the database has folded any answers written
+     * under it onto the answer it answered and only the database knows that shape.
+     */
+    val removeAnswer: (ForumReply) -> Unit = { reply ->
+        if (!deleting) {
+            deleting = true
+            scope.launch {
+                deleteReply(reply.id)
+                    .onSuccess {
+                        holder.thread = holder.thread?.without(reply.id)
+                        actionsOpen = ""
+                        confirmDelete = ""
+                        if (editing?.id == reply.id) closeComposer()
+                        holder.thread = loadThread(discussionId, false).getOrNull()
+                            ?: holder.thread
+                    }
+                    .onFailure { failure ->
+                        Toast.makeText(
+                            context,
+                            failure.message ?: "উত্তর মুছে ফেলা যায়নি।",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                deleting = false
+            }
+        }
+    }
+
+    // What every answer card is handed: one holder, and the ids that are open.
+    val replyActions = ForumReplyActions(
+        openId = actionsOpen,
+        confirmId = confirmDelete,
+        onLongPress = { reply -> actionsOpen = if (actionsOpen == reply.id) "" else reply.id },
+        onEdit = { reply -> startEditing(reply) },
+        onDelete = { reply -> confirmDelete = reply.id },
+        onConfirmDelete = { reply -> removeAnswer(reply) },
+        onCancel = {
+            actionsOpen = ""
+            confirmDelete = ""
+        }
+    )
 
     ForumScaffold(
         title = thread?.discussion?.title ?: "আলোচনা",
@@ -1046,11 +1205,15 @@ fun ForumThreadScreen(
                             targetName = thread?.replies
                                 ?.firstOrNull { it.id == replyTarget }
                                 ?.authorName,
-                            onClearTarget = { replyTarget = "" },
-                            onCollapse = {
-                                composerOpen = false
-                                editor.dismiss()
+                            editing = editing != null,
+                            onClearTarget = {
+                                replyTarget = ""
+                                editing = null
+                                replyBody = ""
+                                attachments = emptyList()
+                                editor.clear()
                             },
+                            onCollapse = closeComposer,
                             posting = posting,
                             error = replyError,
                             onSubmit = submit,
@@ -1114,7 +1277,7 @@ fun ForumThreadScreen(
                             onToggleExpand = {
                                 expandedBodies = expandedBodies.toggle(loaded.discussion.id)
                             },
-                            onAuthorClick = { onAuthorClick(loaded.discussion.authorId) },
+                            onAuthorClick = openAuthor,
                             onCardClick = { editor.dismiss() },
                             // The cover, as large as the phone will show it: the
                             // same viewer an attached picture opens in, so there
@@ -1166,12 +1329,13 @@ fun ForumThreadScreen(
                             expanded = expandedBodies.contains(answer.id),
                             onToggleExpand = { expandedBodies = expandedBodies.toggle(answer.id) },
                             onToggleAll = { expandedThreads = expandedThreads.toggle(answer.id) },
-                            onAuthorClick = onAuthorClick,
+                            onAuthorClick = openAuthor,
                             onReply = { openComposer(answer.id) },
                             onReact = { target, kind -> reactTo(target, kind) },
                             onCardClick = { editor.dismiss() },
                             onOpenAttachment = { file -> viewerAttachment = file },
-                            expandedIds = expandedBodies
+                            expandedIds = expandedBodies,
+                            replyActions = replyActions
                         )
                     }
 
@@ -1228,6 +1392,7 @@ private fun ForumAnswerOrderChips(selected: String, onSelect: (String) -> Unit) 
  * belongs to, in the database as well as here, so nothing marches off the right
  * of the screen however long the argument runs.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ForumAnswerCard(
     answer: ForumReply,
@@ -1241,7 +1406,9 @@ private fun ForumAnswerCard(
     onReact: (ForumReply, String) -> Unit,
     onCardClick: () -> Unit,
     onOpenAttachment: (ForumAttachment) -> Unit,
-    expandedIds: Set<String> = emptySet()
+    expandedIds: Set<String> = emptySet(),
+    /** Who may act on an answer here, and what the open actions are doing. */
+    replyActions: ForumReplyActions = ForumReplyActions.NONE
 ) {
     val tokens = LocalEditorialTokens.current
     val shown = if (showAll) replies else replies.takeLast(1)
@@ -1256,10 +1423,18 @@ private fun ForumAnswerCard(
             .padding(horizontal = EditorialSpace.gutter)
             .clip(RoundedCornerShape(EditorialShape.card))
             // A tap on the card is a tap on the card: it puts the keyboard away
-            // and nothing else. Reactions belong to the icons, and one tap there
-            // is a count — a long press used to open a popup, and the popup is
-            // gone.
-            .clickable(onClick = onCardClick)
+            // and nothing else. Reactions belong to their own icons — one tap
+            // there is a count — and the long press belongs to the author: it
+            // shows সম্পাদনা and মুছে ফেলুন on an answer that is theirs, and it does
+            // nothing at all on anyone else's.
+            .combinedClickable(
+                onLongClick = if (answer.isMine) {
+                    { replyActions.onLongPress(answer) }
+                } else {
+                    null
+                },
+                onClick = onCardClick
+            )
             .testTag("forum_answer_${answer.id}")
     ) {
         Column(
@@ -1273,15 +1448,21 @@ private fun ForumAnswerCard(
             ),
             verticalArrangement = Arrangement.spacedBy(EditorialSpace.xxs)
         ) {
-            ForumAuthorRow(
-                name = answer.authorName,
-                avatarUrl = answer.authorAvatarUrl,
-                date = answer.createdAt,
-                showTime = true,
-                avatarSize = 34,
-                nameSize = 13.5.sp,
-                onClick = { onAuthorClick(answer.authorId) }
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ForumAuthorRow(
+                    name = answer.authorName,
+                    avatarUrl = answer.authorAvatarUrl,
+                    date = answer.createdAt,
+                    showTime = true,
+                    avatarSize = 34,
+                    nameSize = 13.5.sp,
+                    onClick = { onAuthorClick(answer.authorId) },
+                    modifier = Modifier.weight(1f)
+                )
+                if (answer.isOfficial) {
+                    AdminBadge()
+                }
+            }
             ForumBody(
                 html = answer.body,
                 expanded = expanded || !answer.isLong,
@@ -1323,6 +1504,17 @@ private fun ForumAnswerCard(
                 }
             }
 
+            // The author's own two actions, inline, under the answer.
+            if (replyActions.openId == answer.id) {
+                ForumAnswerActions(
+                    confirming = replyActions.confirmId == answer.id,
+                    onEdit = { replyActions.onEdit(answer) },
+                    onDelete = { replyActions.onDelete(answer) },
+                    onConfirm = { replyActions.onConfirmDelete(answer) },
+                    onCancel = replyActions.onCancel
+                )
+            }
+
             if (replies.isNotEmpty()) {
                 Hairline()
                 if (hidden > 0) {
@@ -1359,11 +1551,18 @@ private fun ForumAnswerCard(
                             reply = nested,
                             expanded = expandedIds.contains(nested.id),
                             onToggleExpand = onToggleExpand,
-                            onAuthorClick = onAuthorClick,
+                            onAuthorClick = openAuthor,
                             onReply = onReply,
                             onReact = onReact,
                             onCardClick = onCardClick,
-                            onOpenAttachment = onOpenAttachment
+                            onOpenAttachment = onOpenAttachment,
+                            actionsOpen = replyActions.openId == nested.id,
+                            confirmingDelete = replyActions.confirmId == nested.id,
+                            onLongPress = { replyActions.onLongPress(nested) },
+                            onEdit = { replyActions.onEdit(nested) },
+                            onDelete = { replyActions.onDelete(nested) },
+                            onConfirmDelete = { replyActions.onConfirmDelete(nested) },
+                            onCancelActions = replyActions.onCancel
                         )
                     }
                 }
@@ -1372,6 +1571,7 @@ private fun ForumAnswerCard(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ForumNestedReply(
     reply: ForumReply,
@@ -1381,7 +1581,17 @@ private fun ForumNestedReply(
     onReply: () -> Unit,
     onReact: (ForumReply, String) -> Unit,
     onCardClick: () -> Unit,
-    onOpenAttachment: (ForumAttachment) -> Unit
+    onOpenAttachment: (ForumAttachment) -> Unit,
+    // No default lambdas on this one: an empty lambda in a signature is the first
+    // matched pair of braces inside the function, and everything that reads a body
+    // by counting braces — the tests, and an editor's outline — stops there.
+    actionsOpen: Boolean,
+    confirmingDelete: Boolean,
+    onLongPress: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onConfirmDelete: () -> Unit,
+    onCancelActions: () -> Unit
 ) {
     val tokens = LocalEditorialTokens.current
     Surface(
@@ -1390,7 +1600,14 @@ private fun ForumNestedReply(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(EditorialShape.thumb))
-            .clickable(onClick = onCardClick)
+            .combinedClickable(
+                onLongClick = if (reply.isMine) {
+                    { onLongPress() }
+                } else {
+                    null
+                },
+                onClick = onCardClick
+            )
             .testTag("forum_reply_${reply.id}")
     ) {
         Column(
@@ -1402,15 +1619,21 @@ private fun ForumNestedReply(
             ),
             verticalArrangement = Arrangement.spacedBy(EditorialSpace.xxs)
         ) {
-            ForumAuthorRow(
-                name = reply.authorName,
-                avatarUrl = reply.authorAvatarUrl,
-                date = reply.createdAt,
-                showTime = true,
-                avatarSize = 26,
-                nameSize = 12.5.sp,
-                onClick = { onAuthorClick(reply.authorId) }
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ForumAuthorRow(
+                    name = reply.authorName,
+                    avatarUrl = reply.authorAvatarUrl,
+                    date = reply.createdAt,
+                    showTime = true,
+                    avatarSize = 26,
+                    nameSize = 12.5.sp,
+                    onClick = { onAuthorClick(reply.authorId) },
+                    modifier = Modifier.weight(1f)
+                )
+                if (reply.isOfficial) {
+                    AdminBadge()
+                }
+            }
             ForumBody(
                 html = reply.body,
                 expanded = expanded || !reply.isLong,
@@ -1435,6 +1658,114 @@ private fun ForumNestedReply(
                     modifier = Modifier.testTag("forum_reply_nested_to_${reply.id}")
                 )
             }
+
+            if (actionsOpen) {
+                ForumAnswerActions(
+                    confirming = confirmingDelete,
+                    onEdit = onEdit,
+                    onDelete = onDelete,
+                    onConfirm = onConfirmDelete,
+                    onCancel = onCancelActions
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Who may act on an answer, and what is open.
+ *
+ * One holder rather than five parameters: the thread keeps one of these, the
+ * answer cards pass it down, and a nested reply is drawn by the same code as the
+ * answer that owns it. Only the database's `is_mine` gets as far as offering the
+ * long press — an answer someone else wrote, or one the dashboard wrote, has
+ * nothing to open.
+ */
+private data class ForumReplyActions(
+    val openId: String = "",
+    val confirmId: String = "",
+    val onLongPress: (ForumReply) -> Unit = {},
+    val onEdit: (ForumReply) -> Unit = {},
+    val onDelete: (ForumReply) -> Unit = {},
+    val onConfirmDelete: (ForumReply) -> Unit = {},
+    val onCancel: () -> Unit = {}
+) {
+    companion object {
+        val NONE = ForumReplyActions()
+    }
+}
+
+/**
+ * What a long press on the reader's own answer shows, in the card itself.
+ *
+ * Two rows, both drawn inline under the answer — no dialog, because the owner has
+ * already said once that a control that opens a window to ask a second question is
+ * a control the reader stops using, and because the answer being edited is *right
+ * there*. **সম্পাদনা** opens the thread's own composer with the answer already in
+ * it; **মুছে ফেলুন** asks once, in the same place, and then the answer goes.
+ */
+@Composable
+private fun ForumAnswerActions(
+    confirming: Boolean,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val tokens = LocalEditorialTokens.current
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(EditorialShape.thumb))
+            .background(tokens.surfaceSunken)
+            .padding(horizontal = EditorialSpace.xs, vertical = 2.dp)
+            .testTag("forum_answer_actions"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(EditorialSpace.sm)
+    ) {
+        if (confirming) {
+            Text(
+                text = "মুছে ফেলবেন?",
+                fontFamily = Kalpurush,
+                fontSize = 12.5.sp,
+                color = tokens.inkMuted,
+                modifier = Modifier.weight(1f)
+            )
+            ForumInlineAction(
+                label = "হ্যাঁ",
+                icon = Icons.Default.Check,
+                color = MaterialTheme.colorScheme.error,
+                onClick = onConfirm,
+                modifier = Modifier.testTag("forum_answer_delete_yes")
+            )
+            ForumInlineAction(
+                label = "না",
+                icon = Icons.Default.Close,
+                onClick = onCancel,
+                modifier = Modifier.testTag("forum_answer_delete_no")
+            )
+        } else {
+            Text(
+                text = "আপনার উত্তর",
+                fontFamily = Kalpurush,
+                fontSize = 12.5.sp,
+                color = tokens.inkMuted,
+                modifier = Modifier.weight(1f)
+            )
+            ForumInlineAction(
+                label = "সম্পাদনা",
+                icon = Icons.Default.Edit,
+                onClick = onEdit,
+                modifier = Modifier.testTag("forum_answer_edit")
+            )
+            ForumInlineAction(
+                label = "মুছে ফেলুন",
+                icon = Icons.Default.DeleteOutline,
+                color = MaterialTheme.colorScheme.error,
+                onClick = onDelete,
+                modifier = Modifier.testTag("forum_answer_delete")
+            )
         }
     }
 }
@@ -2255,112 +2586,155 @@ private fun ForumDiscussionCard(
             .clip(RoundedCornerShape(EditorialShape.card))
             .testTag("forum_discussion_${discussion.id}")
     ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onClick)
-                    .padding(EditorialSpace.sm),
-                verticalAlignment = Alignment.Top
-            ) {
-                if (discussion.hasCover) {
-                    Surface(
-                        shape = RoundedCornerShape(EditorialShape.thumb),
-                        color = tokens.surfaceSunken,
-                        modifier = Modifier
-                            .size(FORUM_CARD_COVER)
-                            .testTag("forum_card_cover_${discussion.id}")
-                    ) {
-                        PortalAsyncImage(
-                            url = discussion.coverImageUrl,
-                            contentDescription = discussion.title,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                    Spacer(Modifier.width(EditorialSpace.xs))
-                }
-
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(1.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                // A floor, not a lid: every card on the page is the same height,
+                // and the one whose words ask for more grows instead of having
+                // its last line cut off.
+                .defaultMinSize(minHeight = FORUM_CARD_HEIGHT)
+                .clickable(onClick = onClick)
+                .padding(EditorialSpace.sm),
+            verticalAlignment = Alignment.Top
+        ) {
+            if (discussion.hasCover) {
+                // The cover is the card's full height on the left: a column of
+                // words beside a picture, not a picture above a column of words.
+                Surface(
+                    shape = RoundedCornerShape(EditorialShape.thumb),
+                    color = tokens.surfaceSunken,
+                    modifier = Modifier
+                        .width(FORUM_CARD_COVER_WIDTH)
+                        .fillMaxHeight()
+                        .testTag("forum_card_cover_${discussion.id}")
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = discussion.categoryTitle,
-                            fontFamily = Kalpurush,
-                            fontSize = 12.sp,
-                            lineHeight = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = tokens.accent,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            // Room for the counters, which are in the corner
-                            // above this line rather than beside it.
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(end = FORUM_CORNER_RESERVE)
-                        )
-                        if (discussion.isOfficial) {
-                            OfficialBadge()
-                        }
-                    }
-
-                    Text(
-                        text = discussion.title,
-                        fontFamily = Kalpurush,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = if (discussion.hasCover) 16.sp else 17.sp,
-                        lineHeight = if (discussion.hasCover) 19.sp else 20.sp,
-                        maxLines = if (discussion.hasCover) 2 else 3,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    val excerpt = forumExcerpt(discussion.excerpt)
-                    if (excerpt.isNotBlank()) {
-                        Text(
-                            text = excerpt,
-                            fontFamily = Kalpurush,
-                            fontSize = 13.sp,
-                            lineHeight = 15.5.sp,
-                            color = tokens.inkMuted,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(top = 1.dp)
-                        )
-                    }
-
-                    ForumAuthorRow(
-                        name = discussion.authorName,
-                        avatarUrl = discussion.authorAvatarUrl,
-                        date = discussion.lastActivityAt,
-                        avatarSize = if (discussion.hasCover) 30 else 34,
-                        nameSize = 12.5.sp,
-                        onClick = onAuthorClick,
-                        modifier = Modifier.padding(top = EditorialSpace.xxs)
+                    PortalAsyncImage(
+                        url = discussion.coverImageUrl,
+                        contentDescription = discussion.title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
+                Spacer(Modifier.width(EditorialSpace.xs))
             }
 
-            // The corner: how many have read it, how many have answered it.
-            Surface(
-                shape = RoundedCornerShape(EditorialShape.chip),
-                color = tokens.surfaceSunken,
+            // The column takes the card's whole height, which is what lets the
+            // author block sit on the floor of it while the words above stay put.
+            Column(
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = EditorialSpace.xs, end = EditorialSpace.xs)
-                    .testTag("forum_card_counters_${discussion.id}")
+                    .weight(1f)
+                    .fillMaxHeight()
             ) {
-                Box(Modifier.padding(horizontal = EditorialSpace.xs, vertical = 2.dp)) {
+                // The category, and — on the same line, at its right — how many
+                // have read the thread and how many have answered it. No pill, no
+                // border, no background: the owner's first correction to this card
+                // was that the counters did not need a box of their own, and that
+                // the category's own line is where they belong.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = discussion.categoryTitle,
+                        fontFamily = Kalpurush,
+                        fontSize = 12.sp,
+                        lineHeight = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = tokens.accent,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (discussion.isOfficial) {
+                        Spacer(Modifier.width(EditorialSpace.xs))
+                        OfficialBadge()
+                    }
+                    Spacer(Modifier.weight(1f))
                     ForumCounters(
                         discussions = discussion.views,
                         replies = discussion.replies,
                         views = true,
-                        answered = discussion.hasReplies
+                        answered = discussion.hasReplies,
+                        modifier = Modifier.testTag("forum_card_counters_${discussion.id}")
                     )
                 }
+
+                Spacer(Modifier.height(3.dp))
+
+                Text(
+                    text = discussion.title,
+                    fontFamily = Kalpurush,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = if (discussion.hasCover) 16.sp else 17.sp,
+                    lineHeight = if (discussion.hasCover) 19.sp else 20.sp,
+                    // Two lines, as the owner asked — and three only on a card
+                    // with no cover, where the words have the whole width.
+                    maxLines = if (discussion.hasCover) 2 else 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                val excerpt = forumExcerpt(discussion.excerpt)
+                if (excerpt.isNotBlank()) {
+                    Text(
+                        text = excerpt,
+                        fontFamily = Kalpurush,
+                        fontSize = 13.sp,
+                        lineHeight = 15.5.sp,
+                        color = tokens.inkMuted,
+                        // Beside a cover the summary is one line and then an
+                        // ellipsis; without one it keeps its second line.
+                        maxLines = if (discussion.hasCover) 1 else 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+
+                Spacer(Modifier.weight(1f))
+
+                ForumAuthorRow(
+                    name = discussion.authorName,
+                    avatarUrl = discussion.authorAvatarUrl,
+                    date = discussion.lastActivityAt,
+                    avatarSize = if (discussion.hasCover) 30 else 34,
+                    nameSize = if (discussion.hasCover) 12.5.sp else 13.5.sp,
+                    onClick = onAuthorClick
+                )
             }
         }
+    }
+}
+
+/**
+ * অ্যাডমিন — an answer the dashboard wrote.
+ *
+ * The owner asked for exactly this, in the thread: an answer that came from the
+ * CMS is marked, on the right-hand side of its own header, with a background and
+ * in colour. It carries the same accent as the thread's অনুমোদিত badge, because it
+ * is the same fact about a row — the magazine wrote it — and the two only ever
+ * differ in where they sit.
+ */
+@Composable
+private fun AdminBadge(modifier: Modifier = Modifier) {
+    val tokens = LocalEditorialTokens.current
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(EditorialShape.chip))
+            .background(tokens.accentSoft)
+            .padding(horizontal = EditorialSpace.xs, vertical = 1.dp)
+            .testTag("forum_admin_badge"),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Default.Verified,
+            contentDescription = null,
+            tint = tokens.accent,
+            modifier = Modifier.size(12.dp)
+        )
+        Spacer(Modifier.width(3.dp))
+        Text(
+            text = "অ্যাডমিন",
+            fontFamily = Kalpurush,
+            fontSize = 10.5.sp,
+            fontWeight = FontWeight.Bold,
+            color = tokens.accent
+        )
     }
 }
 
@@ -2418,10 +2792,12 @@ private fun ForumCounters(
     discussions: Number = 0,
     replies: Number = 0,
     views: Boolean = false,
-    answered: Boolean = false
+    answered: Boolean = false,
+    modifier: Modifier = Modifier
 ) {
     val tokens = LocalEditorialTokens.current
     Row(
+        modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -2987,6 +3363,8 @@ private fun ForumReplyComposer(
     onAttach: () -> Unit,
     onRemoveAttachment: (ForumAttachment) -> Unit,
     targetName: String?,
+    /** True while the box holds an existing answer rather than a new one. */
+    editing: Boolean = false,
     onClearTarget: () -> Unit,
     onCollapse: () -> Unit,
     posting: Boolean,
@@ -3016,16 +3394,22 @@ private fun ForumReplyComposer(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = targetName?.let { "$it কে উত্তর" } ?: "নতুন উত্তর",
+                    text = when {
+                        editing -> "উত্তর সম্পাদনা"
+                        targetName != null -> "$targetName কে উত্তর"
+                        else -> "নতুন উত্তর"
+                    },
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
-                    color = if (targetName != null) tokens.accent else tokens.inkMuted,
+                    color = if (editing || targetName != null) tokens.accent else tokens.inkMuted,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("forum_reply_box_label")
                 )
-                if (targetName != null) {
+                if (targetName != null || editing) {
                     TextButton(
                         onClick = onClearTarget,
                         modifier = Modifier.testTag("forum_reply_target_clear")

@@ -323,7 +323,11 @@ data class ForumReply(
     val dislikes: Int = 0,
     val agrees: Int = 0,
     /** `like`, `dislike`, `agree`, or blank when the reader has not reacted. */
-    val myReaction: String = ""
+    val myReaction: String = "",
+    /** The dashboard wrote this one: the app marks it as the admin's. */
+    val isOfficial: Boolean = false,
+    /** This reader wrote it. What a long press offers depends on it. */
+    val isMine: Boolean = false
 ) {
     val isTopLevel: Boolean get() = parentId.isBlank()
 
@@ -595,11 +599,20 @@ data class ForumThread(
         else -> answers.sortedBy { it.createdAt }
     }
 
-    /** With [reply] folded in — a post, or a reaction the reader just made. */
+    /** With [reply] folded in — a post, a reaction, or an answer just edited. */
     fun with(reply: ForumReply): ForumThread {
         val replaced = replies.map { if (it.id == reply.id) reply else it }
         return copy(replies = if (replaced.any { it.id == reply.id }) replaced else replaced + reply)
     }
+
+    /**
+     * Without one answer — what the reader sees the instant their own answer is
+     * removed, before the thread is read again. The database has already folded
+     * any answers written under it onto the answer it answered; this only takes
+     * the removed row off the screen.
+     */
+    fun without(replyId: String): ForumThread =
+        copy(replies = replies.filterNot { it.id == replyId })
 
     companion object {
         /** Newest first, the way a conversation is usually read. */
@@ -660,7 +673,9 @@ internal fun ForumReplyDto.toModel() = ForumReply(
         ForumReply.REACTION_LIKE, ForumReply.REACTION_DISLIKE, ForumReply.REACTION_AGREE ->
             myReaction.orEmpty().trim()
         else -> ""
-    }
+    },
+    isOfficial = isOfficial == true,
+    isMine = isMine == true
 )
 
 /** The reaction the popup just set, as the model the card redraws from. */

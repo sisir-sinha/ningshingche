@@ -426,8 +426,8 @@
    */
   const PROBE_FILES = {
     languageFiles: 'backend/supabase/migrations/023_app_language_files.sql',
-    forum: ['backend/supabase/migrations/029_forum.sql', 'backend/supabase/migrations/030_forum_answers.sql', 'backend/supabase/migrations/032_forum_editorial.sql'],
-    forumReplies: ['backend/supabase/migrations/029_forum.sql', 'backend/supabase/migrations/030_forum_answers.sql', 'backend/supabase/migrations/032_forum_editorial.sql'],
+    forum: ['backend/supabase/migrations/029_forum.sql', 'backend/supabase/migrations/030_forum_answers.sql', 'backend/supabase/migrations/032_forum_editorial.sql', 'backend/supabase/migrations/034_forum_reply_edit.sql'],
+    forumReplies: ['backend/supabase/migrations/029_forum.sql', 'backend/supabase/migrations/030_forum_answers.sql', 'backend/supabase/migrations/032_forum_editorial.sql', 'backend/supabase/migrations/034_forum_reply_edit.sql'],
     forumCategories: 'backend/supabase/migrations/029_forum.sql',
     blogs: 'backend/supabase/migrations/003_blog_media_uploads.sql',
     submissions: 'backend/supabase/migrations/003_blog_media_uploads.sql'

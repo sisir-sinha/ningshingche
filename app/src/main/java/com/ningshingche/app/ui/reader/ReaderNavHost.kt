@@ -1109,6 +1109,12 @@ fun EditorialReaderApp(
                         app.portalRepository.forumReply(id, body, parentId)
                     },
                     react = { replyId, kind -> app.portalRepository.reactToForumReply(replyId, kind) },
+                    // A reader's own answer: the database refuses anything that is
+                    // not theirs, so the screen only ever sends an id and a body.
+                    editReply = { replyId, body ->
+                        app.portalRepository.editForumReply(replyId, body)
+                    },
+                    deleteReply = { replyId -> app.portalRepository.deleteForumReply(replyId) },
                     draftStore = app.forumDraftStore,
                     onBackClick = { navController.popBackStack() },
                     onSignInClick = { navController.navigate(ReaderRoute.Login) },

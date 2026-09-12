@@ -359,12 +359,18 @@ test('a new thread and a new answer reach the bell', async (t) => {
 
 test('one tap on a reaction counts it', async (t) => {
   await t.test('the gesture is a tap on the reaction itself', () => {
-    // This reverses what this file asserted in the first pass. Both the long press
-    // and the popup it raised are gone: the owner's ninth correction was that
+    // This reverses what this file asserted in the first pass. The popup the long
+    // press used to raise is gone: the owner's ninth correction was that
     // "reactions must not open a modal — one tap counts it, plain and simple".
-    assert.ok(!FORUM_SCREENS.includes('combinedClickable'),
-      'no card reacts to a long press any more');
-    assert.match(FORUM_SCREENS, /\.clickable\(onClick = onCardClick\)/,
+    //
+    // A long press came back in the ninth batch, for a different job: on the
+    // reader's own answer it opens সম্পাদনা and মুছে ফেলুন. It never counts a
+    // reaction, and it is never offered on anyone else's answer.
+    assert.ok(!/onLongClick = \{ onReact/.test(FORUM_SCREENS),
+      'no card reacts to a long press');
+    assert.match(FORUM_SCREENS, /onLongClick = if \(answer\.isMine\)/,
+      'the long press belongs to the author of the answer');
+    assert.match(FORUM_SCREENS, /onClick = onCardClick/,
       'a tap on the card is a tap on the card');
     const row = bodyOf(FORUM_SCREENS, 'ForumReactionRow');
     for (const kind of ['REACTION_LIKE', 'REACTION_AGREE', 'REACTION_DISLIKE']) {
@@ -530,8 +536,13 @@ test('the reply box is an editor, not a one-line field', async (t) => {
     // the reply list's own checks hold the draft to it.
     assert.match(FORUM_SCREENS, /draftStore\.saveReply\(/,
       'the reader is never told the draft is lost, because it is not');
-    assert.match(FORUM_SCREENS, /targetName\?\.let \{ "\$it কে উত্তর" \}/,
+    // Re-anchored for the ninth batch: the line above the box says one of three
+    // things now — who is being answered, that an answer is being changed, or
+    // nothing at all.
+    assert.match(FORUM_SCREENS, /targetName != null -> "\$targetName কে উত্তর"/,
       'and who they are answering');
+    assert.match(FORUM_SCREENS, /editing -> "উত্তর সম্পাদনা"/,
+      'or that an existing answer is being changed');
     assert.match(FORUM_SCREENS, /testTag\("forum_reply_target_clear"\)/, 'with a way to take it back');
   });
 });
