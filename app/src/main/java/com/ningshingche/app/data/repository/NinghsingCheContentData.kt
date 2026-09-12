@@ -10,8 +10,6 @@ import com.ningshingche.app.data.model.YearArchive
 object NinghsingCheContentData {
 
     const val APP_LOGO_URL = "https://surajit-singha-sisir.github.io/NingshingCheNew/NingshingChe-Logo.png"
-    const val WEBSITE_URL = "https://ningshingche.com"
-    const val GITHUB_REPO_URL = "https://github.com/surajit-singha-sisir/NingshingCheNew"
 
     val pdfCategories: List<PdfCategory> = listOf(
         PdfCategory(

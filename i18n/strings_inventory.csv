@@ -95,7 +95,6 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 {1} বার পঠিত,,ui,2,1,"ArticleScreen.kt, PublicProfileScreen.kt"
 {1} বার শোনা,,ui,2,1,"MusicBrowseScreens.kt, PublicProfileScreen.kt"
 {1} বিষয়ে নিংশিং চে-তে প্রকাশিত প্রবন্ধসমূহ।,,ui,2,1,NingshingCheWebsiteClient.kt
-{1} মি.,,ui,2,1,EditorialComponents.kt
 {1} মিনিট,,ui,2,1,"EditorialComponents.kt, MusicPlayer.kt"
 অক্ষরের আকার,,ui,2,0,ArticleScreen.kt
 অন্যান্য,,ui,2,0,"AppNotificationManager.kt, SettingsScreen.kt"
@@ -219,11 +218,11 @@ ningshingche.com ওয়েবসাইটে যান,,ui,1,0,SettingsScreen
 ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 {1} ({2}) — বিষ্ণুপ্রিয়া মণিপুরি ডিজিটাল তথ্যকোষ 'নিংশিং চে' থেকে সংগৃহীত। https://ningshingche.com,,ui,1,2,PdfHelper.kt
 {1} {2} {3}  নিংশিং চে,,ui,1,3,HomeScreen.kt
-{1} পৃ. • {2} MB,,ui,1,2,EditorialComponents.kt
 {1} বার শোনা হয়েছে,,ui,1,1,MusicPlayer.kt
 {1} বিষয়ক অন্যান্য গবেষণা প্রবন্ধ কী কী আছে?,,ui,1,1,NinghsingCheAiAssistant.kt
 {1} বিষয়ে প্রকাশিত প্রবন্ধসমূহ,,ui,1,1,ExploreScreen.kt
 {1} মাসে {2} পয়েন্ট,,ui,1,2,UserDashboardScreen.kt
+{1} মি.,,ui,1,1,EditorialComponents.kt
 {1} মিনিট পাঠ,,ui,1,1,ArticleScreen.kt
 {1} — নিংশিং চে PDF আর্কাইভ,,ui,1,1,PdfHelper.kt
 {1}-এর তালিকা,,ui,1,1,ContributorScreen.kt
@@ -595,7 +594,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 নিবন্ধিত পাঠক,,ui,1,0,ArticleCommentForm.kt
 নিবন্ধের প্রথম অংশ থেকে প্রাপ্ত সারসংক্ষেপ:,,ui,1,0,NinghsingCheAiAssistant.kt
 "নিয়মিত বার্ষিক সংখ্যা, শারদীয় ও বসন্ত উৎসব সংখ্যা।",,content,1,0,NinghsingCheContentData.kt
-নির্বাচিত,,ui,1,0,EditorialComponents.kt
 নির্বাচিত ফাইলটি কোনো বৈধ ছবি নয় (Not an image). Type: {1},,ui,1,1,ImgBbUploader.kt
 নির্বাচিত লেখা,,ui,1,0,ExploreScreen.kt
 নুয়া লেখা,,ui,1,0,NingshingCheWebsiteClient.kt
@@ -605,7 +603,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 পঠন ইতিহাস মুছে ফেলা হয়েছে,,ui,1,0,SettingsScreen.kt
 পঠন ইতিহাস রিসেট করুন,,ui,1,0,SettingsScreen.kt
 পড়ার মতো কোনো লেখা পাওয়া যায়নি।,,ui,1,0,ArticleTtsPlayer.kt
-পড়ুন,,ui,1,0,EditorialComponents.kt
 পড়ে শোনানোর সময় ত্রুটি হয়েছে।,,ui,1,0,ArticleTtsPlayer.kt
 পদবি / পরিচয় (ঐচ্ছিক),,ui,1,0,UserProfileScreen.kt
 পয়েন্ট,,ui,1,0,ContributorScreen.kt

@@ -74,9 +74,6 @@ interface HistoryDao {
     fun getAllHistory(): Flow<List<HistoryEntity>>
 
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertHistory(history: HistoryEntity)
-
 
     @Query("DELETE FROM reading_history")
     suspend fun clearAll()
@@ -86,12 +83,6 @@ interface HistoryDao {
 interface SearchDao {
     @Query("SELECT * FROM search_history ORDER BY timestamp DESC LIMIT 15")
     fun getRecentSearches(): Flow<List<SearchHistoryEntity>>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertSearch(search: SearchHistoryEntity)
-
-    @Query("DELETE FROM search_history WHERE query = :query")
-    suspend fun deleteSearch(query: String)
 
     @Query("DELETE FROM search_history")
     suspend fun clearAll()
@@ -135,9 +126,6 @@ interface MusicLibraryDao {
     @Query("SELECT * FROM music_offline ORDER BY savedAt DESC")
     fun offline(): Flow<List<MusicOfflineEntity>>
 
-
-    @Query("SELECT * FROM music_offline WHERE trackId = :trackId LIMIT 1")
-    suspend fun offlineById(trackId: String): MusicOfflineEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertOffline(item: MusicOfflineEntity)

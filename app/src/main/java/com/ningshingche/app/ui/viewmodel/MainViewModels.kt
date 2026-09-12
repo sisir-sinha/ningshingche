@@ -416,9 +416,6 @@ class PdfArchiveViewModel(
     val categories: StateFlow<List<com.ningshingche.app.data.model.PdfCategory>> = repository.pdfCategories
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), repository.getPdfCategories())
 
-    val allPdfDocuments: StateFlow<List<com.ningshingche.app.data.model.PdfDocument>> = repository.pdfDocuments
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), repository.getPdfDocuments())
-
     private val _selectedCategoryId = MutableStateFlow("pdf-cat-all")
     val selectedCategoryId: StateFlow<String> = _selectedCategoryId.asStateFlow()
 

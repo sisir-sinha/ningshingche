@@ -48,8 +48,6 @@ object SiteContact {
     const val PHONE = "+880 9638-781890"
     const val PHONE_URI = "tel:+8809638781890"
     const val EMAIL = "ningshingche@gmail.com"
-    const val EMAIL_URI = "mailto:ningshingche@gmail.com"
-    const val WEBSITE = "https://ningshingche.com"
     const val SUBMIT_URL = "https://ningshingche.com/blog_submission"
     const val PRIVACY_URL = "https://ningshingche.com/"
     const val TERMS_URL = "https://ningshingche.com/"

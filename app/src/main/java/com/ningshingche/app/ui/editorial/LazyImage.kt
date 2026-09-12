@@ -21,26 +21,3 @@ import androidx.compose.ui.unit.dp
 fun ShimmerPlaceholder(modifier: Modifier = Modifier) {
     Box(modifier = modifier.background(rememberShimmerBrush()))
 }
-
-@Composable
-fun ImagePlaceholder(
-    modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(EditorialShape.thumb),
-    broken: Boolean = false
-) {
-    val tokens = LocalEditorialTokens.current
-    Box(
-        modifier = modifier
-            .clip(shape)
-            .background(tokens.surfaceSunken)
-            .border(1.dp, tokens.rule, shape),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = if (broken) Icons.Default.BrokenImage else Icons.Default.Image,
-            contentDescription = null,
-            tint = tokens.inkMuted,
-            modifier = Modifier.fillMaxSize(0.35f)
-        )
-    }
-}

@@ -469,19 +469,6 @@ class ArticleRepository(
         articleDao.insertArticles(entities)
     }
 
-    private suspend fun prefetchFeaturedBodies(articles: List<Article>) = coroutineScope {
-        articles.filter { it.isFeatured || it.isEditorialPick }
-            .distinctBy { it.id }
-            .take(8)
-            .map { article ->
-                async {
-                    if (article.content.length >= 80) return@async
-                    val remote = websiteClient.fetchArticle(article.sourceUrl) ?: return@async
-                    articleDao.insertArticle(mergeArticle(article, remote).toEntity())
-                }
-            }.awaitAll()
-    }
-
     private fun mergeArticle(local: Article?, remote: Article): Article {
         if (local == null) return remote
         return remote.copy(

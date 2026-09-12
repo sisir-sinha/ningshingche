@@ -178,37 +178,3 @@ object PdfHelper {
         }
     }
 }
-
-/** Thread-safe on-demand page renderer. Close when the viewer leaves. */
-class PdfSession(file: File) : AutoCloseable {
-    private val lock = Any()
-    private val pfd: ParcelFileDescriptor =
-        ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
-    private val renderer: PdfRenderer = PdfRenderer(pfd)
-    val pageCount: Int = renderer.pageCount
-
-    fun render(pageIndex: Int, widthPx: Int): Bitmap {
-        synchronized(lock) {
-            val page = renderer.openPage(pageIndex)
-            try {
-                val targetWidth = widthPx.coerceIn(320, 2400)
-                val targetHeight = ((page.height.toFloat() / page.width) * targetWidth)
-                    .toInt()
-                    .coerceAtLeast(1)
-                val bitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
-                Canvas(bitmap).drawColor(Color.WHITE)
-                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                return bitmap
-            } finally {
-                page.close()
-            }
-        }
-    }
-
-    override fun close() {
-        synchronized(lock) {
-            runCatching { renderer.close() }
-            runCatching { pfd.close() }
-        }
-    }
-}

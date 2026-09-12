@@ -42,12 +42,6 @@ data class UserProfile(
     val imgbbDeleteUrl: String = "",
     val profileCompleted: Boolean = false
 ) {
-    /** Staff CMS is not available to Google reader accounts. */
-    val canAccessDashboard: Boolean
-        get() = role == UserRole.ADMINISTRATOR ||
-            role == UserRole.EDITOR ||
-            role == UserRole.MODERATOR
-
     val displayFirstName: String
         get() = firstName.ifBlank { fullName.trim().substringBefore(" ").ifBlank { fullName } }
 

@@ -213,24 +213,6 @@ fun EditorialImage(
 }
 
 @Composable
-private fun EmptyThumb(modifier: Modifier = Modifier, shape: Shape) {
-    Box(
-        modifier = modifier
-            .clip(shape)
-            .background(LocalEditorialTokens.current.surfaceSunken)
-            .border(1.dp, LocalEditorialTokens.current.rule, shape),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            Icons.Default.Image,
-            contentDescription = null,
-            tint = LocalEditorialTokens.current.inkMuted,
-            modifier = Modifier.size(22.dp)
-        )
-    }
-}
-
-@Composable
 fun rememberShimmerBrush(): Brush {
     val transition = rememberInfiniteTransition(label = "shimmer")
     val progress by transition.animateFloat(
@@ -1650,6 +1632,3 @@ fun ErrorState(
         onAction = onRetry
     )
 }
-
-/** Convenience used by list screens: a plain-text teaser from stored HTML. */
-fun teaserOf(html: String) = excerptOf(stripHtml(html), 140)

@@ -42,7 +42,6 @@ sealed class Screen(val route: String) {
 
     /** `explore?tab=<key>`; `route` (no argument) opens the first tab. */
     data object Explore : Screen("explore") {
-        const val ARG_TAB = "tab"
         const val pattern = "explore?tab={tab}"
     }
 
@@ -50,15 +49,5 @@ sealed class Screen(val route: String) {
     }
 
     data object ArticleDetail : Screen("article/{articleId}") {
-    }
-
-    data object CategoryDetail : Screen("category/{categorySlug}") {
-    }
-
-    data object AuthorDetail : Screen("author/{authorId}") {
-    }
-
-    /** Annual issue (`নিংশিং চে - YYYY` tag) listing. */
-    data object IssueDetail : Screen("issue/{year}") {
     }
 }

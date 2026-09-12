@@ -206,8 +206,6 @@ object EditorialSpace {
 
     /** Horizontal page gutter. */
     val gutter = 20.dp
-    /** Max width for reading columns on tablets/foldables. */
-    val measure = 720.dp
 }
 
 object EditorialShape {

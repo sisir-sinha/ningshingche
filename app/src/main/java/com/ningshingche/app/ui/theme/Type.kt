@@ -35,8 +35,6 @@ val Kalpurush: FontFamily = FontFamily(
     kalpurushFace(FontWeight.ExtraBold),
     kalpurushFace(FontWeight.Black)
 )
-val BengDefaultSerif: FontFamily = Kalpurush
-val BengDefaultSans: FontFamily = Kalpurush
 
 /**
  * Bengali must not use Latin tracking or locale line-breaking. Negative

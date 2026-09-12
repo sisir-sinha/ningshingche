@@ -315,7 +315,6 @@ private fun FullMusicPlayer(
     var dragValue by remember { mutableFloatStateOf(0f) }
     var sheet by remember { mutableStateOf(PlayerSheet.None) }
     var offsetY by remember { mutableFloatStateOf(0f) }
-    var skipAccum by remember { mutableFloatStateOf(0f) }
     var gestureHint by remember { mutableStateOf<String?>(null) }
     // Volume read-out shown while the artwork is dragged: -1f means nothing to
     // show, which is how the HUD hides itself without a second flag.

@@ -198,6 +198,7 @@ data class TagCountDto(
     @Json(name = "is_issue") val isIssue: Boolean? = null,
     val total: Int? = null,
     val published: Int? = null,
+    /** Wire field: deserialised by Moshi, read by the dashboard's review screens. */
     val spellings: List<String>? = null
 )
 

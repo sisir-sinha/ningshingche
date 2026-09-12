@@ -195,51 +195,6 @@ fun CategoryChipSkeleton() {
 }
 
 @Composable
-fun PdfCardSkeleton(modifier: Modifier = Modifier) {
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface,
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            ShimmerBox(
-                modifier = Modifier
-                    .width(85.dp)
-                    .aspectRatio(0.72f)
-                    .clip(RoundedCornerShape(10.dp)),
-                shape = RoundedCornerShape(10.dp)
-            )
-
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                ShimmerBox(modifier = Modifier.size(width = 90.dp, height = 18.dp), shape = RoundedCornerShape(6.dp))
-                ShimmerBox(modifier = Modifier.fillMaxWidth().height(20.dp))
-                ShimmerBox(modifier = Modifier.fillMaxWidth(0.6f).height(20.dp))
-                ShimmerBox(modifier = Modifier.fillMaxWidth(0.85f).height(14.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    ShimmerBox(modifier = Modifier.size(width = 80.dp, height = 14.dp))
-                    ShimmerBox(modifier = Modifier.size(width = 75.dp, height = 32.dp), shape = RoundedCornerShape(16.dp))
-                }
-            }
-        }
-    }
-}
-
-@Composable
 fun HomeSkeletonLayout() {
     Column(
         modifier = Modifier

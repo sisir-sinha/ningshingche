@@ -350,7 +350,13 @@ private object KalpurushWebFont {
         cached?.let { return it }
         synchronized(this) {
             cached?.let { return it }
-            val bytes = context.assets.open("fonts/kalpurush.ttf").use { it.readBytes() }
+            // Read from res/font, where the same TTF already lives for Compose:
+            // shipping a second copy under assets/ cost 314 KB of the APK for
+            // bytes the resource table was carrying anyway.
+            val bytes = runCatching {
+                context.resources.openRawResource(com.ningshingche.app.R.font.kalpurush)
+                    .use { it.readBytes() }
+            }.getOrNull() ?: return ""
             val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
             val face = """
             @font-face {

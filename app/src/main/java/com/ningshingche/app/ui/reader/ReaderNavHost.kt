@@ -107,7 +107,6 @@ object ReaderRoute {
     const val FirstRun = "first_run"
     // A registered reader's public page: their songs and published articles.
     const val PublicProfile = "user/{userId}"
-    const val PublicProfilePattern = "user/{userId}"
     const val UserDashboard = "user_dashboard"
     const val UserDashboardPattern = "user_dashboard?tab={tab}&focus={focus}"
     const val UserProfile = "user_profile"

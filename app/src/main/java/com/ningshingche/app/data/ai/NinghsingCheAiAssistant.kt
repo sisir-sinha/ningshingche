@@ -425,62 +425,6 @@ class NinghsingCheAiAssistant(
         return qTokens.any { token -> text.contains(token, ignoreCase = true) }
     }
 
-    /** General-knowledge answer with Google web-search grounding. */
-    private fun tryCallGeminiWebSearch(query: String): String? {
-        val apiKey = geminiKey()
-        if (!isKeyConfigured(apiKey)) return null
-
-        return try {
-            val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=$apiKey"
-
-            val jsonBody = JSONObject().apply {
-                put("contents", JSONArray().apply {
-                    put(JSONObject().apply {
-                        put("role", "user")
-                        put("parts", JSONArray().apply {
-                            put(JSONObject().apply {
-                                put("text", query)
-                            })
-                        })
-                    })
-                })
-                put("tools", JSONArray().apply {
-                    put(JSONObject().apply {
-                        put("googleSearch", JSONObject())
-                    })
-                })
-                put("systemInstruction", JSONObject().apply {
-                    put("parts", JSONArray().apply {
-                        put(JSONObject().apply {
-                            put("text", "You are Ninghsing Che AI. Answer in articulate, natural Bengali with structured Markdown. Do not introduce yourself.")
-                        })
-                    })
-                })
-            }
-
-            val request = Request.Builder()
-                .url(endpoint)
-                .post(jsonBody.toString().toRequestBody("application/json; charset=utf-8".toMediaType()))
-                .build()
-
-            httpClient.newCall(request).execute().use { response ->
-                if (response.isSuccessful) {
-                    val jsonResponse = JSONObject(response.body?.string().orEmpty())
-                    val candidates = jsonResponse.optJSONArray("candidates")
-                    candidates?.optJSONObject(0)
-                        ?.optJSONObject("content")
-                        ?.optJSONArray("parts")
-                        ?.optJSONObject(0)
-                        ?.optString("text")
-                        ?.takeIf { it.isNotBlank() }
-                        ?.trim()
-                } else null
-            }
-        } catch (_: Exception) {
-            null
-        }
-    }
-
     // ------------------------------------------------------------------ fallback
 
     private fun buildAnswer(
