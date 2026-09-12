@@ -222,6 +222,24 @@
     return true;
   }
 
+  /**
+   * Delete by column rather than by `id`. For rows that have no `id` column of
+   * their own — `forum_reactions` is keyed by (reply_id, reactor_key) — and for
+   * the dashboard's "remove every one of these" actions, where the filter is the
+   * whole row set rather than a single key.
+   */
+  async function removeWhere(keyOrName, filters = {}) {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') params.set(key, filterExpression(value));
+    });
+    if (![...params.keys()].length) throw new ApiError('Refusing to delete without a filter.');
+    await request(`${restBase}/${tableName(keyOrName)}?${params}`, {
+      method: 'DELETE', headers: { Prefer: 'return=minimal' }
+    });
+    return true;
+  }
+
   async function rpc(functionName, payload = {}, options = {}) {
     const { data } = await request(`${restBase}/rpc/${functionName}`, {
       method: 'POST',
@@ -392,18 +410,24 @@
     blogs: 'id,imgbb_delete_url,image_meta,inline_media,pdf_file_provider,pdf_storage_path,pdf_file_size_mb',
     submissions: 'id,inline_media',
     languageFiles: 'lang,label,csv,row_count',
-    // The forum is checked for the columns moderation itself uses, so a database
-    // where migration 030 has not run says so instead of half-loading a page.
-    forum: 'id,status,replies_count,last_reply_at,is_official',
-    forumReplies: 'id,status,parent_id',
+    // The forum is checked for the columns the page itself uses — moderating, in
+    // 030, and writing, in 032 — so a database short of either says so instead of
+    // half-loading a page.
+    forum: 'id,status,replies_count,last_reply_at,is_official,author_name',
+    forumReplies: 'id,status,parent_id,author_name,is_official',
     forumCategories: 'id,slug,title'
   };
 
-  /** The file that adds each probed table, or the columns it is checked for. */
+  /**
+   * The file that adds each probed table, or the columns it is checked for. A
+   * table built by more than one migration lists them in order — the forum is
+   * 029's tables, 030's columns, and 032's signature — because naming one file
+   * for a column another one adds is how a banner sends someone to the wrong SQL.
+   */
   const PROBE_FILES = {
     languageFiles: 'backend/supabase/migrations/023_app_language_files.sql',
-    forum: 'backend/supabase/migrations/029_forum.sql',
-    forumReplies: 'backend/supabase/migrations/029_forum.sql',
+    forum: ['backend/supabase/migrations/029_forum.sql', 'backend/supabase/migrations/030_forum_answers.sql', 'backend/supabase/migrations/032_forum_editorial.sql'],
+    forumReplies: ['backend/supabase/migrations/029_forum.sql', 'backend/supabase/migrations/030_forum_answers.sql', 'backend/supabase/migrations/032_forum_editorial.sql'],
     forumCategories: 'backend/supabase/migrations/029_forum.sql',
     blogs: 'backend/supabase/migrations/003_blog_media_uploads.sql',
     submissions: 'backend/supabase/migrations/003_blog_media_uploads.sql'
@@ -440,7 +464,10 @@
   function schemaBanner(probe) {
     if (!probe || probe.ok) return null;
     const names = (items) => items.map((item) => `\`${item.table}\``).join(', ');
-    const files = (items) => [...new Set(items.map((item) => PROBE_FILES[item.key] || 'backend/supabase/schema.sql'))];
+    const files = (items) => [...new Set(items.flatMap((item) => {
+      const value = PROBE_FILES[item.key] || 'backend/supabase/schema.sql';
+      return Array.isArray(value) ? value : [value];
+    }))];
     if (probe.missing.length) {
       const count = probe.missing.length;
       return {
@@ -614,7 +641,7 @@
   }
 
   NC.api = Object.freeze({
-    ApiError, request, list, getById, count, insert, insertMany, update, upsert, remove,
+    ApiError, request, list, getById, count, insert, insertMany, update, upsert, remove, removeWhere,
     rpc, slugExists, searchAll, schemaProbe, schemaBanner, uploadPdf, uploadAudio, deleteStorageObject,
     storagePublicUrl, attemptImgBBDelete, userMessage, tableName,
     tagIndex, issueYears, blogsByIssue, blogsByTag, tagEndpointsAvailable, probeTagEndpoints, arrayLiteral

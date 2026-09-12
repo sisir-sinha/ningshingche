@@ -1552,7 +1552,25 @@ html[data-density="compact"] .article-cell > img, html[data-density="compact"] .
 .forum-answer-head > span:nth-child(2) { min-width: 0; flex: 1 1 auto; }
 .forum-answer-head strong { display: block; font-size: .8rem; }
 .forum-answer-head small { color: var(--muted-foreground); font-size: .68rem; }
-.forum-answer-actions { display: inline-flex; gap: 4px; }
+.forum-answer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+/* One indent level: an answer answering an answer hangs off the first one. */
+.forum-answer.is-reply { margin-left: 22px; border-left: 3px solid var(--border-strong); }
+.forum-answer-editor { display: grid; gap: 10px; }
+.forum-answer-editor.hidden { display: none; }
+/* Reactions: three of them in a row, and the dashboard's own is a state. */
+.forum-reactions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
+.forum-reaction { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border); border-radius: 999px; padding: 4px 11px; background: var(--surface-subtle); color: var(--muted-foreground); font-size: .7rem; font-weight: 700; cursor: pointer; transition: .14s ease; }
+.forum-reaction:hover { border-color: var(--border-strong); color: var(--foreground); }
+.forum-reaction.is-mine { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-strong); }
+.forum-reaction[disabled] { opacity: .6; cursor: progress; }
+.forum-reaction-clear { margin-left: auto; border: 0; background: transparent; color: var(--muted-foreground); font-size: .68rem; font-weight: 700; cursor: pointer; }
+.forum-reaction-clear:hover { color: var(--danger); }
+/* The composer that adds an answer to the thread being read. */
+.forum-composer { display: grid; gap: 12px; border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; background: var(--surface-subtle); }
+.forum-composer-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.forum-composer-head strong { font-size: .86rem; }
+.forum-composer-head span { color: var(--muted-foreground); font-size: .72rem; }
+.forum-answers-title span { color: var(--muted-foreground); font-size: .78rem; font-weight: 700; }
 
 .dashboard-forum-list { display: grid; }
 .dashboard-forum-item { display: flex; width: 100%; align-items: center; gap: 10px; border: 0; border-top: 1px solid var(--border); padding: 12px clamp(17px, 2.1vw, 25px); background: transparent; text-align: left; cursor: pointer; }

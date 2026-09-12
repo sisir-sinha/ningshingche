@@ -471,7 +471,8 @@ A thread a signed-in reader wrote, and everything the dashboard moderates (page 
 | --- | --- | --- |
 | `id` | uuid PK | |
 | `category_id` | uuid → `forum_categories` | `on delete cascade` |
-| `user_id` | uuid → `profiles` | The reader; names are joined from `profiles`, never duplicated here |
+| `user_id` | uuid → `profiles` | The reader — **nullable since `032`**, because an editorial post has no reader behind it. Names are joined from `profiles` when the row carries none of its own |
+| `author_name` (032) | text | The dashboard's own signature; when it is set the app shows it instead of the profile name |
 | `title` | text | Required |
 | `body` | text | The reader's HTML, as the app's editor produced it |
 | `status` | text | `Publish` \\| `Unpublish` — **the only field the dashboard writes** |
@@ -493,11 +494,18 @@ An answer. Answers are **not** rewritten by the dashboard either: hiding one is 
 | `body` | text | The answer's HTML |
 | `status` | text | `Publish` \\| `Unpublish` |
 | `parent_id` (030) | uuid | One indent level; `null` for a top-level answer |
+| `author_name` (032) | text | The dashboard's signature, as on a thread |
+| `is_official` (032) | boolean | An answer written from the dashboard can be marked as one |
 | `created_at` | timestamptz | Answers read oldest first |
 
 ### `forum_reactions` (migration `030_forum_answers.sql`)
-One row per reaction per reactor, written only through `forum_react` (§7.19). `reactor_key` is the
-reader's id or an opaque device key, so an anonymous reader's reaction counts once on one device.
+One row per reaction per reactor, written by a reader only through `forum_react` (§7.19). `reactor_key`
+is the reader's id, an opaque device key, or — since `032` — `dashboard:<dashboard user id>` for a
+reaction left from the CMS, so an anonymous reader's reaction counts once on one device and two
+admins hold a reaction each. `032` grants the dashboard `select`/`insert`/`update`/`delete` on it
+(read with `forum` or `analytics`, write with `forum`), because `030` left the table with RLS on and
+no policy at all: the RPC was the only door, and a dashboard session is neither a reader nor a
+device.
 
 | Column | Type | Notes |
 | --- | --- | --- |
@@ -617,6 +625,15 @@ permission (migration 004 creates per-menu policies).
   breaks, so nothing a reader wrote is ever parsed as markup. `<a href>` targets found in the body
   are listed as attachments (that is where the app keeps a picture or a PDF), and
   `cover_image_url` is passed through `safeImage`.
+- **Writing.** A thread or answer inserted through a dashboard session is official by `030`'s own
+  trigger, and `032` adds the row's own signature: `author_name` first, then the reader's profile
+  name, then the magazine's reader label — the order both read views use, so what the CMS writes is
+  what the app shows. A body is HTML written with the same sanitising editor as the rest of the
+  dashboard; the page never writes one without an explicit save.
+- **Nobody else decides who wrote it.** `032`'s `forum_content_guard` trigger returns early for a
+  dashboard request and, for every other writer — a reader PATCHing their own row through the
+  `*_own_write` policy of `029`, or the app's own RPCs — forces `author_name` and `is_official` back
+  to their stored values (`''`/`false` on insert).
 - **The menu key is `forum`, not `comments`.** Migration `031_forum_menu_permission.sql` adds it to `dashboard_valid_permissions()` (004's allow-list, already extended by 008 and 014) and appends it to the roles that hold Comments, because `dashboard_save_role` filters every requested permission through that list and drops an unknown key **without an error**. The three tables' dashboard policies are named after the same key: `select` for `dashboard_has_any_permission(array['forum','analytics'])` (Analytics draws the index dashboard panel), `insert`/`update`/`delete` for `dashboard_has_permission('forum')`. The public reader policies and the app's `security definer` RPCs are untouched.
 - Needs-attention queues on the index dashboard link to the page's own filters:
   `#/forum?filter=Waiting` (published, `replies_count = 0`) and `#/forum?filter=Unpublish`.
@@ -1258,7 +1275,7 @@ lightweight `GET …?select=…&limit=1` per table and reports:
 | Content tables | `select=id` | `PGRST205` → table missing → run `schema.sql` |
 | `blogs` media columns | `select=id,imgbb_delete_url,image_meta,inline_media,pdf_file_provider,pdf_storage_path,pdf_file_size_mb` | `PGRST204`/`42703` → run migration `003` |
 | `submitted_blogs.inline_media` | `select=id,inline_media` | run migration `003` |
-| Forum columns | `forum_discussions` `select=id,status,replies_count,last_reply_at,is_official`; `forum_replies` `select=id,parent_id,status`; `forum_categories` `select=id,slug,position` | `PGRST205`/`PGRST204` → run migration `029_forum.sql` |
+| Forum columns | `forum_discussions` `select=id,status,replies_count,last_reply_at,is_official,author_name`; `forum_replies` `select=id,parent_id,status,author_name,is_official`; `forum_categories` `select=id,slug,position` | `PGRST205`/`PGRST204` → run `029_forum.sql`, then `030_forum_answers.sql`, then `032_forum_editorial.sql` (the banner names all three) |
 | Access control | presence of the `dashboard_login` RPC (client-side `isLegacy()` check) | run migration `004` |
 | Forum menu key | the snapshot's `valid_permissions` from `dashboard_access_snapshot`, compared with the routes in `config.js` (client-side) | a menu the database does not list cannot be granted → run `031_forum_menu_permission.sql` |
 
