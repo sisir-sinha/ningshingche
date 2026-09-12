@@ -177,7 +177,9 @@ class ReaderWorkspaceViewModel(
             // The view counter is the database's number, not the app's guess:
             // `user_view_totals` sums the counts on the blogs this reader's
             // submissions became plus the plays of the tracks they uploaded.
-            val viewTotals = supabaseClient.userViewTotals(user.id).getOrNull()
+            // `userViewTotals` answers with the totals or with null, not with a
+            // Result, so there is no `getOrNull()` to unwrap.
+            val viewTotals = supabaseClient.userViewTotals(user.id)
             val series = supabaseClient.userViewSeries(user.id, VIEW_SERIES_DAYS)
                 .getOrDefault(_viewSeries.value)
             val score = portalRepository.contributorPoints(user.id).getOrNull()

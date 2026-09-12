@@ -240,7 +240,8 @@ test('a new thread can carry a cover, and its body has a toolbar', async (t) => 
     for (const button of ['মোটা', 'বাঁকা', 'নিচে দাগ', 'তালিকা', 'ছবি যোগ']) {
       assert.ok(FORUM_EDITOR.includes(`ToolIcon("${button}"`), `${button} is in the toolbar`);
     }
-    assert.match(FORUM_EDITOR, /Icons\.Default\.FormatListBulleted, compact\) \{ run\("insertUnorderedList"\) \}/,
+    // Re-anchored for the AutoMirrored icon (icons 1.7 deprecates the filled one).
+    assert.match(FORUM_EDITOR, /Icons\.AutoMirrored\.Filled\.FormatListBulleted, compact\) \{\s*run\("insertUnorderedList"\)\s*\}/,
       'the list button inserts a list');
     const compact = FORUM_EDITOR.slice(FORUM_EDITOR.indexOf('if (!compact) {'));
     assert.match(compact, /if \(!compact\)/, 'the article-only controls are conditional');

@@ -490,7 +490,7 @@ private val BENGALI_MONTHS = listOf(
  */
 internal fun monthNameOf(monthKey: String): String {
     val month = monthKey.split("-").getOrNull(1)?.toIntOrNull()
-    if (month in 1..12) return BENGALI_MONTHS[month - 1]
+    if (month != null && month in 1..12) return BENGALI_MONTHS[month - 1]
     // Calendar, not java.time: minSdk is 24 and this module has no desugaring.
     @Suppress("DEPRECATION")
     val now = java.util.Calendar.getInstance().get(java.util.Calendar.MONTH)

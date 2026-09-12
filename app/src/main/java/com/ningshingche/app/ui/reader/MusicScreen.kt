@@ -74,6 +74,8 @@ fun MusicScreen(
     onGenreClick: (String) -> Unit = {},
     onArtistClick: (String) -> Unit = {},
     onAlbumClick: (String) -> Unit = {},
+    /** A track's uploader: their public page. */
+    onUploaderClick: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val tracks by viewModel.musicCatalog.collectAsState()

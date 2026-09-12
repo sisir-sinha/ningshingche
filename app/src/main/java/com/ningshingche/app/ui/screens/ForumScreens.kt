@@ -808,8 +808,12 @@ fun ForumThreadScreen(
     // Back, in the order the reader expects: the keyboard first, then the box,
     // then the screen. The box's handler is disabled while the keyboard is up,
     // so the keyboard always wins the first press.
+    // `WindowInsets.ime` is a composable getter, so it is read in composition;
+    // what the derived state watches is the *plain* call on it, which reads the
+    // snapshot state the insets live in.
+    val ime = WindowInsets.ime
     val keyboardUp by remember {
-        derivedStateOf { WindowInsets.ime.getBottom(density) > 0 }
+        derivedStateOf { ime.getBottom(density) > 0 }
     }
     BackHandler(enabled = composerOpen && !keyboardUp) {
         composerOpen = false
@@ -961,7 +965,7 @@ fun ForumThreadScreen(
                     AnimatedVisibility(
                         visible = composerOpen,
                         enter = expandVertically(expandFrom = Alignment.Bottom) + fadeIn(),
-                        exit = shrinkVertically(shrinkFrom = Alignment.Bottom) + fadeOut()
+                        exit = shrinkVertically(shrinkTowards = Alignment.Bottom) + fadeOut()
                     ) {
                         ForumReplyComposer(
                             body = replyBody,
@@ -989,7 +993,7 @@ fun ForumThreadScreen(
                     AnimatedVisibility(
                         visible = !composerOpen,
                         enter = expandVertically(expandFrom = Alignment.Bottom) + fadeIn(),
-                        exit = shrinkVertically(shrinkFrom = Alignment.Bottom) + fadeOut()
+                        exit = shrinkVertically(shrinkTowards = Alignment.Bottom) + fadeOut()
                     ) {
                         ForumReplyLauncher(onClick = { openComposer("") })
                     }

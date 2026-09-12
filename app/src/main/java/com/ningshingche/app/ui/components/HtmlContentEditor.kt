@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.FormatBold
@@ -265,7 +266,9 @@ fun HtmlContentEditor(
                     ToolIcon("মোটা", Icons.Default.FormatBold, compact) { run("bold") }
                     ToolIcon("বাঁকা", Icons.Default.FormatItalic, compact) { run("italic") }
                     ToolIcon("নিচে দাগ", Icons.Default.FormatUnderlined, compact) { run("underline") }
-                    ToolIcon("তালিকা", Icons.Default.FormatListBulleted, compact) { run("insertUnorderedList") }
+                    ToolIcon("তালিকা", Icons.AutoMirrored.Filled.FormatListBulleted, compact) {
+                        run("insertUnorderedList")
+                    }
                     if (!compact) {
                         ToolIcon("পেস্ট", Icons.Default.ContentPaste) { pasteClipboard() }
                     }
@@ -507,7 +510,6 @@ fun HtmlContentEditor(
     }
 }
 
-@Composable
 /**
  * One toolbar button. [compact] shrinks it: the reply box is a strip at the
  * bottom of the screen, and three 40 dp buttons over a 96 dp box would be most

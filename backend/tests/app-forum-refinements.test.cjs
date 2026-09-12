@@ -273,8 +273,11 @@ test('the reply box is a strip at the bottom of the thread', async (t) => {
   await t.test('Back puts the keyboard away first', () => {
     assert.match(FORUM_SCREENS, /BackHandler\(enabled = keyboardUp\) \{ editor\.dismiss\(\) \}/,
       'the thread intercepts Back only while the keyboard is up');
-    assert.match(FORUM_SCREENS,
-      /derivedStateOf \{ WindowInsets\.ime\.getBottom\(density\) > 0 \}/,
+    // Re-anchored: `WindowInsets.ime` is a composable getter, so it is read in
+    // composition and the plain `getBottom` call is what the derived state sees.
+    assert.match(FORUM_SCREENS, /val ime = WindowInsets\.ime/,
+      'the insets are read where a composable read is allowed');
+    assert.match(FORUM_SCREENS, /derivedStateOf \{ ime\.getBottom\(density\) > 0 \}/,
       'and only then');
   });
 
@@ -424,7 +427,8 @@ test('the editor grows with the writing and pictures are attached, not typed', a
     for (const button of ['মোটা', 'বাঁকা', 'তালিকা']) {
       assert.ok(editor.includes(`ToolIcon("${button}",`), `${button} is in the toolbar`);
     }
-    assert.match(editor, /Icons\.Default\.FormatListBulleted, compact\) \{ run\("insertUnorderedList"\) \}/,
+    // Re-anchored for the AutoMirrored icon (icons 1.7 deprecates the filled one).
+    assert.match(editor, /Icons\.AutoMirrored\.Filled\.FormatListBulleted, compact\) \{\s*run\("insertUnorderedList"\)\s*\}/,
       'the list button inserts a list');
     assert.match(editor, /Icons\.Default\.FormatBold, compact\)/,
       'the bold button is the small one when the box is the small one');

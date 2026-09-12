@@ -1024,6 +1024,45 @@ should land on the content tab instead of going back where it came from.
     content tab, the new row focused via `contentFocus`, the note spent, and the confirmation snackbar
     the composer used to show repeated on the screen the reader is actually looking at.
 
+**The build fix (app 1.8 → 1.8.1).** The owner ran `./gradlew assembleDebug` on this tree for the first time
+and it did not compile — **twenty-four errors**, and only a handful of them from that morning's work: the
+tree had not been compilable since the forum and dashboard batches, because every gate here is lexical and
+none of them can see a name that is *used* without being imported or declared. The classes, and the rule
+each one left behind:
+
+  * **An icon is an extension property.** `Icons.Default.FormatListBulleted` was used with no import for it
+    at all; the compiler wants `import androidx.compose.material.icons.filled.FormatListBulleted`. In icons
+    1.7 the whole direction-sensitive family moved to `Icons.AutoMirrored.*` and the old ones are
+    deprecated, so the import is
+    `androidx.compose.material.icons.automirrored.filled.FormatListBulleted` now. **Rule: every
+    `Icons.<Family>.<Name>` must have its matching import** — checked in
+    `backend/tests/app-source-health.test.cjs`.
+  * **A name from another package needs an import.** `Modifier.width(` without
+    `androidx.compose.foundation.layout.width`; `rememberSaveable` without its runtime-saveable import;
+    `ForumActivity` used as a parameter type with no import; `monthNameOf` called in `HomeScreen` while it
+    is declared `internal` in `ui/screens/ContributorScreen.kt`. **Rule: the Compose names in that table,
+    and every project declaration used across packages, are checked against the file's imports.**
+  * **Two imports of the same name.** `EditorialSpace` was imported twice in `HomeScreen` — "imported name
+    is ambiguous" — and `kotlinx.coroutines.launch` likewise. (Two *different* packages may legally share a
+    simple name: an icon lives in both `filled` and `automirrored.filled`, and `items` belongs to both
+    `lazy` and `lazy.grid`; only the identical pair is a conflict.) **Rule: no import written twice.**
+  * **`@Composable` twice, and `@Composable` missing.** `ToolIcon` and `ContributorPointsCard` each carried
+    the annotation above the KDoc *and* below it — "this annotation is not repeatable" — and `MetricCard`
+    had none at all while its body composes `Surface`/`Text`/`Icon` (every call site of it then failed
+    too). **Rule: one annotation per declaration, and one wherever the body composes.**
+  * **A parameter that does not exist.** `shrinkVertically(shrinkFrom = …)` — renamed `shrinkTowards` in
+    Compose animation 1.7. Checked against the 1.7 sources, not from memory.
+  * **A composable read inside a derived state.** `derivedStateOf { WindowInsets.ime.getBottom(density) > 0 }`
+    — `WindowInsets.ime` is a `@Composable` getter, so it cannot be read from a plain lambda. The insets are
+    read in composition and the *plain* `getBottom` call is what the derived state watches, which is still
+    reactive because the insets live in a `mutableStateOf`.
+  * **A private API.** `NavController.backQueue` is private in navigation 2.8.9; the public stack is
+    `currentBackStack: StateFlow<List<NavBackStackEntry>>`. The submit-forwarding helper now reads that and
+    pops by **destination id** (`dashboard.destination.id`) — the `String` overload of `popBackStack`
+    matches *routes*, and an entry's own id is a UUID no route will ever equal.
+  * **A nullable that was treated as a Result.** `supabaseClient.userViewTotals(...)` answers with
+    `ViewTotals?`, not with a `Result`, so there is no `getOrNull()` to unwrap.
+
 *The formatting row is four buttons.* The compact editor no longer offers a picture button, and it
 no longer draws attachments — `HtmlContentEditor` is an editor again. Files are attached on the row
 under the box, which is also where they are previewed.

@@ -810,7 +810,7 @@ fun EditorialReaderApp(
             // tab, focus row, and Back still returns to whatever was under the
             // dashboard. Returns false when nothing had to be thrown away.
             fun androidx.navigation.NavHostController.forwardToSubmittedContent(): Boolean {
-                val dashboard = backQueue.lastOrNull { entry ->
+                val dashboard = currentBackStack.value.lastOrNull { entry ->
                     val route = entry.destination.route.orEmpty()
                     route == ReaderRoute.UserDashboard ||
                         route.startsWith("${ReaderRoute.UserDashboard}?")
@@ -821,7 +821,10 @@ fun EditorialReaderApp(
                     popBackStack()
                     return false
                 }
-                return popBackStack(dashboard.id, inclusive = true)
+                // By destination id, not by the entry's own id: the String
+                // overload of popBackStack matches *routes*, and the entry id is
+                // a UUID that no route will ever equal.
+                return popBackStack(dashboard.destination.id, inclusive = true)
             }
 
             /** The one trip both composers take when the send has succeeded. */

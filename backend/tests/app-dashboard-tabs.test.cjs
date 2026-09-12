@@ -270,10 +270,12 @@ test('a successful submission forwards to the content tab', async (t) => {
 
   await t.test('the host forwards, whichever screen the composer was opened from', () => {
     const forward = bodyAt(HOST, HOST.indexOf('.forwardToSubmittedContent()'), 'the forward helper');
-    has(forward, 'backQueue.lastOrNull { entry ->', 'the stack is searched');
+    // Re-anchored: `backQueue` is private in navigation 2.8, so the stack is
+    // read through the public `currentBackStack`.
+    has(forward, 'currentBackStack.value.lastOrNull { entry ->', 'the stack is searched');
     has(forward, 'route.startsWith("${ReaderRoute.UserDashboard}?")',
       'for either dashboard route — plain or with a tab');
-    has(forward, 'return popBackStack(dashboard.id, inclusive = true)',
+    has(forward, 'return popBackStack(dashboard.destination.id, inclusive = true)',
       'and the old entry goes, so the tab cannot be restored behind the new one');
     has(forward, 'if (dashboard == null) {', 'and when there is no dashboard underneath');
     has(forward, 'popBackStack()', 'there is only the composer to close');

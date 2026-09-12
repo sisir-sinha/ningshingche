@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
@@ -38,7 +39,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -103,6 +103,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -134,6 +135,7 @@ import com.ningshingche.app.data.remote.UserNotificationRecord
 import com.ningshingche.app.data.portal.MusicTrack
 import com.ningshingche.app.data.portal.ContributionStats
 import com.ningshingche.app.data.portal.ContributorScore
+import com.ningshingche.app.data.portal.ForumActivity
 import com.ningshingche.app.data.portal.ViewDay
 import com.ningshingche.app.data.remote.UserProfile
 import com.ningshingche.app.data.remote.messageAttachmentUrls
@@ -592,8 +594,13 @@ private fun ArticleAnalyticsList(
 ) {
     var limit by rememberSaveable { mutableIntStateOf(PAGE_SIZE) }
     val tokens = LocalEditorialTokens.current
+    // `compareByDescending` and not `sortedByDescending`: the latter asks for a
+    // `Comparable` selector, the former takes any comparable value, and the date
+    // is a String either way.
     val sorted = remember(articles) {
-        articles.sortedByDescending { it.createdAt.ifBlank { it.updatedAt } }
+        articles.sortedWith(
+            compareByDescending { it.createdAt.ifBlank { it.updatedAt } }
+        )
     }
     val commentsByBlog = remember(comments) {
         comments.filter { it.blogId.isNotBlank() }.groupingBy { it.blogId }.eachCount()
@@ -1576,7 +1583,6 @@ private fun MetricsGrid(metrics: ReaderMetrics) {
     }
 }
 
-@Composable
 /**
  * The reader's own points, on their dashboard.
  *
@@ -1668,6 +1674,7 @@ private fun BreakdownItem(
     }
 }
 
+@Composable
 private fun MetricCard(label: String, value: String, icon: ImageVector, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier,

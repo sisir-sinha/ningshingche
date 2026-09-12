@@ -31,7 +31,6 @@ import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Layers
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonPin

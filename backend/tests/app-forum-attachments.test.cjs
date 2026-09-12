@@ -165,7 +165,9 @@ test('the compact toolbar is four buttons and no picture button', async (t) => {
     assert.match(editor, /Icons\.Default\.FormatBold, compact\) \{ run\("bold"\) \}/);
     assert.match(editor, /Icons\.Default\.FormatItalic, compact\) \{ run\("italic"\) \}/);
     assert.match(editor, /Icons\.Default\.FormatUnderlined, compact\) \{ run\("underline"\) \}/);
-    assert.match(editor, /Icons\.Default\.FormatListBulleted, compact\) \{ run\("insertUnorderedList"\) \}/);
+    // Re-anchored: the list icon moved to the AutoMirrored family in icons 1.7,
+    // where the filled one is deprecated.
+    assert.match(editor, /Icons\.AutoMirrored\.Filled\.FormatListBulleted, compact\) \{\s*run\("insertUnorderedList"\)\s*\}/);
   });
 
   await t.test('and the picture is not among them', () => {
@@ -203,9 +205,9 @@ test('the reply box appears when it is asked for', async (t) => {
 
   await t.test('and the two trade places with a transition, not a jump', () => {
     const thread = screen('ForumThreadScreen');
-    assert.match(thread, /visible = composerOpen,\s*enter = expandVertically\(expandFrom = Alignment\.Bottom\) \+ fadeIn\(\),\s*exit = shrinkVertically\(shrinkFrom = Alignment\.Bottom\) \+ fadeOut\(\)/,
+    assert.match(thread, /visible = composerOpen,\s*enter = expandVertically\(expandFrom = Alignment\.Bottom\) \+ fadeIn\(\),\s*exit = shrinkVertically\(shrinkTowards = Alignment\.Bottom\) \+ fadeOut\(\)/,
       'the box grows out of the bottom and shrinks back into it');
-    assert.match(thread, /visible = !composerOpen,\s*enter = expandVertically\(expandFrom = Alignment\.Bottom\) \+ fadeIn\(\),\s*exit = shrinkVertically\(shrinkFrom = Alignment\.Bottom\) \+ fadeOut\(\)/,
+    assert.match(thread, /visible = !composerOpen,\s*enter = expandVertically\(expandFrom = Alignment\.Bottom\) \+ fadeIn\(\),\s*exit = shrinkVertically\(shrinkTowards = Alignment\.Bottom\) \+ fadeOut\(\)/,
       'and the button does the same on its way out');
   });
 
