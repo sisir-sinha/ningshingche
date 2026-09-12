@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Runs migrations 024 and 025 against a throwaway PostgreSQL cluster, in both
-# orders, twice each, and then exercises what they create.
+# Runs the content migrations (024-029) against a throwaway PostgreSQL cluster,
+# in several orders, twice each, and then exercises what they create.
 #
 #   bash backend/tests/sql/run.sh
 #
@@ -25,7 +25,10 @@ fi
 cleanup() { pg_ctl -D "$DATA" -m immediate stop >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
-initdb -D "$DATA" -U postgres --auth=trust >/dev/null 2>&1
+# UTF8, like Supabase: the migrations carry Bengali literals and \uXXXX escapes,
+# and a cluster in the machine's default encoding (often SQL_ASCII) cannot
+# convert them.
+initdb -D "$DATA" -U postgres --auth=trust --encoding=UTF8 --locale=C >/dev/null 2>&1
 pg_ctl -D "$DATA" -l "$LOG" -o "-k /tmp -p $PORT" start >/dev/null 2>&1
 sleep 1
 
@@ -37,7 +40,7 @@ ok()   { printf '  ok    %s\n' "$1"; }
 bad()  { printf '  FAIL  %s\n' "$1"; fail=1; }
 
 # --- each migration on its own, from an empty fixture ------------------------
-for file in 024_uploader_and_public_profile.sql 025_content_views.sql 026_contributors.sql 027_contributor_board_dashboard.sql; do
+for file in 024_uploader_and_public_profile.sql 025_content_views.sql 026_contributors.sql 027_contributor_board_dashboard.sql 028_public_profile_details.sql 029_forum.sql; do
   step "$file alone"
   psql -c "drop database if exists alone" >/dev/null 2>&1 || true
   psql -c "create database alone" >/dev/null
@@ -51,7 +54,7 @@ for file in 024_uploader_and_public_profile.sql 025_content_views.sql 026_contri
 done
 
 # --- both orders, then both again (idempotency) ------------------------------
-for order in "024 025 026 027" "025 024 026 027" "026 025 024 027" "027 026 025 024"; do
+for order in "024 025 026 027 028 029" "025 024 026 027 028 029" "026 025 024 027 028 029" "027 026 025 024 028 029" "029 028 027 026 025 024" "028 029 024 025 026 027"; do
   for pass in 1 2; do
     step "order $order (pass $pass)"
     psql -c "drop database if exists ordered" >/dev/null 2>&1 || true
@@ -90,7 +93,7 @@ insert into public.submitted_blogs (user_id, converted_blog_id, status) values (
 insert into public.music_tracks (id, title, artist, file_storage_path, duration_seconds, love_count, user_id) values ('$TRACK', 'পাঠকের গান', 'গায়ক', 'reader/track.mp3', 200, 3, '$READER');
 SQL
 
-for n in 024 025 026 027; do
+for n in 024 025 026 027 028 029; do
   psql -d behaviour -f "$MIGRATIONS/$(ls "$MIGRATIONS" | grep "^$n")" >/dev/null
 done
 
@@ -141,7 +144,7 @@ echo "$profile" | grep -q 'পাঠকের গান' && ok "public profile l
 # the same check, run against the result instead of the text.
 step "row level security"
 
-for table in content_views reader_activity profile_locks; do
+for table in content_views reader_activity profile_locks forum_categories forum_discussions forum_replies; do
   [ "$table" = "profile_locks" ] && continue
   rls="$(psql -d ordered -tAc "select relrowsecurity from pg_class where relname = '$table' and relnamespace = 'public'::regnamespace")"
   [ "$rls" = "t" ] && ok "$table has RLS enabled" || bad "$table has RLS = '$rls'"
@@ -188,6 +191,93 @@ echo "$gate" | grep -qi "permission denied\|signed-in" && ok "a guest is refused
 empty_month="$(reader_call "contributor_leaderboard(20, (timezone('utc', now())::date - 400))")"
 echo "$empty_month" | grep -q '"contributors": \[\]' && ok "a month with no work is an empty board" || bad "empty month: $empty_month"
 
+# --- what the public profile now carries --------------------------------------
+step "profile details"
+
+profile="$(psql -d behaviour -tAc "select public.public_profile('$READER')")"
+echo "$profile" | grep -q '"designation"' && ok "the profile carries a designation" || bad "designation: $profile"
+echo "$profile" | grep -q '"address"' && ok "the profile carries an address" || bad "address missing"
+echo "$profile" | grep -q '"points": 152' && ok "the profile carries the lifetime points" || bad "profile points: $profile"
+echo "$profile" | grep -q '"month_points"' && ok "and this month's" || bad "month points missing"
+
+# most-read first — a second reader, so this adds nothing to the first one's
+# score and the contributor checks further down still read their own numbers.
+SECOND=66666666-6666-6666-6666-666666666666
+psql -d behaviour <<SQL >/dev/null
+insert into public.profiles (id, name) values ('$SECOND', 'দ্বিতীয় পাঠক');
+insert into public.blogs (id, title, slug, status, image, views_count, published_date) values
+  ('55555555-5555-5555-5555-555555555555', 'কম পঠিত', 'less-read', 'Publish', '', 5, current_date),
+  ('66666666-6666-6666-6666-666666666666', 'বেশি পঠিত', 'most-read', 'Publish', '', 900, current_date);
+insert into public.submitted_blogs (user_id, converted_blog_id, status) values
+  ('$SECOND', '55555555-5555-5555-5555-555555555555', 'Published'),
+  ('$SECOND', '66666666-6666-6666-6666-666666666666', 'Published');
+SQL
+first="$(psql -d behaviour -tAc "select public.public_profile('$SECOND') -> 'articles' -> 0 ->> 'title'")"
+[ "$first" = "বেশি পঠিত" ] && ok "the article list leads with the most read" \
+  || bad "views-first ordering (got '$first')"
+
+# --- the forum ----------------------------------------------------------------
+step "forum"
+
+as_anyone() { psql -d behaviour -tAc "set role $2; set request.jwt.claim.sub = $3; select public.$1;"; }
+
+overview="$(as_anyone "forum_overview(20)" anon "''")"
+echo "$overview" | grep -q 'সাধারণ আলোচনা' && ok "a guest reads the categories" || bad "overview: $overview"
+echo "$overview" | grep -q '"latest": \[\]' && ok "an empty forum says so honestly" || bad "empty latest"
+
+posted="$(as_anyone "forum_create_discussion('general', 'পরীক্ষামূলক আলোচনা', 'আলোচনার মূল লেখা।')" authenticated "'$READER'")"
+echo "$posted" | grep -q 'পরীক্ষামূলক আলোচনা' && ok "a signed-in reader opens a thread" || bad "create: $posted"
+echo "$posted" | grep -q '"author_name": "নতুন নাম"' && ok "the thread carries its author" || bad "author missing: $posted"
+
+refused="$(as_anyone "forum_create_discussion('general', 'অতিথির আলোচনা', 'হবে না।')" anon "''" 2>&1 || true)"
+echo "$refused" | grep -qi "permission denied" && ok "a guest cannot open a thread" || bad "guest create (got '$refused')"
+
+DISCUSSION="$(psql -d behaviour -tAc "select (public.forum_overview(20) -> 'latest' -> 0 ->> 'id')")"
+units="$(psql -d behaviour -tAc "select public.forum_text_units(normalize('ছোট', NFC)) || ' ' || public.forum_text_units(normalize('ছোট', NFD))")"
+[ "$units" = "2 2" ] && ok "a Bengali word counts the same however it is composed (NFC and NFD agree)" \
+  || bad "text units (got '$units')"
+short="$(as_anyone "forum_create_discussion('general', 'ক', 'লেখা')" authenticated "'$READER'" 2>&1 || true)"
+echo "$short" | grep -qi "at least 4 characters" && ok "a one-character title is refused" || bad "title guard (got '$short')"
+missing="$(as_anyone "forum_create_discussion('nonexistent', 'শিরোনাম লেখা', 'লেখা')" authenticated "'$READER'" 2>&1 || true)"
+echo "$missing" | grep -qi "no such forum category" && ok "an unknown category is refused" || bad "category guard (got '$missing')"
+
+reply="$(as_anyone "forum_reply('$DISCUSSION', 'প্রথম উত্তর।')" authenticated "'$READER'")"
+echo "$reply" | grep -q 'প্রথম উত্তর' && ok "a signed-in reader replies" || bad "reply: $reply"
+
+guest_reply="$(as_anyone "forum_reply('$DISCUSSION', 'অতিথির উত্তর')" anon "''" 2>&1 || true)"
+echo "$guest_reply" | grep -qi "permission denied" && ok "a guest cannot reply" || bad "guest reply (got '$guest_reply')"
+
+detail="$(as_anyone "forum_discussion('$DISCUSSION', true)" anon "''")"
+echo "$detail" | grep -q '"views_count": 1' && ok "opening a thread counts one view" || bad "view count: $detail"
+echo "$detail" | grep -q '"replies_count": 1' && ok "the reply counter is kept by the trigger" || bad "reply count: $detail"
+echo "$detail" | grep -q 'প্রথম উত্তর' && ok "the replies come back with the thread" || bad "replies missing"
+
+again="$(as_anyone "forum_discussion('$DISCUSSION', false)" anon "''")"
+echo "$again" | grep -q '"views_count": 1' && ok "a refresh can decline to count" || bad "no-count refresh: $again"
+
+found="$(as_anyone "forum_search('পরীক্ষামূলক', 30)" anon "''")"
+echo "$found" | grep -q '"total": 1' && ok "search finds the thread" || bad "search: $found"
+wild="$(as_anyone "forum_search('%', 30)" anon "''")"
+echo "$wild" | grep -q '"total": 0' && ok "a % in the query is a character, not a wildcard" || bad "wildcard leak: $wild"
+empty="$(as_anyone "forum_search('', 30)" anon "''")"
+echo "$empty" | grep -q '"total": 1' && ok "an empty query is the latest list" || bad "empty search: $empty"
+
+# the category door
+category="$(as_anyone "forum_category('general', 30, 0)" anon "''")"
+echo "$category" | grep -q '"discussions": 1' && ok "the category carries its count" || bad "category: $category"
+echo "$category" | grep -q 'পরীক্ষামূলক আলোচনা' && ok "and its threads" || bad "category threads missing"
+absent="$(as_anyone "forum_category('nope', 30, 0)" anon "''" | tr -d '\n')"
+[ "$absent" = "" ] && ok "an unknown category is null, not an error" || bad "absent category (got '$absent')"
+
+# moderation: the dashboard sees unpublished rows, the reader does not
+psql -d behaviour -c "update public.forum_discussions set status = 'Unpublish' where id = '$DISCUSSION'" >/dev/null
+hidden="$(as_anyone "forum_discussion('$DISCUSSION', false)" anon "''")"
+echo "$hidden" | grep -q '"status": "Unpublish"' && ok "a hidden thread still opens by id (the app decides)" \
+  || bad "hidden thread: $hidden"
+visible="$(as_anyone "forum_overview(20)" anon "''" | grep -c 'পরীক্ষামূলক' || true)"
+[ "$visible" = "0" ] && ok "but it is gone from the public lists" || bad "hidden thread is listed"
+psql -d behaviour -c "update public.forum_discussions set status = 'Publish' where id = '$DISCUSSION'" >/dev/null
+
 # --- the dashboard's door -----------------------------------------------------
 step "dashboard board"
 
@@ -198,6 +288,9 @@ as_dashboard() {
 board="$(as_dashboard "contributor_leaderboard_dashboard(50, null, false)")"
 echo "$board" | grep -q 'নতুন নাম' && ok "the dashboard reads the board" || bad "dashboard board: $board"
 echo "$board" | grep -q '"points": 152' && ok "the dashboard sees the same points as the app" || bad "dashboard points: $board"
+
+forum_board="$(as_dashboard "forum_overview(20)")"
+echo "$forum_board" | grep -q 'সাধারণ আলোচনা' && ok "the dashboard reads the forum too" || bad "dashboard forum: $forum_board"
 echo "$board" | grep -q '"email"' && ok "each row carries the e-mail the dashboard links on" || bad "email missing: $board"
 
 lifetime="$(as_dashboard "contributor_leaderboard_dashboard(50, null, true)")"
