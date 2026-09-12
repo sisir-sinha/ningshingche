@@ -87,6 +87,14 @@ class HomeViewModel(private val repository: PortalRepository) : ViewModel() {
     private val _contributorsLoading = MutableStateFlow(false)
     val contributorsLoading: StateFlow<Boolean> = _contributorsLoading.asStateFlow()
 
+    /**
+     * Why the board is empty, when it is empty because the request failed. The
+     * home page shows it with a retry: a board nobody can read and a board
+     * nobody is on must not look the same.
+     */
+    private val _contributorsError = MutableStateFlow<String?>(null)
+    val contributorsError: StateFlow<String?> = _contributorsError.asStateFlow()
+
     private val _musicCatalog = MutableStateFlow<List<MusicTrack>>(emptyList())
     val musicCatalog: StateFlow<List<MusicTrack>> = _musicCatalog.asStateFlow()
 
@@ -121,14 +129,22 @@ class HomeViewModel(private val repository: PortalRepository) : ViewModel() {
     fun loadContributors(isSignedIn: Boolean, force: Boolean = false) {
         if (!isSignedIn) {
             _contributors.value = emptyList()
+            _contributorsError.value = null
             return
         }
         if (_contributorsLoading.value) return
         if (!force && _contributors.value.isNotEmpty()) return
         viewModelScope.launch {
             _contributorsLoading.value = true
+            _contributorsError.value = null
             repository.contributorBoard(limit = HOME_CONTRIBUTOR_COUNT)
-                .onSuccess { _contributors.value = it.contributors }
+                .onSuccess {
+                    _contributors.value = it.contributors
+                    _contributorsError.value = null
+                }
+                .onFailure { failure ->
+                    _contributorsError.value = (failure as? PortalError).message()
+                }
             _contributorsLoading.value = false
         }
     }

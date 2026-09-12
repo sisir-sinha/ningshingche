@@ -597,6 +597,16 @@ fails however it is made. The app then shows its own gate — a lock, an explana
 button — and `HomeViewModel.loadContributors(isSignedIn)` does not even issue the request when
 signed out.
 
+**Which is why the request must carry the reader's token** (§17.1): a signed-in reader is only
+signed in to the database if the transport sends their JWT, and this screen is where that was
+noticed — it answered "for signed-in readers" to a reader who was signed in. A `401`/`403` on this
+screen is therefore a session problem, not a permission one, and the screen says so ("your session
+has expired — sign in again") instead of printing the server's sentence.
+
+**An empty board is not a failed board.** The home section renders when there are rows *or* when the
+request failed, and a failure gets the reason plus **আবার চেষ্টা করুন** rather than a section that
+quietly never appears.
+
 **Tapping a card opens that reader's public page** (`ReaderRoute.publicProfile`), where their songs and
 published articles are listed.
 
@@ -1046,14 +1056,24 @@ ui/reader/       HomeScreen · ArticleScreen · ListScreens (search/category/aut
 | Errors | `PortalError` | Bengali messages; `SchemaMissing` maps `PGRST205`/`PGRST204` to "run the migrations" |
 | Deep links | `ReaderNavHost` | `ningshingche.com/article/{slug}` and `ningshingche.com/{id}`; Bengali slugs are percent-encoded |
 
-### 17.1 Why there is no bearer token
+### 17.1 The bearer: the publishable key, or the reader's own token
 
-`apikey` + `Authorization: Bearer <publishable key>` is *required* by PostgREST for
-every request, including anonymous ones — but it is **not** a secret and **not** a
-credential. It selects the `anon` Postgres role, whose powers are entirely defined
-by the RLS policies in `schema.sql`: read published blogs, read reference tables,
-insert comments as `Unpublish`. Adding a bearer token or a login to a public reader
-would add attack surface without adding protection.
+`apikey` is sent on every request and is the publishable key — it is **not** a secret and **not** a
+credential, and it selects the `anon` Postgres role, whose powers are entirely defined by the RLS
+policies in `schema.sql`: read published blogs, read reference tables, insert comments as `Unpublish`.
+
+The `Authorization` bearer is the publishable key too — for a guest. Once a reader signs in, it is
+**their** access token instead, installed at startup by
+`PortalProvider.installReaderSession { supabaseClient.readerAuthToken() }` and read on every request
+by the `PortalConfig` interceptor. Without that, every portal call arrived as `anon` even for a
+signed-in reader, and the RPCs granted to `authenticated` — the contributor board
+(`contributor_leaderboard`), the reader's own points (`contributor_points`) and the app-time report
+(`record_app_time`) — refused them with "contributor board is for signed-in readers". The gate was
+working; the app was simply never introducing itself.
+
+Nothing else changes: the public reads are policies written `to anon, authenticated`, so a signed-in
+reader sees exactly what a guest sees there, and the app-time/view attribution (migrations 025-026)
+now lands on the reader's own id, which is what those migrations always intended.
 
 What was hardened instead:
 

@@ -65,6 +65,7 @@ import androidx.compose.ui.text.font.FontWeight
 import com.ningshingche.app.data.portal.ArticleSummary
 import com.ningshingche.app.data.portal.AuthorRef
 import com.ningshingche.app.data.portal.CategoryRef
+import com.ningshingche.app.data.portal.Contributor
 import com.ningshingche.app.data.portal.PdfBook
 import com.ningshingche.app.data.portal.VideoItem
 import com.ningshingche.app.ui.components.LocalMusicController
@@ -143,6 +144,7 @@ fun HomeScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val contributors by viewModel.contributors.collectAsState()
+    val contributorsError by viewModel.contributorsError.collectAsState()
     LaunchedEffect(isSignedIn) { viewModel.loadContributors(isSignedIn) }
     val offlineNotice by viewModel.offlineNotice.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -245,6 +247,12 @@ fun HomeScreen(
                 is HomeUiState.Ready -> HomeContent(
                     feed = current.feed,
                     listState = listState,
+                    contributors = contributors,
+                    contributorsError = contributorsError,
+                    isSignedIn = isSignedIn,
+                    onSeeAllContributors = onSeeAllContributors,
+                    onContributorClick = onContributorClick,
+                    onRetryContributors = { viewModel.loadContributors(isSignedIn, force = true) },
                     onArticleClick = onArticleClick,
                     onCategoryClick = onCategoryClick,
                     onAuthorClick = onAuthorClick,
@@ -271,6 +279,12 @@ fun HomeScreen(
 private fun HomeContent(
     feed: com.ningshingche.app.data.portal.HomeFeed,
     listState: LazyListState,
+    contributors: List<Contributor>,
+    contributorsError: String?,
+    isSignedIn: Boolean,
+    onSeeAllContributors: () -> Unit,
+    onContributorClick: (String) -> Unit,
+    onRetryContributors: () -> Unit,
     onArticleClick: (String) -> Unit,
     onCategoryClick: (CategoryRef) -> Unit,
     onAuthorClick: (AuthorRef) -> Unit,
@@ -495,7 +509,7 @@ private fun HomeContent(
         // Contributor board. Only for a signed-in reader: the owner asked for it
         // to be that way, and the request itself is gated in the view model, so
         // a guest does not even ask.
-        if (isSignedIn && contributors.isNotEmpty()) {
+        if (isSignedIn && (contributors.isNotEmpty() || contributorsError != null)) {
             item {
                 Surface(
                     color = MaterialTheme.colorScheme.surface,
@@ -513,10 +527,20 @@ private fun HomeContent(
                             onAction = onSeeAllContributors,
                             modifier = Modifier.padding(horizontal = 0.dp)
                         )
-                        ContributorList(
-                            contributors = contributors,
-                            onContributorClick = onContributorClick
-                        )
+                        if (contributors.isNotEmpty()) {
+                            ContributorList(
+                                contributors = contributors,
+                                onContributorClick = onContributorClick
+                            )
+                        } else {
+                            // An empty board and a failed request look identical
+                            // otherwise, and the reader is left wondering whether
+                            // nobody has points or the app simply gave up.
+                            ContributorBoardNotice(
+                                message = contributorsError.orEmpty(),
+                                onRetry = onRetryContributors
+                            )
+                        }
                     }
                 }
             }
@@ -536,6 +560,40 @@ private fun HomeContent(
                 onOpenLink = onOpenLink
             )
         }
+    }
+}
+
+/**
+ * Shown in the contributor section when the board could not be read — the reader
+ * gets a reason and a way to try again, rather than a section that never appears.
+ */
+@Composable
+private fun ContributorBoardNotice(message: String, onRetry: () -> Unit) {
+    val tokens = LocalEditorialTokens.current
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = EditorialSpace.gutter, vertical = EditorialSpace.xs)
+    ) {
+        Text(
+            text = message.ifBlank { "তালিকা আনা যায়নি।" },
+            fontFamily = Kalpurush,
+            fontSize = 12.5.sp,
+            color = tokens.inkMuted
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = "আবার চেষ্টা করুন",
+            fontFamily = Kalpurush,
+            fontWeight = FontWeight.Bold,
+            fontSize = 13.sp,
+            color = tokens.accent,
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { onRetry() }
+                .padding(vertical = 4.dp)
+                .testTag("contributors_retry")
+        )
     }
 }
 

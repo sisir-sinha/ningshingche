@@ -16,23 +16,24 @@ import java.util.concurrent.TimeUnit
  *
  * Security model
  * --------------
- * The reader only ever reads content that the database already publishes to the
- * world: `blogs WHERE status = 'Publish'`, plus categories, authors, galleries,
- * PDF books, videos, published comments and site settings. Those rows are served
- * by the anonymous RLS policies in `backend/supabase/schema.sql`, so **no bearer
- * token, no login and no session header are required or wanted here**.
- *
- * What *is* required is the Supabase **publishable key**, which PostgREST accepts
- * as `apikey` and as an anonymous `Authorization: Bearer`. It is safe to ship in
- * an APK (it grants exactly the anonymous role RLS already allows) but it is
- * still injected from `.env` through the secrets Gradle plugin rather than being
+ * Most of what the reader asks for is content the database already publishes to
+ * the world: `blogs WHERE status = 'Publish'`, plus categories, authors,
+ * galleries, PDF books, videos, published comments and site settings. Those rows
+ * are served by RLS policies written `to anon, authenticated`, so the publishable
+ * key is enough for them, and it is what a guest sends. It is safe to ship in an
+ * APK (it grants exactly the anonymous role RLS already allows) but it is still
+ * injected from `.env` through the secrets Gradle plugin rather than being
  * hard-coded, so staging and production can point at different projects.
  *
- * Extra hardening applied below:
- *  - TLS 1.2+ only, modern cipher suites (no cleartext; see
- *    `res/xml/network_security_config.xml`, which also blocks cleartext traffic)
- *  - request logging only in debug builds, with headers redacted
- *  - short-ish timeouts so a dead network fails fast into the offline cache
+ * Some calls are not public reads, though: the reader's own points
+ * (`contributor_points`), the contributor board (`contributor_leaderboard`) and
+ * the app-time report (`record_app_time`) are granted to `authenticated` alone
+ * and answer `auth.uid()`. Sent with the publishable key they are refused even
+ * for a reader who is signed in, because PostgREST never saw their token — which
+ * is exactly how the board came back with "for signed-in readers" to somebody
+ * who was signed in. So a **reader session token is installed here** (see
+ * [installReaderSession]) and travels as the `Authorization` bearer whenever
+ * there is one; a guest keeps the publishable key, exactly as before.
  */
 object PortalConfig {
 
@@ -48,6 +49,21 @@ object PortalConfig {
 
     val publishableKey: String
         get() = env(BuildConfig.SUPABASE_PUBLISHABLE_KEY).ifBlank { FALLBACK_KEY }
+
+    /**
+     * Supplies the signed-in reader's Supabase access token, or null for a guest.
+     *
+     * Installed once at startup by `NinghsingCheApp` through
+     * [PortalProvider.installReaderSession]; the provider does the refresh, so
+     * this object never has to know how a session is kept.
+     */
+    @Volatile
+    private var readerSession: (() -> String?)? = null
+
+    /** The token is consulted on every request; see [readerSession]. */
+    fun installReaderSession(provider: () -> String?) {
+        readerSession = provider
+    }
 
     const val CONNECT_TIMEOUT_SECONDS = 15L
     const val READ_TIMEOUT_SECONDS = 25L
@@ -77,10 +93,16 @@ object PortalConfig {
                 )
             )
             .addInterceptor { chain ->
+                val key = publishableKey
+                // Read per request, never captured: a reader who signs in (or
+                // whose token expires) must affect the very next call.
+                val readerToken = readerSession?.invoke()?.takeIf { it.isNotBlank() }
                 val request = chain.request().newBuilder()
-                    .addHeader("apikey", publishableKey)
-                    .addHeader("Authorization", "Bearer $publishableKey")
-                    .addHeader("Accept", "application/json")
+                    .header("apikey", key)
+                    // `header`, not `addHeader`: exactly one bearer, and it is
+                    // the reader's own token when there is one.
+                    .header("Authorization", "Bearer ${readerToken ?: key}")
+                    .header("Accept", "application/json")
                     .build()
                 chain.proceed(request)
             }

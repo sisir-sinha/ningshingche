@@ -97,6 +97,17 @@ class SupabaseClient(private val context: Context) {
 
     fun getAuthToken(): String? = authToken
 
+    /**
+     * The signed-in reader's access token for the **public** transport
+     * (see `PortalProvider.installReaderSession`), refreshed when it is close to
+     * expiry — or null for a guest.
+     *
+     * Never the publishable key: the point of the call is to tell a reader with
+     * a session from one without, which is exactly what the auth-gated RPCs ask
+     * the database to decide.
+     */
+    fun readerAuthToken(): String? = sessionUserJwt()
+
     @Synchronized
     private fun sessionBearer(): String {
         val key = SupabaseConfig.supabaseKey

@@ -14,6 +14,16 @@ object PortalProvider {
     @Volatile
     private var repository: PortalRepository? = null
 
+    /**
+     * Hands the transport the signed-in reader's token, so the calls that answer
+     * `auth.uid()` (the contributor board, their own points, app time) speak for
+     * that reader instead of arriving as a guest. A guest's requests keep the
+     * publishable key, which is everything the public reads need.
+     *
+     * Call before the first request — `NinghsingCheApp.onCreate()` does.
+     */
+    fun installReaderSession(provider: () -> String?) = PortalConfig.installReaderSession(provider)
+
     fun repository(): PortalRepository = repository ?: synchronized(this) {
         repository ?: create().also { repository = it }
     }

@@ -60,6 +60,7 @@ import coil.compose.AsyncImage
 import com.ningshingche.app.data.portal.Contributor
 import com.ningshingche.app.data.portal.ContributorBoard
 import com.ningshingche.app.data.portal.ContributionStats
+import com.ningshingche.app.data.portal.PortalError
 import com.ningshingche.app.ui.editorial.EditorialSpace
 import com.ningshingche.app.ui.editorial.EmptyState
 import com.ningshingche.app.ui.editorial.ErrorState
@@ -92,6 +93,11 @@ fun ContributorScreen(
     var board by remember { mutableStateOf<ContributorBoard?>(null) }
     var own by remember { mutableStateOf<ContributionStats?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    // A refused call is not a broken screen: it means the app has no session the
+    // database will accept (usually an expired token), and the honest answer is
+    // the sign-in gate again — not "for signed-in readers" shown to somebody who
+    // is signed in.
+    var refused by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var reloadToken by remember { mutableIntStateOf(0) }
 
@@ -103,9 +109,13 @@ fun ContributorScreen(
         }
         loading = true
         error = null
+        refused = false
         loadBoard()
             .onSuccess { board = it }
-            .onFailure { error = it.message ?: "তালিকা আনা যায়নি।" }
+            .onFailure { failure ->
+                error = failure.message ?: "তালিকা আনা যায়নি।"
+                refused = failure is PortalError.Http && failure.code in 401..403
+            }
         own = loadOwnScore()
         loading = false
     }
@@ -150,7 +160,7 @@ fun ContributorScreen(
                 .testTag("contributors_screen")
         ) {
             when {
-                !isSignedIn -> SignedOutGate(onSignInClick)
+                !isSignedIn || (refused && board == null) -> SignedOutGate(onSignInClick, expired = refused)
 
                 loading && board == null -> Box(
                     modifier = Modifier.fillMaxSize(),
@@ -255,7 +265,7 @@ private fun PointsExplainer(own: ContributionStats?, modifier: Modifier = Modifi
 
 /** The gate a guest sees instead of the board. */
 @Composable
-private fun SignedOutGate(onSignInClick: () -> Unit) {
+private fun SignedOutGate(onSignInClick: () -> Unit, expired: Boolean = false) {
     val tokens = LocalEditorialTokens.current
     Column(
         modifier = Modifier
@@ -280,7 +290,11 @@ private fun SignedOutGate(onSignInClick: () -> Unit) {
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            text = "অবদানকারীর তালিকা ও আপনার নিজের পয়েন্ট দেখতে সাইন ইন করুন।",
+            text = if (expired) {
+                "আপনার সেশনের মেয়াদ শেষ হয়েছে। আবার সাইন ইন করলে তালিকা ও পয়েন্ট দেখা যাবে।"
+            } else {
+                "অবদানকারীর তালিকা ও আপনার নিজের পয়েন্ট দেখতে সাইন ইন করুন।"
+            },
             fontFamily = Kalpurush,
             fontSize = 13.sp,
             color = tokens.inkMuted,

@@ -51,6 +51,7 @@ Google সাইন-ইন সময় শেষ হয়েছে। আব�
 অপেক্ষমাণ,,ui,3,0,"UserDashboardCharts.kt, UserDashboardScreen.kt"
 অ্যাকাউন্ট,,ui,3,0,"AccountHeaderButton.kt, SettingsScreen.kt"
 অ্যাডমিনের বার্তা,,ui,3,0,"ContentNotice.kt, ContentUpdateNotifier.kt"
+আবার চেষ্টা করুন,,ui,3,0,"EditorialComponents.kt, HomeScreen.kt, PdfViewerScreen.kt"
 ইঞ্চৌঘর,,ui,3,0,"NinghsingCheAiAssistant.kt, NinghsingCheContentData.kt"
 উৎসব,,ui,3,0,"MusicGenres.kt, NinghsingCheAiAssistant.kt, NinghsingCheContentData.kt"
 এই গানের অডিও ফাইল নেই।,,ui,3,0,"MusicController.kt, UserDashboardScreen.kt"
@@ -58,6 +59,7 @@ Google সাইন-ইন সময় শেষ হয়েছে। আব�
 ঘর,,ui,3,0,"NinghsingCheAiAssistant.kt, PortalDrawer.kt, UserDashboardScreen.kt"
 ছবি আপলোড যায়নি।,,ui,3,0,ReaderWorkspaceViewModel.kt
 ডাউনলোড,,ui,3,0,"MusicPlayer.kt, PdfArchiveScreen.kt, PdfViewerScreen.kt"
+তালিকা আনা যায়নি।,,ui,3,0,"ContributorScreen.kt, HomeScreen.kt"
 ধরন,,ui,3,0,"MusicBrowseScreens.kt, MusicPlayer.kt, MusicScreen.kt"
 ধর্ম,,ui,3,0,"EditorialComponents.kt, NingshingCheWebsiteClient.kt"
 ন,,ui,3,0,"ContributorScreen.kt, PublicProfileScreen.kt"
@@ -99,7 +101,6 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 অন্যান্য,,ui,2,0,"AppNotificationManager.kt, SettingsScreen.kt"
 অফলাইন,,ui,2,0,MusicScreen.kt
 আগস্ট,,ui,2,0,"ContributorScreen.kt, UserDashboardCharts.kt"
-আবার চেষ্টা করুন,,ui,2,0,"EditorialComponents.kt, PdfViewerScreen.kt"
 এখনো কোনো গান যোগ করা হয়নি।,,ui,2,0,MusicScreen.kt
 এখানে কোনো প্রবন্ধ পাওয়া যায়নি।,,ui,2,0,ListScreens.kt
 এপ্রিল,,ui,2,0,"ContributorScreen.kt, UserDashboardCharts.kt"
@@ -123,7 +124,6 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 ড্যাশবোর্ড,,ui,2,0,"AccountHeaderButton.kt, PortalDrawer.kt"
 তামকরিক,,ui,2,0,NingshingCheWebsiteClient.kt
 তালিকা,,ui,2,0,MusicPlayer.kt
-তালিকা আনা যায়নি।,,ui,2,0,ContributorScreen.kt
 নতুন গান জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।,,ui,2,0,"NewMusicScreen.kt, ReaderWorkspaceViewModel.kt"
 নতুন প্রবন্ধ জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।,,ui,2,0,"NewArticleScreen.kt, ReaderWorkspaceViewModel.kt"
 নিংশিং চে AI সহকারী,,ui,2,0,"AiAssistantScreen.kt, EditorialComponents.kt"
@@ -302,6 +302,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 আপনার মন্তব্য সফলভাবে প্রকাশিত হয়েছে!,,ui,1,0,ArticleRepository.kt
 আপনার মূল্যবান মন্তব্য *,,ui,1,0,ArticleCommentForm.kt
 আপনার সংরক্ষিত প্লেলিস্ট,,ui,1,0,MusicScreen.kt
+আপনার সেশনের মেয়াদ শেষ হয়েছে। আবার সাইন ইন করলে তালিকা ও পয়েন্ট দেখা যাবে।,,ui,1,0,ContributorScreen.kt
 আপনি,,ui,1,0,UserDashboardScreen.kt
 আপলোড সার্ভার এখন সাড়া দিচ্ছে না ({1})।,,ui,1,1,SatoruUploadClient.kt
 আপলোড সার্ভার ঠিকানা দেয়নি।,,ui,1,0,SatoruUploadClient.kt

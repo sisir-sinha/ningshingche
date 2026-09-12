@@ -155,6 +155,13 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
         websiteClient = NingshingCheWebsiteClient()
         supabaseClient = SupabaseClient(this)
         googleAuthRepository = GoogleAuthRepository(supabaseClient)
+        // The reader's own token travels with portal requests from here on, so a
+        // signed-in reader is a signed-in reader as far as the database is
+        // concerned too: the contributor board, their points and the app-time
+        // report are granted to `authenticated` and refuse the publishable key.
+        // Guests are unaffected — the provider answers null and the transport
+        // falls back to the key, which is all the public reads need.
+        PortalProvider.installReaderSession { supabaseClient.readerAuthToken() }
         articleRepository = ArticleRepository(database, supabaseClient, websiteClient)
         portalRepository = PortalProvider.repository()
         val musicStore = MusicLibraryStore(this, database, supabaseClient)
