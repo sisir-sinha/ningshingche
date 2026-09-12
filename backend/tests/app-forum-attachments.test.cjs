@@ -185,7 +185,11 @@ test('the reply box appears when it is asked for', async (t) => {
   await t.test('one button, bottom right, with the owner\'s own words', () => {
     const launcher = screen('ForumReplyLauncher');
     assert.match(launcher, /text = "উত্তর যোগ করুন"/, 'the words the owner asked for');
-    assert.match(launcher, /horizontalArrangement = Arrangement\.End/, 'bottom right');
+    // A button in the corner over the page's own background — not a full-width
+    // bar with a tone of its own, which is what the owner saw covering the page.
+    assert.match(launcher, /contentAlignment = Alignment\.CenterEnd/, 'bottom right');
+    assert.ok(!/Surface\(/.test(launcher), 'and no strip behind it');
+    assert.match(launcher, /ExtendedFloatingActionButton\(/);
     assert.match(launcher, /testTag\("forum_reply_open"\)/, 'reachable in a UI test');
     assert.match(launcher, /testTag\("forum_reply_launcher"\)/);
   });
@@ -455,6 +459,21 @@ test('a tap on a file opens it large', async (t) => {
 });
 
 // ---------------------------------------------------------------------------
+// 6b. The editor is not a browser
+// ---------------------------------------------------------------------------
+
+test('nothing inside the editor can navigate away from it', async (t) => {
+  await t.test('a link, a tap, a drag: the box stays where it is', () => {
+    assert.match(FORUM_EDITOR, /override fun shouldOverrideUrlLoading\(\s*view: WebView\?,\s*request: android\.webkit\.WebResourceRequest\?\s*\): Boolean = true/,
+      'every navigation is refused');
+    assert.match(FORUM_EDITOR, /@Deprecated\("the older signature, still asked for below API 24"\)\s*override fun shouldOverrideUrlLoading\(\s*view: WebView\?,\s*url: String\?\s*\): Boolean = true/,
+      'on both signatures, because the platform asks for one of the two');
+    assert.match(FORUM_EDITOR, /settings\.setSupportMultipleWindows\(false\)/, 'and no popup window');
+    assert.match(FORUM_EDITOR, /settings\.javaScriptCanOpenWindowsAutomatically = false/);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 7. A draft is for what has not been posted
 // ---------------------------------------------------------------------------
 
@@ -484,6 +503,29 @@ test('a posted answer leaves nothing behind', async (t) => {
     const clearAt = success.indexOf('draftStore.clearReply(discussionId)');
     const postAt = success.indexOf('.onSuccess { posted ->');
     assert.ok(postAt !== -1 && clearAt > postAt, 'and only after the database has answered');
+  });
+
+  await t.test('the box is emptied through the editor itself', () => {
+    // Setting the value from the outside is a race the page refuses to lose: a
+    // document the reader may still be typing in is not rewritten from under
+    // them. A clear is different — the post is already in the database — so the
+    // screen asks the editor to empty itself.
+    assert.match(FORUM_EDITOR, /internal var clearBox: \(\(\) -> Unit\)\? = null/);
+    assert.match(FORUM_EDITOR, /fun clear\(\) \{\s*clearBox\?\.invoke\(\)\s*\}/,
+      'the screen has one call to make');
+    assert.match(FORUM_EDITOR, /webView\?\.evaluateJavascript\("if\(window\.clearEditor\)\{window\.clearEditor\(\);\}", null\)/);
+    assert.match(FORUM_EDITOR, /window\.clearEditor = function\(\)\{[\s\S]{0,220}e\.innerHTML = '';/,
+      'and the page empties itself, whatever the caret is doing');
+    const thread = screen('ForumThreadScreen');
+    assert.match(thread, /composerOpen = false\s*editor\.clear\(\)\s*editor\.dismiss\(\)/,
+      'the send clears it before the box closes');
+  });
+
+  await t.test('an empty value from the app is an instruction, not a draft', () => {
+    assert.match(FORUM_EDITOR, /if \(html === ''\) \{ pendingHtml = null; applyHtml\(''\); return; \}/,
+      'applied at once, focused or not');
+    assert.match(FORUM_EDITOR, /\['blur','focusout','keyup','touchend'\]\.forEach\(function\(ev\)\{\s*e\.addEventListener\(ev, flushPending\);/,
+      'while a draft that arrived mid-sentence waits, and is applied on the next one');
   });
 
   await t.test('the editor is told the value is empty — otherwise the text stays on screen', () => {

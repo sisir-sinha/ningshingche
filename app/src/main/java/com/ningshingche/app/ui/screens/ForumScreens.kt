@@ -66,6 +66,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -862,14 +863,16 @@ fun ForumThreadScreen(
                     // Folded in locally, then re-read with countView = false so
                     // the answer arrives with the counts the database kept.
                     thread = thread?.with(posted)
-                    // Sent: the box closes, and what was in it — words and files
-                    // alike — is cleared here and in the draft. The editor is told
-                    // the value is empty, which is what takes the text off the
-                    // screen; a draft is for what has not been posted.
+                    // Sent: the box closes and what was in it — words and files
+                    // alike — is cleared here and in the draft. The editor is
+                    // emptied through its own handle as well, because a WebView
+                    // that still holds the caret will not take a value from the
+                    // outside; a draft is for what has not been posted.
                     replyBody = ""
                     replyTarget = ""
                     attachments = emptyList()
                     composerOpen = false
+                    editor.clear()
                     editor.dismiss()
                     draftStore.clearReply(discussionId)
                     thread = loadThread(discussionId, false).getOrNull() ?: thread
@@ -2538,51 +2541,51 @@ private fun ForumOpeningPost(
 /**
  * উত্তর যোগ করুন — the one control a thread shows when nobody is writing in it.
  *
- * Bottom right, where a thumb is: the owner asked for exactly this, and it is
- * also the honest shape of a thread — answers are read far more often than they
- * are written, and a permanent editor at the bottom of the screen is a screen
- * that is a third reading and two thirds typing.
+ * A button, and only a button: it sits in the corner over the page's own
+ * background rather than inside a full-width bar with a tone of its own. The
+ * owner's words were that the strip it used to live in "occupied BG over the
+ * bottom of the page" — the page is a page, and the button is a control on it.
+ * The scaffold still reserves the button's height, so nothing the thread says is
+ * ever underneath it.
  */
 @Composable
 private fun ForumReplyLauncher(onClick: () -> Unit) {
     val tokens = LocalEditorialTokens.current
-    Surface(
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 3.dp,
-        shadowElevation = 8.dp,
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .imePadding()
             .navigationBarsPadding()
-            .testTag("forum_reply_launcher")
+            .padding(
+                start = EditorialSpace.gutter,
+                end = EditorialSpace.gutter,
+                top = EditorialSpace.xs,
+                bottom = EditorialSpace.xs
+            )
+            .testTag("forum_reply_launcher"),
+        contentAlignment = Alignment.CenterEnd
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = EditorialSpace.sm, vertical = EditorialSpace.xs),
-            horizontalArrangement = Arrangement.End
+        ExtendedFloatingActionButton(
+            onClick = onClick,
+            containerColor = tokens.accent,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            elevation = FloatingActionButtonDefaults.elevation(
+                defaultElevation = 4.dp,
+                pressedElevation = 8.dp
+            ),
+            modifier = Modifier.testTag("forum_reply_open")
         ) {
-            Button(
-                onClick = onClick,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = tokens.accent,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ),
-                modifier = Modifier.testTag("forum_reply_open")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Reply,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(Modifier.width(EditorialSpace.xs))
-                Text(
-                    text = "উত্তর যোগ করুন",
-                    fontFamily = Kalpurush,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.5.sp
-                )
-            }
+            Icon(
+                imageVector = Icons.Default.Reply,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(Modifier.width(EditorialSpace.xs))
+            Text(
+                text = "উত্তর যোগ করুন",
+                fontFamily = Kalpurush,
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.5.sp
+            )
         }
     }
 }

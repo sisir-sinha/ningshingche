@@ -945,6 +945,29 @@ best and a keyboard that raises an error at worst. So `HtmlContentEditor`'s page
 `run()` also only calls `requestFocus()` when the view is not focused already: asking a WebView for a
 focus it has restarts the input connection, which a composing keyboard does not survive.
 
+**The second hotfix (app 1.5.1 → 1.6).** Three things the owner found by using 1.5.1, and the first
+of them was a hole in the composition rule above.
+
+*A sent post left its text in the box.* Setting the value from the outside is refused while the page
+holds the caret — that is the composition rule doing its job — and after a send the box **did** still
+hold it for a moment, so the clear was deferred and no event ever came to flush it. A sent post is
+not a draft arriving under someone's fingers, so it now has its own door: `HtmlEditorController.clear()`
+→ `window.clearEditor()`, which drops the composition flag, the pending value and the remembered
+range and empties the element outright. The screen calls it before `dismiss()`, in the same breath as
+clearing its own state. `setHtml('')` is also treated as an instruction rather than a draft — an empty
+value is applied at once, focused or not — and a deferred value is now flushed on `keyup` and
+`touchend` as well as on `blur`/`focusout`, so nothing can be left waiting for a blur that never comes.
+
+*A WebView inside a screen must never navigate.* The editor's page is a document, and a link in a
+draft — or a drag Chromium reads as a link-drag — could take the box off to a website inside a 96 dp
+text field, with the writing gone. Both `shouldOverrideUrlLoading` signatures return `true` (the
+platform asks for one or the other depending on the API level), and popup windows are off
+(`setSupportMultipleWindows(false)`, `javaScriptCanOpenWindowsAutomatically = false`).
+
+*উত্তর যোগ করুন is a button, not a bar.* It is an `ExtendedFloatingActionButton` in the corner over the
+page's own background — no `Surface`, no tone of its own, nothing covering the bottom of the page.
+The scaffold still reserves its height, so no answer is ever underneath it.
+
 *The formatting row is four buttons.* The compact editor no longer offers a picture button, and it
 no longer draws attachments — `HtmlContentEditor` is an editor again. Files are attached on the row
 under the box, which is also where they are previewed.

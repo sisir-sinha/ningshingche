@@ -82,6 +82,7 @@ import org.json.JSONObject
 class HtmlEditorController {
     internal var hideKeyboard: (() -> Unit)? = null
     internal var focusEditor: (() -> Unit)? = null
+    internal var clearBox: (() -> Unit)? = null
 
     /** Blur the editing surface and put the keyboard away. */
     fun dismiss() {
@@ -97,6 +98,20 @@ class HtmlEditorController {
      */
     fun focus() {
         focusEditor?.invoke()
+    }
+
+    /**
+     * Empty the box, whatever state it is in.
+     *
+     *  *Wanted for one thing:* a post that has gone through. Setting the value
+     *  from the outside is a race — the box may still hold the caret, and the
+     *  page refuses to rewrite a document the reader is typing in (that refusal
+     *  is what keeps a Bengali word from being cut in half). A clear is not a
+     *  draft arriving under someone's fingers, though: the post is already in
+     *  the database, so this says so plainly and the page empties itself.
+     */
+    fun clear() {
+        clearBox?.invoke()
     }
 }
 
@@ -162,6 +177,13 @@ fun HtmlContentEditor(
         controller?.focusEditor = {
             webView?.requestFocus()
             webView?.evaluateJavascript("if(window.focusEditor){window.focusEditor();}", null)
+        }
+        controller?.clearBox = {
+            // The caller's copy is empty from here on, so nothing stale is left
+            // to be pushed at the page later.
+            lastPushed = ""
+            lastEmitted = ""
+            webView?.evaluateJavascript("if(window.clearEditor){window.clearEditor();}", null)
         }
         controller?.hideKeyboard = {
             webView?.evaluateJavascript(
@@ -328,6 +350,8 @@ fun HtmlContentEditor(
                             isHapticFeedbackEnabled = false
                             settings.javaScriptEnabled = true
                             settings.domStorageEnabled = false
+                            settings.setSupportMultipleWindows(false)
+                            settings.javaScriptCanOpenWindowsAutomatically = false
                             settings.allowFileAccess = true
                             settings.allowContentAccess = true
                             settings.loadsImagesAutomatically = true
@@ -353,6 +377,26 @@ fun HtmlContentEditor(
                                 "Android"
                             )
                             webViewClient = object : WebViewClient() {
+                                /**
+                                 * The editor is not a browser. A link in a draft,
+                                 * a stray tap, a drag that Chromium reads as a
+                                 * link-drag — none of it may take the box
+                                 * somewhere else: the page would load a website
+                                 * inside a 96 dp text box and the writing would
+                                 * be gone with it. Nothing navigates; the tab is
+                                 * told the click was handled.
+                                 */
+                                override fun shouldOverrideUrlLoading(
+                                    view: WebView?,
+                                    request: android.webkit.WebResourceRequest?
+                                ): Boolean = true
+
+                                @Deprecated("the older signature, still asked for below API 24")
+                                override fun shouldOverrideUrlLoading(
+                                    view: WebView?,
+                                    url: String?
+                                ): Boolean = true
+
                                 override fun onPageFinished(view: WebView?, url: String?) {
                                     val quoted = JSONObject.quote(value)
                                     view?.evaluateJavascript(
@@ -707,12 +751,26 @@ private fun editorHtml(
             window.setHtml = function(html){
               if (typeof html !== 'string') return;
               if (html === e.innerHTML) { pendingHtml = null; return; }
+              // An empty value is an instruction, not a draft: the app empties
+              // the box the moment a post has gone through, and whether the
+              // caret is still in it is beside the point.
+              if (html === '') { pendingHtml = null; applyHtml(''); return; }
               if (composing || document.activeElement === e) {
                 pendingHtml = html;
                 return;
               }
               pendingHtml = null;
               applyHtml(html);
+            };
+            // Emptied on the app's word: the post is sent, so nothing in the box
+            // is worth keeping — including a composition the keyboard still had
+            // open when the button was tapped.
+            window.clearEditor = function(){
+              composing = false;
+              pendingHtml = null;
+              lastRange = null;
+              if (e.innerHTML !== '') e.innerHTML = '';
+              grow();
             };
             function flushPending(){
               if (pendingHtml === null) return;
@@ -722,7 +780,13 @@ private fun editorHtml(
               applyHtml(html);
             }
             e.addEventListener('blur', flushPending);
-            e.addEventListener('focusout', flushPending);
+            // A value that arrived while the reader was typing is applied at the
+            // first moment after — the box being left is one, the finger coming
+            // off the glass is another, so a deferred draft can never be stranded
+            // by a blur that never comes.
+            ['blur','focusout','keyup','touchend'].forEach(function(ev){
+              e.addEventListener(ev, flushPending);
+            });
             window.insertImage = function(url){
               if (!url) return;
               e.focus();
