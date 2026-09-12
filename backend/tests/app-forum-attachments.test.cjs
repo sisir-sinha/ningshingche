@@ -81,11 +81,36 @@ test('the formatting buttons actually reach the caret', async (t) => {
     assert.match(script, /lastRange = sel\.getRangeAt\(0\)\.cloneRange\(\);/, 'as a copy, not a live range');
     assert.match(script, /function restoreSelection\(\)\{/, 'and put back before a command');
     assert.match(script, /sel\.removeAllRanges\(\);\s*sel\.addRange\(lastRange\);/, 'which is the whole of it');
-    for (const event of ['keyup', 'mouseup', 'input', 'touchend', 'focus']) {
+    for (const event of ['keyup', 'mouseup', 'touchend', 'focus']) {
       assert.ok(script.includes(`'${event}'`), `${event} moves the caret`);
     }
     assert.match(script, /document\.addEventListener\('selectionchange', saveSelection\)/,
       'and a selection made by dragging is caught too');
+    // Not on every keystroke: that is what a Bengali keyboard is doing when it
+    // is composing, and reading the selection underneath it is what threw it off.
+    assert.ok(!/\['keyup','mouseup','input','touchend','focus'\]/.test(script),
+      'and never on the input event itself');
+  });
+
+  await t.test('nothing touches the document while the keyboard is composing', () => {
+    const script = editorScript();
+    assert.match(script, /var composing = false;/, 'the page knows');
+    assert.match(script, /e\.addEventListener\('compositionstart', function\(\)\{ composing = true; \}\);/);
+    assert.match(script, /e\.addEventListener\('compositionend', function\(\)\{/);
+    assert.match(script, /if \(ev && ev\.isComposing\) composing = true;/,
+      'and believes the event when the flag did not get set');
+    assert.match(script, /function saveSelection\(\)\{\s*if \(composing\) return;/,
+      'the selection is not even read');
+    assert.match(script, /if \(!composing\) \{[\s\S]{0,420}restoreSelection\(\);/,
+      'a command leaves the selection alone mid-composition');
+    assert.match(script, /if \(composing \|\| document\.activeElement === e\) return;\s*e\.focus\(\);/,
+      'raising the keyboard never moves a caret that is being typed at');
+    assert.match(script, /if \(composing \|\| document\.activeElement === e\) \{\s*pendingHtml = html;\s*return;\s*\}/,
+      'and a value from outside waits instead of writing under the keyboard');
+    assert.match(script, /e\.addEventListener\('blur', flushPending\);/,
+      'then lands once the box has let go of the caret');
+    assert.match(script, /if \(composing\) \{ bar\.style\.display = 'none'; return; \}/,
+      'the selection bar waits for the word to be finished');
   });
 
   await t.test('a command runs on that selection, after the box takes the focus back', () => {
@@ -103,8 +128,10 @@ test('the formatting buttons actually reach the caret', async (t) => {
     assert.match(FORUM_EDITOR, /"window\.command\(\$\{JSONObject\.quote\(command\)\}, \$\{JSONObject\.quote\(arg\)\}\)"/,
       'with an argument where there is one');
     const run = bodyOf(FORUM_EDITOR, 'run');
-    assert.match(run, /web\.requestFocus\(\)/,
-      'the view takes the focus back too: a Compose button is a tap on another view');
+    assert.match(run, /if \(!web\.isFocused\) web\.requestFocus\(\)/,
+      'the view takes the focus back — but never asks again for one it already has,');
+    assert.match(run, /restarts the input connection/,
+      'because that restarts the keyboard under a composing word');
   });
 
   await t.test('the selection bar goes through the same door, not around it', () => {
@@ -188,8 +215,8 @@ test('the reply box appears when it is asked for', async (t) => {
       'and the keyboard first when it is up');
     assert.match(FORUM_EDITOR, /if\(window\.focusEditor\)\{window\.focusEditor\(\);\}/,
       'the page raises the keyboard for a focus it was asked for');
-    assert.match(FORUM_EDITOR, /window\.focusEditor = function\(\)\{ e\.focus\(\); placeCaretAtEnd\(\); saveSelection\(\); \};/,
-      'with the caret at the end of what is already written');
+    assert.match(FORUM_EDITOR, /window\.focusEditor = function\(\)\{\s*if \(composing \|\| document\.activeElement === e\) return;\s*e\.focus\(\);\s*\};/,
+      'and does nothing at all if the reader is already in the box');
   });
 
   await t.test('and the box can be put away without posting anything', () => {
@@ -467,8 +494,10 @@ test('a posted answer leaves nothing behind', async (t) => {
       'so a value from outside is pushed in, and one from the page is not pushed back at it');
     assert.match(FORUM_EDITOR, /"if\(window\.setHtml\)\{window\.setHtml\(\$\{JSONObject\.quote\(value\)\}\);\}"/);
     assert.match(FORUM_EDITOR, /lastEmitted = html\s*onValueChange\(html\)/, 'the page records its own words');
-    assert.match(FORUM_EDITOR, /e\.innerHTML = html;\s*lastRange = null;\s*placeCaretAtEnd\(\);/,
-      'and a pushed value leaves the caret somewhere sensible');
+    assert.match(FORUM_EDITOR, /function applyHtml\(html\)\{[\s\S]{0,240}if \(document\.activeElement !== e\) placeCaretAtEnd\(\);/,
+      'and a pushed value leaves the caret somewhere sensible — but only when nobody is holding one');
+    assert.match(FORUM_EDITOR, /if \(composing \|\| document\.activeElement === e\) \{\s*pendingHtml = html;/,
+      'while a value that arrives during typing is kept, not applied');
   });
 
   await t.test('a new thread clears its draft the same way', () => {

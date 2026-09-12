@@ -353,7 +353,9 @@ test('the editor grows with the writing and pictures are attached, not typed', a
       'fed by the page');
     assert.match(FORUM_EDITOR, /function grow\(\)\{ if \(window\.Android && Android\.onHeight\)/,
       'which reports it as it is typed');
-    assert.match(FORUM_EDITOR, /e\.addEventListener\('input', function\(\)\{ emit\(\); grow\(\); \}\)/,
+    // The listener takes the event now — it reads `isComposing` off it — and does
+    // the same two things it always did: report the words, report the height.
+    assert.match(FORUM_EDITOR, /e\.addEventListener\('input', function\(ev\)\{[\s\S]{0,420}emit\(\);\s*grow\(\);\s*\}\)/,
       'on every keystroke');
     assert.match(FORUM_EDITOR, /fun onHeight\(px: Int\)/, 'across the bridge');
   });

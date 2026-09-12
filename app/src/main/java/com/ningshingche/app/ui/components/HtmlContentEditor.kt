@@ -186,7 +186,11 @@ fun HtmlContentEditor(
      */
     fun run(command: String, arg: String? = null) {
         val web = webView ?: return
-        web.requestFocus()
+        // Only if it is not focused already: asking a WebView for the focus it
+        // already has is a no-op, but asking for it *while the keyboard is
+        // attached* restarts the input connection, and a Bengali keyboard that
+        // is composing a conjunct does not survive that.
+        if (!web.isFocused) web.requestFocus()
         val script = if (arg == null) {
             "window.command(${JSONObject.quote(command)})"
         } else {
@@ -602,7 +606,22 @@ private fun editorHtml(
             // does not survive it on every WebView build — which is why the
             // buttons put the range back before they run a command.
             var lastRange = null;
+            // Whether the reader's keyboard is in the middle of a letter. Bengali
+            // is written by composing — ক + ্ + ষ is one character to a reader and
+            // three keystrokes to the IME — and while a composition is open the
+            // DOM and the selection belong to the keyboard. Anything this page
+            // does to either of them mid-composition is a garbled word at best
+            // and a keyboard that throws its hands up at worst, so every path
+            // below that touches the document is closed while it is true.
+            var composing = false;
+            e.addEventListener('compositionstart', function(){ composing = true; });
+            e.addEventListener('compositionend', function(){
+              composing = false;
+              flushPending();
+              saveSelection();
+            });
             function saveSelection(){
+              if (composing) return;
               const sel = window.getSelection();
               if (sel && sel.rangeCount > 0 && e.contains(sel.anchorNode)) {
                 lastRange = sel.getRangeAt(0).cloneRange();
@@ -614,6 +633,8 @@ private fun editorHtml(
               sel.removeAllRanges();
               sel.addRange(lastRange);
             }
+            // Only ever used when the page is not focused by the reader — a value
+            // arriving from outside, with nobody's caret to disturb.
             function placeCaretAtEnd(){
               const range = document.createRange();
               range.selectNodeContents(e);
@@ -623,44 +644,85 @@ private fun editorHtml(
               sel.addRange(range);
               lastRange = range.cloneRange();
             }
-            ['keyup','mouseup','input','touchend','focus'].forEach(function(ev){
+            // Not on 'input': that fires on every keystroke of every composition,
+            // and reading the selection there is the one thing an IME does not
+            // want happening underneath it.
+            ['keyup','mouseup','touchend','focus'].forEach(function(ev){
               e.addEventListener(ev, saveSelection);
             });
             document.addEventListener('selectionchange', saveSelection);
             window.command = function(cmd, arg){
-              e.focus();
-              if (document.activeElement !== e && e.focus) e.focus();
-              restoreSelection();
+              if (!composing) {
+                // The caret may have been left behind by the tap that got here;
+                // putting it back is what makes the button work. Mid-composition
+                // it is the keyboard's, and is left alone.
+                if (e.focus && document.activeElement !== e) e.focus();
+                restoreSelection();
+              }
               // Tags, not inline styles: the reader's markup is read back by the
               // app's own renderer and by the site, and both know <b> and <i>.
               document.execCommand('styleWithCSS', false, false);
               var done = false;
               try { done = document.execCommand(cmd, false, arg === undefined ? null : arg); }
               catch (err) { done = false; }
-              saveSelection();
+              if (!composing) saveSelection();
               emit();
               grow();
               return done;
             };
-            window.focusEditor = function(){ e.focus(); placeCaretAtEnd(); saveSelection(); };
+            // Raising the keyboard for a box that was just opened — and doing
+            // nothing at all when the reader is already in it, because moving a
+            // caret that someone is typing at is how a word ends up in pieces.
+            window.focusEditor = function(){
+              if (composing || document.activeElement === e) return;
+              e.focus();
+            };
             // How tall the writing is. The box on the other side of the bridge
             // grows to fit it, up to the ceiling the caller set, and scrolls past
             // that — so a long reply is readable inside a box that never takes
             // more of the screen than it has to.
             function grow(){ if (window.Android && Android.onHeight) Android.onHeight(Math.ceil(e.scrollHeight)); }
-            e.addEventListener('input', function(){ emit(); grow(); });
+            e.addEventListener('input', function(ev){
+              // The keyboard says so itself, and it is believed over the flag: a
+              // composition can open without a compositionstart on some builds.
+              if (ev && ev.isComposing) composing = true;
+              emit();
+              grow();
+            });
             e.addEventListener('blur', emit);
             window.addEventListener('resize', grow);
             setTimeout(grow, 60);
             document.addEventListener('contextmenu', function(ev){ ev.preventDefault(); });
-            window.setHtml = function(html){
-              if (typeof html === 'string' && html !== e.innerHTML) {
-                e.innerHTML = html;
-                lastRange = null;
-                placeCaretAtEnd();
-              }
+            var pendingHtml = null;
+            function applyHtml(html){
+              if (typeof html !== 'string' || html === e.innerHTML) return;
+              e.innerHTML = html;
+              lastRange = null;
+              if (document.activeElement !== e) placeCaretAtEnd();
               grow();
+            }
+            // A value from the caller. Refused while the reader is composing or
+            // has the caret in the box — the app clears the box *after* blurring
+            // it, for exactly this reason — and kept until the page is free.
+            window.setHtml = function(html){
+              if (typeof html !== 'string') return;
+              if (html === e.innerHTML) { pendingHtml = null; return; }
+              if (composing || document.activeElement === e) {
+                pendingHtml = html;
+                return;
+              }
+              pendingHtml = null;
+              applyHtml(html);
             };
+            function flushPending(){
+              if (pendingHtml === null) return;
+              if (composing || document.activeElement === e) return;
+              const html = pendingHtml;
+              pendingHtml = null;
+              applyHtml(html);
+            }
+            e.addEventListener('blur', flushPending);
+            e.addEventListener('focusout', flushPending);
             window.insertImage = function(url){
               if (!url) return;
               e.focus();
@@ -676,6 +738,10 @@ private fun editorHtml(
             // The selection bar belongs to the article composer alone: over three
             // lines of reply it is in the way, which is why the forum turns it off.
             if (${selectionPopup}) document.addEventListener('selectionchange', function(){
+              // A composing region counts as a selection, and the black bar
+              // appearing over every Bengali word as it is written is worse than
+              // no bar at all — so the bar waits for the word to be finished.
+              if (composing) { bar.style.display = 'none'; return; }
               const sel = window.getSelection();
               if (!sel || sel.rangeCount === 0 || sel.isCollapsed || !e.contains(sel.anchorNode)) {
                 bar.style.display = 'none';

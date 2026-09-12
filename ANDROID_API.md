@@ -903,7 +903,7 @@ image inside the body — the caller appends the URLs to the HTML as the post is
 (`forumWithAttachments`). The compact editor's own picker is only ever used where the full editor is.
 Attachments are part of the draft, so they survive a wrong turn like the text does.
 
-**The fifth pass (app 1.4 → 1.5).** Eight more notes, and one of them was a bug the owner had
+**The fifth pass (app 1.4 → 1.5, and 1.5.1).** Eight more notes, and one of them was a bug the owner had
 reported twice.
 
 *Bold and italic "still did nothing".* Two causes, both fixed in `HtmlContentEditor`:
@@ -921,6 +921,29 @@ reported twice.
     bold text with the regular glyphs and bold looked like nothing had happened. It declares
     `font-weight: 400` now, which lets the browser synthesise the bold (and the oblique) the reader
     asked for.
+
+**The composition rule (app 1.5.1).** The way bold and italic were fixed described above broke typing for
+a Bengali keyboard, and the fix is worth stating as a rule rather than a patch: **while the reader's
+IME is composing, the page must not touch the DOM or the selection at all.** Bengali is written by
+composing — ক + ্ + ষ is one character to a reader and three keystrokes to the keyboard — and
+`removeAllRanges()`/`addRange()` (or an `innerHTML` write) in the middle of one is a garbled word at
+best and a keyboard that raises an error at worst. So `HtmlContentEditor`'s page now:
+
+  * tracks `composing` (`compositionstart` / `compositionend`, and `ev.isComposing` on `input`,
+    because some builds do not fire the former);
+  * never reads the selection while it is true, and never listens for `input` to do it — the
+    selection is remembered on `keyup`, `mouseup`, `touchend`, `focus` and `selectionchange` only;
+  * runs a toolbar command without touching the selection when a composition is open;
+  * refuses a value from outside the page while the page is composing *or* holds the caret, keeping
+    it as `pendingHtml` and applying it on `blur`/`focusout`/`compositionend`. The app clears the
+    reply box after blurring it, so the clear still lands;
+  * raises the keyboard for a box that was just opened only when the reader is not already in it,
+    and never moves a caret that is being typed at;
+  * hides the article composer's selection bar while composing, because a composing region counts as
+    a non-collapsed selection and the bar would otherwise appear over every Bengali word.
+
+`run()` also only calls `requestFocus()` when the view is not focused already: asking a WebView for a
+focus it has restarts the input connection, which a composing keyboard does not survive.
 
 *The formatting row is four buttons.* The compact editor no longer offers a picture button, and it
 no longer draws attachments — `HtmlContentEditor` is an editor again. Files are attached on the row
