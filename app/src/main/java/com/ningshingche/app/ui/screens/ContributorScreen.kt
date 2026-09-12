@@ -19,14 +19,10 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Stars
-import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -56,11 +52,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
+import com.ningshingche.app.data.portal.ContributionStats
 import com.ningshingche.app.data.portal.Contributor
 import com.ningshingche.app.data.portal.ContributorBoard
-import com.ningshingche.app.data.portal.ContributionStats
 import com.ningshingche.app.data.portal.PortalError
+import com.ningshingche.app.ui.components.PortalAsyncImage
+import com.ningshingche.app.ui.editorial.EditorialShape
 import com.ningshingche.app.ui.editorial.EditorialSpace
 import com.ningshingche.app.ui.editorial.EmptyState
 import com.ningshingche.app.ui.editorial.ErrorState
@@ -181,14 +178,8 @@ fun ContributorScreen(
                         contentPadding = PaddingValues(bottom = 88.dp),
                         verticalArrangement = Arrangement.spacedBy(EditorialSpace.sm)
                     ) {
-                        item {
-                            PointsExplainer(
-                                own = mine,
-                                modifier = Modifier.padding(
-                                    horizontal = EditorialSpace.gutter,
-                                    vertical = EditorialSpace.sm
-                                )
-                            )
+                        if (mine != null && !mine.isEmpty) {
+                            item { MyStandingCard(points = mine.points) }
                         }
 
                         if (rows.isEmpty()) {
@@ -215,50 +206,51 @@ fun ContributorScreen(
     }
 }
 
-/** The reader's own standing, and what the points are made of. */
+
+
+/**
+ * The reader's own points for the month, in one line.
+ *
+ * The weights used to be spelled out under this — fifty for an article, thirty
+ * for a song, one per view — and the owner asked for the explanation to go. What
+ * is left is the one number a reader opens this page for, and the card explains
+ * nothing it does not have to.
+ */
 @Composable
-private fun PointsExplainer(own: ContributionStats?, modifier: Modifier = Modifier) {
+private fun MyStandingCard(points: Int) {
     val tokens = LocalEditorialTokens.current
     Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp,
-        modifier = modifier.fillMaxWidth()
+        shape = RoundedCornerShape(EditorialShape.card),
+        color = tokens.accentSoft,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = EditorialSpace.gutter, vertical = EditorialSpace.xs)
+            .testTag("contributor_my_points")
     ) {
-        Column(Modifier.padding(EditorialSpace.md), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.Stars,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = if (own != null && !own.isEmpty) "আপনার অবদান" else "পয়েন্ট কীভাবে জমে",
-                    fontFamily = Kalpurush,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
-                )
-            }
-            if (own != null && !own.isEmpty) {
-                Text(
-                    text = "${toBengaliNumeral(own.points)} পয়েন্ট",
-                    fontFamily = Kalpurush,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 22.sp,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                StatsRow(own)
-            }
-            Hairline()
+        Row(
+            modifier = Modifier.padding(horizontal = EditorialSpace.md, vertical = EditorialSpace.sm),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Stars,
+                contentDescription = null,
+                tint = tokens.accent,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(8.dp))
             Text(
-                text = "প্রতিটি প্রকাশিত প্রবন্ধ ৫০ পয়েন্ট, প্রতিটি গান ৩০ পয়েন্ট, " +
-                    "প্রতিটি মন্তব্য ৫ পয়েন্ট, আপনার লেখা পড়া বা গান শোনার প্রতিটি ভিউ ১ পয়েন্ট " +
-                    "এবং অ্যাপে কাটানো প্রতি ২ মিনিটে ১ পয়েন্ট যোগ হয়।",
+                text = "আপনার পয়েন্ট",
                 fontFamily = Kalpurush,
-                fontSize = 12.sp,
-                color = tokens.inkMuted
+                fontSize = 13.5.sp,
+                color = tokens.inkSoft,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = toBengaliNumeral(points),
+                fontFamily = Kalpurush,
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp,
+                color = MaterialTheme.colorScheme.primary
             )
         }
     }
@@ -311,6 +303,11 @@ private fun SignedOutGate(onSignInClick: () -> Unit, expired: Boolean = false) {
 /**
  * One contributor: rank, picture, name, what they published, and their points.
  * The whole card is the link to that reader's public page.
+ *
+ * Laid out as two rows rather than one crowded line: who they are on top — a
+ * picture the size of a person's face, their name, and the two counts that are
+ * about work rather than time in the app — and their points on a row of their
+ * own underneath, where the number has room to be the largest thing in the card.
  */
 @Composable
 private fun ContributorCard(
@@ -327,7 +324,7 @@ private fun ContributorCard(
         else -> tokens.inkMuted
     }
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(EditorialShape.card),
         color = if (highlight) tokens.accentSoft else MaterialTheme.colorScheme.surface,
         tonalElevation = 1.dp,
         modifier = Modifier
@@ -336,150 +333,189 @@ private fun ContributorCard(
             .clickable(onClick = onClick)
             .testTag("contributor_card_$rank")
     ) {
-        Row(
-            modifier = Modifier.padding(EditorialSpace.md),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(CircleShape)
-                    .background(if (rank <= 3) medal.copy(alpha = 0.18f) else tokens.surfaceSunken),
-                contentAlignment = Alignment.Center
+        Column {
+            Row(
+                modifier = Modifier.padding(
+                    start = EditorialSpace.md,
+                    end = EditorialSpace.md,
+                    top = EditorialSpace.md,
+                    bottom = EditorialSpace.sm
+                ),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                if (rank <= 3) {
-                    Icon(
-                        imageVector = Icons.Default.EmojiEvents,
-                        contentDescription = null,
-                        tint = medal,
-                        modifier = Modifier.size(18.dp)
-                    )
-                } else {
+                Box(
+                    modifier = Modifier
+                        .size(62.dp)
+                        .clip(CircleShape)
+                        .background(tokens.surfaceSunken),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (contributor.avatarUrl.isNotBlank()) {
+                        PortalAsyncImage(
+                            url = contributor.avatarUrl,
+                            contentDescription = contributor.name,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Text(
+                            text = contributor.name.trim().take(1).ifBlank { "ন" },
+                            fontFamily = Kalpurush,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 24.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+                Spacer(Modifier.width(EditorialSpace.sm))
+                Column(Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RankBadge(rank = rank, medal = medal)
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = contributor.name,
+                            fontFamily = Kalpurush,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    // Only the two counts that are about the work itself.
                     Text(
-                        text = toBengaliNumeral(rank),
+                        text = "প্রবন্ধ ${toBengaliNumeral(contributor.stats.articles)} · " +
+                            "গান ${toBengaliNumeral(contributor.stats.songs)}",
                         fontFamily = Kalpurush,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = tokens.inkMuted
+                        fontSize = 12.5.sp,
+                        color = tokens.inkMuted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
-            Spacer(Modifier.width(EditorialSpace.sm))
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(tokens.surfaceSunken),
-                contentAlignment = Alignment.Center
+
+            Hairline(Modifier.padding(horizontal = EditorialSpace.md))
+
+            Row(
+                modifier = Modifier.padding(
+                    start = EditorialSpace.md,
+                    end = EditorialSpace.md,
+                    top = EditorialSpace.sm,
+                    bottom = EditorialSpace.sm
+                ),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                if (contributor.avatarUrl.isNotBlank()) {
-                    AsyncImage(
-                        model = contributor.avatarUrl,
-                        contentDescription = contributor.name,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    Text(
-                        text = contributor.name.trim().take(1).ifBlank { "ন" },
-                        fontFamily = Kalpurush,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-            Spacer(Modifier.width(EditorialSpace.md))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(
-                    text = contributor.name,
-                    fontFamily = Kalpurush,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                Icon(
+                    imageVector = Icons.Default.Stars,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp)
                 )
-                StatsRow(contributor.stats)
-            }
-            Spacer(Modifier.width(EditorialSpace.sm))
-            Column(horizontalAlignment = Alignment.End) {
+                Spacer(Modifier.width(6.dp))
                 Text(
                     text = toBengaliNumeral(contributor.points),
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
+                    fontSize = 20.sp,
                     color = MaterialTheme.colorScheme.primary
                 )
+                Spacer(Modifier.width(6.dp))
                 Text(
                     text = "পয়েন্ট",
                     fontFamily = Kalpurush,
-                    fontSize = 10.5.sp,
+                    fontSize = 12.5.sp,
                     color = tokens.inkMuted
                 )
+                if (highlight) {
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        text = "আপনি",
+                        fontFamily = Kalpurush,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        color = tokens.accent
+                    )
+                }
             }
         }
     }
 }
 
-/** The article / music / time counts, as icons with their numbers. */
+/** The medal or number that says where this reader stands. */
 @Composable
-private fun StatsRow(stats: ContributionStats) {
-    val tokens = LocalEditorialTokens.current
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+private fun RankBadge(rank: Int, medal: Color) {
+    Box(
+        modifier = Modifier
+            .size(26.dp)
+            .clip(CircleShape)
+            .background(if (rank <= 3) medal.copy(alpha = 0.18f) else Color.Transparent),
+        contentAlignment = Alignment.Center
     ) {
-        StatPill(Icons.AutoMirrored.Filled.Article, stats.articles, tokens.inkMuted)
-        StatPill(Icons.Default.MusicNote, stats.songs, tokens.inkMuted)
-        if (stats.views > 0L) {
-            StatPill(Icons.Default.Visibility, stats.views.toInt(), tokens.inkMuted)
-        }
-        if (stats.minutes > 0) {
-            StatPill(Icons.Default.Timer, stats.minutes, tokens.inkMuted, suffix = "মি")
+        if (rank <= 3) {
+            Icon(
+                imageVector = Icons.Default.EmojiEvents,
+                contentDescription = null,
+                tint = medal,
+                modifier = Modifier.size(16.dp)
+            )
+        } else {
+            Text(
+                text = toBengaliNumeral(rank),
+                fontFamily = Kalpurush,
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                color = medal
+            )
         }
     }
 }
 
-@Composable
-private fun StatPill(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    value: Int,
-    tint: Color,
-    suffix: String = ""
-) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = tint,
-            modifier = Modifier.size(13.dp)
-        )
-        Text(
-            text = toBengaliNumeral(value) + suffix,
-            fontFamily = Kalpurush,
-            fontSize = 11.5.sp,
-            color = tint
-        )
-    }
+
+
+
+
+/** The twelve month names, in the order the database numbers them. */
+private val BENGALI_MONTHS = listOf(
+    "জানুয়ারি", "ফেব্রুয়ারি", "মার্চ", "এপ্রিল", "মে", "জুন",
+    "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর"
+)
+
+/**
+ * `2026-09` → `সেপ্টেম্বর`. The month key is the database's; the name is the
+ * reader's, so the two never have to agree on a date format.
+ *
+ * An empty key — the board has not arrived yet — falls back to the month on the
+ * device, which is what the caller is about to be shown anyway.
+ */
+internal fun monthNameOf(monthKey: String): String {
+    val month = monthKey.split("-").getOrNull(1)?.toIntOrNull()
+    if (month in 1..12) return BENGALI_MONTHS[month - 1]
+    // Calendar, not java.time: minSdk is 24 and this module has no desugaring.
+    @Suppress("DEPRECATION")
+    val now = java.util.Calendar.getInstance().get(java.util.Calendar.MONTH)
+    return BENGALI_MONTHS[now.coerceIn(0, 11)]
 }
 
 /**
- * `2026-09` → `সেপ্টেম্বর ২০২৬`. The month key is the database's; the label is
- * the reader's, so the two never have to agree on a date format.
+ * `2026-09` → `সেপ্টেম্বর ২০২৬`. The board page's app bar wants the year too.
  */
 internal fun monthLabel(monthKey: String): String {
-    val parts = monthKey.split("-")
-    val year = parts.getOrNull(0)?.toIntOrNull()
-    val month = parts.getOrNull(1)?.toIntOrNull()
-    if (year == null || month == null || month !in 1..12) return monthKey
-    val names = listOf(
-        "জানুয়ারি", "ফেব্রুয়ারি", "মার্চ", "এপ্রিল", "মে", "জুন",
-        "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর"
-    )
-    return "${names[month - 1]} ${toBengaliNumeral(year)}"
+    val year = monthKey.split("-").getOrNull(0)?.toIntOrNull() ?: return monthKey
+    val month = monthKey.split("-").getOrNull(1)?.toIntOrNull()
+    if (month == null || month !in 1..12) return monthKey
+    return "${BENGALI_MONTHS[month - 1]} ${toBengaliNumeral(year)}"
 }
 
-/** Used by the home page's list of the same board. */
+/**
+ * One row of the home page's board: the same five readers, drawn for a rail
+ * rather than a page.
+ *
+ * The face is larger than it was and the pills are gone — articles, songs, views
+ * and minutes in the app all used to sit under the name, which made a five-row
+ * list look like a spreadsheet. What is left is who they are and what they
+ * earned: the name, and the points as the one number on the row.
+ */
 @Composable
 internal fun ContributorMiniRow(contributor: Contributor, rank: Int, onClick: () -> Unit) {
     val tokens = LocalEditorialTokens.current
@@ -487,7 +523,7 @@ internal fun ContributorMiniRow(contributor: Contributor, rank: Int, onClick: ()
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = EditorialSpace.md, vertical = 8.dp),
+            .padding(horizontal = EditorialSpace.md, vertical = EditorialSpace.xs),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -496,18 +532,18 @@ internal fun ContributorMiniRow(contributor: Contributor, rank: Int, onClick: ()
             fontWeight = FontWeight.Bold,
             fontSize = 13.sp,
             color = if (rank <= 3) MaterialTheme.colorScheme.primary else tokens.inkMuted,
-            modifier = Modifier.width(20.dp)
+            modifier = Modifier.width(18.dp)
         )
         Box(
             modifier = Modifier
-                .size(34.dp)
+                .size(48.dp)
                 .clip(CircleShape)
                 .background(tokens.surfaceSunken),
             contentAlignment = Alignment.Center
         ) {
             if (contributor.avatarUrl.isNotBlank()) {
-                AsyncImage(
-                    model = contributor.avatarUrl,
+                PortalAsyncImage(
+                    url = contributor.avatarUrl,
                     contentDescription = contributor.name,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
@@ -517,7 +553,7 @@ internal fun ContributorMiniRow(contributor: Contributor, rank: Int, onClick: ()
                     text = contributor.name.trim().take(1).ifBlank { "ন" },
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
+                    fontSize = 20.sp,
                     color = MaterialTheme.colorScheme.primary
                 )
             }
@@ -528,19 +564,36 @@ internal fun ContributorMiniRow(contributor: Contributor, rank: Int, onClick: ()
                 text = contributor.name,
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.SemiBold,
-                fontSize = 14.sp,
+                fontSize = 14.5.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            StatsRow(contributor.stats)
+            Text(
+                text = "প্রবন্ধ ${toBengaliNumeral(contributor.stats.articles)} · " +
+                    "গান ${toBengaliNumeral(contributor.stats.songs)}",
+                fontFamily = Kalpurush,
+                fontSize = 11.5.sp,
+                color = tokens.inkMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
-        Text(
-            text = "${toBengaliNumeral(contributor.points)} পয়েন্ট",
-            fontFamily = Kalpurush,
-            fontWeight = FontWeight.Bold,
-            fontSize = 12.5.sp,
-            color = MaterialTheme.colorScheme.primary
-        )
+        Spacer(Modifier.width(EditorialSpace.xs))
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = toBengaliNumeral(contributor.points),
+                fontFamily = Kalpurush,
+                fontWeight = FontWeight.Bold,
+                fontSize = 17.sp,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = "পয়েন্ট",
+                fontFamily = Kalpurush,
+                fontSize = 10.5.sp,
+                color = tokens.inkMuted
+            )
+        }
     }
 }
 

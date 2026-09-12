@@ -173,6 +173,48 @@ interface PortalApi {
         @Body body: Map<String, String>
     ): Response<Int?>
 
+    // ---------------------------------------------------------------- forum
+    //
+    // Five reads are open to a guest; the two writes are granted to
+    // `authenticated` alone and raise 42501 without a session, which the
+    // transport already recognises as PortalError.SignedOut.
+
+    /** The forum home: rooms, latest activity, totals (migration 029 RPC). */
+    @POST("rpc/forum_overview")
+    suspend fun forumOverview(
+        @Body body: Map<String, String>
+    ): Response<ForumOverviewDto?>
+
+    /** One room's threads. Null when the slug is not a room. */
+    @POST("rpc/forum_category")
+    suspend fun forumCategory(
+        @Body body: Map<String, String>
+    ): Response<ForumCategoryPageDto?>
+
+    /** Titles and bodies, newest activity first. A `%` here is a character. */
+    @POST("rpc/forum_search")
+    suspend fun forumSearch(
+        @Body body: Map<String, String>
+    ): Response<ForumSearchDto?>
+
+    /** One discussion with its replies. `p_count_view` bumps the view count. */
+    @POST("rpc/forum_discussion")
+    suspend fun forumDiscussion(
+        @Body body: Map<String, String>
+    ): Response<ForumThreadDto?>
+
+    /** A new thread. Signed in only; answers with the thread it created. */
+    @POST("rpc/forum_create_discussion")
+    suspend fun forumCreateDiscussion(
+        @Body body: Map<String, String>
+    ): Response<ForumThreadDto?>
+
+    /** A reply. Signed in only; answers with the reply it created. */
+    @POST("rpc/forum_reply")
+    suspend fun forumReply(
+        @Body body: Map<String, String>
+    ): Response<ForumReplyDto?>
+
     /** Published article count per annual issue (migration 013 RPC). */
     @POST("rpc/blog_issue_years")
     suspend fun issueYears(

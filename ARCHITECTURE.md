@@ -94,8 +94,10 @@ Key rules that bite if broken:
 
 ## 3. Database (Postgres)
 
-Base: `backend/supabase/schema.sql` + numbered migrations `002`–`021` in `migrations/`.
-Order matters: `schema.sql` (or 002 legacy, **never after 004**) → 003 → 004 → 005…021.
+Base: `backend/supabase/schema.sql` + numbered migrations `002`–`029` in `migrations/`.
+Order matters: `schema.sql` (or 002 legacy, **never after 004**) → 003 → 004 → 005…029. Every file is
+one transaction and 024–029 are order-independent between themselves (proved by
+`backend/tests/sql/run.sh`, which applies all six permutations into a throwaway cluster).
 
 ### 3.1 Content tables (public reads per RLS)
 
@@ -110,12 +112,13 @@ Order matters: `schema.sql` (or 002 legacy, **never after 004**) → 003 → 004
 | `music_tracks` (014–021) | `title/artist/album/genre/description`, `thumbnail_url`, `audio_url`, `file_provider ('url'/'supabase-storage')`, `file_storage_path`, `duration_seconds`, `file_size_mb`, `sort_order`, `lyrics` (015), `video_link` (017), `user_id` (018), artist/album images+bios (019), `love_count` (020, trigger-synced from `music_loves`) |
 | `music_playlists` / `music_playlist_tracks` (015) | per user (`kind in ('custom','loved')`; loved is unique per user) |
 | `music_loves` (020) | `(track_id, user_id)` PK; public read; triggers update `music_tracks.love_count`. No `anon` write access: signed-out loves go through the `toggle_music_love` security-definer RPC (022), which keys a guest by `md5('ningshingche:' \|\| device_id)` |
+| `forum_categories` / `forum_discussions` / `forum_replies` (029) | The forum. Rooms are rows (a `slug`, a Bengali `title`, `description`, `sort_order`, `is_locked`) and read in `sort_order`; a discussion carries `title`, `body (text)`, `category_slug`, `author_id`/`author_name`/`author_avatar_url`, `views_count`, `replies_count`, `last_reply_at`, `status in ('Publish','Unpublish')`; a reply carries its thread, author and body. `forum_replies_sync_count` keeps `replies_count`/`last_reply_at` (publish-only, survives deletes) and `forum_discussions_touch` maintains `updated_at`. **No client reads the tables**: the view `forum_discussion_rows` and the six `security definer` functions (`forum_overview`, `forum_category`, `forum_search`, `forum_discussion`, `forum_create_discussion`, `forum_reply`) are the door, reads granted to `anon` + `authenticated`, writes to `authenticated` alone (`42501` for a guest), and the dashboard moderates through `is_dashboard_request()` policies. `forum_text_units(text)` is the Bengali character counter the guards use |
 
 ### 3.2 App-user workspace tables
 
 | Table | Migration | RLS shape |
 | --- | --- | --- |
-| `profiles` | 005, 006, 011 | PK = `auth.users.id`; own read/write; +`first/last_name, about, phone, address, facebook_id, designation, location, website, imgbb_delete_url, profile_completed, notifications_enabled` |
+| `profiles` | 005, 006, 011, 028 | PK = `auth.users.id`; own read/write; +`first/last_name, about, phone, address, facebook_id, designation, location, website, imgbb_delete_url, profile_completed, notifications_enabled`. `address`/`designation` reach a public page only through the `public_profile(uuid)` RPC (028 — contact details stay behind the own-row policy: `profiles` is select-own and a `submitted_blogs` row carries the writer's e-mail) |
 | `user_notifications` | 007 | `(user_id, kind, related_id)` unique; kinds `article_published`, `comment_published`, `admin_message`; created by DB triggers `notify_user_on_publish` / `notify_user_on_admin_message`; staff can insert (009) and read with `registered-users`/`analytics` permission (008) |
 | `admin_messages` | 007, 010 | `sender in ('user','admin')`; user inserts own 'user' rows; staff insert 'admin' rows (008); both sides mark read |
 
@@ -275,6 +278,15 @@ authors_directory, social_activities.
   (`ai_chat_messages`) via `ArticleAiChatStore`; image lightbox with pinch/double-tap zoom.
 - **PDF/Video**: `VideosScreen` with provider-aware iframes; `PdfViewerScreen` renders
   pages to bitmaps.
+- **Forum** (`ForumScreens.kt`, routes `forum` / `forum_room/{slug}` / `forum_thread/{id}` /
+  `forum_new?room=`): rooms, latest discussions, server-side search, one thread with its
+  replies, and a composer. Public read, signed-in write, through six RPCs; the drawer's
+  **ফোরাম** row replaced **সামাজিক কার্যকলাপ** (a hard-coded gallery grid the home page
+  already draws, whose screen and state were removed with the row).
+- **Public profile** (`PublicProfileScreen.kt`, route `user/{userId}`): name, designation,
+  short address, a statistics card (total views, lifetime points, this month's points) and
+  two tabs — articles and songs — each ordered by views and dated. One request,
+  `public_profile` (028).
 
 ### 4.5 Signed-in user workspace (`ReaderWorkspaceViewModel` + `UserDashboardScreen`)
 
@@ -412,3 +424,13 @@ Dashboard-specific conventions:
   Roborazzi screenshots.
 - Dashboard: `backend/tests/` — fixture-only node unit tests + Playwright browser checks
   (backup, filters); no production Supabase writes.
+- Database: `bash backend/tests/sql/run.sh` — a throwaway UTF-8 cluster (`initdb … --encoding=UTF8
+  --locale=C`), migration `schema.sql` + `002`–`029` applied in six orders, then both a structure
+  check and a behaviour check against a real database: RLS enabled on every table the app can
+  reach, the contributor board's refusal for a guest, the forum's guards and counters, and the
+  dashboard's own doors.
+- App sources, without a JVM: `backend/tests/app-reader-session.test.cjs` (the reader's token
+  reaches every request) and `backend/tests/app-forum.test.cjs` (the forum, the contributor board
+  and the public profile as the sources declare them — including a call-site check that every
+  component is handed exactly the parameters its declaration names, which is the closest this
+  repository gets to a compiler).

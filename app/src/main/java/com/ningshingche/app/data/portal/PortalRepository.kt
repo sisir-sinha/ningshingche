@@ -57,6 +57,12 @@ class PortalRepository(
     private val facetsCache = mutableMapOf<String, CacheEntry<List<BlogFacet>>>()
     private val issuesCache = mutableMapOf<String, CacheEntry<List<IssueSummary>>>()
     private val tagCountsCache = mutableMapOf<String, CacheEntry<List<TagCount>>>()
+    /**
+     * One entry per forum room, keyed by slug. A thread's own counts come from
+     * the thread call, so only the room list is cached — and it is dropped when
+     * the reader posts into that room.
+     */
+    private val forumCategoryCache = mutableMapOf<String, Result<ForumCategoryPage>>()
 
     /**
      * Tri-state memo of whether the migration 013 endpoints exist on this
@@ -673,6 +679,135 @@ class PortalRepository(
             Result.failure(error.toPortalError())
         }
     }
+
+    // ----------------------------------------------------------------- forum
+
+    /**
+     * The forum home: the rooms, what moved most recently, and the two totals.
+     *
+     * Readable by anyone — a guest included — because the migration grants
+     * these five reads to `anon` as well. Only the two writes need a session.
+     */
+    suspend fun forumOverview(limit: Int = 20): Result<ForumOverview> =
+        withContext(Dispatchers.IO) {
+            callOne {
+                api.forumOverview(mapOf("p_limit" to limit.coerceIn(1, 50).toString()))
+            }.mapCatching { it.toModel() }
+        }
+
+    /**
+     * One room's threads. A slug the database does not know answers with null,
+     * which is `PortalError.NotFound` here rather than an empty room.
+     */
+    suspend fun forumCategory(
+        slug: String,
+        limit: Int = 30,
+        offset: Int = 0,
+        forceRefresh: Boolean = false
+    ): Result<ForumCategoryPage> = withContext(Dispatchers.IO) {
+        val clean = slug.trim()
+        if (clean.isBlank()) return@withContext Result.failure(PortalError.NotFound)
+        val safeLimit = limit.coerceIn(1, 100)
+        val safeOffset = offset.coerceAtLeast(0)
+
+        // Only the first page is cached: a "load more" is a fresh question by
+        // definition, and remembering it would hide the next page behind the
+        // first one.
+        if (safeOffset == 0 && !forceRefresh) {
+            cacheMutex.withLock { forumCategoryCache[clean] }?.let { return@withContext it }
+        }
+
+        val fetched = callOne {
+            api.forumCategory(
+                mapOf(
+                    "p_slug" to clean,
+                    "p_limit" to safeLimit.toString(),
+                    "p_offset" to safeOffset.toString()
+                )
+            )
+        }.mapCatching { dto ->
+            dto?.toModel() ?: throw PortalError.NotFound
+        }
+
+        if (safeOffset == 0) cacheMutex.withLock { forumCategoryCache[clean] = fetched }
+        fetched
+    }
+
+    /**
+     * Search over the discussion titles and bodies.
+     *
+     * The term travels as a parameter, and the database uses `strpos`, so `%`
+     * and `_` are ordinary characters here — no pattern escaping is involved,
+     * unlike the `ilike` filters elsewhere in this class.
+     */
+    suspend fun forumSearch(query: String, limit: Int = 30): Result<ForumSearchResult> =
+        withContext(Dispatchers.IO) {
+            callOne {
+                api.forumSearch(
+                    mapOf(
+                        "p_query" to query.trim(),
+                        "p_limit" to limit.coerceIn(1, 100).toString()
+                    )
+                )
+            }.mapCatching { it.toModel() }
+        }
+
+    /**
+     * One discussion with its replies.
+     *
+     * `countView` is true when the screen is opening the thread and false when
+     * it is only refreshing — the difference between "views" meaning what it
+     * says and meaning "every pull-to-refresh".
+     */
+    suspend fun forumDiscussion(id: String, countView: Boolean = true): Result<ForumThread> =
+        withContext(Dispatchers.IO) {
+            val clean = id.trim()
+            if (clean.isBlank()) return@withContext Result.failure(PortalError.NotFound)
+            callOne {
+                api.forumDiscussion(
+                    mapOf("p_id" to clean, "p_count_view" to countView.toString())
+                )
+            }.mapCatching { dto ->
+                dto?.toModel() ?: throw PortalError.NotFound
+            }
+        }
+
+    /** Opens a discussion. Signed in only — a guest is refused by the database. */
+    suspend fun createForumDiscussion(
+        categorySlug: String,
+        title: String,
+        body: String
+    ): Result<ForumThread> = withContext(Dispatchers.IO) {
+        val slug = categorySlug.trim()
+        if (slug.isBlank()) return@withContext Result.failure(PortalError.NotFound)
+        callOne {
+            api.forumCreateDiscussion(
+                mapOf(
+                    "p_category_slug" to slug,
+                    "p_title" to title.trim(),
+                    "p_body" to body.trim()
+                )
+            )
+        }.mapCatching { dto ->
+            val created = dto?.toModel() ?: throw PortalError.NotFound
+            // The home page's counter and the room's list both moved; the
+            // cached rooms are dropped so the next look is the truth.
+            forumCategoryCache.remove(slug)
+            created
+        }
+    }
+
+    /** Answers a discussion. Signed in only, like opening one. */
+    suspend fun forumReply(id: String, body: String): Result<ForumReply> =
+        withContext(Dispatchers.IO) {
+            val clean = id.trim()
+            if (clean.isBlank()) return@withContext Result.failure(PortalError.NotFound)
+            callOne {
+                api.forumReply(mapOf("p_id" to clean, "p_body" to body.trim()))
+            }.mapCatching { dto ->
+                dto?.toModel() ?: throw PortalError.NotFound
+            }
+        }
 
     // -------------------------------------------------------------- plumbing
 

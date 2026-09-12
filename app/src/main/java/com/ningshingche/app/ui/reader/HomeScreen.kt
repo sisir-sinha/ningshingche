@@ -146,6 +146,7 @@ fun HomeScreen(
     val contributors by viewModel.contributors.collectAsState()
     val contributorsError by viewModel.contributorsError.collectAsState()
     val contributorsRefused by viewModel.contributorsRefused.collectAsState()
+    val contributorsMonth by viewModel.contributorsMonth.collectAsState()
     LaunchedEffect(isSignedIn) { viewModel.loadContributors(isSignedIn) }
     val offlineNotice by viewModel.offlineNotice.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -251,6 +252,7 @@ fun HomeScreen(
                     contributors = contributors,
                     contributorsError = contributorsError,
                     contributorsRefused = contributorsRefused,
+                    contributorsMonth = contributorsMonth,
                     isSignedIn = isSignedIn,
                     onSeeAllContributors = onSeeAllContributors,
                     onContributorClick = onContributorClick,
@@ -285,6 +287,7 @@ private fun HomeContent(
     contributors: List<Contributor>,
     contributorsError: String?,
     contributorsRefused: Boolean,
+    contributorsMonth: String,
     isSignedIn: Boolean,
     onSeeAllContributors: () -> Unit,
     onContributorClick: (String) -> Unit,
@@ -514,7 +517,12 @@ private fun HomeContent(
         // Contributor board. Only for a signed-in reader: the owner asked for it
         // to be that way, and the request itself is gated in the view model, so
         // a guest does not even ask.
+        //
+        // The section is given room of its own after the song rail, which is the
+        // last thing above it: the two are different kinds of thing and used to
+        // run into each other.
         if (isSignedIn && (contributors.isNotEmpty() || contributorsError != null)) {
+            item { Spacer(Modifier.height(EditorialSpace.lg)) }
             item {
                 Surface(
                     color = MaterialTheme.colorScheme.surface,
@@ -526,8 +534,8 @@ private fun HomeContent(
                 ) {
                     Column(Modifier.padding(vertical = EditorialSpace.sm)) {
                         SectionHeader(
-                            title = "এই মাসের সেরা অবদানকারী",
-                            subtitle = "প্রবন্ধ, গান ও অ্যাপে সময় — সব মিলিয়ে",
+                            title = "সেরা অবদানকারী",
+                            subtitle = "${monthNameOf(contributorsMonth)} মাস",
                             actionLabel = "সব দেখুন",
                             onAction = onSeeAllContributors,
                             modifier = Modifier.padding(horizontal = 0.dp)

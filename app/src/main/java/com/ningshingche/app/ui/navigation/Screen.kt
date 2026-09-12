@@ -36,7 +36,8 @@ sealed class Screen(val route: String) {
     }
     data object Featured : Screen("featured")
     data object About : Screen("about")
-    data object SocialActivities : Screen("social_activities")
+    /** The reader forum: rooms, threads and replies (migration 029). */
+    data object Forum : Screen("forum")
     data object Contributors : Screen("contributors")
     data object AuthorsDirectory : Screen("authors_directory")
 

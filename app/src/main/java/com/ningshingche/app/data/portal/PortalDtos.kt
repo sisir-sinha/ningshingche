@@ -274,11 +274,92 @@ data class PublicProfileDto(
     val id: String,
     val name: String? = null,
     @Json(name = "avatar_url") val avatarUrl: String? = null,
+    val designation: String? = null,
+    val address: String? = null,
     @Json(name = "joined_at") val joinedAt: String? = null,
+    /** Migration 028 adds these three to the same RPC. */
+    val points: Int? = null,
+    @Json(name = "month_points") val monthPoints: Int? = null,
     @Json(name = "article_views") val articleViews: Long? = null,
     @Json(name = "music_views") val musicViews: Long? = null,
     val articles: List<PublicArticleDto>? = null,
     val songs: List<PublicSongDto>? = null
+)
+
+// ---------------------------------------------------------------------- forum
+//
+// Six RPCs, one row shape. `forum_discussion_rows` (migration 029) is a view the
+// database builds, so every one of these answers with the same keys — the app
+// has one DTO for a card wherever it appears.
+
+/** A forum room, with the counts the database keeps for it. */
+@JsonClass(generateAdapter = true)
+data class ForumCategoryDto(
+    val id: String? = null,
+    val slug: String? = null,
+    val title: String? = null,
+    val description: String? = null,
+    val discussions: Int? = null,
+    val replies: Int? = null,
+    @Json(name = "is_locked") val isLocked: Boolean? = null
+)
+
+/** One discussion: a card in a list, a whole page on its own. */
+@JsonClass(generateAdapter = true)
+data class ForumDiscussionDto(
+    val id: String? = null,
+    @Json(name = "category_slug") val categorySlug: String? = null,
+    @Json(name = "category_title") val categoryTitle: String? = null,
+    val title: String? = null,
+    val excerpt: String? = null,
+    val body: String? = null,
+    @Json(name = "author_id") val authorId: String? = null,
+    @Json(name = "author_name") val authorName: String? = null,
+    @Json(name = "author_avatar_url") val authorAvatarUrl: String? = null,
+    @Json(name = "views_count") val views: Long? = null,
+    @Json(name = "replies_count") val replies: Int? = null,
+    @Json(name = "created_at") val createdAt: String? = null,
+    @Json(name = "last_reply_at") val lastReplyAt: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class ForumReplyDto(
+    val id: String? = null,
+    @Json(name = "author_id") val authorId: String? = null,
+    @Json(name = "author_name") val authorName: String? = null,
+    @Json(name = "author_avatar_url") val authorAvatarUrl: String? = null,
+    val body: String? = null,
+    @Json(name = "created_at") val createdAt: String? = null
+)
+
+/** The forum home: rooms, latest activity, and the two totals. */
+@JsonClass(generateAdapter = true)
+data class ForumOverviewDto(
+    val categories: List<ForumCategoryDto>? = null,
+    val latest: List<ForumDiscussionDto>? = null,
+    @Json(name = "total_discussions") val totalDiscussions: Int? = null,
+    @Json(name = "total_replies") val totalReplies: Int? = null
+)
+
+/** One room. `null` from the RPC means the slug is not a room. */
+@JsonClass(generateAdapter = true)
+data class ForumCategoryPageDto(
+    val category: ForumCategoryDto? = null,
+    val discussions: List<ForumDiscussionDto>? = null,
+    val total: Int? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class ForumSearchDto(
+    val query: String? = null,
+    val discussions: List<ForumDiscussionDto>? = null,
+    val total: Int? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class ForumThreadDto(
+    val discussion: ForumDiscussionDto? = null,
+    val replies: List<ForumReplyDto>? = null
 )
 
 

@@ -133,7 +133,9 @@ data class MusicTrack(
     val viewsCount: Long = 0L,
     /** The registered reader who uploaded it, when it came from the app. */
     val uploaderId: String = "",
-    val uploaderName: String = ""
+    val uploaderName: String = "",
+    /** When it was uploaded — ISO text, as the database stores it. */
+    val createdAt: String = ""
 ) {
     fun hasPlayableSource(): Boolean = audioUrl.isNotBlank() || storagePath.isNotBlank()
     fun hasVideo(): Boolean = videoLink.isNotBlank()
@@ -239,6 +241,153 @@ data class HomeFeed(
     val music: List<MusicTrack>,
     val settings: SiteSettings
 )
+
+// ---------------------------------------------------------------------------
+// Forum
+// ---------------------------------------------------------------------------
+
+/**
+ * One room on the forum home. `discussions` and `replies` are counts the
+ * database keeps, not numbers the app works out.
+ */
+data class ForumCategory(
+    val id: String,
+    val slug: String,
+    val title: String,
+    val description: String,
+    val discussions: Int,
+    val replies: Int,
+    val isLocked: Boolean = false
+)
+
+/**
+ * One discussion, as a card and as a page.
+ *
+ * [body] is only filled in on the discussion's own page — the lists carry the
+ * [excerpt], which is what the card shows — so a list of twenty threads is
+ * twenty short rows, not twenty full posts.
+ */
+data class ForumDiscussion(
+    val id: String,
+    val categorySlug: String,
+    val categoryTitle: String,
+    val title: String,
+    val excerpt: String,
+    val body: String,
+    val authorId: String,
+    val authorName: String,
+    val authorAvatarUrl: String,
+    val views: Long,
+    val replies: Int,
+    val createdAt: String,
+    val lastActivityAt: String
+) {
+    /** A discussion nobody has answered reads differently on a card. */
+    val hasReplies: Boolean get() = replies > 0
+}
+
+/** One answer under a discussion. */
+data class ForumReply(
+    val id: String,
+    val authorId: String,
+    val authorName: String,
+    val authorAvatarUrl: String,
+    val body: String,
+    val createdAt: String
+)
+
+/** The forum home: the rooms, and what moved most recently. */
+data class ForumOverview(
+    val categories: List<ForumCategory>,
+    val latest: List<ForumDiscussion>,
+    val totalDiscussions: Int,
+    val totalReplies: Int
+)
+
+data class ForumCategoryPage(
+    val category: ForumCategory,
+    val discussions: List<ForumDiscussion>,
+    val total: Int
+)
+
+data class ForumSearchResult(
+    val query: String,
+    val discussions: List<ForumDiscussion>,
+    val total: Int
+)
+
+/** A discussion with its replies, in the order they were written. */
+data class ForumThread(
+    val discussion: ForumDiscussion,
+    val replies: List<ForumReply>
+)
+
+internal fun ForumCategoryDto.toModel() = ForumCategory(
+    id = id.orEmpty(),
+    slug = slug.orEmpty(),
+    title = title.orEmpty().ifBlank { "আলোচনা" },
+    description = description.orEmpty(),
+    discussions = (discussions ?: 0).coerceAtLeast(0),
+    replies = (replies ?: 0).coerceAtLeast(0),
+    isLocked = isLocked ?: false
+)
+
+internal fun ForumDiscussionDto.toModel() = ForumDiscussion(
+    id = id.orEmpty(),
+    categorySlug = categorySlug.orEmpty(),
+    categoryTitle = categoryTitle.orEmpty().ifBlank { "আলোচনা" },
+    title = title.orEmpty().trim().ifBlank { "শিরোনামহীন আলোচনা" },
+    excerpt = excerpt.orEmpty().trim(),
+    body = body.orEmpty(),
+    authorId = authorId.orEmpty(),
+    authorName = authorName.orEmpty().trim().ifBlank { "নিংশিং চে পাঠক" },
+    authorAvatarUrl = authorAvatarUrl.orEmpty(),
+    views = (views ?: 0L).coerceAtLeast(0L),
+    replies = (replies ?: 0).coerceAtLeast(0),
+    createdAt = createdAt.orEmpty(),
+    // A thread nobody answered is as old as its own post, which is what a card
+    // showing "শেষ উত্তর" has to fall back to.
+    lastActivityAt = lastReplyAt.orEmpty().ifBlank { createdAt.orEmpty() }
+)
+
+internal fun ForumReplyDto.toModel() = ForumReply(
+    id = id.orEmpty(),
+    authorId = authorId.orEmpty(),
+    authorName = authorName.orEmpty().trim().ifBlank { "নিংশিং চে পাঠক" },
+    authorAvatarUrl = authorAvatarUrl.orEmpty(),
+    body = body.orEmpty(),
+    createdAt = createdAt.orEmpty()
+)
+
+internal fun ForumOverviewDto.toModel() = ForumOverview(
+    categories = categories.orEmpty().map { it.toModel() },
+    latest = latest.orEmpty().map { it.toModel() },
+    totalDiscussions = (totalDiscussions ?: 0).coerceAtLeast(0),
+    totalReplies = (totalReplies ?: 0).coerceAtLeast(0)
+)
+
+internal fun ForumCategoryPageDto.toModel(): ForumCategoryPage? {
+    val room = category?.toModel() ?: return null
+    return ForumCategoryPage(
+        category = room,
+        discussions = discussions.orEmpty().map { it.toModel() },
+        total = (total ?: 0).coerceAtLeast(0)
+    )
+}
+
+internal fun ForumSearchDto.toModel() = ForumSearchResult(
+    query = query.orEmpty(),
+    discussions = discussions.orEmpty().map { it.toModel() },
+    total = (total ?: 0).coerceAtLeast(0)
+)
+
+internal fun ForumThreadDto.toModel(): ForumThread? {
+    val thread = discussion?.toModel() ?: return null
+    return ForumThread(
+        discussion = thread,
+        replies = replies.orEmpty().map { it.toModel() }.sortedBy { it.createdAt }
+    )
+}
 
 // ---------------------------------------------------------------------------
 // Errors
@@ -381,6 +530,7 @@ internal fun PdfBookDto.toModel(): PdfBook {
 }
 
 internal fun MusicDto.toItem(): MusicTrack = MusicTrack(
+    createdAt = createdAt.orEmpty(),
     id = id,
     title = title.trim(),
     artist = artist.orEmpty().trim(),
@@ -504,14 +654,40 @@ fun permalinkOf(slug: String): String {
 data class PublicProfile(
     val id: String,
     val name: String,
+    /** What they do, when they told the app. Empty is normal, never invented. */
+    val designation: String = "",
+    /** Their address as they wrote it. The page shows a short form of it. */
+    val address: String = "",
     val avatarUrl: String,
     val joinedAt: String,
+    /** Everything they have earned, and what they earned this month. */
+    val points: Int = 0,
+    val monthPoints: Int = 0,
     val articleViews: Long,
     val musicViews: Long,
     val articles: List<PublicArticle>,
     val songs: List<MusicTrack>
 ) {
     val totalViews: Long get() = articleViews + musicViews
+
+    /** First line of the address, trimmed — a card is not a mailing label. */
+    val shortAddress: String
+        get() = address.trim().lineSequence().firstOrNull().orEmpty().trim()
+
+    /**
+     * Both lists, most read first. The server already orders them that way; this
+     * sorts again so a page restored from an older cached answer cannot show a
+     * different order than a freshly fetched one.
+     */
+    val articlesByViews: List<PublicArticle>
+        get() = articles.sortedWith(
+            compareByDescending<PublicArticle> { it.viewsCount }.thenByDescending { it.publishedAt }
+        )
+
+    val songsByViews: List<MusicTrack>
+        get() = songs.sortedWith(
+            compareByDescending<MusicTrack> { it.viewsCount }.thenByDescending { it.createdAt }
+        )
 }
 
 /** One published article on a public user page. */
@@ -555,7 +731,11 @@ internal fun PublicProfileDto.toModel(): PublicProfile {
     return PublicProfile(
     id = profileId,
     name = profileName.ifBlank { "নিংশিং চে পাঠক" },
+    designation = designation.orEmpty().trim(),
+    address = address.orEmpty().trim(),
     avatarUrl = avatarUrl.orEmpty(),
+    points = (points ?: 0).coerceAtLeast(0),
+    monthPoints = (monthPoints ?: 0).coerceAtLeast(0),
     joinedAt = joinedAt.orEmpty(),
     articleViews = (articleViews ?: 0L).coerceAtLeast(0L),
     musicViews = (musicViews ?: 0L).coerceAtLeast(0L),
@@ -583,6 +763,7 @@ internal fun PublicProfileDto.toModel(): PublicProfile {
             storagePath = row.fileStoragePath.orEmpty().trim(),
             durationSeconds = (row.durationSeconds ?: 0).coerceAtLeast(0),
             fileSizeMb = 0.0,
+            createdAt = row.createdAt.orEmpty(),
             loveCount = (row.loveCount ?: 0).coerceAtLeast(0),
             viewsCount = (row.viewsCount ?: 0L).coerceAtLeast(0L),
             uploaderId = profileId,

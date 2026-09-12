@@ -29,7 +29,7 @@ import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Explore
-import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LightMode
@@ -183,8 +183,8 @@ fun PortalDrawerContent(
             ) {
                 onCloseDrawer(); onNavigate(Screen.Contributors.route)
             }
-            DrawerRow("সামাজিক কার্যকলাপ", Icons.Default.Groups, currentRoute == Screen.SocialActivities.route) {
-                onCloseDrawer(); onNavigate(Screen.SocialActivities.route)
+            DrawerRow("ফোরাম", Icons.Default.Forum, currentRoute == Screen.Forum.route) {
+                onCloseDrawer(); onNavigate(Screen.Forum.route)
             }
 
             DrawerDivider()

@@ -73,7 +73,6 @@ import com.ningshingche.app.ui.editorial.SectionHeader
 import com.ningshingche.app.ui.reader.AuthorFacet
 import com.ningshingche.app.ui.reader.ExploreUiState
 import com.ningshingche.app.ui.reader.ExploreViewModel
-import com.ningshingche.app.ui.reader.SocialUiState
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.HomeViewModel
 
@@ -459,63 +458,7 @@ fun AboutScreen(onBackClick: () -> Unit) {
     }
 }
 
-/**
- * "সামাজিক কার্যকলাপ" — the portal's photo gallery entries filed under
- * "সমাজ ও সংস্কৃতি" (live `galleries` table), followed by articles from the
- * matching category.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun SocialActivitiesScreen(
-    viewModel: ExploreViewModel,
-    onBackClick: () -> Unit,
-    onArticleClick: (String) -> Unit
-) {
-    val state by viewModel.socialState.collectAsStateWithLifecycle()
-    LaunchedEffect(Unit) { viewModel.loadSocial() }
 
-    PortalPageScaffold(title = "সামাজিক কার্যকলাপ", onBackClick = onBackClick, testTag = "social_activities_screen") { padding ->
-        PullToRefreshBox(
-            isRefreshing = (state as? SocialUiState.Ready)?.isRefreshing == true,
-            onRefresh = { viewModel.loadSocial(force = true) },
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            when (val current = state) {
-                SocialUiState.Loading -> LoadingFeed()
-                is SocialUiState.Error -> ErrorState(message = current.message, onRetry = { viewModel.loadSocial(force = true) })
-                is SocialUiState.Ready -> LazyColumn(
-                    contentPadding = PaddingValues(bottom = 24.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    item {
-                        Box(Modifier.padding(16.dp)) {
-                            PageIntro("সামাজিক কার্যকলাপ", "সমাজ, সংগঠন ও সাংস্কৃতিক উদ্যোগ")
-                        }
-                    }
-                    if (current.galleries.isNotEmpty()) {
-                        item {
-                            GalleryGrid(items = current.galleries, onItemClick = { })
-                        }
-                    }
-                    if (current.articles.isEmpty() && current.galleries.isEmpty()) {
-                        item { EmptyState(message = "এখনো কোনো সামাজিক কার্যকলাপের লেখা প্রকাশিত হয়নি।") }
-                    }
-                    if (current.articles.isNotEmpty()) {
-                        item {
-                            SectionHeader(title = "লেখাসমূহ", subtitle = "সমাজ ও সংস্কৃতি বিভাগ থেকে")
-                        }
-                        items(current.articles, key = { it.id }) { article ->
-                            ArticleRow(article = article, onClick = { onArticleClick(article.id) })
-                            Hairline(modifier = Modifier.padding(horizontal = 20.dp))
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
 
 @Composable
 private fun PageIntro(title: String, subtitle: String) {

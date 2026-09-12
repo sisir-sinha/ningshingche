@@ -61,7 +61,10 @@ import com.ningshingche.app.ui.screens.ContributorScreen
 import com.ningshingche.app.ui.screens.PublicProfileScreen
 import com.ningshingche.app.ui.screens.PdfViewerScreen
 import com.ningshingche.app.ui.screens.SettingsScreen
-import com.ningshingche.app.ui.screens.SocialActivitiesScreen
+import com.ningshingche.app.ui.screens.ForumCategoryScreen
+import com.ningshingche.app.ui.screens.ForumHomeScreen
+import com.ningshingche.app.ui.screens.ForumThreadScreen
+import com.ningshingche.app.ui.screens.NewDiscussionScreen
 import com.ningshingche.app.ui.screens.SplashScreen
 import com.ningshingche.app.ui.screens.UserDashboardScreen
 
@@ -126,7 +129,13 @@ object ReaderRoute {
     const val MusicAlbum = "music_album/{name}"
     const val About = "about"
     const val AuthorsDirectory = "authors_directory"
-    const val SocialActivities = "social_activities"
+    // ফোরাম — rooms, threads and replies (migration 029). Readable by anyone;
+    // writing needs a session, which the database enforces.
+    const val Forum = "forum"
+    const val ForumRoom = "forum_room/{slug}"
+    const val ForumThread = "forum_thread/{discussionId}"
+    const val ForumNew = "forum_new"
+    const val ForumNewPattern = "forum_new?room={room}"
     // সেরা অবদানকারী — the monthly board, for signed-in readers.
     const val Contributors = "contributors"
 
@@ -140,6 +149,15 @@ object ReaderRoute {
      * back on the other side.
      */
     fun publicProfile(userId: String): String = "user/${userId.trim()}"
+
+    fun forumRoom(slug: String) = "forum_room/${encode(slug.trim())}"
+
+    /** A discussion id is a uuid, so it goes in unescaped like a user id. */
+    fun forumThread(discussionId: String) = "forum_thread/${discussionId.trim()}"
+
+    /** A new thread, optionally already in a room (the room page's button). */
+    fun newDiscussion(roomSlug: String = ""): String =
+        if (roomSlug.isBlank()) ForumNew else "forum_new?room=${encode(roomSlug.trim())}"
 
     fun article(idOrSlug: String, focus: String = "") : String {
         val base = "article/${encode(idOrSlug)}"
@@ -982,13 +1000,89 @@ fun EditorialReaderApp(
                 )
             }
 
-            // Social Activities Screen
-            composable(ReaderRoute.SocialActivities, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
-                val exploreViewModel: ExploreViewModel = viewModel(factory = portalFactory)
-                SocialActivitiesScreen(
-                    viewModel = exploreViewModel,
+            // Forum: the rooms and the latest activity.
+            composable(ReaderRoute.Forum, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
+                ForumHomeScreen(
+                    isSignedIn = isSignedIn,
+                    loadOverview = { app.portalRepository.forumOverview() },
+                    search = { term -> app.portalRepository.forumSearch(term) },
                     onBackClick = { navController.popBackStack() },
-                    onArticleClick = { navController.navigate(ReaderRoute.article(it)) }
+                    onCategoryClick = { slug -> navController.navigate(ReaderRoute.forumRoom(slug)) },
+                    onDiscussionClick = { id -> navController.navigate(ReaderRoute.forumThread(id)) },
+                    onNewDiscussion = { navController.navigate(ReaderRoute.newDiscussion()) },
+                    onSignInClick = { navController.navigate(ReaderRoute.Login) }
+                )
+            }
+
+            // One room.
+            composable(
+                enterTransition = navEnter,
+                exitTransition = navExit,
+                popEnterTransition = navPopEnter,
+                popExitTransition = navPopExit,
+                route = ReaderRoute.ForumRoom,
+                arguments = listOf(navArgument("slug") { type = NavType.StringType })
+            ) { entry ->
+                val slug = entry.arguments?.getString("slug").orEmpty()
+                ForumCategoryScreen(
+                    slug = slug,
+                    isSignedIn = isSignedIn,
+                    loadCategory = { room -> app.portalRepository.forumCategory(room) },
+                    onBackClick = { navController.popBackStack() },
+                    onDiscussionClick = { id -> navController.navigate(ReaderRoute.forumThread(id)) },
+                    onNewDiscussion = { room -> navController.navigate(ReaderRoute.newDiscussion(room)) },
+                    onSignInClick = { navController.navigate(ReaderRoute.Login) }
+                )
+            }
+
+            // One discussion, with its answers.
+            composable(
+                enterTransition = navEnter,
+                exitTransition = navExit,
+                popEnterTransition = navPopEnter,
+                popExitTransition = navPopExit,
+                route = ReaderRoute.ForumThread,
+                arguments = listOf(navArgument("discussionId") { type = NavType.StringType })
+            ) { entry ->
+                ForumThreadScreen(
+                    discussionId = entry.arguments?.getString("discussionId").orEmpty(),
+                    isSignedIn = isSignedIn,
+                    loadThread = { id, countView -> app.portalRepository.forumDiscussion(id, countView) },
+                    postReply = { id, body -> app.portalRepository.forumReply(id, body) },
+                    onBackClick = { navController.popBackStack() },
+                    onSignInClick = { navController.navigate(ReaderRoute.Login) }
+                )
+            }
+
+            // A new discussion. The room list comes from the same overview call
+            // the forum home uses — one query, one shape, no second source.
+            composable(
+                enterTransition = navEnter,
+                exitTransition = navExit,
+                popEnterTransition = navPopEnter,
+                popExitTransition = navPopExit,
+                route = ReaderRoute.ForumNewPattern,
+                arguments = listOf(navArgument("room") { type = NavType.StringType; defaultValue = "" })
+            ) { entry ->
+                NewDiscussionScreen(
+                    preselectSlug = entry.arguments?.getString("room").orEmpty(),
+                    // Asked for when the composer opens, not at app start.
+                    loadCategories = { slug ->
+                        app.portalRepository.forumOverview(limit = 1).map { it.categories }
+                    },
+                    isSignedIn = isSignedIn,
+                    post = { slug, title, body ->
+                        app.portalRepository.createForumDiscussion(slug, title, body)
+                    },
+                    onBackClick = { navController.popBackStack() },
+                    onPosted = { id ->
+                        // The thread replaces this screen: the writer sees what
+                        // they wrote, and Back goes to the list they came from.
+                        navController.navigate(ReaderRoute.forumThread(id)) {
+                            popUpTo(ReaderRoute.ForumNewPattern) { inclusive = true }
+                        }
+                    },
+                    onSignInClick = { navController.navigate(ReaderRoute.Login) }
                 )
             }
 

@@ -147,7 +147,11 @@ to `ViewModelFactory.create()` (`ui/viewmodel/MainViewModels.kt:557`).
 | `dashboard` | — | In-app CMS. **Not** in the bottom bar; reachable from the drawer ("ড্যাশবোর্ড (CMS)") |
 | `pdf_archive` | — | bottom bar |
 | `featured` | — | bottom bar |
-| `about`, `social_activities`, `authors_directory` | — | portal pages |
+| `about`, `authors_directory` | — | portal pages |
+| `forum` | — | the forum: rooms, latest discussions, search |
+| `forum_room/{slug}` | `slug: String` | one room's threads, paged |
+| `forum_thread/{discussionId}` | `discussionId: String` | one discussion and its replies |
+| `forum_new?room={slug}` | `room: String` (optional) | the composer; `room` preselects the room |
 | `pdf_viewer/{pdfId}` | `pdfId: String` | |
 | `article/{articleId}` | `articleId: String` | deep links: `ningshingche.com/{articleId}`, `ningshingche.com/article/{articleId}` |
 | `category/{categorySlug}` | `categorySlug: String` | |
@@ -168,7 +172,9 @@ Chrome is set in `ReaderNavHost.kt` (`EditorialReaderApp`):
 The drawer's item list is built inside `PortalDrawerContent` (`ui/components/PortalDrawer.kt`). It is
 flat by design — thin dividers, no collapsible groups: (1) Home, Featured, Explore, PDF archive,
 Search, Saved; (2) Annual issues and Categories, both of which open Explore on the matching tab;
-(3) About, Authors, Social activities; (4) Settings, Share the app. The header carries the brand and
+(3) About, Authors, **Forum**; (4) Settings, Share the app. The forum row replaced **সামাজিক কার্যকলাপ**,
+whose page was a hard-coded gallery grid the home page already draws; its state and screen were
+removed with it. The header carries the brand and
 a theme button that cycles System → Light → Dark.
 
 The old hard-coded `PortalNavigation` menu (`years` 2025 → 2014, 16 hand-written category pairs) no
@@ -587,8 +593,8 @@ dashboard.
 
 | Where | What |
 | --- | --- |
-| `ui/screens/ContributorScreen.kt`, route `contributors`, drawer row **সেরা অবদানকারী** | The month's board: rank, picture, name, article and music counts, points |
-| `HomeScreen` — "এই মাসের সেরা অবদানকারী" | The top five as a list, with **সব দেখুন**; only rendered for a signed-in reader |
+| `ui/screens/ContributorScreen.kt`, route `contributors`, drawer row **সেরা অবদানকারী** | The month's board: rank badge, 62 dp picture, name, article and song counts, then a row of its own carrying the points |
+| `HomeScreen` — **সেরা অবদানকারী**, subtitle `{{currentMonth}} মাস` | The top five as a list, with **সব দেখুন**; only rendered for a signed-in reader, and set off from the music rail above it by `EditorialSpace.lg` |
 | `UserDashboardScreen` — অবদান পয়েন্ট card | The reader's own lifetime and monthly points, with the parts they are made of |
 
 **The gate is the database's, not the screen's.** `contributor_leaderboard` and `contributor_points`
@@ -624,6 +630,15 @@ reports it every five minutes and on leaving. Seconds are held in preferences un
 them, so an offline batch is folded into the next one instead of vanishing. Guests are dropped rather
 than carried over — on a shared device their minutes would otherwise land on the next reader.
 
+**The board shows points, not the arithmetic behind them.** The page used to open with a paragraph
+explaining the weights and every card carried pills for articles, songs, views and minutes; the owner
+asked for both to go. What a reader sees now is who they are, what they wrote, and what it earned —
+minutes in the app are still counted by the database, they are simply not advertised back at the
+reader. `MyStandingCard` replaced `PointsExplainer`: one line for the reader's own points, no lecture.
+The month in the header comes from the board's own `monthKey`, not from the phone's clock, so the
+label and the rows can never disagree; `monthNameOf` turns `2026-09` into সেপ্টেম্বর and falls back to
+`java.util.Calendar` only until the first response arrives.
+
 The weights (article 50, song 30, comment 5, view 1, two minutes 1) live in the database —
 `contributor_points_from` — so the app never computes a score it can disagree with. The dashboard
 shows the same board through a second door, `contributor_leaderboard_dashboard` (migration 027), which
@@ -636,10 +651,26 @@ page prints the same table for the reader, in words.
 Every registered reader has a public page: `ui/screens/PublicProfileScreen.kt`, route
 `user/{userId}` (`ReaderRoute.PublicProfile`), reachable by tapping an uploader's name on a song. It
 shows their name and avatar, their songs (tapping one starts playback with that list as the queue)
-and the articles their submissions were converted into, plus the view totals for both. It is one
-request — `PortalRepository.publicProfile(userId)` → the `public_profile` RPC (migration 024) —
+and the articles their submissions were converted into. It is one request —
+`PortalRepository.publicProfile(userId)` → the `public_profile` RPC (**migration 028**, which replaces
+024 and widens its answer) —
 because `profiles` and `submitted_blogs` are both select-own and a submission row carries the
 writer's contact details. It opens for guests too.
+
+**The page is real data or nothing.** Three lines, in the order the owner asked for: the name, then
+the designation (`profiles.designation`, shown as muted **পাঠক** when the reader has not written one),
+then the first line of the address and only if there is an address. Nothing on the page is
+placeholder text, so a reader with no designation and no address simply has a shorter card. Under it,
+one statistics card — **মোট ভিউ / মোট পয়েন্ট / এই মাসের পয়েন্ট** — and then two tabs, **প্রবন্ধ (n)** and
+**গান (n)**, whose counts are the lengths of the two lists. Both lists arrive ordered by views,
+highest first (`views_count desc nulls last` in 028, and sorted a second time in `PublicProfile` so a
+cached list cannot disagree), and every row carries its published date through `formatBengaliDate`.
+The app bar is transparent over a scrolling list, so the content starts below the sticky back arrow
+rather than under it.
+
+The statistics card is the database's own totals: `points` for life, `month_points` for this month,
+both read through `contributor_score` with a `to_regprocedure` guard so the page still opens on a
+database where 026 has not been pasted.
 
 Views are counted in the database (migration 025), never in the app:
 
@@ -675,6 +706,55 @@ things:
 The bottom-bar tabs are swipeable, as they are everywhere else in the app. The reason swiping had
 been switched off — a hand travelling across the notices page marked the whole inbox read — is
 handled by waiting for the pager to settle (`restingOnNotices`), not by taking the gesture away.
+
+### 12.5 Forum
+
+A basic forum, in the shape the owner asked for and on the rails the rest of the reader already uses:
+`ui/screens/ForumScreens.kt` (one file, four screens), `data/portal/ForumText.kt` (the character
+counter), the models and DTOs in `data/portal/`, and migration 029 for everything the database owns.
+**Guests read; the signed-in write.** No new client, no new store, no hard-coded room list — the rooms
+are rows in `forum_categories`, seeded by the migration and editable from the dashboard.
+
+| Screen | Route | What it is |
+| --- | --- | --- |
+| `ForumHomeScreen` | `forum` | **বিভাগসমূহ** — the rooms with their thread counts — and **সর্বশেষ আলোচনা**, the newest threads, with a search field over both |
+| `ForumCategoryScreen` | `forum_room/{slug}` | one room, paged 30 at a time, with **নতুন আলোচনা** |
+| `ForumThreadScreen` | `forum_thread/{discussionId}` | the opening post, every reply, and a box to add one |
+| `NewDiscussionScreen` | `forum_new?room=` | room (a row of `FilterChip`s, preselected when a room sent the reader here), title, body |
+
+Every discussion shows its room, author and avatar, the date **as the reader reads it**
+(`formatBengaliDate`), its views and its reply count. The reply counter is the one counter whose
+colour means something: a thread nobody has answered yet is grey, one that has been answered takes
+the accent colour.
+
+**Six functions are the whole API** (`PortalApi`, all `@POST("rpc/…")`, all wrapped in a `Result` by
+`PortalRepository`): `forum_overview`, `forum_category`, `forum_search`, `forum_discussion`,
+`forum_create_discussion`, `forum_reply`. The app never names `forum_discussions` or `forum_replies`
+as tables — migration 029 grants nothing on them to a client, and every read goes through the
+security-definer functions, which is also what makes an unpublished thread disappear from the lists
+while staying readable by id. Reads are granted to `anon` and `authenticated`; the two writes are
+granted to `authenticated` alone and raise `42501` for a guest.
+
+**Which the app answers as a session problem, not a permission one** — the same call the contributor
+board makes (§12.3): a refusal becomes `PortalError.SignedOut`, and the screens answer it with the way
+back in. A guest is not refused at all: the reply box is replaced by a sign-in prompt and the
+**নতুন আলোচনা** button leads to the sign-in screen, so the app never asks the database something it
+knows will be refused.
+
+**An open is a view, a refresh is not.** `forum_discussion(p_id, p_count_view)` bumps the counter, so
+the app counts an open once, when the thread first loads, and re-reads after posting a reply with
+`countView = false` — otherwise answering a thread would inflate the number the thread is measured by.
+
+**The character rule lives in two places and they are kept in step.** Bengali "characters" are not
+code points: `ছোট` measures 5 as written and 9 decomposed. Migration 029 counts with
+`forum_text_units(text)` — non-whitespace, minus the combining marks — and `ForumText.units()` is the
+same rule in Kotlin, so the field can warn before the button is pressed and the server can still be
+the one that decides. The minimums use it (title 4 units, body 1); the maximums stay `char_length`
+(title 160, body 8000, reply 4000), because a limit on what a client sends is a limit on bytes.
+
+**Search waits.** Nothing is asked for a single character; from two characters on, the request waits
+300 ms after the last keystroke, and the search is `strpos` in the database — so `%` searches for a
+per cent sign rather than matching everything.
 
 **Reusable components** — reuse these instead of writing new ones:
 
@@ -774,6 +854,7 @@ Legend: ✅ used · ⚠️ partially / incorrectly used · ❌ not used
 | ImgBB upload | ✅ | ✅ |
 | ImgBB delete | ✅ best-effort | ✅ best-effort |
 | Global search across tables | ✅ | ❌ (Room-only LIKE search) |
+| Forum (`forum_overview` / `_category` / `_search` / `_discussion`; create and reply) | ✅ reads the board | ✅ read for everyone, write for signed-in readers |
 | Schema/health probe | ✅ | ❌ |
 | Realtime subscriptions | ❌ | ❌ |
 
@@ -1088,6 +1169,10 @@ That fix reached the sources as **app version 1.1** (`versionCode = 2`) — the 
 board still says it is for signed-in readers" can now be answered by asking which version is on the
 phone. A build older than 1.1 also has no contributor section on the home page at all, which is the
 other half of that same report.
+
+**1.2** (`versionCode = 3`) adds the forum, the public profile as it is now drawn and the lighter
+contributor board (§12.3–12.5). Nothing in 1.1's fix changed; a report from a build before 1.2 simply
+cannot be about the forum, because there is no forum in it.
 
 What was hardened instead:
 

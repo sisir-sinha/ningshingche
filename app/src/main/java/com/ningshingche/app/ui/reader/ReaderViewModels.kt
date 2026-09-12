@@ -99,6 +99,16 @@ class HomeViewModel(private val repository: PortalRepository) : ViewModel() {
     private val _contributorsRefused = MutableStateFlow(false)
     val contributorsRefused: StateFlow<Boolean> = _contributorsRefused.asStateFlow()
 
+    /**
+     * The month the board covers, as the database names it (`2026-09`).
+     *
+     * The subtitle says "সেপ্টেম্বর মাস", and the month comes from the answer
+     * rather than the phone's clock: near midnight on the last of a month the
+     * two can disagree, and the board is the database's.
+     */
+    private val _contributorsMonth = MutableStateFlow("")
+    val contributorsMonth: StateFlow<String> = _contributorsMonth.asStateFlow()
+
     private val _musicCatalog = MutableStateFlow<List<MusicTrack>>(emptyList())
     val musicCatalog: StateFlow<List<MusicTrack>> = _musicCatalog.asStateFlow()
 
@@ -146,6 +156,7 @@ class HomeViewModel(private val repository: PortalRepository) : ViewModel() {
             repository.contributorBoard(limit = HOME_CONTRIBUTOR_COUNT)
                 .onSuccess {
                     _contributors.value = it.contributors
+                    _contributorsMonth.value = it.monthKey
                     _contributorsError.value = null
                 }
                 .onFailure { failure ->
@@ -655,16 +666,7 @@ sealed interface ExploreUiState {
     data class Error(val message: String) : ExploreUiState
 }
 
-/** "সামাজিক কার্যকলাপ": gallery entries + articles of the সমাজ ও সংস্কৃতি category. */
-sealed interface SocialUiState {
-    data object Loading : SocialUiState
-    data class Ready(
-        val galleries: List<GalleryItem>,
-        val articles: List<ArticleSummary>,
-        val isRefreshing: Boolean = false
-    ) : SocialUiState
-    data class Error(val message: String) : SocialUiState
-}
+
 
 /**
  * Explore ("অন্বেষণ ও সংগ্রহ").
@@ -775,48 +777,6 @@ class ExploreViewModel(private val repository: PortalRepository) : ViewModel() {
         _offlineNotice.value = null
     }
 
-    // ----------------------------------------------------- social activities
-
-    private val _socialState = MutableStateFlow<SocialUiState>(SocialUiState.Loading)
-    val socialState: StateFlow<SocialUiState> = _socialState.asStateFlow()
-    private var socialJob: Job? = null
-
-    fun loadSocial(force: Boolean = false) {
-        val current = _socialState.value
-        if (!force && current is SocialUiState.Ready) return
-        if (socialJob?.isActive == true) return
-        socialJob = viewModelScope.launch {
-            val previous = current as? SocialUiState.Ready
-            _socialState.value = previous?.copy(isRefreshing = true) ?: SocialUiState.Loading
-            val result = runCatching {
-                coroutineScope {
-                    val galleries = async {
-                        repository.galleries(category = SOCIAL_CATEGORY_TITLE, limit = 40).getOrNull()?.items.orEmpty()
-                    }
-                    val articles = async {
-                        val categories = repository.categories(forceRefresh = force).getOrNull().orEmpty()
-                        val social = categories.firstOrNull { it.title.trim() == SOCIAL_CATEGORY_TITLE }
-                            ?: categories.firstOrNull { it.title.contains("সমাজ") }
-                        if (social == null) emptyList()
-                        else repository.articlesByCategory(social.id, limit = PortalConfig.MAX_PAGE_SIZE)
-                            .getOrThrow().items
-                    }
-                    SocialUiState.Ready(galleries = galleries.await(), articles = articles.await())
-                }
-            }
-            result
-                .onSuccess { _socialState.value = it }
-                .onFailure { error ->
-                    if (error is CancellationException) throw error
-                    _socialState.value = previous?.copy(isRefreshing = false)
-                        ?: SocialUiState.Error((error as? PortalError).message())
-                }
-        }
-    }
-
-    private companion object {
-        const val SOCIAL_CATEGORY_TITLE = "সমাজ ও সংস্কৃতি"
-    }
 }
 
 // ---------------------------------------------------------------------------
