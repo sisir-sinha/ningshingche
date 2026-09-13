@@ -533,7 +533,10 @@ whitespace collapsed, trailing `।`/`.`/`!`/`?` dropped — so a key typed by h
 (`অডিও ফাইল পড়া যায়নি`) still finds the string compiled into the app (`অডিও ফাইল পড়া যায়নি।`).
 Those CSVs are written by the dashboard's **Languages** grid (one row per string, a column per
 language, all three editable, Bengali doubling as the key the app looks a string up by) into
-`app_language_files` from migration 023;
+`app_language_files` from migration 023; the grid starts from the templates committed in
+`backend/assets/lang/`, so wording translated in the repository is filled into the blank cells on
+load (the **Load templates** button re-reads them) and is published when an editor presses **Save**
+— an empty cell in that row is why a reader of that language still sees Bengali;
 `TranslationTable.loose` is only consulted after the exact lookup misses, so a hand-typed key can
 never shadow a real one. Switching
 language in Settings calls `refresh`, as does the "অনুবাদ হালনাগাদ করুন" button.

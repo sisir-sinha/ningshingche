@@ -43,6 +43,7 @@
   let keys = [];                    // the string order the grid shows
   let values = {};                  // language code → { key: value }
   let known = new Set();            // keys present in the Bengali list
+  let published = {};               // language code → rows in the stored file
   let query = '';
   let filter = 'all';               // all | missing | complete
   let page = 1;
@@ -222,6 +223,60 @@
   }
 
   /**
+   * One language's committed template, as `key → value`.
+   *
+   * `null` when it could not be read at all (no network, no file), `{}` when it
+   * was read and carries no wording yet — the two are different answers and the
+   * page says so differently.
+   */
+  async function templateValues(code) {
+    try {
+      const out = {};
+      parsePairs(await loadTemplate(code)).forEach(([key, value]) => {
+        const clean = String(value || '').trim();
+        if (!key || !clean) return;
+        out[key] = clean;
+      });
+      return out;
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
+  }
+
+  /**
+   * Fills **blank** cells from the templates committed with the app, and never
+   * touches a cell that has anything in it.
+   *
+   * This is the road a translation takes from the repository to the dashboard:
+   * `i18n/build_language_templates.py` writes `backend/assets/lang/{bn,en,bpy}.csv`
+   * from the sources, and this page is served from that same directory — so a
+   * translation committed there (a sheet the committee filled, a merge) appears in
+   * the grid, where it can be corrected and published. Without this the page read
+   * `bn.csv` for its key list and nothing else, so the other two files were
+   * invisible to it however full they were.
+   *
+   * Nothing is saved by filling: the grid is what Save publishes, and a cell
+   * somebody typed into is theirs until they say otherwise.
+   */
+  async function fillFromTemplates() {
+    const counts = {};
+    await Promise.all(LANGS.map(async (lang) => {
+      counts[lang.code] = 0;
+      const template = await templateValues(lang.code);
+      if (!template) return;
+      keys.forEach((key) => {
+        if ((values[lang.code][key] || '').trim()) return;
+        const value = template[key];
+        if (!value) return;
+        values[lang.code][key] = value;
+        counts[lang.code] += 1;
+      });
+    }));
+    return counts;
+  }
+
+  /**
    * The key list, always from the Bengali template committed with the app.
    *
    * It used to be read from the stored Bengali file, which no longer works: that
@@ -267,6 +322,17 @@
       });
       const keyList = await keyListFrom();
       known = new Set(keyList);
+      // What the database holds, per language: zero rows means nothing has ever
+      // been published for it, which is a different thing from "not translated
+      // yet" and the one a reader notices (see the notice below).
+      published = {};
+      LANGS.forEach((lang) => {
+        // Counted the way the grid counts them: a heading or a bullet row a file
+        // saved by an older build still carries is not a translation, and saying
+        // it is would overstate what the app can actually read.
+        published[lang.code] = parsePairs(rows[lang.code].csv || '')
+          .filter(([key]) => !isScaffolding(key)).length;
+      });
       keyList.forEach((key) => {
         if (!(values[SOURCE][key] || '').trim()) values[SOURCE][key] = key;
       });
@@ -285,6 +351,10 @@
       // Bengali wording.
       extraKeys.forEach((key) => { if (!(values[SOURCE][key] || '').trim()) values[SOURCE][key] = key; });
       keys = [...keyList, ...extraKeys];
+
+      // Anything the repository already translates is put in front of the editor
+      // rather than left for them to type again.
+      await fillFromTemplates();
 
       page = 1;
       renderToolbar();
@@ -328,9 +398,47 @@
   }
 
   function renderToolbar() {
-    const chips = coverage().map((lang) => `<span class="status-badge ${lang.filled ? 'status-info' : 'status-neutral'}" title="${escapeHTML(lang.label)}">
-        ${escapeHTML(lang.short)} ${lang.source ? `${lang.filled} edited` : `${lang.filled}/${lang.total}`}</span>`).join('');
+    const chips = coverage().map((lang) => {
+      const stored = published[lang.code] || 0;
+      // Two numbers per language, because they answer two different questions:
+      // how much is filled in the grid, and how much of it the app can actually
+      // see right now. A grid full of cells with nothing published is the state
+      // that looks finished and is not.
+      const saved = ` · ${stored ? `${stored} saved` : 'not saved yet'}`;
+      return `<span class="status-badge ${lang.filled ? 'status-info' : 'status-neutral'}" title="${escapeHTML(lang.label)}">
+        ${escapeHTML(lang.short)} ${lang.source ? `${lang.filled} edited` : `${lang.filled}/${lang.total}`}${saved}</span>`;
+    }).join('');
     root.querySelector('[data-lang-chips]').innerHTML = chips;
+    renderNotice();
+  }
+
+  /**
+   * What the app is showing, said plainly.
+   *
+   * The file the dashboard saves is the only thing the app reads. A language whose
+   * stored file is empty is a language in which every screen still reads Bengali —
+   * a reader who picked English and got Bengali has no way to tell whether the
+   * translation is unwritten or simply unpublished.
+   */
+  function renderNotice() {
+    const holder = root.querySelector('[data-publish-note]');
+    if (!holder) return;
+    const empty = LANGS.filter((lang) => !(published[lang.code] || 0)).map((lang) => lang.short);
+    const total = LANGS.filter((lang) => (published[lang.code] || 0)).length;
+    if (!empty.length) {
+      holder.innerHTML = '';
+      return;
+    }
+    const all = total === 0;
+    // Plain text: `NC.components.notice` escapes what it is handed, so a tag here
+    // would be read out as a tag.
+    holder.innerHTML = NC.components.notice(
+      all
+        ? 'Nothing has been published yet: all three files in the database are empty, so the app shows its own Bengali text whatever language a reader picks. Press Load templates, fill the sheet, then Save translations.'
+        : `Not published yet: ${empty.join(', ')}. The app reads only what is saved here, so a reader who picks ${empty.length === 1 ? 'it' : 'one of them'} still sees Bengali.`,
+      all ? 'warning' : 'info',
+      'fa-language'
+    );
   }
 
   /**
@@ -491,8 +599,11 @@
           row_count: count
         }, 'lang');
         saved.push(`${code} ${count}`);
+        published[code] = count;
+        if (rows[code]) rows[code].csv = csv;
       }
       LANGS.forEach((lang) => { if (rows[lang.code]) rows[lang.code].updated_at = new Date().toISOString(); });
+      renderToolbar();
       NC.components.toast(`Saved — ${saved.join(', ')} strings. The app picks it up on the next language change or refresh.`, 'success');
     } catch (error) {
       console.error(error);
@@ -573,6 +684,28 @@
     });
   }
 
+  /** Pulls the committed templates again and fills every blank cell they carry. */
+  async function loadTemplates(button, quiet) {
+    if (button) NC.utils.setButtonLoading(button, true, 'Loading…');
+    try {
+      const counts = await fillFromTemplates();
+      renderToolbar();
+      renderTableArea();
+      const filled = LANGS.reduce((sum, lang) => sum + (counts[lang.code] || 0), 0);
+      if (!quiet) {
+        NC.components.toast(
+          filled
+            ? `Filled ${filled} empty ${filled === 1 ? 'cell' : 'cells'} from the committed templates (${LANGS
+              .filter((lang) => counts[lang.code]).map((lang) => `${lang.short} ${counts[lang.code]}`).join(', ')}). Press Save translations to publish.`
+            : 'The committed templates carry no wording the grid does not already have — fill the cells here, or import a sheet.',
+          filled ? 'success' : 'info'
+        );
+      }
+    } finally {
+      if (button) NC.utils.setButtonLoading(button, false);
+    }
+  }
+
   function render(container) {
     root = container;
     root.innerHTML = `${NC.components.pageHeader({
@@ -581,6 +714,7 @@
       description: 'One row per string, one column per language — the sheet. Bengali, Bishnupriya Manipuri and English are all editable; Bengali is also the string the app looks each row up by, so its original text stays under the cell after you rewrite it.',
       breadcrumb: [{ label: 'Languages' }],
       actions: '<button type="button" class="btn btn-secondary" data-reload><i class="fa-regular fa-rotate" aria-hidden="true"></i>Reload</button>'
+        + '<button type="button" class="btn btn-secondary" data-load-templates><i class="fa-regular fa-file-code" aria-hidden="true"></i>Load templates</button>'
         + '<button type="button" class="btn btn-secondary" data-import><i class="fa-regular fa-file-import" aria-hidden="true"></i>Import</button>'
         + '<button type="button" class="btn btn-secondary" data-download><i class="fa-regular fa-download" aria-hidden="true"></i>Download</button>'
         + '<button type="button" class="btn btn-primary" data-save-all><i class="fa-regular fa-floppy-disk" aria-hidden="true"></i>Save translations</button>'
@@ -589,9 +723,11 @@
         <p class="text-muted-foreground toolbar-note" data-lang-chips></p>
         <p class="text-muted-foreground toolbar-note">A blank cell keeps the app's Bengali text. Editing Bengali changes the wording a Bengali reader sees, never the lookup. <code>{1}</code> (and <code>{2}</code>) is where the app puts a value — a page number, a count, a title — so keep the marker in your wording: it is not read out.</p>
       </div>
+      <div data-publish-note></div>
       <div data-grid-panel>${NC.components.skeleton(7, 4)}</div>
     </section>`;
     root.querySelector('[data-save-all]').addEventListener('click', (event) => saveAll(event.currentTarget));
+    root.querySelector('[data-load-templates]').addEventListener('click', (event) => loadTemplates(event.currentTarget));
     root.querySelector('[data-download]').addEventListener('click', (event) => download(event.currentTarget));
     root.querySelector('[data-import]').addEventListener('click', () => openImport());
     root.querySelector('[data-reload]').addEventListener('click', () => load());

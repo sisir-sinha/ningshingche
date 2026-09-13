@@ -41,6 +41,11 @@ const SCRIPT = path.join(__dirname, '..', 'assets', 'js', 'languages.js');
 // the sheet will not reproduce it.
 const SOURCE = ['গান', 'শিরোনাম', 'অনুসন্ধান', 'অন্বেষণ', 'অডিও ফাইল পড়া যায়নি।'];
 const bnCsv = ['key,value', ...SOURCE.map((key) => `${key},${key}`)].join('\n') + '\n';
+// The committed templates the page reads: Bengali is the key list, and the other
+// two carry whatever a translator has already committed to the repository.
+const templateBnCsv = bnCsv;
+const templateEnCsv = 'key,value\nগান,Song\nশিরোনাম,Title\n';
+const templateBpyCsv = 'key,value\nগান,Elahan\n';
 // One heading row rides along in the stored file, as a file saved by an older
 // build would carry: the page must not turn it into a row.
 const bpyCsv = 'key,value\nগান,Elahan\n### «{1}» — নিবন্ধ বিশ্লেষণ,লেবেল\n';
@@ -52,7 +57,7 @@ const enCsv = 'key,value\nগান,Song\nগান,Song (duplicate wins)\n'.rep
  */
 const LONG_SOURCE = Array.from({ length: 60 }, (_, index) => `${'স্ট্রিং'} ${index + 1}`);
 
-function boot({ bn = bnCsv } = {}) {
+function boot({ bn = bnCsv, stored = null, enTemplate = templateEnCsv, bpyTemplate = templateBpyCsv } = {}) {
   const dom = new JSDOM('<!doctype html><html><body><div id="root"></div><div id="modal-root"></div></body></html>', {
     url: 'https://example.test/dashboard/',
     runScripts: 'outside-only'
@@ -68,6 +73,8 @@ function boot({ bn = bnCsv } = {}) {
   window.fetch = async (url) => {
     const name = String(url).split('/').pop();
     if (name === 'bn.csv') return { ok: true, text: async () => bn };
+    if (name === 'en.csv' && enTemplate !== null) return { ok: true, text: async () => enTemplate };
+    if (name === 'bpy.csv' && bpyTemplate !== null) return { ok: true, text: async () => bpyTemplate };
     return { ok: false, status: 404, text: async () => '' };
   };
   window.NC = {
@@ -86,6 +93,7 @@ function boot({ bn = bnCsv } = {}) {
       tableShell: ({ head = '', body = '', caption = '' } = {}) =>
         `<div class="table-shell"><table class="data-table"><caption>${caption}</caption><thead>${head}</thead><tbody>${body}</tbody></table></div>`,
       toast: (message, tone) => toasts.push({ message, tone }),
+      notice: (message, tone) => `<div class="notice notice-${tone}">${message}</div>`,
       openModal: ({ content, footer, onOpen }) => {
         const modal = window.document.createElement('div');
         modal.innerHTML = `${content}${footer}`;
@@ -97,7 +105,7 @@ function boot({ bn = bnCsv } = {}) {
     },
     api: {
       list: async () => ({
-        data: [
+        data: stored || [
           { lang: 'bn', label: 'বাংলা', csv: bnCsv, row_count: SOURCE.length },
           { lang: 'bpy', label: 'বিষ্ণুপ্রিয়া মণিপুরী', csv: bpyCsv, row_count: 1, updated_at: '2026-09-11T00:00:00Z' },
           { lang: 'en', label: 'English', csv: enCsv, row_count: 1 }
@@ -162,13 +170,15 @@ test('languages page', { skip: JSDOM ? false : 'jsdom is not installed (npm inst
     assert.equal(cells(root, 'bpy')[1].value, '', 'untranslated strings start blank');
   });
 
-  await t.test('coverage is shown per language', () => {
+  await t.test('coverage is shown per language, and what is published beside it', () => {
     const chips = root.querySelector('[data-lang-chips]').textContent.replace(/\s+/g, ' ').trim();
-    assert.match(chips, new RegExp(`bpy 1/${SOURCE.length}`));
-    assert.match(chips, new RegExp(`en 1/${SOURCE.length}`));
-    // Bengali always has wording, so what is worth counting is how much of it
-    // somebody has rewritten.
-    assert.match(chips, /bn 0 edited/);
+    // Two numbers per language: what the grid holds, and what the app can read.
+    // They differ the moment the repository translates something the dashboard has
+    // not saved yet — which is the state this page exists to make visible.
+    assert.match(chips, new RegExp(`bpy 1/${SOURCE.length} · 1 saved`));
+    assert.match(chips, new RegExp(`en 2/${SOURCE.length} · 1 saved`),
+      'শিরোনাম came from the committed template, so it is filled but not saved');
+    assert.match(chips, /bn 0 edited · 5 saved/);
   });
 
   await t.test('typing in a cell keeps the caret and updates the counts', () => {
@@ -186,12 +196,13 @@ test('languages page', { skip: JSDOM ? false : 'jsdom is not installed (npm inst
     const rows = () => root.querySelectorAll('[data-entry-row]:not([hidden])').length;
     assert.equal(rows(), SOURCE.length, 'All shows every row');
 
-    // Only গান has both a bpy and an en value so far; শিরোনাম has one of the two.
+    // গান has both from the stored files, and শিরোনাম has its English from the
+    // committed template and its bpy from the cell typed in the test above.
     root.querySelector('[data-filter="missing"]').click();
     const missing = rows();
-    assert.equal(missing, SOURCE.length - 1, 'Missing is everything but the complete row');
+    assert.equal(missing, SOURCE.length - 2, 'Missing is everything but the complete rows');
     root.querySelector('[data-filter="complete"]').click();
-    assert.equal(rows(), 1, 'Complete shows the row that has both values');
+    assert.equal(rows(), 2, 'Complete shows the rows that have both values');
     assert.equal(rows(), SOURCE.length - missing, 'and the two filters are complements');
     root.querySelector('[data-filter="all"]').click();
     assert.equal(rows(), SOURCE.length);
@@ -250,7 +261,10 @@ test('languages page', { skip: JSDOM ? false : 'jsdom is not installed (npm inst
     assert.doesNotMatch(byLang.bpy.csv, /অনুসন্ধান/);
     assert.doesNotMatch(byLang.bpy.csv, /###/, 'and the stored heading is not written back either');
     assert.match(byLang.en.csv, /গান,Song\n/);
-    assert.equal(byLang.en.row_count, 1);
+    // শিরোনাম was never typed here: it came in from the committed template, and
+    // pressing Save is what publishes it — the road from the repository to the app.
+    assert.match(byLang.en.csv, /শিরোনাম,Title\n/);
+    assert.equal(byLang.en.row_count, 2);
     // Nobody has rewritten the Bengali yet, so its file holds no rows at all:
     // the app falls back to the string compiled into it.
     assert.equal(byLang.bn.csv, 'key,value\n');
@@ -360,6 +374,148 @@ test('languages page', { skip: JSDOM ? false : 'jsdom is not installed (npm inst
     const bpy = saved.filter((entry) => entry.payload.lang === 'bpy').pop();
     assert.match(bpy.payload.csv, /শিরোনাম,নিংশিং চে|গান,Elahan/, 'the earlier rows are still there');
     assert.doesNotMatch(bpy.payload.csv, /পড়া যায়নি,/, 'it did not land on a near-miss key of its own');
+  });
+
+  // -------------------------------------------------------------------------
+  // The road from the repository to the app
+  // -------------------------------------------------------------------------
+
+  await t.test('a translation committed in the repository reaches the grid', async () => {
+    // The page is served from the same directory the templates are built into
+    // (`i18n/build_language_templates.py` writes `assets/lang/*.csv`), so a
+    // translator's sheet committed there is one press away from being published.
+    // Before this the page read `bn.csv` for its key list and nothing else: the
+    // other two files were invisible to it however full they were, which is why
+    // the dashboard could look empty while the repository was translated.
+    const fresh = boot({
+      stored: [
+        { lang: 'bn', label: 'বাংলা', csv: bnCsv, row_count: SOURCE.length },
+        { lang: 'bpy', label: 'বিষ্ণুপ্রিয়া মণিপুরী', csv: '', row_count: 0 },
+        { lang: 'en', label: 'English', csv: '', row_count: 0 }
+      ],
+      enTemplate: 'key,value\nগান,Song\nশিরোনাম,Title\n',
+      bpyTemplate: 'key,value\nগান,Elahan\n'
+    });
+    await fresh.window.NC.views.languages.render(fresh.root);
+    assert.equal(cells(fresh.root, 'en')[0].value, 'Song', 'the English template is read on load');
+    assert.equal(cells(fresh.root, 'en')[1].value, 'Title');
+    assert.equal(cells(fresh.root, 'bpy')[0].value, 'Elahan', 'and the Bishnupriya one too');
+    assert.equal(fresh.saved.length, 0, 'reading a template writes nothing — Save publishes');
+
+    fresh.root.querySelector('[data-save-all]').click();
+    await settle();
+    const en = fresh.saved.filter((entry) => entry.payload.lang === 'en').pop();
+    assert.match(en.payload.csv, /গান,Song\n/);
+    assert.match(en.payload.csv, /শিরোনাম,Title\n/);
+    assert.equal(en.payload.row_count, 2, 'and the count is what the file the app reads holds');
+  });
+
+  await t.test('Load templates fills the blanks, and never a written cell', async () => {
+    // The template is not always there — it deploys with the site, so a dashboard
+    // opened while that deploy is running finds a 404 — and an editor may have
+    // typed over a cell in the meantime. The button is the second attempt, and it
+    // only ever writes into cells that are still empty.
+    const fresh = boot({
+      stored: [
+        { lang: 'bn', label: 'বাংলা', csv: bnCsv, row_count: SOURCE.length },
+        { lang: 'bpy', label: 'বিষ্ণুপ্রিয়া মণিপুরী', csv: '', row_count: 0 },
+        { lang: 'en', label: 'English', csv: '', row_count: 0 }
+      ],
+      enTemplate: null,
+      bpyTemplate: null
+    });
+    await fresh.window.NC.views.languages.render(fresh.root);
+    assert.equal(cells(fresh.root, 'en').filter((input) => input.value).length, 0,
+      'with no template to read, the English column is empty');
+
+    // The editor types one cell before the template arrives.
+    const typed = cells(fresh.root, 'en')[2];
+    type(fresh.window, typed, 'Look for');
+
+    // Now the deploy lands and the templates can be read.
+    fresh.window.fetch = async (url) => {
+      const name = String(url).split('/').pop();
+      if (name === 'en.csv') return { ok: true, text: async () => 'key,value\nগান,Song\nশিরোনাম,Title\n' };
+      if (name === 'bpy.csv') return { ok: true, text: async () => 'key,value\nগান,Elahan\n' };
+      return { ok: false, status: 404, text: async () => '' };
+    };
+    const button = fresh.root.querySelector('[data-load-templates]');
+    assert.ok(button, 'the button the i18n README tells an editor to press exists');
+    button.click();
+    await settle();
+    assert.equal(cells(fresh.root, 'en')[0].value, 'Song', 'the blank cell takes the template');
+    assert.equal(cells(fresh.root, 'en')[1].value, 'Title');
+    assert.equal(fresh.root.querySelector('[data-entry][data-lang="en"][data-key="অনুসন্ধান"]').value,
+      'Look for', 'the cell the editor wrote is left alone');
+    assert.equal(cells(fresh.root, 'bpy')[0].value, 'Elahan');
+    assert.ok(fresh.toasts.some((toast) => toast.message === 'Filled 3 empty cells from the committed templates (bpy 1, en 2). Press Save translations to publish.'),
+      'and it says how many cells it filled, and from where');
+    assert.equal(fresh.saved.length, 0, 'still nothing written: publishing is the Save button');
+
+    // Pressed again with nothing left to fill, it says so rather than counting zero
+    // silently.
+    fresh.toasts.length = 0;
+    button.click();
+    await settle();
+    assert.ok(fresh.toasts.some((toast) => /carry no wording the grid does not already have/.test(toast.message)));
+  });
+
+  await t.test('a language with nothing published says so, and says what to do', async () => {
+    const empty = boot({
+      stored: [
+        { lang: 'bn', label: 'বাংলা', csv: '', row_count: 0 },
+        { lang: 'bpy', label: 'বিষ্ণুপ্রিয়া মণিপুরী', csv: '', row_count: 0 },
+        { lang: 'en', label: 'English', csv: '', row_count: 0 }
+      ]
+    });
+    await empty.window.NC.views.languages.render(empty.root);
+    const note = empty.root.querySelector('[data-publish-note]').textContent.replace(/\s+/g, ' ');
+    assert.match(note, /Nothing has been published yet/,
+      'the state the app is in when nobody has ever saved');
+    assert.match(note, /app shows its own Bengali text whatever language a reader picks/);
+    assert.match(note, /Load templates/);
+    assert.match(note, /Save translations/, 'and the way out of it');
+
+    // Half-published is its own sentence: a reader who picks the missing language
+    // still sees Bengali, and the notice names which one that is.
+    const half = boot({
+      stored: [
+        { lang: 'bn', label: 'বাংলা', csv: bnCsv, row_count: SOURCE.length },
+        { lang: 'bpy', label: 'বিষ্ণুপ্রিয়া মণিপুরী', csv: '', row_count: 0 },
+        { lang: 'en', label: 'English', csv: enCsv, row_count: 1 }
+      ]
+    });
+    await half.window.NC.views.languages.render(half.root);
+    const partly = half.root.querySelector('[data-publish-note]').textContent.replace(/\s+/g, ' ');
+    assert.match(partly, /Not published yet: bpy/);
+    assert.doesNotMatch(partly, /Nothing has been published yet/);
+
+    // And a board with everything published says nothing at all.
+    const done = boot();
+    await done.window.NC.views.languages.render(done.root);
+    assert.equal(done.root.querySelector('[data-publish-note]').textContent.trim(), '');
+  });
+
+  await t.test('saving updates what the page says is published', async () => {
+    const fresh = boot({
+      stored: [
+        { lang: 'bn', label: 'বাংলা', csv: '', row_count: 0 },
+        { lang: 'bpy', label: 'বিষ্ণুপ্রিয়া মণিপুরী', csv: '', row_count: 0 },
+        { lang: 'en', label: 'English', csv: '', row_count: 0 }
+      ]
+    });
+    await fresh.window.NC.views.languages.render(fresh.root);
+    assert.match(fresh.root.querySelector('[data-publish-note]').textContent, /Nothing has been published yet/);
+    // Type one English cell and publish: the notice stops saying "all three are
+    // empty", because after this save it is no longer true.
+    type(fresh.window, cells(fresh.root, 'en')[0], 'Song');
+    fresh.root.querySelector('[data-save-all]').click();
+    await settle();
+    const note = fresh.root.querySelector('[data-publish-note]').textContent.replace(/\s+/g, ' ');
+    // bpy came in from its committed template and was published by the same
+    // press, so Bengali is the one still to do.
+    assert.match(note, /Not published yet: bn\./, 'the empty one is named, not the published ones');
+    assert.match(fresh.root.querySelector('[data-lang-chips]').textContent.replace(/\s+/g, ' '), /en 2\/5 · 2 saved/, 'the typed row and the template row are both published');
   });
 
   await t.test('a failed save surfaces the error instead of pretending', async () => {
