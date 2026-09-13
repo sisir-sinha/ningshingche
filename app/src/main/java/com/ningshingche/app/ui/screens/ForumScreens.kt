@@ -2173,7 +2173,11 @@ private fun HomeForumRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = EditorialSpace.md, vertical = EditorialSpace.sm)
+            // Eight points above and below, not twelve: with five of these stacked
+            // the gap between one row and the next was the loudest space on the
+            // card. The picture is what sets the row's height, so the words beside
+            // it lose nothing.
+            .padding(horizontal = EditorialSpace.md, vertical = EditorialSpace.xs)
             .testTag("home_forum_thread_${discussion.id}"),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -2206,7 +2210,10 @@ private fun HomeForumRow(
             }
         }
 
-        Spacer(Modifier.width(EditorialSpace.sm))
+        // Eight points between the picture and the words, down from twelve: the
+        // owner's note is that this gap and the row's own spacing read as one
+        // stretch of empty space between two things that belong together.
+        Spacer(Modifier.width(EditorialSpace.xs))
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -2218,7 +2225,9 @@ private fun HomeForumRow(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
-            Spacer(Modifier.height(3.dp))
+            // The lines of the column are tight: a title, the facts under it, the
+            // date — one block of words, not three lines with air between them.
+            Spacer(Modifier.height(2.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = discussion.categoryTitle,
@@ -2238,7 +2247,7 @@ private fun HomeForumRow(
                     answered = discussion.hasReplies
                 )
             }
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(1.dp))
             Text(
                 text = formatBengaliDate(discussion.lastActivityAt),
                 fontFamily = Kalpurush,

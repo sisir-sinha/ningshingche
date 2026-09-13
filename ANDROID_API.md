@@ -1126,8 +1126,11 @@ request is gated in `HomeViewModel.loadForumLatest`, not merely the drawing), th
 moved last: `forum_overview(limit = 5, order = recent)` through the same repository call the forum
 itself uses, cut to five again on arrival. The card is an **inline list** — one row per thread,
 hairline between them, nothing scrolling sideways — with each row carrying a thumbnail (the cover,
-or the face of whoever opened the thread when there is none), the title on two lines, one line of
-facts (রুম, কতজন দেখেছে, কত উত্তর) and the date it last moved. A tap opens the thread; **সব দেখুন**
+or the stand-in a thread without a picture gets — the same `ForumCover.Photo` the forum page draws),
+the title on two lines, one line of facts (রুম, কতজন দেখেছে, কত উত্তর) and the date it last moved. The
+row is **tight**: 8 dp above and below (`EditorialSpace.xs`, down from 12 — five of them stacked made
+the gap between rows the loudest space on the card), 8 dp between the picture and the words, and 2 dp
+and 1 dp between the three lines of the column. A tap opens the thread; **সব দেখুন**
 opens the forum. A failure is one quiet line with **আবার** in it, because the strip is a way into the
 forum and not the forum. The composable lives in `ForumScreens.kt` (`HomeForumBlock`,
 `HomeForumRow`), beside the pieces it is built from.

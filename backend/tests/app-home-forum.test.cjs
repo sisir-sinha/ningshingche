@@ -341,6 +341,25 @@ test('the home page shows the forum\'s five newest threads', async (t) => {
       'and never the author\'s face in the picture\'s place: every thread has a picture');
   });
 
+  await t.test('the row is tight: eight points, not twelve, in both places', () => {
+    // The owner's note: the space between the picture and the column beside it,
+    // and the row's own spacing, read as one stretch of emptiness between two
+    // things that belong together. Both come down, and the three lines of the
+    // column sit closer to each other.
+    const row = screen('HomeForumRow');
+    assert.match(row, /\.padding\(horizontal = EditorialSpace\.md, vertical = EditorialSpace\.xs\)/,
+      'the row breathes eight points above and below, not twelve');
+    assert.match(row, /Spacer\(Modifier\.width\(EditorialSpace\.xs\)\)/,
+      'and eight between the cover and the words, not twelve');
+    assert.ok(!/vertical = EditorialSpace\.sm/.test(row),
+      'the generous size is gone from the row altogether');
+    assert.match(row, /Spacer\(Modifier\.height\(2\.dp\)\)/, 'the title to the facts');
+    assert.match(row, /Spacer\(Modifier\.height\(1\.dp\)\)/, 'and the facts to the date');
+    // The picture is what sets the row's height, so nothing the reader reads is
+    // squeezed by the change.
+    assert.match(row, /Modifier\.size\(HOME_FORUM_THUMB\)/);
+  });
+
   await t.test('five, asked for by the view model', () => {
     assert.match(HOME_VIEWMODEL, /private const val HOME_FORUM_COUNT = 5/);
     const loader = bodyOf(HOME_VIEWMODEL, 'loadForumLatest');
