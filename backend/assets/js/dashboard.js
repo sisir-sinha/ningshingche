@@ -291,8 +291,17 @@
   }
 
   function renderContent(container, data, analyticsOnly = false) {
-    const schemaError = data.errors.find((item) => item.error?.isSchemaMissing)?.error;
-    const errorBanner = data.errors.length ? `<div class="mb-6">${NC.components.notice(schemaError ? 'Database setup is required. Run backend/supabase/schema.sql in the Supabase SQL Editor; this page will then load real data.' : `${data.errors.length} data source${data.errors.length === 1 ? '' : 's'} could not be loaded. Available metrics are still shown.`, 'warning', 'fa-database')}</div>` : '';
+    // A missing table used to be answered with one sentence — run schema.sql — whatever
+    // had failed. The overview reads sixteen tables, and eight of them are built by
+    // migrations rather than by the base file (`profiles`, `music_tracks`, the three
+    // forum tables …), so that sentence was advice an editor could follow and then meet
+    // again unchanged. schemaHint() names the table that is missing and the file that
+    // adds it.
+    const missingTables = data.errors.filter((item) => item.error?.isSchemaMissing);
+    const hint = missingTables.length
+      ? NC.api.schemaHint(missingTables.map((item) => item.key), { purpose: 'so this page can load real data' })
+      : null;
+    const errorBanner = data.errors.length ? `<div class="mb-6">${NC.components.notice(hint ? hint.message : `${data.errors.length} data source${data.errors.length === 1 ? '' : 's'} could not be loaded. Available metrics are still shown.`, 'warning', 'fa-database')}</div>` : '';
     const metrics = visibleDefinitions();
     const canAnalyze = NC.auth.canAccess('analytics');
     const canSee = (route) => canAnalyze || NC.auth.canAccess(route);

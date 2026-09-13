@@ -14,7 +14,7 @@
     app: Object.freeze({
       name: 'Ningshing Che',
       subtitle: 'Editorial Command Center',
-      version: '1.9.3',
+      version: '1.9.4',
       websiteUrl: 'https://ningshingche.com',
       locale: 'en-BD',
       timeZone: 'Asia/Dhaka',

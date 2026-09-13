@@ -25,7 +25,10 @@ const TABLES = {
   galleries: 'galleries', books: 'pdf_books', submissions: 'submitted_blogs', videos: 'videos',
   music: 'music_tracks', settings: 'settings', profiles: 'profiles',
   notifications: 'user_notifications', messages: 'admin_messages',
-  languageFiles: 'app_language_files'
+  languageFiles: 'app_language_files',
+  // The forum, which config.js has carried since 029: the dashboard's overview reads
+  // the threads and answers, which is how a database without 029 raises the banner.
+  forum: 'forum_discussions', forumReplies: 'forum_replies', forumCategories: 'forum_categories'
 };
 
 const PROBED = Object.values(TABLES);
@@ -49,6 +52,10 @@ const SCHEMA = {
   user_notifications: ['id', 'user_id', 'title'],
   admin_messages: ['id', 'sender_id', 'body'],
   app_language_files: ['lang', 'label', 'csv', 'row_count', 'updated_at'],
+  forum_discussions: ['id', 'title', 'status', 'category_id', 'user_id', 'views_count', 'replies_count',
+    'is_official', 'created_at', 'last_reply_at', 'author_name'],
+  forum_replies: ['id', 'discussion_id', 'user_id', 'status', 'parent_id', 'author_name', 'is_official', 'created_at'],
+  forum_categories: ['id', 'slug', 'title'],
   blog_tag_counts: ['tag_key', 'issue_year', 'total'] // optional view, migration 013
 };
 
@@ -167,6 +174,51 @@ test('missing tables are reported with the schema file, not a migration', async 
   assert.match(issue.message, /1 required database table is missing/);
   assert.match(issue.message, /`authors`/);
   assert.match(issue.message, /backend\/supabase\/schema\.sql/);
+});
+
+test('the hint names the table and the migration that adds it, not schema.sql', () => {
+  // The dashboard's overview does not run the probe; it learns which tables are missing
+  // from its own failed reads and knows them by key. Its banner used to be one hardcoded
+  // sentence — run backend/supabase/schema.sql — which is impossible advice when the
+  // missing table is music_tracks (014) or profiles (005), and which is why an editor
+  // could run schema.sql, reload, and meet the same banner again.
+  const { NC } = setup();
+  const hint = NC.api.schemaHint(['music']);
+  assert.equal(hint.title, 'Database setup required');
+  assert.match(hint.message, /`music_tracks`/, 'the table by its database name');
+  assert.match(hint.message, /014_music_tracks\.sql/, 'and the file that adds it');
+  assert.match(hint.message, /schema\.sql builds the base tables only/,
+    'while saying where the rest of them live');
+
+  // A table the base schema really does create still points at the base schema.
+  const base = NC.api.schemaHint(['authors']);
+  assert.match(base.message, /backend\/supabase\/schema\.sql/);
+  assert.doesNotMatch(base.message, /migrations\/005/);
+
+  // Several at once: every table named, every file named once.
+  const many = NC.api.schemaHint(['profiles', 'notifications', 'messages', 'forum']);
+  for (const name of ['profiles', 'user_notifications', 'admin_messages', 'forum_discussions']) {
+    assert.match(many.message, new RegExp('`' + name + '`'), `${name} should be named`);
+  }
+  for (const file of ['005_reader_profiles.sql', '007_user_inbox.sql', '029_forum.sql']) {
+    assert.match(many.message, new RegExp(file.replace('.', '\\.')));
+  }
+  assert.equal((many.message.match(/007_user_inbox\.sql/g) || []).length, 1,
+    'two tables from one file is still one file to run');
+  assert.equal(NC.api.schemaHint([]), null, 'nothing missing, nothing to say');
+  assert.equal(
+    NC.api.schemaHint(['music'], { purpose: 'so this page can load real data' })
+      .message.includes('so this page can load real data'),
+    true, 'the caller can say what the tables are for');
+});
+
+test('the overview banner is built from the hint, and no longer hardcodes schema.sql', () => {
+  const dashboard = fs.readFileSync(path.join(__dirname, '../assets/js/dashboard.js'), 'utf8');
+  assert.match(dashboard, /NC\.api\.schemaHint\(missingTables\.map\(\(item\) => item\.key\)/,
+    'the banner asks what is missing');
+  assert.doesNotMatch(dashboard, /Run backend\/supabase\/schema\.sql in the Supabase SQL Editor/,
+    'the sentence that could not be followed is gone');
+  assert.match(dashboard, /item\.error\?\.isSchemaMissing/, 'only a missing table raises it');
 });
 
 test('a legacy login asks for the access-control migration', async () => {

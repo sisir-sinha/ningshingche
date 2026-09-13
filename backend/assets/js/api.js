@@ -426,6 +426,12 @@
    */
   const PROBE_FILES = {
     languageFiles: 'backend/supabase/migrations/023_app_language_files.sql',
+    // The overview reads these too, and none of them exists in schema.sql: the base
+    // file is nine tables, and everything the app grew afterwards is a migration.
+    profiles: 'backend/supabase/migrations/005_reader_profiles.sql',
+    music: 'backend/supabase/migrations/014_music_tracks.sql',
+    notifications: 'backend/supabase/migrations/007_user_inbox.sql',
+    messages: 'backend/supabase/migrations/007_user_inbox.sql',
     forum: ['backend/supabase/migrations/029_forum.sql', 'backend/supabase/migrations/030_forum_answers.sql', 'backend/supabase/migrations/032_forum_editorial.sql', 'backend/supabase/migrations/034_forum_reply_edit.sql'],
     forumReplies: ['backend/supabase/migrations/029_forum.sql', 'backend/supabase/migrations/030_forum_answers.sql', 'backend/supabase/migrations/032_forum_editorial.sql', 'backend/supabase/migrations/034_forum_reply_edit.sql'],
     forumCategories: 'backend/supabase/migrations/029_forum.sql',
@@ -456,23 +462,52 @@
   }
 
   /**
+   * The same message, asked for by table key rather than by a probe.
+   *
+   * The dashboard's overview does not run the probe: it learns which tables are
+   * missing from its own failed reads, and it knows them by key. The sentence it used
+   * to print was one hardcoded line — run backend/supabase/schema.sql — which cannot
+   * work when the missing table is `music_tracks` (014) or `profiles` (005), and which
+   * is why an editor could run schema.sql, reload, and meet the very same banner.
+   * This names the table that is missing and the file that adds it.
+   */
+  function schemaHint(keys, options = {}) {
+    const list = (Array.isArray(keys) ? keys : [keys]).filter(Boolean);
+    if (!list.length) return null;
+    return schemaBanner({
+      ok: false,
+      missing: list.map((key) => ({ key, table: tables[key] || key })),
+      mismatched: [],
+      accessControlMissing: false
+    }, options);
+  }
+
+  /**
    * What to tell the editor about a probe: which tables, which columns, and the one
    * file that fixes it. The banner used to blame migration 003 whatever had failed,
    * which sent people looking for Blog media columns when the problem was elsewhere.
    * Returns null when there is nothing worth showing.
    */
-  function schemaBanner(probe) {
+  function schemaBanner(probe, options = {}) {
     if (!probe || probe.ok) return null;
     const names = (items) => items.map((item) => `\`${item.table}\``).join(', ');
     const files = (items) => [...new Set(items.flatMap((item) => {
       const value = PROBE_FILES[item.key] || 'backend/supabase/schema.sql';
       return Array.isArray(value) ? value : [value];
     }))];
+    // A migration in the list means the base file is not the whole answer, and saying
+    // otherwise sends the editor round a loop: schema.sql is nine tables, and the ones
+    // added since are the numbered files beside it.
+    const since = (list) => (list.some((file) => file.includes('/migrations/'))
+      ? ' backend/supabase/schema.sql builds the base tables only; the numbered files in backend/supabase/migrations/ add everything else, in number order.'
+      : '');
+    const purpose = options.purpose || 'before using CRUD features';
     if (probe.missing.length) {
       const count = probe.missing.length;
+      const list = files(probe.missing);
       return {
         title: 'Database setup required',
-        message: `${count} required database table${count === 1 ? ' is' : 's are'} missing (${names(probe.missing)}). Run ${files(probe.missing).join(' and ')} before using CRUD features.`
+        message: `${count} required database table${count === 1 ? ' is' : 's are'} missing (${names(probe.missing)}). Run ${list.join(' and ')} ${purpose}.${since(list)}`
       };
     }
     if (probe.mismatched.length) {
@@ -642,7 +677,7 @@
 
   NC.api = Object.freeze({
     ApiError, request, list, getById, count, insert, insertMany, update, upsert, remove, removeWhere,
-    rpc, slugExists, searchAll, schemaProbe, schemaBanner, uploadPdf, uploadAudio, deleteStorageObject,
+    rpc, slugExists, searchAll, schemaProbe, schemaBanner, schemaHint, uploadPdf, uploadAudio, deleteStorageObject,
     storagePublicUrl, attemptImgBBDelete, userMessage, tableName,
     tagIndex, issueYears, blogsByIssue, blogsByTag, tagEndpointsAvailable, probeTagEndpoints, arrayLiteral
   });

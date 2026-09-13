@@ -115,9 +115,16 @@ The project owner subsequently installed `schema.sql`, and a second read-only RE
 
 1. Sign in to the correct [Supabase dashboard](https://supabase.com/dashboard).
 2. Open **SQL Editor** for the project.
-3. Review and run the complete `supabase/schema.sql` file.
+3. Review and run the complete `supabase/schema.sql` file. It builds the **nine base tables** plus
+   the Storage bucket, and it is not the whole database: `profiles`, `music_tracks`,
+   `user_notifications`, `admin_messages`, `app_language_files` and the three forum tables all come
+   from the numbered files in `supabase/migrations/`. The dashboard's overview reads sixteen tables
+   in total, which is why it keeps asking for the ones that are missing.
 4. Review and run `supabase/migrations/004_dashboard_access_control.sql` (the current base schema already contains migration 003's media columns).
-5. Sign in, replace the initial Super Admin password, and open **Settings → Authentication & database → Run check**.
+5. Sign in, replace the initial Super Admin password, and open **Settings → Authentication & database → Run check**. The check lists every table it asked for, marks each **Ready** or **Missing**, and names the file that adds the missing ones — read that line rather than guessing.
+6. Run the rest of the migrations **in number order** (`005` … `035`) if the features they add are in
+   use. The dashboard does not fail quietly when one is missing: its overview banner now names the
+   table and the file. **Settings → Authentication & database → Run check** is the complete list.
 
 ### Upgrade an existing dashboard database
 
@@ -149,6 +156,10 @@ For an existing installation, use this order:
 4. Sign in as `admin` / `admin123` only on a fresh access-control installation and replace that password immediately.
 5. Open **Settings → Authentication & database → Run check**.
 6. Run the registered-user migrations `005`–`012` in order if the app's reader features are in use.
+   Then `014_music_tracks.sql` (the Music menu and the app's player), `023_app_language_files.sql`
+   (the Languages page), and `026`–`028` (contributor points, the board's dashboard page, and the
+   public profile's detail columns). Skip any migration only if you are happy for the surface it
+   adds to stay empty — the dashboard's overview still reads the table, and will name it.
 7. Run `013_blog_tags.sql` (optional but recommended). It installs the **tag endpoints**: normalised tag keys (`blog_tag_key`), a generated `blogs.tag_keys` column with a GIN index, the `blog_tag_counts` view, and the `blogs_by_issue` / `blogs_by_tag` / `blog_issue_years` RPCs. Until it is installed, the Blogs page shows a small hint and runs the issue/tag filters in the browser instead.
 8. Run `029_forum.sql`, then `030_forum_answers.sql`, if the app's forum is in use. Between them they add the forum boards, discussions, answers and reactions, the public read policies the app needs, dashboard policies for the **Forum** page, the app's `forum_*` read/write RPCs, notifications, and the forum's share of contributor points. Supabase's SQL Editor may warn that the older `forum_*` function signatures are being replaced: that is expected — `030` drops the four `029` signatures it re-creates and re-states **Run and enable RLS** for each table it adds. Until these are installed, the dashboard's Forum page reports the migration it is missing (see **Troubleshooting**).
 9. Run `031_forum_menu_permission.sql` — the one that makes **Forum** a menu a role can actually hold. Until it is installed, `dashboard_save_role` filters the key through an allow-list that has never heard of it, so ticking *Forum* in Users & Roles saves without it and the sidebar shows no Forum row. It also replaces `029`'s blanket dashboard policy on the three tables with ones named after the menu (read: Forum or Analytics; every write: Forum), exactly as Comments and Music are guarded. A database that has not installed `029` or `004` is left alone by it.
@@ -576,7 +587,51 @@ The tests use fixtures only and do not contact or modify production Supabase. Se
 
 ### “Database setup required”
 
-Run `supabase/schema.sql` in the project SQL Editor and then use the Settings database check.
+**Read the sentence first — it names the table and the file.** The banner is raised by one thing
+only: a table the page asked for answered `404` with PostgREST's `PGRST205` ("Could not find the
+table … in the schema cache"), which means the table does not exist. It is not raised by an empty
+table, by RLS filtering every row out (that is a `200` with `[]`), by a `500`, or by a slow request.
+
+`schema.sql` builds nine tables. The dashboard reads sixteen:
+
+| Table | Added by |
+| --- | --- |
+| `authors`, `categories`, `blogs`, `comments`, `galleries`, `pdf_books`, `submitted_blogs`, `videos`, `settings` | `supabase/schema.sql` |
+| `profiles` | `migrations/005_reader_profiles.sql` |
+| `user_notifications`, `admin_messages` | `migrations/007_user_inbox.sql` |
+| `music_tracks` | `migrations/014_music_tracks.sql` |
+| `app_language_files` | `migrations/023_app_language_files.sql` |
+| `forum_discussions`, `forum_replies`, `forum_categories` | `migrations/029_forum.sql` (+ `030`, `032`, `034` for their columns and functions) |
+
+So running `schema.sql` again cannot clear this banner when the missing table is one of the eight at
+the bottom — run the file the banner names, in the order **Settings → Authentication & database →
+Run check** lists them.
+
+To list what is missing without opening the dashboard, in the Supabase **SQL Editor**:
+
+```sql
+select expected.name as missing_table
+from (values
+  ('authors'), ('categories'), ('blogs'), ('comments'), ('galleries'), ('pdf_books'),
+  ('submitted_blogs'), ('videos'), ('settings'), ('profiles'), ('user_notifications'),
+  ('admin_messages'), ('music_tracks'), ('app_language_files'),
+  ('forum_discussions'), ('forum_replies'), ('forum_categories')
+) as expected(name)
+where not exists (
+  select 1 from information_schema.tables t
+  where t.table_schema = 'public' and t.table_name = expected.name
+)
+order by expected.name;
+```
+
+An empty result means every table the dashboard reads exists — if the banner is still on screen
+then, reload the page, and check that `assets/js/config.js` points at **this** project: the dashboard
+reads whatever `supabase.url` says, and a URL left on another project's ref gives the same
+"Could not find the table" answer with the SQL run in the wrong place.
+
+A table that exists but still answers `PGRST205` is a stale PostgREST schema cache. Create or change
+tables through the SQL Editor and it reloads on its own; if it does not (rare, and it used to happen
+when SQL ran outside the editor), run `notify pgrst, 'reload schema';` in the SQL Editor and reload.
 
 ### “Database update required” or missing columns
 
