@@ -99,38 +99,51 @@ test('every forum screen has room at the top, and its own back arrow', async (t)
     assert.match(account, /Icons\.Default\.Notifications|unreadCount/, 'and the account menu still counts them');
   });
 
-  await t.test('the search is an icon in the bar, and the field slides out under it', () => {
-    // The owner's third correction to this screen: the field was a full-width box
-    // with type bigger than the page's own. The bar carries the magnifier now, and
-    // the field it opens is a 48 dp line with the forum's body size.
+  await t.test('the field is on the page, and the icon goes to it', () => {
+    // The owner's third correction made this field a line the icon opens ("only the
+    // search icon beside the header right corner before the reload icon"); later they
+    // asked for the input to be visible and chose "both": the field stays on the page
+    // and the magnifier stays in the bar, pointing at it. Three things follow — and
+    // the third is the bug that turned this into a correction.
     assert.match(FORUM_SCREENS, /testTag\("forum_search_toggle"\)/, 'the icon in the bar');
     assert.match(FORUM_SCREENS, /onSearchClick: \(\(\) -> Unit\)\? = null/,
       'which the scaffold takes');
     assert.match(FORUM_SCREENS, /searchField: \(@Composable \(\) -> Unit\)\? = null/,
       'and a slot for the field itself');
     const scaffold = screen('ForumScaffold');
-    assert.match(scaffold, /AnimatedVisibility\(\s*\n\s*visible = searchOpen/, 'and what it opens animates');
-    assert.match(scaffold, /expandVertically\(/, 'out from the bar');
-    assert.match(scaffold, /shrinkVertically\(/, 'and back into it');
-    assert.match(scaffold, /Icons\.Default\.Close/, 'the icon becomes a way to put it away');
+
+    // 1. Nothing opens or closes the field: it is on the page whenever it is given.
+    assert.ok(!/searchOpen/.test(scaffold), 'no toggle state is left to hide it behind');
+    assert.match(scaffold, /if \(searchField != null\) searchField\(\)/,
+      'the field is called whenever there is one to call');
+
+    // 2. The magnifier puts the caret in it.
+    assert.match(scaffold, /Icons\.Default\.Search/, 'the magnifier is still the magnifier');
+    assert.match(FORUM_SCREENS, /onSearchClick = \{ searchFocus\.requestFocus\(\) \}/,
+      'and a tap sends the caret to the field');
+    const field = screen('ForumSearchField');
+    // The parameter lives in the declaration, and bodyOf() returns the body only.
+    assert.match(FORUM_SCREENS, /focusRequester: FocusRequester,\n/, 'which the field takes');
+    assert.match(field, /\.focusRequester\(focusRequester\)/, 'and hangs on the text field');
+
+    // 3. Scaffold places every child of the `topBar` slot at (0, 0) — Material 3's own
+    // `topBarPlaceables.fastForEach { it.place(0, 0) }` — so a field emitted there as a
+    // second child was drawn *over* the bar: it blanketed the title, the back arrow and
+    // both icons, the magnifier that opened it included. The bar, the field and the
+    // refresh line stack in a Column instead.
+    assert.match(scaffold,
+      /Column\(\s*\n\s*modifier = Modifier[\s\S]{0,120}?\.background\(MaterialTheme\.colorScheme\.surface\)/,
+      'the bar stacks its children in a Column');
+    const slot = scaffold.slice(scaffold.indexOf('topBar = {'));
+    assert.ok(slot.indexOf('Column(') < slot.indexOf('searchField()'),
+      'so the field sits under the bar, not over it');
+
     // Order in the actions row: the magnifier, then the reload icon.
     const search = scaffold.indexOf('forum_search_toggle');
     const refresh = scaffold.indexOf('forum_refresh');
     assert.ok(search !== -1 && refresh !== -1 && search < refresh,
       'the search sits before the reload icon, as the owner asked');
-    // Scaffold places every child of the `topBar` slot at (0, 0) — Material 3's own
-    // `topBarPlaceables.fastForEach { it.place(0, 0) }` — so the field, emitted as a
-    // second child there, was drawn *over* the bar: it blanketed the title, the back
-    // arrow and both icons, including the magnifier that opened it. The bar, the
-    // field and the refresh line stack in a Column instead, so it slides out under
-    // the bar and the bar stays whole.
-    assert.match(scaffold,
-      /Column\(\s*\n\s*modifier = Modifier[\s\S]{0,120}?\.background\(MaterialTheme\.colorScheme\.surface\)/,
-      'the bar stacks its children in a Column');
-    const slot = scaffold.slice(scaffold.indexOf('topBar = {'));
-    assert.ok(slot.indexOf('Column(') < slot.indexOf('AnimatedVisibility('),
-      'so the field opens under the bar, not over it');
-    const field = screen('ForumSearchField');
+
     assert.match(field, /testTag\("forum_search"\)/, 'the field is still the field');
     assert.match(field, /fontSize = 13\.sp/, 'with the forum page\'s own size, not a size above it');
     assert.ok(!/leadingIcon/.test(field), 'and no second magnifier inside it');

@@ -103,6 +103,8 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -405,9 +407,11 @@ fun ForumHomeScreen(
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<ForumSearchResult?>(null) }
     var searching by remember { mutableStateOf(false) }
-    // The field is behind the bar's magnifier now. Closing it clears the search,
-    // because a field that is not on screen is not a filter the reader can see.
-    var searchOpen by remember { mutableStateOf(false) }
+    // The field is on the page, under the bar, from the moment the forum opens. The
+    // magnifier in the bar is not a door to it any more: a tap puts the caret in it.
+    // (It used to be behind a toggle, and a field that is not on screen is not a
+    // filter the reader can see.)
+    val searchFocus = remember { FocusRequester() }
 
     LaunchedEffect(reloadToken, order) {
         loading = true
@@ -443,19 +447,13 @@ fun ForumHomeScreen(
         } ?: "নিংশিং চে পাঠকদের আলোচনা",
         onBackClick = onBackClick,
         onRefreshClick = { reloadToken += 1 },
-        searchOpen = searchOpen,
-        onSearchClick = {
-            searchOpen = !searchOpen
-            if (!searchOpen) {
-                query = ""
-                results = null
-            }
-        },
+        onSearchClick = { searchFocus.requestFocus() },
         searchField = {
             ForumSearchField(
                 value = query,
                 onValueChange = { query = it },
-                searching = searching
+                searching = searching,
+                focusRequester = searchFocus
             )
         }
     ) { padding ->
@@ -2683,10 +2681,9 @@ private fun ForumScaffold(
     onBackClick: (() -> Unit)?,
     refreshing: Boolean = false,
     onRefreshClick: (() -> Unit)? = null,
-    /** Whether the search field is out. The icon in the bar is what opens it. */
-    searchOpen: Boolean = false,
+    /** What the bar's magnifier does. The field is on the page already; this puts the caret in it. */
     onSearchClick: (() -> Unit)? = null,
-    /** The field itself — only the forum home has one to give. */
+    /** The field itself — only the forum home has one to give. It sits under the bar, always. */
     searchField: (@Composable () -> Unit)? = null,
     bottomBar: (@Composable () -> Unit)? = null,
     content: @Composable (PaddingValues) -> Unit
@@ -2700,8 +2697,8 @@ private fun ForumScaffold(
             // That is what the field did: opening the search blanketed the title, the
             // back arrow and both icons, the magnifier that put it there included, and
             // there was no way back out of it. The bar, the field and the refresh line
-            // are stacked in this Column, so the field really does slide out under the
-            // bar and the bar stays whole.
+            // are stacked in this Column, so the field sits under the bar — where the
+            // owner wants to see it — and the bar itself stays whole.
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -2739,10 +2736,11 @@ private fun ForumScaffold(
                         }
                     },
                     // No bell here: notices are the dashboard's, and the forum's bar
-                    // belongs to the forum. The search is an icon in the corner,
-                    // **before** the reload icon — the owner's order — and the field
-                    // it opens slides out under the bar rather than living on the
-                    // page as a full-width box.
+                    // belongs to the forum. The search stays an icon in the corner,
+                    // **before** the reload icon — the owner's order — and it points
+                    // at a field that lives on the page under the bar: the owner asked
+                    // for that field to be visible, so the tap puts the caret in it
+                    // rather than opening it.
                     actions = {
                         if (onSearchClick != null) {
                             IconButton(
@@ -2750,8 +2748,8 @@ private fun ForumScaffold(
                                 modifier = Modifier.testTag("forum_search_toggle")
                             ) {
                                 Icon(
-                                    imageVector = if (searchOpen) Icons.Default.Close else Icons.Default.Search,
-                                    contentDescription = if (searchOpen) "খোঁজ বন্ধ করুন" else "আলোচনা খুঁজুন"
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = "আলোচনা খুঁজুন"
                                 )
                             }
                         }
@@ -2773,21 +2771,7 @@ private fun ForumScaffold(
                 )
                 // The field slides out from under the bar and back into it, with the
                 // page underneath simply making room — no jump, no blank frame.
-                if (searchField != null) {
-                    AnimatedVisibility(
-                        visible = searchOpen,
-                        enter = expandVertically(
-                            animationSpec = tween(durationMillis = 220),
-                            expandFrom = Alignment.Top
-                        ) + fadeIn(animationSpec = tween(durationMillis = 180)),
-                        exit = shrinkVertically(
-                            animationSpec = tween(durationMillis = 180),
-                            shrinkTowards = Alignment.Top
-                        ) + fadeOut(animationSpec = tween(durationMillis = 120))
-                    ) {
-                        searchField()
-                    }
-                }
+                if (searchField != null) searchField()
                 // A refresh behind content that is already on screen: a line under
                 // the bar says so without taking the thread off the page.
                 if (refreshing) {
@@ -2839,17 +2823,17 @@ private fun ForumSectionTitle(title: String, count: Int? = null, modifier: Modif
  *
  * The owner's words were that the input was "too big text" and that the page
  * wanted "only the search icon beside the header right corner before the reload
- * icon". So the field is not on the page until it is asked for: the icon in the
- * app bar opens it, it is a 48 dp line rather than a full-width box, and its text
- * is the same size as the rest of the forum's body copy rather than larger. The
- * leading magnifier is gone with it — the icon that opened the field is the
- * magnifier.
+ * icon"; later they asked for the input to be visible again. Both stand: the field
+ * is a 48 dp line at the forum's own body size with no second magnifier inside it,
+ * it sits on the page under the bar rather than behind a tap, and the icon in the
+ * corner puts the caret in it.
  */
 @Composable
 private fun ForumSearchField(
     value: String,
     onValueChange: (String) -> Unit,
     searching: Boolean,
+    focusRequester: FocusRequester,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -2891,6 +2875,7 @@ private fun ForumSearchField(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp)
+                    .focusRequester(focusRequester)
                     .testTag("forum_search")
             )
         }
