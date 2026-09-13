@@ -462,6 +462,8 @@ fun EditorialReaderApp(
                     onSeeAllMusic = { navController.navigate(ReaderRoute.Music) },
                     onSeeAllContributors = { navController.navigate(ReaderRoute.Contributors) },
                     onContributorClick = { navController.navigate(ReaderRoute.publicProfile(it)) },
+                    onForumDiscussionClick = { id -> navController.navigate(ReaderRoute.forumThread(id)) },
+                    onSeeAllForum = { navController.navigate(ReaderRoute.Forum) },
                     onMenuClick = {
                         coroutineScope.launch { drawerState.open() }
                     },

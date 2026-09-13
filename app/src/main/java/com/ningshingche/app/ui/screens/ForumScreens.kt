@@ -103,6 +103,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -250,6 +251,9 @@ private const val FORUM_FOLD_LINES = 3
 
 /** The cover, as the thread itself shows it: full width, and worth looking at. */
 private val FORUM_THREAD_COVER_HEIGHT = 208.dp
+
+/** The home page's forum thumbnails: a square, the size of a face and a little more. */
+private val HOME_FORUM_THUMB = 58.dp
 
 /** How far a reply is indented inside its answer. */
 private val FORUM_REPLY_INDENT = 22.dp
@@ -1911,6 +1915,247 @@ private fun ForumReactionCount(
 }
 
 // ---------------------------------------------------------------------------
+// সাম্প্রতিক আলোচনা, on the home page
+// ---------------------------------------------------------------------------
+
+/**
+ * The forum's newest five threads, on the home page, for a signed-in reader.
+ *
+ * The owner asked for a card after the header with the latest discussions in it,
+ * an inline list rather than a sideways rail, five of them, and for registered
+ * readers only. It sits here, beside the rest of the forum, because it is drawn
+ * from the same pieces: the same face, the same font sizes, the same date, the
+ * same থাম্বনেইল with অনুমোদিত on its corner.
+ *
+ * A *list*, not a rail: five rows that each say what the thread is — a
+ * thumbnail, the title on two lines, and one line of facts (রুম, কতজন দেখেছে,
+ * কত উত্তর) — so a reader reads it top to bottom rather than swiping through it.
+ * The row is the whole target, and `সব দেখুন` opens the forum itself.
+ */
+@Composable
+internal fun HomeForumBlock(
+    discussions: List<ForumDiscussion>,
+    loading: Boolean,
+    error: String?,
+    onDiscussionClick: (String) -> Unit,
+    onSeeAll: () -> Unit,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val tokens = LocalEditorialTokens.current
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(EditorialShape.card),
+        tonalElevation = 1.dp,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = EditorialSpace.gutter)
+            .testTag("home_forum_block")
+    ) {
+        Column(modifier = Modifier.padding(vertical = EditorialSpace.sm)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = EditorialSpace.md)
+                    .padding(bottom = EditorialSpace.xs),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Forum,
+                    contentDescription = null,
+                    tint = tokens.accent,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(EditorialSpace.xs))
+                Text(
+                    text = "সাম্প্রতিক আলোচনা",
+                    fontFamily = Kalpurush,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = "সব দেখুন",
+                    fontFamily = Kalpurush,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 12.5.sp,
+                    color = tokens.accent,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(EditorialShape.thumb))
+                        .clickable(onClick = onSeeAll)
+                        .padding(horizontal = EditorialSpace.xs, vertical = 2.dp)
+                        .testTag("home_forum_see_all")
+                )
+            }
+
+            Hairline(Modifier.padding(horizontal = EditorialSpace.md))
+
+            when {
+                // First, so a reader never sees "no discussions yet" for the second
+                // and a half it takes to fetch them.
+                loading && discussions.isEmpty() -> Box(
+                    modifier = Modifier.padding(
+                        horizontal = EditorialSpace.md,
+                        vertical = EditorialSpace.sm
+                    )
+                ) { ForumInlineLoading() }
+
+                discussions.isEmpty() && error != null -> Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = EditorialSpace.md, vertical = EditorialSpace.sm),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = error,
+                        fontFamily = Kalpurush,
+                        fontSize = 12.5.sp,
+                        color = tokens.inkMuted,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = "আবার",
+                        fontFamily = Kalpurush,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.5.sp,
+                        color = tokens.accent,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(EditorialShape.thumb))
+                            .clickable(onClick = onRetry)
+                            .padding(horizontal = EditorialSpace.xs, vertical = 2.dp)
+                            .testTag("home_forum_retry")
+                    )
+                }
+
+                discussions.isEmpty() -> Text(
+                    text = "ফোরামে এখনো কোনো আলোচনা নেই।",
+                    fontFamily = Kalpurush,
+                    fontSize = 12.5.sp,
+                    color = tokens.inkMuted,
+                    modifier = Modifier.padding(
+                        horizontal = EditorialSpace.md,
+                        vertical = EditorialSpace.sm
+                    )
+                )
+
+                else -> discussions.forEachIndexed { index, discussion ->
+                    if (index > 0) {
+                        Hairline(Modifier.padding(horizontal = EditorialSpace.md))
+                    }
+                    HomeForumRow(
+                        discussion = discussion,
+                        onClick = { onDiscussionClick(discussion.id) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** One thread on the home page: picture on the left, words and facts beside it. */
+@Composable
+private fun HomeForumRow(
+    discussion: ForumDiscussion,
+    onClick: () -> Unit
+) {
+    val tokens = LocalEditorialTokens.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = EditorialSpace.md, vertical = EditorialSpace.sm)
+            .testTag("home_forum_thread_${discussion.id}"),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(modifier = Modifier.size(HOME_FORUM_THUMB)) {
+            // A thread with a cover shows it; one without shows the face of the
+            // reader who opened it, so the row never has a hole in it.
+            if (discussion.hasCover) {
+                Surface(
+                    shape = RoundedCornerShape(EditorialShape.thumb),
+                    color = tokens.surfaceSunken,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    PortalAsyncImage(
+                        url = discussion.coverImageUrl,
+                        contentDescription = discussion.title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            } else {
+                Surface(
+                    shape = RoundedCornerShape(EditorialShape.thumb),
+                    color = tokens.accentSoft,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        ForumAvatar(
+                            url = discussion.authorAvatarUrl,
+                            name = discussion.authorName,
+                            size = HOME_FORUM_THUMB.value.toInt()
+                        )
+                    }
+                }
+            }
+            if (discussion.isOfficial) {
+                // The owner's rule, on this card too: the badge sits on the
+                // thumbnail's bottom-right corner, not in the words.
+                ThumbnailOfficialBadge(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .testTag("home_forum_official_${discussion.id}")
+                )
+            }
+        }
+
+        Spacer(Modifier.width(EditorialSpace.sm))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = discussion.title,
+                fontFamily = Kalpurush,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.5.sp,
+                lineHeight = 17.5.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(3.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = discussion.categoryTitle,
+                    fontFamily = Kalpurush,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 11.5.sp,
+                    color = tokens.accent,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                Spacer(Modifier.width(EditorialSpace.xs))
+                ForumCounters(
+                    discussions = discussion.views,
+                    replies = discussion.replies,
+                    views = true,
+                    answered = discussion.hasReplies
+                )
+            }
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = formatBengaliDate(discussion.lastActivityAt),
+                fontFamily = Kalpurush,
+                fontSize = 10.5.sp,
+                color = tokens.inkMuted,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Opening a thread
 // ---------------------------------------------------------------------------
 
@@ -2601,20 +2846,34 @@ private fun ForumDiscussionCard(
             if (discussion.hasCover) {
                 // The cover is the card's full height on the left: a column of
                 // words beside a picture, not a picture above a column of words.
-                Surface(
-                    shape = RoundedCornerShape(EditorialShape.thumb),
-                    color = tokens.surfaceSunken,
+                // অনুমোদিত, when this thread has it, sits on the picture — its
+                // bottom-right corner — rather than in the column of words.
+                Box(
                     modifier = Modifier
                         .width(FORUM_CARD_COVER_WIDTH)
                         .fillMaxHeight()
-                        .testTag("forum_card_cover_${discussion.id}")
                 ) {
-                    PortalAsyncImage(
-                        url = discussion.coverImageUrl,
-                        contentDescription = discussion.title,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
+                    Surface(
+                        shape = RoundedCornerShape(EditorialShape.thumb),
+                        color = tokens.surfaceSunken,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("forum_card_cover_${discussion.id}")
+                    ) {
+                        PortalAsyncImage(
+                            url = discussion.coverImageUrl,
+                            contentDescription = discussion.title,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    if (discussion.isOfficial) {
+                        ThumbnailOfficialBadge(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .testTag("forum_card_official_${discussion.id}")
+                        )
+                    }
                 }
                 Spacer(Modifier.width(EditorialSpace.xs))
             }
@@ -2643,7 +2902,10 @@ private fun ForumDiscussionCard(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
                     )
-                    if (discussion.isOfficial) {
+                    // Only when there is no thumbnail to carry it: with a cover
+                    // the badge is on the picture, and one thread never says the
+                    // same thing twice on one card.
+                    if (discussion.isOfficial && !discussion.hasCover) {
                         Spacer(Modifier.width(EditorialSpace.xs))
                         OfficialBadge()
                     }
@@ -2741,22 +3003,35 @@ private fun AdminBadge(modifier: Modifier = Modifier) {
     }
 }
 
-/** অনুমোদিত — the admin opened this one. */
+/**
+ * অনুমোদিত — the admin opened this one.
+ *
+ * **Over a thumbnail it is drawn on the thumbnail itself**, at its bottom-right
+ * corner — the owner asked for exactly that. A photograph can be any colour at
+ * all, so that version is a solid accent fill with white content and a soft
+ * shadow under it rather than the pale chip: the pale one is legible on a page
+ * and unreadable on a picture. `onImage = false` is the version for a row that
+ * has no picture to sit on.
+ */
 @Composable
-private fun OfficialBadge() {
+private fun OfficialBadge(onImage: Boolean = false, modifier: Modifier = Modifier) {
     val tokens = LocalEditorialTokens.current
+    val ink = if (onImage) Color.White else tokens.accent
     Row(
-        modifier = Modifier
+        modifier = modifier
             .clip(RoundedCornerShape(EditorialShape.chip))
-            .background(tokens.accentSoft)
-            .padding(horizontal = EditorialSpace.xs, vertical = 1.dp)
+            .background(if (onImage) tokens.accent else tokens.accentSoft)
+            .padding(
+                horizontal = if (onImage) 6.dp else EditorialSpace.xs,
+                vertical = if (onImage) 2.dp else 1.dp
+            )
             .testTag("forum_official_badge"),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = Icons.Default.Verified,
             contentDescription = null,
-            tint = tokens.accent,
+            tint = ink,
             modifier = Modifier.size(12.dp)
         )
         Spacer(Modifier.width(3.dp))
@@ -2765,8 +3040,26 @@ private fun OfficialBadge() {
             fontFamily = Kalpurush,
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
-            color = tokens.accent
+            color = ink
         )
+    }
+}
+
+/**
+ * অনুমোদিত, pinned to the bottom-right corner of the picture it is about.
+ *
+ * One composable for every thumbnail in the app — the card's cover, a thread's
+ * own cover, the home page's strip — so the mark cannot end up in one corner on
+ * one screen and another corner on the next.
+ */
+@Composable
+private fun ThumbnailOfficialBadge(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .padding(EditorialSpace.xxs)
+            .shadow(2.dp, RoundedCornerShape(EditorialShape.chip))
+    ) {
+        OfficialBadge(onImage = true)
     }
 }
 
@@ -3136,31 +3429,41 @@ private fun ForumOpeningPost(
                                 )
                             }
                     )
+                    if (discussion.isOfficial) {
+                        // The owner's rule, on the thread as well as the card:
+                        // অনুমোদিত belongs on the picture, in its bottom-right
+                        // corner, not in the words over it.
+                        ThumbnailOfficialBadge(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(
+                                    end = EditorialSpace.xs,
+                                    bottom = EditorialSpace.xs
+                                )
+                                .testTag("forum_thread_official")
+                        )
+                    }
                     Column(
                         modifier = Modifier
                             .align(Alignment.BottomStart)
                             .padding(
                                 start = EditorialSpace.sm,
-                                end = EditorialSpace.sm,
+                                // The badge has the corner: the words stop short of
+                                // it rather than running under it.
+                                end = if (discussion.isOfficial) 96.dp else EditorialSpace.sm,
                                 bottom = EditorialSpace.sm
                             ),
                         verticalArrangement = Arrangement.spacedBy(0.dp)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = discussion.categoryTitle,
-                                fontFamily = Kalpurush,
-                                fontSize = 12.sp,
-                                lineHeight = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                maxLines = 1
-                            )
-                            if (discussion.isOfficial) {
-                                Spacer(Modifier.width(EditorialSpace.xs))
-                                OfficialBadge()
-                            }
-                        }
+                        Text(
+                            text = discussion.categoryTitle,
+                            fontFamily = Kalpurush,
+                            fontSize = 12.sp,
+                            lineHeight = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            maxLines = 1
+                        )
                         Spacer(Modifier.height(2.dp))
                         Text(
                             text = discussion.title,

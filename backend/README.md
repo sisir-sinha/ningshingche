@@ -89,7 +89,8 @@ backend/
         ├── 031_forum_menu_permission.sql   # Forum as a menu permission: the allow-list, the roles, the tables behind it
         ├── 032_forum_editorial.sql         # Editorial threads and answers: a signature, no reader required, reactions for the dashboard
         ├── 033_profile_paging.sql          # The app's paged public profile: five rows of one kind at a time, and the four totals
-        └── 034_forum_reply_edit.sql        # An answer is its author's: is_mine for every reply, and the edit/delete RPCs behind a long tap
+        ├── 034_forum_reply_edit.sql        # An answer is its author's: is_mine for every reply, and the edit/delete RPCs behind a long tap
+        └── 035_contributor_order.sql       # The contributor board's rank, computed with the order it is ranked by
 ```
 
 ## Database setup
@@ -156,6 +157,8 @@ For an existing installation, use this order:
 11. Run `033_profile_paging.sql` so the app's public profile can page its lists: it adds `profile_items(user, kind, limit, offset)`, which answers one window of five rows per kind (`articles`, `songs`, `threads`, `answers`) with the kind's total, and a `counts` kind that answers the four totals the tabs are labelled with. It reads the same tables `public_profile` does and exposes nothing else — no contact details, and no new table. Without it the app's public profile still opens: the identity card and the statistics card come from `public_profile`, and only the three lists wait, saying which file they need.
 
 12. Run `034_forum_reply_edit.sql` so a reader can change or remove **their own** answer in the app. It does two things. It re-creates `forum_discussion` and `forum_reply` with `is_official` and `is_mine` appended to every reply, so the app can mark an answer the dashboard wrote (**অ্যাডমিন**, on the right of the header) and can offer its own two actions (long tap → **সম্পাদনা** / **মুছে ফেলুন**) only on an answer that is the reader's. And it adds the two functions those actions call: `forum_edit_reply(p_id, p_body)` and `forum_delete_reply(p_id)`, both **author-only** — anyone else, including an editorial answer with no reader behind it, is refused with `42501`. A removal is `status = 'Removed'` rather than a `delete`, and the answers written under it are handed to the answer it answered, so nothing falls into a hole. Without it, the app still reads the forum: no অ্যাডমিন mark, and a long tap does nothing.
+
+13. Run `035_contributor_order.sql` so the সেরা অবদানকারী board is in the order it is named for. `026` (and `027`, which kept its shape) ranked the rows with `row_number() over ()` and ordered the query separately, expecting the two to agree — they do not: a window function is evaluated **before** the query's own `order by`, so the rank was the order the executor read the rows in, and `jsonb_agg(entry order by rank)` handed the page a board in the table's own order. The fix puts the ordering inside the window (`order by points desc, articles desc, songs desc, created_at asc`). The app sorts by the same rule before it draws, so the two pages are in order either way — but the numbers beside the rows are this file's job. It re-states the two wrappers' grants and changes nothing else.
 
 ### Annual issues and tags (নিংশিং চে বার্ষিক সংখ্যা)
 
@@ -597,6 +600,8 @@ from the check that failed, so read it rather than assuming Blog uploads:
 - The app's public profile says its lists need a database update, or a reader's tabs show an error where the rows should be → `supabase/migrations/033_profile_paging.sql` (the identity card and the statistics card open without it; only the three lists wait for it)
 - A reader cannot edit or remove their own answer in the app, or no answer carries the অ্যাডমিন mark →
   `supabase/migrations/034_forum_reply_edit.sql`
+- The সেরা অবদানকারী board is not in order of points (on the home page or on the contributor page),
+  or the dashboard's Contributors page is not → `supabase/migrations/035_contributor_order.sql`
 - A table reported as *missing* → `supabase/schema.sql`, then the migrations in order
 
 Run that file in the Supabase SQL Editor, reload the dashboard, and check again in **Settings →

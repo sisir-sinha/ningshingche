@@ -790,14 +790,29 @@ internal fun ProfileItemDto.toActivityAnswer() = ForumActivityAnswer(
     createdAt = createdAt.orEmpty()
 )
 
-internal fun ForumOverviewDto.toModel() = ForumOverview(
-    categories = categories.orEmpty().map { it.toModel() },
-    latest = latest.orEmpty().map { it.toModel() },
-    totalDiscussions = (totalDiscussions ?: 0).coerceAtLeast(0),
-    totalReplies = (totalReplies ?: 0).coerceAtLeast(0),
-    order = order.orEmpty().ifBlank { ForumOverview.ORDER_RECENT },
-    officialCount = (officialCount ?: 0).coerceAtLeast(0)
-)
+internal fun ForumOverviewDto.toModel(): ForumOverview {
+    val wanted = order.orEmpty().ifBlank { ForumOverview.ORDER_RECENT }
+    val rows = latest.orEmpty().map { it.toModel() }
+    return ForumOverview(
+        categories = categories.orEmpty().map { it.toModel() },
+        // **জনপ্রিয় is most answered first, then most read.** The database orders
+        // it that way (030), and the same rule is applied here so the tab cannot
+        // show a "popular" list in any other order: whichever way the rows
+        // arrive, the first card on that tab is the most answered thread.
+        latest = if (wanted == ForumOverview.ORDER_POPULAR) {
+            rows.sortedWith(
+                compareByDescending<ForumDiscussion> { it.replies }
+                    .thenByDescending { it.views }
+            )
+        } else {
+            rows
+        },
+        totalDiscussions = (totalDiscussions ?: 0).coerceAtLeast(0),
+        totalReplies = (totalReplies ?: 0).coerceAtLeast(0),
+        order = wanted,
+        officialCount = (officialCount ?: 0).coerceAtLeast(0)
+    )
+}
 
 internal fun ForumCategoryPageDto.toModel(): ForumCategoryPage? {
     val room = category?.toModel() ?: return null
@@ -1285,7 +1300,19 @@ internal fun ContributorDto.toModel(): Contributor = Contributor(
 
 internal fun ContributorBoardDto.toModel(): ContributorBoard = ContributorBoard(
     monthKey = monthKey.orEmpty(),
-    contributors = contributors.orEmpty().map { it.toModel() }
+    // Best first, and decided here as well as in the database. A board is a
+    // ranking: a list of readers that is not in the order of the thing it ranks
+    // them by is not a board, and it was reading as one (the rows arrived in the
+    // order the database happened to hold them — see 035). Sorting here means the
+    // page is in order whatever the server sends; the database sorts too, so the
+    // two agree rather than one correcting the other.
+    contributors = contributors.orEmpty()
+        .map { it.toModel() }
+        .sortedWith(
+            compareByDescending<Contributor> { it.points }
+                .thenByDescending { it.stats.articles }
+                .thenByDescending { it.stats.songs }
+        )
 )
 
 internal fun ContributorScoreDto.toModel(): ContributorScore = ContributorScore(

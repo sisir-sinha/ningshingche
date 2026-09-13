@@ -1119,6 +1119,32 @@ seat). The keyboard is asked for once the box has arrived (`FORUM_COMPOSER_APPEA
 on the box's header puts it away without posting anything, and Back goes keyboard → box → screen
 (the box's `BackHandler` is disabled while the IME is up, so the order cannot invert).
 
+**সাম্প্রতিক আলোচনা on the home page.** Under the header, for **registered readers only** (the
+request is gated in `HomeViewModel.loadForumLatest`, not merely the drawing), the five threads that
+moved last: `forum_overview(limit = 5, order = recent)` through the same repository call the forum
+itself uses, cut to five again on arrival. The card is an **inline list** — one row per thread,
+hairline between them, nothing scrolling sideways — with each row carrying a thumbnail (the cover,
+or the face of whoever opened the thread when there is none), the title on two lines, one line of
+facts (রুম, কতজন দেখেছে, কত উত্তর) and the date it last moved. A tap opens the thread; **সব দেখুন**
+opens the forum. A failure is one quiet line with **আবার** in it, because the strip is a way into the
+forum and not the forum. The composable lives in `ForumScreens.kt` (`HomeForumBlock`,
+`HomeForumRow`), beside the pieces it is built from.
+
+**Orders, and who decides them.** Three lists on three screens are rankings, and each one is sorted
+where it is drawn as well as in the database, so a screen cannot show a "top" list in any other
+order:
+
+| List | Order | Where |
+| --- | --- | --- |
+| সেরা অবদানকারী (home page and contributor page) | points desc, then articles, then songs | `PortalModels.ContributorBoardDto.toModel` |
+| জনপ্রিয় (forum home) | answers desc, then views | `PortalModels.ForumOverviewDto.toModel`, for `order = popular` |
+| সাম্প্রতিক আলোচনা (home page strip, forum home) | last activity desc | the database (`030`), left as it arrives |
+
+The contributor board's rank was genuinely wrong before `035`: `026` numbered the rows with
+`row_number() over ()` and ordered the query separately, and a window function runs before the
+query's own `order by` — so the rank was the table's physical order. The migration is the fix; the
+app-side sort is what makes the two pages right on a database that has not run it yet.
+
 *The forum's cards are one shape.* On **সাম্প্রতিক আলোচনা** the view and answer counters sit inline
 at the right of the category, with no pill, no border and no fill of their own — the owner's first
 correction to that card, and where it started. The title keeps **two** lines on every card, cover or
@@ -1127,6 +1153,14 @@ without one. Every card is exactly `FORUM_CARD_HEIGHT` (**152 dp**) — the owne
 items should be equal height* — so the words on it are capped rather than allowed to push the card
 taller than its neighbours. The cover is a 116 dp column filling that height beside the words, with
 the face, the name and the date on the floor of the card.
+
+**অনুমোদিত belongs on the picture.** Wherever a thread's thumbnail is drawn — the card's cover, the
+thread's own cover, a row of the home page's strip — the badge is pinned to that picture's
+**bottom-right corner** (`ThumbnailOfficialBadge`, `Modifier.align(Alignment.BottomEnd)`), in a solid
+accent fill with white content and a soft shadow, because a photograph can be any colour and the pale
+chip is unreadable on it. A card with no cover keeps the flat badge in its category row: there is no
+thumbnail to sit on. The thread's caption over the gradient stops short of the corner rather than
+running under it.
 
 The same counters, in the thread, sit at the **right of the creator block**: the face on the left, the
 name above its date, and the view and answer counts starting from the right-hand edge of that block —

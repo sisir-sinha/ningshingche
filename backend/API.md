@@ -981,8 +981,15 @@ The app calls it every five minutes while it is open and again when it goes to t
                       "articles", "songs", "comments", "views", "seconds", "points" } ] }
 ```
 
-Ordered by points, then articles, then songs. Readers with nothing in the month are left out.
-`p_month` is any date inside the month wanted; `p_limit` is clamped to 1–100.
+Ordered by points, then articles, then songs, descending. Readers with nothing in the month are
+left out. `p_month` is any date inside the month wanted; `p_limit` is clamped to 1–100.
+
+**The rank and the order are the same ordering (`035_contributor_order.sql`).** `026` computed the
+rank with `row_number() over ()` and ordered the query separately; a window function is evaluated
+before the query's own `order by`, so `over ()` numbered the rows in the order the executor read
+them and the board came back in the table's physical order. `035` moves the ordering inside the
+window, which is the only place it can be seen by the rank. The app sorts the board it is handed by
+the same rule before drawing it (`PortalModels`), so neither end is trusting the other's order.
 
 **Who may call what.** All three functions are `revoke`d from `public` and granted to
 `authenticated` only — a guest with the publishable key is refused by the database, which is what
@@ -1011,7 +1018,9 @@ the two callers apart.
 
 Counting is unchanged and still lives in `contributor_score` / `contributor_points_from`; `026`'s
 `contributor_leaderboard` and this one are both thin wrappers over a shared, unexported
-`contributor_board(p_limit, p_month, p_all)`, so the two cannot drift apart.
+`contributor_board(p_limit, p_month, p_all)`, so the two cannot drift apart — and both take their
+order from the one place `035_contributor_order.sql` re-states, so the app's page and the dashboard's
+page rank identically.
 
 App side: `/contributors` in the dashboard is not a page — it is the app's own screen. Dashboard side:
 the **সেরা অবদানকারী** route under Registered users.

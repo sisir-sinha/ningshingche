@@ -93,6 +93,7 @@ Google সাইন-ইন সময় শেষ হয়েছে। আব�
 সংরক্ষণ করুন,,ui,3,0,"ArticleScreen.kt, EditorialComponents.kt"
 সংরক্ষণ বাতিল করুন,,ui,3,0,"ArticleScreen.kt, EditorialComponents.kt"
 সঙ্গীত,,ui,3,0,"EditorialComponents.kt, MusicScreen.kt, PortalDrawer.kt"
+সব দেখুন,,ui,3,0,"ForumScreens.kt, HomeScreen.kt, ReaderViewModels.kt"
 সরান,,ui,3,0,"ForumScreens.kt, NewMusicScreen.kt, UserDashboardScreen.kt"
 সাইন ইন করা নেই।,,ui,3,0,"SupabaseClient.kt, UserProfileScreen.kt"
 সাইন ইন করা নেই। আবার প্রবেশ করুন।,,ui,3,0,SupabaseClient.kt
@@ -209,12 +210,12 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 সংরক্ষিত,,ui,2,0,"BookmarksScreen.kt, PortalDrawer.kt"
 সংস্কৃতি ও উৎসব,,ui,2,0,SupabaseModels.kt
 সকল PDF,,ui,2,0,"ArticleRepository.kt, NinghsingCheContentData.kt"
-সব দেখুন,,ui,2,0,"HomeScreen.kt, ReaderViewModels.kt"
 সব সংরক্ষিত,,ui,2,0,"Entities.kt, Models.kt"
 সমাজ,,ui,2,0,"EditorialComponents.kt, NingshingCheWebsiteClient.kt"
 সম্পাদক,,ui,2,0,"NingshingCheWebsiteClient.kt, SupabaseModels.kt"
 সম্পাদকীয়,,ui,2,0,"EditorialComponents.kt, NinghsingCheAiAssistant.kt"
 সাইন ইন,,ui,2,0,"AccountHeaderButton.kt, LoginScreen.kt"
+সাম্প্রতিক আলোচনা,,ui,2,0,ForumScreens.kt
 সারসংক্ষেপ,,ui,2,0,NinghsingCheAiAssistant.kt
 স্মৃতি,,ui,2,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 ১৬ই মার্চ,,content,2,0,NinghsingCheContentData.kt
@@ -346,6 +347,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 আপলোড সার্ভার এখন সাড়া দিচ্ছে না ({1})।,,ui,1,1,SatoruUploadClient.kt
 আপলোড সার্ভার ঠিকানা দেয়নি।,,ui,1,0,SatoruUploadClient.kt
 আপলোডার: {1},,ui,1,1,MusicBrowseScreens.kt
+আবার,,ui,1,0,ForumScreens.kt
 আমাদের অনুসরণ করুন,,ui,1,0,SiteFooter.kt
 আমাদের সম্পর্কে,,ui,1,0,SiteFooter.kt
 আমার ড্যাশবোর্ড,,ui,1,0,UserDashboardScreen.kt
@@ -357,6 +359,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 আরতী,,ui,1,0,MusicGenres.kt
 আর্কাইভ,,content,1,0,NinghsingCheContentData.kt
 আলোচনা {1} · উত্তর {2},,ui,1,2,ForumScreens.kt
+আলোচনা আনা যায়নি।,,ui,1,0,ReaderViewModels.kt
 আলোচনা খুলুন,,ui,1,0,ForumScreens.kt
 আলোচনা পাওয়া যায়নি।,,ui,1,0,ForumScreens.kt
 আলোচনা লোড হয়নি।,,ui,1,0,ForumScreens.kt
@@ -790,6 +793,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 ফোরাম · উত্তর,,ui,1,0,UserDashboardScreen.kt
 ফোরাম লোড হয়নি।,,ui,1,0,ForumScreens.kt
 ফোরামে আপনার কাজ,,ui,1,0,ForumScreens.kt
+ফোরামে এখনো কোনো আলোচনা নেই।,,ui,1,0,ForumScreens.kt
 ফোরামে যান,,ui,1,0,ForumScreens.kt
 ফোরামের হিসাব লোড হচ্ছে…,,ui,1,0,ForumScreens.kt
 ফ্রেমে মিল,,ui,1,0,PdfViewerScreen.kt
@@ -1049,7 +1053,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 সাদা / লাইট,,ui,1,0,SettingsScreen.kt
 সামাজিক কার্যকলাপ,,content,1,0,NinghsingCheContentData.kt
 সামাজিক নিয়ম,,content,1,0,NinghsingCheContentData.kt
-সাম্প্রতিক আলোচনা,,ui,1,0,ForumScreens.kt
 সাম্প্রতিক পঠিত তালিকা মুছে ফেলুন,,ui,1,0,SettingsScreen.kt
 সার্ভার জবাব: {1},,ui,1,1,NingshingCheWebsiteClient.kt
 সার্ভার ত্রুটি ({1}),,ui,1,1,PortalRepository.kt

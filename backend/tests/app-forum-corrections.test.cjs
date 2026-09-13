@@ -184,8 +184,13 @@ test('সাম্প্রতিক আলোচনা has its three filters', 
       'sampled once, at insert');
     assert.match(PORTAL_DTOS, /@Json\(name = "is_official"\) val isOfficial: Boolean\? = null/,
       'the app reads the badge');
-    assert.match(FORUM_SCREENS, /private fun OfficialBadge\(\)/,
+    // Re-anchored for the batch after this one: the badge is drawn over the
+    // thumbnail's bottom-right corner when the row has a picture, and the flat
+    // version is for a row that has none.
+    assert.match(FORUM_SCREENS, /private fun OfficialBadge\(onImage: Boolean = false/,
       'and shows it');
+    assert.match(FORUM_SCREENS, /private fun ThumbnailOfficialBadge\(/,
+      'on the picture, in its corner');
   });
 
   await t.test('each filter is a chip with its own name', () => {
