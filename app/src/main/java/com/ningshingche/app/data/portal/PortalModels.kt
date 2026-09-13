@@ -872,7 +872,7 @@ sealed class PortalError(message: String, cause: Throwable? = null) : Exception(
         }
     }
 
-    /** A table or column is missing — `schema.sql` or migration 003 has not run. */
+    /** A table or column is missing — the database has not had the base schema and its migrations run. */
     class SchemaMissing(override val message: String) : PortalError(message)
 
     /** Successful request, empty result. */

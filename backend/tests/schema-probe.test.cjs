@@ -212,6 +212,24 @@ test('the hint names the table and the migration that adds it, not schema.sql', 
     true, 'the caller can say what the tables are for');
 });
 
+test('a failed save sends the editor to the check, not to schema.sql', () => {
+  // userMessage is what every failed save and every failed page load says. Its
+  // missing-table line was the overview banner's sentence — run schema.sql — which is
+  // the advice that trapped an editor in a loop.
+  const { NC } = setup();
+  const missing = new NC.api.ApiError('Could not find the table in the schema cache',
+    { status: 404, code: 'PGRST205' });
+  const text = NC.api.userMessage(missing);
+  assert.match(text, /Run check/, 'the check names the table and the file');
+  assert.match(text, /migrations\//, 'and where the rest of the files are');
+  assert.doesNotMatch(text, /Run backend\/supabase\/schema\.sql first/,
+    'never the sentence that cannot be followed');
+
+  const api = fs.readFileSync(path.join(__dirname, '../assets/js/api.js'), 'utf8');
+  assert.doesNotMatch(api, /not installed yet\. Run backend\/supabase\/schema\.sql first/,
+    'and it does not come back');
+});
+
 test('the overview banner is built from the hint, and no longer hardcodes schema.sql', () => {
   const dashboard = fs.readFileSync(path.join(__dirname, '../assets/js/dashboard.js'), 'utf8');
   assert.match(dashboard, /NC\.api\.schemaHint\(missingTables\.map\(\(item\) => item\.key\)/,

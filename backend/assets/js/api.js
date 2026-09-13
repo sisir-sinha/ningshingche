@@ -666,8 +666,11 @@
 
   function userMessage(error, fallback = 'The operation could not be completed.') {
     if (!error) return fallback;
-    if (error.isSchemaMissing) return 'The Supabase tables are not installed yet. Run backend/supabase/schema.sql first.';
-    if (error.isSchemaMismatch) return 'A column this screen needs is missing from the database. Run the matching file in backend/supabase/migrations/ — 003 adds the Blog media columns.';
+    // Not "run schema.sql": eight of the tables this dashboard reads are built by the
+    // numbered migrations, so an editor who followed that line and reloaded met the
+    // same error. The check names the table and the file; say so instead.
+    if (error.isSchemaMissing) return 'The Supabase tables are not installed yet. Open Settings → Authentication & database → Run check: it names the missing table and the file that adds it. backend/supabase/schema.sql builds the base tables; the rest are the numbered files in backend/supabase/migrations/.';
+    if (error.isSchemaMismatch) return 'A column this screen needs is missing from the database. Open Settings → Authentication & database → Run check: it names the table and the file that adds the column (the numbered files in backend/supabase/migrations/).';
     if (error.code === '23505') return 'A record with this unique value already exists.';
     if (error.code === '23503') return 'This record is still used by related content and cannot be deleted.';
     if (error.code === '42501' || error.status === 401 || error.status === 403) return 'You do not have permission to perform this action. Sign in again or review the RLS policies.';
