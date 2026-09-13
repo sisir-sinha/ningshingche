@@ -261,14 +261,17 @@ private val HOME_FORUM_THUMB = 58.dp
  * gets their photograph; a reader who did not gets the stand-in below, so no card
  * on the forum — and no thread — ever shows a hole where the picture should be.
  *
- * The stand-in is built from the thread's own id rather than kept as an image
- * file: a data URI or a bundled drawable would be a second thing to ship and
- * maintain, and this is two lines of drawing. The colour is a **hue** taken from
- * the id, at one pitch and one depth for the whole app, so two threads almost
- * never come up the same and the page stays editorial rather than turning into a
- * colour chart. It is a hash, not a random number: the same thread takes the same
- * colour on every device and after every reload, which is what a reader expects
- * of a picture.
+ * The stand-in is drawn rather than shipped: a data URI or a bundled image would
+ * be a second thing to maintain, and this is four lines of painting.
+ *
+ * The fill is **random** — `Random.nextInt(360)` per thread, at one pitch and one
+ * depth for the whole app so the page stays editorial rather than turning into a
+ * colour chart — and each thread keeps the fill it drew for as long as the app is
+ * running ([fills]). Random is what the owner asked for and it is what a rail of
+ * cards wants: no two threads look alike. Redrawing it on every recomposition
+ * would make a card change colour while a reader scrolls past it, which is why
+ * the value is remembered per id and not thrown away — the picture is stable for
+ * the session, and a fresh launch deals a fresh set.
  *
  * On the cover sits the first letter of the title — the largest thing on the
  * picture and the one a reader's eye lands on first — centred on it.
@@ -285,17 +288,18 @@ private object ForumCover {
     /** Punctuation a title may open with, which is not a letter to show. */
     private const val OPENING_PUNCTUATION = "\"'«»“”‘’()[]{}<>-–—:;,.!?|/"
 
+    /** The fills this run of the app has already dealt, one per thread id. */
+    private val fills = java.util.concurrent.ConcurrentHashMap<String, Color>()
+
+    /** Drawn from the clock, so two launches do not deal the same colours. */
+    private val random = kotlin.random.Random(System.nanoTime())
+
     /**
-     * The fill for one thread: a hue from its id, at the pitch and depth above.
-     *
-     * The hash is written out rather than taken from `String.hashCode` so the
-     * colour is a property of this function and not of the platform's string
-     * implementation — the same id gives the same picture on every phone.
+     * The fill for one thread: a random hue, at the pitch and depth above, drawn
+     * the first time this thread asks for one and kept from then on.
      */
-    fun fillFor(id: String): Color {
-        var value = 0
-        id.forEach { char -> value = (value * 31 + char.code) and 0x7FFFFFFF }
-        return Color.hsl((value % 360).toFloat(), PITCH, DEPTH)
+    fun fillFor(id: String): Color = fills.getOrPut(id) {
+        Color.hsl(random.nextInt(360).toFloat(), PITCH, DEPTH)
     }
 
     /** The letter a stand-in shows: the first character of the title that is one. */
@@ -3526,9 +3530,45 @@ private fun ForumOpeningPost(
                             )
                         }
                 )
-                // No badge on the picture any more: the owner asked for the tick
-                // without the word, and it sits on the thread's own row below —
-                // where the reader's eye already is when they ask who wrote this.
+                // The same two numbers, in the same corner of the picture as on
+                // every card: views on the left, then the answers. The owner's
+                // sentence is about the forum's cover, and the thread's own cover
+                // is a cover; a reader who has just come from the list finds them
+                // exactly where they left them.
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(30.dp)
+                        .clip(RoundedCornerShape(topStart = EditorialShape.card, topEnd = EditorialShape.card))
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(Color(0x8C000000), Color.Transparent)
+                            )
+                        )
+                )
+                ForumCounters(
+                    discussions = discussion.views,
+                    replies = discussion.replies,
+                    views = true,
+                    answered = discussion.hasReplies,
+                    tint = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(EditorialSpace.xxs)
+                        .testTag("forum_thread_counters")
+                )
+                if (discussion.isOfficial) {
+                    // The verified tick, in the cover's other top corner — the
+                    // same place a card puts it, so the mark reads as one thing
+                    // wherever a thread is drawn. No word anywhere: the tick is
+                    // the badge.
+                    VerifiedMark(
+                        onImage = true,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .testTag("forum_thread_verified")
+                    )
+                }
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
@@ -3602,14 +3642,13 @@ private fun ForumOpeningPost(
 
 /**
  * Under the cover: the creator's face on the left, their name with the date on
- * the next line, and the views and answers of the thread held to the right of
- * that pair — "starting from the right side of that user info", which is where
- * the owner put them.
+ * the next line.
  *
- * The verified tick is the last thing on that line, for a thread the admin
- * opened. It is here rather than on the picture because the owner took the word
- * অনুমোদিত off the card and the thread both: the tick stays with the thread's own
- * facts, at the far right, where the eye finishes the row.
+ * The numbers used to be held to the right of that pair and the verified tick
+ * after them; both have moved onto the cover above ([ForumOpeningPost]), which is
+ * where the owner wants the numbers and where a card already puts its tick. What
+ * is left here is the one thing that belongs under a picture: who wrote it, and
+ * when.
  */
 @Composable
 private fun ForumOpeningMeta(
@@ -3629,17 +3668,6 @@ private fun ForumOpeningMeta(
             nameSize = 14.sp,
             onClick = onAuthorClick
         )
-        Spacer(Modifier.weight(1f))
-        ForumCounters(
-            discussions = discussion.views,
-            replies = discussion.replies,
-            views = true,
-            answered = discussion.hasReplies
-        )
-        if (discussion.isOfficial) {
-            Spacer(Modifier.width(EditorialSpace.xs))
-            VerifiedMark(modifier = Modifier.testTag("forum_thread_verified"))
-        }
     }
 }
 

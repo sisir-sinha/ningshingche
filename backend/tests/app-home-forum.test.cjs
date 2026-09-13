@@ -183,13 +183,19 @@ test('the verified mark is the tick alone, and it is on the picture', async (t) 
       'no branch left for a card without a picture: every card has one');
   });
 
-  await t.test('the thread keeps it in its own row, under the cover', () => {
+  await t.test('the thread puts it on the cover too, in the same corner', () => {
+    // The owner's sentence covers the forum's covers, and a thread's own cover is
+    // one: the tick is drawn for a picture there, at TopEnd — opposite the
+    // counters — exactly as a card draws it, so the mark reads as one thing
+    // wherever a thread appears.
     const post = screen('ForumOpeningPost');
-    assert.ok(!/VerifiedMark/.test(post), 'not on the cover: the owner took it off');
+    assert.match(post, /VerifiedMark\(\s*\n\s*onImage = true,\s*\n\s*modifier = Modifier\s*\n\s*\.align\(Alignment\.TopEnd\)/);
+    assert.match(post, /testTag\("forum_thread_verified"\)/);
+    // And the creator's row below is the row it should be: who wrote it, when.
     const meta = screen('ForumOpeningMeta');
-    assert.match(meta, /ForumCounters\([\s\S]{0,300}?if \(discussion\.isOfficial\) \{[\s\S]{0,120}?VerifiedMark\(/,
-      'after the thread\'s numbers, at the end of the row');
-    assert.match(meta, /testTag\("forum_thread_verified"\)/);
+    assert.match(meta, /ForumAuthorRow\(/);
+    assert.ok(!/VerifiedMark|ForumCounters/.test(meta),
+      'neither the tick nor the numbers live under the picture any more');
     const card = screen('ForumDiscussionCard');
     assert.match(card, /VerifiedMark\(\s*\n\s*onImage = true/,
       'while on a card it is drawn for a picture');
@@ -228,18 +234,24 @@ test('every thread has a cover, and a thread with no picture gets a stand-in', a
       'the card\'s cover is not conditional any more');
   });
 
-  await t.test('the stand-in is coloured from the thread\'s own id', () => {
+  await t.test('the stand-in fill is random, and a thread keeps the one it drew', () => {
     const cover = FORUM_SCREENS.slice(FORUM_SCREENS.indexOf('private object ForumCover {'),
       FORUM_SCREENS.indexOf('private fun ForumDiscussionCard('));
-    assert.match(cover, /fun fillFor\(id: String\): Color \{/);
-    assert.match(cover, /var value = 0\n\s*id\.forEach \{ char -> value = \(value \* 31 \+ char\.code\) and 0x7FFFFFFF \}/,
-      'a hash written out here, so the colour is this function\'s own property');
-    assert.match(cover, /Color\.hsl\(\(value % 360\)\.toFloat\(\), PITCH, DEPTH\)/,
-      'every id gets its own hue, at one pitch and one depth for the whole app');
-    assert.ok(!/Math\.random|Random\(/.test(cover),
-      'not a random number: the same thread keeps its colour on every device');
-    assert.match(cover, /private const val PITCH = 0\.34f/);
+    assert.match(cover, /fun fillFor\(id: String\): Color = fills\.getOrPut\(id\) \{/,
+      'one fill per thread id, remembered');
+    assert.match(cover, /Color\.hsl\(random\.nextInt\(360\)\.toFloat\(\), PITCH, DEPTH\)/,
+      'the hue is a random number — the owner asked for random twice');
+    assert.match(cover, /private val fills = java\.util\.concurrent\.ConcurrentHashMap<String, Color>\(\)/,
+      'the fills are held for the run of the app');
+    assert.match(cover, /private val random = kotlin\.random\.Random\(System\.nanoTime\(\)\)/,
+      'seeded from the clock, so two launches deal different colours');
+    assert.match(cover, /private const val PITCH = 0\.34f/, 'still one pitch and one depth, so the page stays editorial');
     assert.match(cover, /private const val DEPTH = 0\.33f/);
+    // Random *and* stable while a reader looks at it: the fill is drawn inside
+    // `getOrPut`, so it happens once per thread and not on every recomposition —
+    // a card that changed colour as it scrolled would be worse than a fixed one.
+    assert.match(cover, /fun fillFor\(id: String\): Color = fills\.getOrPut\(id\) \{\s*\n\s*Color\.hsl\(random\.nextInt\(360\)/,
+      'drawn once per thread, then remembered');
   });
 
   await t.test('and the title\'s first letter sits in the middle of it', () => {
@@ -275,8 +287,8 @@ test('every thread has a cover, and a thread with no picture gets a stand-in', a
   });
 
   await t.test('the counters are on the cover, in its top-left corner', () => {
-    // The owner's other sentence about this card: views and comments move off the
-    // category\'s line and onto the picture.
+    // The owner's other sentence: views and comments move off the category's line
+    // and onto the picture — on the card and on the thread's own cover alike.
     const card = screen('ForumDiscussionCard');
     const cover = card.slice(card.indexOf('.width(FORUM_CARD_COVER_WIDTH)'),
       card.indexOf('Spacer(Modifier.width(EditorialSpace.xs))'));
@@ -289,6 +301,16 @@ test('every thread has a cover, and a thread with no picture gets a stand-in', a
       'the scrim is not a pill: no second fill behind the numbers');
     assert.match(FORUM_SCREENS, /private fun ForumCounters\([\s\S]{0,400}?tint: Color\? = null/,
       'the counters take an ink, and keep their own when nobody passes one');
+
+    // The thread's own cover: the same corner, the same ink, the same scrim, and
+    // the creator's row below has neither.
+    const post = screen('ForumOpeningPost');
+    assert.match(post, /ForumCounters\([\s\S]{0,400}?\.align\(Alignment\.TopStart\)/);
+    assert.match(post, /tint = Color\.White/);
+    assert.match(post, /testTag\("forum_thread_counters"\)/);
+    const scrims = post.match(/Brush\.verticalGradient\(/g) || [];
+    assert.equal(scrims.length, 2,
+      'two gradients on the thread cover: the numbers\' scrim at the top, the caption\'s at the foot');
   });
 });
 

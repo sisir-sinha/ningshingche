@@ -1154,35 +1154,35 @@ description under it, and a 116 dp cover column filling that height beside them,
 name and the date on the floor of the card. There is no second shape: no branch on `hasCover` is left
 on the card, because every card has a picture.
 
-**The view and answer counters sit in the cover's top-left corner** (`ForumCounters`, tinted
-`Color.White` because what is under them is a photograph or one of the solid stand-in fills, over a
-30 dp scrim that fades out of the top of the picture — a gradient, not a pill, so the counters still
-keep no box of their own). They
-have moved three times in this card's life — the card's own top-right corner, then the category's
-line, and now the picture — and the category line has no second occupant at all any more.
+**The view and answer counters sit in the cover's top-left corner**, on the card and on the thread's
+own cover alike (`ForumCounters` at `Alignment.TopStart` — `forum_card_counters_<id>`,
+`forum_thread_counters` — tinted `Color.White` because what is under them is a photograph or one of
+the solid stand-in fills, over a 30 dp scrim that fades out of the top of the picture: a gradient, not
+a pill, so the counters still keep no box of their own). They have moved three times in this card's
+life — the card's own top-right corner, then the category's line, and now the picture — and the
+category line has no second occupant at all any more.
 
 **Every thread has a cover** (`ForumCover`), which is the owner's other sentence here: a reader who
-uploaded one gets their photograph, and a reader who did not gets a **stand-in** built from the
-thread's own id — `ForumCover.fillFor(id)` is `Color.hsl((hash % 360), 0.34f, 0.33f)`, so every thread
-has its own hue at one pitch and one depth, and the hash is written out in the app rather than taken
-from `String.hashCode`, so the same thread keeps the same colour on every device and after every
-reload. On it, centred, sits the **first letter of the title** (`ForumCover.initial`, skipping
-punctuation a title may open with), at 34 sp in the card's column, 66 sp on the thread's own cover and
-22 sp on the home page's thumbnail. One composable (`ForumCover.Photo`) draws all three, so a reader's
-photograph and the stand-in cannot drift apart between screens; a stand-in has nothing of its own to
-open, so tapping the thread's cover opens a picture only when the reader attached one.
+uploaded one gets their photograph, and a reader who did not gets a **stand-in**. Its fill is
+**random** — `ForumCover.fillFor(id)` is `Color.hsl(random.nextInt(360), 0.34f, 0.33f)`, a hue drawn
+per thread at one pitch and one depth so the page stays editorial rather than turning into a colour
+chart — and `fills` (a `ConcurrentHashMap` keyed by thread id) remembers what each thread drew, so the
+colour is random across threads and new on every launch, but does not change under a reader's eyes
+while they scroll. On the cover, centred, sits the **first letter of the title**
+(`ForumCover.initial`, skipping punctuation a title may open with), at 34 sp in the card's column,
+66 sp on the thread's own cover and 22 sp on the home page's thumbnail. One composable
+(`ForumCover.Photo`) draws all three, so a reader's photograph and the stand-in cannot drift apart
+between screens; a stand-in has nothing of its own to open, so tapping the thread's cover opens a
+picture only when the reader attached one.
 
 **The verified mark is the tick alone.** The owner took the word অনুমোদিত off the card and the thread:
 what is left is `VerifiedMark`, one composable for both surfaces — a dark scrim with a white tick over
 a picture (`onImage = true`), the pale accent chip in a line of words — with the meaning in its
-`contentDescription` for a screen reader. On a card it sits in the cover's **top-right corner**
-(`forum_card_official_<id>`), opposite the counters; on the home page's strip it is the thumbnail's
-top-right corner; in the thread it is the last thing on the creator's own row
-(`forum_thread_verified`), beside the thread's numbers, and **not** on the cover.
-
-The same counters, in the thread, sit at the **right of the creator block**: the face on the left, the
-name above its date, and the view and answer counts starting from the right-hand edge of that block —
-`ForumOpeningMeta`, which is the one place a thread's numbers are drawn.
+`contentDescription` for a screen reader. It shares the cover with the counters, so it takes the
+other corner: a card's cover at `forum_card_official_<id>`, the home page's thumbnail at
+`home_forum_official_<id>`, and the thread's own cover at `forum_thread_verified` — all three
+`Alignment.TopEnd`, all three `onImage = true`. The creator's row below (`ForumOpeningMeta`) is what a
+row under a picture should be: the face, the name, the date, and nothing else.
 
 *Files are attached, previewed and opened.* `ForumAttachment` (a URL, a name, a type, a size) is
 the model; `forumWithAttachments` appends `<p><img src="…" alt="…"></p>` for a picture and
