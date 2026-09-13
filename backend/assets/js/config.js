@@ -14,7 +14,7 @@
     app: Object.freeze({
       name: 'Ningshing Che',
       subtitle: 'Editorial Command Center',
-      version: '1.9.5',
+      version: '1.9.6',
       websiteUrl: 'https://ningshingche.com',
       locale: 'en-BD',
       timeZone: 'Asia/Dhaka',
@@ -77,6 +77,11 @@
       // this dashboard read a hidden thread for moderation.
       forum: 'forum_discussions',
       forumReplies: 'forum_replies',
+      // The reactions on an answer, from migration 030. Without this key every
+      // reaction read, write and delete asked PostgREST for /rest/v1/forumReactions,
+      // which is a table that cannot exist — the message and the banner that came
+      // back were about a missing database, not a missing key.
+      forumReactions: 'forum_reactions',
       forumCategories: 'forum_categories'
     }),
 

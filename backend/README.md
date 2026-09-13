@@ -602,6 +602,7 @@ table, by RLS filtering every row out (that is a `200` with `[]`), by a `500`, o
 | `music_tracks` | `migrations/014_music_tracks.sql` |
 | `app_language_files` | `migrations/023_app_language_files.sql` |
 | `forum_discussions`, `forum_replies`, `forum_categories` | `migrations/029_forum.sql` (+ `030`, `032`, `034` for their columns and functions) |
+| `forum_reactions` | `migrations/030_forum_answers.sql` |
 
 So running `schema.sql` again cannot clear this banner when the missing table is one of the eight at
 the bottom — run the file the banner names, in the order **Settings → Authentication & database →
@@ -625,9 +626,21 @@ order by expected.name;
 ```
 
 An empty result means every table the dashboard reads exists — if the banner is still on screen
-then, reload the page, and check that `assets/js/config.js` points at **this** project: the dashboard
-reads whatever `supabase.url` says, and a URL left on another project's ref gives the same
-"Could not find the table" answer with the SQL run in the wrong place.
+then, reload the page. Two causes are left, and neither is a migration:
+
+1. **A key the config does not know.** `NC.api.tableName(key)` falls back to the key itself, so a
+   screen that asks for `'forumAnswers'` when `config.tables` carries `forumReplies` makes PostgREST
+   look for a table called `forumAnswers` — `404 PGRST205`, which is exactly what raises this banner.
+   That is what happened here: `assets/js/dashboard.js` asked for `forumAnswers` (the config's key is
+   `forumReplies`) and `assets/js/forum.js` asked for `forumReactions` (the table is `forum_reactions`,
+   from migration 030). Both are fixed, and `backend/tests/schema-probe.test.cjs` now fails if any key
+   passed to `NC.api.*` is missing from `config.tables`, so the phantom key cannot come back.
+2. **A dashboard talking to another project.** The dashboard reads whatever `supabase.url` says, and a
+   URL left on a different project's ref gives the same "Could not find the table" answer with the SQL
+   run in the wrong place. `setup.html` prints the project ref the page is actually using.
+
+A table that exists but still answers `PGRST205` is a stale PostgREST schema cache: `notify pgrst,
+'reload schema';` in the SQL Editor, then reload.
 
 A table that exists but still answers `PGRST205` is a stale PostgREST schema cache. Create or change
 tables through the SQL Editor and it reloads on its own; if it does not (rare, and it used to happen

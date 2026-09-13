@@ -32,7 +32,7 @@
     if (['published', 'drafts', 'articleViews'].includes(key)) return 'blogs';
     if (key === 'pendingComments') return 'comments';
     if (key === 'profiles') return 'registered-users';
-    if (key === 'discussions' || key === 'answers') return 'forum';
+    if (['discussions', 'answers', 'forumReplies'].includes(key)) return 'forum';
     return key;
   }
 
@@ -63,7 +63,7 @@
       // Narrow on purpose: no `body` here, so the overview never downloads the
       // text of every thread to draw a number.
       ['forum', 'id,title,status,category_id,user_id,views_count,replies_count,is_official,created_at,last_reply_at'],
-      ['forumAnswers', 'id,discussion_id,user_id,status,created_at']
+      ['forumReplies', 'id,discussion_id,user_id,status,created_at']
     ];
     const canAnalyze = NC.auth.canAccess('analytics');
     const entities = allEntities.filter(([key]) => canAnalyze || NC.auth.canAccess(permissionRoute(key)));
@@ -145,10 +145,13 @@
       ['forum', 'Discussion', 'comment-dots', (item) => item.title, (item) => item.status],
       // An answer has no title of its own; it belongs to a thread, so the thread's
       // title is what the feed shows.
-      ['forumAnswers', 'Answer', 'message', (item) => data.forum.find((thread) => thread.id === item.discussion_id)?.title || 'Forum answer', (item) => item.status]
+      ['forumReplies', 'Answer', 'message', (item) => data.forum.find((thread) => thread.id === item.discussion_id)?.title || 'Forum answer', (item) => item.status]
     ].filter(([key]) => NC.auth.canAccess('forum'));
+    // The key names the data; the route names the page. They are the same thing for
+    // every menu except the forum's answers, which live on the Forum page.
+    const routeOf = (key) => (key === 'forumReplies' ? 'forum' : key);
     return map.flatMap(([key, type, icon, title, status]) => (data[key] || []).slice(0, 8).map((item) => ({
-      id: item.id, route: key, type, icon, title: title(item) || 'Untitled', status: status(item), created_at: item.created_at
+      id: item.id, route: routeOf(key), type, icon, title: title(item) || 'Untitled', status: status(item), created_at: item.created_at
     }))).sort((a, b) => (new Date(b.created_at).getTime() || 0) - (new Date(a.created_at).getTime() || 0)).slice(0, 10);
   }
 

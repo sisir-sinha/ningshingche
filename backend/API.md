@@ -567,7 +567,8 @@ Table name mapping lives in `NC_CONFIG.tables`:
 | `messages` | `admin_messages` | `created_at.desc` | grouped per user |
 | `notifications` | `user_notifications` | `created_at.desc` | 10 |
 | `forum` | `forum_discussions` | `created_at.desc` | 10 (Forum) |
-| `forumAnswers` | `forum_replies` | `created_at.asc` | — (inside one discussion) |
+| `forumReplies` | `forum_replies` | `created_at.asc` | — (inside one discussion) |
+| `forumReactions` | `forum_reactions` | `created_at.asc` | — (inside one answer) |
 | `forumCategories` | `forum_categories` | `position.asc` | filter dropdown |
 | — (read-only view) | `blog_tag_counts` | `issue_year.desc.nullslast,total.desc` | filter dropdowns |
 

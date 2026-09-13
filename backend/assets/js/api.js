@@ -415,6 +415,9 @@
     // half-loading a page.
     forum: 'id,status,replies_count,last_reply_at,is_official,author_name',
     forumReplies: 'id,status,parent_id,author_name,is_official',
+    // Keyed on (reply_id, reactor_key): there is no `id` column here, and asking for
+    // one is the mistake that once made a healthy database report a missing column.
+    forumReactions: 'reply_id,reactor_key,kind,user_id,created_at',
     forumCategories: 'id,slug,title'
   };
 
@@ -435,6 +438,7 @@
     forum: ['backend/supabase/migrations/029_forum.sql', 'backend/supabase/migrations/030_forum_answers.sql', 'backend/supabase/migrations/032_forum_editorial.sql', 'backend/supabase/migrations/034_forum_reply_edit.sql'],
     forumReplies: ['backend/supabase/migrations/029_forum.sql', 'backend/supabase/migrations/030_forum_answers.sql', 'backend/supabase/migrations/032_forum_editorial.sql', 'backend/supabase/migrations/034_forum_reply_edit.sql'],
     forumCategories: 'backend/supabase/migrations/029_forum.sql',
+    forumReactions: ['backend/supabase/migrations/030_forum_answers.sql', 'backend/supabase/migrations/032_forum_editorial.sql'],
     blogs: 'backend/supabase/migrations/003_blog_media_uploads.sql',
     submissions: 'backend/supabase/migrations/003_blog_media_uploads.sql'
   };

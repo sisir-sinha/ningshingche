@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ningshing Che — database setup check</title>
+<!--
+  A standalone check for the question "why does the dashboard say Database setup is
+  required?". It reads the same `assets/js/config.js` the dashboard reads, so it
+  talks to the same Supabase project, and it asks the same questions the dashboard
+  asks — the seventeen tables (with the columns each screen needs) and the twelve
+  reads the overview makes.
+
+  No login, no build step, no external resources: everything is inline so the page
+  works even when a CDN is blocked. Open it from the deployed site:
+
+    https://sisir-sinha.github.io/ningshingche/setup.html
+
+  The verdict names the tables that are missing and the file that adds each one,
+  which is the whole answer to the banner. See backend/README.md → Troubleshooting.
+-->
+<style>
+  :root { --ink:#131722; --soft:#414A5C; --muted:#6E7787; --rule:#DDE2EC; --paper:#F7F8FB;
+          --card:#fff; --accent:#2F4B8F; --ok:#1E7A54; --warn:#B4761B; --bad:#B4232A; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:28px 16px; background:var(--paper); color:var(--ink);
+         font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; }
+  main { max-width:920px; margin:0 auto; }
+  h1 { margin:0 0 4px; font-size:24px; }
+  h2 { margin:28px 0 8px; font-size:15px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
+  .sub { color:var(--soft); margin:0 0 20px; }
+  .card { background:var(--card); border:1px solid var(--rule); border-radius:12px; padding:18px 20px; margin:0 0 14px; }
+  .verdict { border-left:6px solid var(--muted); }
+  .verdict.ok { border-color:var(--ok); }
+  .verdict.warn { border-color:var(--warn); }
+  .verdict.bad { border-color:var(--bad); }
+  .verdict h3 { margin:0 0 6px; font-size:17px; }
+  .verdict p { margin:0; color:var(--soft); }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--rule); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.05em; }
+  code { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12.5px; background:#EDF0F7; padding:1px 5px; border-radius:5px; }
+  .pill { display:inline-block; padding:1px 8px; border-radius:999px; font-size:12px; font-weight:600; }
+  .pill.ok  { background:#E4F2EA; color:var(--ok); }
+  .pill.bad { background:#FBE9EA; color:var(--bad); }
+  .pill.warn{ background:#FBF0DC; color:var(--warn); }
+  .pill.wait{ background:#EDF0F7; color:var(--muted); }
+  .kv { display:grid; grid-template-columns:190px 1fr; gap:6px 14px; font-size:14px; }
+  .kv dt { color:var(--muted); }
+  .kv dd { margin:0; word-break:break-all; }
+  button { font:inherit; padding:8px 16px; border-radius:9px; border:1px solid var(--accent);
+           background:var(--accent); color:#fff; cursor:pointer; }
+  button.ghost { background:#fff; color:var(--accent); }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:8px; }
+  details { margin-top:6px; }
+  summary { cursor:pointer; color:var(--accent); font-size:14px; }
+  pre { background:#EDF0F7; padding:12px; border-radius:9px; overflow:auto; font-size:12.5px; }
+  .muted { color:var(--muted); font-size:13px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Database setup check</h1>
+  <p class="sub">This page asks the same questions the dashboard asks — of the same project, using the
+    same <code>assets/js/config.js</code>. It needs no sign-in and writes nothing.</p>
+
+  <div class="card verdict" id="verdict">
+    <h3>Checking…</h3>
+    <p>The page is reading <code>assets/js/config.js</code> and probing the project.</p>
+  </div>
+  <div class="row">
+    <button id="again" class="ghost">Check again</button>
+    <button id="copy">Copy the result</button>
+    <span class="muted" id="stamp"></span>
+  </div>
+
+  <div class="card">
+    <h2>What this page is talking to</h2>
+    <dl class="kv" id="where"></dl>
+  </div>
+
+  <div class="card">
+    <h2>The eighteen tables the dashboard reads</h2>
+    <table><thead><tr><th>Table</th><th>State</th><th>Added by</th><th>Detail</th></tr></thead>
+      <tbody id="tables"></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>The overview's twelve reads</h2>
+    <table><thead><tr><th>Read</th><th>State</th><th>Rows</th></tr></thead>
+      <tbody id="reads"></tbody></table>
+    <p class="muted">The overview draws its numbers from these. A row count of 0 is fine — an empty
+      table is not a missing one, and never raises the banner.</p>
+  </div>
+
+  <div class="card">
+    <h2>If the banner is still on screen</h2>
+    <p>A table that exists but still answers <code>PGRST205</code> is a stale PostgREST schema cache:
+      run <code>notify pgrst, 'reload schema';</code> in the Supabase SQL Editor and reload.</p>
+    <p>The other cause is a dashboard that is not this build. Reload with <strong>Ctrl/Cmd-Shift-R</strong>
+      (or open it in a private window): the banner's sentence changes as soon as the new
+      <code>dashboard.js</code> is in the browser, and it names the table and the file rather than
+      asking for <code>schema.sql</code> again. The version row above says what this deployment serves.</p>
+    <details><summary>The full list, as SQL you can paste in the Supabase SQL Editor</summary>
+<pre id="sql">select expected.name as missing_table
+from (values
+  ('authors'), ('categories'), ('blogs'), ('comments'), ('galleries'), ('pdf_books'),
+  ('submitted_blogs'), ('videos'), ('settings'), ('profiles'), ('user_notifications'),
+  ('admin_messages'), ('music_tracks'), ('app_language_files'),
+  ('forum_discussions'), ('forum_replies'), ('forum_categories'), ('forum_reactions')
+) as expected(name)
+where not exists (
+  select 1 from information_schema.tables t
+  where t.table_schema = 'public' and t.table_name = expected.name
+)
+order by expected.name;</pre>
+      <p class="muted">An empty result means every table the dashboard reads exists.</p>
+    </details>
+  </div>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  // The same list config.js carries, in the same order, with the columns each screen
+  // needs — mirroring NC.api.schemaProbe in assets/js/api.js.
+  var TABLES = [
+    ['authors', 'authors', 'id', 'supabase/schema.sql'],
+    ['categories', 'categories', 'id', 'supabase/schema.sql'],
+    ['blogs', 'blogs', 'id,imgbb_delete_url,image_meta,inline_media,pdf_file_provider,pdf_storage_path,pdf_file_size_mb',
+      'supabase/schema.sql (+ migrations/003_blog_media_uploads.sql for the media columns)'],
+    ['comments', 'comments', 'id', 'supabase/schema.sql'],
+    ['galleries', 'galleries', 'id', 'supabase/schema.sql'],
+    ['books', 'pdf_books', 'id', 'supabase/schema.sql'],
+    ['submissions', 'submitted_blogs', 'id,inline_media', 'supabase/schema.sql (+ migrations/003_blog_media_uploads.sql)'],
+    ['videos', 'videos', 'id', 'supabase/schema.sql'],
+    ['settings', 'settings', 'id', 'supabase/schema.sql'],
+    ['profiles', 'profiles', 'id', 'migrations/005_reader_profiles.sql'],
+    ['notifications', 'user_notifications', 'id', 'migrations/007_user_inbox.sql'],
+    ['messages', 'admin_messages', 'id', 'migrations/007_user_inbox.sql'],
+    ['music', 'music_tracks', 'id', 'migrations/014_music_tracks.sql'],
+    ['languageFiles', 'app_language_files', 'lang,label,csv,row_count', 'migrations/023_app_language_files.sql'],
+    ['forum', 'forum_discussions', 'id,status,replies_count,last_reply_at,is_official,author_name',
+      'migrations/029_forum.sql, then 030, 032, 034'],
+    ['forumReplies', 'forum_replies', 'id,status,parent_id,author_name,is_official',
+      'migrations/029_forum.sql, then 030, 032, 034'],
+    ['forumCategories', 'forum_categories', 'id,slug,title', 'migrations/029_forum.sql'],
+    ['forumReactions', 'forum_reactions', 'reply_id,reactor_key,kind,user_id,created_at',
+      'migrations/030_forum_answers.sql']
+  ];
+
+  // fetchAnalytics()'s entity list in assets/js/dashboard.js.
+  var READS = [
+    ['authors', 'id,title,image,designation,created_at'],
+    ['blogs', 'id,title,status,author_name,published_date,created_at,views_count'],
+    ['categories', 'id,title,created_at'],
+    ['comments', 'id,name,blog_title,status,created_at'],
+    ['galleries', 'id,title,created_at'],
+    ['books', 'id,title,created_at'],
+    ['submissions', 'id,title,writer_name,status,created_at'],
+    ['videos', 'id,title,created_at'],
+    ['music', 'id,title,created_at'],
+    ['profiles', 'id,name,email,created_at'],
+    ['forum', 'id,title,status,category_id,user_id,views_count,replies_count,is_official,created_at,last_reply_at'],
+    ['forumReplies', 'id,discussion_id,user_id,status,created_at']
+  ];
+
+  var state = { tables: [], reads: [], where: {}, verdict: '' };
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  };
+  var pill = function (tone, text) { return '<span class="pill ' + tone + '">' + esc(text) + '</span>'; };
+
+  function loadConfig(cb) {
+    var s = document.createElement('script');
+    s.src = 'assets/js/config.js?check=' + Date.now();
+    s.onload = function () { cb(null, window.NC_CONFIG); };
+    s.onerror = function () { cb(new Error('assets/js/config.js could not be loaded'), null); };
+    document.head.appendChild(s);
+  }
+
+  function probe(rest, table, select, key) {
+    var url = rest + '/' + table + '?select=' + encodeURIComponent(select) + '&limit=1';
+    return fetch(url, {
+      headers: { apikey: key, Authorization: 'Bearer ' + key, Accept: 'application/json' },
+      cache: 'no-store'
+    }).then(function (r) {
+      return r.text().then(function (text) {
+        var body = null;
+        try { body = JSON.parse(text); } catch (e) { /* not JSON */ }
+        return { status: r.status, code: (body && body.code) || '', message: (body && body.message) || text.slice(0, 160) };
+      });
+    }).catch(function (e) {
+      return { status: 0, code: 'NETWORK_ERROR', message: e.message || 'the request did not complete' };
+    });
+  }
+
+  function readCount(rest, table, select, key) {
+    var url = rest + '/' + table + '?select=' + encodeURIComponent(select) +
+      '&order=created_at.desc&limit=1000';
+    return fetch(url, {
+      headers: {
+        apikey: key, Authorization: 'Bearer ' + key, Accept: 'application/json',
+        Prefer: 'count=exact', 'Range-Unit': 'items', Range: '0-999'
+      },
+      cache: 'no-store'
+    }).then(function (r) {
+      var range = r.headers.get('content-range') || '';
+      var total = range.indexOf('/') >= 0 ? range.split('/')[1] : '?';
+      return { status: r.status, count: total };
+    }).catch(function (e) {
+      return { status: 0, count: '?', message: e.message };
+    });
+  }
+
+  function render() {
+    $('where').innerHTML =
+      '<dt>Project ref</dt><dd><code>' + esc(state.where.ref || '—') + '</code></dd>' +
+      '<dt>Supabase URL</dt><dd><code>' + esc(state.where.url || '—') + '</code></dd>' +
+      '<dt>Rest path</dt><dd><code>' + esc(state.where.rest || '—') + '</code></dd>' +
+      '<dt>Deployment version</dt><dd><code>' + esc(state.where.version || '—') + '</code></dd>' +
+      '<dt>Banner in the served dashboard.js</dt><dd>' + state.where.banner + '</dd>';
+
+    $('tables').innerHTML = state.tables.map(function (t) {
+      return '<tr><td><code>' + esc(t.name) + '</code></td><td>' + t.state + '</td><td class="muted">' +
+        esc(t.by) + '</td><td class="muted">' + esc(t.detail || '') + '</td></tr>';
+    }).join('');
+
+    $('reads').innerHTML = state.reads.map(function (r) {
+      return '<tr><td><code>' + esc(r.key) + '</code></td><td>' + r.state + '</td><td>' + esc(String(r.count)) + '</td></tr>';
+    }).join('');
+
+    var v = $('verdict');
+    v.className = 'card verdict ' + state.verdict.tone;
+    v.innerHTML = '<h3>' + esc(state.verdict.title) + '</h3><p>' + state.verdict.body + '</p>';
+    $('stamp').textContent = 'checked ' + new Date().toLocaleTimeString();
+  }
+
+  function run() {
+    state = { tables: [], reads: [], where: {}, verdict: { tone: '', title: 'Checking…', body: '' } };
+    render();
+
+    // Two independent things: what the deployment serves (fetched again, cache
+    // bypassed) and what the database has.
+    var files = ['assets/js/config.js', 'assets/js/dashboard.js'].map(function (p) {
+      return fetch(p + '?check=' + Date.now(), { cache: 'no-store' })
+        .then(function (r) { return r.text(); })
+        .catch(function () { return ''; });
+    });
+
+    loadConfig(function (error, config) {
+      if (error || !config || !config.supabase) {
+        state.where = { ref: '—', url: '—', rest: '—', version: '—', banner: '—' };
+        state.verdict = {
+          tone: 'bad',
+          title: 'This page could not read assets/js/config.js',
+          body: 'Open the check from the same URL as the dashboard (the deployed site), not from a folder.'
+        };
+        return render();
+      }
+
+      var url = (config.supabase.url || '').replace(/\/$/, '');
+      var base = url + (config.supabase.restPath || '/rest/v1');
+      var key = config.supabase.publishableKey || '';
+      state.where = {
+        ref: url.replace(/^https?:\/\//, '').split('.')[0],
+        url: url,
+        rest: config.supabase.restPath || '/rest/v1',
+        version: config.app && config.app.version ? config.app.version : '—',
+        banner: '…'
+      };
+
+      Promise.all(files).then(function (sources) {
+        var dashboard = sources[1] || '';
+        state.where.banner = /Run backend\/supabase\/schema\.sql in the Supabase SQL Editor/.test(dashboard)
+          ? pill('bad', 'the OLD banner is still being served — hard-reload, or you are on an older copy')
+          : pill('ok', 'the current one — it names the table and the file');
+        if (/version:\s*'([0-9.]+)'/.test(sources[0] || '')) {
+          state.where.version = /version:\s*'([0-9.]+)'/.exec(sources[0])[1];
+        }
+
+        var probes = TABLES.map(function (row) {
+          return probe(base, row[1], row[2], key).then(function (result) {
+            var item = { name: row[1], by: row[3], detail: result.message };
+            if (result.status === 200) {
+              item.state = pill('ok', 'ready');
+            } else if (result.status === 404 && (result.code === 'PGRST205' || /schema cache|could not find the table/i.test(result.message))) {
+              item.state = pill('bad', 'missing');
+              item.missing = true;
+            } else if (result.code === '42703' || result.code === 'PGRST204' || /could not find.+column/i.test(result.message)) {
+              item.state = pill('warn', 'columns missing');
+              item.mismatched = true;
+            } else {
+              item.state = pill('warn', 'error ' + (result.status || '—'));
+              item.failed = true;
+              item.detail = result.code + ' ' + result.message;
+            }
+            return item;
+          });
+        });
+
+        // READS is dashboard.js's own list, keyed the way its data object is keyed —
+        // 'books', not 'pdf_books'. The table names live in TABLES, so resolve them
+        // rather than asking PostgREST for /rest/v1/books.
+        var tableOf = {};
+        TABLES.forEach(function (row) { tableOf[row[0]] = row[1]; });
+        var counts = READS.map(function (row) {
+          return readCount(base, tableOf[row[0]] || row[0], row[1], key).then(function (result) {
+            return {
+              key: row[0],
+              count: result.count,
+              failed: result.status !== 200,
+              state: result.status === 200 ? pill('ok', 'ok')
+                : pill('bad', 'error ' + (result.status || '—') + (result.message ? ': ' + result.message.slice(0, 60) : ''))
+            };
+          });
+        });
+
+        return Promise.all(probes).then(function (tables) {
+          state.tables = tables;
+          return Promise.all(counts).then(function (reads) {
+            state.reads = reads;
+            var missing = tables.filter(function (t) { return t.missing; });
+            var mismatched = tables.filter(function (t) { return t.mismatched; });
+            var failed = tables.filter(function (t) { return t.failed; });
+            var failedReads = reads.filter(function (r) { return r.failed; });
+            var files = [];
+            missing.concat(mismatched).forEach(function (t) {
+              t.by.split(',').forEach(function (f) {
+                var name = f.trim().replace(/^then /, '');
+                if (files.indexOf(name) < 0) files.push(name);
+              });
+            });
+            if (missing.length) {
+              state.verdict = {
+                tone: 'bad',
+                title: missing.length + ' of the eighteen tables are missing',
+                body: 'The dashboard reads all seventeen, so the banner is raised by: <code>' +
+                  missing.map(function (t) { return esc(t.name); }).join('</code>, <code>') +
+                  '</code>. Run <strong>' + files.map(esc).join('</strong>, <strong>') +
+                  '</strong> in the Supabase SQL Editor, then check again. <code>schema.sql</code> ' +
+                  'builds the nine base tables only; the numbered files in <code>migrations/</code> ' +
+                  'add everything else, in number order.'
+              };
+            } else if (mismatched.length) {
+              state.verdict = {
+                tone: 'warn',
+                title: 'Every table exists, but ' + mismatched.length + ' is short of a column',
+                body: 'Missing columns on: <code>' + mismatched.map(function (t) { return esc(t.name); }).join('</code>, <code>') +
+                  '</code>. Run <strong>' + files.map(esc).join('</strong>, <strong>') + '</strong>.'
+              };
+            } else if (failed.length || failedReads.length) {
+              // Not a setup problem: something answered that was neither a missing
+              // table nor a missing column — a wrong project, a blocked request, or a
+              // server error. Saying "complete" here would be a false clean bill.
+              state.verdict = {
+                tone: 'warn',
+                title: (failed.length + failedReads.length) + ' request(s) did not answer cleanly',
+                body: 'Not a missing-table problem, so no SQL to run yet. Table reads that errored: ' +
+                  (failed.length ? '<code>' + failed.map(function (t) { return esc(t.name); }).join('</code>, <code>') + '</code>' : 'none') +
+                  '; overview reads that errored: ' +
+                  (failedReads.length ? '<code>' + failedReads.map(function (r) { return esc(r.key); }).join('</code>, <code>') + '</code>' : 'none') +
+                  '. Open the detail column: if the message mentions the project URL or a blocked request, ' +
+                  'check <code>assets/js/config.js</code> and your network; if it is a 5xx, Supabase was ' +
+                  'unhappy and the check is worth running again.'
+              };
+            } else {
+              state.verdict = {
+                tone: 'ok',
+                title: 'This database is complete — the setup banner cannot be raised by it',
+                body: 'All eighteen tables answer, with the columns the dashboard asks for. If the ' +
+                  'banner is still on screen, it is not this build talking to this project: ' +
+                  'hard-reload the dashboard (Ctrl/Cmd-Shift-R), and check the version row above ' +
+                  'against the site you opened.'
+              };
+            }
+            render();
+          });
+        });
+      });
+    });
+  }
+
+  $('again').addEventListener('click', run);
+  $('copy').addEventListener('click', function () {
+    var lines = [
+      'Ningshing Che database setup check',
+      'project: ' + state.where.ref + '  (' + state.where.url + ')',
+      'version: ' + state.where.version,
+      'verdict: ' + state.verdict.title,
+      ''
+    ].concat(state.tables.map(function (t) {
+      return (t.missing ? 'MISSING ' : t.mismatched ? 'COLUMNS ' : 'ok      ') + t.name + '  <- ' + t.by;
+    })).concat(state.reads.map(function (r) {
+      return 'read ' + r.key + ': rows ' + r.count;
+    }));
+    navigator.clipboard.writeText(lines.join('\n')).then(function () {
+      $('copy').textContent = 'Copied';
+      setTimeout(function () { $('copy').textContent = 'Copy the result'; }, 1500);
+    });
+  });
+
+  run();
+})();
+</script>
+</body>
+</html>
