@@ -283,7 +283,7 @@ private object ForumCover {
     private const val DEPTH = 0.33f
 
     /** The letter's ink. Warm white, for the depth above. */
-    private val GLYPH_INK = Color(0xFFF4F0E6)
+    private val GLYPH_INK = Color(0xFFEDF0F7)
 
     /** Punctuation a title may open with, which is not a letter to show. */
     private const val OPENING_PUNCTUATION = "\"'«»“”‘’()[]{}<>-–—:;,.!?|/"
@@ -3152,7 +3152,7 @@ private fun VerifiedMark(onImage: Boolean = false, modifier: Modifier = Modifier
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(EditorialShape.chip))
-            .background(if (onImage) Color(0xCC0E1A16) else tokens.accentSoft)
+            .background(if (onImage) Color(0xCC0B0E14) else tokens.accentSoft)
             .padding(if (onImage) 3.dp else 4.dp)
             .testTag("forum_verified_mark"),
         contentAlignment = Alignment.Center

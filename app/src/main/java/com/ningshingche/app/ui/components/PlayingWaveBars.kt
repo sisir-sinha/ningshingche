@@ -27,11 +27,16 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import com.ningshingche.app.ui.editorial.EditorialPalette
 import kotlin.math.PI
 import kotlin.math.sin
 
-/** The blue of the playing indicator, taken from the artwork the portal uses for it. */
-val PlayingWaveBlue = Color(0xFF0005FF)
+/**
+ * The ink of the playing indicator. It draws on a near-white chip over artwork,
+ * so it is the accent at its darkest — the same colour as the play badge it
+ * replaces.
+ */
+val PlayingWaveInk = EditorialPalette.Indigo
 
 /**
  * The bar heights, tallest in the middle.
@@ -67,7 +72,7 @@ private const val WaveFloor = 0.35f
 fun PlayingWaveBars(
     modifier: Modifier = Modifier,
     animated: Boolean = true,
-    color: Color = PlayingWaveBlue,
+    color: Color = PlayingWaveInk,
     barCount: Int = WaveEnvelope.size,
     barWidth: Dp = 3.dp,
     barGap: Dp = 2.dp,

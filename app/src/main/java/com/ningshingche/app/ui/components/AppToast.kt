@@ -29,8 +29,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ningshingche.app.ui.theme.BrandGoldLight
 import com.ningshingche.app.ui.theme.Kalpurush
-import com.ningshingche.app.ui.theme.PortalSaffron
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -109,7 +109,7 @@ fun BoxScope.AppToastHost(
         if (toast != null) {
             Surface(
                 shape = RoundedCornerShape(14.dp),
-                color = Color(0xE61A0C0A),
+                color = Color(0xE60B0E14),
                 shadowElevation = 8.dp
             ) {
                 Row(
@@ -151,7 +151,7 @@ fun BoxScope.AppToastHost(
                         ) {
                             Text(
                                 text = toast.actionLabel,
-                                color = PortalSaffron,
+                                color = BrandGoldLight,
                                 fontFamily = Kalpurush,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp

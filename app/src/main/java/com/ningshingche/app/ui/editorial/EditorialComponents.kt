@@ -381,10 +381,10 @@ fun HeroArticleCard(
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                Color(0x33000000),
-                                Color(0x11000000),
-                                Color(0x99100C09),
-                                Color(0xF5100C09)
+                                Color(0x330B0E14),
+                                Color(0x110B0E14),
+                                Color(0x990B0E14),
+                                Color(0xF50B0E14)
                             )
                         )
                     )
@@ -664,14 +664,14 @@ fun AiAssistantHomeBanner(
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (tokens.isDark) Color(0xFF261814) else Color(0xFFFBF4EC)
+            containerColor = if (tokens.isDark) EditorialPalette.DarkSurfaceVariant else EditorialPalette.SurfaceVariant
         ),
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = EditorialSpace.gutter, vertical = EditorialSpace.xs)
             .border(
                 1.dp,
-                if (tokens.isDark) Color(0xFF4A2F25) else Color(0xFFE8D3C1),
+                if (tokens.isDark) EditorialPalette.DarkRule else EditorialPalette.RuleStrong,
                 RoundedCornerShape(16.dp)
             )
     ) {
@@ -728,10 +728,10 @@ fun AiAssistantHomeBanner(
                     Surface(
                         onClick = { onPromptClick(tag) },
                         shape = RoundedCornerShape(16.dp),
-                        color = if (tokens.isDark) Color(0xFF38231C) else Color(0xFFFFFFFF),
+                        color = if (tokens.isDark) EditorialPalette.DarkSurface else Color.White,
                         border = androidx.compose.foundation.BorderStroke(
                             1.dp,
-                            if (tokens.isDark) Color(0xFF5A392F) else Color(0xFFE2CEBC)
+                            if (tokens.isDark) EditorialPalette.DarkRule else EditorialPalette.Rule
                         ),
                         modifier = Modifier.weight(1f)
                     ) {
@@ -832,9 +832,9 @@ modifier = modifier
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                Color(0x33000000),
-                                Color(0x881A120B),
-                                Color(0xFA140D08)
+                                Color(0x330B0E14),
+                                Color(0x880B0E14),
+                                Color(0xFA0B0E14)
                             )
                         )
                     )
@@ -872,7 +872,7 @@ modifier = modifier
                         fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
                         fontSize = 11.sp,
                         lineHeight = 14.sp,
-                        color = Color(0xFFFFD59E),
+                        color = EditorialPalette.DarkGold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(top = 1.dp)
@@ -1314,7 +1314,7 @@ fun GalleryGrid(
                             .matchParentSize()
                             .background(
                                 Brush.verticalGradient(
-                                    listOf(Color.Transparent, Color(0xCC140D08), Color(0xF2140D08))
+                                    listOf(Color.Transparent, Color(0xCC0B0E14), Color(0xF20B0E14))
                                 )
                             )
                     )
@@ -1468,7 +1468,7 @@ fun VideoRail(
                             )
                             Surface(
                                 shape = RoundedCornerShape(EditorialShape.chip),
-                                color = Color(0xCC1A1512),
+                                color = Color(0xCC131722),
                                 modifier = Modifier
                                     .align(Alignment.TopStart)
                                     .padding(EditorialSpace.xs)

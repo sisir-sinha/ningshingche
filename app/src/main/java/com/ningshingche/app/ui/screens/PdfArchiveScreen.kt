@@ -46,9 +46,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ningshingche.app.data.model.PdfDocument
+import com.ningshingche.app.ui.theme.BrandGoldLight
+import com.ningshingche.app.ui.theme.BrandIndigo
+import com.ningshingche.app.ui.theme.BrandIndigoDeep
+import com.ningshingche.app.ui.theme.BrandOnGold
 import com.ningshingche.app.ui.theme.Kalpurush
-import com.ningshingche.app.ui.theme.PortalMaroon
-import com.ningshingche.app.ui.theme.PortalSaffron
+import com.ningshingche.app.ui.theme.PanelChip
+import com.ningshingche.app.ui.theme.PanelDeep
+import com.ningshingche.app.ui.theme.PanelInk
+import com.ningshingche.app.ui.theme.PanelInkMuted
 import com.ningshingche.app.ui.viewmodel.PdfArchiveViewModel
 import com.ningshingche.app.util.PdfHelper
 import kotlinx.coroutines.launch
@@ -67,7 +73,7 @@ fun PdfArchiveScreen(
     val shelves = remember(pdfs) { pdfs.chunked(3).ifEmpty { listOf(emptyList()) } }
 
     val libraryBg = Brush.verticalGradient(
-        listOf(Color(0xFF2A140E), Color(0xFF4A2216), Color(0xFF1A0C08))
+        listOf(BrandIndigo, BrandIndigoDeep, PanelDeep)
     )
     Column(
         modifier = Modifier
@@ -77,7 +83,7 @@ fun PdfArchiveScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF2A140E))
+                .background(BrandIndigo)
                 .statusBarsPadding()
                 .padding(bottom = 10.dp)
         ) {
@@ -91,13 +97,13 @@ fun PdfArchiveScreen(
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "পেছনে",
-                        tint = Color(0xFFFFF3D6)
+                        tint = PanelInk
                     )
                 }
                 Icon(
                     Icons.Default.AutoStories,
                     contentDescription = null,
-                    tint = PortalSaffron,
+                    tint = BrandGoldLight,
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(Modifier.width(8.dp))
@@ -107,14 +113,14 @@ fun PdfArchiveScreen(
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp,
-                        color = Color(0xFFFFF3D6),
+                        color = PanelInk,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         "নিংশিং চে মুদ্রিত সংখ্যা ও স্মারকপত্র",
                         fontFamily = Kalpurush,
-                        color = Color(0xFFE7C9A0),
+                        color = PanelInkMuted,
                         fontSize = 12.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -133,10 +139,10 @@ fun PdfArchiveScreen(
                             fontFamily = Kalpurush,
                             fontSize = 13.sp,
                             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                            color = if (selected) Color(0xFF2A140E) else Color(0xFFFFF3D6),
+                            color = if (selected) BrandOnGold else PanelInk,
                             modifier = Modifier
                                 .clip(RoundedCornerShape(20.dp))
-                                .background(if (selected) PortalSaffron else Color(0x33FFF3D6))
+                                .background(if (selected) BrandGoldLight else PanelChip)
                                 .clickable { viewModel.selectCategory(category.id) }
                                 .padding(horizontal = 12.dp, vertical = 6.dp)
                         )
@@ -180,7 +186,7 @@ private fun LibraryShelf(
         Text(
             shelfLabel,
             fontFamily = Kalpurush,
-            color = Color(0xFFE8C48A),
+            color = BrandGoldLight,
             fontSize = 13.sp,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
         )
@@ -198,7 +204,7 @@ private fun LibraryShelf(
                 .fillMaxWidth()
                 .height(14.dp)
                 .clip(RoundedCornerShape(3.dp))
-                .background(Brush.verticalGradient(listOf(Color(0xFF8B5A2B), Color(0xFF5C3310), Color(0xFF3B1E0A))))
+                .background(Brush.verticalGradient(listOf(BrandIndigo, BrandIndigoDeep, PanelDeep)))
         )
     }
 }
@@ -221,7 +227,7 @@ private fun LibraryBook(
                 .height(176.dp)
                 .shadow(10.dp, RoundedCornerShape(4.dp))
                 .clip(RoundedCornerShape(4.dp))
-                .background(PortalMaroon)
+                .background(BrandIndigo)
         ) {
             com.ningshingche.app.ui.components.PortalAsyncImage(
                 url = book.coverImageUrl,
@@ -234,7 +240,7 @@ private fun LibraryBook(
                     .fillMaxSize()
                     .background(
                         Brush.verticalGradient(
-                            listOf(Color.Transparent, Color(0xCC2A140E))
+                            listOf(Color.Transparent, Color(0xCC0B0E14))
                         )
                     )
             )
@@ -243,7 +249,7 @@ private fun LibraryBook(
                     .align(Alignment.CenterStart)
                     .width(8.dp)
                     .height(176.dp)
-                    .background(Brush.horizontalGradient(listOf(Color(0x662A140E), Color.Transparent)))
+                    .background(Brush.horizontalGradient(listOf(Color(0x660B0E14), Color.Transparent)))
             )
             Column(
                 modifier = Modifier
@@ -252,14 +258,14 @@ private fun LibraryBook(
             ) {
                 Text(
                     if (book.year > 0) "${book.year}" else "PDF",
-                    color = PortalSaffron,
+                    color = BrandGoldLight,
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp
                 )
                 Text(
                     book.title,
-                    color = Color(0xFFFFF6E4),
+                    color = PanelInk,
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp,
@@ -273,18 +279,18 @@ private fun LibraryBook(
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
-                    .background(PortalSaffron)
+                    .background(BrandGoldLight)
                     .clickable(onClick = onOpen)
                     .padding(horizontal = 10.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.MenuBook, null, tint = Color.White, modifier = Modifier.size(12.dp))
-                Text(" পাকরিক", color = Color.White, fontFamily = Kalpurush, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Icon(Icons.Default.MenuBook, null, tint = BrandOnGold, modifier = Modifier.size(12.dp))
+                Text(" পাকরিক", color = BrandOnGold, fontFamily = Kalpurush, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
             Icon(
                 Icons.Default.Download,
                 contentDescription = "ডাউনলোড",
-                tint = Color(0xFFE8C48A),
+                tint = BrandGoldLight,
                 modifier = Modifier
                     .size(20.dp)
                     .clickable(onClick = onDownload)

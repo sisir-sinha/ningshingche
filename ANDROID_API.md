@@ -187,21 +187,48 @@ issue are collapsed by `data/portal/IssueTags.kt`, the Kotlin twin of `backend/a
 
 ## 5. Theme and design tokens
 
-`ui/theme/Color.kt` — portal palette:
+`ui/editorial/EditorialTheme.kt` (259 lines) — `EditorialPalette`, the palette the reader actually
+sees: **নীলা-কালি**, indigo ink. Two families, and the second one exists because a colour that
+reads as ink on paper disappears on near-black:
+
+| | Light | Dark |
+| --- | --- | --- |
+| Paper (background) | `0xFFF7F8FB` | `0xFF0D1017` |
+| Sunken / surface-variant | `0xFFEDF0F7` / `0xFFF1F3F8` | `0xFF1B2130` |
+| Surface (a card) | `0xFFFFFFFF` | `0xFF141926` |
+| Ink | `0xFF131722` | `0xFFEDF0F7` |
+| Ink soft / muted | `0xFF414A5C` / `0xFF6E7787` | `0xFFC3CAD8` / `0xFF8C95A6` |
+| Rule / rule strong | `0xFFDDE2EC` / `0xFFC3CBD9` | `0xFF252C3B` |
+| **Indigo** (accent) | `0xFF2F4B8F` | `0xFF93B0E6` |
+| Indigo soft (fills) | `0xFFE7ECF8` | `0xFF1D2740` |
+| **Gold** (second accent) | `0xFFB4761B` | `0xFFE3B368` |
+| Gold soft | `0xFFFBF0DC` | `0xFF33280F` |
+
+`Success` `0xFF1E7A54`, `Warning` `0xFFB4761B`, `Danger` `0xFFB4232A`. `EditorialTokens` hands
+`rule`, `ruleStrong`, `inkSoft`, `inkMuted`, `accent`, `accentSoft`, `surfaceSunken` and `isDark`
+to screens through `LocalEditorialTokens`; the Material schemes take `primary` from the indigo
+and `secondary` from the gold. Measured contrast: ink on paper 16.9:1, indigo on paper 7.8:1.
+
+`ui/theme/Color.kt` (72 lines) — brand and panel tokens, for the screens that sit outside
+`EditorialTheme` (the splash, the music player, the PDF reader, the drawer, the toast) and for
+slabs, which stay brand-coloured in both themes:
 
 | Token | Value |
 | --- | --- |
-| `PortalMaroon` | `0xFF6E2B19` |
-| `PortalSaffron` | `0xFFFF8C00` |
-| `PortalDeepBrown` | `0xFF4B2E2B` |
-| `PortalCream1` | `0xFFF9F5E9` |
-| `PortalCream2` | `0xFFFFFAF2` |
-| `PortalGold` | `0xFFFFD700` |
-| `PortalWhite` | `0xFFFFFFFF` |
-| `PortalDarkBg` / `Surface` / `Variant` / `Border` / `Text` | `0xFF111827` / `0xFF1F2937` / `0xFF374151` / `0xFF4B5563` / `0xFFF9FAFB` |
+| `BrandIndigo` / `BrandIndigoDeep` | `0xFF2F4B8F` / `0xFF263C73` |
+| `BrandIndigoLight` | `0xFF93B0E6` |
+| `BrandGold` / `BrandGoldLight` / `BrandOnGold` | `0xFFB4761B` / `0xFFE3B368` / `0xFF131722` |
+| `PanelDeep` / `Panel` / `PanelSoft` / `PanelRule` | `0xFF0B0E14` / `0xFF141926` / `0xFF1B2130` / `0xFF2A3141` |
+| `PanelInk` / `PanelInkMuted` / `PanelChip` | `0xFFEDF0F7` / `0xFFC3CAD8` / `0x33EDF0F7` |
+| `BrandDarkCanvas` | `0xFF0D1017` |
 
-Plus an amber ramp (`Amber50` … `Amber950`) and reader-only palettes: `SepiaCanvas`, `SepiaSurface`,
-`SepiaText`, `PaperCanvasLight`, `PaperSurfaceLight`, `PaperSurfaceVariantLight`, `PaperCardBorderLight`.
+The old portal set — `PortalMaroon`, `PortalSaffron`, the amber ramp, the sepia triad, the night
+paper names and the five category accents — is gone. Twenty-five of those twenty-eight tokens had
+no reader left when the palette was repainted, and a token nothing reads cannot promise a colour;
+`BrandDarkCanvas` is what `PortalDarkBg` became. Nothing in `app/src/main` names a colour by hex
+outside these two files except neutral scrims (`0xCC0B0E14` and friends), the semantic status
+colours in `UserDashboardScreen` (a green tick, a red rejection) and the rank medals in
+`ContributorScreen`.
 
 `ui/theme/Theme.kt` — `MyApplicationTheme(darkTheme: Boolean, content)` builds
 `LightPortalScheme` / `DarkPortalScheme` (`lightColorScheme` / `darkColorScheme`), applies
@@ -1230,9 +1257,9 @@ declarations: `Hairline`, `Eyebrow`, `SectionHeader`, `EditorialImage`, `remembe
 `NumberedArticleCard`, `AnimatedHamburgerIcon`, `AiAssistantHomeBanner`, `CategoryVisualCard`,
 `CategoryRail`, `GalleryModalDialog`, `ArticleRail`, `AuthorRail`, `AuthorChip`, `GalleryGrid`,
 `PdfRail`, `VideoRail`, `MusicRail`, `LoadingFeed`, `EmptyState`, `ErrorState`, `teaserOf`.
-Companions in the same package: `EditorialTheme.kt` (245 lines — `EditorialPalette`,
+Companions in the same package: `EditorialTheme.kt` (259 lines — `EditorialPalette`,
 `EditorialType`, `EditorialSpace`, `EditorialShape`, `EditorialTheme`, `toBengaliNumeral`),
-`LazyImage.kt` (47 — `ShimmerPlaceholder`, `ImagePlaceholder`), `SiteFooter.kt` (350 —
+`LazyImage.kt` (47 — `ShimmerPlaceholder`, `ImagePlaceholder`), `SiteFooter.kt` (356 —
 `EditorialFooter`, `SiteContact`), `VideoPlayer.kt` (250 — `VideoPlayerDialog`,
 `SocialEmbedPlayer`, `embedUrlFor`).
 

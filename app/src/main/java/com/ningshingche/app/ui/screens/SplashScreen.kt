@@ -52,9 +52,14 @@ import androidx.compose.ui.unit.sp
 import com.ningshingche.app.ui.components.NingshingCheBrandLogo
 import com.ningshingche.app.ui.editorial.EditorialPalette
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
+import com.ningshingche.app.ui.theme.BrandGold
+import com.ningshingche.app.ui.theme.BrandGoldLight
+import com.ningshingche.app.ui.theme.BrandIndigo
 import com.ningshingche.app.ui.theme.Kalpurush
-import com.ningshingche.app.ui.theme.PortalMaroon
-import com.ningshingche.app.ui.theme.PortalSaffron
+import com.ningshingche.app.ui.theme.PanelDeep
+import com.ningshingche.app.ui.theme.PanelInk
+import com.ningshingche.app.ui.theme.PanelRule
+import com.ningshingche.app.ui.theme.PanelSoft
 import kotlinx.coroutines.delay
 
 /**
@@ -121,9 +126,9 @@ fun SplashScreen(
 
     val isDark = LocalEditorialTokens.current.isDark
     val bgGradient = if (isDark) {
-        listOf(Color(0xFF14100E), Color(0xFF1E1815), Color(0xFF0F0C0A))
+        listOf(PanelDeep, PanelSoft, Color(0xFF090B11))
     } else {
-        listOf(Color(0xFFFFFBF5), Color(0xFFFBF4E8), Color(0xFFF4EBD9))
+        listOf(EditorialPalette.Paper, EditorialPalette.PaperSunken, Color(0xFFE4E8F2))
     }
 
     Box(
@@ -139,12 +144,12 @@ fun SplashScreen(
             val center = this.center
             val maxRadius = size.minDimension * 0.45f
             drawCircle(
-                color = (if (isDark) Color(0xFFF0A94B) else PortalMaroon).copy(alpha = 0.04f),
+                color = (if (isDark) BrandGoldLight else BrandIndigo).copy(alpha = 0.04f),
                 radius = maxRadius * 1.3f,
                 center = center
             )
             drawCircle(
-                color = (if (isDark) Color(0xFFF0A94B) else PortalMaroon).copy(alpha = 0.06f),
+                color = (if (isDark) BrandGoldLight else BrandIndigo).copy(alpha = 0.06f),
                 radius = maxRadius * 0.9f,
                 center = center
             )
@@ -173,7 +178,7 @@ fun SplashScreen(
                         .background(
                             Brush.radialGradient(
                                 listOf(
-                                    if (isDark) Color(0xFFF0A94B) else PortalSaffron,
+                                    if (isDark) BrandGoldLight else BrandGold,
                                     Color.Transparent
                                 )
                             )
@@ -205,7 +210,7 @@ fun SplashScreen(
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
                 fontSize = 36.sp,
-                color = if (isDark) Color(0xFFF7F2EA) else PortalMaroon,
+                color = if (isDark) PanelInk else BrandIndigo,
                 textAlign = TextAlign.Center
             )
 
@@ -217,7 +222,7 @@ fun SplashScreen(
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Medium,
                 fontSize = 15.sp,
-                color = if (isDark) Color(0xFFF0A94B) else PortalSaffron,
+                color = if (isDark) BrandGoldLight else BrandGold,
                 textAlign = TextAlign.Center
             )
 
@@ -226,7 +231,7 @@ fun SplashScreen(
             // Tagline chip
             Surface(
                 shape = RoundedCornerShape(20.dp),
-                color = (if (isDark) Color(0xFF33231D) else EditorialPalette.MaroonSoft).copy(alpha = 0.85f),
+                color = (if (isDark) EditorialPalette.DarkIndigoSoft else EditorialPalette.IndigoSoft).copy(alpha = 0.85f),
                 modifier = Modifier.padding(horizontal = 8.dp)
             ) {
                 Row(
@@ -237,14 +242,14 @@ fun SplashScreen(
                     Icon(
                         imageVector = Icons.Default.AutoAwesome,
                         contentDescription = null,
-                        tint = if (isDark) Color(0xFFF0A94B) else PortalMaroon,
+                        tint = if (isDark) BrandGoldLight else BrandIndigo,
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
                         text = "জ্ঞান, ইতিহাস ও সাহিত্যের মুক্ত তথ্যকোষ",
                         fontFamily = Kalpurush,
                         fontSize = 12.sp,
-                        color = if (isDark) Color(0xFFF7F2EA) else PortalMaroon,
+                        color = if (isDark) PanelInk else BrandIndigo,
                         fontWeight = FontWeight.Normal
                     )
                 }
@@ -259,14 +264,14 @@ fun SplashScreen(
                     .width(140.dp)
                     .height(4.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(if (isDark) Color(0xFF2B2521) else Color(0xFFE2D6C6))
+                    .background(if (isDark) PanelRule else EditorialPalette.Rule)
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
                         .fillMaxWidth(progress)
                         .clip(RoundedCornerShape(2.dp))
-                        .background(if (isDark) Color(0xFFF0A94B) else PortalMaroon)
+                        .background(if (isDark) BrandGoldLight else BrandIndigo)
                 )
             }
 
@@ -276,7 +281,7 @@ fun SplashScreen(
                 text = "সংস্কৃতির আলোয় পথচলা…",
                 fontFamily = Kalpurush,
                 fontSize = 12.sp,
-                color = if (isDark) Color(0xFF9C9186) else EditorialPalette.InkMuted
+                color = if (isDark) EditorialPalette.DarkInkMuted else EditorialPalette.InkMuted
             )
         }
 
@@ -292,7 +297,7 @@ fun SplashScreen(
                 text = "ningshingche.com • সংস্করণ ১.০",
                 fontFamily = Kalpurush,
                 fontSize = 11.sp,
-                color = if (isDark) Color(0xFF7A6E62) else Color(0xFFA39587)
+                color = if (isDark) EditorialPalette.DarkInkMuted else EditorialPalette.InkMuted
             )
         }
     }

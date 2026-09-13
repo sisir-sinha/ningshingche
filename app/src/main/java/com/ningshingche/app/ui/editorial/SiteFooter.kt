@@ -32,7 +32,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ningshingche.app.R
 import com.ningshingche.app.data.portal.SiteSettings
+import com.ningshingche.app.ui.theme.BrandGoldLight
+import com.ningshingche.app.ui.theme.BrandIndigo
 import com.ningshingche.app.ui.theme.Kalpurush
+import com.ningshingche.app.ui.theme.PanelDeep
+import com.ningshingche.app.ui.theme.PanelInk
+import com.ningshingche.app.ui.theme.PanelInkMuted
+import com.ningshingche.app.ui.theme.PanelRule
 
 /**
  * Footer details, mirroring the footer of https://ningshingche.com.
@@ -78,11 +84,14 @@ object SiteContact {
     )
 }
 
-// Matches the dark footer band on ningshingche.com in both light and dark app themes.
-private val FooterBg = Color(0xFF1A1512)
-private val FooterText = Color(0xFFF3ECE2)
-private val FooterMuted = Color(0xFFB9A795)
-private val FooterAccent = Color(0xFFD97706)
+// The footer is a band rather than a page: it stays dark in both app themes, the
+// way the website's does. Its colour is the app's own dark family, not the old
+// warm brown — the band keeps the site footer's *shape*, and the reader never
+// meets a colour the rest of the app does not speak.
+private val FooterBg = PanelDeep
+private val FooterText = PanelInk
+private val FooterMuted = PanelInkMuted
+private val FooterAccent = BrandGoldLight
 
 /**
  * The app footer: brand block, contact details, quick links, social channels, the
@@ -195,7 +204,7 @@ fun EditorialFooter(
         Surface(
             onClick = { onOpenLink(SiteContact.PLAY_STORE_URL) },
             shape = RoundedCornerShape(8.dp),
-            color = Color(0xFF7A2E1E)
+            color = BrandIndigo
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
@@ -321,7 +330,7 @@ private fun SocialButton(icon: Int, label: String, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         shape = CircleShape,
-        color = Color(0xFF7A2E1E),
+        color = BrandIndigo,
         modifier = Modifier.size(44.dp)
     ) {
         Box(contentAlignment = Alignment.Center) {
@@ -341,7 +350,7 @@ private fun FooterDivider() {
         modifier = Modifier
             .fillMaxWidth()
             .height(1.dp)
-            .background(Color(0xFF3A2F29))
+            .background(PanelRule)
     )
     Spacer(Modifier.height(EditorialSpace.lg))
 }

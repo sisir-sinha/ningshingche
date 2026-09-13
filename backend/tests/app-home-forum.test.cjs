@@ -162,7 +162,7 @@ test('the verified mark is the tick alone, and it is on the picture', async (t) 
     assert.match(mark, /Icons\.Default\.Verified/, 'what is left is the tick');
     assert.match(mark, /contentDescription = "অনুমোদিত"/,
       'and the word is only read out, for a screen reader');
-    assert.match(mark, /background\(if \(onImage\) Color\(0xCC0E1A16\) else tokens\.accentSoft\)/,
+    assert.match(mark, /background\(if \(onImage\) Color\(0xCC0B0E14\) else tokens\.accentSoft\)/,
       'a dark scrim over a picture, the pale chip against a page');
     assert.match(mark, /tint = if \(onImage\) Color\.White else tokens\.accent/);
     // The card and the thread are what the owner named: neither writes the word.

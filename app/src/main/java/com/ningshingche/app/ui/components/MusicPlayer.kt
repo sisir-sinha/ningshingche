@@ -109,9 +109,11 @@ import com.ningshingche.app.playback.RepeatMode
 import com.ningshingche.app.ui.editorial.EditorialImage
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.editorial.SocialEmbedPlayer
+import com.ningshingche.app.ui.theme.BrandGoldLight
+import com.ningshingche.app.ui.theme.BrandIndigo
 import com.ningshingche.app.ui.theme.Kalpurush
-import com.ningshingche.app.ui.theme.PortalMaroon
-import com.ningshingche.app.ui.theme.PortalSaffron
+import com.ningshingche.app.ui.theme.Panel
+import com.ningshingche.app.ui.theme.PanelDeep
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.delay
 import kotlin.math.abs
@@ -365,7 +367,7 @@ private fun FullMusicPlayer(
             .graphicsLayer { translationY = offsetY }
             .background(
                 Brush.verticalGradient(
-                    listOf(Color(0xFF2A120E), PortalMaroon, Color(0xFF120806))
+                    listOf(PanelDeep, BrandIndigo, PanelDeep)
                 )
             )
             .pointerInput(showQueue, minimizePx) {
@@ -434,7 +436,7 @@ private fun FullMusicPlayer(
                     Text(
                         text = "এখন বাজছে",
                         fontFamily = Kalpurush,
-                        color = PortalSaffron,
+                        color = BrandGoldLight,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -563,27 +565,27 @@ private fun FullMusicPlayer(
                 ) { controller.toggleLike() }
                 PlayerIcon(
                     icon = Icons.Default.Shuffle,
-                    tint = if (state.shuffle) PortalSaffron else Color.White.copy(alpha = 0.7f),
+                    tint = if (state.shuffle) BrandGoldLight else Color.White.copy(alpha = 0.7f),
                     label = "শাফেল"
                 ) { controller.toggleShuffle() }
                 PlayerIcon(
                     icon = if (state.repeatMode == RepeatMode.ONE) Icons.Default.RepeatOne else Icons.Default.Repeat,
-                    tint = if (state.repeatMode == RepeatMode.OFF) Color.White.copy(alpha = 0.7f) else PortalSaffron,
+                    tint = if (state.repeatMode == RepeatMode.OFF) Color.White.copy(alpha = 0.7f) else BrandGoldLight,
                     label = "রিপিট"
                 ) { controller.cycleRepeat() }
                 PlayerIcon(
                     icon = Icons.AutoMirrored.Filled.PlaylistPlay,
-                    tint = if (state.autoPlay) PortalSaffron else Color.White.copy(alpha = 0.7f),
+                    tint = if (state.autoPlay) BrandGoldLight else Color.White.copy(alpha = 0.7f),
                     label = "অটোপ্লে"
                 ) { controller.toggleAutoPlay() }
                 PlayerIcon(
                     icon = Icons.Default.Download,
-                    tint = if (state.offline) PortalSaffron else Color.White.copy(alpha = 0.7f),
+                    tint = if (state.offline) BrandGoldLight else Color.White.copy(alpha = 0.7f),
                     label = "ডাউনলোড"
                 ) { controller.saveCurrentOffline() }
                 PlayerIcon(
                     icon = Icons.Default.Lyrics,
-                    tint = if (state.showLyrics) PortalSaffron else Color.White.copy(alpha = 0.7f),
+                    tint = if (state.showLyrics) BrandGoldLight else Color.White.copy(alpha = 0.7f),
                     label = "লিরিক"
                 ) { controller.toggleLyrics() }
             }
@@ -604,7 +606,7 @@ private fun FullMusicPlayer(
                         modifier = Modifier
                             .size(14.dp)
                             .clip(CircleShape)
-                            .background(PortalSaffron)
+                            .background(BrandGoldLight)
                     )
                 },
                 track = { sliderState ->
@@ -612,15 +614,15 @@ private fun FullMusicPlayer(
                         sliderState = sliderState,
                         modifier = Modifier.height(3.dp),
                         colors = SliderDefaults.colors(
-                            thumbColor = PortalSaffron,
-                            activeTrackColor = PortalSaffron,
+                            thumbColor = BrandGoldLight,
+                            activeTrackColor = BrandGoldLight,
                             inactiveTrackColor = Color.White.copy(alpha = 0.22f)
                         )
                     )
                 },
                 colors = SliderDefaults.colors(
-                    thumbColor = PortalSaffron,
-                    activeTrackColor = PortalSaffron,
+                    thumbColor = BrandGoldLight,
+                    activeTrackColor = BrandGoldLight,
                     inactiveTrackColor = Color.White.copy(alpha = 0.22f)
                 )
             )
@@ -647,14 +649,14 @@ private fun FullMusicPlayer(
                 Surface(
                     onClick = controller::togglePlayPause,
                     shape = CircleShape,
-                    color = PortalSaffron,
+                    color = BrandGoldLight,
                     modifier = Modifier.size(76.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                             contentDescription = if (state.isPlaying) "বিরতি" else "চালান",
-                            tint = Color(0xFF2A120E),
+                            tint = PanelDeep,
                             modifier = Modifier.size(40.dp)
                         )
                     }
@@ -766,7 +768,7 @@ private fun PlayerHud(volume: Float, minimize: Boolean, modifier: Modifier = Mod
                             .fillMaxWidth(level)
                             .height(6.dp)
                             .clip(RoundedCornerShape(99.dp))
-                            .background(PortalSaffron)
+                            .background(BrandGoldLight)
                     )
                 }
             }
@@ -788,7 +790,7 @@ private fun SleepTimerControl(untilMs: Long?, onClick: () -> Unit) {
             val left = (untilMs - now).coerceAtLeast(0L)
             Text(
                 text = formatMs(left),
-                color = PortalSaffron,
+                color = BrandGoldLight,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = Kalpurush
@@ -798,7 +800,7 @@ private fun SleepTimerControl(untilMs: Long?, onClick: () -> Unit) {
             Icon(
                 imageVector = Icons.Default.Timer,
                 contentDescription = "স্লিপ টাইমার",
-                tint = if (untilMs != null) PortalSaffron else Color.White.copy(alpha = 0.85f),
+                tint = if (untilMs != null) BrandGoldLight else Color.White.copy(alpha = 0.85f),
                 modifier = Modifier.size(26.dp)
             )
         }
@@ -840,7 +842,7 @@ private fun QueueSidebar(
                     }
             )
             Surface(
-                color = Color(0xFF1C0E0C),
+                color = Panel,
                 modifier = Modifier
                     .fillMaxHeight()
                     .width(304.dp)
@@ -911,7 +913,7 @@ private fun PlayerSheets(
     ) {
         Surface(
             shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
-            color = Color(0xFF1C0E0C),
+            color = Panel,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
@@ -966,7 +968,7 @@ private fun PlayerSheets(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedTextColor = Color.White,
                                 unfocusedTextColor = Color.White,
-                                focusedBorderColor = PortalSaffron,
+                                focusedBorderColor = BrandGoldLight,
                                 unfocusedBorderColor = Color.White.copy(alpha = 0.3f)
                             ),
                             modifier = Modifier.fillMaxWidth()
@@ -978,7 +980,7 @@ private fun PlayerSheets(
                                 onClose()
                             }
                         }) {
-                            Text("তৈরি করুন", fontFamily = Kalpurush, color = PortalSaffron)
+                            Text("তৈরি করুন", fontFamily = Kalpurush, color = BrandGoldLight)
                         }
                     }
                     PlayerSheet.Details -> {
@@ -1025,7 +1027,7 @@ private fun SheetRow(icon: ImageVector, label: String, onClick: () -> Unit) {
             .padding(vertical = 12.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = PortalSaffron, modifier = Modifier.size(22.dp))
+        Icon(icon, contentDescription = null, tint = BrandGoldLight, modifier = Modifier.size(22.dp))
         Spacer(Modifier.width(14.dp))
         Text(label, fontFamily = Kalpurush, color = Color.White, fontSize = 16.sp)
     }
@@ -1086,7 +1088,7 @@ private fun QueueRow(
             )
         }
         if (selected && playing) {
-            Icon(Icons.Default.MusicNote, null, tint = PortalSaffron, modifier = Modifier.size(16.dp))
+            Icon(Icons.Default.MusicNote, null, tint = BrandGoldLight, modifier = Modifier.size(16.dp))
         }
     }
 }
@@ -1255,7 +1257,7 @@ private fun TrackCoverCanvas(
 
         if (state.isBuffering && isCurrent && !showVideo) {
             CircularProgressIndicator(
-                color = PortalSaffron,
+                color = BrandGoldLight,
                 strokeWidth = 2.dp,
                 modifier = Modifier
                     .align(Alignment.Center)
@@ -1292,7 +1294,7 @@ private fun TrackCoverCanvas(
                     Icon(
                         imageVector = if (showVideo) Icons.Default.MusicNote else Icons.Default.Videocam,
                         contentDescription = if (showVideo) "অডিওতে ফিরুন" else "ভিডিও চালান",
-                        tint = PortalSaffron,
+                        tint = BrandGoldLight,
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -1311,7 +1313,7 @@ private fun CoverArt(url: String, modifier: Modifier, corner: androidx.compose.u
                 .background(Color(0x33FFFFFF)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.MusicNote, contentDescription = null, tint = PortalSaffron, modifier = Modifier.size(28.dp))
+            Icon(Icons.Default.MusicNote, contentDescription = null, tint = BrandGoldLight, modifier = Modifier.size(28.dp))
         }
     } else {
         EditorialImage(

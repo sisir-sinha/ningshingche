@@ -63,10 +63,10 @@ import androidx.compose.ui.unit.sp
 import com.ningshingche.app.data.model.AppThemeMode
 import com.ningshingche.app.ui.navigation.ExploreTab
 import com.ningshingche.app.ui.navigation.Screen
+import com.ningshingche.app.ui.theme.BrandDarkCanvas
+import com.ningshingche.app.ui.theme.BrandGoldLight
+import com.ningshingche.app.ui.theme.BrandIndigo
 import com.ningshingche.app.ui.theme.Kalpurush
-import com.ningshingche.app.ui.theme.PortalDarkBg
-import com.ningshingche.app.ui.theme.PortalMaroon
-import com.ningshingche.app.ui.theme.PortalSaffron
 
 /**
  * Navigation drawer for the portal.
@@ -212,7 +212,7 @@ private fun DrawerHeader(
     onOpenDashboard: () -> Unit = {}
 ) {
     val headerColor by animateColorAsState(
-        targetValue = if (isDark) PortalDarkBg else PortalMaroon,
+        targetValue = if (isDark) BrandDarkCanvas else BrandIndigo,
         animationSpec = tween(320),
         label = "drawer_header"
     )
@@ -247,7 +247,7 @@ private fun DrawerHeader(
             Text(
                 text = "বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ",
                 fontFamily = Kalpurush,
-                color = PortalSaffron,
+                color = BrandGoldLight,
                 fontSize = 12.sp,
                 lineHeight = 16.sp,
                 maxLines = 1,
@@ -258,7 +258,7 @@ private fun DrawerHeader(
         if (showDashboard) {
             Surface(
                 shape = CircleShape,
-                color = if (dashboardSelected) PortalSaffron.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.14f)
+                color = if (dashboardSelected) BrandGoldLight.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.14f)
             ) {
                 Box {
                     IconButton(
@@ -281,7 +281,7 @@ private fun DrawerHeader(
                                 .padding(top = 6.dp, end = 6.dp)
                                 .size(9.dp)
                                 .clip(CircleShape)
-                                .background(PortalSaffron)
+                                .background(BrandGoldLight)
                         )
                     }
                 }

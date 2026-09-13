@@ -15,13 +15,26 @@ import androidx.compose.ui.unit.sp
 import com.ningshingche.app.ui.theme.bengaliTextStyle
 
 /**
- * "Modern editorial" design system.
+ * "Modern editorial" design system, in the palette নীলা-কালি — indigo ink.
  *
- * The look is borrowed from long-form magazine apps: a warm paper background, a
- * single confident accent, hairline rules instead of heavy dividers, and a real
- * typographic hierarchy — a serif display face for headlines and a neutral text
- * face for body copy. Cards stay flat; hierarchy comes from scale, weight and
- * whitespace rather than shadows.
+ * The look is still borrowed from long-form magazine apps: a quiet paper
+ * background, a single confident accent, hairline rules instead of heavy
+ * dividers, and a real typographic hierarchy — a serif display face for
+ * headlines and a neutral text face for body copy. Cards stay flat; hierarchy
+ * comes from scale, weight and whitespace rather than shadows.
+ *
+ * What changed, and why it is a family rather than a colour swap: the paper is
+ * now **cool** rather than warm (a bluish grey-white, the colour of newsprint
+ * under office light) and the accent is **indigo**, with a gold second for the
+ * one other thing a screen may point at. The previous palette was warm paper,
+ * maroon and saffron; the pair that replaces it is deliberately lower in
+ * saturation, so a photograph on a card is the brightest thing on the screen.
+ *
+ * Every value here is a token, and every screen reads the token — which is the
+ * only way a palette change stays a palette change. The three files that sit
+ * outside the theme (the music player, the PDF reader, the splash) take the
+ * light twins from `ui/theme/Color.kt` instead, because they paint on near-black
+ * rather than on paper.
  *
  * Bengali is the primary content language, so line heights are generous
  * (Bengali glyphs have tall ascenders and hanging matras) and the body scale
@@ -33,42 +46,46 @@ import com.ningshingche.app.ui.theme.bengaliTextStyle
 // ---------------------------------------------------------------------------
 
 object EditorialPalette {
-    // Warm neutrals — the "paper" the magazine is printed on.
-    val Paper = Color(0xFFFDFBF7)
-    val PaperSunken = Color(0xFFF6F1E8)
+    // Cool neutrals — the "paper" the magazine is printed on. A bluish
+    // off-white rather than a warm cream, so the paper never competes with a
+    // photograph for the reader's eye.
+    val Paper = Color(0xFFF7F8FB)
+    val PaperSunken = Color(0xFFEDF0F7)
     val Surface = Color(0xFFFFFFFF)
-    val SurfaceVariant = Color(0xFFF1EBE0)
+    val SurfaceVariant = Color(0xFFF1F3F8)
 
     // Ink
-    val Ink = Color(0xFF1A1512)
-    val InkSoft = Color(0xFF4A423A)
-    val InkMuted = Color(0xFF7A6E62)
+    val Ink = Color(0xFF131722)
+    val InkSoft = Color(0xFF414A5C)
+    val InkMuted = Color(0xFF6E7787)
 
     // Rules and borders: hairlines, not dividers.
-    val Rule = Color(0xFFE3DACD)
-    val RuleStrong = Color(0xFFCDBCAA)
+    val Rule = Color(0xFFDDE2EC)
+    val RuleStrong = Color(0xFFC3CBD9)
 
-    // Accents. Maroon is the masthead colour, saffron is the single point of
+    // Accents. Indigo is the masthead colour; gold is the single point of
     // emphasis per screen — used sparingly, never on two things at once.
-    val Maroon = Color(0xFF7A2E1E)
-    val MaroonSoft = Color(0xFFF2E4DE)
-    val Saffron = Color(0xFFD97706)
-    val SaffronSoft = Color(0xFFFDF0DC)
+    val Indigo = Color(0xFF2F4B8F)
+    val IndigoSoft = Color(0xFFE7ECF8)
+    val Gold = Color(0xFFB4761B)
+    val GoldSoft = Color(0xFFFBF0DC)
 
-    val Success = Color(0xFF2F6B4F)
-    val Warning = Color(0xFFB45309)
-    val Danger = Color(0xFFB42318)
+    val Success = Color(0xFF1E7A54)
+    val Warning = Color(0xFFB4761B)
+    val Danger = Color(0xFFB4232A)
 
-    // Dark theme
-    val DarkBg = Color(0xFF12100E)
-    val DarkSurface = Color(0xFF1C1917)
-    val DarkSurfaceVariant = Color(0xFF272320)
-    val DarkInk = Color(0xFFF7F2EA)
-    val DarkInkSoft = Color(0xFFD8CFC3)
-    val DarkInkMuted = Color(0xFF9C9186)
-    val DarkRule = Color(0xFF322C27)
-    val DarkMaroon = Color(0xFFE9A08C)
-    val DarkSaffron = Color(0xFFF0A94B)
+    // Dark theme: a near-black with a blue cast, and the two accents lifted
+    // until they read on it.
+    val DarkBg = Color(0xFF0D1017)
+    val DarkSurface = Color(0xFF141926)
+    val DarkSurfaceVariant = Color(0xFF1B2130)
+    val DarkInk = Color(0xFFEDF0F7)
+    val DarkInkSoft = Color(0xFFC3CAD8)
+    val DarkInkMuted = Color(0xFF8C95A6)
+    val DarkRule = Color(0xFF252C3B)
+    val DarkIndigo = Color(0xFF93B0E6)
+    val DarkIndigoSoft = Color(0xFF1D2740)
+    val DarkGold = Color(0xFFE3B368)
 }
 
 /** Semantic tokens that sit on top of the Material colour scheme. */
@@ -88,8 +105,8 @@ private val LightTokens = EditorialTokens(
     ruleStrong = EditorialPalette.RuleStrong,
     inkSoft = EditorialPalette.InkSoft,
     inkMuted = EditorialPalette.InkMuted,
-    accent = EditorialPalette.Maroon,
-    accentSoft = EditorialPalette.MaroonSoft,
+    accent = EditorialPalette.Indigo,
+    accentSoft = EditorialPalette.IndigoSoft,
     surfaceSunken = EditorialPalette.PaperSunken,
     isDark = false
 )
@@ -99,8 +116,8 @@ private val DarkTokens = EditorialTokens(
     ruleStrong = EditorialPalette.DarkRule,
     inkSoft = EditorialPalette.DarkInkSoft,
     inkMuted = EditorialPalette.DarkInkMuted,
-    accent = EditorialPalette.DarkMaroon,
-    accentSoft = Color(0xFF33231D),
+    accent = EditorialPalette.DarkIndigo,
+    accentSoft = EditorialPalette.DarkIndigoSoft,
     surfaceSunken = EditorialPalette.DarkSurfaceVariant,
     isDark = true
 )
@@ -108,14 +125,14 @@ private val DarkTokens = EditorialTokens(
 val LocalEditorialTokens = staticCompositionLocalOf { LightTokens }
 
 private val LightScheme = lightColorScheme(
-    primary = EditorialPalette.Maroon,
+    primary = EditorialPalette.Indigo,
     onPrimary = Color.White,
-    primaryContainer = EditorialPalette.MaroonSoft,
-    onPrimaryContainer = EditorialPalette.Maroon,
-    secondary = EditorialPalette.Saffron,
+    primaryContainer = EditorialPalette.IndigoSoft,
+    onPrimaryContainer = EditorialPalette.Indigo,
+    secondary = EditorialPalette.Gold,
     onSecondary = Color.White,
-    secondaryContainer = EditorialPalette.SaffronSoft,
-    onSecondaryContainer = Color(0xFF7A4A08),
+    secondaryContainer = EditorialPalette.GoldSoft,
+    onSecondaryContainer = Color(0xFF6B4708),
     background = EditorialPalette.Paper,
     onBackground = EditorialPalette.Ink,
     surface = EditorialPalette.Surface,
@@ -125,18 +142,18 @@ private val LightScheme = lightColorScheme(
     outline = EditorialPalette.Rule,
     outlineVariant = EditorialPalette.Rule,
     error = EditorialPalette.Danger,
-    scrim = Color(0x991A1512)
+    scrim = Color(0x99131722)
 )
 
 private val DarkScheme = darkColorScheme(
-    primary = EditorialPalette.DarkMaroon,
-    onPrimary = Color(0xFF3B1710),
-    primaryContainer = Color(0xFF33231D),
-    onPrimaryContainer = EditorialPalette.DarkMaroon,
-    secondary = EditorialPalette.DarkSaffron,
-    onSecondary = Color(0xFF3B2408),
+    primary = EditorialPalette.DarkIndigo,
+    onPrimary = Color(0xFF0A1730),
+    primaryContainer = EditorialPalette.DarkIndigoSoft,
+    onPrimaryContainer = EditorialPalette.DarkIndigo,
+    secondary = EditorialPalette.DarkGold,
+    onSecondary = Color(0xFF33240B),
     secondaryContainer = Color(0xFF33280F),
-    onSecondaryContainer = EditorialPalette.DarkSaffron,
+    onSecondaryContainer = EditorialPalette.DarkGold,
     background = EditorialPalette.DarkBg,
     onBackground = EditorialPalette.DarkInk,
     surface = EditorialPalette.DarkSurface,

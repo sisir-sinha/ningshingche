@@ -180,7 +180,7 @@ private fun VideoCatalogCard(
                 )
                 Surface(
                     shape = RoundedCornerShape(EditorialShape.chip),
-                    color = Color(0xCC1A1512),
+                    color = Color(0xCC131722),
                     modifier = Modifier
                         .align(Alignment.TopStart)
                         .padding(EditorialSpace.sm)

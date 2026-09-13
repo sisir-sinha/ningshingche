@@ -1056,7 +1056,7 @@ private fun ThemeModeCard(
     Surface(
         shape = RoundedCornerShape(14.dp),
         color = previewBg,
-        border = BorderStroke(if (isSelected) 2.dp else 1.dp, if (isSelected) androidx.compose.ui.graphics.Color(0xFFFF8C00) else MaterialTheme.colorScheme.outline),
+        border = BorderStroke(if (isSelected) 2.dp else 1.dp, if (isSelected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outline),
         modifier = modifier
             .clip(RoundedCornerShape(14.dp))
             .clickable { onClick() }

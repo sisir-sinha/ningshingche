@@ -52,12 +52,13 @@ import com.github.barteksc.pdfviewer.PDFView
 import com.github.barteksc.pdfviewer.util.FitPolicy
 import com.ningshingche.app.data.portal.ForumAttachment
 import com.ningshingche.app.ui.theme.Kalpurush
+import com.ningshingche.app.ui.theme.PanelInk
 import com.ningshingche.app.util.PdfHelper
 import kotlinx.coroutines.launch
 import java.io.File
 
-private val ViewerCanvas = Color(0xF2120E0C)
-private val ViewerInk = Color(0xFFF6EFE6)
+private val ViewerCanvas = Color(0xF20B0E14)
+private val ViewerInk = PanelInk
 
 /**
  * An attachment, as large as the phone will show it.

@@ -76,14 +76,20 @@ import com.github.barteksc.pdfviewer.scroll.DefaultScrollHandle
 import com.github.barteksc.pdfviewer.util.FitPolicy
 import com.ningshingche.app.data.model.PdfFitMode
 import com.ningshingche.app.data.model.PdfReaderSettings
+import com.ningshingche.app.ui.theme.BrandGoldLight
 import com.ningshingche.app.ui.theme.Kalpurush
-import com.ningshingche.app.ui.theme.PortalSaffron
+import com.ningshingche.app.ui.theme.Panel
+import com.ningshingche.app.ui.theme.PanelDeep
+import com.ningshingche.app.ui.theme.PanelInk
+import com.ningshingche.app.ui.theme.PanelInkMuted
+import com.ningshingche.app.ui.theme.PanelRule
+import com.ningshingche.app.ui.theme.PanelSoft
 import com.ningshingche.app.ui.viewmodel.PdfViewerViewModel
 import java.io.File
 
-private val ReaderCanvas = Color(0xFF1A1410)
-private val ReaderBar = Color(0xFF241A16)
-private val PagePaper = Color(0xFFFFFBF5)
+private val ReaderCanvas = Panel
+private val ReaderBar = PanelSoft
+private val PagePaper = com.ningshingche.app.ui.editorial.EditorialPalette.Paper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -140,14 +146,14 @@ fun PdfViewerScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onNavigateBack, modifier = Modifier.testTag("pdf_viewer_back_button")) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "পেছনে", tint = Color(0xFFFFF3D6))
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "পেছনে", tint = PanelInk)
             }
             Column(Modifier.weight(1f)) {
                 Text(
                     pdfDocument?.title ?: "গ্রন্থাগার",
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFFFF3D6),
+                    color = PanelInk,
                     fontSize = 16.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -157,19 +163,19 @@ fun PdfViewerScreen(
                     !pdfDocument?.edition.isNullOrBlank() -> pdfDocument?.edition.orEmpty()
                     else -> "পিডিএফ পাঠক"
                 }
-                Text(subtitle, fontFamily = Kalpurush, color = PortalSaffron, fontSize = 12.sp)
+                Text(subtitle, fontFamily = Kalpurush, color = BrandGoldLight, fontSize = 12.sp)
             }
             IconButton(onClick = { showSettings = true }, enabled = localFile != null) {
-                Icon(Icons.Default.Settings, contentDescription = "সেটিংস", tint = PortalSaffron)
+                Icon(Icons.Default.Settings, contentDescription = "সেটিংস", tint = BrandGoldLight)
             }
             IconButton(onClick = { viewModel.openExternally() }, enabled = localFile != null) {
-                Icon(Icons.Default.OpenInNew, contentDescription = "অন্য অ্যাপে খুলুন", tint = PortalSaffron)
+                Icon(Icons.Default.OpenInNew, contentDescription = "অন্য অ্যাপে খুলুন", tint = BrandGoldLight)
             }
             IconButton(onClick = { viewModel.sharePdf() }, enabled = localFile != null) {
-                Icon(Icons.Default.Share, contentDescription = "শেয়ার", tint = PortalSaffron)
+                Icon(Icons.Default.Share, contentDescription = "শেয়ার", tint = BrandGoldLight)
             }
             IconButton(onClick = { viewModel.downloadPdf() }, enabled = pdfDocument != null) {
-                Icon(Icons.Default.Download, contentDescription = "ডাউনলোড", tint = PortalSaffron)
+                Icon(Icons.Default.Download, contentDescription = "ডাউনলোড", tint = BrandGoldLight)
             }
         }
 
@@ -184,16 +190,16 @@ fun PdfViewerScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.padding(32.dp)
                 ) {
-                    Icon(Icons.Default.PictureAsPdf, null, tint = PortalSaffron, modifier = Modifier.size(56.dp))
+                    Icon(Icons.Default.PictureAsPdf, null, tint = BrandGoldLight, modifier = Modifier.size(56.dp))
                     Spacer(Modifier.height(12.dp))
                     Text(
                         errorMessage ?: "বইটি খোলা যায়নি",
                         fontFamily = Kalpurush,
-                        color = Color(0xFFFFF3D6),
+                        color = PanelInk,
                         fontSize = 15.sp
                     )
                     TextButton(onClick = { viewModel.loadPdf(pdfId) }) {
-                        Text("আবার চেষ্টা করুন", fontFamily = Kalpurush, color = PortalSaffron)
+                        Text("আবার চেষ্টা করুন", fontFamily = Kalpurush, color = BrandGoldLight)
                     }
                 }
                 localFile != null -> {
@@ -234,16 +240,16 @@ fun PdfViewerScreen(
                     }
                     if (isLoading) {
                         CircularProgressIndicator(
-                            color = PortalSaffron,
+                            color = BrandGoldLight,
                             strokeWidth = 2.dp,
                             modifier = Modifier.align(Alignment.Center)
                         )
                     }
                 }
                 else -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator(color = PortalSaffron, strokeWidth = 2.dp)
+                    CircularProgressIndicator(color = BrandGoldLight, strokeWidth = 2.dp)
                     Spacer(Modifier.height(12.dp))
-                    Text("পিডিএফ খোলা হচ্ছে…", fontFamily = Kalpurush, color = Color(0xFFFFF3D6), fontSize = 14.sp)
+                    Text("পিডিএফ খোলা হচ্ছে…", fontFamily = Kalpurush, color = PanelInk, fontSize = 14.sp)
                 }
             }
         }
@@ -265,9 +271,9 @@ fun PdfViewerScreen(
                         valueRange = 0f..(pageCount - 1).toFloat(),
                         steps = (pageCount - 2).coerceAtLeast(0),
                         colors = SliderDefaults.colors(
-                            thumbColor = PortalSaffron,
-                            activeTrackColor = PortalSaffron,
-                            inactiveTrackColor = Color(0xFF5A4034)
+                            thumbColor = BrandGoldLight,
+                            activeTrackColor = BrandGoldLight,
+                            inactiveTrackColor = PanelRule
                         )
                     )
                 }
@@ -278,7 +284,7 @@ fun PdfViewerScreen(
                         "স্ক্রল দৃশ্য  ·  চিমটি করে জুম"
                     },
                     fontFamily = Kalpurush,
-                    color = Color(0xCCFFF3D6),
+                    color = PanelInkMuted,
                     fontSize = 11.sp,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -291,7 +297,7 @@ fun PdfViewerScreen(
             onDismissRequest = { showSettings = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
             containerColor = ReaderBar,
-            contentColor = Color(0xFFFFF3D6)
+            contentColor = PanelInk
         ) {
             PdfReaderSettingsSheet(
                 settings = settings,
@@ -327,7 +333,7 @@ private fun BookPdfCanvas(
                     Modifier
                         .shadow(18.dp, RoundedCornerShape(10.dp))
                         .clip(RoundedCornerShape(10.dp))
-                        .background(if (settings.nightMode) Color(0xFF121212) else PagePaper)
+                        .background(if (settings.nightMode) PanelDeep else PagePaper)
                 } else Modifier
             )
     ) {
@@ -443,7 +449,7 @@ private fun PdfReaderSettingsSheet(
     ) {
         Text("পাঠকের সেটিংস", fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = 18.sp)
         Spacer(Modifier.height(14.dp))
-        Text("দৃশ্য", fontFamily = Kalpurush, color = PortalSaffron, fontSize = 13.sp)
+        Text("দৃশ্য", fontFamily = Kalpurush, color = BrandGoldLight, fontSize = 13.sp)
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ModeChip(
@@ -462,11 +468,11 @@ private fun PdfReaderSettingsSheet(
             if (settings.bookView) "এক পাতায় একটি পৃষ্ঠা। বাঁদিকে/ডানদিকে সোয়াইপ করলে পাতা উল্টে।"
             else "উপর-নিচ স্ক্রল করে পুরো বই পড়ুন।",
             fontFamily = Kalpurush,
-            color = Color(0xCCFFF3D6),
+            color = PanelInkMuted,
             fontSize = 12.sp
         )
         Spacer(Modifier.height(16.dp))
-        HorizontalDivider(color = Color(0x335A4034))
+        HorizontalDivider(color = Color(0x332A3141))
         Spacer(Modifier.height(12.dp))
         SettingSwitch("রাতের মোড", settings.nightMode) { onChange(settings.copy(nightMode = it)) }
         SettingSwitch("পাতা স্ন্যাপ", settings.snapPages) { onChange(settings.copy(snapPages = it)) }
@@ -475,7 +481,7 @@ private fun PdfReaderSettingsSheet(
         SettingSwitch("স্ক্রল হ্যান্ডেল", settings.scrollHandle) { onChange(settings.copy(scrollHandle = it)) }
         SettingSwitch("স্ক্রিন জ্বালিয়ে রাখুন", settings.keepScreenOn) { onChange(settings.copy(keepScreenOn = it)) }
         Spacer(Modifier.height(8.dp))
-        Text("ফ্রেমে মিল", fontFamily = Kalpurush, color = PortalSaffron, fontSize = 13.sp)
+        Text("ফ্রেমে মিল", fontFamily = Kalpurush, color = BrandGoldLight, fontSize = 13.sp)
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FitChip("প্রস্থ", settings.fitMode == PdfFitMode.WIDTH) { onChange(settings.copy(fitMode = PdfFitMode.WIDTH)) }
@@ -492,15 +498,15 @@ private fun PdfReaderSettingsSheet(
                 onValueChange = { onChange(settings.copy(spacingDp = it.toInt())) },
                 valueRange = 0f..32f,
                 colors = SliderDefaults.colors(
-                    thumbColor = PortalSaffron,
-                    activeTrackColor = PortalSaffron,
-                    inactiveTrackColor = Color(0xFF5A4034)
+                    thumbColor = BrandGoldLight,
+                    activeTrackColor = BrandGoldLight,
+                    inactiveTrackColor = PanelRule
                 )
             )
         }
         if (pageCount > 1) {
             Spacer(Modifier.height(8.dp))
-            Text("পৃষ্ঠায় যান", fontFamily = Kalpurush, color = PortalSaffron, fontSize = 13.sp)
+            Text("পৃষ্ঠায় যান", fontFamily = Kalpurush, color = BrandGoldLight, fontSize = 13.sp)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 androidx.compose.material3.OutlinedTextField(
                     value = jump,
@@ -514,13 +520,13 @@ private fun PdfReaderSettingsSheet(
                     val page = (jump.toIntOrNull() ?: (currentPage + 1)) - 1
                     onJump(page)
                 }) {
-                    Text("যান", fontFamily = Kalpurush, color = PortalSaffron)
+                    Text("যান", fontFamily = Kalpurush, color = BrandGoldLight)
                 }
             }
         }
         Spacer(Modifier.height(8.dp))
         TextButton(onClick = onClose, modifier = Modifier.align(Alignment.End)) {
-            Text("বন্ধ", fontFamily = Kalpurush, color = PortalSaffron)
+            Text("বন্ধ", fontFamily = Kalpurush, color = BrandGoldLight)
         }
     }
 }
@@ -538,9 +544,9 @@ private fun ModeChip(
         label = { Text(label, fontFamily = Kalpurush) },
         leadingIcon = { Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp)) },
         colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = PortalSaffron.copy(alpha = 0.22f),
-            selectedLabelColor = Color(0xFFFFF3D6),
-            selectedLeadingIconColor = PortalSaffron
+            selectedContainerColor = BrandGoldLight.copy(alpha = 0.22f),
+            selectedLabelColor = PanelInk,
+            selectedLeadingIconColor = BrandGoldLight
         )
     )
 }
@@ -552,8 +558,8 @@ private fun FitChip(label: String, selected: Boolean, onClick: () -> Unit) {
         onClick = onClick,
         label = { Text(label, fontFamily = Kalpurush) },
         colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = PortalSaffron.copy(alpha = 0.22f),
-            selectedLabelColor = Color(0xFFFFF3D6)
+            selectedContainerColor = BrandGoldLight.copy(alpha = 0.22f),
+            selectedLabelColor = PanelInk
         )
     )
 }
@@ -572,7 +578,7 @@ private fun SettingSwitch(label: String, checked: Boolean, onChecked: (Boolean) 
             onCheckedChange = onChecked,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
-                checkedTrackColor = PortalSaffron
+                checkedTrackColor = BrandGoldLight
             )
         )
     }
