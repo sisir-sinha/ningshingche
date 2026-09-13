@@ -2694,95 +2694,109 @@ private fun ForumScaffold(
     val tokens = LocalEditorialTokens.current
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column(Modifier.padding(vertical = EditorialSpace.xxs)) {
-                        Text(
-                            text = title,
-                            fontFamily = Kalpurush,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 17.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = subtitle,
-                            fontFamily = Kalpurush,
-                            fontSize = 11.5.sp,
-                            color = tokens.inkMuted,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                },
-                navigationIcon = {
-                    if (onBackClick != null) {
-                        IconButton(
-                            onClick = onBackClick,
-                            modifier = Modifier.testTag("forum_back")
-                        ) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "পেছনে")
-                        }
-                    }
-                },
-                // No bell here: notices are the dashboard's, and the forum's bar
-                // belongs to the forum. The search is an icon in the corner,
-                // **before** the reload icon — the owner's order — and the field
-                // it opens slides out under the bar rather than living on the
-                // page as a full-width box.
-                actions = {
-                    if (onSearchClick != null) {
-                        IconButton(
-                            onClick = onSearchClick,
-                            modifier = Modifier.testTag("forum_search_toggle")
-                        ) {
-                            Icon(
-                                imageVector = if (searchOpen) Icons.Default.Close else Icons.Default.Search,
-                                contentDescription = if (searchOpen) "খোঁজ বন্ধ করুন" else "আলোচনা খুঁজুন"
+            // Scaffold places every child of the `topBar` slot at the same origin —
+            // `topBarPlaceables.fastForEach { it.place(0, 0) }` in Material 3 — so a
+            // second child of the slot is drawn *over* the bar rather than under it.
+            // That is what the field did: opening the search blanketed the title, the
+            // back arrow and both icons, the magnifier that put it there included, and
+            // there was no way back out of it. The bar, the field and the refresh line
+            // are stacked in this Column, so the field really does slide out under the
+            // bar and the bar stays whole.
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+            ) {
+                TopAppBar(
+                    title = {
+                        Column(Modifier.padding(vertical = EditorialSpace.xxs)) {
+                            Text(
+                                text = title,
+                                fontFamily = Kalpurush,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 17.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = subtitle,
+                                fontFamily = Kalpurush,
+                                fontSize = 11.5.sp,
+                                color = tokens.inkMuted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
-                    }
-                    if (onRefreshClick != null) {
-                        IconButton(
-                            onClick = onRefreshClick,
-                            modifier = Modifier.testTag("forum_refresh")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = "রিফ্রেশ"
-                            )
+                    },
+                    navigationIcon = {
+                        if (onBackClick != null) {
+                            IconButton(
+                                onClick = onBackClick,
+                                modifier = Modifier.testTag("forum_back")
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "পেছনে")
+                            }
                         }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    },
+                    // No bell here: notices are the dashboard's, and the forum's bar
+                    // belongs to the forum. The search is an icon in the corner,
+                    // **before** the reload icon — the owner's order — and the field
+                    // it opens slides out under the bar rather than living on the
+                    // page as a full-width box.
+                    actions = {
+                        if (onSearchClick != null) {
+                            IconButton(
+                                onClick = onSearchClick,
+                                modifier = Modifier.testTag("forum_search_toggle")
+                            ) {
+                                Icon(
+                                    imageVector = if (searchOpen) Icons.Default.Close else Icons.Default.Search,
+                                    contentDescription = if (searchOpen) "খোঁজ বন্ধ করুন" else "আলোচনা খুঁজুন"
+                                )
+                            }
+                        }
+                        if (onRefreshClick != null) {
+                            IconButton(
+                                onClick = onRefreshClick,
+                                modifier = Modifier.testTag("forum_refresh")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = "রিফ্রেশ"
+                                )
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
                 )
-            )
-            // The field slides out from under the bar and back into it, with the
-            // page underneath simply making room — no jump, no blank frame.
-            if (searchField != null) {
-                AnimatedVisibility(
-                    visible = searchOpen,
-                    enter = expandVertically(
-                        animationSpec = tween(durationMillis = 220),
-                        expandFrom = Alignment.Top
-                    ) + fadeIn(animationSpec = tween(durationMillis = 180)),
-                    exit = shrinkVertically(
-                        animationSpec = tween(durationMillis = 180),
-                        shrinkTowards = Alignment.Top
-                    ) + fadeOut(animationSpec = tween(durationMillis = 120))
-                ) {
-                    searchField()
+                // The field slides out from under the bar and back into it, with the
+                // page underneath simply making room — no jump, no blank frame.
+                if (searchField != null) {
+                    AnimatedVisibility(
+                        visible = searchOpen,
+                        enter = expandVertically(
+                            animationSpec = tween(durationMillis = 220),
+                            expandFrom = Alignment.Top
+                        ) + fadeIn(animationSpec = tween(durationMillis = 180)),
+                        exit = shrinkVertically(
+                            animationSpec = tween(durationMillis = 180),
+                            shrinkTowards = Alignment.Top
+                        ) + fadeOut(animationSpec = tween(durationMillis = 120))
+                    ) {
+                        searchField()
+                    }
                 }
-            }
-            // A refresh behind content that is already on screen: a line under
-            // the bar says so without taking the thread off the page.
-            if (refreshing) {
-                LinearProgressIndicator(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("forum_thread_refreshing")
-                )
+                // A refresh behind content that is already on screen: a line under
+                // the bar says so without taking the thread off the page.
+                if (refreshing) {
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("forum_thread_refreshing")
+                    )
+                }
             }
         },
         bottomBar = { bottomBar?.invoke() },

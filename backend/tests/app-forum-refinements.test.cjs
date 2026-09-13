@@ -118,6 +118,18 @@ test('every forum screen has room at the top, and its own back arrow', async (t)
     const refresh = scaffold.indexOf('forum_refresh');
     assert.ok(search !== -1 && refresh !== -1 && search < refresh,
       'the search sits before the reload icon, as the owner asked');
+    // Scaffold places every child of the `topBar` slot at (0, 0) — Material 3's own
+    // `topBarPlaceables.fastForEach { it.place(0, 0) }` — so the field, emitted as a
+    // second child there, was drawn *over* the bar: it blanketed the title, the back
+    // arrow and both icons, including the magnifier that opened it. The bar, the
+    // field and the refresh line stack in a Column instead, so it slides out under
+    // the bar and the bar stays whole.
+    assert.match(scaffold,
+      /Column\(\s*\n\s*modifier = Modifier[\s\S]{0,120}?\.background\(MaterialTheme\.colorScheme\.surface\)/,
+      'the bar stacks its children in a Column');
+    const slot = scaffold.slice(scaffold.indexOf('topBar = {'));
+    assert.ok(slot.indexOf('Column(') < slot.indexOf('AnimatedVisibility('),
+      'so the field opens under the bar, not over it');
     const field = screen('ForumSearchField');
     assert.match(field, /testTag\("forum_search"\)/, 'the field is still the field');
     assert.match(field, /fontSize = 13\.sp/, 'with the forum page\'s own size, not a size above it');

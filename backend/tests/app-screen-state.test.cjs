@@ -99,7 +99,11 @@ test('a rebuilt thread screen keeps its answers', async (t) => {
     assert.match(FORUM_SCREENS, /refreshing: Boolean = false/, 'the scaffold takes the flag');
     // It has to be *inside* the top bar's lambda — a composable in an argument
     // list does not compile, and one drawn over the page is what the owner found.
-    assert.match(FORUM_SCREENS, /if \(refreshing\) \{\s*LinearProgressIndicator\(\s*modifier = Modifier\s*\.fillMaxWidth\(\)\s*\.testTag\("forum_thread_refreshing"\)\s*\)\s*\}\s*\},\s*bottomBar = \{ bottomBar\?\.invoke\(\) \},/,
+    // The slot's children are stacked in a Column now (the search field's own bug:
+    // a second child of the slot is drawn over the bar), so the line closes the
+    // Column and the slot before `bottomBar` is reached.
+    assert.match(FORUM_SCREENS,
+      /if \(refreshing\) \{\s*LinearProgressIndicator\(\s*modifier = Modifier\s*\.fillMaxWidth\(\)\s*\.testTag\("forum_thread_refreshing"\)\s*\)\s*\}\s*\}\s*\},\s*bottomBar = \{ bottomBar\?\.invoke\(\) \},/,
       'and draws the line inside the bar, under it, not over the page');
   });
 

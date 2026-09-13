@@ -781,7 +781,7 @@ are rows in `forum_categories`, seeded by the migration and editable from the da
 
 | Screen | Route | What it is |
 | --- | --- | --- |
-| `ForumHomeScreen` | `forum` | **বিভাগসমূহ** as a sideways-scrolling rail, then **সাম্প্রতিক আলোচনা** with its three filters; the magnifier in the app bar opens the search field under it |
+| `ForumHomeScreen` | `forum` | **বিভাগসমূহ** as a sideways-scrolling rail, then **সাম্প্রতিক আলোচনা** with its three filters; the magnifier in the app bar opens the search field under it — the `topBar` slot stacks the bar, the field and the refresh line in a `Column`, because Scaffold places every child of that slot at (0, 0), and a field emitted there as a second child is drawn *over* the bar |
 | `ForumCategoryScreen` | `forum_room/{slug}` | one room, paged 30 at a time, with **নতুন আলোচনা** |
 | `ForumThreadScreen` | `forum_thread/{discussionId}` | the opening post, its answers with their reactions and their own answers, a composer, and — on a long tap — the reader's own two actions |
 | `NewDiscussionScreen` | `forum_new?room=` | room (a row of `FilterChip`s, preselected when a room sent the reader here), title, an optional cover, and the body in the compact editor |
