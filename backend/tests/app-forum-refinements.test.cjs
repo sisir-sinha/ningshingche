@@ -203,10 +203,12 @@ test('the filters speak for themselves, and a card reads at a glance', async (t)
 
   await t.test('a discussion title is bigger', () => {
     const card = screen('ForumDiscussionCard');
-    // A card with a picture beside it has less width for its words, so its title
-    // is a size down from a full-width card's — both are bigger than the old 15.
-    assert.match(card, /fontSize = if \(discussion\.hasCover\) 16\.sp else 17\.sp/,
-      'the title a reader scans for');
+    // Every card has a picture beside it now — the owner's rule — so every card's
+    // words are the same width and there is one title size, not two. It is still
+    // bigger than the old 15.
+    assert.match(card, /fontSize = 16\.sp/,
+      'the title a reader scans for, at one size');
+    assert.match(card, /lineHeight = 19\.sp/);
     assert.ok(!/fontSize = 15\.sp[^]*maxLines = 2/.test(card),
       'and the old size is not left on the title');
   });
@@ -216,8 +218,8 @@ test('the filters speak for themselves, and a card reads at a glance', async (t)
     // the name. It is a second line under it now, and the two lines together are
     // the height of the face they stand beside — that is what "one unit" means.
     const card = screen('ForumDiscussionCard');
-    assert.match(card, /avatarSize = if \(discussion\.hasCover\) 30 else 34/,
-      'a face worth looking at, a size down when a cover shares the row');
+    assert.match(card, /avatarSize = 30,\n\s*nameSize = 12\.5\.sp/,
+      'a face worth looking at, a size down because a cover shares the row on every card');
     const author = screen('ForumAuthorRow');
     const lines = author.split('\n').length;
     assert.ok(lines < 70, `the author block is small (${lines} lines)`);

@@ -6,8 +6,10 @@
  *  * সেরা অবদানকারী in order of points, descending — on the home page and on the
  *    contributor page, which read the same board;
  *  * the forum's **জনপ্রিয়** tab in descending order too;
- *  * অনুমোদিত, wherever there is a thumbnail, on the thumbnail's bottom-right
- *    corner;
+ *  * the verified mark: the tick alone, without the word অনুমোদিত, on the card's
+ *    cover and in the thread's own row;
+ *  * a cover on every thread — the reader's picture, or a stand-in built from the
+ *    thread's id with the first letter of its title centred on it;
  *  * সাম্প্রতিক আলোচনা on the home page, under the header, as an inline list of
  *    the latest five, for registered readers only.
  *
@@ -142,64 +144,153 @@ test('the forum\'s জনপ্রিয় tab is most answered first', async (
 });
 
 // ---------------------------------------------------------------------------
-// 3. অনুমোদিত, over the thumbnail's bottom-right corner
+// 3. The verified mark: the tick, without the word
 // ---------------------------------------------------------------------------
 
-test('অনুমোদিত sits on the picture, in its corner', async (t) => {
-  await t.test('there is one badge, and one place it is pinned', () => {
-    const declaration = FORUM_SCREENS.slice(
-      FORUM_SCREENS.indexOf('private fun OfficialBadge('),
-      FORUM_SCREENS.indexOf('private fun ThumbnailOfficialBadge(')
+test('the verified mark is the tick alone, and it is on the picture', async (t) => {
+  await t.test('there is one mark, and it says nothing in words', () => {
+    assert.match(FORUM_SCREENS, /private fun VerifiedMark\(onImage: Boolean = false/,
+      'one composable, for a picture and for a line of words');
+    assert.ok(!/private fun OfficialBadge\(/.test(FORUM_SCREENS),
+      'the labelled badge is gone');
+    assert.ok(!FORUM_SCREENS.includes('ThumbnailOfficialBadge'),
+      'and so is its on-the-thumbnail wrapper: one mark, not two');
+    const mark = FORUM_SCREENS.slice(
+      FORUM_SCREENS.indexOf('private fun VerifiedMark('),
+      FORUM_SCREENS.indexOf('private fun ForumCountsRow(')
     );
-    assert.match(declaration, /onImage: Boolean = false/,
-      'the flat form and the on-image form');
-    const badge = screen('OfficialBadge');
-    assert.match(badge, /background\(if \(onImage\) tokens\.accent else tokens\.accentSoft\)/,
-      'solid on a picture, pale on a page');
-    assert.match(badge, /val ink = if \(onImage\) Color\.White else tokens\.accent/,
-      'white on the solid fill, so it reads over any photograph');
-    const pinned = screen('ThumbnailOfficialBadge');
-    assert.match(pinned, /OfficialBadge\(onImage = true\)/);
-    assert.match(pinned, /\.shadow\(2\.dp, RoundedCornerShape\(EditorialShape\.chip\)\)/,
-      'with a soft shadow under it');
-  });
-
-  await t.test('the card puts it on the cover, at BottomEnd', () => {
+    assert.match(mark, /Icons\.Default\.Verified/, 'what is left is the tick');
+    assert.match(mark, /contentDescription = "অনুমোদিত"/,
+      'and the word is only read out, for a screen reader');
+    assert.match(mark, /background\(if \(onImage\) Color\(0xCC0E1A16\) else tokens\.accentSoft\)/,
+      'a dark scrim over a picture, the pale chip against a page');
+    assert.match(mark, /tint = if \(onImage\) Color\.White else tokens\.accent/);
+    // The card and the thread are what the owner named: neither writes the word.
     const card = screen('ForumDiscussionCard');
-    const cover = card.slice(card.indexOf('if (discussion.hasCover)'),
-      card.indexOf('Spacer(Modifier.width(EditorialSpace.xs))'));
-    assert.match(cover, /Box\(/);
-    assert.match(cover, /ThumbnailOfficialBadge\(\s*\n\s*modifier = Modifier\s*\n\s*\.align\(Alignment\.BottomEnd\)/,
-      'aligned to the corner of the picture');
-    assert.match(cover, /forum_card_official_\$\{discussion\.id\}/, 'and reachable in a UI test');
-    assert.match(card, /if \(discussion\.isOfficial && !discussion\.hasCover\)/,
-      'the category row only carries it when there is no picture to carry it');
+    assert.ok(!card.includes('অনুমোদিত'), 'the card does not write it');
+    const post = screen('ForumOpeningPost');
+    assert.ok(!post.includes('অনুমোদিত'), 'and nor does the thread');
   });
 
-  await t.test('the thread\'s own cover carries it too', () => {
+  await t.test('the card carries it in the cover\'s top-right corner', () => {
+    const card = screen('ForumDiscussionCard');
+    const cover = card.slice(card.indexOf('.width(FORUM_CARD_COVER_WIDTH)'),
+      card.indexOf('Spacer(Modifier.width(EditorialSpace.xs))'));
+    assert.match(cover, /VerifiedMark\(\s*\n\s*onImage = true,\s*\n\s*modifier = Modifier\s*\n\s*\.align\(Alignment\.TopEnd\)/,
+      'on the picture, in its other top corner — the counters have the left one');
+    assert.match(cover, /forum_card_official_\$\{discussion\.id\}/, 'and reachable in a UI test');
+    assert.ok(!/discussion\.isOfficial && !discussion\.hasCover/.test(card),
+      'no branch left for a card without a picture: every card has one');
+  });
+
+  await t.test('the thread keeps it in its own row, under the cover', () => {
     const post = screen('ForumOpeningPost');
-    assert.match(post,
-      /if \(discussion\.isOfficial\) \{[\s\S]{0,400}?ThumbnailOfficialBadge\(\s*\n\s*modifier = Modifier\s*\n\s*\.align\(Alignment\.BottomEnd\)/,
-      'in the cover\'s bottom-right corner');
-    assert.match(post, /testTag\("forum_thread_official"\)/);
-    // The first badge in the opening post is the one on the picture: nothing
-    // above it — the caption over the gradient — carries a badge any more. (The
-    // flat form is later, in the branch for a thread with no cover at all.)
-    const beforeThePictureBadge = post.slice(0, post.indexOf('ThumbnailOfficialBadge'));
-    assert.ok(!/OfficialBadge/.test(beforeThePictureBadge),
-      'and the words over the gradient carry no badge any more');
+    assert.ok(!/VerifiedMark/.test(post), 'not on the cover: the owner took it off');
+    const meta = screen('ForumOpeningMeta');
+    assert.match(meta, /ForumCounters\([\s\S]{0,300}?if \(discussion\.isOfficial\) \{[\s\S]{0,120}?VerifiedMark\(/,
+      'after the thread\'s numbers, at the end of the row');
+    assert.match(meta, /testTag\("forum_thread_verified"\)/);
+    const card = screen('ForumDiscussionCard');
+    assert.match(card, /VerifiedMark\(\s*\n\s*onImage = true/,
+      'while on a card it is drawn for a picture');
   });
 
   await t.test('and the home page\'s rows follow the same rule', () => {
     const row = screen('HomeForumRow');
-    assert.match(row, /ThumbnailOfficialBadge\(\s*\n\s*modifier = Modifier\s*\n\s*\.align\(Alignment\.BottomEnd\)/);
+    assert.match(row, /VerifiedMark\(\s*\n\s*onImage = true,\s*\n\s*modifier = Modifier\s*\n\s*\.align\(Alignment\.TopEnd\)/);
     assert.match(row, /home_forum_official_\$\{discussion\.id\}/);
+    assert.ok(!row.includes('অনুমোদিত'), 'with no word on it either');
   });
 });
 
 // ---------------------------------------------------------------------------
 // 4. সাম্প্রতিক আলোচনা on the home page
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// 3b. Every thread has a cover
+// ---------------------------------------------------------------------------
+
+test('every thread has a cover, and a thread with no picture gets a stand-in', async (t) => {
+  await t.test('the picture is one composable, used everywhere a thread is shown', () => {
+    assert.match(FORUM_SCREENS, /private object ForumCover \{/,
+      'the cover and its stand-in live together');
+    // The card's cover column, the thread's own cover, the home page's thumbnail.
+    const card = screen('ForumDiscussionCard');
+    const post = screen('ForumOpeningPost');
+    const row = screen('HomeForumRow');
+    for (const [name, body] of [['the card', card], ['the thread', post], ['the home row', row]]) {
+      assert.match(body, /ForumCover\.Photo\(/, `${name} draws the picture through it`);
+      assert.match(body, /id = discussion\.id/, `${name} hands it the thread\'s id, for the colour`);
+      assert.match(body, /title = discussion\.title/, `${name} hands it the title, for the letter`);
+    }
+    assert.ok(!/if \(discussion\.hasCover\) \{[\s\S]{0,200}?PortalAsyncImage/.test(card),
+      'the card\'s cover is not conditional any more');
+  });
+
+  await t.test('the stand-in is coloured from the thread\'s own id', () => {
+    const cover = FORUM_SCREENS.slice(FORUM_SCREENS.indexOf('private object ForumCover {'),
+      FORUM_SCREENS.indexOf('private fun ForumDiscussionCard('));
+    assert.match(cover, /fun fillFor\(id: String\): Color \{/);
+    assert.match(cover, /var value = 0\n\s*id\.forEach \{ char -> value = \(value \* 31 \+ char\.code\) and 0x7FFFFFFF \}/,
+      'a hash written out here, so the colour is this function\'s own property');
+    assert.match(cover, /Color\.hsl\(\(value % 360\)\.toFloat\(\), PITCH, DEPTH\)/,
+      'every id gets its own hue, at one pitch and one depth for the whole app');
+    assert.ok(!/Math\.random|Random\(/.test(cover),
+      'not a random number: the same thread keeps its colour on every device');
+    assert.match(cover, /private const val PITCH = 0\.34f/);
+    assert.match(cover, /private const val DEPTH = 0\.33f/);
+  });
+
+  await t.test('and the title\'s first letter sits in the middle of it', () => {
+    const cover = FORUM_SCREENS.slice(FORUM_SCREENS.indexOf('private object ForumCover {'),
+      FORUM_SCREENS.indexOf('private fun ForumDiscussionCard('));
+    assert.match(cover, /fun initial\(title: String\): String \{/);
+    assert.match(cover, /title\.trim\(\)\.firstOrNull \{ char ->/,
+      'the first character of the title');
+    assert.match(cover, /OPENING_PUNCTUATION\.indexOf\(char\) == -1/,
+      'skipping punctuation a title may open with');
+    assert.match(cover, /fontSize = glyphSize/, 'set at the size its caller asks for');
+    assert.match(cover, /contentAlignment = Alignment\.Center/, 'centred on the cover canvas');
+    assert.match(cover, /color = GLYPH_INK/, 'in the one ink the fills are chosen for');
+    // Each surface sizes the letter for itself: the card\'s column, the thread\'s
+    // whole cover, the home page\'s thumbnail.
+    assert.match(screen('ForumDiscussionCard'), /glyphSize = 34\.sp/);
+    assert.match(screen('ForumOpeningPost'), /glyphSize = 66\.sp/);
+    assert.match(screen('HomeForumRow'), /glyphSize = 22\.sp/);
+  });
+
+  await t.test('a reader\'s own picture is still the one that is shown', () => {
+    const cover = FORUM_SCREENS.slice(FORUM_SCREENS.indexOf('private object ForumCover {'),
+      FORUM_SCREENS.indexOf('private fun ForumDiscussionCard('));
+    const photo = cover.slice(cover.indexOf('fun Photo('));
+    assert.match(photo, /val url = coverUrl\.trim\(\)\n\s*if \(url\.isNotEmpty\(\)\) \{/,
+      'the uploaded cover wins whenever there is one');
+    assert.match(photo, /PortalAsyncImage\(/);
+    assert.match(photo, /Monogram\(id = id, title = title, glyphSize = glyphSize, modifier = modifier\)/,
+      'and the stand-in is drawn only when there is none');
+    // A stand-in has no picture to open on its own.
+    assert.match(screen('ForumOpeningPost'), /\.clickable\(enabled = discussion\.hasCover, onClick = onCoverClick\)/,
+      'tapping the cover opens a picture only when there is one');
+  });
+
+  await t.test('the counters are on the cover, in its top-left corner', () => {
+    // The owner's other sentence about this card: views and comments move off the
+    // category\'s line and onto the picture.
+    const card = screen('ForumDiscussionCard');
+    const cover = card.slice(card.indexOf('.width(FORUM_CARD_COVER_WIDTH)'),
+      card.indexOf('Spacer(Modifier.width(EditorialSpace.xs))'));
+    assert.match(cover, /ForumCounters\([\s\S]{0,400}?\.align\(Alignment\.TopStart\)/);
+    assert.match(cover, /views = true,/, 'views and answers, as before');
+    assert.match(cover, /tint = Color\.White/, 'white ink, readable on any photograph');
+    assert.match(cover, /Brush\.verticalGradient\(\s*\n\s*colors = listOf\(Color\(0x8C000000\), Color\.Transparent\)/,
+      'under a short scrim, so a pale photograph cannot swallow them');
+    assert.ok(!/forum_card_counter_scrim[\s\S]{0,200}?(Surface|status-badge|chip)/i.test(cover),
+      'the scrim is not a pill: no second fill behind the numbers');
+    assert.match(FORUM_SCREENS, /private fun ForumCounters\([\s\S]{0,400}?tint: Color\? = null/,
+      'the counters take an ink, and keep their own when nobody passes one');
+  });
+});
 
 test('the home page shows the forum\'s five newest threads', async (t) => {
   await t.test('the strip is a list of five, and each row is a thread', () => {
@@ -223,8 +314,9 @@ test('the home page shows the forum\'s five newest threads', async (t) => {
     assert.match(row, /ForumCounters\(/, 'how many have read it and answered it');
     assert.match(row, /formatBengaliDate\(discussion\.lastActivityAt\)/, 'and when it last moved');
     assert.match(row, /forum_card|testTag\("home_forum_thread_\$\{discussion\.id\}"\)/);
-    assert.match(row, /if \(discussion\.hasCover\)/, 'a cover when there is one');
-    assert.match(row, /ForumAvatar\(/, 'and the face of who wrote it when there is not');
+    assert.match(row, /ForumCover\.Photo\(/, 'a cover, always — the stand-in when there is none');
+    assert.ok(!/ForumAvatar\(/.test(row),
+      'and never the author\'s face in the picture\'s place: every thread has a picture');
   });
 
   await t.test('five, asked for by the view model', () => {

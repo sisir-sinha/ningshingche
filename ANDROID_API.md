@@ -920,12 +920,11 @@ page's own bell is untouched. The search field stays on the page, where it can b
 (`AnimatedVisibility` with `expandVertically`/`shrinkVertically` and a fade, 220 ms) and the chevron
 turns as it goes. A room is 232 dp wide with its two lines tight together (`lineHeight = 13.5.sp`).
 
-*Cards.* A discussion title is 17 sp (16 sp beside a cover, where the words have less width); the
-author block is a **column** — a 34–38 dp face on the left, the name and then the date under it, the
-two lines tight enough to be the height of the face beside them (`lineHeight = nameSize * 1.15f` for
-the name, 12 sp for the date) — and a card with a cover puts the picture on the left at 104 dp with
-everything else in the column beside it and the view/answer counters pinned to the card's top-right
-corner. Answers and replies use the same block with `showTime`, so a thread reads `সিসির সিংহ` and
+*Cards.* A discussion title is 16 sp — one size, because every card now has a cover column beside its
+words; the author block is a **column** — a 30 dp face on the left, the name and then the date under
+it, the two lines tight enough to be the height of the face beside them (`lineHeight = nameSize * 1.15f`
+for the name, 12 sp for the date) — and the picture is the left column of every card at 116 dp, with
+the view/answer counters in **its own top-left corner**. Answers and replies use the same block with `showTime`, so a thread reads `সিসির সিংহ` and
 `১২ সেপ্টেম্বর, ৩:৪৫ অপরাহ্ণ` on two lines (`formatBengaliDateTime`, which parses the UTC the database
 wrote and renders the reader's own zone, without `java.time`).
 
@@ -1148,22 +1147,38 @@ The contributor board's rank was genuinely wrong before `035`: `026` numbered th
 query's own `order by` — so the rank was the table's physical order. The migration is the fix; the
 app-side sort is what makes the two pages right on a database that has not run it yet.
 
-*The forum's cards are one shape.* On **সাম্প্রতিক আলোচনা** the view and answer counters sit inline
-at the right of the category, with no pill, no border and no fill of their own — the owner's first
-correction to that card, and where it started. The title keeps **two** lines on every card, cover or
-no cover, with the description under it; beside a cover that description keeps **one** line, and two
-without one. Every card is exactly `FORUM_CARD_HEIGHT` (**152 dp**) — the owner's third sentence, *the
-items should be equal height* — so the words on it are capped rather than allowed to push the card
-taller than its neighbours. The cover is a 116 dp column filling that height beside the words, with
-the face, the name and the date on the floor of the card.
+*The forum's cards are one shape.* Every card is exactly `FORUM_CARD_HEIGHT` (**152 dp**) — the
+owner's third sentence, *the items should be equal height* — so the words on it are capped rather than
+allowed to push the card taller than its neighbours: a **two-line** title at 16 sp, a **one-line**
+description under it, and a 116 dp cover column filling that height beside them, with the face, the
+name and the date on the floor of the card. There is no second shape: no branch on `hasCover` is left
+on the card, because every card has a picture.
 
-**অনুমোদিত belongs on the picture.** Wherever a thread's thumbnail is drawn — the card's cover, the
-thread's own cover, a row of the home page's strip — the badge is pinned to that picture's
-**bottom-right corner** (`ThumbnailOfficialBadge`, `Modifier.align(Alignment.BottomEnd)`), in a solid
-accent fill with white content and a soft shadow, because a photograph can be any colour and the pale
-chip is unreadable on it. A card with no cover keeps the flat badge in its category row: there is no
-thumbnail to sit on. The thread's caption over the gradient stops short of the corner rather than
-running under it.
+**The view and answer counters sit in the cover's top-left corner** (`ForumCounters`, tinted
+`Color.White` because what is under them is a photograph or one of the solid stand-in fills, over a
+30 dp scrim that fades out of the top of the picture — a gradient, not a pill, so the counters still
+keep no box of their own). They
+have moved three times in this card's life — the card's own top-right corner, then the category's
+line, and now the picture — and the category line has no second occupant at all any more.
+
+**Every thread has a cover** (`ForumCover`), which is the owner's other sentence here: a reader who
+uploaded one gets their photograph, and a reader who did not gets a **stand-in** built from the
+thread's own id — `ForumCover.fillFor(id)` is `Color.hsl((hash % 360), 0.34f, 0.33f)`, so every thread
+has its own hue at one pitch and one depth, and the hash is written out in the app rather than taken
+from `String.hashCode`, so the same thread keeps the same colour on every device and after every
+reload. On it, centred, sits the **first letter of the title** (`ForumCover.initial`, skipping
+punctuation a title may open with), at 34 sp in the card's column, 66 sp on the thread's own cover and
+22 sp on the home page's thumbnail. One composable (`ForumCover.Photo`) draws all three, so a reader's
+photograph and the stand-in cannot drift apart between screens; a stand-in has nothing of its own to
+open, so tapping the thread's cover opens a picture only when the reader attached one.
+
+**The verified mark is the tick alone.** The owner took the word অনুমোদিত off the card and the thread:
+what is left is `VerifiedMark`, one composable for both surfaces — a dark scrim with a white tick over
+a picture (`onImage = true`), the pale accent chip in a line of words — with the meaning in its
+`contentDescription` for a screen reader. On a card it sits in the cover's **top-right corner**
+(`forum_card_official_<id>`), opposite the counters; on the home page's strip it is the thumbnail's
+top-right corner; in the thread it is the last thing on the creator's own row
+(`forum_thread_verified`), beside the thread's numbers, and **not** on the cover.
 
 The same counters, in the thread, sit at the **right of the creator block**: the face on the left, the
 name above its date, and the view and answer counts starting from the right-hand edge of that block —

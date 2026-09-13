@@ -19,6 +19,7 @@ bengali,bishnupriya,kind,uses,slots,screens
 উত্তর,,ui,5,0,"ForumScreens.kt, PublicProfileScreen.kt, UserDashboardScreen.kt"
 কবিতা,,ui,5,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 চালান,,ui,5,0,"EditorialComponents.kt, MusicBrowseScreens.kt, MusicPlayer.kt, VideosScreen.kt"
+ন,,ui,5,0,"ContributorScreen.kt, ForumScreens.kt, PublicProfileScreen.kt"
 নতুন প্রবন্ধ,,ui,5,0,"AppNotificationManager.kt, ContentNotice.kt, NewArticleScreen.kt, SettingsScreen.kt, WelcomeOnboardingScreen.kt"
 নতুন প্লেলিস্ট,,ui,5,0,"MusicLibraryStore.kt, MusicPlayer.kt, MusicScreen.kt"
 ফিরুন,,ui,5,0,"LoginScreen.kt, NewArticleScreen.kt, NewMusicScreen.kt, UserDashboardScreen.kt, UserProfileScreen.kt"
@@ -37,7 +38,6 @@ bengali,bishnupriya,kind,uses,slots,screens
 আমার সম্পর্কে,,ui,4,0,"PortalDrawer.kt, PortalPages.kt"
 ড. প্রদীপ সিংহ,,content,4,0,NinghsingCheContentData.kt
 ডাউনলোড,,ui,4,0,"AttachmentViewer.kt, MusicPlayer.kt, PdfArchiveScreen.kt, PdfViewerScreen.kt"
-ন,,ui,4,0,"ContributorScreen.kt, ForumScreens.kt, PublicProfileScreen.kt"
 নতুন PDF বই,,ui,4,0,"AppNotificationManager.kt, ContentNotice.kt, SettingsScreen.kt, WelcomeOnboardingScreen.kt"
 নতুন ভিডিও,,ui,4,0,"AppNotificationManager.kt, ContentNotice.kt, SettingsScreen.kt, WelcomeOnboardingScreen.kt"
 নিংশিং চে পাঠক,,ui,4,0,PortalModels.kt

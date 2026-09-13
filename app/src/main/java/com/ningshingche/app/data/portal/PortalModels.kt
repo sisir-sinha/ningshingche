@@ -281,7 +281,12 @@ data class ForumDiscussion(
     val replies: Int,
     val createdAt: String,
     val lastActivityAt: String,
-    /** ImgBB cover, blank when the thread has none. */
+    /**
+     * ImgBB cover. Blank when the reader attached none — which no longer means
+     * the thread has no picture: the app draws a stand-in from the thread's id
+     * and the title's first letter ([com.ningshingche.app.ui.screens.ForumCover]),
+     * so every card and every thread carries a cover.
+     */
     val coverImageUrl: String = "",
     /** Opened by the NingshingChe admin — the সাম্প্রতিক filter's third option. */
     val isOfficial: Boolean = false
@@ -289,6 +294,7 @@ data class ForumDiscussion(
     /** A discussion nobody has answered reads differently on a card. */
     val hasReplies: Boolean get() = replies > 0
 
+    /** Whether the reader attached a picture. Every thread is drawn with one. */
     val hasCover: Boolean get() = coverImageUrl.isNotBlank()
 }
 

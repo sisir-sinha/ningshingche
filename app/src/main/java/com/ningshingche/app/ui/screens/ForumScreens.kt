@@ -103,7 +103,6 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -254,6 +253,111 @@ private val FORUM_THREAD_COVER_HEIGHT = 208.dp
 
 /** The home page's forum thumbnails: a square, the size of a face and a little more. */
 private val HOME_FORUM_THUMB = 58.dp
+
+/**
+ * The picture a discussion has, always.
+ *
+ * The owner's rule: **every** thread carries a cover. A reader who uploaded one
+ * gets their photograph; a reader who did not gets the stand-in below, so no card
+ * on the forum — and no thread — ever shows a hole where the picture should be.
+ *
+ * The stand-in is built from the thread's own id rather than kept as an image
+ * file: a data URI or a bundled drawable would be a second thing to ship and
+ * maintain, and this is two lines of drawing. The colour is a **hue** taken from
+ * the id, at one pitch and one depth for the whole app, so two threads almost
+ * never come up the same and the page stays editorial rather than turning into a
+ * colour chart. It is a hash, not a random number: the same thread takes the same
+ * colour on every device and after every reload, which is what a reader expects
+ * of a picture.
+ *
+ * On the cover sits the first letter of the title — the largest thing on the
+ * picture and the one a reader's eye lands on first — centred on it.
+ */
+private object ForumCover {
+
+    /** Saturation and lightness of every stand-in, so they read as one family. */
+    private const val PITCH = 0.34f
+    private const val DEPTH = 0.33f
+
+    /** The letter's ink. Warm white, for the depth above. */
+    private val GLYPH_INK = Color(0xFFF4F0E6)
+
+    /** Punctuation a title may open with, which is not a letter to show. */
+    private const val OPENING_PUNCTUATION = "\"'«»“”‘’()[]{}<>-–—:;,.!?|/"
+
+    /**
+     * The fill for one thread: a hue from its id, at the pitch and depth above.
+     *
+     * The hash is written out rather than taken from `String.hashCode` so the
+     * colour is a property of this function and not of the platform's string
+     * implementation — the same id gives the same picture on every phone.
+     */
+    fun fillFor(id: String): Color {
+        var value = 0
+        id.forEach { char -> value = (value * 31 + char.code) and 0x7FFFFFFF }
+        return Color.hsl((value % 360).toFloat(), PITCH, DEPTH)
+    }
+
+    /** The letter a stand-in shows: the first character of the title that is one. */
+    fun initial(title: String): String {
+        val first = title.trim().firstOrNull { char ->
+            !char.isWhitespace() && OPENING_PUNCTUATION.indexOf(char) == -1
+        }
+        return first?.toString() ?: "ন"
+    }
+
+    /**
+     * The stand-in itself: [fillFor]'s colour, the title's first letter centred
+     * on it.
+     */
+    @Composable
+    fun Monogram(
+        id: String,
+        title: String,
+        glyphSize: androidx.compose.ui.unit.TextUnit,
+        modifier: Modifier = Modifier
+    ) {
+        Box(
+            modifier = modifier.background(fillFor(id)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = initial(title),
+                fontFamily = Kalpurush,
+                fontWeight = FontWeight.Bold,
+                fontSize = glyphSize,
+                color = GLYPH_INK
+            )
+        }
+    }
+
+    /**
+     * The thread's picture, wherever it is shown — the card's cover column, the
+     * thread's own cover, the home page's thumbnail. One composable, so the three
+     * cannot drift apart: the reader's photograph when there is one, the
+     * stand-in when there is not.
+     */
+    @Composable
+    fun Photo(
+        id: String,
+        coverUrl: String,
+        title: String,
+        glyphSize: androidx.compose.ui.unit.TextUnit,
+        modifier: Modifier = Modifier
+    ) {
+        val url = coverUrl.trim()
+        if (url.isNotEmpty()) {
+            PortalAsyncImage(
+                url = url,
+                contentDescription = title,
+                contentScale = ContentScale.Crop,
+                modifier = modifier
+            )
+        } else {
+            Monogram(id = id, title = title, glyphSize = glyphSize, modifier = modifier)
+        }
+    }
+}
 
 /** How far a reply is indented inside its answer. */
 private val FORUM_REPLY_INDENT = 22.dp
@@ -2070,42 +2174,29 @@ private fun HomeForumRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(modifier = Modifier.size(HOME_FORUM_THUMB)) {
-            // A thread with a cover shows it; one without shows the face of the
-            // reader who opened it, so the row never has a hole in it.
-            if (discussion.hasCover) {
-                Surface(
-                    shape = RoundedCornerShape(EditorialShape.thumb),
-                    color = tokens.surfaceSunken,
+            // Every thread has a picture — the reader's own or the stand-in its id
+            // makes — so the row never has a hole in it, and the same thread shows
+            // the same picture here as it does on the forum page.
+            Surface(
+                shape = RoundedCornerShape(EditorialShape.thumb),
+                color = tokens.surfaceSunken,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                ForumCover.Photo(
+                    id = discussion.id,
+                    coverUrl = discussion.coverImageUrl,
+                    title = discussion.title,
+                    glyphSize = 22.sp,
                     modifier = Modifier.fillMaxSize()
-                ) {
-                    PortalAsyncImage(
-                        url = discussion.coverImageUrl,
-                        contentDescription = discussion.title,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-            } else {
-                Surface(
-                    shape = RoundedCornerShape(EditorialShape.thumb),
-                    color = tokens.accentSoft,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        ForumAvatar(
-                            url = discussion.authorAvatarUrl,
-                            name = discussion.authorName,
-                            size = HOME_FORUM_THUMB.value.toInt()
-                        )
-                    }
-                }
+                )
             }
             if (discussion.isOfficial) {
-                // The owner's rule, on this card too: the badge sits on the
-                // thumbnail's bottom-right corner, not in the words.
-                ThumbnailOfficialBadge(
+                // The tick, in the thumbnail's top-right corner, with the word
+                // left off it like everywhere else.
+                VerifiedMark(
+                    onImage = true,
                     modifier = Modifier
-                        .align(Alignment.BottomEnd)
+                        .align(Alignment.TopEnd)
                         .testTag("home_forum_official_${discussion.id}")
                 )
             }
@@ -2798,18 +2889,22 @@ private fun forumExcerpt(text: String, limit: Int = FORUM_FOLD_CHARS): String {
  *
  * The owner's corrections, one by one:
  *
- *  * **Two columns once there is a cover.** The picture goes to the left — a
- *    square thumbnail — and everything a reader needs stays in the column beside
- *    it, so the eye never has to travel back across a full-width picture to find
- *    out what the card is about. A card without a cover is one column, exactly as
- *    before.
+ *  * **Two columns, always.** The picture goes to the left — a full-height
+ *    column — and everything a reader needs stays beside it, so the eye never has
+ *    to travel back across a full-width picture to find out what the card is
+ *    about. Every card has a picture ([ForumCover]), including the stand-in a
+ *    thread with no photograph of its own gets, so this is no longer a shape a
+ *    card may or may not have.
  *  * **Tighter lines.** Line spacing here was the loosest thing on the page; the
  *    title's own line height and the gaps between the parts of the card both came
  *    down, so five cards fit where four did.
- *  * **The counters live in the top-right corner.** Views and answers are what a
- *    reader scans a rail of cards for, so they are pinned to the corner rather
- *    than sitting in the flow: `align(Alignment.TopEnd)` inside a `Box`, on their
- *    own faint pill so the corner stays legible over a picture.
+ *  * **The counters live in the picture's top-left corner.** Views and answers
+ *    are what a reader scans a rail of cards for, and the owner's latest word on
+ *    them is that they belong on the cover rather than on the category's line —
+ *    `align(Alignment.TopStart)` inside the cover's `Box`, in white because the
+ *    corner is a photograph or one of the solid stand-in fills.
+ *  * **The verified tick, not the word.** অনুমোদিত is no longer written on a card:
+ *    the admin's threads carry the tick alone, in the picture's other top corner.
  *  * **The author block: face left, name over date.** The date is on its own
  *    line under the name ([ForumAuthorRow]), and the two lines together are the
  *    height of the face beside them.
@@ -2836,47 +2931,83 @@ private fun ForumDiscussionCard(
                 .fillMaxWidth()
                 // EVERY card on the page is the same height — the owner's
                 // third sentence about this list, and the reason the words on it
-                // are capped: a two-line title, a two-line description, and a
+                // are capped: a two-line title, a one-line description, and a
                 // cover filling whatever is left beside them.
                 .height(FORUM_CARD_HEIGHT)
                 .clickable(onClick = onClick)
                 .padding(EditorialSpace.sm),
             verticalAlignment = Alignment.Top
         ) {
-            if (discussion.hasCover) {
-                // The cover is the card's full height on the left: a column of
-                // words beside a picture, not a picture above a column of words.
-                // অনুমোদিত, when this thread has it, sits on the picture — its
-                // bottom-right corner — rather than in the column of words.
+            // The cover is the card's full height on the left: a column of words
+            // beside a picture, not a picture above a column of words. It is not a
+            // branch any more — every thread has a picture, the reader's own or the
+            // stand-in its id makes.
+            Box(
+                modifier = Modifier
+                    .width(FORUM_CARD_COVER_WIDTH)
+                    .fillMaxHeight()
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(EditorialShape.thumb),
+                    color = tokens.surfaceSunken,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("forum_card_cover_${discussion.id}")
+                ) {
+                    ForumCover.Photo(
+                        id = discussion.id,
+                        coverUrl = discussion.coverImageUrl,
+                        title = discussion.title,
+                        glyphSize = 34.sp,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+                // The corner the numbers sit in is a photograph or one of the
+                // solid stand-in fills, so a short scrim fades out of the top of
+                // the cover under them — the same trick the thread's own cover uses
+                // at its foot. Not a pill: the counters keep no box of their own,
+                // which is the owner's standing correction to this card.
                 Box(
                     modifier = Modifier
-                        .width(FORUM_CARD_COVER_WIDTH)
-                        .fillMaxHeight()
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(EditorialShape.thumb),
-                        color = tokens.surfaceSunken,
+                        .fillMaxWidth()
+                        .height(30.dp)
+                        .clip(RoundedCornerShape(topStart = EditorialShape.thumb, topEnd = EditorialShape.thumb))
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(Color(0x8C000000), Color.Transparent)
+                            )
+                        )
+                        .testTag("forum_card_counter_scrim_${discussion.id}")
+                )
+                // How many have read the thread, and how many have answered it, in
+                // the picture's own top-left corner. They have moved three times in
+                // this card's life and this is the owner's last word on them: on the
+                // cover, where a reader scanning a rail of cards sees them without
+                // reading the card.
+                ForumCounters(
+                    discussions = discussion.views,
+                    replies = discussion.replies,
+                    views = true,
+                    answered = discussion.hasReplies,
+                    tint = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(EditorialSpace.xxs)
+                        .testTag("forum_card_counters_${discussion.id}")
+                )
+                if (discussion.isOfficial) {
+                    // The tick, in the picture's other top corner. The words are
+                    // gone from the card: a tick says the same thing and does not
+                    // need reading.
+                    VerifiedMark(
+                        onImage = true,
                         modifier = Modifier
-                            .fillMaxSize()
-                            .testTag("forum_card_cover_${discussion.id}")
-                    ) {
-                        PortalAsyncImage(
-                            url = discussion.coverImageUrl,
-                            contentDescription = discussion.title,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                    if (discussion.isOfficial) {
-                        ThumbnailOfficialBadge(
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .testTag("forum_card_official_${discussion.id}")
-                        )
-                    }
+                            .align(Alignment.TopEnd)
+                            .testTag("forum_card_official_${discussion.id}")
+                    )
                 }
-                Spacer(Modifier.width(EditorialSpace.xs))
             }
+            Spacer(Modifier.width(EditorialSpace.xs))
 
             // The column takes the card's whole height, which is what lets the
             // author block sit on the floor of it while the words above stay put.
@@ -2885,39 +3016,19 @@ private fun ForumDiscussionCard(
                     .weight(1f)
                     .fillMaxHeight()
             ) {
-                // The category, and — on the same line, at its right — how many
-                // have read the thread and how many have answered it. No pill, no
-                // border, no background: the owner's first correction to this card
-                // was that the counters did not need a box of their own, and that
-                // the category's own line is where they belong.
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = discussion.categoryTitle,
-                        fontFamily = Kalpurush,
-                        fontSize = 12.sp,
-                        lineHeight = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = tokens.accent,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                    // Only when there is no thumbnail to carry it: with a cover
-                    // the badge is on the picture, and one thread never says the
-                    // same thing twice on one card.
-                    if (discussion.isOfficial && !discussion.hasCover) {
-                        Spacer(Modifier.width(EditorialSpace.xs))
-                        OfficialBadge()
-                    }
-                    Spacer(Modifier.weight(1f))
-                    ForumCounters(
-                        discussions = discussion.views,
-                        replies = discussion.replies,
-                        views = true,
-                        answered = discussion.hasReplies,
-                        modifier = Modifier.testTag("forum_card_counters_${discussion.id}")
-                    )
-                }
+                // The category, and nothing else: the counters are on the picture
+                // and so is the tick, so this line has no second occupant and needs
+                // no `Row` to share itself between one.
+                Text(
+                    text = discussion.categoryTitle,
+                    fontFamily = Kalpurush,
+                    fontSize = 12.sp,
+                    lineHeight = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = tokens.accent,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
 
                 Spacer(Modifier.height(3.dp))
 
@@ -2925,8 +3036,11 @@ private fun ForumDiscussionCard(
                     text = discussion.title,
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = if (discussion.hasCover) 16.sp else 17.sp,
-                    lineHeight = if (discussion.hasCover) 19.sp else 20.sp,
+                    // One size and one line height for every card now: with a
+                    // cover column on all of them, they all have the same width for
+                    // their words.
+                    fontSize = 16.sp,
+                    lineHeight = 19.sp,
                     // Two lines, on every card, cover or no cover: with the
                     // description under it that is what fits the height they all
                     // share, and a title that ran on would push the description
@@ -2943,9 +3057,9 @@ private fun ForumDiscussionCard(
                         fontSize = 13.sp,
                         lineHeight = 15.5.sp,
                         color = tokens.inkMuted,
-                        // Beside a cover the summary is one line and then an
-                        // ellipsis; without one it keeps its second line.
-                        maxLines = if (discussion.hasCover) 1 else 2,
+                        // One line and then an ellipsis: beside a cover that is
+                        // what the shared card height leaves for the summary.
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(top = 2.dp)
                     )
@@ -2957,8 +3071,8 @@ private fun ForumDiscussionCard(
                     name = discussion.authorName,
                     avatarUrl = discussion.authorAvatarUrl,
                     date = discussion.lastActivityAt,
-                    avatarSize = if (discussion.hasCover) 30 else 34,
-                    nameSize = if (discussion.hasCover) 12.5.sp else 13.5.sp,
+                    avatarSize = 30,
+                    nameSize = 12.5.sp,
                     onClick = onAuthorClick
                 )
             }
@@ -3004,62 +3118,38 @@ private fun AdminBadge(modifier: Modifier = Modifier) {
 }
 
 /**
- * অনুমোদিত — the admin opened this one.
+ * The verified mark — the admin opened this one.
  *
- * **Over a thumbnail it is drawn on the thumbnail itself**, at its bottom-right
- * corner — the owner asked for exactly that. A photograph can be any colour at
- * all, so that version is a solid accent fill with white content and a soft
- * shadow under it rather than the pale chip: the pale one is legible on a page
- * and unreadable on a picture. `onImage = false` is the version for a row that
- * has no picture to sit on.
+ * The owner's latest word on it removed the label: **the tick, without the word
+ * অনুমোদিত**, on the discussion card and on the thread. What is left is one mark,
+ * used in both places, so the two can never drift apart again.
+ *
+ * `onImage` is which of the two surfaces it is drawn on. Over a picture it is a
+ * dark scrim with a white tick: a photograph can be any colour at all, and the
+ * scrim is the one thing that reads over every one of them — the same reason the
+ * old badge was a solid fill there. In a line of words, beside the thread's own
+ * numbers, it is the pale accent chip it always was.
+ *
+ * The meaning is in `contentDescription`, which a screen reader reads out: the
+ * word is off the screen, not out of the app.
  */
 @Composable
-private fun OfficialBadge(onImage: Boolean = false, modifier: Modifier = Modifier) {
+private fun VerifiedMark(onImage: Boolean = false, modifier: Modifier = Modifier) {
     val tokens = LocalEditorialTokens.current
-    val ink = if (onImage) Color.White else tokens.accent
-    Row(
+    Box(
         modifier = modifier
             .clip(RoundedCornerShape(EditorialShape.chip))
-            .background(if (onImage) tokens.accent else tokens.accentSoft)
-            .padding(
-                horizontal = if (onImage) 6.dp else EditorialSpace.xs,
-                vertical = if (onImage) 2.dp else 1.dp
-            )
-            .testTag("forum_official_badge"),
-        verticalAlignment = Alignment.CenterVertically
+            .background(if (onImage) Color(0xCC0E1A16) else tokens.accentSoft)
+            .padding(if (onImage) 3.dp else 4.dp)
+            .testTag("forum_verified_mark"),
+        contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = Icons.Default.Verified,
-            contentDescription = null,
-            tint = ink,
-            modifier = Modifier.size(12.dp)
+            contentDescription = "অনুমোদিত",
+            tint = if (onImage) Color.White else tokens.accent,
+            modifier = Modifier.size(if (onImage) 13.dp else 14.dp)
         )
-        Spacer(Modifier.width(3.dp))
-        Text(
-            text = "অনুমোদিত",
-            fontFamily = Kalpurush,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            color = ink
-        )
-    }
-}
-
-/**
- * অনুমোদিত, pinned to the bottom-right corner of the picture it is about.
- *
- * One composable for every thumbnail in the app — the card's cover, a thread's
- * own cover, the home page's strip — so the mark cannot end up in one corner on
- * one screen and another corner on the next.
- */
-@Composable
-private fun ThumbnailOfficialBadge(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .padding(EditorialSpace.xxs)
-            .shadow(2.dp, RoundedCornerShape(EditorialShape.chip))
-    ) {
-        OfficialBadge(onImage = true)
     }
 }
 
@@ -3089,24 +3179,29 @@ private fun ForumCounters(
     replies: Number = 0,
     views: Boolean = false,
     answered: Boolean = false,
+    /** Overrides both inks. The card passes white: they sit on its cover. */
+    tint: Color? = null,
     modifier: Modifier = Modifier
 ) {
     val tokens = LocalEditorialTokens.current
+    val reads = tint ?: tokens.inkMuted
+    // A thread nobody has answered yet reads differently from one that has —
+    // unless the caller has its own ink for both.
+    val answeredInk = tint ?: if (answered) tokens.accent else tokens.inkMuted
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         if (views) {
-            ForumCounter(Icons.Default.Visibility, discussions)
+            ForumCounter(Icons.Default.Visibility, discussions, reads)
         } else {
-            ForumCounter(Icons.Default.Forum, discussions)
+            ForumCounter(Icons.Default.Forum, discussions, reads)
         }
-        // A thread nobody has answered yet reads differently from one that has.
         ForumCounter(
             icon = Icons.Default.ChatBubbleOutline,
             value = replies,
-            tint = if (answered) tokens.accent else tokens.inkMuted
+            tint = answeredInk
         )
     }
 }
@@ -3374,7 +3469,7 @@ private fun ForumAttachmentPreview(file: ForumAttachment, onClick: (ForumAttachm
     }
 }
 
-/** The opening post, with its cover and its numbers. */
+/** The opening post: cover, creator, numbers, and what they wrote. */
 @Composable
 private fun ForumOpeningPost(
     discussion: ForumDiscussion,
@@ -3385,7 +3480,6 @@ private fun ForumOpeningPost(
     onCoverClick: () -> Unit,
     onOpenAttachment: (ForumAttachment) -> Unit
 ) {
-    val tokens = LocalEditorialTokens.current
     Surface(
         shape = RoundedCornerShape(EditorialShape.card),
         color = MaterialTheme.colorScheme.surface,
@@ -3398,162 +3492,109 @@ private fun ForumOpeningPost(
             .testTag("forum_opening_post")
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            if (discussion.hasCover) {
-                // The cover is the thread's face: a picture with the category and
-                // the title written across its foot, over a gradient dark enough
-                // to read white on. Tapping it opens the picture on its own.
+            // The cover is the thread's face, and every thread has one: the
+            // reader's photograph, or the stand-in built from the thread's own id
+            // with the first letter of the title centred on it. The category and
+            // the title are written across its foot over a gradient dark enough to
+            // read white on. Tapping it opens the picture on its own — the
+            // stand-in has nothing of its own to open, so the tap goes nowhere.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(FORUM_THREAD_COVER_HEIGHT)
+                    .clip(RoundedCornerShape(topStart = EditorialShape.card, topEnd = EditorialShape.card))
+                    .clickable(enabled = discussion.hasCover, onClick = onCoverClick)
+                    .testTag("forum_thread_cover")
+            ) {
+                ForumCover.Photo(
+                    id = discussion.id,
+                    coverUrl = discussion.coverImageUrl,
+                    title = discussion.title,
+                    glyphSize = 66.sp,
+                    modifier = Modifier.fillMaxSize()
+                )
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(FORUM_THREAD_COVER_HEIGHT)
-                        .clip(RoundedCornerShape(topStart = EditorialShape.card, topEnd = EditorialShape.card))
-                        .clickable(onClick = onCoverClick)
-                        .testTag("forum_thread_cover")
-                ) {
-                    PortalAsyncImage(
-                        url = discussion.coverImageUrl,
-                        contentDescription = discussion.title,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .drawWithContent {
-                                drawContent()
-                                drawRect(
-                                    brush = Brush.verticalGradient(
-                                        colors = listOf(Color.Transparent, Color(0xCC000000)),
-                                        startY = size.height * 0.42f
-                                    )
+                        .fillMaxSize()
+                        .drawWithContent {
+                            drawContent()
+                            drawRect(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(Color.Transparent, Color(0xCC000000)),
+                                    startY = size.height * 0.42f
                                 )
-                            }
-                    )
-                    if (discussion.isOfficial) {
-                        // The owner's rule, on the thread as well as the card:
-                        // অনুমোদিত belongs on the picture, in its bottom-right
-                        // corner, not in the words over it.
-                        ThumbnailOfficialBadge(
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(
-                                    end = EditorialSpace.xs,
-                                    bottom = EditorialSpace.xs
-                                )
-                                .testTag("forum_thread_official")
-                        )
-                    }
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(
-                                start = EditorialSpace.sm,
-                                // The badge has the corner: the words stop short of
-                                // it rather than running under it.
-                                end = if (discussion.isOfficial) 96.dp else EditorialSpace.sm,
-                                bottom = EditorialSpace.sm
-                            ),
-                        verticalArrangement = Arrangement.spacedBy(0.dp)
-                    ) {
-                        Text(
-                            text = discussion.categoryTitle,
-                            fontFamily = Kalpurush,
-                            fontSize = 12.sp,
-                            lineHeight = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            maxLines = 1
-                        )
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            text = discussion.title,
-                            fontFamily = Kalpurush,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 19.sp,
-                            lineHeight = 22.sp,
-                            color = Color.White,
-                            maxLines = 3,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
+                            )
+                        }
+                )
+                // No badge on the picture any more: the owner asked for the tick
+                // without the word, and it sits on the thread's own row below —
+                // where the reader's eye already is when they ask who wrote this.
                 Column(
-                    modifier = Modifier.padding(
-                        start = EditorialSpace.sm,
-                        end = EditorialSpace.sm,
-                        top = EditorialSpace.sm,
-                        bottom = EditorialSpace.xs
-                    )
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(
+                            start = EditorialSpace.sm,
+                            end = EditorialSpace.sm,
+                            bottom = EditorialSpace.sm
+                        ),
+                    verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
-                    ForumOpeningMeta(
-                        discussion = discussion,
-                        onAuthorClick = onAuthorClick
+                    Text(
+                        text = discussion.categoryTitle,
+                        fontFamily = Kalpurush,
+                        fontSize = 12.sp,
+                        lineHeight = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 1
                     )
-                }
-                Column(
-                    modifier = Modifier.padding(
-                        start = EditorialSpace.sm,
-                        end = EditorialSpace.sm,
-                        bottom = EditorialSpace.sm
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(EditorialSpace.xxs)
-                ) {
-                    Hairline()
-                    ForumBody(
-                        html = discussion.body,
-                        expanded = expanded ||
-                            forumBodyText(discussion.body).length <= FORUM_FOLD_CHARS,
-                        canExpand = forumBodyText(discussion.body).length > FORUM_FOLD_CHARS,
-                        onToggleExpand = onToggleExpand,
-                        onOpenAttachment = onOpenAttachment,
-                        testTag = "forum_opening_body"
-                    )
-                }
-            } else {
-                Column(
-                    modifier = Modifier.padding(EditorialSpace.sm),
-                    verticalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = discussion.categoryTitle,
-                            fontFamily = Kalpurush,
-                            fontSize = 12.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = tokens.accent,
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (discussion.isOfficial) OfficialBadge()
-                    }
-
+                    Spacer(Modifier.height(2.dp))
                     Text(
                         text = discussion.title,
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
                         fontSize = 19.sp,
-                        lineHeight = 22.sp
-                    )
-
-                    ForumOpeningMeta(
-                        discussion = discussion,
-                        onAuthorClick = onAuthorClick
-                    )
-
-                    Hairline()
-
-                    ForumBody(
-                        html = discussion.body,
-                        // The opening post folds on its words like an answer does;
-                        // its pictures are previews under the text, not a reason to
-                        // hide it.
-                        expanded = expanded ||
-                            forumBodyText(discussion.body).length <= FORUM_FOLD_CHARS,
-                        canExpand = forumBodyText(discussion.body).length > FORUM_FOLD_CHARS,
-                        onToggleExpand = onToggleExpand,
-                        onOpenAttachment = onOpenAttachment,
-                        testTag = "forum_opening_body"
+                        lineHeight = 22.sp,
+                        color = Color.White,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
+            }
+            Column(
+                modifier = Modifier.padding(
+                    start = EditorialSpace.sm,
+                    end = EditorialSpace.sm,
+                    top = EditorialSpace.sm,
+                    bottom = EditorialSpace.xs
+                )
+            ) {
+                ForumOpeningMeta(
+                    discussion = discussion,
+                    onAuthorClick = onAuthorClick
+                )
+            }
+            Column(
+                modifier = Modifier.padding(
+                    start = EditorialSpace.sm,
+                    end = EditorialSpace.sm,
+                    bottom = EditorialSpace.sm
+                ),
+                verticalArrangement = Arrangement.spacedBy(EditorialSpace.xxs)
+            ) {
+                Hairline()
+                ForumBody(
+                    html = discussion.body,
+                    // The opening post folds on its words like an answer does;
+                    // its pictures are previews under the text, not a reason to
+                    // hide it.
+                    expanded = expanded ||
+                        forumBodyText(discussion.body).length <= FORUM_FOLD_CHARS,
+                    canExpand = forumBodyText(discussion.body).length > FORUM_FOLD_CHARS,
+                    onToggleExpand = onToggleExpand,
+                    onOpenAttachment = onOpenAttachment,
+                    testTag = "forum_opening_body"
+                )
             }
         }
     }
@@ -3564,6 +3605,11 @@ private fun ForumOpeningPost(
  * the next line, and the views and answers of the thread held to the right of
  * that pair — "starting from the right side of that user info", which is where
  * the owner put them.
+ *
+ * The verified tick is the last thing on that line, for a thread the admin
+ * opened. It is here rather than on the picture because the owner took the word
+ * অনুমোদিত off the card and the thread both: the tick stays with the thread's own
+ * facts, at the far right, where the eye finishes the row.
  */
 @Composable
 private fun ForumOpeningMeta(
@@ -3590,6 +3636,10 @@ private fun ForumOpeningMeta(
             views = true,
             answered = discussion.hasReplies
         )
+        if (discussion.isOfficial) {
+            Spacer(Modifier.width(EditorialSpace.xs))
+            VerifiedMark(modifier = Modifier.testTag("forum_thread_verified"))
+        }
     }
 }
 

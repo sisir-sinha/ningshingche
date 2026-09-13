@@ -404,15 +404,22 @@ test('an editorial name is drawn but never opens anything', async (t) => {
 // ---------------------------------------------------------------------------
 
 test('every card on the forum page is the same card', async (t) => {
-  await t.test('the counters sit inline, at the right of the category', () => {
+  await t.test('the counters sit on the cover, in its top-left corner', () => {
+    // The owner moved them again, and this is the third place they have been:
+    // off the card's right-hand corner, onto the category's line, and now onto
+    // the picture itself — top-left, inside the cover's own Box.
     const card = screen('ForumDiscussionCard');
-    const categoryRow = between(card, 'text = discussion.categoryTitle', 'Spacer(Modifier.weight(1f))\n\n',
-      'the category line');
-    assert.match(categoryRow, /ForumCounters\(/, 'the counters are on the category line');
-    assert.ok(!/Surface\(|\.background\(/.test(categoryRow),
-      'with no pill, no border and no background of their own');
+    const cover = between(card, 'Box(\n                modifier = Modifier\n                    .width(FORUM_CARD_COVER_WIDTH)',
+      'Spacer(Modifier.width(EditorialSpace.xs))', 'the cover column');
+    assert.match(cover, /ForumCounters\(/, 'the counters are on the picture');
+    assert.match(cover, /\.align\(Alignment\.TopStart\)/, 'in its top-left corner');
+    assert.match(cover, /tint = Color\.White/, 'in white ink, because a photograph is any colour');
     assert.match(card, /testTag\("forum_card_counters_\$\{discussion\.id\}"\)/,
-      'the row is reachable in a UI test');
+      'the block is reachable in a UI test');
+    const category = between(card, 'text = discussion.categoryTitle', 'Spacer(Modifier.height(3.dp))',
+      'the category line');
+    assert.ok(!/ForumCounters\(/.test(category),
+      'and the category line has no second occupant any more');
   });
 
   await t.test('the title is two lines, and the summary one beside a picture', () => {
@@ -426,10 +433,12 @@ test('every card on the forum page is the same card', async (t) => {
     assert.match(title, /maxLines = 2,/);
     assert.ok(!/maxLines = if \(/.test(title),
       'and the title is never given a third line: not with a cover, not without one');
-    assert.match(card, /maxLines = if \(discussion\.hasCover\) 1 else 2/,
-      'one line of summary beside a cover, two without one');
-    assert.match(card, /fontSize = if \(discussion\.hasCover\) 16\.sp else 17\.sp/,
-      'a size down for the narrower column');
+    assert.match(card, /maxLines = 1,\s*\n\s*overflow = TextOverflow\.Ellipsis,\s*\n\s*modifier = Modifier\.padding\(top = 2\.dp\)/,
+      'one line of summary, on every card — there is no card without a cover');
+    assert.match(card, /fontSize = 16\.sp/,
+      'one size for the words, because the column beside the cover is the same width on every card');
+    assert.ok(!/maxLines = if \(discussion\.hasCover\)/.test(card),
+      'and nothing on the card asks whether it has a picture any more');
   });
 
   await t.test('every card is the same height, and the cover fills it', () => {
@@ -449,11 +458,11 @@ test('every card on the forum page is the same card', async (t) => {
 
   await t.test('the author block is the floor of the card, at one size', () => {
     const card = screen('ForumDiscussionCard');
-    assert.match(card, /avatarSize = if \(discussion\.hasCover\) 30 else 34/,
-      'a face worth looking at, a size down when a cover shares the row');
+    assert.match(card, /avatarSize = 30,/,
+      'a face worth looking at, a size down because a cover shares the row');
     assert.match(card, /date = discussion\.lastActivityAt/,
       'the date it was last alive');
-    assert.match(card, /nameSize = if \(discussion\.hasCover\) 12\.5\.sp else 13\.5\.sp/);
+    assert.match(card, /nameSize = 12\.5\.sp/);
   });
 
   await t.test('one excerpt length, decided once', () => {

@@ -608,8 +608,8 @@ test('counters and lists arrive with the right numbers', async (t) => {
       'the model says whether anyone answered');
     assert.match(FORUM_SCREENS, /answered = discussion\.hasReplies/,
       'and the card asks it');
-    assert.match(FORUM_SCREENS, /tint = if \(answered\) tokens\.accent else tokens\.inkMuted/,
-      'so the reply counter means something');
+    assert.match(FORUM_SCREENS, /val answeredInk = tint \?: if \(answered\) tokens\.accent else tokens\.inkMuted/,
+      'so the reply counter means something, unless the card has an ink of its own');
   });
 
   await t.test('a thread with no replies falls back to its own post date', () => {
