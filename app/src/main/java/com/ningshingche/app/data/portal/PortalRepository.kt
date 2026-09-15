@@ -570,22 +570,33 @@ class PortalRepository(
 
     // ------------------------------------------------------------------ views
 
-    /** Counts one article view; the result is the item's new public total. */
+    /** Records one visit of an article; the result is the item's new public total. */
     suspend fun recordArticleView(articleId: String): Result<Long> = recordView("blog", articleId)
 
-    /** Counts one play of a song; the result is the track's new public total. */
-    suspend fun recordMusicView(trackId: String): Result<Long> = recordView("music", trackId)
+    /**
+     * Reports listening to a song: the seconds heard since the last report, of
+     * which the database keeps the total and — once enough of the track has been
+     * heard — counts the play.
+     *
+     * The seconds are what the player *actually played*, so a skip is not
+     * listening and a play is not counted for a track nobody stayed on. The
+     * threshold itself lives in the database (`music_valid_seconds`), which means
+     * a bug here cannot mint a play.
+     */
+    suspend fun recordMusicListen(trackId: String, seconds: Int): Result<Long> =
+        recordView("music", trackId, seconds)
 
-    private suspend fun recordView(type: String, id: String): Result<Long> =
+    private suspend fun recordView(type: String, id: String, seconds: Int? = null): Result<Long> =
         withContext(Dispatchers.IO) {
             val target = id.trim()
             if (target.isBlank()) return@withContext Result.failure(PortalError.NotFound)
             callOne {
-                api.recordContentView(
+                api.contentViewRecord(
                     mapOf(
                         "p_type" to type,
                         "p_id" to target,
-                        "p_device_id" to guestViewerId
+                        "p_device_id" to guestViewerId,
+                        "p_seconds" to (seconds ?: 0).coerceAtLeast(0).toString()
                     )
                 )
             }

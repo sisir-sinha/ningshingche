@@ -228,14 +228,23 @@ data class BlogFacetDto(
 @JsonClass(generateAdapter = true)
 data class ViewDayDto(
     val day: String,
-    val views: Long? = null
+    val views: Long? = null,
+    /** Distinct readers that day — a reader who came back is one visitor, two views. */
+    val visitors: Long? = null,
+    @Json(name = "minutes_listened") val minutesListened: Long? = null
 )
 
 /** `user_view_totals` RPC: what the reader's published work has been read/watched. */
 @JsonClass(generateAdapter = true)
 data class ViewTotalsDto(
     @Json(name = "article_views") val articleViews: Long? = null,
-    @Json(name = "music_views") val musicViews: Long? = null
+    @Json(name = "music_views") val musicViews: Long? = null,
+    @Json(name = "forum_views") val forumViews: Long? = null,
+    /** Distinct readers across everything the reader published. */
+    val visitors: Long? = null,
+    @Json(name = "registered_views") val registeredViews: Long? = null,
+    @Json(name = "guest_views") val guestViews: Long? = null,
+    @Json(name = "minutes_listened") val minutesListened: Long? = null
 )
 
 /** A published article as it appears on a public user page. */

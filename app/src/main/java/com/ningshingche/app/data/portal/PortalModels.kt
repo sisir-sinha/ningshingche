@@ -1158,25 +1158,43 @@ data class PublicArticle(
 /** One point of the dashboard's views-over-time chart. */
 data class ViewDay(
     val day: String,
-    val views: Long
+    val views: Long,
+    val visitors: Long = 0L,
+    val minutesListened: Long = 0L
 )
 
 /** The reader's own view totals, as the database has them. */
 data class ViewTotals(
     val articleViews: Long,
-    val musicViews: Long
+    val musicViews: Long,
+    /** Views of the threads the reader started, counted the same way. */
+    val forumViews: Long = 0L,
+    /** Different people who read, watched or listened — not the same as views. */
+    val visitors: Long = 0L,
+    /** Of the views, how many came from a signed-in reader and how many from a guest. */
+    val registeredViews: Long = 0L,
+    val guestViews: Long = 0L,
+    /** Minutes of the reader's songs that were actually listened to. */
+    val minutesListened: Long = 0L
 ) {
-    val total: Long get() = articleViews + musicViews
+    val total: Long get() = articleViews + musicViews + forumViews
 }
 
 internal fun ViewTotalsDto.toModel(): ViewTotals = ViewTotals(
     articleViews = (articleViews ?: 0L).coerceAtLeast(0L),
-    musicViews = (musicViews ?: 0L).coerceAtLeast(0L)
+    musicViews = (musicViews ?: 0L).coerceAtLeast(0L),
+    forumViews = (forumViews ?: 0L).coerceAtLeast(0L),
+    visitors = (visitors ?: 0L).coerceAtLeast(0L),
+    registeredViews = (registeredViews ?: 0L).coerceAtLeast(0L),
+    guestViews = (guestViews ?: 0L).coerceAtLeast(0L),
+    minutesListened = (minutesListened ?: 0L).coerceAtLeast(0L)
 )
 
 internal fun ViewDayDto.toModel(): ViewDay = ViewDay(
     day = day,
-    views = (views ?: 0L).coerceAtLeast(0L)
+    views = (views ?: 0L).coerceAtLeast(0L),
+    visitors = (visitors ?: 0L).coerceAtLeast(0L),
+    minutesListened = (minutesListened ?: 0L).coerceAtLeast(0L)
 )
 
 internal fun PublicProfileDto.toModel(): PublicProfile {

@@ -293,6 +293,121 @@
     }));
   }
 
+
+  // --------------------------------------------------------------------------
+  // Readers — visits, people, and how much was listened to
+  // --------------------------------------------------------------------------
+  //
+  // The app counts a view as one *visit*: the same reader opening the same item
+  // again inside half an hour is still the same visit, and outside it they have
+  // come back and it counts again. A visitor is a person, however often they came
+  // back — so the two numbers differ on purpose, and this panel shows both rather
+  // than one number that could be read as the other.
+  //
+  // Every view also records whether the reader was signed in, which is the
+  // question the counts could not answer while the distinction only existed
+  // inside a device hash.
+
+  function readersSection() {
+    return `
+      <section class="surface mt-6" aria-labelledby="readers-heading">
+        <div class="surface-header">
+          <div>
+            <p class="eyebrow">Readership · last 30 days</p>
+            <h2 id="readers-heading">Readers</h2>
+            <p>One view is one visit — the same reader re-opening an article, a song or a thread within thirty minutes is counted once. A visitor is one person, however many visits they made. A song counts as a play once thirty seconds of it have been heard.</p>
+          </div>
+        </div>
+        <div data-readers-body>${NC.components.notice('Loading readership…', 'info', 'fa-eye')}</div>
+      </section>`;
+  }
+
+  /**
+   * What to say when the readership RPC is not there yet.
+   *
+   * A database that has not run migration 036 answers with a 404 for the
+   * function — which is not a missing table, so it must not be answered with
+   * "run schema.sql": the file that adds this is named instead.
+   */
+  function readersMissing(error) {
+    const absent = Boolean(error?.isRpcMissing || /PGRST202|Could not find the function/i.test(error?.message || ''));
+    if (absent) {
+      return 'Readership numbers need backend/supabase/migrations/036_view_logic.sql — it adds the counting function. Everything else on this page works without it.';
+    }
+    return error?.message || 'Readership numbers could not be loaded right now.';
+  }
+
+  function readerStat(label, value, icon, tone, hint = '') {
+    return `
+      <article class="metric-card metric-${tone}">
+        <span class="metric-icon"><i class="fa-duotone fa-solid ${icon}" aria-hidden="true"></i></span>
+        <div class="min-w-0">
+          <p class="metric-label">${escapeHTML(label)}</p>
+          <p class="metric-value">${number(value)}</p>
+          ${hint ? `<p class="metric-detail">${escapeHTML(hint)}</p>` : ''}
+        </div>
+      </article>`;
+  }
+
+  async function loadReaders(container) {
+    const body = container.querySelector('[data-readers-body]');
+    if (!body) return;
+    let summary = null;
+    let series = [];
+    try {
+      summary = await NC.api.rpc('view_summary', { p_days: 30 });
+      series = await NC.api.rpc('view_overview', { p_days: 30 });
+    } catch (error) {
+      body.innerHTML = NC.components.notice(readersMissing(error), 'warning', 'fa-eye-slash');
+      return;
+    }
+    const readers = Number(summary?.visitors || 0);
+    const views = Number(summary?.views || 0);
+    const registered = Number(summary?.registered_visitors || 0);
+    const guest = Number(summary?.guest_visitors || 0);
+    const minutes = Number(summary?.minutes_listened || 0);
+    const share = readers ? Math.round((registered / readers) * 100) : 0;
+    const rows = Array.isArray(series) ? series : [];
+
+    body.innerHTML = `
+      <section class="metrics-grid" aria-label="Readership">
+        ${readerStat('Visitors', readers, 'fa-user-group', 'sky', `${views} visit${views === 1 ? '' : 's'}`)}
+        ${readerStat('Registered visitors', registered, 'fa-id-card', 'emerald', `${share}% of visitors`)}
+        ${readerStat('Anonymous visitors', guest, 'fa-user-secret', 'amber', `${readers ? 100 - share : 0}% of visitors`)}
+        ${readerStat('Minutes listened', minutes, 'fa-headphones', 'rose', 'heard, not counted from plays')}
+      </section>
+      ${window.Chart && rows.length ? '<article class="surface mt-6"><div class="surface-header"><div><p class="eyebrow">Day by day</p><h2>Visits and visitors</h2></div></div><div class="chart-wrap"><canvas id="chart-readers" role="img" aria-label="Visits and visitors per day"></canvas></div></article>' : ''}
+      <p class="metric-detail mt-4">Visits ${number(views)} · registered ${number(Number(summary?.registered_views || 0))} · anonymous ${number(Number(summary?.guest_views || 0))}</p>`;
+
+    if (window.Chart && rows.length) renderReadersChart(rows);
+  }
+
+  function renderReadersChart(rows) {
+    const node = document.getElementById('chart-readers');
+    if (!node) return;
+    const css = getComputedStyle(document.documentElement);
+    const text = css.getPropertyValue('--muted-foreground').trim() || '#94a3b8';
+    const grid = css.getPropertyValue('--border').trim() || 'rgba(148,163,184,.15)';
+    charts.push(new Chart(node, {
+      type: 'line',
+      data: {
+        labels: rows.map((row) => row.day),
+        datasets: [
+          { label: 'Visits', data: rows.map((row) => Number(row.views || 0)), borderColor: '#8b5cf6', backgroundColor: '#8b5cf622', tension: .35, fill: false, pointRadius: 2, pointHoverRadius: 4 },
+          { label: 'Visitors', data: rows.map((row) => Number(row.visitors || 0)), borderColor: '#22c55e', backgroundColor: '#22c55e22', tension: .35, fill: false, pointRadius: 2, pointHoverRadius: 4 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: { duration: 500 },
+        plugins: { legend: { labels: { color: text, usePointStyle: true, boxWidth: 8, padding: 18 } } },
+        scales: {
+          x: { ticks: { color: text }, grid: { display: false }, border: { display: false } },
+          y: { beginAtZero: true, ticks: { color: text, precision: 0 }, grid: { color: grid }, border: { display: false } }
+        }
+      }
+    }));
+  }
+
   function renderContent(container, data, analyticsOnly = false) {
     // A missing table used to be answered with one sentence — run schema.sql — whatever
     // had failed. The overview reads sixteen tables, and eight of them are built by
@@ -324,6 +439,7 @@
       ${errorBanner}
       ${metrics.length ? `<section class="metrics-grid" aria-label="Content metrics">${metrics.map((item) => metricCard(item, data.counts)).join('')}</section>` : `<section class="surface">${emptyState({ icon: 'fa-shield-lock', title: 'No data menus assigned', description: 'Your Dashboard access is active. A Super Admin can add content or Analytics access to this role.' })}</section>`}
       ${chartCards ? `<section class="dashboard-chart-grid mt-6">${chartCards}</section>` : ''}
+      ${canAnalyze ? readersSection() : ''}
       ${analyticsOnly ? '' : `
         <section class="dashboard-columns mt-6">
           <article class="surface"><div class="surface-header"><div><p class="eyebrow">Get things done</p><h2>Quick actions</h2></div></div>${quickActions()}</article>
@@ -335,6 +451,9 @@
     `;
     bindEvents(container, analyticsOnly);
     renderCharts(data);
+    // Its own request: a database that has not run 036 loses this panel and
+    // nothing else on the page.
+    if (canAnalyze) loadReaders(container);
   }
 
   function bindEvents(container, analyticsOnly) {

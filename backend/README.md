@@ -655,7 +655,7 @@ from the check that failed, so read it rather than assuming Blog uploads:
 - `app_language_files` (the Languages page) → `supabase/migrations/023_app_language_files.sql`
 - A track's uploader or a public user page → `supabase/migrations/024_uploader_and_public_profile.sql`
 - View counts, the dashboard's ভিউ counter and its views-over-time chart →
-  `supabase/migrations/025_content_views.sql`
+  `supabase/migrations/025_content_views.sql`, then `036_view_logic.sql`
 - Contributor points and the সেরা অবদানকারী board → `supabase/migrations/026_contributors.sql`
 - The same board inside the dashboard (Registered users → সেরা অবদানকারী) →
   `supabase/migrations/027_contributor_board_dashboard.sql`
@@ -670,6 +670,9 @@ from the check that failed, so read it rather than assuming Blog uploads:
   `supabase/migrations/034_forum_reply_edit.sql`
 - The সেরা অবদানকারী board is not in order of points (on the home page or on the contributor page),
   or the dashboard's Contributors page is not → `supabase/migrations/035_contributor_order.sql`
+- Forum view counts move without anyone reading, or the dashboard's পাঠক panel (registered/guest
+  views, minutes listened) is empty where the rest of Analytics loads →
+  `supabase/migrations/036_view_logic.sql`
 - A table reported as *missing* → `supabase/schema.sql`, then the migrations in order
 
 Run that file in the Supabase SQL Editor, reload the dashboard, and check again in **Settings →

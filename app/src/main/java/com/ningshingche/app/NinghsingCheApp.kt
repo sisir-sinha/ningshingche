@@ -181,12 +181,13 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
         portalRepository.guestViewerId = musicStore.deviceId
         musicController = MusicController(this, musicStore)
         appTimeTracker = AppTimeTracker(this, portalRepository, supabaseClient)
-        // The player reports what it starts; the count itself belongs to the
-        // database, so the song's total in the UI is read back from the RPC.
-        musicController.onTrackStarted = { trackId ->
+        // The player reports the seconds it has actually played; the count itself
+        // belongs to the database, which decides when that adds up to a play — and
+        // the song's total in the UI is read back from the same answer.
+        musicController.onListened = { trackId, seconds ->
             if (android.os.Build.FINGERPRINT != "robolectric") {
                 appScope.launch {
-                    val total = portalRepository.recordMusicView(trackId).getOrNull()
+                    val total = portalRepository.recordMusicListen(trackId, seconds).getOrNull()
                     if (total != null) musicController.applyServerViewCount(trackId, total)
                 }
             }

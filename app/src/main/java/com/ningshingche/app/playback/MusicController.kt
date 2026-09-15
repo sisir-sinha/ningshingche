@@ -66,6 +66,23 @@ data class MusicPlayerUiState(
     val error: String? = null
 )
 
+/**
+ * A play is worth counting once thirty seconds of the track have been heard — or
+ * half of it, for a track shorter than a minute ([MusicController.validListenMs]).
+ * The same number is the threshold in the database's `music_valid_seconds`.
+ */
+private const val VALID_LISTEN_MS = 30_000L
+
+/** How often the minutes of a continuing listen are reported. */
+private const val LISTEN_REPORT_MS = 60_000L
+
+/**
+ * The most the position can advance between two ticks (400 ms) before the jump is
+ * a seek rather than playback. Generous, because a buffering player can report a
+ * slightly larger step than the tick interval.
+ */
+private const val MAX_TICK_ADVANCE_MS = 2_000L
+
 class MusicController(
     context: Context,
     val library: MusicLibraryStore
@@ -83,14 +100,38 @@ class MusicController(
     private var resumeAfterVideo = false
 
     /**
-     * Called once when a track actually starts (not when it is resumed). The
-     * application wires it to the view counter; keeping it a plain callback
-     * leaves the player free of any knowledge of the network.
+     * Called with the seconds of a song that were actually *heard* since the last
+     * report — the application wires it to the view counter, and keeping it a
+     * plain callback leaves the player free of any knowledge of the network.
+     *
+     * It fires once the track has been listened to for long enough to be a play,
+     * every [LISTEN_REPORT_MS] after that, and once more when the listening stops
+     * — paused, finished, or the next song started. The database decides what the
+     * seconds are worth: it counts the play and keeps the minutes.
      */
-    var onTrackStarted: ((String) -> Unit)? = null
+    var onListened: ((String, Int) -> Unit)? = null
 
-    /** The last track whose play was counted, so a transition cannot count twice. */
+    /** The last track the UI was told about, so the count resets once per track. */
     private var lastAnnouncedViewId: String? = null
+
+    // --- What has actually been heard of the track that is playing -----------
+    //
+    // A play used to be counted the moment a track *started*, which is a count of
+    // taps rather than of listening: skip through ten songs in ten seconds and
+    // ten plays were recorded. The meter below reads the player's position on
+    // every tick and adds only what moved while it was playing, so a seek, a
+    // rewind and a buffering stall contribute nothing.
+    private var meterTrackId: String = ""
+
+    /**
+     * The threshold of the track the meter is *on*, not of whatever is playing now:
+     * when a song ends, the listening being flushed belongs to the song that ended,
+     * and it has to be judged by that song's length.
+     */
+    private var meterValidMs: Long = VALID_LISTEN_MS
+    private var listenedMs: Long = 0L
+    private var reportedMs: Long = 0L
+    private var lastPositionMs: Long = 0L
 
     private val _state = MutableStateFlow(MusicPlayerUiState())
     val state: StateFlow<MusicPlayerUiState> = _state.asStateFlow()
@@ -267,14 +308,87 @@ class MusicController(
     }
 
     /**
-     * Tells the view counter a track has started, and remembers the count the
-     * catalogue row carried until the database answers with the real one.
+     * Puts the track's own count on screen while the database's answer is on its
+     * way. The report itself is not sent from here any more: a play is worth
+     * counting once it has been listened to, which is [meterListening]'s job.
      */
     private fun announceStarted(track: MusicTrack) {
         if (track.id == lastAnnouncedViewId) return
         lastAnnouncedViewId = track.id
         _state.update { it.copy(viewsCount = track.viewsCount) }
-        onTrackStarted?.invoke(track.id)
+    }
+
+    /**
+     * How long a song has to be heard before it counts as a play.
+     *
+     * Thirty seconds, or half the track when the track is shorter than a minute —
+     * the same rule the database applies in `music_valid_seconds`, computed from
+     * the same number (the catalogue's duration, not the player's, so the two
+     * cannot disagree about a file whose metadata is wrong).
+     */
+    private fun validListenMs(track: MusicTrack?): Long {
+        val seconds = track?.durationSeconds ?: 0
+        if (seconds <= 0) return VALID_LISTEN_MS
+        val half = ((seconds + 1) / 2).toLong() * 1000L
+        return minOf(VALID_LISTEN_MS, half)
+    }
+
+    /**
+     * Keeps the meter, and reports when there is something to report.
+     *
+     * Called from the ticker that is already running for the progress bar, so
+     * this costs nothing extra: the position it reads is the position that bar is
+     * drawn from.
+     */
+    private fun meterListening(player: MediaController, track: MusicTrack?) {
+        val id = track?.id.orEmpty()
+        if (id != meterTrackId) {
+            // The previous song keeps whatever it earned before the switch — judged
+            // by its own threshold, which is why the flush happens first.
+            reportListening()
+            meterTrackId = id
+            meterValidMs = validListenMs(track)
+            listenedMs = 0L
+            reportedMs = 0L
+            lastPositionMs = player.currentPosition
+            return
+        }
+        if (id.isBlank()) return
+
+        val position = player.currentPosition
+        val delta = position - lastPositionMs
+        lastPositionMs = position
+
+        // Only forward movement, and only as much as a tick can play: a seek
+        // throws the position by minutes, a rewind sends it negative, and a stall
+        // repeats it. None of the three is listening.
+        if (player.isPlaying && delta in 0..MAX_TICK_ADVANCE_MS) listenedMs += delta
+
+        if (!player.isPlaying) {
+            // Paused, finished or stopped: send what has been heard and wait.
+            reportListening()
+            return
+        }
+        val due = if (reportedMs == 0L) meterValidMs else reportedMs + LISTEN_REPORT_MS
+        if (listenedMs >= due) reportListening()
+    }
+
+    /**
+     * Sends the listening the database has not been told about yet.
+     *
+     * Nothing is sent for a track that has not reached its own threshold — that
+     * play does not exist yet, and the database would refuse the seconds anyway.
+     * Once it has been reached, the tail of the listening is sent too, so a
+     * paused or finished song keeps the minutes it earned.
+     */
+    private fun reportListening() {
+        val id = meterTrackId
+        if (id.isBlank()) return
+        if (reportedMs == 0L && listenedMs < meterValidMs) return
+        val seconds = ((listenedMs - reportedMs) / 1000L).toInt()
+        if (seconds <= 0) return
+        reportedMs = listenedMs
+        onListened?.invoke(id, seconds)
     }
 
     /**
@@ -612,6 +726,10 @@ class MusicController(
                             durationMs = duration.coerceAtLeast(0L)
                         )
                     }
+                    // The same position the bar above is drawn from is what the
+                    // listening meter counts, and what it counts is what the
+                    // database is told.
+                    meterListening(player, _state.value.track)
                 }
                 delay(400)
             }

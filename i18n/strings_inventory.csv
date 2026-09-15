@@ -6,11 +6,11 @@ bengali,bishnupriya,kind,uses,slots,screens
 আলোচনা,,ui,12,0,"ForumScreens.kt, PortalModels.kt, PublicProfileScreen.kt, UserDashboardScreen.kt"
 সাহিত্য,,ui,11,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 ইতিহাস,,ui,10,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
+পাঠক,,ui,9,0,"ArticleCommentForm.kt, ArticleRepository.kt, GoogleAuthMapper.kt, NingshingCheWebsiteClient.kt, PublicProfileScreen.kt, SettingsScreen.kt, UserDashboardScreen.kt"
 গান,,ui,8,0,"ListScreens.kt, NewMusicScreen.kt, PublicProfileScreen.kt, UserDashboardCharts.kt, UserDashboardScreen.kt"
 বন্ধ করুন,,ui,8,0,"ArticleScreen.kt, AttachmentViewer.kt, EditorialComponents.kt, HtmlArticleRenderer.kt, MusicPlayer.kt, UserDashboardScreen.kt, VideoPlayer.kt"
 লেখক,,ui,8,0,"EditorialComponents.kt, ListScreens.kt, NinghsingCheContentData.kt, PortalDrawer.kt, PortalPages.kt, SupabaseModels.kt"
 জীবনী,,ui,7,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
-পাঠক,,ui,7,0,"ArticleCommentForm.kt, ArticleRepository.kt, GoogleAuthMapper.kt, NingshingCheWebsiteClient.kt, PublicProfileScreen.kt, SettingsScreen.kt, UserDashboardScreen.kt"
 প্রবন্ধ,,ui,7,0,"NinghsingCheContentData.kt, PublicProfileScreen.kt, UserDashboardCharts.kt, UserDashboardScreen.kt"
 মন্তব্য,,ui,7,0,"ArticleScreen.kt, UserDashboardCharts.kt, UserDashboardScreen.kt"
 সংস্কৃতি,,ui,6,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
@@ -112,6 +112,7 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 {1} বিষয়ে নিংশিং চে-তে প্রকাশিত প্রবন্ধসমূহ।,,ui,2,1,NingshingCheWebsiteClient.kt
 {1} মিনিট,,ui,2,1,"EditorialComponents.kt, MusicPlayer.kt"
 অক্ষরের আকার,,ui,2,0,ArticleScreen.kt
+অতিথি ভিউ,,ui,2,0,UserDashboardScreen.kt
 অনুমোদিত,,ui,2,0,ForumScreens.kt
 অন্যান্য,,ui,2,0,"AppNotificationManager.kt, SettingsScreen.kt"
 অপছন্দ,,ui,2,0,"ForumScreens.kt, PublicProfileScreen.kt"
@@ -122,6 +123,7 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 আপনি,,ui,2,0,"ContributorScreen.kt, UserDashboardScreen.kt"
 আলোচনা খুঁজুন,,ui,2,0,ForumScreens.kt
 আলোচনা খোলা যায়নি।,,ui,2,0,ForumScreens.kt
+আলোচনা ভিউ,,ui,2,0,UserDashboardScreen.kt
 এই মাসের পয়েন্ট,,ui,2,0,PublicProfileScreen.kt
 একমত,,ui,2,0,"ForumScreens.kt, PublicProfileScreen.kt"
 এখনো কোনো গান যোগ করা হয়নি।,,ui,2,0,MusicScreen.kt
@@ -156,6 +158,7 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 নিংশিং চে লেখক,,ui,2,0,"ArticleRepository.kt, NingshingCheWebsiteClient.kt"
 নিংশিং চে — বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ,,ui,2,0,"PortalPages.kt, SettingsScreen.kt"
 নিবন্ধ এআই সহায়িকা,,ui,2,0,ArticleScreen.kt
+নিবন্ধিত ভিউ,,ui,2,0,UserDashboardScreen.kt
 নির্বাচিত প্রবন্ধ,,ui,2,0,"ContentNotice.kt, SettingsScreen.kt"
 নৃত্য,,ui,2,0,"MusicGenres.kt, NinghsingCheAiAssistant.kt"
 পছন্দের গান,,ui,2,0,"MusicLibraryStore.kt, MusicScreen.kt"
@@ -205,6 +208,7 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 লোড হচ্ছে…,,ui,2,0,ForumScreens.kt
 শহীদ সুদেষ্ণা সিংহ,,content,2,0,NinghsingCheContentData.kt
 শেয়ার করুন,,ui,2,0,"ArticleScreen.kt, EditorialComponents.kt"
+শোনা মিনিট,,ui,2,0,UserDashboardScreen.kt
 সংযুক্তি,,ui,2,0,"PortalModels.kt, UserDashboardScreen.kt"
 সংরক্ষণ সরানো হয়েছে,,ui,2,0,MainViewModels.kt
 সংরক্ষিত,,ui,2,0,"BookmarksScreen.kt, PortalDrawer.kt"

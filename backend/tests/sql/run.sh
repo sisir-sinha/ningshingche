@@ -4,6 +4,11 @@
 #
 #   bash backend/tests/sql/run.sh
 #
+# The "alone" list below stops at 030: 031 and later build on tables and columns
+# the files before them add (032's `is_official` is read by 034's and 036's
+# `forum_discussion`), so they are exercised in the ordered runs instead, which is
+# how they are meant to be run in the SQL Editor.
+#
 # Needs a local PostgreSQL (`initdb`, `pg_ctl`, `psql`). Nothing here touches the
 # production database: the cluster lives in a temp directory and is stopped on
 # exit. This is not part of `node --test` — it is the check to run after editing
@@ -56,7 +61,7 @@ done
 # --- both orders, then both again (idempotency) ------------------------------
 # 030 comes last in every order: it replaces functions 029 and 026 wrote, so it
 # is the one file with a direction. 024-029 stay order-free among themselves.
-for order in "024 025 026 027 028 029 030" "025 024 026 027 028 029 030" "026 025 024 027 028 029 030" "027 026 025 024 028 029 030" "029 028 027 026 025 024 030" "028 029 024 025 026 027 030"; do
+for order in "024 025 026 027 028 029 030 036" "025 024 026 027 028 029 030 036" "026 025 024 027 028 029 030 036" "027 026 025 024 028 029 030 036" "029 028 027 026 025 024 030 036" "028 029 024 025 026 027 030 036" "024 025 026 027 028 029 030 031 032 033 034 035 036"; do
   for pass in 1 2; do
     step "order $order (pass $pass)"
     psql -c "drop database if exists ordered" >/dev/null 2>&1 || true
@@ -95,7 +100,7 @@ insert into public.submitted_blogs (user_id, converted_blog_id, status) values (
 insert into public.music_tracks (id, title, artist, file_storage_path, duration_seconds, love_count, user_id) values ('$TRACK', 'পাঠকের গান', 'গায়ক', 'reader/track.mp3', 200, 3, '$READER');
 SQL
 
-for n in 024 025 026 027 028 029 030; do
+for n in 024 025 026 027 028 029 030 031 032 033 034 035 036; do
   psql -d behaviour -f "$MIGRATIONS/$(ls "$MIGRATIONS" | grep "^$n")" >/dev/null
 done
 
@@ -120,13 +125,24 @@ renamed="$(psql -d behaviour -tAc "select uploader_name from public.music_tracks
 as_guest() { psql -d behaviour -tAc "set role anon; set request.jwt.claim.sub = ''; select public.$1;"; }
 as_reader() { psql -d behaviour -tAc "set role anon; set request.jwt.claim.sub = '$READER'; select public.$1;"; }
 
+# The same reader, the same article, twice: one visit, one view — which is what
+# this harness always asserted, and still does.
 first="$(as_guest "record_content_view('blog', '$BLOG', 'device-abc-123')")"
 second="$(as_guest "record_content_view('blog', '$BLOG', 'device-abc-123')")"
-[ "$first" = "1" ] && [ "$second" = "1" ] && ok "a repeat view is not counted twice" \
+[ "$first" = "1" ] && [ "$second" = "1" ] && ok "a repeat view inside the visit is not counted twice" \
   || bad "repeat view dedupe (got $first then $second)"
 
-reader_first="$(as_reader "record_content_view('music', '$TRACK', '')")"
-[ "$reader_first" = "1" ] && ok "a signed-in play counts" || bad "signed-in play (got $reader_first)"
+# A signed-in reader is a different viewer from the guest device, and is recorded
+# as such — the question the counts could not answer before.
+reader_first="$(as_reader "content_view_record('music', '$TRACK', '', 30)")"
+[ "$reader_first" = "1" ] && ok "a signed-in reader's listened play counts" \
+  || bad "signed-in play (got $reader_first)"
+reader_kind="$(psql -d behaviour -tAc "select viewer_kind from public.content_views where content_type = 'music' and content_id = '$TRACK'")"
+[ "$reader_kind" = "registered" ] && ok "and is recorded as a registered visitor" \
+  || bad "registered kind (got '$reader_kind')"
+guest_kind="$(psql -d behaviour -tAc "select viewer_kind from public.content_views where content_type = 'blog' and content_id = '$BLOG'")"
+[ "$guest_kind" = "guest" ] && ok "while the device that was not signed in is a guest" \
+  || bad "guest kind (got '$guest_kind')"
 
 totals="$(psql -d behaviour -tAc "select public.user_view_totals('$READER')")"
 echo "$totals" | grep -q '"article_views": 1' && ok "totals sum the article view" || bad "totals: $totals"
@@ -413,6 +429,87 @@ echo "$no_session" | grep -qi "permission denied\|available to the dashboard" &&
 
 plain_reader="$(reader_call "contributor_leaderboard_dashboard(50, null, false)" || true)"
 echo "$plain_reader" | grep -qi "dashboard" && ok "a reader session is not a dashboard session" || bad "reader on dashboard door (got '$plain_reader')"
+
+# --- the counting rules, exercised on their own items ------------------------
+#
+# Everything above this point is the harness as it was. What follows uses items
+# nobody owns, so the reader's own totals — and the score the earlier sections
+# checked — are not moved by a test about counting.
+step "the counting rules"
+
+# One visit is half an hour. A new viewer is a second view; the same viewer again
+# is not; and after the window they have come back, which is a third.
+before="$(psql -d behaviour -tAc "select views_count from public.blogs where id = '$BLOG'")"
+window_first="$(as_guest "content_view_record('blog', '$BLOG', 'device-window-1', null)")"
+window_again="$(as_guest "content_view_record('blog', '$BLOG', 'device-window-1', null)")"
+[ "$window_first" = "$((before + 1))" ] && [ "$window_again" = "$((before + 1))" ] \
+  && ok "a new viewer is one more view, and their second open is not" \
+  || bad "visit window (got $before, $window_first, $window_again)"
+
+psql -d behaviour -c "update public.content_views set created_at = created_at - interval '31 minutes' where content_type = 'blog' and content_id = '$BLOG'" >/dev/null
+window_returned="$(as_guest "content_view_record('blog', '$BLOG', 'device-window-1', null)")"
+[ "$window_returned" = "$((before + 2))" ] && ok "half an hour later the same viewer counts again" \
+  || bad "second visit (got $window_returned, wanted $((before + 2)))"
+
+window="$(psql -d behaviour -tAc "select public.content_view_visit_window()")"
+[ "$window" = "00:30:00" ] && ok "the visit window is thirty minutes" || bad "window (got '$window')"
+
+# A song nobody listened to is not a play. A song nobody owns, so the reader's
+# song count does not move.
+SHORT_TRACK=88888888-8888-8888-8888-888888888888
+psql -d behaviour -c "insert into public.music_tracks (id, title, duration_seconds) values ('$SHORT_TRACK', 'ছোট গান', 40)" >/dev/null
+silent="$(as_guest "content_view_record('music', '$SHORT_TRACK', 'device-short-1', null)")"
+[ "$silent" = "0" ] && ok "a play reported with no listening is not counted" || bad "silent play (got $silent)"
+nineteen="$(as_guest "content_view_record('music', '$SHORT_TRACK', 'device-short-1', 19)")"
+[ "$nineteen" = "0" ] && ok "a forty-second track needs twenty seconds, and nineteen is not twenty" || bad "under-threshold (got $nineteen)"
+twenty="$(as_guest "content_view_record('music', '$SHORT_TRACK', 'device-short-1', 20)")"
+[ "$twenty" = "1" ] && ok "…and counts at twenty" || bad "threshold pass (got $twenty)"
+listened="$(as_guest "content_view_record('music', '$SHORT_TRACK', 'device-short-1', 70)")"
+[ "$listened" = "1" ] && ok "listening on does not make a second play" || bad "second play (got $listened)"
+heard="$(psql -d behaviour -tAc "select seconds_listened from public.content_views where content_id = '$SHORT_TRACK'")"
+[ "$heard" = "90" ] && ok "the seconds heard are kept (20 + 70)" || bad "seconds heard (got $heard)"
+threshold="$(psql -d behaviour -tAc "select public.music_valid_seconds(40) || '/' || public.music_valid_seconds(240) || '/' || public.music_valid_seconds(0)")"
+[ "$threshold" = "20/30/30" ] && ok "the thresholds are 20s, 30s, and 30s for an unknown length" || bad "thresholds (got '$threshold')"
+
+# Seconds belong to music. A caller that sends them for an article must not be
+# able to write them into the listening total.
+BLOG_SPARE=10101010-1010-1010-1010-101010101010
+psql -d behaviour -c "insert into public.blogs (id, title, slug, status, published_date) values ('$BLOG_SPARE', 'সেকেন্ডের নিবন্ধ', 'seconds-article', 'Publish', current_date)" >/dev/null
+psql -d behaviour -tAc "select public.content_view_record('blog', '$BLOG_SPARE', 'device-seconds-1', 90)" >/dev/null
+spare_seconds="$(psql -d behaviour -tAc "select coalesce(seconds_listened::text, 'null') from public.content_views where content_id = '$BLOG_SPARE'")"
+[ "$spare_seconds" = "null" ] && ok "an article visit cannot carry listening seconds" || bad "article seconds (got $spare_seconds)"
+
+# The forum counts through the same engine, so it is deduped per visit too.
+FORUM_THREAD=99999999-9999-9999-9999-999999999999
+psql -d behaviour -c "insert into public.forum_discussions (id, category_id, user_id, title, body, status) select '$FORUM_THREAD', k.id, null, 'ভিউ গোনার আলোচনা', 'মূল লেখা।', 'Publish' from public.forum_categories k order by k.slug limit 1" >/dev/null
+thread_first="$(as_guest "forum_discussion('$FORUM_THREAD', true, 'device-forum-1')" | grep -o '"views_count": [0-9]*' | head -1 | cut -d' ' -f2)"
+thread_again="$(as_guest "forum_discussion('$FORUM_THREAD', true, 'device-forum-1')" | grep -o '"views_count": [0-9]*' | head -1 | cut -d' ' -f2)"
+thread_other="$(as_guest "forum_discussion('$FORUM_THREAD', true, 'device-forum-2')" | grep -o '"views_count": [0-9]*' | head -1 | cut -d' ' -f2)"
+[ "$thread_first" = "1" ] && [ "$thread_again" = "1" ] \
+  && ok "opening a thread twice in one visit is one view" \
+  || bad "forum dedupe (got $thread_first then $thread_again)"
+[ "$thread_other" = "2" ] && ok "…and a second reader is a second view" || bad "second reader (got $thread_other)"
+thread_kind="$(psql -d behaviour -tAc "select viewer_kind from public.content_views where content_type = 'forum' and content_id = '$FORUM_THREAD' limit 1")"
+[ "$thread_kind" = "guest" ] && ok "the thread view says its visitor was a guest" || bad "thread kind (got '$thread_kind')"
+
+# And the reads answer who, not only how many.
+stats="$(psql -d behaviour -tAc "select public.view_stats('music', '$SHORT_TRACK')")"
+for want in '"views": 1' '"visitors": 1' '"guest": 1' '"registered": 0' '"minutes_listened": 1'; do
+  echo "$stats" | grep -q "$want" && ok "view_stats has $want" || bad "view_stats missing $want: $stats"
+done
+thread_stats="$(psql -d behaviour -tAc "select public.view_stats('forum', '$FORUM_THREAD')")"
+echo "$thread_stats" | grep -q '"views": 2' && ok "the thread's stats count both readers once" || bad "thread stats: $thread_stats"
+echo "$thread_stats" | grep -q '"visitors": 2' && ok "and call them two visitors" || bad "thread visitors: $thread_stats"
+
+summary="$(psql -d behaviour -tAc "select public.view_summary(30)")"
+views="$(echo "$summary" | grep -o '"views": [0-9]*' | cut -d' ' -f2)"
+visitors="$(echo "$summary" | grep -o '"visitors": [0-9]*' | cut -d' ' -f2)"
+minutes="$(echo "$summary" | grep -o '"minutes_listened": [0-9]*' | cut -d' ' -f2)"
+[ "$views" -ge "$visitors" ] && [ "$visitors" -ge 1 ] && ok "visits are at least visitors ($views >= $visitors)" \
+  || bad "summary invariant (views $views, visitors $visitors)"
+[[ "$minutes" =~ ^[0-9]+$ ]] && ok "minutes listened is a whole number ($minutes)" || bad "minutes (got '$minutes')"
+readers="$(psql -d behaviour -tAc "select count(*) from public.view_overview(30)")"
+[ "$readers" = "30" ] && ok "view_overview returns every day of the span" || bad "view_overview rows (got $readers)"
 
 # the trigger has to survive a delete, and only a delete
 psql -d behaviour -c "delete from public.content_views where content_type = 'blog' and content_id = '$BLOG'" >/dev/null

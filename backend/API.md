@@ -476,7 +476,7 @@ A thread a signed-in reader wrote, and everything the dashboard moderates (page 
 | `title` | text | Required |
 | `body` | text | The reader's HTML, as the app's editor produced it |
 | `status` | text | `Publish` \\| `Unpublish` — **the only field the dashboard writes** |
-| `views_count` | bigint | Counted by `forum_discussion(…, p_count_view)` |
+| `views_count` | bigint | Counted by `forum_discussion(…, p_count_view)`, which records a visit through `content_view_record` since `036` — one per viewer per thirty minutes |
 | `replies_count` | integer | Trigger-synced from visible replies |
 | `last_reply_at` | timestamptz | `null` until someone answers |
 | `cover_image_url`, `cover_delete_url` (030) | text | Optional ImgBB cover |
@@ -1050,28 +1050,59 @@ what the player's `Uploader: …` line reads, with no extra request.
 
 ---
 
-### 7.18 View counting (`025_content_views.sql`, publishable key allowed)
+### 7.18 View counting (`025_content_views.sql`, `036_view_logic.sql`, publishable key allowed)
 
 A running total cannot draw a graph, so the counts are derived from events: every view is one row in
-`public.content_views`, a trigger keeps `blogs.views_count` / `music_tracks.views_count` in step, and
-the dashboard's series comes from the same rows. The table itself is closed — no grants, RLS on, no
-policies — so only the security-definer functions below touch it.
+`public.content_views`, a trigger keeps `blogs.views_count` / `music_tracks.views_count` /
+`forum_discussions.views_count` in step, and the dashboard's series comes from the same rows. The
+table itself is closed — no grants, RLS on, no policies — so only the security-definer functions below
+touch it.
 
-**`record_content_view(p_type text, p_id uuid, p_device_id text default null) → bigint`**
+`036` is the rule the counts follow, and it is one rule for all three:
 
-Counts one view and returns the item's new total. `p_type` is `blog` or `music`. A signed-in reader
-is identified by `auth.uid()`; a guest by `md5('ningshingche:view:' || p_device_id)`, so the device id
-is never stored. The same viewer counts once per item per 20 hours.
+* **one view per visit.** A visit is thirty minutes (`content_view_visit_window()`): the same viewer
+  re-opening the same item inside that window is the same visit and adds nothing; after it, they have
+  come back and it counts once. The twenty-hour window `025` used is gone.
+* **every view says who.** `viewer_kind` is `registered` when the call carried a session and `guest`
+  otherwise, so the split can be reported instead of guessed.
+* **a song counts when it has been listened to.** Thirty seconds, or half the track when the track is
+  shorter than a minute (`music_valid_seconds()`). The caller reports the seconds it actually played;
+  the database decides whether they are a play, and keeps the seconds — so minutes listened is a
+  measurement, not plays × runtime.
+
+**`content_view_record(p_type text, p_id uuid, p_device_id text default null, p_seconds integer default null) → bigint`**
+
+Records one visit and returns the item's new total. `p_type` is `blog`, `music` or `forum`. A
+signed-in reader is identified by `auth.uid()`; a guest by `md5('ningshingche:view:' || p_device_id)`,
+so the device id is never stored. `p_seconds` is how much of a song was heard since the last report,
+and only the `music` branch reads it — a song with no seconds is never counted.
 
 | error | when |
 | --- | --- |
-| `22023` | `p_type` is not `blog`/`music`, or `p_id` is null |
+| `22023` | `p_type` is not `blog`/`music`/`forum`, or `p_id` is null |
 
-**`user_view_totals(p_user_id uuid) → jsonb`** — `{ article_views, music_views }`: the counts on the
-blogs the reader's submissions became, plus the plays of the tracks they uploaded.
+**`record_content_view(p_type text, p_id uuid, p_device_id text default null) → bigint`** — `025`'s
+door, kept because an installed app still calls it. It routes through the engine with no seconds, so
+it can record a blog or a forum visit but never a play.
 
-**`user_view_series(p_user_id uuid, p_days integer default 30) → table(day date, views bigint)`** —
-one row per day, empty days included, UTC, so the chart has a continuous axis.
+**`view_stats(p_type text, p_id uuid) → jsonb`** — one item: `{ views, visitors, registered, guest,
+minutes_listened }`. `views` counts visits; `visitors` counts distinct viewers.
+
+**`view_summary(p_days integer default 30) → jsonb`** — the window in one line: `{ days, views,
+visitors, registered_views, guest_views, registered_visitors, guest_visitors, minutes_listened }`.
+`visitors` is a distinct count across the whole window, which is not the sum of the days' uniques.
+
+**`view_overview(p_days integer default 30) → table(day date, views bigint, visitors bigint,
+registered bigint, guest bigint, minutes_listened bigint)`** — one row per day, empty days included,
+UTC. Aggregate counts only: no per-reader rows leave it.
+
+**`user_view_totals(p_user_id uuid) → jsonb`** — `{ article_views, music_views, forum_views, visitors,
+registered_views, guest_views, minutes_listened }`. The three view counts are the item rows' own
+`views_count`, so this and the dashboard cannot disagree; the rest is measured from the views.
+
+**`user_view_series(p_user_id uuid, p_days integer default 30) → table(day date, views bigint,
+visitors bigint, minutes_listened bigint)`** — one row per day, empty days included, UTC, so the chart
+has a continuous axis. This shape changed in `036`; the old four-column version is dropped first.
 
 ---
 
@@ -1112,7 +1143,7 @@ calls, and they only ever return `status = 'Publish'` rows.
 | `forum_overview` | `p_limit integer = 20`, `p_order text = 'recent'` | jsonb | Boards, latest and popular threads. `030` adds the order argument and the answer counts; `p_order` accepts the app's own order names |
 | `forum_category` | `p_slug text`, `p_limit integer = 30`, `p_offset integer = 0` | jsonb | One board, paged (`029`; unchanged by `030`) |
 | `forum_search` | `p_query text`, `p_limit integer = 30` | jsonb | Title and body search (`029`) |
-| `forum_discussion` | `p_id uuid`, `p_count_view boolean = true`, `p_device_id text = null` | jsonb | One thread with its answers and reactions. `p_count_view` is how `views_count` moves |
+| `forum_discussion` | `p_id uuid`, `p_count_view boolean = true`, `p_device_id text = null` | jsonb | One thread with its answers and reactions. `p_count_view` records a visit through the counting engine (`036`), so re-opening a thread in the same visit counts once |
 | `forum_react` | `p_reply_id uuid`, `p_kind text`, `p_device_id text = null` | jsonb | `like` \\| `dislike` \\| `agree`; the same call again takes the reaction back. Anonymous readers are keyed by `forum_reactor_key(p_device_id)` |
 | `forum_create_discussion` | `p_category_slug text`, `p_title text`, `p_body text`, `p_cover_image_url text = ''`, `p_cover_delete_url text = ''` | jsonb | Signed-in (`authenticated`) only |
 | `forum_reply` | `p_id uuid`, `p_body text`, `p_parent_id uuid = null`, `p_device_id text = null` | jsonb | Signed-in only; `p_parent_id` is the one indent level |

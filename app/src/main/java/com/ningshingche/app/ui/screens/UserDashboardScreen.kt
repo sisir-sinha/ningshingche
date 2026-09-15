@@ -52,6 +52,7 @@ import androidx.compose.material.icons.filled.Comment
 import androidx.compose.material.icons.filled.Stars
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Forum
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Reply
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
@@ -62,12 +63,14 @@ import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.HourglassTop
+import androidx.compose.material.icons.filled.HowToReg
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PersonOutline
 import androidx.compose.material.icons.filled.Publish
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
@@ -552,27 +555,80 @@ private fun HomeSectionTabs(selected: HomeSection, onSelect: (HomeSection) -> Un
     }
 }
 
-/** The view counter split, so the total in the chart above it can be read. */
+/**
+ * The view counters split, so the total in the chart above it can be read.
+ *
+ * Two rows, because the numbers answer two different questions. The first says
+ * what was viewed — the articles, the songs, the threads. The second says who was
+ * reading: how many *people* rather than visits, how many of them were signed in,
+ * and how many minutes of the songs were really listened to. A view is one visit
+ * (the same reader inside half an hour is the same visit); a visitor is one person.
+ */
 @Composable
 private fun ViewSplit(metrics: ReaderMetrics) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("dashboard_view_split"),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        MetricCard(
-            "প্রবন্ধ ভিউ",
-            toBengaliNumeral(metrics.articleViews),
-            Icons.AutoMirrored.Filled.Article,
-            Modifier.weight(1f)
-        )
-        MetricCard(
-            "গান ভিউ",
-            toBengaliNumeral(metrics.musicViews),
-            Icons.Default.MusicNote,
-            Modifier.weight(1f)
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            MetricCard(
+                "প্রবন্ধ ভিউ",
+                toBengaliNumeral(metrics.articleViews),
+                Icons.AutoMirrored.Filled.Article,
+                Modifier.weight(1f)
+            )
+            MetricCard(
+                "গান ভিউ",
+                toBengaliNumeral(metrics.musicViews),
+                Icons.Default.MusicNote,
+                Modifier.weight(1f)
+            )
+            MetricCard(
+                "আলোচনা ভিউ",
+                toBengaliNumeral(metrics.forumViews),
+                Icons.Default.Forum,
+                Modifier.weight(1f)
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            MetricCard(
+                "পাঠক",
+                toBengaliNumeral(metrics.visitors),
+                Icons.Default.Groups,
+                Modifier.weight(1f)
+            )
+            MetricCard(
+                "নিবন্ধিত ভিউ",
+                toBengaliNumeral(metrics.registeredViews),
+                Icons.Default.HowToReg,
+                Modifier.weight(1f)
+            )
+            MetricCard(
+                "অতিথি ভিউ",
+                toBengaliNumeral(metrics.guestViews),
+                Icons.Default.PersonOutline,
+                Modifier.weight(1f)
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            MetricCard(
+                "শোনা মিনিট",
+                toBengaliNumeral(metrics.minutesListened),
+                Icons.Default.Timer,
+                Modifier.weight(1f)
+            )
+        }
     }
 }
 
@@ -1565,7 +1621,8 @@ private fun MetricsGrid(metrics: ReaderMetrics) {
                 Modifier.weight(1f)
             )
         }
-        // The view counter split, so the total above can be read.
+        // The view counter split, so the total above can be read — plus who was
+        // reading it: people rather than visits, and the minutes actually heard.
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             MetricCard(
                 "প্রবন্ধ ভিউ",
@@ -1577,6 +1634,40 @@ private fun MetricsGrid(metrics: ReaderMetrics) {
                 "গান ভিউ",
                 toBengaliNumeral(metrics.musicViews),
                 Icons.Default.MusicNote,
+                Modifier.weight(1f)
+            )
+            MetricCard(
+                "আলোচনা ভিউ",
+                toBengaliNumeral(metrics.forumViews),
+                Icons.Default.Forum,
+                Modifier.weight(1f)
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            MetricCard(
+                "পাঠক",
+                toBengaliNumeral(metrics.visitors),
+                Icons.Default.Groups,
+                Modifier.weight(1f)
+            )
+            MetricCard(
+                "নিবন্ধিত ভিউ",
+                toBengaliNumeral(metrics.registeredViews),
+                Icons.Default.HowToReg,
+                Modifier.weight(1f)
+            )
+            MetricCard(
+                "অতিথি ভিউ",
+                toBengaliNumeral(metrics.guestViews),
+                Icons.Default.PersonOutline,
+                Modifier.weight(1f)
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            MetricCard(
+                "শোনা মিনিট",
+                toBengaliNumeral(metrics.minutesListened),
+                Icons.Default.Timer,
                 Modifier.weight(1f)
             )
         }

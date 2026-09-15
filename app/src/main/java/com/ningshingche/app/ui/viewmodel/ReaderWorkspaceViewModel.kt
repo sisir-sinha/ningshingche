@@ -36,9 +36,18 @@ data class ReaderMetrics(
     /** Article views, as the database counts them. */
     val articleViews: Long = 0L,
     /** Plays of the reader's songs, as the database counts them. */
-    val musicViews: Long = 0L
+    val musicViews: Long = 0L,
+    /** Views of the threads the reader started. */
+    val forumViews: Long = 0L,
+    /** Different people, where [totalViews] counts visits: one reader who came back is both. */
+    val visitors: Long = 0L,
+    /** Of the views, how many came from a signed-in reader and how many from a guest. */
+    val registeredViews: Long = 0L,
+    val guestViews: Long = 0L,
+    /** Minutes of the reader's songs that were really listened to. */
+    val minutesListened: Long = 0L
 ) {
-    val totalViews: Long get() = articleViews + musicViews
+    val totalViews: Long get() = articleViews + musicViews + forumViews
 }
 
 /** Days of view history the dashboard chart asks the database for. */
@@ -200,7 +209,12 @@ class ReaderWorkspaceViewModel(
                 comments = comments.size,
                 songs = songs,
                 articleViews = viewTotals?.articleViews ?: 0L,
-                musicViews = viewTotals?.musicViews ?: 0L
+                musicViews = viewTotals?.musicViews ?: 0L,
+                forumViews = viewTotals?.forumViews ?: 0L,
+                visitors = viewTotals?.visitors ?: 0L,
+                registeredViews = viewTotals?.registeredViews ?: 0L,
+                guestViews = viewTotals?.guestViews ?: 0L,
+                minutesListened = viewTotals?.minutesListened ?: 0L
             )
             _viewSeries.value = series
             _contributorScore.value = score
