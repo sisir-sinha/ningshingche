@@ -664,14 +664,14 @@ fun AiAssistantHomeBanner(
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (tokens.isDark) EditorialPalette.DarkSurfaceVariant else EditorialPalette.SurfaceVariant
+            containerColor = tokens.surfaceVariant
         ),
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = EditorialSpace.gutter, vertical = EditorialSpace.xs)
             .border(
                 1.dp,
-                if (tokens.isDark) EditorialPalette.DarkRule else EditorialPalette.RuleStrong,
+                tokens.ruleStrong,
                 RoundedCornerShape(16.dp)
             )
     ) {
@@ -728,10 +728,10 @@ fun AiAssistantHomeBanner(
                     Surface(
                         onClick = { onPromptClick(tag) },
                         shape = RoundedCornerShape(16.dp),
-                        color = if (tokens.isDark) EditorialPalette.DarkSurface else Color.White,
+                        color = if (tokens.isDark) tokens.surface else Color.White,
                         border = androidx.compose.foundation.BorderStroke(
                             1.dp,
-                            if (tokens.isDark) EditorialPalette.DarkRule else EditorialPalette.Rule
+                            if (tokens.isDark) tokens.rule else tokens.ruleStrong
                         ),
                         modifier = Modifier.weight(1f)
                     ) {
@@ -806,16 +806,17 @@ fun CategoryVisualCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val tokens = LocalEditorialTokens.current
     Card(
         onClick = onClick,
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = LocalEditorialTokens.current.surfaceSunken),
-modifier = modifier
-                .width(180.dp)
-                .height(100.dp)
+        colors = CardDefaults.cardColors(containerColor = tokens.surfaceSunken),
+        modifier = modifier
+            .width(180.dp)
+            .height(100.dp)
             .then(
-                if (isSelected) Modifier.border(2.dp, LocalEditorialTokens.current.accent, RoundedCornerShape(14.dp))
-                else Modifier.border(1.dp, LocalEditorialTokens.current.rule, RoundedCornerShape(14.dp))
+                if (isSelected) Modifier.border(2.dp, tokens.accent, RoundedCornerShape(14.dp))
+                else Modifier.border(1.dp, tokens.rule, RoundedCornerShape(14.dp))
             )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -872,7 +873,7 @@ modifier = modifier
                         fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
                         fontSize = 11.sp,
                         lineHeight = 14.sp,
-                        color = EditorialPalette.DarkGold,
+                        color = tokens.accentOverArt,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(top = 1.dp)

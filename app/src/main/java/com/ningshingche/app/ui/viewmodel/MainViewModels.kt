@@ -14,6 +14,7 @@ import com.ningshingche.app.data.remote.SupabaseClient
 import com.ningshingche.app.data.remote.UserProfile
 import com.ningshingche.app.data.model.AiChatMessage
 import com.ningshingche.app.data.i18n.TranslationRepository
+import com.ningshingche.app.data.model.AppPalette
 import com.ningshingche.app.data.model.AppThemeMode
 import com.ningshingche.app.data.model.ContentLanguage
 import com.ningshingche.app.data.model.Article
@@ -324,6 +325,20 @@ class SettingsViewModel(
     fun updateAppThemeMode(mode: AppThemeMode) {
         viewModelScope.launch {
             preferencesRepository.updateAppThemeMode(mode)
+        }
+    }
+
+    /** Switches the app's palette; every screen repaints from `LocalEditorialTokens`. */
+    fun updateAppPalette(palette: AppPalette) {
+        viewModelScope.launch {
+            preferencesRepository.updateAppPalette(palette)
+        }
+    }
+
+    /** Moves the custom palette's wheel. Writes only while the custom palette is the one in use. */
+    fun updateCustomWheel(hue: Int, saturation: Int) {
+        viewModelScope.launch {
+            preferencesRepository.updateCustomWheel(hue, saturation)
         }
     }
 

@@ -27,16 +27,9 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import com.ningshingche.app.ui.editorial.EditorialPalette
+import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import kotlin.math.PI
 import kotlin.math.sin
-
-/**
- * The ink of the playing indicator. It draws on a near-white chip over artwork,
- * so it is the accent at its darkest — the same colour as the play badge it
- * replaces.
- */
-val PlayingWaveInk = EditorialPalette.Indigo
 
 /**
  * The bar heights, tallest in the middle.
@@ -72,12 +65,17 @@ private const val WaveFloor = 0.35f
 fun PlayingWaveBars(
     modifier: Modifier = Modifier,
     animated: Boolean = true,
-    color: Color = PlayingWaveInk,
+    color: Color? = null,
     barCount: Int = WaveEnvelope.size,
     barWidth: Dp = 3.dp,
     barGap: Dp = 2.dp,
     height: Dp = 22.dp
 ) {
+    // The wave draws on a near-white chip over artwork, so its ink is the palette's
+    // accent at its darkest — [EditorialTokens.accentDeep], the same colour as the play
+    // badge it replaces. Read here rather than captured in a top-level val, because the
+    // accent now depends on the palette the reader chose.
+    val ink = color ?: LocalEditorialTokens.current.accentDeep
     val transition = rememberInfiniteTransition(label = "playing_wave")
     val phase by transition.animateFloat(
         initialValue = 0f,
@@ -105,7 +103,7 @@ fun PlayingWaveBars(
                     .width(barWidth)
                     .height((height * level).coerceAtLeast(2.dp))
                     .clip(WaveNeedleShape)
-                    .background(color)
+                    .background(ink)
             )
         }
     }

@@ -50,16 +50,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ningshingche.app.ui.components.NingshingCheBrandLogo
-import com.ningshingche.app.ui.editorial.EditorialPalette
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
-import com.ningshingche.app.ui.theme.BrandGold
-import com.ningshingche.app.ui.theme.BrandGoldLight
-import com.ningshingche.app.ui.theme.BrandIndigo
 import com.ningshingche.app.ui.theme.Kalpurush
-import com.ningshingche.app.ui.theme.PanelDeep
-import com.ningshingche.app.ui.theme.PanelInk
-import com.ningshingche.app.ui.theme.PanelRule
-import com.ningshingche.app.ui.theme.PanelSoft
 import kotlinx.coroutines.delay
 
 /**
@@ -124,11 +116,14 @@ fun SplashScreen(
         onSplashComplete()
     }
 
-    val isDark = LocalEditorialTokens.current.isDark
+    // Every colour here is the reader's palette, already resolved to the side that is
+    // on screen — the splash is the first thing they see of a theme they chose.
+    val tokens = LocalEditorialTokens.current
+    val isDark = tokens.isDark
     val bgGradient = if (isDark) {
-        listOf(PanelDeep, PanelSoft, Color(0xFF090B11))
+        listOf(tokens.paper, tokens.surfaceSunken, tokens.surface)
     } else {
-        listOf(EditorialPalette.Paper, EditorialPalette.PaperSunken, Color(0xFFE4E8F2))
+        listOf(tokens.paper, tokens.surfaceSunken, tokens.surfaceVariant)
     }
 
     Box(
@@ -144,12 +139,12 @@ fun SplashScreen(
             val center = this.center
             val maxRadius = size.minDimension * 0.45f
             drawCircle(
-                color = (if (isDark) BrandGoldLight else BrandIndigo).copy(alpha = 0.04f),
+                color = (if (isDark) tokens.second else tokens.accent).copy(alpha = 0.04f),
                 radius = maxRadius * 1.3f,
                 center = center
             )
             drawCircle(
-                color = (if (isDark) BrandGoldLight else BrandIndigo).copy(alpha = 0.06f),
+                color = (if (isDark) tokens.second else tokens.accent).copy(alpha = 0.06f),
                 radius = maxRadius * 0.9f,
                 center = center
             )
@@ -178,7 +173,7 @@ fun SplashScreen(
                         .background(
                             Brush.radialGradient(
                                 listOf(
-                                    if (isDark) BrandGoldLight else BrandGold,
+                                    tokens.second,
                                     Color.Transparent
                                 )
                             )
@@ -210,7 +205,7 @@ fun SplashScreen(
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
                 fontSize = 36.sp,
-                color = if (isDark) PanelInk else BrandIndigo,
+                color = if (isDark) tokens.ink else tokens.accent,
                 textAlign = TextAlign.Center
             )
 
@@ -222,7 +217,7 @@ fun SplashScreen(
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Medium,
                 fontSize = 15.sp,
-                color = if (isDark) BrandGoldLight else BrandGold,
+                color = tokens.second,
                 textAlign = TextAlign.Center
             )
 
@@ -231,7 +226,7 @@ fun SplashScreen(
             // Tagline chip
             Surface(
                 shape = RoundedCornerShape(20.dp),
-                color = (if (isDark) EditorialPalette.DarkIndigoSoft else EditorialPalette.IndigoSoft).copy(alpha = 0.85f),
+                color = tokens.accentSoft.copy(alpha = 0.85f),
                 modifier = Modifier.padding(horizontal = 8.dp)
             ) {
                 Row(
@@ -242,14 +237,14 @@ fun SplashScreen(
                     Icon(
                         imageVector = Icons.Default.AutoAwesome,
                         contentDescription = null,
-                        tint = if (isDark) BrandGoldLight else BrandIndigo,
+                        tint = if (isDark) tokens.second else tokens.accent,
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
                         text = "জ্ঞান, ইতিহাস ও সাহিত্যের মুক্ত তথ্যকোষ",
                         fontFamily = Kalpurush,
                         fontSize = 12.sp,
-                        color = if (isDark) PanelInk else BrandIndigo,
+                        color = if (isDark) tokens.ink else tokens.accent,
                         fontWeight = FontWeight.Normal
                     )
                 }
@@ -264,14 +259,14 @@ fun SplashScreen(
                     .width(140.dp)
                     .height(4.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(if (isDark) PanelRule else EditorialPalette.Rule)
+                    .background(tokens.rule)
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
                         .fillMaxWidth(progress)
                         .clip(RoundedCornerShape(2.dp))
-                        .background(if (isDark) BrandGoldLight else BrandIndigo)
+                        .background(if (isDark) tokens.second else tokens.accent)
                 )
             }
 
@@ -281,7 +276,7 @@ fun SplashScreen(
                 text = "সংস্কৃতির আলোয় পথচলা…",
                 fontFamily = Kalpurush,
                 fontSize = 12.sp,
-                color = if (isDark) EditorialPalette.DarkInkMuted else EditorialPalette.InkMuted
+                color = tokens.inkMuted
             )
         }
 
@@ -297,7 +292,7 @@ fun SplashScreen(
                 text = "ningshingche.com • সংস্করণ ১.০",
                 fontFamily = Kalpurush,
                 fontSize = 11.sp,
-                color = if (isDark) EditorialPalette.DarkInkMuted else EditorialPalette.InkMuted
+                color = tokens.inkMuted
             )
         }
     }

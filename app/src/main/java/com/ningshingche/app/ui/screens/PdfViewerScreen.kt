@@ -78,6 +78,7 @@ import com.ningshingche.app.data.model.PdfFitMode
 import com.ningshingche.app.data.model.PdfReaderSettings
 import com.ningshingche.app.ui.theme.BrandGoldLight
 import com.ningshingche.app.ui.theme.Kalpurush
+import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.theme.Panel
 import com.ningshingche.app.ui.theme.PanelDeep
 import com.ningshingche.app.ui.theme.PanelInk
@@ -89,7 +90,6 @@ import java.io.File
 
 private val ReaderCanvas = Panel
 private val ReaderBar = PanelSoft
-private val PagePaper = com.ningshingche.app.ui.editorial.EditorialPalette.Paper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -333,7 +333,7 @@ private fun BookPdfCanvas(
                     Modifier
                         .shadow(18.dp, RoundedCornerShape(10.dp))
                         .clip(RoundedCornerShape(10.dp))
-                        .background(if (settings.nightMode) PanelDeep else PagePaper)
+                        .background(if (settings.nightMode) PanelDeep else LocalEditorialTokens.current.pagePaper)
                 } else Modifier
             )
     ) {

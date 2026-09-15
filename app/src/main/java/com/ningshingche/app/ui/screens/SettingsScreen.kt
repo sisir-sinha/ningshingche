@@ -10,11 +10,14 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -41,6 +44,7 @@ import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Person
@@ -65,7 +69,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -77,19 +83,38 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.ningshingche.app.data.model.AppPalette
 import com.ningshingche.app.data.model.AppThemeMode
-import com.ningshingche.app.ui.components.GoogleSignInButton
-import com.ningshingche.app.ui.viewmodel.SettingsViewModel
-import com.ningshingche.app.util.ApkManager
-import kotlinx.coroutines.launch
 import com.ningshingche.app.data.model.ContentLanguage
+import com.ningshingche.app.ui.components.GoogleSignInButton
+import com.ningshingche.app.ui.editorial.EditorialPalettes
+import com.ningshingche.app.ui.editorial.LocalEditorialTokens
+import com.ningshingche.app.ui.editorial.PaletteSide
 import com.ningshingche.app.ui.i18n.LocalTranslations
 import com.ningshingche.app.ui.i18n.t
 import com.ningshingche.app.ui.theme.Kalpurush
+import com.ningshingche.app.ui.viewmodel.SettingsViewModel
+import com.ningshingche.app.util.ApkManager
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.roundToInt
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -283,6 +308,106 @@ fun SettingsScreen(
                                     isLoading = googleAuthInProgress,
                                     enabled = !googleAuthInProgress,
                                     onClick = { viewModel.signInWithGoogle(context) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // রঙের প্যালেট — what colour the app is painted with.
+            //
+            // It comes before the light/dark choice, because this is the question that
+            // decides what light and dark each mean: every palette carries both sides,
+            // and the one below only picks which side is on screen.
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ColorLens,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = "রঙের প্যালেট",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 13.sp
+                            )
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(18.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(
+                                text = "যে রঙে অ্যাপটি পড়তে চান সেটি বেছে নিন — প্রতিটি প্যালেটে লাইট ও ডার্ক দুটি রূপ আছে।",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 12.sp
+                                )
+                            )
+
+                            val tokens = LocalEditorialTokens.current
+                            // The reader's own palette, built from the wheel — shown as the
+                            // sixth card so its swatches move as they turn it.
+                            val custom = remember(preferences.customHue, preferences.customSaturation) {
+                                EditorialPalettes.custom(preferences.customHue, preferences.customSaturation)
+                            }
+                            val choices = EditorialPalettes.presets + custom
+                            choices.chunked(3).forEach { row ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("palette_row"),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    row.forEach { spec ->
+                                        val side = if (tokens.isDark) spec.dark else spec.light
+                                        PaletteCard(
+                                            label = spec.label,
+                                            swatches = listOf(side.paper, side.accent, side.second),
+                                            isSelected = preferences.appPalette == spec.id,
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .testTag("palette_card_" + spec.id.name.lowercase()),
+                                            onClick = { viewModel.updateAppPalette(spec.id) }
+                                        )
+                                    }
+                                    // A short last row keeps its columns rather than stretching.
+                                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                                }
+                            }
+
+                            // What the chosen palette is for, in its own words.
+                            val chosen = choices.firstOrNull { it.id == preferences.appPalette }
+                            if (chosen != null) {
+                                Text(
+                                    text = chosen.note,
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 11.5.sp
+                                    )
+                                )
+                            }
+
+                            if (preferences.appPalette == AppPalette.CUSTOM) {
+                                PaletteWheelBlock(
+                                    hue = preferences.customHue,
+                                    saturation = preferences.customSaturation,
+                                    onWheelChange = { hue, strength -> viewModel.updateCustomWheel(hue, strength) }
                                 )
                             }
                         }
@@ -1078,6 +1203,250 @@ private fun ThemeModeCard(
                 color = previewFg,
                 fontSize = 12.sp
             )
+        }
+    }
+}
+
+
+// ---------------------------------------------------------------------------
+// Palette picker
+// ---------------------------------------------------------------------------
+
+/** One palette in the picker: its three colours and its name. */
+@Composable
+private fun PaletteCard(
+    label: String,
+    swatches: List<Color>,
+    isSelected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(
+            if (isSelected) 2.dp else 1.dp,
+            if (isSelected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outline
+        ),
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .clickable { onClick() }
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 12.dp, horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                swatches.forEach { colour ->
+                    Box(
+                        modifier = Modifier
+                            .size(15.dp)
+                            .clip(CircleShape)
+                            .background(colour)
+                            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                    )
+                }
+            }
+            Text(
+                text = label,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 11.5.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+/** How big the wheel is drawn, and how thick the hue ring is. */
+private val PALETTE_WHEEL_SIZE = 176.dp
+private val PALETTE_WHEEL_RING = 22.dp
+
+/**
+ * The wheel, plus the two previews that say what it means.
+ *
+ * Hue is the angle and strength is the distance from the middle, so one finger
+ * answers both — and the colour under the finger is the colour the marker names,
+ * because the ring's sweep starts where `atan2` does (3 o'clock, clockwise).
+ *
+ * A drag does not write to storage on every pixel: the position is local while the
+ * finger moves, and lands once it has been still for a moment.
+ */
+@Composable
+private fun PaletteWheelBlock(
+    hue: Int,
+    saturation: Int,
+    onWheelChange: (Int, Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var localHue by remember(hue) { mutableIntStateOf(hue) }
+    var localStrength by remember(saturation) { mutableIntStateOf(saturation) }
+
+    LaunchedEffect(localHue, localStrength) {
+        if (localHue != hue || localStrength != saturation) {
+            delay(260)
+            onWheelChange(localHue, localStrength)
+        }
+    }
+
+    val preview = remember(localHue, localStrength) {
+        EditorialPalettes.custom(localHue, localStrength)
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        PaletteWheel(
+            hue = localHue,
+            saturation = localStrength,
+            onChange = { h, s -> localHue = h; localStrength = s }
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            PalettePreviewCard("লাইট", preview.light, Modifier.weight(1f))
+            PalettePreviewCard("ডার্ক", preview.dark, Modifier.weight(1f))
+        }
+        Text(
+            text = "চাকা ঘুরিয়ে রঙ, কেন্দ্র থেকে দূরে টেনে গাঢ়তা — দুটোই এক আঙুলে।",
+            style = MaterialTheme.typography.bodySmall.copy(
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 11.sp
+            ),
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun PaletteWheel(
+    hue: Int,
+    saturation: Int,
+    onChange: (Int, Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val density = LocalDensity.current
+    val ringPx = with(density) { PALETTE_WHEEL_RING.toPx() }
+    val sidePx = with(density) { PALETTE_WHEEL_SIZE.toPx() }
+    val midRadius = (sidePx - ringPx) / 2f
+    val strength = saturation.coerceIn(0, 100) / 100f
+
+    Canvas(
+        modifier = modifier
+            .size(PALETTE_WHEEL_SIZE)
+            .testTag("palette_wheel")
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull() ?: continue
+                        val dx = change.position.x - sidePx / 2f
+                        val dy = change.position.y - sidePx / 2f
+                        val degrees = (Math.toDegrees(atan2(dy.toDouble(), dx.toDouble())).toFloat() + 360f) % 360f
+                        val distance = sqrt(dx * dx + dy * dy)
+                        val reach = ((distance - ringPx / 2f) / midRadius).coerceIn(0f, 1f)
+                        onChange(degrees.toInt(), (reach * 100f).roundToInt())
+                        change.consume()
+                    }
+                }
+            }
+    ) {
+        // The hue ring: a full sweep, one colour every 15°.
+        drawArc(
+            brush = Brush.sweepGradient(List(25) { step -> Color.hsl((step * 15f) % 360f, 1f, 0.5f) }),
+            startAngle = 0f,
+            sweepAngle = 360f,
+            useCenter = false,
+            topLeft = Offset(ringPx / 2f, ringPx / 2f),
+            size = Size(sidePx - ringPx, sidePx - ringPx),
+            style = Stroke(width = ringPx)
+        )
+        // The strength, as a disc that grows from the middle.
+        drawCircle(
+            color = Color.hsl(hue.toFloat(), strength, 0.5f).copy(alpha = 0.22f),
+            radius = (midRadius - ringPx / 2f) * strength,
+            center = Offset(sidePx / 2f, sidePx / 2f)
+        )
+        // Where the finger left it.
+        val radians = Math.toRadians(hue.toDouble())
+        val marker = Offset(
+            sidePx / 2f + cos(radians).toFloat() * midRadius,
+            sidePx / 2f + sin(radians).toFloat() * midRadius
+        )
+        drawCircle(color = Color.White, radius = ringPx * 0.44f, center = marker)
+        drawCircle(
+            color = Color.hsl(hue.toFloat(), strength.coerceAtLeast(0.35f), 0.45f),
+            radius = ringPx * 0.30f,
+            center = marker
+        )
+    }
+}
+
+/** A palette's side, as the reader will meet it: paper, ink, a rule and an accent. */
+@Composable
+private fun PalettePreviewCard(label: String, side: PaletteSide, modifier: Modifier = Modifier) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = side.paper,
+        border = BorderStroke(1.dp, side.ruleStrong),
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier.padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .clip(CircleShape)
+                        .background(side.accent)
+                )
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .clip(CircleShape)
+                        .background(side.second)
+                )
+                Text(
+                    text = label,
+                    color = side.ink,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.5.sp
+                )
+            }
+            Text(text = "পাঠ্য লেখা", color = side.inkSoft, fontSize = 11.sp)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(side.rule)
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(side.accent)
+                    .padding(vertical = 4.dp)
+            ) {
+                Text(
+                    text = "অ্যাকসেন্ট",
+                    color = side.onAccent,
+                    fontSize = 10.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
         }
     }
 }

@@ -59,7 +59,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.ningshingche.app.ui.theme.Kalpurush
-import com.ningshingche.app.ui.editorial.EditorialPalette
 
 /**
  * Renders HTML formatted text (from author descriptions, bios, and rich CMS data)
@@ -667,7 +666,7 @@ private fun normalizeRichText(raw: String): String {
 fun parseInlineMarkdown(
     text: String,
     defaultColor: Color,
-    linkColor: Color = EditorialPalette.Indigo,
+    linkColor: Color,
     onLinkClick: (String) -> Unit = {}
 ): AnnotatedString {
     // AI providers sometimes return HTML (or HTML-escaped HTML) instead of Markdown.

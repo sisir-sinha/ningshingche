@@ -102,6 +102,24 @@ enum class AppThemeMode {
 }
 
 /**
+ * The palette the reader paints the app with.
+ *
+ * Five presets and one they build themselves: [CUSTOM] takes a position on the
+ * colour wheel — a hue and a strength — and derives a whole palette from it. The
+ * values live in `ui/editorial/EditorialPalettes.kt`; this is the name that gets
+ * stored and read back.
+ */
+enum class AppPalette {
+    INDIGO, EYE_WARM, NIGHT, FOREST, ROSE, CUSTOM;
+
+    companion object {
+        /** Where the wheel opens: the indigo accent, so the reader's own palette starts on something familiar. */
+        const val DEFAULT_CUSTOM_HUE = 222
+        const val DEFAULT_CUSTOM_SATURATION = 62
+    }
+}
+
+/**
  * Interface language. Bengali is the language the strings are written in, so it
  * always works and needs no download; English and Bishnupriya Manipuri come
  * from the dashboard's Languages page (`app_language_files`) and fall back to
@@ -129,7 +147,17 @@ data class ReaderPreferences(
     val fontSizeSp: Float = 18f,
     val lineSpacingMultiplier: Float = 1.6f,
     val themeMode: ReaderThemeMode = ReaderThemeMode.PAPER,
-    val appThemeMode: AppThemeMode = AppThemeMode.SYSTEM,
+    /**
+     * Light, dark, or whatever the phone is set to. Dark by default: this app is
+     * read at night, and the night side of every palette is the one that was tuned
+     * hardest — the reader can still choose SYSTEM or LIGHT in Settings.
+     */
+    val appThemeMode: AppThemeMode = AppThemeMode.DARK,
+    /** The palette in use. [AppPalette.INDIGO], the app's own, until the reader says otherwise. */
+    val appPalette: AppPalette = AppPalette.INDIGO,
+    /** The custom palette's wheel position: hue in degrees, strength in percent. */
+    val customHue: Int = AppPalette.DEFAULT_CUSTOM_HUE,
+    val customSaturation: Int = AppPalette.DEFAULT_CUSTOM_SATURATION,
     val contentLanguage: ContentLanguage = ContentLanguage.BENGALI,
     /**
      * False until the reader has answered the language question the first launch

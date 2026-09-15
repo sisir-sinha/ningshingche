@@ -15,6 +15,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ningshingche.app.data.model.AppThemeMode
+import com.ningshingche.app.ui.editorial.EditorialPalettes
 import com.ningshingche.app.data.model.ReaderPreferences
 import com.ningshingche.app.notifications.routeFromLaunchIntent
 import com.ningshingche.app.ui.editorial.EditorialTheme
@@ -63,6 +64,16 @@ class MainActivity : ComponentActivity() {
                 AppThemeMode.DARK -> true
             }
 
+            // The palette the reader picked in Settings, resolved once here and handed
+            // to every screen through EditorialTheme. A preset is looked up by name; the
+            // custom one is built from the wheel's hue and strength, which is why those
+            // two numbers travel with the choice.
+            val palette = EditorialPalettes.of(
+                preferences.appPalette,
+                preferences.customHue,
+                preferences.customSaturation
+            )
+
             // Interface language: the cached table shows immediately, and a
             // refresh runs whenever the reader switches language, so a language
             // file edited in the dashboard arrives without an app update.
@@ -76,7 +87,7 @@ class MainActivity : ComponentActivity() {
             CompositionLocalProvider(
                 LocalTranslations provides table
             ) {
-                EditorialTheme(darkTheme = darkTheme) {
+                EditorialTheme(palette = palette, darkTheme = darkTheme) {
                     if (stored == null) return@EditorialTheme // first frame only
                     // The reader opens on the splash; a first install goes from
                     // there into the three-step flow (language, sign-in,
