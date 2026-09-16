@@ -80,6 +80,7 @@ import com.ningshingche.app.ui.editorial.LoadingFeed
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.editorial.SectionHeader
 import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 
 /**
  * The three list screens — search, category and author — share one paging
@@ -578,6 +579,7 @@ private fun AuthorHeader(author: AuthorRef?) {
                         text = author.name,
                         style = EditorialType.Display.copy(
                             fontSize = textSize(20),
+                            lineHeight = leading(20),
                             fontWeight = FontWeight.Bold
                         ),
                         color = MaterialTheme.colorScheme.onSurface,
@@ -642,7 +644,7 @@ private fun AuthorHeader(author: AuthorRef?) {
                     HtmlFormattedText(
                         html = author.bio,
                         fontSize = textSize(14.5),
-                        lineHeight = textSize(23),
+                        lineHeight = leading(14.5),
                         baseTextColor = tokens.inkSoft,
                         maxLines = if (isExpanded || !isLongBio) Int.MAX_VALUE else 3,
                         overflow = if (isExpanded || !isLongBio) TextOverflow.Clip else TextOverflow.Ellipsis,
@@ -663,6 +665,7 @@ private fun AuthorHeader(author: AuthorRef?) {
                                 text = if (isExpanded) "See less" else "See more",
                                 style = EditorialType.Subtitle.copy(
                                     fontSize = textSize(13.5),
+                                    lineHeight = leading(13.5),
                                     fontWeight = FontWeight.SemiBold
                                 ),
                                 color = MaterialTheme.colorScheme.primary

@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ningshingche.app.ui.theme.BrandGoldLight
 import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -121,6 +122,7 @@ fun BoxScope.AppToastHost(
                         color = Color.White,
                         fontFamily = Kalpurush,
                         fontSize = textSize(14),
+                        lineHeight = leading(14),
                         modifier = Modifier.weight(1f)
                     )
                     if (!toast.actionLabel.isNullOrBlank()) {
@@ -154,7 +156,8 @@ fun BoxScope.AppToastHost(
                                 color = BrandGoldLight,
                                 fontFamily = Kalpurush,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = textSize(13)
+                                fontSize = textSize(13),
+                                lineHeight = leading(13)
                             )
                         }
                     }

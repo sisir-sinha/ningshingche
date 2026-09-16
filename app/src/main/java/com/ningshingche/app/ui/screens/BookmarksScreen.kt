@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ningshingche.app.ui.components.ArticleListItemCard
 import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.BookmarksViewModel
 
@@ -118,7 +119,8 @@ fun BookmarksScreen(
                             text = "সংরক্ষিত তালিকার মধ্যে খুঁজুন...",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                fontSize = textSize(13)
+                                fontSize = textSize(13),
+                                lineHeight = leading(13)
                             )
                         )
                     },
@@ -214,7 +216,8 @@ fun BookmarksScreen(
                         else "অন্য শব্দ দিয়ে খুঁজুন বা বিভাগ ফিল্টার বদলান।",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = textSize(12)
+                            fontSize = textSize(12),
+                            lineHeight = leading(12)
                         ),
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )

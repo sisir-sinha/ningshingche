@@ -15,6 +15,7 @@ import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.dp
 import com.ningshingche.app.ui.theme.bengaliTextStyle
 import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 
 /**
  * "Modern editorial" design system — the theme itself.
@@ -171,23 +172,23 @@ object EditorialType {
 
     val Display = bengaliTextStyle(FontWeight.Bold, textSize(34), textSize(42), displayAlignment)
 
-    val Headline = bengaliTextStyle(FontWeight.SemiBold, textSize(24), textSize(32), displayAlignment)
+    val Headline = bengaliTextStyle(FontWeight.SemiBold, textSize(24), leading(24), displayAlignment)
 
-    val Title = bengaliTextStyle(FontWeight.SemiBold, textSize(19), textSize(27), displayAlignment)
+    val Title = bengaliTextStyle(FontWeight.SemiBold, textSize(19), leading(19), displayAlignment)
 
-    val Subtitle = bengaliTextStyle(FontWeight.SemiBold, textSize(15), textSize(23))
+    val Subtitle = bengaliTextStyle(FontWeight.SemiBold, textSize(15), leading(15))
 
-    val Body = bengaliTextStyle(FontWeight.Normal, textSize(16), textSize(27))
+    val Body = bengaliTextStyle(FontWeight.Normal, textSize(16), leading(16))
 
-    val BodySmall = bengaliTextStyle(FontWeight.Normal, textSize(14), textSize(23))
+    val BodySmall = bengaliTextStyle(FontWeight.Normal, textSize(14), leading(14))
 
-    val Caption = bengaliTextStyle(FontWeight.Normal, textSize(12), textSize(18))
+    val Caption = bengaliTextStyle(FontWeight.Normal, textSize(12), leading(12))
 
     /** Small caps–style section eyebrows. Uppercase Latin, normal Bengali. */
     val Eyebrow = bengaliTextStyle(FontWeight.Bold, textSize(12), textSize(16))
 
     /** Drop-cap-capable lede paragraph for the article reader. */
-    val Lede = bengaliTextStyle(FontWeight.Medium, textSize(18), textSize(31))
+    val Lede = bengaliTextStyle(FontWeight.Medium, textSize(18), leading(18))
 }
 
 // ---------------------------------------------------------------------------

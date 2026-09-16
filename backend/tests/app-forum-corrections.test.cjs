@@ -624,7 +624,7 @@ test('the extras the owner asked for alongside the ten', async (t) => {
   await t.test('the search is not deleted — it is an icon that opens a smaller field', () => {
     assert.match(FORUM_SCREENS, /testTag\("forum_search"\)/, 'the forum is still searched');
     assert.match(FORUM_SCREENS,
-      /placeholder = \{ Text\("আলোচনা খুঁজুন", fontFamily = Kalpurush, fontSize = textSize\(13\)\) \}/,
+      /placeholder = \{ Text\("আলোচনা খুঁজুন", fontFamily = Kalpurush, fontSize = textSize\(13\),\s*lineHeight = leading\(13\)\) \}/,
       'in the forum page size, not a size above it');
     assert.match(FORUM_SCREENS, /testTag\("forum_search_toggle"\)/, 'behind a magnifier in the bar');
     assert.match(NAV_HOST, /search = \{ term -> app\.portalRepository\.forumSearch\(term\) \}/,

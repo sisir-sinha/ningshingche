@@ -36,6 +36,7 @@ import com.ningshingche.app.data.remote.SubmittedBlogRecord
 import com.ningshingche.app.data.remote.SubmittedMusicRecord
 import com.ningshingche.app.ui.editorial.toBengaliNumeral
 import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import java.util.Calendar
 
@@ -311,11 +312,12 @@ private fun ChartCard(
         modifier = modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = textSize(15))
+            Text(title, fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = textSize(15), lineHeight = leading(15))
             Text(
                 subtitle,
                 fontFamily = Kalpurush,
                 fontSize = textSize(11),
+                lineHeight = leading(11),
                 color = MaterialTheme.colorScheme.primary
             )
             Spacer(Modifier.height(12.dp))
@@ -350,7 +352,7 @@ private fun ActivityBars(activity: List<MonthlyActivity>) {
                     }
                 }
                 Spacer(Modifier.height(6.dp))
-                Text(month.label, fontFamily = Kalpurush, fontSize = textSize(10), maxLines = 1)
+                Text(month.label, fontFamily = Kalpurush, fontSize = textSize(10), lineHeight = leading(10), maxLines = 1)
             }
         }
     }
@@ -431,7 +433,8 @@ private fun Legend(entries: List<Pair<String, Pair<Int, Color>>>) {
                 Text(
                     "${label} ${toBengaliNumeral(value)}",
                     fontFamily = Kalpurush,
-                    fontSize = textSize(11)
+                    fontSize = textSize(11),
+                    lineHeight = leading(11)
                 )
             }
         }
@@ -444,6 +447,7 @@ private fun ChartEmptyHint(text: String) {
         text,
         fontFamily = Kalpurush,
         fontSize = textSize(12),
+        lineHeight = leading(12),
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
 }

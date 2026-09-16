@@ -76,6 +76,7 @@ import com.ningshingche.app.ui.viewmodel.AiViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 
 @Composable
@@ -196,7 +197,8 @@ fun AiAssistantScreen(
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = textSize(16)
+                            fontSize = textSize(16),
+                            lineHeight = leading(16)
                         ),
                         maxLines = 1
                     )
@@ -204,7 +206,8 @@ fun AiAssistantScreen(
                         text = "বিষ্ণুপ্রিয়া মণিপুরি ঐতিহ্য ও বিশ্ব জ্ঞানকোষ",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = textSize(11)
+                            fontSize = textSize(11),
+                            lineHeight = leading(11)
                         ),
                         maxLines = 1
                     )
@@ -278,7 +281,8 @@ fun AiAssistantScreen(
                             text = "AI বিশ্লেষণ ও উত্তর প্রস্তুত করা হচ্ছে...",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = MaterialTheme.colorScheme.primary,
-                                fontSize = textSize(12)
+                                fontSize = textSize(12),
+                                lineHeight = leading(12)
                             )
                         )
                     }
@@ -317,6 +321,7 @@ fun AiAssistantScreen(
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                                     fontSize = textSize(11),
+                                    lineHeight = leading(11),
                                     fontWeight = FontWeight.Medium
                                 ),
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
@@ -356,7 +361,8 @@ fun AiAssistantScreen(
                             text = "যেকোনো বিষয়ে প্রশ্ন করুন...",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                fontSize = textSize(13)
+                                fontSize = textSize(13),
+                                lineHeight = leading(13)
                             )
                         )
                     },
@@ -514,7 +520,8 @@ fun ChatMessageItem(
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = textSize(11)
+                                    fontSize = textSize(11),
+                                    lineHeight = leading(11)
                                 )
                             )
                         }
@@ -546,6 +553,7 @@ fun ChatMessageItem(
                                         style = MaterialTheme.typography.bodySmall.copy(
                                             color = MaterialTheme.colorScheme.onSurface,
                                             fontSize = textSize(12),
+                                            lineHeight = leading(12),
                                             fontWeight = FontWeight.Medium,
                                             lineHeight = textSize(17)
                                         ),
@@ -570,7 +578,8 @@ fun ChatMessageItem(
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold,
-                            fontSize = textSize(11)
+                            fontSize = textSize(11),
+                            lineHeight = leading(11)
                         ),
                         modifier = Modifier.padding(top = 4.dp)
                     )

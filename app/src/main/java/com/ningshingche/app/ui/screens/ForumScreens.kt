@@ -158,6 +158,7 @@ import com.ningshingche.app.ui.editorial.formatBengaliDateTime
 import com.ningshingche.app.ui.editorial.toBengaliNumeral
 import com.ningshingche.app.ui.reader.RichHtmlArticleBody
 import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -643,6 +644,7 @@ private fun ForumRoomsSection(
                 // asked the forum to grow a size rather than stay the one screen
                 // that reads small on a large phone.
                 fontSize = textSize(17),
+                lineHeight = leading(17),
                 modifier = Modifier.weight(1f)
             )
             Icon(
@@ -775,6 +777,7 @@ private fun ForumRoomChip(category: ForumCategory, onClick: () -> Unit) {
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
                     fontSize = textSize(16),
+                    lineHeight = leading(16),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
@@ -1636,6 +1639,7 @@ private fun ForumAnswerCard(
                         text = "আরও ${toBengaliNumeral(hidden)} টি উত্তর — সব উত্তর দেখুন চাপুন",
                         fontFamily = Kalpurush,
                         fontSize = textSize(11.5),
+                        lineHeight = leading(11.5),
                         color = tokens.inkMuted,
                         modifier = Modifier.padding(start = FORUM_REPLY_INDENT)
                     )
@@ -1843,6 +1847,7 @@ private fun ForumAnswerActions(
                 text = "মুছে ফেলবেন?",
                 fontFamily = Kalpurush,
                 fontSize = textSize(12.5),
+                lineHeight = leading(12.5),
                 color = tokens.inkMuted,
                 modifier = Modifier.weight(1f)
             )
@@ -1864,6 +1869,7 @@ private fun ForumAnswerActions(
                 text = "আপনার উত্তর",
                 fontFamily = Kalpurush,
                 fontSize = textSize(12.5),
+                lineHeight = leading(12.5),
                 color = tokens.inkMuted,
                 modifier = Modifier.weight(1f)
             )
@@ -1926,6 +1932,7 @@ private fun ForumInlineAction(
             fontFamily = Kalpurush,
             fontWeight = FontWeight.SemiBold,
             fontSize = textSize(13),
+            lineHeight = leading(13),
             color = ink
         )
     }
@@ -2018,6 +2025,7 @@ private fun ForumReactionCount(
             text = toBengaliNumeral(count),
             fontFamily = Kalpurush,
             fontSize = textSize(if (small) 12f else 12.5f),
+            lineHeight = leading(if (small) 12f else 12.5f),
             fontWeight = if (mine) FontWeight.Bold else FontWeight.Normal,
             color = colour
         )
@@ -2083,6 +2091,7 @@ internal fun HomeForumBlock(
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
                     fontSize = textSize(17),
+                    lineHeight = leading(17),
                     modifier = Modifier.weight(1f)
                 )
                 Text(
@@ -2090,6 +2099,7 @@ internal fun HomeForumBlock(
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = textSize(12.5),
+                    lineHeight = leading(12.5),
                     color = tokens.accent,
                     modifier = Modifier
                         .clip(RoundedCornerShape(EditorialShape.thumb))
@@ -2121,6 +2131,7 @@ internal fun HomeForumBlock(
                         text = error,
                         fontFamily = Kalpurush,
                         fontSize = textSize(12.5),
+                        lineHeight = leading(12.5),
                         color = tokens.inkMuted,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
@@ -2131,6 +2142,7 @@ internal fun HomeForumBlock(
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = textSize(12.5),
+                        lineHeight = leading(12.5),
                         color = tokens.accent,
                         modifier = Modifier
                             .clip(RoundedCornerShape(EditorialShape.thumb))
@@ -2144,6 +2156,7 @@ internal fun HomeForumBlock(
                     text = "ফোরামে এখনো কোনো আলোচনা নেই।",
                     fontFamily = Kalpurush,
                     fontSize = textSize(12.5),
+                    lineHeight = leading(12.5),
                     color = tokens.inkMuted,
                     modifier = Modifier.padding(
                         horizontal = EditorialSpace.md,
@@ -2237,6 +2250,7 @@ private fun HomeForumRow(
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = textSize(11.5),
+                    lineHeight = leading(11.5),
                     color = tokens.accent,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -2255,6 +2269,7 @@ private fun HomeForumRow(
                 text = formatBengaliDate(discussion.lastActivityAt),
                 fontFamily = Kalpurush,
                 fontSize = textSize(10.5),
+                lineHeight = leading(10.5),
                 color = tokens.inkMuted,
                 maxLines = 1
             )
@@ -2413,6 +2428,7 @@ fun NewDiscussionScreen(
                         text = categoriesError.orEmpty(),
                         fontFamily = Kalpurush,
                         fontSize = textSize(12),
+                        lineHeight = leading(12),
                         color = MaterialTheme.colorScheme.error
                     )
                     else -> Row(
@@ -2447,7 +2463,8 @@ fun NewDiscussionScreen(
                         Text(
                             text = titleProblem ?: "${toBengaliNumeral(ForumText.units(title))} অক্ষর",
                             fontFamily = Kalpurush,
-                            fontSize = textSize(11)
+                            fontSize = textSize(11),
+                            lineHeight = leading(11)
                         )
                     },
                     singleLine = true,
@@ -2475,7 +2492,8 @@ fun NewDiscussionScreen(
                     text = "আলোচনার কথা *",
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = textSize(13)
+                    fontSize = textSize(13),
+                    lineHeight = leading(13)
                 )
                 Spacer(Modifier.height(EditorialSpace.xs))
                 // The article composer's editor in its compact shape: bold,
@@ -2507,6 +2525,7 @@ fun NewDiscussionScreen(
                         text = message,
                         fontFamily = Kalpurush,
                         fontSize = textSize(11.5),
+                        lineHeight = leading(11.5),
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.testTag("forum_new_attach_error")
                     )
@@ -2516,6 +2535,7 @@ fun NewDiscussionScreen(
                         text = bodyProblem,
                         fontFamily = Kalpurush,
                         fontSize = textSize(11),
+                        lineHeight = leading(11),
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(top = EditorialSpace.xxs)
                     )
@@ -2528,6 +2548,7 @@ fun NewDiscussionScreen(
                         text = message,
                         fontFamily = Kalpurush,
                         fontSize = textSize(12),
+                        lineHeight = leading(12),
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.testTag("forum_new_error")
                     )
@@ -2604,6 +2625,7 @@ fun NewDiscussionScreen(
                     text = "লেখা জমা না হওয়া পর্যন্ত এখানে সংরক্ষিত থাকে — ফিরে এলে যা লিখেছিলেন তাই পাবেন।",
                     fontFamily = Kalpurush,
                     fontSize = textSize(11),
+                    lineHeight = leading(11),
                     color = tokens.inkMuted
                 )
             }
@@ -2628,6 +2650,7 @@ private fun ForumCoverPicker(
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = textSize(13),
+                lineHeight = leading(13),
                 modifier = Modifier.weight(1f)
             )
             TextButton(onClick = onPick, enabled = !uploading, modifier = Modifier.testTag("forum_cover_pick")) {
@@ -2637,12 +2660,13 @@ private fun ForumCoverPicker(
                     text = if (coverUrl.isBlank()) "ছবি যোগ করুন" else "ছবি বদলান",
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = textSize(12.5)
+                    fontSize = textSize(12.5),
+                    lineHeight = leading(12.5)
                 )
             }
             if (coverUrl.isNotBlank()) {
                 TextButton(onClick = onRemove, modifier = Modifier.testTag("forum_cover_remove")) {
-                    Text("সরান", fontFamily = Kalpurush, fontSize = textSize(12.5), color = tokens.inkMuted)
+                    Text("সরান", fontFamily = Kalpurush, fontSize = textSize(12.5), lineHeight = leading(12.5), color = tokens.inkMuted)
                 }
             }
         }
@@ -2668,6 +2692,7 @@ private fun ForumCoverPicker(
                 text = error ?: "ছবি ImgBB-তে আপলোড হবে; না দিলেও আলোচনা খোলা যাবে।",
                 fontFamily = Kalpurush,
                 fontSize = textSize(11),
+                lineHeight = leading(11),
                 color = if (error != null) MaterialTheme.colorScheme.error else tokens.inkMuted
             )
         }
@@ -2717,6 +2742,7 @@ private fun ForumScaffold(
                                 fontFamily = Kalpurush,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = textSize(17),
+                                lineHeight = leading(17),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -2724,6 +2750,7 @@ private fun ForumScaffold(
                                 text = subtitle,
                                 fontFamily = Kalpurush,
                                 fontSize = textSize(11.5),
+                                lineHeight = leading(11.5),
                                 color = tokens.inkMuted,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -2816,6 +2843,7 @@ private fun ForumSectionTitle(title: String, count: Int? = null, modifier: Modif
             fontFamily = Kalpurush,
             fontWeight = FontWeight.Bold,
             fontSize = textSize(17),
+            lineHeight = leading(17),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.testTag("forum_section_title")
@@ -2858,7 +2886,7 @@ private fun ForumSearchField(
             OutlinedTextField(
                 value = value,
                 onValueChange = onValueChange,
-                placeholder = { Text("আলোচনা খুঁজুন", fontFamily = Kalpurush, fontSize = textSize(13)) },
+                placeholder = { Text("আলোচনা খুঁজুন", fontFamily = Kalpurush, fontSize = textSize(13), lineHeight = leading(13)) },
                 trailingIcon = {
                     when {
                         searching -> CircularProgressIndicator(
@@ -2875,7 +2903,7 @@ private fun ForumSearchField(
                     }
                 },
                 singleLine = true,
-                textStyle = TextStyle(fontFamily = Kalpurush, fontSize = textSize(13)),
+                textStyle = TextStyle(fontFamily = Kalpurush, fontSize = textSize(13), lineHeight = leading(13)),
                 shape = RoundedCornerShape(EditorialShape.chip),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -3129,6 +3157,7 @@ private fun AdminBadge(modifier: Modifier = Modifier) {
             text = "অ্যাডমিন",
             fontFamily = Kalpurush,
             fontSize = textSize(10.5),
+            lineHeight = leading(10.5),
             fontWeight = FontWeight.Bold,
             color = tokens.accent
         )
@@ -3242,6 +3271,7 @@ private fun ForumCounter(
             text = toBengaliNumeral(value),
             fontFamily = Kalpurush,
             fontSize = textSize(12.5),
+            lineHeight = leading(12.5),
             color = tint
         )
     }
@@ -3270,6 +3300,7 @@ private fun ForumAvatar(url: String, name: String, size: Int) {
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
                 fontSize = textSize(size / 2f),
+                lineHeight = leading(size / 2f),
                 color = tokens.accent
             )
         }
@@ -3385,6 +3416,7 @@ private fun ForumBody(
                 com.ningshingche.app.ui.components.HtmlFormattedText(
                     html = markup,
                     fontSize = textSize(15),
+                    lineHeight = leading(15),
                     maxLines = FORUM_FOLD_LINES,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.testTag(testTag)
@@ -3420,6 +3452,7 @@ private fun ForumBody(
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
                 fontSize = textSize(13.5),
+                lineHeight = leading(13.5),
                 color = tokens.accent,
                 modifier = Modifier
                     .clip(RoundedCornerShape(EditorialShape.thumb))
@@ -3467,6 +3500,7 @@ private fun ForumAttachmentPreview(file: ForumAttachment, onClick: (ForumAttachm
                     text = file.label,
                     fontFamily = Kalpurush,
                     fontSize = textSize(12),
+                    lineHeight = leading(12),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.widthIn(max = 168.dp)
@@ -3732,7 +3766,8 @@ private fun ForumReplyLauncher(onClick: () -> Unit) {
                 text = "উত্তর যোগ করুন",
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
-                fontSize = textSize(13.5)
+                fontSize = textSize(13.5),
+                lineHeight = leading(13.5)
             )
         }
     }
@@ -3801,6 +3836,7 @@ private fun ForumReplyComposer(
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
                     fontSize = textSize(12),
+                    lineHeight = leading(12),
                     color = if (editing || targetName != null) tokens.accent else tokens.inkMuted,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -3813,7 +3849,7 @@ private fun ForumReplyComposer(
                         onClick = onClearTarget,
                         modifier = Modifier.testTag("forum_reply_target_clear")
                     ) {
-                        Text("বাতিল", fontFamily = Kalpurush, fontSize = textSize(12), color = tokens.inkMuted)
+                        Text("বাতিল", fontFamily = Kalpurush, fontSize = textSize(12), lineHeight = leading(12), color = tokens.inkMuted)
                     }
                 }
                 IconButton(
@@ -3858,6 +3894,7 @@ private fun ForumReplyComposer(
                     text = message,
                     fontFamily = Kalpurush,
                     fontSize = textSize(11.5),
+                    lineHeight = leading(11.5),
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.testTag("forum_reply_error")
                 )
@@ -3976,6 +4013,7 @@ private fun ForumAttachmentRow(
                             text = file.label,
                             fontFamily = Kalpurush,
                             fontSize = textSize(11.5),
+                            lineHeight = leading(11.5),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.widthIn(max = 132.dp)
@@ -4034,12 +4072,14 @@ private fun ForumSignInPrompt(onSignInClick: () -> Unit) {
                     text = "উত্তর দিতে সাইন ইন করুন",
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = textSize(14)
+                    fontSize = textSize(14),
+                    lineHeight = leading(14)
                 )
                 Text(
                     text = "পড়া যায় সবার — লেখা যায় নিজের নামে।",
                     fontFamily = Kalpurush,
                     fontSize = textSize(11.5),
+                    lineHeight = leading(11.5),
                     color = tokens.inkSoft
                 )
             }
@@ -4068,7 +4108,7 @@ private fun ForumInlineLoading() {
     Row(verticalAlignment = Alignment.CenterVertically) {
         CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
         Spacer(Modifier.width(EditorialSpace.xs))
-        Text("লোড হচ্ছে…", fontFamily = Kalpurush, fontSize = textSize(12))
+        Text("লোড হচ্ছে…", fontFamily = Kalpurush, fontSize = textSize(12), lineHeight = leading(12))
     }
 }
 
@@ -4101,6 +4141,7 @@ fun ForumActivityBlock(
                 text = "এখনো ফোরামে কিছু লেখা হয়নি।",
                 fontFamily = Kalpurush,
                 fontSize = textSize(12),
+                lineHeight = leading(12),
                 color = tokens.inkMuted
             )
         }
@@ -4124,6 +4165,7 @@ fun ForumActivityBlock(
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = textSize(13.5),
+                        lineHeight = leading(13.5),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -4131,6 +4173,7 @@ fun ForumActivityBlock(
                         text = "${thread.categoryTitle} · ${formatBengaliDate(thread.createdAt)}",
                         fontFamily = Kalpurush,
                         fontSize = textSize(10.5),
+                        lineHeight = leading(10.5),
                         color = tokens.inkMuted
                     )
                     ForumCounters(
@@ -4162,6 +4205,7 @@ fun ForumActivityBlock(
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = textSize(13),
+                        lineHeight = leading(13),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -4169,6 +4213,7 @@ fun ForumActivityBlock(
                         text = answer.excerpt,
                         fontFamily = Kalpurush,
                         fontSize = textSize(12),
+                        lineHeight = leading(12),
                         color = tokens.inkMuted,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
@@ -4180,6 +4225,7 @@ fun ForumActivityBlock(
                             formatBengaliDateTime(answer.createdAt),
                         fontFamily = Kalpurush,
                         fontSize = textSize(10.5),
+                        lineHeight = leading(10.5),
                         color = tokens.inkMuted
                     )
                 }
@@ -4230,6 +4276,7 @@ fun ForumCard(
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
                     fontSize = textSize(15),
+                    lineHeight = leading(15),
                     modifier = Modifier.weight(1f)
                 )
                 TextButton(onClick = onOpenForum, modifier = Modifier.testTag("dashboard_forum_open")) {
@@ -4238,6 +4285,7 @@ fun ForumCard(
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = textSize(12.5),
+                        lineHeight = leading(12.5),
                         color = tokens.accent
                     )
                 }
@@ -4248,6 +4296,7 @@ fun ForumCard(
                     text = "ফোরামের হিসাব লোড হচ্ছে…",
                     fontFamily = Kalpurush,
                     fontSize = textSize(12),
+                    lineHeight = leading(12),
                     color = tokens.inkMuted
                 )
             } else {
@@ -4278,6 +4327,7 @@ fun ForumCard(
                                 fontFamily = Kalpurush,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = textSize(12.5),
+                                lineHeight = leading(12.5),
                                 color = tokens.accent
                             )
                         }
@@ -4306,12 +4356,14 @@ private fun ForumActivityCount(label: String, value: Int, modifier: Modifier = M
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
                 fontSize = textSize(16),
+                lineHeight = leading(16),
                 color = tokens.accent
             )
             Text(
                 text = label,
                 fontFamily = Kalpurush,
                 fontSize = textSize(10.5),
+                lineHeight = leading(10.5),
                 color = tokens.inkMuted
             )
         }

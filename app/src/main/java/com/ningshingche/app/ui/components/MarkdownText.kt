@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 
 /**
@@ -136,7 +137,7 @@ fun parseHtmlToAnnotatedString(
                     addStyle(SpanStyle(color = Color(span.foregroundColor)), start, end)
                 }
                 is RelativeSizeSpan -> {
-                    addStyle(SpanStyle(fontSize = textSize(14f * span.sizeChange)), start, end)
+                    addStyle(SpanStyle(fontSize = textSize(14f * span.sizeChange), lineHeight = leading(14f * span.sizeChange)), start, end)
                 }
                 is URLSpan -> {
                     addStyle(
@@ -319,7 +320,7 @@ fun MarkdownFormattedText(
                             text = block.code,
                             fontFamily = FontFamily.Monospace,
                             fontSize = textSize(12),
-                            lineHeight = textSize(18),
+                            lineHeight = leading(12),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(10.dp)
                         )

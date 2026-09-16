@@ -451,7 +451,7 @@ test('the editor grows with the writing and pictures are attached, not typed', a
   });
 
   await t.test('and it scrolls inside itself beyond the ceiling', () => {
-    assert.match(FORUM_EDITOR, /#e \{ min-height:100%; padding:14px 14px 56px; outline:none; line-height:1\.65;/,
+    assert.match(FORUM_EDITOR, /#e \{ min-height:100%; padding:14px 14px 56px; outline:none; line-height:\$\{APP_LEADING\};/,
       'the writing area is the whole page');
     // Re-anchored: the page's type is on the app's dial now — the size is
     // computed from APP_TEXT_SCALE and interpolated, so it stays in step.

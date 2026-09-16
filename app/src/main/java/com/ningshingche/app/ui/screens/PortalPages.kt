@@ -73,6 +73,7 @@ import com.ningshingche.app.ui.reader.AuthorFacet
 import com.ningshingche.app.ui.reader.ExploreUiState
 import com.ningshingche.app.ui.reader.ExploreViewModel
 import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.HomeViewModel
 
@@ -145,6 +146,7 @@ fun FeaturedScreen(
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
                             fontSize = textSize(18),
+                            lineHeight = leading(18),
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     },
@@ -210,6 +212,7 @@ fun FeaturedScreen(
                                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                             color = tint,
                                             fontSize = textSize(14),
+                                            lineHeight = leading(14),
                                             maxLines = 1
                                         )
                                         if (tab.key != "all") {
@@ -217,6 +220,7 @@ fun FeaturedScreen(
                                                 text = IssueTags.toBengaliDigits(tab.articles.size),
                                                 fontFamily = Kalpurush,
                                                 fontSize = textSize(11),
+                                                lineHeight = leading(11),
                                                 color = tint.copy(alpha = 0.8f)
                                             )
                                         }
@@ -286,6 +290,7 @@ private fun PortalPageScaffold(
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
                         fontSize = textSize(18),
+                        lineHeight = leading(18),
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 },
@@ -384,6 +389,7 @@ private fun AuthorDirectoryRow(facet: AuthorFacet, onClick: () -> Unit) {
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
                         fontSize = textSize(15),
+                        lineHeight = leading(15),
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -399,6 +405,7 @@ private fun AuthorDirectoryRow(facet: AuthorFacet, onClick: () -> Unit) {
                         text = author.designation,
                         fontFamily = Kalpurush,
                         fontSize = textSize(12),
+                        lineHeight = leading(12),
                         color = MaterialTheme.colorScheme.primary,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
@@ -409,6 +416,7 @@ private fun AuthorDirectoryRow(facet: AuthorFacet, onClick: () -> Unit) {
                         if (author.location.isNotBlank()) " • ${author.location}" else "",
                     fontFamily = Kalpurush,
                     fontSize = textSize(11),
+                    lineHeight = leading(11),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -442,11 +450,11 @@ fun AboutScreen(onBackClick: () -> Unit) {
                             "নিংশিং চে বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, ইতিহাস ও সংস্কৃতির ডিজিটাল তথ্যকোষ। পোর্টালটি তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট থেকে পরিচালিত।",
                             fontFamily = Kalpurush,
                             fontSize = textSize(16),
-                            lineHeight = textSize(26),
+                            lineHeight = leading(16),
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        Text("ঠিকানা: তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট", fontFamily = Kalpurush, fontSize = textSize(15))
-                        Text("ফোন: +880 9638-781890", fontFamily = Kalpurush, fontSize = textSize(15))
+                        Text("ঠিকানা: তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট", fontFamily = Kalpurush, fontSize = textSize(15), lineHeight = leading(15))
+                        Text("ফোন: +880 9638-781890", fontFamily = Kalpurush, fontSize = textSize(15), lineHeight = leading(15))
                         TextButton(onClick = { uri.openUri("https://ningshingche.com/about-us") }) {
                             Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null)
                             Text("  ningshingche.com/about-us", fontFamily = Kalpurush)
@@ -471,9 +479,9 @@ private fun PageIntro(title: String, subtitle: String) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Text(title, fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = textSize(22))
+                Text(title, fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = textSize(22), lineHeight = leading(22))
             }
-            Text(subtitle, fontFamily = Kalpurush, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = textSize(14))
+            Text(subtitle, fontFamily = Kalpurush, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = textSize(14), lineHeight = leading(14))
         }
     }
 }

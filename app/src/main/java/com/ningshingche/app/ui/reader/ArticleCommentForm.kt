@@ -46,6 +46,7 @@ import coil.compose.AsyncImage
 import com.ningshingche.app.ui.editorial.EditorialSpace
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 
 @Composable
@@ -79,6 +80,7 @@ internal fun CommenterAvatar(
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
                 fontSize = textSize(size.value * 0.42f),
+                lineHeight = leading(size.value * 0.42f),
                 color = tokens.accent
             )
         }
@@ -102,7 +104,7 @@ internal fun ArticleCommentForm(
         focusedBorderColor = tokens.accent,
         unfocusedBorderColor = tokens.rule
     )
-    val fieldStyle = TextStyle(fontFamily = Kalpurush, fontSize = textSize(15))
+    val fieldStyle = TextStyle(fontFamily = Kalpurush, fontSize = textSize(15), lineHeight = leading(15))
     val canSubmit = editable && form.content.isNotBlank() && (registered || form.name.isNotBlank())
 
     Surface(
@@ -117,10 +119,10 @@ internal fun ArticleCommentForm(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(Icons.Default.Comment, contentDescription = null, tint = tokens.accent, modifier = Modifier.size(22.dp))
                 Text("মন্তব্য করুন", fontFamily = Kalpurush, fontWeight = FontWeight.Bold,
-                    fontSize = textSize(16.5), color = MaterialTheme.colorScheme.onSurface)
+                    fontSize = textSize(16.5), lineHeight = leading(16.5), color = MaterialTheme.colorScheme.onSurface)
             }
             if (!form.detailsLoaded) {
-                Text("সংরক্ষিত তথ্য লোড হচ্ছে...", fontFamily = Kalpurush, fontSize = textSize(13), color = tokens.inkMuted)
+                Text("সংরক্ষিত তথ্য লোড হচ্ছে...", fontFamily = Kalpurush, fontSize = textSize(13), lineHeight = leading(13), color = tokens.inkMuted)
             }
             if (registered) {
                 Row(
@@ -137,6 +139,7 @@ internal fun ArticleCommentForm(
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
                             fontSize = textSize(16),
+                            lineHeight = leading(16),
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -145,6 +148,7 @@ internal fun ArticleCommentForm(
                             text = "নিবন্ধিত পাঠক",
                             fontFamily = Kalpurush,
                             fontSize = textSize(12),
+                            lineHeight = leading(12),
                             color = tokens.inkMuted
                         )
                     }
@@ -199,7 +203,7 @@ internal fun ArticleCommentForm(
                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
                 }
                 Spacer(Modifier.width(8.dp))
-                Text("মন্তব্য জমা দিন", fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = textSize(15))
+                Text("মন্তব্য জমা দিন", fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = textSize(15), lineHeight = leading(15))
             }
             if (!status.isNullOrBlank()) {
                 Surface(
@@ -208,6 +212,7 @@ internal fun ArticleCommentForm(
                     modifier = Modifier.fillMaxWidth().testTag("comment_status")
                 ) {
                     Text(status, fontFamily = Kalpurush, fontSize = textSize(13),
+                    lineHeight = leading(13),
                         color = if (form.isError) MaterialTheme.colorScheme.onErrorContainer else tokens.accent,
                         modifier = Modifier.padding(10.dp))
                 }

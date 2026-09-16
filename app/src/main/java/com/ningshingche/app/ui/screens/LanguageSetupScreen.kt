@@ -38,6 +38,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ningshingche.app.data.model.ContentLanguage
 import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 
 /**
@@ -94,12 +95,14 @@ fun LanguageSetupScreen(
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
                 fontSize = textSize(24),
+                lineHeight = leading(24),
                 color = MaterialTheme.colorScheme.onBackground
             )
             Spacer(Modifier.height(6.dp))
             Text(
                 text = "Choose your language · লাউখোল",
                 fontSize = textSize(13),
+                lineHeight = leading(13),
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -132,7 +135,8 @@ fun LanguageSetupScreen(
                     text = continueLabel,
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = textSize(16)
+                    fontSize = textSize(16),
+                    lineHeight = leading(16)
                 )
             }
 
@@ -140,6 +144,7 @@ fun LanguageSetupScreen(
             Text(
                 text = "পরে সেটিংস থেকে ভাষা বদলাতে পারবেন।",
                 fontSize = textSize(12),
+                lineHeight = leading(12),
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -180,12 +185,14 @@ private fun LanguageChoiceCard(
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
                     fontSize = textSize(18),
+                    lineHeight = leading(18),
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
                     text = subtitle,
                     fontSize = textSize(12),
+                    lineHeight = leading(12),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }

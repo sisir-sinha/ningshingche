@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.ningshingche.app.data.remote.ImgBbUploader
 import com.ningshingche.app.ui.theme.APP_TEXT_SCALE
+import com.ningshingche.app.ui.theme.APP_LEADING
 import com.ningshingche.app.ui.theme.Kalpurush
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
@@ -696,7 +697,7 @@ private fun editorHtml(
               font-family:'Kalpurush', sans-serif !important;
               -webkit-touch-callout:none; -webkit-user-select:text; user-select:text; }
             body { position:relative; }
-            #e { min-height:100%; padding:14px 14px 56px; outline:none; line-height:1.65;
+            #e { min-height:100%; padding:14px 14px 56px; outline:none; line-height:${APP_LEADING};
               font-family:'Kalpurush', sans-serif !important;
               -webkit-touch-callout:none; -webkit-user-select:text; user-select:text; }
             #e:empty:before { content:'${placeholder.replace("'", "")}'; color:#888; font-family:'Kalpurush', sans-serif !important; }

@@ -79,6 +79,7 @@ import com.ningshingche.app.ui.reader.ExploreData
 import com.ningshingche.app.ui.reader.ExploreUiState
 import com.ningshingche.app.ui.reader.ExploreViewModel
 import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import kotlinx.coroutines.launch
 
@@ -287,6 +288,7 @@ private fun ExploreTabStrip(
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                             color = tint,
                             fontSize = textSize(14),
+                            lineHeight = leading(14),
                             maxLines = 1
                         )
                     }
@@ -407,6 +409,7 @@ private fun PopularArticleRow(article: ArticleSummary, onClick: () -> Unit) {
                     text = if (article.isSpecial) "নির্বাচিত লেখা" else "ফিচার্ড",
                     fontFamily = Kalpurush,
                     fontSize = textSize(11),
+                    lineHeight = leading(11),
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -426,6 +429,7 @@ private fun CountChip(text: String) {
             text = text,
             fontFamily = Kalpurush,
             fontSize = textSize(11),
+            lineHeight = leading(11),
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -470,6 +474,7 @@ private fun CategoryFacetCard(facet: CategoryFacet, onClick: () -> Unit) {
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
                     fontSize = textSize(16),
+                    lineHeight = leading(16),
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -533,6 +538,7 @@ private fun AuthorFacetCard(facet: AuthorFacet, onClick: () -> Unit) {
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
                         fontSize = textSize(15),
+                        lineHeight = leading(15),
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -548,6 +554,7 @@ private fun AuthorFacetCard(facet: AuthorFacet, onClick: () -> Unit) {
                         text = author.designation,
                         fontFamily = Kalpurush,
                         fontSize = textSize(12),
+                        lineHeight = leading(12),
                         color = MaterialTheme.colorScheme.primary,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
@@ -569,6 +576,7 @@ private fun AuthorFacetCard(facet: AuthorFacet, onClick: () -> Unit) {
                             if (author.location.isNotBlank()) " • ${author.location}" else "",
                         fontFamily = Kalpurush,
                         fontSize = textSize(11),
+                        lineHeight = leading(11),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -622,6 +630,7 @@ private fun IssueCard(issue: IssueSummary, onClick: () -> Unit) {
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Black,
                         fontSize = textSize(13),
+                        lineHeight = leading(13),
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
@@ -632,12 +641,14 @@ private fun IssueCard(issue: IssueSummary, onClick: () -> Unit) {
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
                     fontSize = textSize(16),
+                    lineHeight = leading(16),
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = "বার্ষিক সংখ্যা • ${issue.bengaliYear} সালে প্রকাশিত লেখাসমূহ",
                     fontFamily = Kalpurush,
                     fontSize = textSize(12),
+                    lineHeight = leading(12),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis

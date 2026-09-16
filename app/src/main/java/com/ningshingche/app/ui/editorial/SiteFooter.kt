@@ -34,6 +34,7 @@ import com.ningshingche.app.data.portal.SiteSettings
 import com.ningshingche.app.ui.theme.BrandGoldLight
 import com.ningshingche.app.ui.theme.BrandIndigo
 import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.theme.PanelDeep
 import com.ningshingche.app.ui.theme.PanelInk
@@ -128,6 +129,7 @@ fun EditorialFooter(
                     text = settings.title,
                     fontFamily = Kalpurush,
                     fontSize = textSize(20),
+                    lineHeight = leading(20),
                     fontWeight = FontWeight.Bold,
                     color = FooterText
                 )
@@ -221,6 +223,7 @@ fun EditorialFooter(
                     text = "Play Store",
                     fontFamily = Kalpurush,
                     fontSize = textSize(14),
+                    lineHeight = leading(14),
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
@@ -240,6 +243,7 @@ fun EditorialFooter(
                 text = "© ২০২৬ ${settings.title} | সাইট উন্নয়ন ",
                 fontFamily = Kalpurush,
                 fontSize = textSize(12),
+                lineHeight = leading(12),
                 color = FooterMuted,
                 textAlign = TextAlign.Center
             )
@@ -247,6 +251,7 @@ fun EditorialFooter(
                 text = SiteContact.DEVELOPER_NAME,
                 fontFamily = Kalpurush,
                 fontSize = textSize(12),
+                lineHeight = leading(12),
                 fontWeight = FontWeight.SemiBold,
                 color = FooterAccent,
                 modifier = Modifier.clickable { onOpenLink(SiteContact.DEVELOPER_URL) }
@@ -281,7 +286,7 @@ private fun ContactRow(
             text = text,
             fontFamily = Kalpurush,
             fontSize = textSize(14),
-            lineHeight = textSize(22),
+            lineHeight = leading(14),
             color = FooterMuted
         )
     }
@@ -293,7 +298,7 @@ private fun FooterHeading(text: String) {
         text = text,
         fontFamily = Kalpurush,
         fontSize = textSize(15),
-        lineHeight = textSize(22),
+        lineHeight = leading(15),
         fontWeight = FontWeight.Bold,
         color = FooterText
     )
@@ -319,7 +324,7 @@ private fun FooterLink(label: String, onClick: () -> Unit) {
             text = label,
             fontFamily = Kalpurush,
             fontSize = textSize(14),
-            lineHeight = textSize(22),
+            lineHeight = leading(14),
             color = FooterMuted
         )
     }

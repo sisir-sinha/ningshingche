@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import com.ningshingche.app.ui.components.NingshingCheBrandLogo
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import kotlinx.coroutines.delay
 
@@ -205,6 +206,7 @@ fun SplashScreen(
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
                 fontSize = textSize(36),
+                lineHeight = leading(36),
                 color = if (isDark) tokens.ink else tokens.accent,
                 textAlign = TextAlign.Center
             )
@@ -217,6 +219,7 @@ fun SplashScreen(
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Medium,
                 fontSize = textSize(15),
+                lineHeight = leading(15),
                 color = tokens.second,
                 textAlign = TextAlign.Center
             )
@@ -244,6 +247,7 @@ fun SplashScreen(
                         text = "জ্ঞান, ইতিহাস ও সাহিত্যের মুক্ত তথ্যকোষ",
                         fontFamily = Kalpurush,
                         fontSize = textSize(12),
+                        lineHeight = leading(12),
                         color = if (isDark) tokens.ink else tokens.accent,
                         fontWeight = FontWeight.Normal
                     )
@@ -276,6 +280,7 @@ fun SplashScreen(
                 text = "সংস্কৃতির আলোয় পথচলা…",
                 fontFamily = Kalpurush,
                 fontSize = textSize(12),
+                lineHeight = leading(12),
                 color = tokens.inkMuted
             )
         }
@@ -292,6 +297,7 @@ fun SplashScreen(
                 text = "ningshingche.com • সংস্করণ ১.০",
                 fontFamily = Kalpurush,
                 fontSize = textSize(11),
+                lineHeight = leading(11),
                 color = tokens.inkMuted
             )
         }

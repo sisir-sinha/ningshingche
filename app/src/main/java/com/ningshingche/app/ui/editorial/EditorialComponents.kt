@@ -93,6 +93,7 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
 import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 
 /**
  * Reusable building blocks for the modern-editorial reader.
@@ -405,7 +406,8 @@ fun HeroArticleCard(
                             style = EditorialType.Eyebrow.copy(
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = textSize(11)
+                                fontSize = textSize(11),
+                                lineHeight = leading(11)
                             ),
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                         )
@@ -415,7 +417,7 @@ fun HeroArticleCard(
                     text = article.title,
                     style = EditorialType.Headline.copy(
                         fontSize = textSize(19),
-                        lineHeight = textSize(27),
+                        lineHeight = leading(19),
                         fontWeight = FontWeight.Bold
                     ),
                     color = Color.White,
@@ -705,6 +707,7 @@ fun AiAssistantHomeBanner(
                         fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
                         fontWeight = FontWeight.Bold,
                         fontSize = textSize(16),
+                        lineHeight = leading(16),
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
@@ -739,6 +742,7 @@ fun AiAssistantHomeBanner(
                             text = tag,
                             fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
                             fontSize = textSize(11),
+                            lineHeight = leading(11),
                             fontWeight = FontWeight.Medium,
                             color = tokens.accent,
                             maxLines = 1,
@@ -766,6 +770,7 @@ fun AiAssistantHomeBanner(
                     text = "AI সহকারীকে জিজ্ঞাসা করুন",
                     fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
                     fontSize = textSize(13),
+                    lineHeight = leading(13),
                     fontWeight = FontWeight.Bold,
                     color = tokens.accent
                 )
@@ -972,6 +977,7 @@ fun GalleryModalDialog(
                                 text = items[pagerState.currentPage].category.ifBlank { "ছবি ঘর" },
                                 fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
                                 fontSize = textSize(12),
+                                lineHeight = leading(12),
                                 fontWeight = FontWeight.Bold,
                                 color = tokens.accent,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
@@ -982,6 +988,7 @@ fun GalleryModalDialog(
                                 text = "${bengaliDigits(pagerState.currentPage + 1)} / ${bengaliDigits(items.size)}",
                                 fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
                                 fontSize = textSize(12),
+                                lineHeight = leading(12),
                                 color = tokens.inkMuted,
                                 modifier = Modifier.padding(start = 10.dp, top = 4.dp)
                             )
@@ -1071,7 +1078,7 @@ fun GalleryModalDialog(
                         fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
                         fontWeight = FontWeight.Bold,
                         fontSize = textSize(18),
-                        lineHeight = textSize(25),
+                        lineHeight = leading(18),
                         color = MaterialTheme.colorScheme.onSurface
                     )
 
@@ -1082,7 +1089,7 @@ fun GalleryModalDialog(
                             text = description,
                             fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
                             fontSize = textSize(14),
-                            lineHeight = textSize(22),
+                            lineHeight = leading(14),
                             color = tokens.inkSoft,
                             maxLines = 3,
                             overflow = TextOverflow.Ellipsis

@@ -71,6 +71,7 @@ import com.ningshingche.app.data.model.ArticleCitation
 import com.ningshingche.app.data.model.PdfDocument
 import com.ningshingche.app.data.repository.NinghsingCheContentData
 import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 
 /**
@@ -221,7 +222,8 @@ fun ArticleListItemCard(
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold,
-                            fontSize = textSize(10)
+                            fontSize = textSize(10),
+                            lineHeight = leading(10)
                         )
                     )
                     Text(
@@ -238,7 +240,8 @@ fun ArticleListItemCard(
                         text = "${article.readingTimeMinutes} মি.",
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = textSize(10)
+                            fontSize = textSize(10),
+                            lineHeight = leading(10)
                         )
                     )
                 }
@@ -271,7 +274,8 @@ fun ArticleListItemCard(
                         text = "${article.authorName} • ${article.publishedDate}",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = textSize(11)
+                            fontSize = textSize(11),
+                            lineHeight = leading(11)
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -352,7 +356,8 @@ fun AiSourceCitationCard(
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = textSize(13)
+                        fontSize = textSize(13),
+                        lineHeight = leading(13)
                     ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -361,7 +366,8 @@ fun AiSourceCitationCard(
                     text = "${citation.author} • ${citation.category}",
                     style = MaterialTheme.typography.bodySmall.copy(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = textSize(11)
+                        fontSize = textSize(11),
+                        lineHeight = leading(11)
                     ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis

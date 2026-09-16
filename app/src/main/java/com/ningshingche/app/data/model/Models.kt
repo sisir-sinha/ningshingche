@@ -151,7 +151,9 @@ data class ReaderPreferences(
      * (14–28 → 16–34), because the owner's note was that the app reads small.
      */
     val fontSizeSp: Float = 20f,
-    val lineSpacingMultiplier: Float = 1.6f,
+    // Matches APP_LEADING in ui/theme/TextScale.kt: the reader's own spacing
+    // dial starts where the rest of the app sets its text, not looser.
+    val lineSpacingMultiplier: Float = 1.45f,
     val themeMode: ReaderThemeMode = ReaderThemeMode.PAPER,
     /**
      * Light, dark, or whatever the phone is set to. Dark by default: this app is

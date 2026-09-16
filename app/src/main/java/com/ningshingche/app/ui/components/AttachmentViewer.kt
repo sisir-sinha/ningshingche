@@ -51,6 +51,7 @@ import com.github.barteksc.pdfviewer.PDFView
 import com.github.barteksc.pdfviewer.util.FitPolicy
 import com.ningshingche.app.data.portal.ForumAttachment
 import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.theme.PanelInk
 import com.ningshingche.app.util.PdfHelper
@@ -112,6 +113,7 @@ fun AttachmentViewer(
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = textSize(14),
+                            lineHeight = leading(14),
                             color = ViewerInk,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -120,6 +122,7 @@ fun AttachmentViewer(
                             text = if (attachment.isPdf) "পিডিএফ ডকুমেন্ট" else "ছবি",
                             fontFamily = Kalpurush,
                             fontSize = textSize(11),
+                            lineHeight = leading(11),
                             color = ViewerInk.copy(alpha = 0.62f)
                         )
                     }
@@ -206,6 +209,7 @@ private fun AttachmentPicture(attachment: ForumAttachment) {
                 text = "স্বাভাবিক আকারে ফিরতে দুই আঙুল টেনে ছোট করুন",
                 fontFamily = Kalpurush,
                 fontSize = textSize(10.5),
+                lineHeight = leading(10.5),
                 color = ViewerInk.copy(alpha = 0.55f),
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -259,7 +263,8 @@ private fun AttachmentPdf(attachment: ForumAttachment) {
                     text = error.orEmpty(),
                     fontFamily = Kalpurush,
                     color = ViewerInk,
-                    fontSize = textSize(13)
+                    fontSize = textSize(13),
+                    lineHeight = leading(13)
                 )
                 TextButton(onClick = { attempt += 1 }) {
                     Icon(
@@ -269,7 +274,7 @@ private fun AttachmentPdf(attachment: ForumAttachment) {
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(Modifier.size(6.dp))
-                    Text("আবার চেষ্টা করুন", fontFamily = Kalpurush, color = ViewerInk, fontSize = textSize(13))
+                    Text("আবার চেষ্টা করুন", fontFamily = Kalpurush, color = ViewerInk, fontSize = textSize(13), lineHeight = leading(13))
                 }
             }
             pdfFile != null -> AndroidView(

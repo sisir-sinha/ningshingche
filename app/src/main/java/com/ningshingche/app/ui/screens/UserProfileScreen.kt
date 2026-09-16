@@ -57,6 +57,7 @@ import coil.compose.AsyncImage
 import com.ningshingche.app.ui.editorial.cardBorder
 import com.ningshingche.app.ui.editorial.toBengaliNumeral
 import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.ReaderMetrics
 import com.ningshingche.app.ui.viewmodel.ReaderWorkspaceViewModel
@@ -109,12 +110,14 @@ private fun ProfileViewsCard(metrics: ReaderMetrics) {
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
                     fontSize = textSize(24),
+                    lineHeight = leading(24),
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = "মোট ভিউ",
                     fontFamily = Kalpurush,
                     fontSize = textSize(13),
+                    lineHeight = leading(13),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -130,6 +133,7 @@ private fun ProfileViewsCard(metrics: ReaderMetrics) {
                 ).joinToString("  ·  "),
                 fontFamily = Kalpurush,
                 fontSize = textSize(11.5),
+                lineHeight = leading(11.5),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.testTag("profile_views_breakdown")
@@ -139,6 +143,7 @@ private fun ProfileViewsCard(metrics: ReaderMetrics) {
                     text = "শোনা ${toBengaliNumeral(metrics.minutesListened)} মিনিট",
                     fontFamily = Kalpurush,
                     fontSize = textSize(11.5),
+                    lineHeight = leading(11.5),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -269,7 +274,7 @@ fun UserProfileScreen(
                     }
                 }
             }
-            Text("প্রোফাইল ছবি (ImgBB)", fontFamily = Kalpurush, fontSize = textSize(12), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("প্রোফাইল ছবি (ImgBB)", fontFamily = Kalpurush, fontSize = textSize(12), lineHeight = leading(12), color = MaterialTheme.colorScheme.onSurfaceVariant)
 
             ProfileViewsCard(metrics)
 

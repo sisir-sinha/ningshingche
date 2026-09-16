@@ -57,7 +57,15 @@ const SCALE_PATH = path.join('com', 'ningshingche', 'app', 'ui', 'theme', 'TextS
 test('one dial, and it is the only place a size is chosen', () => {
   assert.match(SCALE, /const val APP_TEXT_SCALE = 1\.12f/);
   assert.match(SCALE, /const val MIN_READABLE_SP = 12\.5f/);
-  assert.match(SCALE, /fun textSize\(size: Number\): TextUnit =\s*\n\s*\(size\.toFloat\(\) \* APP_TEXT_SCALE\)\.coerceAtLeast\(MIN_READABLE_SP\)\.sp/);
+  // One size, one leading: the size is scaled and floored, and the leading is
+  // that same drawn size times the app's leading — never inherited.
+  assert.match(SCALE, /fun drawnSize\(size: Number\): Float =/);
+  assert.match(SCALE, /fun textSize\(size: Number\): TextUnit = drawnSize\(size\)\.sp/);
+  assert.match(SCALE, /const val APP_LEADING = 1\.45f/);
+  assert.match(SCALE, /const val DISPLAY_LEADING = 1\.3f/);
+  assert.match(SCALE, /fun leading\(size: Number\): TextUnit \{/);
+  assert.match(SCALE, /val ratio = if \(size\.toFloat\(\) >= DISPLAY_FROM_SP\) DISPLAY_LEADING else APP_LEADING/);
+  assert.match(SCALE, /return \(drawn \* ratio\)\.sp/);
 
   // The whole point: no size is written by hand anywhere any more. A new one is
   // a build failure rather than a 10 sp label nobody notices.
@@ -202,4 +210,106 @@ test('what does not get an edge, and why', () => {
   const dashboard = read('ui', 'screens', 'UserDashboardScreen.kt');
   assert.match(dashboard, /color = MaterialTheme\.colorScheme\.errorContainer,\s*\n\s*shape = RoundedCornerShape\(14\.dp\)/,
     'the error panel is untouched');
+});
+
+// ---------------------------------------------------------------------------
+// The leading
+// ---------------------------------------------------------------------------
+
+/** A Kotlin call's argument text, from the '(' at `open` to its match. */
+function argsOf(text, open) {
+  let depth = 1, i = open + 1;
+  while (depth) {
+    if (text[i] === '(') depth += 1;
+    else if (text[i] === ')') depth -= 1;
+    i += 1;
+  }
+  return text.slice(open + 1, i - 1);
+}
+
+const ratioCap = (font) => (font >= 20 ? 1.3 : 1.45);   // display text is declared at 20 sp and up
+
+test('every text states its leading, so no line box is inherited', () => {
+  // A line box that is inherited is a line box the text did not ask for: the
+  // component above (a ListItem, a Button) hands down its own, and a 13 sp
+  // caption ends up in a 30 sp line. The owner saw exactly that: "App text
+  // gapping is too much."
+  const loose = [];
+  for (const { rel, text } of SOURCES) {
+    if (rel === SCALE_PATH) continue;
+    const lines = text.split('\n');
+    lines.forEach((line, index) => {
+      if (!/fontSize = textSize\(/.test(line)) return;
+      if (/^\s*(\/\/|\*|\/\*)/.test(line)) return;
+      const window = `${line}\n${lines[index + 1] ?? ''}`;
+      if (!/lineHeight\s*=/.test(window)) loose.push(`${rel}:${index + 1}`);
+    });
+  }
+  assert.deepEqual(loose, [], 'a text is left to inherit its line box');
+});
+
+test('no line box is more than the leading allows', () => {
+  // The font's own metrics want 1.575 x the size and the app's body styles had
+  // drifted to 1.67 — measured, and the reason paragraphs read as loose lists of
+  // separate lines. Body text is capped at APP_LEADING, display at
+  // DISPLAY_LEADING; anything already tighter (the headings) is left alone.
+  const loose = [];
+  for (const { rel, text } of SOURCES) {
+    if (rel === SCALE_PATH) continue;
+    // `fontSize = textSize(N)` beside `lineHeight = textSize(M)`
+    for (const match of text.matchAll(/fontSize = textSize\(([\d.]+)f?\)/g)) {
+      const lineHeight = /lineHeight = textSize\(([\d.]+)f?\)/.exec(text.slice(match.index, match.index + 200));
+      if (!lineHeight) continue;
+      const font = parseFloat(match[1]), line = parseFloat(lineHeight[1]);
+      if (line / font > ratioCap(font) + 1e-6) loose.push(`${rel}: ${font}/${line}`);
+    }
+    // and the same rule inside the theme's own `bengaliTextStyle(font, line)`
+    for (const match of text.matchAll(/bengaliTextStyle\(/g)) {
+      const args = argsOf(text, match.index + 'bengaliTextStyle'.length)
+        .split(',').map((arg) => arg.trim())
+        .filter((arg) => /^textSize\([\d.]+f?\)$/.test(arg))
+        .map((arg) => parseFloat(/[\d.]+/.exec(arg)[0]));
+      if (args.length < 2) continue;
+      if (args[1] / args[0] > ratioCap(args[0]) + 1e-6) loose.push(`${rel}: ${args[0]}/${args[1]}`);
+    }
+  }
+  assert.deepEqual(loose, [], 'a line box is looser than the app allows');
+});
+
+test('the reader opens at the app leading, and the sheet still lets it be changed', () => {
+  const prefs = SOURCES.find(({ rel }) => rel.endsWith(path.join('data', 'model', 'Models.kt')));
+  assert.match(prefs.text, /lineSpacingMultiplier: Float = 1\.45f/,
+    'the reader starts where the rest of the app sets its text');
+  const reader = SOURCES.find(({ rel }) => rel.endsWith(path.join('reader', 'ArticleScreen.kt')));
+  assert.match(reader.text, /mutableFloatStateOf\(APP_LEADING\)/);
+  assert.match(reader.text, /lineSpacingMultiplier = APP_LEADING/, 'and resets there, not to a literal');
+  assert.match(reader.text, /valueRange = 1\.3f\.\.2\.2f/, 'while the dial keeps its range');
+});
+
+test('the writing area takes the same leading as everything else', () => {
+  const editor = SOURCES.find(({ rel }) => rel.endsWith(path.join('components', 'HtmlContentEditor.kt')));
+  assert.match(editor.text, /line-height:\$\{APP_LEADING\};/, 'the page is not its own typography');
+  assert.match(editor.text, /import com\.ningshingche\.app\.ui\.theme\.APP_LEADING/);
+});
+
+test('every file that uses the dial imports it', () => {
+  // A missing import of a top-level function is a compile error, and nothing in
+  // this suite compiles Kotlin — so it is checked here by reading the sources.
+  const NAMES = ['textSize', 'leading', 'APP_TEXT_SCALE', 'APP_LEADING'];
+  const missing = [];
+  for (const { rel, text } of SOURCES) {
+    if (rel === SCALE_PATH) continue;
+    if (/^package .*\.ui\.theme$/m.test(text)) continue;   // same package, no import
+    const code = text.split('\n').filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
+      .map((line) => line.split('//')[0]).join('\n');
+    for (const name of NAMES) {
+      const used = /^[A-Z]/.test(name)
+        ? new RegExp(`(?<![A-Za-z0-9_.])${name}\\b`).test(code)
+        : new RegExp(`(?<![A-Za-z0-9_.])${name}\\(`).test(code);
+      if (used && !text.includes(`import com.ningshingche.app.ui.theme.${name}`)) {
+        missing.push(`${rel}: ${name}`);
+      }
+    }
+  }
+  assert.deepEqual(missing, [], 'a file calls the dial without importing it');
 });

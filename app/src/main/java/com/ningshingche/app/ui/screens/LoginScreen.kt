@@ -35,6 +35,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ningshingche.app.ui.components.GoogleSignInButton
 import com.ningshingche.app.ui.components.NingshingCheBrandLogo
 import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.SettingsViewModel
 
@@ -85,12 +86,14 @@ fun LoginScreen(
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
                 fontSize = textSize(26),
+                lineHeight = leading(26),
                 color = MaterialTheme.colorScheme.onBackground
             )
             Text(
                 text = "Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন",
                 fontFamily = Kalpurush,
                 fontSize = textSize(14),
+                lineHeight = leading(14),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 6.dp, bottom = 28.dp)

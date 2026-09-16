@@ -71,6 +71,7 @@ import com.ningshingche.app.ui.editorial.Hairline
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.editorial.ShimmerPlaceholder
 import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import java.util.regex.Pattern
 
@@ -623,6 +624,7 @@ fun FullWidthArticleImage(
                             text = "ছবি লোড করা যায়নি",
                             fontFamily = Kalpurush,
                             fontSize = textSize(13),
+                            lineHeight = leading(13),
                             color = tokens.inkMuted
                         )
                     }
@@ -809,6 +811,7 @@ fun ImageEnlargeModal(
                     text = if (scale > 1.05f) "জুম রিসেট করতে ট্যাপ করুন" else "জুম করতে দুই আঙুল ব্যবহার করুন",
                     fontFamily = Kalpurush,
                     fontSize = textSize(12.5),
+                    lineHeight = leading(12.5),
                     color = Color.White.copy(alpha = 0.9f),
                     modifier = Modifier
                         .clickable {

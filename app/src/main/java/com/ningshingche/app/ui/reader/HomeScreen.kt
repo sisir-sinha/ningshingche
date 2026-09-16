@@ -59,6 +59,7 @@ import com.ningshingche.app.ui.screens.ContributorList
 import com.ningshingche.app.ui.screens.HomeForumBlock
 import com.ningshingche.app.ui.screens.monthNameOf
 import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.style.TextOverflow
@@ -650,6 +651,7 @@ private fun ContributorBoardNotice(
             text = message.ifBlank { "তালিকা আনা যায়নি।" },
             fontFamily = Kalpurush,
             fontSize = textSize(12.5),
+            lineHeight = leading(12.5),
             color = tokens.inkMuted
         )
         Spacer(Modifier.height(6.dp))
@@ -658,6 +660,7 @@ private fun ContributorBoardNotice(
             fontFamily = Kalpurush,
             fontWeight = FontWeight.Bold,
             fontSize = textSize(13),
+            lineHeight = leading(13),
             color = tokens.accent,
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))

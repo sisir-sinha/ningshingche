@@ -50,6 +50,7 @@ import com.ningshingche.app.ui.theme.BrandIndigo
 import com.ningshingche.app.ui.theme.BrandIndigoDeep
 import com.ningshingche.app.ui.theme.BrandOnGold
 import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.theme.PanelChip
 import com.ningshingche.app.ui.theme.PanelDeep
@@ -113,6 +114,7 @@ fun PdfArchiveScreen(
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
                         fontSize = textSize(20),
+                        lineHeight = leading(20),
                         color = PanelInk,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -122,6 +124,7 @@ fun PdfArchiveScreen(
                         fontFamily = Kalpurush,
                         color = PanelInkMuted,
                         fontSize = textSize(12),
+                        lineHeight = leading(12),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -138,6 +141,7 @@ fun PdfArchiveScreen(
                             text = category.name,
                             fontFamily = Kalpurush,
                             fontSize = textSize(13),
+                            lineHeight = leading(13),
                             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                             color = if (selected) BrandOnGold else PanelInk,
                             modifier = Modifier
@@ -188,6 +192,7 @@ private fun LibraryShelf(
             fontFamily = Kalpurush,
             color = BrandGoldLight,
             fontSize = textSize(13),
+            lineHeight = leading(13),
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
         )
         LazyRow(
@@ -261,7 +266,8 @@ private fun LibraryBook(
                     color = BrandGoldLight,
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = textSize(12)
+                    fontSize = textSize(12),
+                    lineHeight = leading(12)
                 )
                 Text(
                     book.title,
@@ -269,6 +275,7 @@ private fun LibraryBook(
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
                     fontSize = textSize(13),
+                    lineHeight = leading(13),
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -285,7 +292,7 @@ private fun LibraryBook(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(Icons.Default.MenuBook, null, tint = BrandOnGold, modifier = Modifier.size(12.dp))
-                Text(" পাকরিক", color = BrandOnGold, fontFamily = Kalpurush, fontSize = textSize(12), fontWeight = FontWeight.Bold)
+                Text(" পাকরিক", color = BrandOnGold, fontFamily = Kalpurush, fontSize = textSize(12), lineHeight = leading(12), fontWeight = FontWeight.Bold)
             }
             Icon(
                 Icons.Default.Download,

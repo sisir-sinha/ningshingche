@@ -63,6 +63,7 @@ import com.ningshingche.app.data.model.AppThemeMode
 import com.ningshingche.app.ui.navigation.ExploreTab
 import com.ningshingche.app.ui.navigation.Screen
 import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 
@@ -354,6 +355,7 @@ private fun DrawerRow(
             text = label,
             fontFamily = Kalpurush,
             fontSize = textSize(16),
+            lineHeight = leading(16),
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
             color = textColor,
             maxLines = 1,

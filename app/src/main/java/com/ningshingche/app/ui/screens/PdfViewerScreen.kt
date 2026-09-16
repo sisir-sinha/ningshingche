@@ -77,6 +77,7 @@ import com.ningshingche.app.data.model.PdfFitMode
 import com.ningshingche.app.data.model.PdfReaderSettings
 import com.ningshingche.app.ui.theme.BrandGoldLight
 import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.theme.Panel
@@ -155,6 +156,7 @@ fun PdfViewerScreen(
                     fontWeight = FontWeight.Bold,
                     color = PanelInk,
                     fontSize = textSize(16),
+                    lineHeight = leading(16),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -163,7 +165,7 @@ fun PdfViewerScreen(
                     !pdfDocument?.edition.isNullOrBlank() -> pdfDocument?.edition.orEmpty()
                     else -> "পিডিএফ পাঠক"
                 }
-                Text(subtitle, fontFamily = Kalpurush, color = BrandGoldLight, fontSize = textSize(12))
+                Text(subtitle, fontFamily = Kalpurush, color = BrandGoldLight, fontSize = textSize(12), lineHeight = leading(12))
             }
             IconButton(onClick = { showSettings = true }, enabled = localFile != null) {
                 Icon(Icons.Default.Settings, contentDescription = "সেটিংস", tint = BrandGoldLight)
@@ -196,7 +198,8 @@ fun PdfViewerScreen(
                         errorMessage ?: "বইটি খোলা যায়নি",
                         fontFamily = Kalpurush,
                         color = PanelInk,
-                        fontSize = textSize(15)
+                        fontSize = textSize(15),
+                        lineHeight = leading(15)
                     )
                     TextButton(onClick = { viewModel.loadPdf(pdfId) }) {
                         Text("আবার চেষ্টা করুন", fontFamily = Kalpurush, color = BrandGoldLight)
@@ -249,7 +252,7 @@ fun PdfViewerScreen(
                 else -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator(color = BrandGoldLight, strokeWidth = 2.dp)
                     Spacer(Modifier.height(12.dp))
-                    Text("পিডিএফ খোলা হচ্ছে…", fontFamily = Kalpurush, color = PanelInk, fontSize = textSize(14))
+                    Text("পিডিএফ খোলা হচ্ছে…", fontFamily = Kalpurush, color = PanelInk, fontSize = textSize(14), lineHeight = leading(14))
                 }
             }
         }
@@ -286,6 +289,7 @@ fun PdfViewerScreen(
                     fontFamily = Kalpurush,
                     color = PanelInkMuted,
                     fontSize = textSize(11),
+                    lineHeight = leading(11),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -447,9 +451,9 @@ private fun PdfReaderSettingsSheet(
             .padding(bottom = 24.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        Text("পাঠকের সেটিংস", fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = textSize(18))
+        Text("পাঠকের সেটিংস", fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = textSize(18), lineHeight = leading(18))
         Spacer(Modifier.height(14.dp))
-        Text("দৃশ্য", fontFamily = Kalpurush, color = BrandGoldLight, fontSize = textSize(13))
+        Text("দৃশ্য", fontFamily = Kalpurush, color = BrandGoldLight, fontSize = textSize(13), lineHeight = leading(13))
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ModeChip(
@@ -469,7 +473,8 @@ private fun PdfReaderSettingsSheet(
             else "উপর-নিচ স্ক্রল করে পুরো বই পড়ুন।",
             fontFamily = Kalpurush,
             color = PanelInkMuted,
-            fontSize = textSize(12)
+            fontSize = textSize(12),
+            lineHeight = leading(12)
         )
         Spacer(Modifier.height(16.dp))
         HorizontalDivider(color = Color(0x332A3141))
@@ -481,7 +486,7 @@ private fun PdfReaderSettingsSheet(
         SettingSwitch("স্ক্রল হ্যান্ডেল", settings.scrollHandle) { onChange(settings.copy(scrollHandle = it)) }
         SettingSwitch("স্ক্রিন জ্বালিয়ে রাখুন", settings.keepScreenOn) { onChange(settings.copy(keepScreenOn = it)) }
         Spacer(Modifier.height(8.dp))
-        Text("ফ্রেমে মিল", fontFamily = Kalpurush, color = BrandGoldLight, fontSize = textSize(13))
+        Text("ফ্রেমে মিল", fontFamily = Kalpurush, color = BrandGoldLight, fontSize = textSize(13), lineHeight = leading(13))
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FitChip("প্রস্থ", settings.fitMode == PdfFitMode.WIDTH) { onChange(settings.copy(fitMode = PdfFitMode.WIDTH)) }
@@ -492,7 +497,7 @@ private fun PdfReaderSettingsSheet(
         }
         if (!settings.bookView) {
             Spacer(Modifier.height(12.dp))
-            Text("পাতার ফাঁক  ·  ${settings.spacingDp} dp", fontFamily = Kalpurush, fontSize = textSize(13))
+            Text("পাতার ফাঁক  ·  ${settings.spacingDp} dp", fontFamily = Kalpurush, fontSize = textSize(13), lineHeight = leading(13))
             Slider(
                 value = settings.spacingDp.toFloat(),
                 onValueChange = { onChange(settings.copy(spacingDp = it.toInt())) },
@@ -506,7 +511,7 @@ private fun PdfReaderSettingsSheet(
         }
         if (pageCount > 1) {
             Spacer(Modifier.height(8.dp))
-            Text("পৃষ্ঠায় যান", fontFamily = Kalpurush, color = BrandGoldLight, fontSize = textSize(13))
+            Text("পৃষ্ঠায় যান", fontFamily = Kalpurush, color = BrandGoldLight, fontSize = textSize(13), lineHeight = leading(13))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 androidx.compose.material3.OutlinedTextField(
                     value = jump,
@@ -572,7 +577,7 @@ private fun SettingSwitch(label: String, checked: Boolean, onChecked: (Boolean) 
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, fontFamily = Kalpurush, fontSize = textSize(15), modifier = Modifier.weight(1f))
+        Text(label, fontFamily = Kalpurush, fontSize = textSize(15), lineHeight = leading(15), modifier = Modifier.weight(1f))
         Switch(
             checked = checked,
             onCheckedChange = onChecked,
