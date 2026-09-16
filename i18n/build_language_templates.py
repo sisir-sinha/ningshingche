@@ -3,11 +3,15 @@
 
 Source of truth for the key list is `i18n/refresh_inventory.py` (the Bengali
 strings actually written in the app). This script writes one `key,value` CSV per
-language into `backend/assets/lang/`, with the value column left empty:
+language into `backend/assets/lang/`:
 
     bn.csv    Bengali -> Bengali identity, so a key list is always available
-    en.csv    Bengali key -> English (empty, to be filled)
-    bpy.csv   Bengali key -> Bishnupriya Manipuri (empty, to be filled)
+    en.csv    Bengali key -> English
+    bpy.csv   Bengali key -> Bishnupriya Manipuri
+
+A key with no wording yet gets a blank value — the format's way of saying "not
+translated" — but both translation files ship filled, so in practice this script
+only has to carry the wording over.
 
 The dashboard's Languages page reads these files: it fills every empty cell from
 the template when the page opens, and the "Load templates" button reads them
