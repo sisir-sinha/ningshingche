@@ -69,7 +69,12 @@ test('a visit is thirty minutes, named in one place', () => {
   const migrations = fs.readdirSync(path.join(ROOT, 'backend', 'supabase', 'migrations'))
     .filter((name) => /^\d+_.*\.sql$/.test(name)).sort();
   assert.ok(migrations.includes('025_content_views.sql'));
-  assert.equal(migrations[migrations.length - 1], '036_view_logic.sql', '036 is the newest migration');
+  // Re-anchored: 037 (the profile's total) is newer and builds on this file, so
+  // what matters is that 036 is in the run and comes before it.
+  assert.ok(migrations.includes('036_view_logic.sql'), '036 is in the migrations');
+  assert.equal(migrations[migrations.length - 1], '037_profile_views.sql', '037 is the newest migration');
+  assert.ok(migrations.indexOf('036_view_logic.sql') < migrations.indexOf('037_profile_views.sql'),
+    'and 036 is the file 037 reads its numbers from');
 });
 
 test('one view per visit: inside the window nothing is added, outside it counts once', () => {

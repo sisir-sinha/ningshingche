@@ -61,7 +61,7 @@ done
 # --- both orders, then both again (idempotency) ------------------------------
 # 030 comes last in every order: it replaces functions 029 and 026 wrote, so it
 # is the one file with a direction. 024-029 stay order-free among themselves.
-for order in "024 025 026 027 028 029 030 036" "025 024 026 027 028 029 030 036" "026 025 024 027 028 029 030 036" "027 026 025 024 028 029 030 036" "029 028 027 026 025 024 030 036" "028 029 024 025 026 027 030 036" "024 025 026 027 028 029 030 031 032 033 034 035 036"; do
+for order in "024 025 026 027 028 029 030 036 037" "025 024 026 027 028 029 030 036 037" "026 025 024 027 028 029 030 036 037" "027 026 025 024 028 029 030 036 037" "029 028 027 026 025 024 030 036 037" "028 029 024 025 026 027 030 036 037" "024 025 026 027 028 029 030 031 032 033 034 035 036 037" "037 024 025 026 027 028 029 030 036"; do
   for pass in 1 2; do
     step "order $order (pass $pass)"
     psql -c "drop database if exists ordered" >/dev/null 2>&1 || true
@@ -100,7 +100,7 @@ insert into public.submitted_blogs (user_id, converted_blog_id, status) values (
 insert into public.music_tracks (id, title, artist, file_storage_path, duration_seconds, love_count, user_id) values ('$TRACK', 'পাঠকের গান', 'গায়ক', 'reader/track.mp3', 200, 3, '$READER');
 SQL
 
-for n in 024 025 026 027 028 029 030 031 032 033 034 035 036; do
+for n in 024 025 026 027 028 029 030 031 032 033 034 035 036 037; do
   psql -d behaviour -f "$MIGRATIONS/$(ls "$MIGRATIONS" | grep "^$n")" >/dev/null
 done
 
@@ -511,12 +511,131 @@ minutes="$(echo "$summary" | grep -o '"minutes_listened": [0-9]*' | cut -d' ' -f
 readers="$(psql -d behaviour -tAc "select count(*) from public.view_overview(30)")"
 [ "$readers" = "30" ] && ok "view_overview returns every day of the span" || bad "view_overview rows (got $readers)"
 
+# --- the profile page's total, which is the point of 037 ----------------------
+#
+# One reader's own work: an article, a thread and a song, each looked at by a real
+# call through the counting engine, and then the page is asked. The reader already
+# has views on the items the rest of this file built, so the check is a *delta*:
+# whatever the profile said before, it must say exactly five more.
+step "the profile's total views"
+
+BLOG_PROFILE=12121212-1212-1212-1212-121212121212
+TRACK_PROFILE=13131313-1313-1313-1313-131313131313
+THREAD_PROFILE=14141414-1414-1414-1414-141414141414
+
+psql -d behaviour <<SQL >/dev/null
+insert into public.blogs (id, title, slug, status, published_date) values ('$BLOG_PROFILE', 'প্রোফাইলের নিবন্ধ', 'profile-article', 'Publish', current_date);
+insert into public.submitted_blogs (user_id, converted_blog_id, status) values ('$READER', '$BLOG_PROFILE', 'Published');
+insert into public.music_tracks (id, title, user_id, duration_seconds) values ('$TRACK_PROFILE', 'প্রোফাইলের গান', '$READER', 200);
+insert into public.forum_discussions (id, category_id, user_id, title, body, status) select '$THREAD_PROFILE', k.id, '$READER', 'প্রোফাইলের আলোচনা', 'মূল লেখা।', 'Publish' from public.forum_categories k order by k.slug limit 1;
+SQL
+
+profile_number() {
+  psql -d behaviour -tAc "select (public.public_profile('$READER') ->> '$1')::bigint"
+}
+before_total="$(profile_number total_views)"
+before_articles="$(profile_number article_views)"
+before_music="$(profile_number music_views)"
+before_forum="$(profile_number forum_views)"
+before_visitors="$(profile_number visitors)"
+before_minutes="$(profile_number minutes_listened)"
+
+# Four opens of the article by three viewers — the first of them twice, which is
+# one visit — then a thread read by somebody else, and a song listened to for a
+# minute and a half in one sitting.
+as_guest "content_view_record('blog', '$BLOG_PROFILE', 'device-p1', null)" >/dev/null
+as_guest "content_view_record('blog', '$BLOG_PROFILE', 'device-p2', null)" >/dev/null
+as_guest "content_view_record('blog', '$BLOG_PROFILE', 'device-p1', null)" >/dev/null
+as_reader "content_view_record('blog', '$BLOG_PROFILE', null, null)" >/dev/null
+as_guest "content_view_record('forum', '$THREAD_PROFILE', 'device-p3', null)" >/dev/null
+as_guest "content_view_record('music', '$TRACK_PROFILE', 'device-p4', 45)" >/dev/null
+as_guest "content_view_record('music', '$TRACK_PROFILE', 'device-p4', 45)" >/dev/null
+
+after_total="$(profile_number total_views)"
+after_articles="$(profile_number article_views)"
+after_music="$(profile_number music_views)"
+after_forum="$(profile_number forum_views)"
+after_visitors="$(profile_number visitors)"
+after_minutes="$(profile_number minutes_listened)"
+
+[ "$((after_articles - before_articles))" = "3" ] \
+  && ok "the profile's article views counted three readers, not four opens" \
+  || bad "profile article delta ($((after_articles - before_articles)), wanted 3)"
+[ "$((after_forum - before_forum))" = "1" ] \
+  && ok "and its thread views are in the number, which is what 037 is for" \
+  || bad "profile forum delta ($((after_forum - before_forum)), wanted 1)"
+[ "$((after_music - before_music))" = "1" ] \
+  && ok "and the song counts once for a minute and a half of listening" \
+  || bad "profile music delta ($((after_music - before_music)), wanted 1)"
+[ "$((after_total - before_total))" = "5" ] \
+  && ok "the total on the page is those five views" \
+  || bad "profile total delta ($((after_total - before_total)), wanted 5)"
+# Four new people, not five: the reader themselves is one of the three who read
+# the article, and they were already counted as a visitor of their own song
+# earlier in this file — a returning reader is a view, but not a new person.
+[ "$((after_visitors - before_visitors))" = "4" ] \
+  && ok "and four new people were counted as visitors, not the five visits" \
+  || bad "profile visitors delta ($((after_visitors - before_visitors)), wanted 4)"
+[ "$((after_minutes - before_minutes))" = "1" ] \
+  && ok "ninety seconds of listening reads as one minute" \
+  || bad "profile minutes delta ($((after_minutes - before_minutes)), wanted 1)"
+
+# The page's own arithmetic, and the row it is drawn from.
+[ "$after_total" = "$((after_articles + after_music + after_forum))" ] \
+  && ok "the headline is the three parts added up, to the number" \
+  || bad "profile total ($after_total vs $after_articles + $after_music + $after_forum)"
+thread_row="$(psql -d behaviour -tAc "select views_count from public.forum_discussions where id = '$THREAD_PROFILE'")"
+[ "$thread_row" = "1" ] && ok "the thread row says the same one view the profile reports" \
+  || bad "thread row after the profile view (got $thread_row)"
+listed="$(psql -d behaviour -tAc "select (public.public_profile('$READER') -> 'articles') @> jsonb_build_array(jsonb_build_object('id', '$BLOG_PROFILE'))")"
+[ "$listed" = "t" ] && ok "and the article is still on the page's list" \
+  || bad "article list after 037 (got $listed)"
+
 # the trigger has to survive a delete, and only a delete
 psql -d behaviour -c "delete from public.content_views where content_type = 'blog' and content_id = '$BLOG'" >/dev/null
 after="$(psql -d behaviour -tAc "select views_count from public.blogs where id = '$BLOG'")"
 [ "$after" = "0" ] && ok "deleting a view decrements the total" || bad "delete branch of the trigger (got $after)"
 
-printf '\n'
+
+# --- the profile without 036 ---------------------------------------------------
+#
+# The owner may run 037 before 036, and this is what that database does: the page
+# still answers, the item counters are still summed, and the forum is still in the
+# total — the one thing the page was missing. `visitors` is zero because nothing
+# recorded who the viewers were; that is honest, not a guess.
+step "the profile before the counting engine (037 without 036)"
+
+psql -c "drop database if exists profileonly" >/dev/null 2>&1 || true
+psql -c "create database profileonly" >/dev/null
+psql -d profileonly -f "$FIXTURE" >/dev/null
+for n in 024 028 029 030 037; do
+  psql -d profileonly -f "$MIGRATIONS/$(ls "$MIGRATIONS" | grep "^$n")" >/dev/null
+done
+
+psql -d profileonly <<'SQL' >/dev/null
+insert into public.profiles (id, name) values ('11111111-1111-1111-1111-111111111111', 'পুরনো পাঠক');
+insert into public.blogs (id, title, slug, status, views_count, published_date)
+  values ('22222222-2222-2222-2222-222222222222', 'পুরনো নিবন্ধ', 'old-article', 'Publish', 4, current_date);
+insert into public.submitted_blogs (user_id, converted_blog_id, status)
+  values ('11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 'Published');
+insert into public.music_tracks (id, title, user_id, views_count)
+  values ('33333333-3333-3333-3333-333333333333', 'পুরনো গান', '11111111-1111-1111-1111-111111111111', 2);
+insert into public.forum_discussions (id, category_id, user_id, title, body, status, views_count)
+  select '44444444-4444-4444-4444-444444444444', k.id, '11111111-1111-1111-1111-111111111111',
+         'পুরনো আলোচনা', 'মূল লেখা।', 'Publish', 7
+    from public.forum_categories k order by k.slug limit 1;
+SQL
+
+OLD_ID='11111111-1111-1111-1111-111111111111'
+old_profile="$(psql -d profileonly -tAc "select public.public_profile('$OLD_ID')")"
+for want in '"article_views": 4' '"music_views": 2' '"forum_views": 7' '"total_views": 13' '"visitors": 0'; do
+  echo "$old_profile" | grep -q "$want" && ok "without 036, $want" || bad "without 036, missing $want: $old_profile"
+done
+old_title="$(psql -d profileonly -tAc "select (public.public_profile('$OLD_ID') -> 'articles' -> 0 ->> 'title')")"
+[ "$old_title" = "পুরনো নিবন্ধ" ] && ok "and the page still lists the reader's work" \
+  || bad "the article list without 036 (got '$old_title')"
+
+printf '\n' 
 if [ "$fail" = "0" ]; then
   printf '\033[32mAll migration checks passed.\033[0m\n'
 else

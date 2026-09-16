@@ -289,8 +289,18 @@ data class PublicProfileDto(
     /** Migration 028 adds these three to the same RPC. */
     val points: Int? = null,
     @Json(name = "month_points") val monthPoints: Int? = null,
+    /**
+     * Migration 037: the counts the counting engine keeps, with the forum in them
+     * and the parts added up on the server, so the page's headline and the split
+     * under it are the same arithmetic. A database that has not run 037 answers
+     * with the two 028 sent — the fields are nullable for exactly that reason.
+     */
     @Json(name = "article_views") val articleViews: Long? = null,
     @Json(name = "music_views") val musicViews: Long? = null,
+    @Json(name = "forum_views") val forumViews: Long? = null,
+    @Json(name = "total_views") val totalViews: Long? = null,
+    val visitors: Long? = null,
+    @Json(name = "minutes_listened") val minutesListened: Long? = null,
     val articles: List<PublicArticleDto>? = null,
     val songs: List<PublicSongDto>? = null
 )

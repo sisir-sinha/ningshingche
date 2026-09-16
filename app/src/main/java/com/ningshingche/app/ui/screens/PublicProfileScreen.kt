@@ -821,35 +821,79 @@ private fun ProfileStatistics(profile: PublicProfile) {
             .padding(horizontal = EditorialSpace.gutter)
             .testTag("public_profile_statistics")
     ) {
-        Row(
-            modifier = Modifier.padding(vertical = EditorialSpace.md),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            StatisticTile(
-                icon = Icons.Default.Visibility,
-                value = profile.totalViews,
-                label = "মোট ভিউ",
-                tint = tokens.accent,
-                modifier = Modifier.weight(1f)
-            )
-            StatisticDivider()
-            StatisticTile(
-                icon = Icons.Default.Stars,
-                value = profile.points.toLong(),
-                label = "মোট পয়েন্ট",
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.weight(1f)
-            )
-            StatisticDivider()
-            StatisticTile(
-                icon = Icons.Default.EmojiEvents,
-                value = profile.monthPoints.toLong(),
-                label = "এই মাসের পয়েন্ট",
-                tint = tokens.accent,
-                modifier = Modifier.weight(1f)
-            )
+        Column(modifier = Modifier.padding(top = EditorialSpace.md, bottom = EditorialSpace.sm)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                StatisticTile(
+                    icon = Icons.Default.Visibility,
+                    value = profile.totalViews,
+                    label = "মোট ভিউ",
+                    tint = tokens.accent,
+                    modifier = Modifier.weight(1f)
+                )
+                StatisticDivider()
+                StatisticTile(
+                    icon = Icons.Default.Stars,
+                    value = profile.points.toLong(),
+                    label = "মোট পয়েন্ট",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f)
+                )
+                StatisticDivider()
+                StatisticTile(
+                    icon = Icons.Default.EmojiEvents,
+                    value = profile.monthPoints.toLong(),
+                    label = "এই মাসের পয়েন্ট",
+                    tint = tokens.accent,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            ProfileViewBreakdown(profile)
         }
     }
+}
+
+/**
+ * Where the total under `মোট ভিউ` comes from: the three kinds of work, and the
+ * people who read them.
+ *
+ * This line is the answer to "is that number real" — every figure in it is the
+ * database's own count. `মোট ভিউ` is the three added up on the server (migration
+ * 037), so the parts here are exactly what the headline is made of, and a thread
+ * some thirty people read is visible instead of missing.
+ *
+ * `পাঠক` is different people rather than visits: one reader who comes back every
+ * evening is a pile of views and one পাঠক. It is hidden on a database older than
+ * the counting engine, because zero there would be a guess rather than a count.
+ */
+@Composable
+private fun ProfileViewBreakdown(profile: PublicProfile) {
+    val tokens = LocalEditorialTokens.current
+    val minutes = profile.minutesListened
+    val parts = buildList {
+        add("প্রবন্ধ ${toBengaliNumeral(profile.articleViews)}")
+        add("গান ${toBengaliNumeral(profile.musicViews)}")
+        add("আলোচনা ${toBengaliNumeral(profile.forumViews)}")
+        if (profile.visitors > 0L) {
+            add("পাঠক ${toBengaliNumeral(profile.visitors)}")
+        }
+        if (minutes > 0L) {
+            add("শোনা ${toBengaliNumeral(minutes)} মিনিট")
+        }
+    }
+    Text(
+        text = parts.joinToString("  ·  "),
+        fontFamily = Kalpurush,
+        fontSize = 11.5.sp,
+        color = tokens.inkMuted,
+        textAlign = TextAlign.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 8.dp, end = 8.dp, top = 6.dp)
+            .testTag("public_profile_view_breakdown")
+    )
 }
 
 @Composable

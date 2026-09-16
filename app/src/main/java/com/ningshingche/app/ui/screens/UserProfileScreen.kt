@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -48,12 +50,99 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.ningshingche.app.ui.editorial.toBengaliNumeral
 import com.ningshingche.app.ui.theme.Kalpurush
+import com.ningshingche.app.ui.viewmodel.ReaderMetrics
 import com.ningshingche.app.ui.viewmodel.ReaderWorkspaceViewModel
+
+/**
+ * The reader's own view count, at the top of প্রোফাইল.
+ *
+ * The owner asked this page to show the total view, and asked whether it is real.
+ * It is: the figure comes from `user_view_totals` — the counting engine's own sum,
+ * which counts one view per visit whoever the visitor is, a play only once the
+ * song has been listened to, and the threads the reader started — and it is the
+ * same call the dashboard's ভিউ section reads, so the two pages show one number.
+ *
+ * The line under the total says what it is made of. A total you cannot take apart
+ * is a number to be trusted rather than read, and the parts are how a reader knows
+ * that the six discussions nobody seems to open are counted at all.
+ *
+ * On a database that has not run `036_view_logic.sql` yet the totals are zero and
+ * the line stays quiet: `userViewTotals` answers with null rather than with a
+ * guess, and this card shows ০ the way every other empty count in the app does.
+ */
+@Composable
+private fun ProfileViewsCard(metrics: ReaderMetrics) {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(12.dp),
+        tonalElevation = 1.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("profile_views_card")
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.Visibility,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    text = toBengaliNumeral(metrics.totalViews),
+                    fontFamily = Kalpurush,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 24.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "মোট ভিউ",
+                    fontFamily = Kalpurush,
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            // Four words and their numbers, separated by a middot — the same four
+            // the public profile page prints, and the same string keys, so a
+            // translator fills each word once.
+            Text(
+                text = listOf(
+                    "প্রবন্ধ ${toBengaliNumeral(metrics.articleViews)}",
+                    "গান ${toBengaliNumeral(metrics.musicViews)}",
+                    "আলোচনা ${toBengaliNumeral(metrics.forumViews)}",
+                    "পাঠক ${toBengaliNumeral(metrics.visitors)}"
+                ).joinToString("  ·  "),
+                fontFamily = Kalpurush,
+                fontSize = 11.5.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.testTag("profile_views_breakdown")
+            )
+            if (metrics.minutesListened > 0L) {
+                Text(
+                    text = "শোনা ${toBengaliNumeral(metrics.minutesListened)} মিনিট",
+                    fontFamily = Kalpurush,
+                    fontSize = 11.5.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,6 +155,7 @@ fun UserProfileScreen(
     val saving by viewModel.isSaving.collectAsStateWithLifecycle()
     val uploading by viewModel.avatarUploading.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
+    val metrics by viewModel.metrics.collectAsStateWithLifecycle()
 
     var firstName by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
@@ -78,6 +168,9 @@ fun UserProfileScreen(
     var website by remember { mutableStateOf("") }
 
     LaunchedEffect(user?.id, user?.updatedAt, user?.avatarUrl) {
+        // The view counts, from the database, the moment the page opens — the same
+        // call the dashboard's ভিউ section reads, so the two cannot disagree.
+        viewModel.refreshViews()
         val current = user ?: return@LaunchedEffect
         firstName = current.displayFirstName
         lastName = current.displayLastName
@@ -175,6 +268,8 @@ fun UserProfileScreen(
                 }
             }
             Text("প্রোফাইল ছবি (ImgBB)", fontFamily = Kalpurush, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            ProfileViewsCard(metrics)
 
             OutlinedTextField(
                 value = firstName,

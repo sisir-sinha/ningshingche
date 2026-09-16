@@ -1119,10 +1119,27 @@ data class PublicProfile(
     val monthPoints: Int = 0,
     val articleViews: Long,
     val musicViews: Long,
+    /** Views of the threads they started — counted since 029, shown since 037. */
+    val forumViews: Long = 0L,
+    /**
+     * The total the database sent (037), or null when the database is older than
+     * [totalViews]'s arithmetic and only sent the two.
+     */
+    val serverTotalViews: Long? = null,
+    /** Different people. Zero on a database without 036, which is honest. */
+    val visitors: Long = 0L,
+    /** Minutes of their songs that were really listened to. */
+    val minutesListened: Long = 0L,
     val articles: List<PublicArticle>,
     val songs: List<MusicTrack>
 ) {
-    val totalViews: Long get() = articleViews + musicViews
+    /**
+     * Everything counted: articles, songs and threads. The server adds the three
+     * up (037) so this page and the app's dashboard cannot disagree; the sum is
+     * here only for a database that has not been given 037 yet, where the forum
+     * count is not in the reply and [forumViews] stays ০.
+     */
+    val totalViews: Long get() = serverTotalViews ?: (articleViews + musicViews + forumViews)
 
     /** First line of the address, trimmed — a card is not a mailing label. */
     val shortAddress: String
@@ -1211,6 +1228,10 @@ internal fun PublicProfileDto.toModel(): PublicProfile {
     joinedAt = joinedAt.orEmpty(),
     articleViews = (articleViews ?: 0L).coerceAtLeast(0L),
     musicViews = (musicViews ?: 0L).coerceAtLeast(0L),
+    forumViews = (forumViews ?: 0L).coerceAtLeast(0L),
+    serverTotalViews = totalViews?.coerceAtLeast(0L),
+    visitors = (visitors ?: 0L).coerceAtLeast(0L),
+    minutesListened = (minutesListened ?: 0L).coerceAtLeast(0L),
     articles = articles.orEmpty().map { row ->
         PublicArticle(
             id = row.id,

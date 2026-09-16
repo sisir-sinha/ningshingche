@@ -36,6 +36,7 @@ bengali,bishnupriya,kind,uses,slots,screens
 অ্যালবাম,,ui,4,0,"MusicBrowseScreens.kt, MusicPlayer.kt, MusicScreen.kt, NewMusicScreen.kt"
 আবার চেষ্টা করুন,,ui,4,0,"AttachmentViewer.kt, EditorialComponents.kt, HomeScreen.kt, PdfViewerScreen.kt"
 আমার সম্পর্কে,,ui,4,0,"PortalDrawer.kt, PortalPages.kt"
+গান {1},,ui,4,1,"ContributorScreen.kt, PublicProfileScreen.kt, UserProfileScreen.kt"
 ড. প্রদীপ সিংহ,,content,4,0,NinghsingCheContentData.kt
 ডাউনলোড,,ui,4,0,"AttachmentViewer.kt, MusicPlayer.kt, PdfArchiveScreen.kt, PdfViewerScreen.kt"
 নতুন PDF বই,,ui,4,0,"AppNotificationManager.kt, ContentNotice.kt, SettingsScreen.kt, WelcomeOnboardingScreen.kt"
@@ -121,6 +122,7 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 আগস্ট,,ui,2,0,"ContributorScreen.kt, UserDashboardCharts.kt"
 আপনার সেশনের মেয়াদ শেষ হয়েছে। আবার সাইন ইন করলে তালিকা ও পয়েন্ট দেখা যাবে।,,ui,2,0,"ContributorScreen.kt, PortalModels.kt"
 আপনি,,ui,2,0,"ContributorScreen.kt, UserDashboardScreen.kt"
+আলোচনা {1},,ui,2,1,"PublicProfileScreen.kt, UserProfileScreen.kt"
 আলোচনা খুঁজুন,,ui,2,0,ForumScreens.kt
 আলোচনা খোলা যায়নি।,,ui,2,0,ForumScreens.kt
 আলোচনা ভিউ,,ui,2,0,UserDashboardScreen.kt
@@ -137,7 +139,6 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 কমল সিংহ বিষ্ণুপ্রিয়া,,content,2,0,NinghsingCheContentData.kt
 কার্যক্রম,,ui,2,0,"UserDashboardCharts.kt, UserDashboardScreen.kt"
 কোনো লেখক পাওয়া যায়নি।,,ui,2,0,"ExploreScreen.kt, PortalPages.kt"
-গান {1},,ui,2,1,ContributorScreen.kt
 গান জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর যুক্ত হবে।,,ui,2,0,ReaderWorkspaceViewModel.kt
 গান ভিউ,,ui,2,0,UserDashboardScreen.kt
 ছবি আপলোড হয়নি।,,ui,2,0,"ForumScreens.kt, HtmlContentEditor.kt"
@@ -163,9 +164,11 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 নৃত্য,,ui,2,0,"MusicGenres.kt, NinghsingCheAiAssistant.kt"
 পছন্দের গান,,ui,2,0,"MusicLibraryStore.kt, MusicScreen.kt"
 পরের গান,,ui,2,0,MusicPlayer.kt
+পাঠক {1},,ui,2,1,"PublicProfileScreen.kt, UserProfileScreen.kt"
 পিডিএফটি খোলা যায়নি।,,ui,2,0,AttachmentViewer.kt
 পৌরাণিক,,ui,2,0,NingshingCheWebsiteClient.kt
 প্রত্যাখ্যাত,,ui,2,0,"UserDashboardCharts.kt, UserDashboardScreen.kt"
+প্রবন্ধ {1},,ui,2,1,"PublicProfileScreen.kt, UserProfileScreen.kt"
 প্রবন্ধ {1} ·,,ui,2,1,ContributorScreen.kt
 প্রবন্ধ প্রকাশিত হয়েছে,,ui,2,0,"ContentUpdateNotifier.kt, InboxModels.kt"
 প্রবন্ধ ভিউ,,ui,2,0,UserDashboardScreen.kt
@@ -200,6 +203,7 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 মার্চ,,ui,2,0,"ContributorScreen.kt, UserDashboardCharts.kt"
 মিংকৌ,,ui,2,0,"NinghsingCheAiAssistant.kt, NinghsingCheContentData.kt"
 মে,,ui,2,0,"ContributorScreen.kt, UserDashboardCharts.kt"
+মোট ভিউ,,ui,2,0,"PublicProfileScreen.kt, UserProfileScreen.kt"
 রাস,,ui,2,0,"MusicGenres.kt, NinghsingCheAiAssistant.kt"
 লগ আউট,,ui,2,0,"AccountHeaderButton.kt, SettingsScreen.kt"
 লেখা জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর প্রকাশিত হবে।,,ui,2,0,ReaderWorkspaceViewModel.kt
@@ -208,6 +212,7 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 লোড হচ্ছে…,,ui,2,0,ForumScreens.kt
 শহীদ সুদেষ্ণা সিংহ,,content,2,0,NinghsingCheContentData.kt
 শেয়ার করুন,,ui,2,0,"ArticleScreen.kt, EditorialComponents.kt"
+শোনা {1} মিনিট,,ui,2,1,"PublicProfileScreen.kt, UserProfileScreen.kt"
 শোনা মিনিট,,ui,2,0,UserDashboardScreen.kt
 সংযুক্তি,,ui,2,0,"PortalModels.kt, UserDashboardScreen.kt"
 সংরক্ষণ সরানো হয়েছে,,ui,2,0,MainViewModels.kt
@@ -949,7 +954,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 মোট {1} · শেষ {2} দিনে {3},,ui,1,3,UserDashboardCharts.kt
 মোট {1}টি জমা,,ui,1,1,UserDashboardCharts.kt
 মোট পয়েন্ট,,ui,1,0,PublicProfileScreen.kt
-মোট ভিউ,,ui,1,0,PublicProfileScreen.kt
 মোটা,,ui,1,0,HtmlContentEditor.kt
 "মৌলভীবাজার, বাংলাদেশ",,content,1,0,NinghsingCheContentData.kt
 যাচাইকৃত লেখক,,ui,1,0,VerifiedBadge.kt

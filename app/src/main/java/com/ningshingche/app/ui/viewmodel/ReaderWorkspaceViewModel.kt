@@ -227,6 +227,32 @@ class ReaderWorkspaceViewModel(
     }
 
     /**
+     * Only the view figures — for a screen that shows them and nothing else.
+     *
+     * `refresh()` gathers everything a reader owns, which the dashboard wants and
+     * a profile page does not: it needs one number, its parts, and who read them.
+     * The totals come from the same call the dashboard's ভিউ section uses, so the
+     * profile and the dashboard cannot show two different figures for one reader.
+     * The other counts on [metrics] are left exactly as they were — this adds to
+     * them rather than replacing what another screen has already loaded.
+     */
+    fun refreshViews() {
+        val user = currentUser.value ?: return
+        viewModelScope.launch {
+            val totals = supabaseClient.userViewTotals(user.id) ?: return@launch
+            _metrics.value = _metrics.value.copy(
+                articleViews = totals.articleViews,
+                musicViews = totals.musicViews,
+                forumViews = totals.forumViews,
+                visitors = totals.visitors,
+                registeredViews = totals.registeredViews,
+                guestViews = totals.guestViews,
+                minutesListened = totals.minutesListened
+            )
+        }
+    }
+
+    /**
      * Five more items of forum work, from the database.
      *
      * The RPC takes a limit and no offset, so this asks for a bigger page rather

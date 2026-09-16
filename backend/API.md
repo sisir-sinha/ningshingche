@@ -1028,7 +1028,7 @@ the **সেরা অবদানকারী** route under Registered users.
 
 ---
 
-### 7.17 `public_profile` (`024_uploader_and_public_profile.sql`, publishable key allowed)
+### 7.17 `public_profile` (`024_uploader_and_public_profile.sql`, `028`, `037`, publishable key allowed)
 
 One registered reader's public page: their name and avatar, the published articles their submissions
 were converted into, and the songs they uploaded — with the view totals for both. Exists because
@@ -1040,9 +1040,25 @@ only for `status in ('Publish','Published')`.
 | --- | --- |
 | `p_user_id` | `uuid` of a `public.profiles` row |
 
-Returns `jsonb` (`{ id, name, avatar_url, joined_at, article_views, music_views, articles[], songs[] }`),
-or `null` when no such profile exists. `articles[]` is `{ id, title, slug, thumbnail, views_count, published_date, created_at, category_title }` (max 60);
-`songs[]` is `{ id, title, artist, album, genre, thumbnail_url, audio_url, file_storage_path, duration_seconds, love_count, views_count, created_at }` (max 120).
+Returns `jsonb`, or `null` when no such profile exists:
+
+| field | notes |
+| --- | --- |
+| `id`, `name`, `avatar_url`, `designation`, `address`, `joined_at` | who they are. `028` added the designation and the address; the email, phone and website stay private |
+| `points`, `month_points` | `contributor_score` (026), asked for through `to_regprocedure` so the page opens without it |
+| `article_views`, `music_views`, `forum_views` | the reader's views, **counted by `036_view_logic.sql`'s engine** and read from `user_view_totals` — the same call the app's dashboard uses, so the two cannot disagree. `037` added `forum_views` |
+| `total_views` | `article_views + music_views + forum_views`, added up on the server so the page's headline and the split beside it are the same arithmetic |
+| `visitors` | distinct viewers of their work — different people, where the counts above are visits |
+| `minutes_listened` | seconds of their songs that were really listened to, as whole minutes |
+| `articles[]`, `songs[]` | their published articles (`{ id, title, slug, image, views_count, published_date, created_at, category_title }`, max 60) and their songs (`{ id, title, artist, album, genre, thumbnail_url, audio_url, file_storage_path, duration_seconds, love_count, views_count, created_at }`, max 120), most read first |
+
+`037_profile_views.sql` may be run **before** `036`: when `user_view_totals` is not there, the three
+counts are summed from the item rows (`blogs.views_count`, `music_tracks.views_count`,
+`forum_discussions.views_count`) and `visitors` is `0` — a database that never recorded who was reading
+says so rather than guessing. `forum_discussions` is asked for with `to_regclass`, so a profile without
+the forum is a zero, not an error. The article count covers **every** blog the reader's submissions
+became, published or not, which is what `036` counts; the article *list* still shows the published
+ones.
 
 The same migration denormalises the uploader onto the track: `music_tracks.uploader_name`, filled
 from `profiles.name` for the rows that already existed, and written by the app on new uploads. It is

@@ -673,6 +673,9 @@ from the check that failed, so read it rather than assuming Blog uploads:
 - Forum view counts move without anyone reading, or the dashboard's পাঠক panel (registered/guest
   views, minutes listened) is empty where the rest of Analytics loads →
   `supabase/migrations/036_view_logic.sql`
+- A reader's profile page shows no total views, or shows fewer than the app's dashboard does for the
+  same reader → `supabase/migrations/037_profile_views.sql` (`036` first if it is not in yet, and the
+  profile answers either way)
 - A table reported as *missing* → `supabase/schema.sql`, then the migrations in order
 
 Run that file in the Supabase SQL Editor, reload the dashboard, and check again in **Settings →
