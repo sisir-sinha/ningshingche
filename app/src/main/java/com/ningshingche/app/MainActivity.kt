@@ -20,6 +20,7 @@ import com.ningshingche.app.data.model.ReaderPreferences
 import com.ningshingche.app.notifications.routeFromLaunchIntent
 import com.ningshingche.app.ui.editorial.EditorialTheme
 import com.ningshingche.app.ui.i18n.LocalTranslations
+import com.ningshingche.app.ui.i18n.Translations
 import com.ningshingche.app.ui.i18n.TranslationTable
 import com.ningshingche.app.ui.reader.EditorialReaderApp
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -83,6 +84,13 @@ class MainActivity : ComponentActivity() {
             val strings by app.translations.strings(language)
                 .collectAsStateWithLifecycle()
             val table = TranslationTable(language = language, strings = strings)
+
+            // Two ways to the same table. The composition local is for screens —
+            // reading it is what makes them redraw when the reader swaps the
+            // language. The static install is for the code a composable cannot
+            // reach: click handlers, coroutines and the view models that build
+            // the message a screen shows later. Both carry the same object.
+            Translations.install(table)
 
             // The table reaches every screen from here, so no screen has to read
             // preferences or the repository itself.

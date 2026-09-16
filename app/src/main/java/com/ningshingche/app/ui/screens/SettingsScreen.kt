@@ -116,6 +116,7 @@ import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
+import com.ningshingche.app.ui.i18n.tNow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -148,7 +149,7 @@ fun SettingsScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "সেটিংস",
+                        text = t("সেটিংস"),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
@@ -165,7 +166,7 @@ fun SettingsScreen(
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "পেছনে",
+                            contentDescription = t("পেছনে"),
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
@@ -199,7 +200,7 @@ fun SettingsScreen(
                             modifier = Modifier.size(18.dp)
                         )
                         Text(
-                            text = "অ্যাকাউন্ট",
+                            text = t("অ্যাকাউন্ট"),
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
@@ -251,7 +252,7 @@ fun SettingsScreen(
                                     }
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = signedIn.fullName.ifBlank { "পাঠক" },
+                                            text = signedIn.fullName.ifBlank { tNow("পাঠক") },
                                             style = MaterialTheme.typography.titleMedium.copy(
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = textSize(15),
@@ -283,11 +284,11 @@ fun SettingsScreen(
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("লগ আউট", fontWeight = FontWeight.Bold, fontSize = textSize(13), lineHeight = leading(13))
+                                    Text(t("লগ আউট"), fontWeight = FontWeight.Bold, fontSize = textSize(13), lineHeight = leading(13))
                                 }
                             } else {
                                 Text(
-                                    text = "Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন। একবার সাইন-ইন করলে অ্যাপ বন্ধ করলেও সেশন থাকবে।",
+                                    text = t("Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন। একবার সাইন-ইন করলে অ্যাপ বন্ধ করলেও সেশন থাকবে।"),
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontSize = textSize(12),
@@ -339,7 +340,7 @@ fun SettingsScreen(
                             modifier = Modifier.size(18.dp)
                         )
                         Text(
-                            text = "রঙের প্যালেট",
+                            text = t("রঙের প্যালেট"),
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
@@ -360,7 +361,7 @@ fun SettingsScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Text(
-                                text = "যে রঙে অ্যাপটি পড়তে চান সেটি বেছে নিন — প্রতিটি প্যালেটে লাইট ও ডার্ক দুটি রূপ আছে।",
+                                text = t("যে রঙে অ্যাপটি পড়তে চান সেটি বেছে নিন — প্রতিটি প্যালেটে লাইট ও ডার্ক দুটি রূপ আছে।"),
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = textSize(12),
@@ -438,7 +439,7 @@ fun SettingsScreen(
                             modifier = Modifier.size(18.dp)
                         )
                         Text(
-                            text = "অ্যাপ থিম নির্বাচন",
+                            text = t("অ্যাপ থিম নির্বাচন"),
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
@@ -459,7 +460,7 @@ fun SettingsScreen(
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Text(
-                                text = "আপনার পছন্দের প্রদর্শন শৈলী নির্বাচন করুন:",
+                                text = t("আপনার পছন্দের প্রদর্শন শৈলী নির্বাচন করুন:"),
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = textSize(12),
@@ -472,7 +473,7 @@ fun SettingsScreen(
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 ThemeModeCard(
-                                    title = "সাদা / লাইট",
+                                    title = t("সাদা / লাইট"),
                                     icon = Icons.Default.LightMode,
                                     isSelected = preferences.appThemeMode == AppThemeMode.LIGHT,
                                     modifier = Modifier.weight(1f),
@@ -480,7 +481,7 @@ fun SettingsScreen(
                                 )
 
                                 ThemeModeCard(
-                                    title = "ডার্ক থিম",
+                                    title = t("ডার্ক থিম"),
                                     icon = Icons.Default.DarkMode,
                                     isSelected = preferences.appThemeMode == AppThemeMode.DARK,
                                     modifier = Modifier.weight(1f),
@@ -488,7 +489,7 @@ fun SettingsScreen(
                                 )
 
                                 ThemeModeCard(
-                                    title = "সিস্টেম",
+                                    title = t("সিস্টেম"),
                                     icon = Icons.Default.BrightnessAuto,
                                     isSelected = preferences.appThemeMode == AppThemeMode.SYSTEM,
                                     modifier = Modifier.weight(1f),
@@ -672,7 +673,7 @@ fun SettingsScreen(
                             modifier = Modifier.size(18.dp)
                         )
                         Text(
-                            text = "নিংশিং চে APK ডাউনলোড (সরাসরি লোকাল প্যাকেজ)",
+                            text = t("নিংশিং চে APK ডাউনলোড (সরাসরি লোকাল প্যাকেজ)"),
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
@@ -722,7 +723,7 @@ fun SettingsScreen(
                                         )
                                     )
                                     Text(
-                                        text = "সংস্করণ ${apkInfo.versionName} • সাইজ: ${apkInfo.sizeFormatted}",
+                                        text = t("সংস্করণ {1} • সাইজ: {2}", apkInfo.versionName, apkInfo.sizeFormatted),
                                         style = MaterialTheme.typography.bodySmall.copy(
                                             color = MaterialTheme.colorScheme.primary,
                                             fontWeight = FontWeight.SemiBold,
@@ -731,7 +732,7 @@ fun SettingsScreen(
                                         )
                                     )
                                     Text(
-                                        text = "ইনস্টল্ড ডিভাইস থেকে সরাসরি সংগৃহীত অফিশিয়াল প্যাকেজ",
+                                        text = t("ইনস্টল্ড ডিভাইস থেকে সরাসরি সংগৃহীত অফিশিয়াল প্যাকেজ"),
                                         style = MaterialTheme.typography.bodySmall.copy(
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             fontSize = textSize(11),
@@ -786,10 +787,10 @@ fun SettingsScreen(
                                             isSavingApk = false
                                             result.onSuccess { msg ->
                                                 downloadResultMsg = msg
-                                                Toast.makeText(context, "APK সফলভাবে ডাউনলোড ফোল্ডারে সংরক্ষিত হয়েছে!", Toast.LENGTH_LONG).show()
+                                                Toast.makeText(context, tNow("APK সফলভাবে ডাউনলোড ফোল্ডারে সংরক্ষিত হয়েছে!"), Toast.LENGTH_LONG).show()
                                             }.onFailure { err ->
-                                                downloadResultMsg = "সংরক্ষণ ব্যর্থ: ${err.message}"
-                                                Toast.makeText(context, "APK সংরক্ষণ ব্যর্থ হয়েছে", Toast.LENGTH_SHORT).show()
+                                                downloadResultMsg = tNow("সংরক্ষণ ব্যর্থ: {1}", err.message)
+                                                Toast.makeText(context, tNow("APK সংরক্ষণ ব্যর্থ হয়েছে"), Toast.LENGTH_SHORT).show()
                                             }
                                         }
                                     },
@@ -810,7 +811,7 @@ fun SettingsScreen(
                                             modifier = Modifier.size(16.dp)
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text(text = "সংরক্ষণ হচ্ছে...", fontSize = textSize(12), lineHeight = leading(12))
+                                        Text(text = t("সংরক্ষণ হচ্ছে..."), fontSize = textSize(12), lineHeight = leading(12))
                                     } else {
                                         Icon(
                                             imageVector = Icons.Default.Download,
@@ -819,7 +820,7 @@ fun SettingsScreen(
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            text = "APK সংরক্ষণ করুন",
+                                            text = t("APK সংরক্ষণ করুন"),
                                             fontWeight = FontWeight.Bold,
                                             fontSize = textSize(12),
                                             lineHeight = leading(12)
@@ -831,7 +832,7 @@ fun SettingsScreen(
                                     onClick = {
                                         val success = ApkManager.shareInstalledApk(context)
                                         if (!success) {
-                                            Toast.makeText(context, "APK শেয়ার প্রস্তুত করা সম্ভব হয়নি", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, tNow("APK শেয়ার প্রস্তুত করা সম্ভব হয়নি"), Toast.LENGTH_SHORT).show()
                                         }
                                     },
                                     shape = RoundedCornerShape(12.dp),
@@ -850,7 +851,7 @@ fun SettingsScreen(
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = "APK শেয়ার করুন",
+                                        text = t("APK শেয়ার করুন"),
                                         fontWeight = FontWeight.Bold,
                                         fontSize = textSize(12),
                                         lineHeight = leading(12)
@@ -875,7 +876,7 @@ fun SettingsScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "নিংশিং চে — বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ",
+                            text = t("নিংশিং চে — বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ"),
                             style = MaterialTheme.typography.titleLarge.copy(
                                 fontFamily = Kalpurush,
                                 fontWeight = FontWeight.Bold,
@@ -885,7 +886,7 @@ fun SettingsScreen(
                             )
                         )
                         Text(
-                            text = "বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, ইতিহাস, সংস্কৃতি ও ঐতিহ্যের একমাত্র প্রামাণ্য ও মুক্ত ডিজিটাল তথ্যকোষ ও আর্কাইভ।",
+                            text = t("বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, ইতিহাস, সংস্কৃতি ও ঐতিহ্যের একমাত্র প্রামাণ্য ও মুক্ত ডিজিটাল তথ্যকোষ ও আর্কাইভ।"),
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f),
                                 fontSize = textSize(12),
@@ -911,7 +912,7 @@ fun SettingsScreen(
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
-                                text = "ningshingche.com ওয়েবসাইটে যান",
+                                text = t("ningshingche.com ওয়েবসাইটে যান"),
                                 style = MaterialTheme.typography.labelMedium.copy(
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Bold
@@ -938,7 +939,7 @@ fun SettingsScreen(
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "বিজ্ঞপ্তি ও আপডেট",
+                        text = t("বিজ্ঞপ্তি ও আপডেট"),
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary,
@@ -955,55 +956,55 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                             NotificationSwitchRow(
-                                title = "সব বিজ্ঞপ্তি",
-                                subtitle = "অ্যান্ড্রয়েড সিস্টেম নোটিফিকেশন চালু রাখুন",
+                                title = t("সব বিজ্ঞপ্তি"),
+                                subtitle = t("অ্যান্ড্রয়েড সিস্টেম নোটিফিকেশন চালু রাখুন"),
                                 checked = preferences.notificationsEnabled,
                                 onCheckedChange = enableAndAskOs { viewModel.toggleNotificationsEnabled(it) }
                             )
                             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                             NotificationSwitchRow(
-                                title = "নতুন প্রবন্ধ",
-                                subtitle = "নতুন প্রকাশিত প্রবন্ধ এলে জানান",
+                                title = t("নতুন প্রবন্ধ"),
+                                subtitle = t("নতুন প্রকাশিত প্রবন্ধ এলে জানান"),
                                 checked = preferences.notificationNewArticles,
                                 enabled = preferences.notificationsEnabled,
                                 onCheckedChange = enableAndAskOs { viewModel.toggleNewArticlesNotif(it) }
                             )
                             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                             NotificationSwitchRow(
-                                title = "নির্বাচিত প্রবন্ধ",
-                                subtitle = "ফিচার্ড ও সম্পাদকীয় পছন্দ",
+                                title = t("নির্বাচিত প্রবন্ধ"),
+                                subtitle = t("ফিচার্ড ও সম্পাদকীয় পছন্দ"),
                                 checked = preferences.notificationFeatured,
                                 enabled = preferences.notificationsEnabled,
                                 onCheckedChange = { viewModel.toggleFeaturedNotif(it) }
                             )
                             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                             NotificationSwitchRow(
-                                title = "নতুন ভিডিও",
-                                subtitle = "ভিডিও আর্কাইভে নতুন সংযোজন",
+                                title = t("নতুন ভিডিও"),
+                                subtitle = t("ভিডিও আর্কাইভে নতুন সংযোজন"),
                                 checked = preferences.notificationVideos,
                                 enabled = preferences.notificationsEnabled,
                                 onCheckedChange = { viewModel.toggleVideosNotif(it) }
                             )
                             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                             NotificationSwitchRow(
-                                title = "নতুন PDF বই",
-                                subtitle = "ডিজিটাল বই ও পত্রিকা প্রকাশিত হলে",
+                                title = t("নতুন PDF বই"),
+                                subtitle = t("ডিজিটাল বই ও পত্রিকা প্রকাশিত হলে"),
                                 checked = preferences.notificationPdfs,
                                 enabled = preferences.notificationsEnabled,
                                 onCheckedChange = { viewModel.togglePdfsNotif(it) }
                             )
                             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                             NotificationSwitchRow(
-                                title = "সিস্টেম আপডেট",
-                                subtitle = "অ্যাপ সংস্করণ ও সাইট হালনাগাদ",
+                                title = t("সিস্টেম আপডেট"),
+                                subtitle = t("অ্যাপ সংস্করণ ও সাইট হালনাগাদ"),
                                 checked = preferences.notificationSystem,
                                 enabled = preferences.notificationsEnabled,
                                 onCheckedChange = { viewModel.toggleSystemNotif(it) }
                             )
                             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                             NotificationSwitchRow(
-                                title = "অন্যান্য",
-                                subtitle = "গ্যালারি ও বাকি আপডেট",
+                                title = t("অন্যান্য"),
+                                subtitle = t("গ্যালারি ও বাকি আপডেট"),
                                 checked = preferences.notificationOther,
                                 enabled = preferences.notificationsEnabled,
                                 onCheckedChange = { viewModel.toggleOtherNotif(it) }
@@ -1017,7 +1018,7 @@ fun SettingsScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "মেমরি ও অফলাইন ক্যাশ ব্যবস্থাপনা",
+                        text = t("মেমরি ও অফলাইন ক্যাশ ব্যবস্থাপনা"),
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary,
@@ -1039,7 +1040,7 @@ fun SettingsScreen(
                                     .clickable {
                                         viewModel.clearCache()
                                         Toast
-                                            .makeText(context, "ক্যাশ খালি করা হয়েছে এবং তথ্য হালনাগাদ করা হয়েছে", Toast.LENGTH_SHORT)
+                                            .makeText(context, tNow("ক্যাশ খালি করা হয়েছে এবং তথ্য হালনাগাদ করা হয়েছে"), Toast.LENGTH_SHORT)
                                             .show()
                                     }
                                     .padding(16.dp),
@@ -1057,14 +1058,14 @@ fun SettingsScreen(
                                     )
                                     Column {
                                         Text(
-                                            text = "অফলাইন ক্যাশ সিঙ্ক ও পরিষ্কার করুন",
+                                            text = t("অফলাইন ক্যাশ সিঙ্ক ও পরিষ্কার করুন"),
                                             style = MaterialTheme.typography.bodyMedium.copy(
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
                                         )
                                         Text(
-                                            text = "নতুন প্রবন্ধসমূহ পুনরায় সিঙ্ক করবে",
+                                            text = t("নতুন প্রবন্ধসমূহ পুনরায় সিঙ্ক করবে"),
                                             style = MaterialTheme.typography.bodySmall.copy(
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 fontSize = textSize(11),
@@ -1083,7 +1084,7 @@ fun SettingsScreen(
                                     .clickable {
                                         viewModel.clearHistory()
                                         Toast
-                                            .makeText(context, "পঠন ইতিহাস মুছে ফেলা হয়েছে", Toast.LENGTH_SHORT)
+                                            .makeText(context, tNow("পঠন ইতিহাস মুছে ফেলা হয়েছে"), Toast.LENGTH_SHORT)
                                             .show()
                                     }
                                     .padding(16.dp),
@@ -1101,14 +1102,14 @@ fun SettingsScreen(
                                     )
                                     Column {
                                         Text(
-                                            text = "পঠন ইতিহাস রিসেট করুন",
+                                            text = t("পঠন ইতিহাস রিসেট করুন"),
                                             style = MaterialTheme.typography.bodyMedium.copy(
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
                                         )
                                         Text(
-                                            text = "সাম্প্রতিক পঠিত তালিকা মুছে ফেলুন",
+                                            text = t("সাম্প্রতিক পঠিত তালিকা মুছে ফেলুন"),
                                             style = MaterialTheme.typography.bodySmall.copy(
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 fontSize = textSize(11),
@@ -1133,13 +1134,13 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = "সংস্করণ ১.০.০ (অফিশিয়াল সংস্করণ)",
+                        text = t("সংস্করণ ১.০.০ (অফিশিয়াল সংস্করণ)"),
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     )
                     Text(
-                        text = "কপিরাইট © নিংশিং চে • সর্বস্বত্ব সংরক্ষিত",
+                        text = t("কপিরাইট © নিংশিং চে • সর্বস্বত্ব সংরক্ষিত"),
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                             fontSize = textSize(10),
@@ -1343,11 +1344,11 @@ private fun PaletteWheelBlock(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            PalettePreviewCard("লাইট", preview.light, Modifier.weight(1f))
-            PalettePreviewCard("ডার্ক", preview.dark, Modifier.weight(1f))
+            PalettePreviewCard(t("লাইট"), preview.light, Modifier.weight(1f))
+            PalettePreviewCard(t("ডার্ক"), preview.dark, Modifier.weight(1f))
         }
         Text(
-            text = "চাকা ঘুরিয়ে রঙ, কেন্দ্র থেকে দূরে টেনে গাঢ়তা — দুটোই এক আঙুলে।",
+            text = t("চাকা ঘুরিয়ে রঙ, কেন্দ্র থেকে দূরে টেনে গাঢ়তা — দুটোই এক আঙুলে।"),
             style = MaterialTheme.typography.bodySmall.copy(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = textSize(11),
@@ -1459,7 +1460,7 @@ private fun PalettePreviewCard(label: String, side: PaletteSide, modifier: Modif
                     lineHeight = leading(11.5)
                 )
             }
-            Text(text = "পাঠ্য লেখা", color = side.inkSoft, fontSize = textSize(11), lineHeight = leading(11))
+            Text(text = t("পাঠ্য লেখা"), color = side.inkSoft, fontSize = textSize(11), lineHeight = leading(11))
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1474,7 +1475,7 @@ private fun PalettePreviewCard(label: String, side: PaletteSide, modifier: Modif
                     .padding(vertical = 4.dp)
             ) {
                 Text(
-                    text = "অ্যাকসেন্ট",
+                    text = t("অ্যাকসেন্ট"),
                     color = side.onAccent,
                     fontSize = textSize(10.5),
                     lineHeight = leading(10.5),

@@ -55,6 +55,7 @@ import com.ningshingche.app.ui.components.HtmlContentEditor
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.ReaderWorkspaceViewModel
 import kotlinx.coroutines.delay
+import com.ningshingche.app.ui.i18n.tNow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,7 +89,7 @@ fun NewArticleScreen(
     LaunchedEffect(message) {
         val text = message ?: return@LaunchedEffect
         if (text.isBlank()) return@LaunchedEffect
-        if (text.startsWith("লেখা জমা হয়েছে")) {
+        if (text.startsWith(tNow("লেখা জমা হয়েছে"))) {
             title = ""
             content = ""
             thumbnail = null
@@ -113,10 +114,10 @@ fun NewArticleScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("নতুন প্রবন্ধ", fontFamily = Kalpurush, fontWeight = FontWeight.Bold) },
+                title = { Text(tNow("নতুন প্রবন্ধ"), fontFamily = Kalpurush, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "ফিরুন")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tNow("ফিরুন"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -133,25 +134,25 @@ fun NewArticleScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             if (user?.isProfileComplete != true) {
-                Text("নতুন প্রবন্ধ জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।", fontFamily = Kalpurush)
+                Text(tNow("নতুন প্রবন্ধ জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।"), fontFamily = Kalpurush)
                 Button(onClick = onCompleteProfile) {
-                    Text("প্রোফাইলে যান", fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
+                    Text(tNow("প্রোফাইলে যান"), fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
                 }
                 return@Column
             }
 
             Text(
-                "লেখা সম্পাদকীয় পর্যালোচনার পর প্রকাশিত হবে। শিরোনাম ও মূল লেখা জমা দেওয়া পর্যন্ত সংরক্ষিত থাকবে।",
+                tNow("লেখা সম্পাদকীয় পর্যালোচনার পর প্রকাশিত হবে। শিরোনাম ও মূল লেখা জমা দেওয়া পর্যন্ত সংরক্ষিত থাকবে।"),
                 fontFamily = Kalpurush,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
-                label = { Text("শিরোনাম", fontFamily = Kalpurush) },
+                label = { Text(tNow("শিরোনাম"), fontFamily = Kalpurush) },
                 modifier = Modifier.fillMaxWidth().testTag("article_title")
             )
-            Text("মূল লেখা", fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold)
+            Text(tNow("মূল লেখা"), fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold)
             HtmlContentEditor(
                 value = content,
                 onValueChange = { content = it },
@@ -161,7 +162,7 @@ fun NewArticleScreen(
             )
             OutlinedButton(onClick = { picker.launch("image/*") }, modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    if (thumbnail == null) "কভার ছবি নির্বাচন (ঐচ্ছিক)" else "কভার ছবি বদলান",
+                    if (thumbnail == null) tNow("কভার ছবি নির্বাচন (ঐচ্ছিক)") else tNow("কভার ছবি বদলান"),
                     fontFamily = Kalpurush
                 )
             }
@@ -174,7 +175,7 @@ fun NewArticleScreen(
                 ) {
                     AsyncImage(
                         model = thumbnail,
-                        contentDescription = "কভার ছবি",
+                        contentDescription = tNow("কভার ছবি"),
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -184,7 +185,7 @@ fun NewArticleScreen(
                             .align(Alignment.TopEnd)
                             .padding(8.dp)
                     ) {
-                        Icon(Icons.Default.Close, contentDescription = "কভার ছবি সরান")
+                        Icon(Icons.Default.Close, contentDescription = tNow("কভার ছবি সরান"))
                     }
                 }
             }
@@ -196,7 +197,7 @@ fun NewArticleScreen(
                 if (saving) {
                     CircularProgressIndicator(modifier = Modifier.height(18.dp), strokeWidth = 2.dp)
                 } else {
-                    Text("জমা দিন", fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
+                    Text(tNow("জমা দিন"), fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
                 }
             }
             Spacer(Modifier.height(24.dp))

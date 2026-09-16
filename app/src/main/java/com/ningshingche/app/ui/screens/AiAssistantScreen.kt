@@ -78,6 +78,7 @@ import kotlinx.coroutines.launch
 import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
+import com.ningshingche.app.ui.i18n.t
 
 @Composable
 fun AiAssistantScreen(
@@ -177,14 +178,14 @@ fun AiAssistantScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Menu,
-                        contentDescription = "মেনু",
+                        contentDescription = t("মেনু"),
                         tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
                 Image(
                     painter = painterResource(R.drawable.ic_ningshingche_logo),
-                    contentDescription = "নিংশিং চে",
+                    contentDescription = t("নিংশিং চে"),
                     modifier = Modifier.height(34.dp)
                 )
 
@@ -192,7 +193,7 @@ fun AiAssistantScreen(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "নিংশিং চে AI সহকারী",
+                        text = t("নিংশিং চে AI সহকারী"),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
@@ -203,7 +204,7 @@ fun AiAssistantScreen(
                         maxLines = 1
                     )
                     Text(
-                        text = "বিষ্ণুপ্রিয়া মণিপুরি ঐতিহ্য ও বিশ্ব জ্ঞানকোষ",
+                        text = t("বিষ্ণুপ্রিয়া মণিপুরি ঐতিহ্য ও বিশ্ব জ্ঞানকোষ"),
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = textSize(11),
@@ -222,7 +223,7 @@ fun AiAssistantScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "AI সহকারী লুকান",
+                        contentDescription = t("AI সহকারী লুকান"),
                         tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
@@ -278,7 +279,7 @@ fun AiAssistantScreen(
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
-                            text = "AI বিশ্লেষণ ও উত্তর প্রস্তুত করা হচ্ছে...",
+                            text = t("AI বিশ্লেষণ ও উত্তর প্রস্তুত করা হচ্ছে..."),
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = MaterialTheme.colorScheme.primary,
                                 fontSize = textSize(12),
@@ -299,7 +300,7 @@ fun AiAssistantScreen(
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Text(
-                    text = "প্রস্তাবিত জিজ্ঞাসা:",
+                    text = t("প্রস্তাবিত জিজ্ঞাসা:"),
                     style = MaterialTheme.typography.labelSmall.copy(
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
@@ -358,7 +359,7 @@ fun AiAssistantScreen(
                     onValueChange = { inputQuery = it },
                     placeholder = {
                         Text(
-                            text = "যেকোনো বিষয়ে প্রশ্ন করুন...",
+                            text = t("যেকোনো বিষয়ে প্রশ্ন করুন..."),
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                 fontSize = textSize(13),
@@ -516,7 +517,7 @@ fun ChatMessageItem(
                                 modifier = Modifier.size(14.dp)
                             )
                             Text(
-                                text = "সম্পর্কিত জিজ্ঞাসা (সরাসরি উত্তর জানতে ট্যাপ করুন):",
+                                text = t("সম্পর্কিত জিজ্ঞাসা (সরাসরি উত্তর জানতে ট্যাপ করুন):"),
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Bold,
@@ -561,7 +562,7 @@ fun ChatMessageItem(
                                     )
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                        contentDescription = "জিজ্ঞাসা করুন",
+                                        contentDescription = t("জিজ্ঞাসা করুন"),
                                         tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.75f),
                                         modifier = Modifier.size(14.dp)
                                     )
@@ -574,7 +575,7 @@ fun ChatMessageItem(
                 // Citations list / References
                 if (message.citations.isNotEmpty()) {
                     Text(
-                        text = "তথ্যসূত্র ও গবেষণা প্রবন্ধ:",
+                        text = t("তথ্যসূত্র ও গবেষণা প্রবন্ধ:"),
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold,

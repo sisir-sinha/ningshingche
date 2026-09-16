@@ -151,6 +151,8 @@ import com.ningshingche.app.ui.theme.APP_LEADING
 import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import kotlinx.coroutines.launch
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 
 /**
  * How large an article's body opens, and how large the reader may make it.
@@ -249,7 +251,7 @@ fun ArticleScreen(
                     title = { },
                     navigationIcon = {
                         IconButton(onClick = onBackClick) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "পেছনে")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tNow("পেছনে"))
                         }
                     },
                     actions = {
@@ -282,21 +284,21 @@ fun ArticleScreen(
                                 TtsPlayState.PLAYING -> {
                                     Icon(
                                         imageVector = Icons.Default.Pause,
-                                        contentDescription = "ভয়েস থামান",
+                                        contentDescription = tNow("ভয়েস থামান"),
                                         tint = MaterialTheme.colorScheme.primary
                                     )
                                 }
                                 TtsPlayState.PAUSED -> {
                                     Icon(
                                         imageVector = Icons.Default.PlayArrow,
-                                        contentDescription = "ভয়েস পুনরায় চালু করুন",
+                                        contentDescription = tNow("ভয়েস পুনরায় চালু করুন"),
                                         tint = MaterialTheme.colorScheme.primary
                                     )
                                 }
                                 TtsPlayState.IDLE, TtsPlayState.COMPLETED, TtsPlayState.ERROR -> {
                                     Icon(
                                         imageVector = Icons.Default.PlayArrow,
-                                        contentDescription = "ভয়েস শুনুন",
+                                        contentDescription = tNow("ভয়েস শুনুন"),
                                         tint = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
@@ -312,7 +314,7 @@ fun ArticleScreen(
                             ) {
                                 Icon(
                                     imageVector = if (bookmarkState.first) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                                    contentDescription = if (bookmarkState.first) "সংরক্ষণ বাতিল করুন" else "সংরক্ষণ করুন",
+                                    contentDescription = if (bookmarkState.first) tNow("সংরক্ষণ বাতিল করুন") else tNow("সংরক্ষণ করুন"),
                                     tint = if (bookmarkState.first) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                 )
                             }
@@ -320,7 +322,7 @@ fun ArticleScreen(
 
                         // Font Size Control Button
                         IconButton(onClick = { showFontSizeSheet = true }) {
-                            Icon(Icons.Default.FormatSize, contentDescription = "অক্ষরের আকার")
+                            Icon(Icons.Default.FormatSize, contentDescription = tNow("অক্ষরের আকার"))
                         }
 
                         // Share Button
@@ -331,9 +333,9 @@ fun ArticleScreen(
                                 putExtra(Intent.EXTRA_TEXT, "${article.title}\n${permalinkOf(article.summary.slug)}")
                                 putExtra(Intent.EXTRA_SUBJECT, article.title)
                             }
-                            context.startActivity(Intent.createChooser(send, "শেয়ার করুন"))
+                            context.startActivity(Intent.createChooser(send, tNow("শেয়ার করুন")))
                         }) {
-                            Icon(Icons.Default.Share, contentDescription = "শেয়ার")
+                            Icon(Icons.Default.Share, contentDescription = tNow("শেয়ার"))
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -378,11 +380,11 @@ fun ArticleScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = "নিবন্ধ এআই সহায়িকা",
+                            contentDescription = tNow("নিবন্ধ এআই সহায়িকা"),
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
-                            text = "এআই সহায়িকা",
+                            text = tNow("এআই সহায়িকা"),
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
                             fontSize = textSize(14.5),
@@ -635,7 +637,7 @@ private fun ArticleReaderContent(
                                 tint = tokens.inkMuted
                             )
                             Text(
-                                text = "${toBengaliNumeral(article.summary.readingTimeMinutes)} মিনিট পাঠ",
+                                text = tNow("{1} মিনিট পাঠ", toBengaliNumeral(article.summary.readingTimeMinutes)),
                                 fontFamily = Kalpurush,
                                 fontSize = textSize(12),
                                 lineHeight = leading(12),
@@ -658,7 +660,7 @@ private fun ArticleReaderContent(
                                 tint = tokens.inkMuted
                             )
                             Text(
-                                text = "${toBengaliNumeral(article.summary.viewsCount.toInt())} বার পঠিত",
+                                text = tNow("{1} বার পঠিত", toBengaliNumeral(article.summary.viewsCount.toInt())),
                                 fontFamily = Kalpurush,
                                 fontSize = textSize(12),
                                 lineHeight = leading(12),
@@ -709,7 +711,7 @@ private fun ArticleReaderContent(
                         .padding(horizontal = EditorialSpace.gutter, vertical = EditorialSpace.md)
                 ) {
                     Text(
-                        text = "ট্যাগসমূহ",
+                        text = tNow("ট্যাগসমূহ"),
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
                         fontSize = textSize(14),
@@ -767,7 +769,7 @@ private fun ArticleReaderContent(
                         ) {
                             Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
-                            Text("ভিডিও দেখুন", fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
+                            Text(tNow("ভিডিও দেখুন"), fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
                         }
                     }
                     if (article.pdfLink.isNotBlank()) {
@@ -777,7 +779,7 @@ private fun ArticleReaderContent(
                         ) {
                             Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
-                            Text("পিডিএফ বই", fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
+                            Text(tNow("পিডিএফ বই"), fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -788,8 +790,8 @@ private fun ArticleReaderContent(
         item {
             Hairline(modifier = Modifier.padding(vertical = EditorialSpace.md))
             SectionHeader(
-                title = "মন্তব্য",
-                subtitle = if (comments.isEmpty()) "এখনো কোনো মন্তব্য নেই" else "${comments.size}টি মন্তব্য"
+                title = tNow("মন্তব্য"),
+                subtitle = if (comments.isEmpty()) tNow("এখনো কোনো মন্তব্য নেই") else tNow("{1}টি মন্তব্য", comments.size)
             )
         }
 
@@ -815,7 +817,7 @@ private fun ArticleReaderContent(
                         )
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            text = "প্রথম মন্তব্যটি আপনিই লিখুন।",
+                            text = tNow("প্রথম মন্তব্যটি আপনিই লিখুন।"),
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
                             fontSize = textSize(15),
@@ -823,7 +825,7 @@ private fun ArticleReaderContent(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "অনুমোদনের পর আপনার মন্তব্য এখানে প্রকাশিত হবে।",
+                            text = tNow("অনুমোদনের পর আপনার মন্তব্য এখানে প্রকাশিত হবে।"),
                             fontFamily = Kalpurush,
                             fontSize = textSize(13),
                             lineHeight = leading(13),
@@ -853,7 +855,7 @@ private fun ArticleReaderContent(
         if (related.isNotEmpty()) {
             item {
                 Spacer(Modifier.height(EditorialSpace.md))
-                SectionHeader(title = "এগুলোও পড়ুন")
+                SectionHeader(title = tNow("এগুলোও পড়ুন"))
             }
             items(related, key = { it.id }) { articleSummary ->
                 ArticleRow(
@@ -996,7 +998,7 @@ fun ArticleAuthorMetaCard(
 
                 Spacer(Modifier.height(2.dp))
 
-                val designationText = authorDesignation.ifBlank { "লেখক • নিংশিং চে" }
+                val designationText = authorDesignation.ifBlank { tNow("লেখক • নিংশিং চে") }
                 Text(
                     text = designationText,
                     fontFamily = Kalpurush,
@@ -1189,7 +1191,7 @@ fun ArticleAiAssistantBottomSheet(
             } catch (e: Exception) {
                 val error = AiChatMessage(
                     id = UUID.randomUUID().toString(),
-                    text = "দুঃখিত, উত্তর তৈরি করতে সমস্যা হয়েছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।",
+                    text = tNow("দুঃখিত, উত্তর তৈরি করতে সমস্যা হয়েছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।"),
                     isUser = false
                 )
                 messages = messages + error
@@ -1287,7 +1289,7 @@ fun ArticleAiAssistantBottomSheet(
                         }
                         Column {
                             Text(
-                                text = "নিবন্ধ এআই সহায়িকা",
+                                text = t("নিবন্ধ এআই সহায়িকা"),
                                 fontFamily = Kalpurush,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = textSize(17),
@@ -1295,7 +1297,7 @@ fun ArticleAiAssistantBottomSheet(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "শুধুমাত্র এই নিবন্ধের তথ্যের ভিত্তিতে উত্তর প্রদান করা হয়",
+                                text = t("শুধুমাত্র এই নিবন্ধের তথ্যের ভিত্তিতে উত্তর প্রদান করা হয়"),
                                 fontFamily = Kalpurush,
                                 fontSize = textSize(11.5),
                                 lineHeight = leading(11.5),
@@ -1304,7 +1306,7 @@ fun ArticleAiAssistantBottomSheet(
                         }
                     }
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "বন্ধ করুন")
+                        Icon(Icons.Default.Close, contentDescription = t("বন্ধ করুন"))
                     }
                 }
 
@@ -1317,10 +1319,10 @@ fun ArticleAiAssistantBottomSheet(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     val promptSuggestions = listOf(
-                        "📌 সম্পূর্ণ সারসংক্ষেপ" to "এই নিবন্ধের একটি সংক্ষিপ্ত ও গোছানো সারসংক্ষেপ দিন।",
-                        "💡 মূল শিক্ষণীয় বিষয়" to "এই নিবন্ধ থেকে কী কী মূল বিষয় বা শিক্ষা পাওয়া যায়?",
-                        "🎯 লেখকের বক্তব্য" to "এই নিবন্ধে লেখকের মূল বক্তব্য ও লক্ষ্য কী?",
-                        "❓ প্রশ্নোত্তর বিশ্লেষণ" to "নিবন্ধটির সবচেয়ে গুরুত্বপূর্ণ ৩টি প্রশ্নোত্তর তৈরি করে দিন।"
+                        t("📌 সম্পূর্ণ সারসংক্ষেপ") to t("এই নিবন্ধের একটি সংক্ষিপ্ত ও গোছানো সারসংক্ষেপ দিন।"),
+                        t("💡 মূল শিক্ষণীয় বিষয়") to t("এই নিবন্ধ থেকে কী কী মূল বিষয় বা শিক্ষা পাওয়া যায়?"),
+                        t("🎯 লেখকের বক্তব্য") to t("এই নিবন্ধে লেখকের মূল বক্তব্য ও লক্ষ্য কী?"),
+                        t("❓ প্রশ্নোত্তর বিশ্লেষণ") to t("নিবন্ধটির সবচেয়ে গুরুত্বপূর্ণ ৩টি প্রশ্নোত্তর তৈরি করে দিন।")
                     )
 
                     promptSuggestions.forEach { (label, prompt) ->
@@ -1399,13 +1401,13 @@ fun ArticleAiAssistantBottomSheet(
                                                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
                                                     val clip = ClipData.newPlainText("Article AI Answer", msg.text)
                                                     clipboard?.setPrimaryClip(clip)
-                                                    Toast.makeText(context, "উত্তর কপি করা হয়েছে", Toast.LENGTH_SHORT).show()
+                                                    Toast.makeText(context, tNow("উত্তর কপি করা হয়েছে"), Toast.LENGTH_SHORT).show()
                                                 },
                                                 modifier = Modifier.size(28.dp)
                                             ) {
                                                 Icon(
                                                     imageVector = Icons.Default.ContentCopy,
-                                                    contentDescription = "কপি করুন",
+                                                    contentDescription = t("কপি করুন"),
                                                     modifier = Modifier.size(14.dp),
                                                     tint = tokens.inkMuted
                                                 )
@@ -1430,7 +1432,7 @@ fun ArticleAiAssistantBottomSheet(
                                     color = MaterialTheme.colorScheme.primary
                                 )
                                 Text(
-                                    text = "নিবন্ধ থেকে উত্তর তৈরি করা হচ্ছে...",
+                                    text = t("নিবন্ধ থেকে উত্তর তৈরি করা হচ্ছে..."),
                                     fontFamily = Kalpurush,
                                     fontSize = textSize(13),
                                     lineHeight = leading(13),
@@ -1455,7 +1457,7 @@ fun ArticleAiAssistantBottomSheet(
                         onValueChange = { inputText = it },
                         placeholder = {
                             Text(
-                                "এই নিবন্ধ সম্পর্কে প্রশ্ন লিখুন...",
+                                t("এই নিবন্ধ সম্পর্কে প্রশ্ন লিখুন..."),
                                 fontFamily = Kalpurush,
                                 fontSize = textSize(14),
                                 lineHeight = leading(14)
@@ -1490,7 +1492,7 @@ fun ArticleAiAssistantBottomSheet(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Send,
-                            contentDescription = "পাঠান",
+                            contentDescription = t("পাঠান"),
                             tint = Color.White,
                             modifier = Modifier.size(18.dp)
                         )
@@ -1537,7 +1539,7 @@ fun FontSizeControlBottomSheet(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "পঠন সেটিংস (Font & Spacing)",
+                    text = t("পঠন সেটিংস (Font & Spacing)"),
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
                     fontSize = textSize(18),
@@ -1547,7 +1549,7 @@ fun FontSizeControlBottomSheet(
                 IconButton(onClick = onReset) {
                     Icon(
                         imageVector = Icons.Default.RestartAlt,
-                        contentDescription = "রিসেট",
+                        contentDescription = t("রিসেট"),
                         tint = tokens.accent
                     )
                 }
@@ -1562,7 +1564,7 @@ fun FontSizeControlBottomSheet(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "অক্ষরের আকার",
+                    text = t("অক্ষরের আকার"),
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = textSize(15),
@@ -1586,7 +1588,7 @@ fun FontSizeControlBottomSheet(
                     onClick = { onFontSizeChange((fontSizeSp - 1f).coerceIn(READER_SP_RANGE)) },
                     modifier = Modifier.size(36.dp)
                 ) {
-                    Icon(Icons.Default.Remove, contentDescription = "ছোট করুন")
+                    Icon(Icons.Default.Remove, contentDescription = t("ছোট করুন"))
                 }
                 Slider(
                     value = fontSizeSp,
@@ -1605,7 +1607,7 @@ fun FontSizeControlBottomSheet(
                     onClick = { onFontSizeChange((fontSizeSp + 1f).coerceIn(READER_SP_RANGE)) },
                     modifier = Modifier.size(36.dp)
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "বড় করুন")
+                    Icon(Icons.Default.Add, contentDescription = t("বড় করুন"))
                 }
             }
 
@@ -1618,7 +1620,7 @@ fun FontSizeControlBottomSheet(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "লাইনের ফাঁক (Line Spacing)",
+                    text = t("লাইনের ফাঁক (Line Spacing)"),
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = textSize(15),
@@ -1656,7 +1658,7 @@ fun FontSizeControlBottomSheet(
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Text(
-                        text = "লাইভ প্রিভিউ (কালপুরুষ ফন্ট):",
+                        text = t("লাইভ প্রিভিউ (কালপুরুষ ফন্ট):"),
                         fontFamily = Kalpurush,
                         fontSize = textSize(12),
                         lineHeight = leading(12),
@@ -1664,7 +1666,7 @@ fun FontSizeControlBottomSheet(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "বিষ্ণুপ্রিয়া মণিপুরি ভাষা ও সংস্কৃতির ডিজিটাল সংকলন — নিংশিং চে।",
+                        text = t("বিষ্ণুপ্রিয়া মণিপুরি ভাষা ও সংস্কৃতির ডিজিটাল সংকলন — নিংশিং চে।"),
                         fontFamily = Kalpurush,
                         fontSize = fontSizeSp.sp,
                         lineHeight = (fontSizeSp * lineSpacing).sp,

@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.ningshingche.app.ui.i18n.tNow
 
 enum class RepeatMode { OFF, ALL, ONE }
 
@@ -186,7 +187,7 @@ class MusicController(
                     startTicker()
                 }.onFailure {
                     controllerFuture = null
-                    val message = "প্লেয়ার চালু হয়নি। আবার চেষ্টা করুন।"
+                    val message = tNow("প্লেয়ার চালু হয়নি। আবার চেষ্টা করুন।")
                     _state.update { it.copy(error = message) }
                     AppToasts.show(message)
                 }
@@ -219,10 +220,10 @@ class MusicController(
                     visible = true,
                     expanded = expand,
                     track = track,
-                    error = "এই গানের অডিও ফাইল নেই।"
+                    error = tNow("এই গানের অডিও ফাইল নেই।")
                 )
             }
-            AppToasts.show("এই গানের অডিও ফাইল নেই।")
+            AppToasts.show(tNow("এই গানের অডিও ফাইল নেই।"))
             return
         }
         val index = list.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
@@ -596,15 +597,15 @@ class MusicController(
     fun setSleepTimer(minutes: Int) {
         sleepJob?.cancel()
         if (minutes <= 0) {
-            _state.update { it.copy(sleepUntilMs = null, statusMessage = "স্লিপ টাইমার বন্ধ") }
+            _state.update { it.copy(sleepUntilMs = null, statusMessage = tNow("স্লিপ টাইমার বন্ধ")) }
             return
         }
         val until = System.currentTimeMillis() + minutes * 60_000L
-        _state.update { it.copy(sleepUntilMs = until, statusMessage = "স্লিপ টাইমার $minutes মিনিট") }
+        _state.update { it.copy(sleepUntilMs = until, statusMessage = tNow("স্লিপ টাইমার {1} মিনিট", minutes)) }
         sleepJob = scope.launch {
             delay(minutes * 60_000L)
             controller?.pause()
-            _state.update { it.copy(sleepUntilMs = null, statusMessage = "স্লিপ টাইমার শেষ") }
+            _state.update { it.copy(sleepUntilMs = null, statusMessage = tNow("স্লিপ টাইমার শেষ")) }
         }
     }
 
@@ -668,11 +669,11 @@ class MusicController(
             val message = when {
                 detail.contains("403") || detail.contains("401") ||
                     detail.contains("Permission") || detail.contains("403 Forbidden") ->
-                    "গানের লিংক মেয়াদ শেষ বা বন্ধ। ড্যাশবোর্ড থেকে MP3 আবার আপলোড করুন।"
-                detail.contains("404") -> "গানের ফাইল পাওয়া যায়নি।"
+                    tNow("গানের লিংক মেয়াদ শেষ বা বন্ধ। ড্যাশবোর্ড থেকে MP3 আবার আপলোড করুন।")
+                detail.contains("404") -> tNow("গানের ফাইল পাওয়া যায়নি।")
                 detail.contains("Unable to connect", true) || detail.contains("UnknownHost") ->
-                    "ইন্টারনেট সংযোগ নেই।"
-                else -> "গান বাজানো যায়নি। ফাইল লিংক যাচাই করুন।"
+                    tNow("ইন্টারনেট সংযোগ নেই।")
+                else -> tNow("গান বাজানো যায়নি। ফাইল লিংক যাচাই করুন।")
             }
             _state.update { it.copy(isPlaying = false, isBuffering = false, error = message) }
             AppToasts.show(message)
@@ -759,7 +760,7 @@ internal fun MusicTrack.toMediaItem(
         .setMediaMetadata(
             MediaMetadata.Builder()
                 .setTitle(title)
-                .setArtist(artist.ifBlank { "নিংশিং চে" })
+                .setArtist(artist.ifBlank { tNow("নিংশিং চে") })
                 .setAlbumTitle(album.takeIf { it.isNotBlank() })
                 .setArtworkUri(thumbnailUrl.takeIf { it.isNotBlank() }?.toUri())
                 .setGenre(genre.takeIf { it.isNotBlank() })

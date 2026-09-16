@@ -73,24 +73,26 @@ import com.ningshingche.app.data.repository.NinghsingCheContentData
 import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 
 /**
  * Returns a dedicated Google Material Icon for each category.
  */
 fun getCategoryIcon(categorySlug: String): ImageVector {
     return when (categorySlug.trim().lowercase().replace(Regex("\\s+"), "-")) {
-        "history-heritage", "history", "heritage", "ইতিহাস" -> Icons.Default.AccountBalance
-        "literature-poetry", "literature", "poetry", "সাহিত্য", "কবিতা" -> Icons.Default.AutoStories
-        "language-grammar", "language", "grammar", "ইমার-ঠারর-এলা" -> Icons.Default.Translate
-        "culture-festivals", "culture", "festivals", "সংস্কৃতি" -> Icons.Default.Celebration
-        "society-philosophy", "society", "philosophy", "society-culture", "সমাজ-ও-সংস্কৃতি" -> Icons.Default.Psychology
+        "history-heritage", "history", "heritage", tNow("ইতিহাস") -> Icons.Default.AccountBalance
+        "literature-poetry", "literature", "poetry", tNow("সাহিত্য"), tNow("কবিতা") -> Icons.Default.AutoStories
+        "language-grammar", "language", "grammar", tNow("ইমার-ঠারর-এলা") -> Icons.Default.Translate
+        "culture-festivals", "culture", "festivals", tNow("সংস্কৃতি") -> Icons.Default.Celebration
+        "society-philosophy", "society", "philosophy", "society-culture", tNow("সমাজ-ও-সংস্কৃতি") -> Icons.Default.Psychology
         "arts-drama", "art", "arts", "drama" -> Icons.Default.Palette
-        "research-essays", "research", "essays", "reviews", "পর্যালোচনা" -> Icons.Default.Science
-        "biography-memoirs", "biography", "memoirs", "reminiscence", "জীবনী", "স্মৃতিচারণ" -> Icons.Default.PersonPin
-        "editorial", "preface", "সম্পাদকীয়", "ভুমিকা" -> Icons.Default.EditNote
-        "mythology", "religion", "পৌরাণিক-কাহিনী", "ধর্ম" -> Icons.Default.AccountBalance
-        "science-technology", "বিজ্ঞান-ও-প্রযুক্তি" -> Icons.Default.Science
-        "news", "misc", "পৌ", "রকমারি" -> Icons.AutoMirrored.Filled.MenuBook
+        "research-essays", "research", "essays", "reviews", tNow("পর্যালোচনা") -> Icons.Default.Science
+        "biography-memoirs", "biography", "memoirs", "reminiscence", tNow("জীবনী"), tNow("স্মৃতিচারণ") -> Icons.Default.PersonPin
+        "editorial", "preface", tNow("সম্পাদকীয়"), tNow("ভুমিকা") -> Icons.Default.EditNote
+        "mythology", "religion", tNow("পৌরাণিক-কাহিনী"), tNow("ধর্ম") -> Icons.Default.AccountBalance
+        "science-technology", tNow("বিজ্ঞান-ও-প্রযুক্তি") -> Icons.Default.Science
+        "news", "misc", "পৌ", tNow("রকমারি") -> Icons.AutoMirrored.Filled.MenuBook
         else -> Icons.AutoMirrored.Filled.MenuBook
     }
 }
@@ -237,7 +239,7 @@ fun ArticleListItemCard(
                         modifier = Modifier.size(11.dp)
                     )
                     Text(
-                        text = "${article.readingTimeMinutes} মি.",
+                        text = t("{1} মি.", article.readingTimeMinutes),
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = textSize(10),
@@ -305,7 +307,7 @@ fun BookmarkToggleButton(
     IconButton(onClick = onClick, modifier = modifier.size(36.dp)) {
         Icon(
             imageVector = if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-            contentDescription = if (isBookmarked) "সংরক্ষণ বাতিল করুন" else "সংরক্ষণ করুন",
+            contentDescription = if (isBookmarked) t("সংরক্ষণ বাতিল করুন") else t("সংরক্ষণ করুন"),
             tint = if (isBookmarked) tint else MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(22.dp)
         )

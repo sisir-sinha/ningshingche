@@ -54,6 +54,7 @@ import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import kotlinx.coroutines.delay
+import com.ningshingche.app.ui.i18n.t
 
 /**
  * Animated Brand Logo Splash Screen on app launch.
@@ -202,7 +203,7 @@ fun SplashScreen(
 
             // App Title
             Text(
-                text = "নিংশিং চে",
+                text = t("নিংশিং চে"),
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
                 fontSize = textSize(36),
@@ -215,7 +216,7 @@ fun SplashScreen(
 
             // Subtitle
             Text(
-                text = "বিষ্ণুপ্রিয়া মণিপুরি সাহিত্য ও সংস্কৃতি পোর্টাল",
+                text = t("বিষ্ণুপ্রিয়া মণিপুরি সাহিত্য ও সংস্কৃতি পোর্টাল"),
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Medium,
                 fontSize = textSize(15),
@@ -244,7 +245,7 @@ fun SplashScreen(
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
-                        text = "জ্ঞান, ইতিহাস ও সাহিত্যের মুক্ত তথ্যকোষ",
+                        text = t("জ্ঞান, ইতিহাস ও সাহিত্যের মুক্ত তথ্যকোষ"),
                         fontFamily = Kalpurush,
                         fontSize = textSize(12),
                         lineHeight = leading(12),
@@ -277,7 +278,7 @@ fun SplashScreen(
             Spacer(Modifier.height(14.dp))
 
             Text(
-                text = "সংস্কৃতির আলোয় পথচলা…",
+                text = t("সংস্কৃতির আলোয় পথচলা…"),
                 fontFamily = Kalpurush,
                 fontSize = textSize(12),
                 lineHeight = leading(12),
@@ -294,7 +295,7 @@ fun SplashScreen(
                 .alpha(alphaAnim)
         ) {
             Text(
-                text = "ningshingche.com • সংস্করণ ১.০",
+                text = t("ningshingche.com • সংস্করণ ১.০"),
                 fontFamily = Kalpurush,
                 fontSize = textSize(11),
                 lineHeight = leading(11),

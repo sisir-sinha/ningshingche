@@ -1,4 +1,6 @@
 package com.ningshingche.app.notifications
+import com.ningshingche.app.ui.i18n.tNow
+
 
 /**
  * One piece of live content that can produce a system notification.
@@ -80,23 +82,23 @@ object ContentUpdatePolicy {
     }
 
     fun itemTitle(kind: NotificationKind): String = when (kind) {
-        NotificationKind.ARTICLE -> "নতুন প্রবন্ধ"
-        NotificationKind.FEATURED -> "নির্বাচিত প্রবন্ধ"
-        NotificationKind.VIDEO -> "নতুন ভিডিও"
-        NotificationKind.PDF -> "নতুন PDF বই"
-        NotificationKind.GALLERY -> "নতুন ছবি"
-        NotificationKind.SYSTEM -> "সিস্টেম আপডেট"
-        NotificationKind.MESSAGE -> "অ্যাডমিনের বার্তা"
+        NotificationKind.ARTICLE -> tNow("নতুন প্রবন্ধ")
+        NotificationKind.FEATURED -> tNow("নির্বাচিত প্রবন্ধ")
+        NotificationKind.VIDEO -> tNow("নতুন ভিডিও")
+        NotificationKind.PDF -> tNow("নতুন PDF বই")
+        NotificationKind.GALLERY -> tNow("নতুন ছবি")
+        NotificationKind.SYSTEM -> tNow("সিস্টেম আপডেট")
+        NotificationKind.MESSAGE -> tNow("অ্যাডমিনের বার্তা")
     }
 
     fun summaryTitle(kind: NotificationKind, count: Int): String = when (kind) {
-        NotificationKind.ARTICLE -> "${count}টি নতুন প্রবন্ধ"
-        NotificationKind.FEATURED -> "${count}টি নির্বাচিত প্রবন্ধ"
-        NotificationKind.VIDEO -> "${count}টি নতুন ভিডিও"
-        NotificationKind.PDF -> "${count}টি নতুন PDF বই"
-        NotificationKind.GALLERY -> "${count}টি নতুন ছবি"
-        NotificationKind.SYSTEM -> "সিস্টেম আপডেট"
-        NotificationKind.MESSAGE -> "${count}টি নতুন বার্তা"
+        NotificationKind.ARTICLE -> tNow("{1}টি নতুন প্রবন্ধ", count)
+        NotificationKind.FEATURED -> tNow("{1}টি নির্বাচিত প্রবন্ধ", count)
+        NotificationKind.VIDEO -> tNow("{1}টি নতুন ভিডিও", count)
+        NotificationKind.PDF -> tNow("{1}টি নতুন PDF বই", count)
+        NotificationKind.GALLERY -> tNow("{1}টি নতুন ছবি", count)
+        NotificationKind.SYSTEM -> tNow("সিস্টেম আপডেট")
+        NotificationKind.MESSAGE -> tNow("{1}টি নতুন বার্তা", count)
     }
 
     fun notificationId(kind: NotificationKind, key: String): Int {

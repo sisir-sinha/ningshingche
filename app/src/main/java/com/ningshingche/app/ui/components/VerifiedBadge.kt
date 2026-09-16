@@ -19,6 +19,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.ningshingche.app.R
+import com.ningshingche.app.ui.i18n.t
 
 @Composable
 fun VerifiedBadge(
@@ -50,7 +51,7 @@ fun VerifiedBadge(
     ) {
         Icon(
             painter = painterResource(id = R.drawable.ic_verified_badge),
-            contentDescription = "যাচাইকৃত লেখক",
+            contentDescription = t("যাচাইকৃত লেখক"),
             tint = Color.Unspecified,
             modifier = Modifier.size(size)
         )

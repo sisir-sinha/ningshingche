@@ -87,6 +87,8 @@ import com.ningshingche.app.ui.editorial.toBengaliNumeral
 import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 
 /**
  * A registered reader's public page.
@@ -143,7 +145,7 @@ fun PublicProfileScreen(
         error = null
         loadProfile(userId)
             .onSuccess { profile = it }
-            .onFailure { error = it.message ?: "প্রোফাইল লোড হয়নি।" }
+            .onFailure { error = it.message ?: tNow("প্রোফাইল লোড হয়নি।") }
         loading = false
     }
 
@@ -215,7 +217,7 @@ fun PublicProfileScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = profile?.name ?: "ব্যবহারকারীর পাতা",
+                        text = profile?.name ?: tNow("ব্যবহারকারীর পাতা"),
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
                         fontSize = textSize(17),
@@ -226,7 +228,7 @@ fun PublicProfileScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick, modifier = Modifier.testTag("public_profile_back")) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "পেছনে")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tNow("পেছনে"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -247,7 +249,7 @@ fun PublicProfileScreen(
                 ) { CircularProgressIndicator() }
 
                 profile == null -> ErrorState(
-                    message = error ?: "এই ব্যবহারকারীর পাতা পাওয়া যায়নি।",
+                    message = error ?: tNow("এই ব্যবহারকারীর পাতা পাওয়া যায়নি।"),
                     onRetry = {
                         error = null
                         loading = true
@@ -261,9 +263,9 @@ fun PublicProfileScreen(
                     // is still a tab: hiding it would leave the reader wondering
                     // whether the list exists at all.
                     val tabs = listOf(
-                        "প্রবন্ধ" to shownTotals.articles,
-                        "গান" to shownTotals.songs,
-                        "আলোচনা" to (shownTotals.threads + shownTotals.answers)
+                        tNow("প্রবন্ধ") to shownTotals.articles,
+                        tNow("গান") to shownTotals.songs,
+                        tNow("আলোচনা") to (shownTotals.threads + shownTotals.answers)
                     )
                     val activeTab = selectedTab.coerceIn(0, tabs.lastIndex)
 
@@ -324,14 +326,14 @@ fun PublicProfileScreen(
                                     horizontalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
                                 ) {
                                     ProfileForumChip(
-                                        label = "আলোচনা",
+                                        label = tNow("আলোচনা"),
                                         count = shownTotals.threads,
                                         selected = forumTab == 0,
                                         onClick = { forumTab = 0 },
                                         testTag = "public_profile_forum_threads"
                                     )
                                     ProfileForumChip(
-                                        label = "উত্তর",
+                                        label = tNow("উত্তর"),
                                         count = shownTotals.answers,
                                         selected = forumTab == 1,
                                         onClick = { forumTab = 1 },
@@ -366,10 +368,10 @@ fun PublicProfileScreen(
                             rows.isEmpty() -> item {
                                 EmptyState(
                                     message = when (kind) {
-                                        ProfileTotals.ARTICLES -> "এই ব্যবহারকারীর এখনো কোনো প্রকাশিত প্রবন্ধ নেই।"
-                                        ProfileTotals.SONGS -> "এই ব্যবহারকারীর এখনো কোনো গান প্রকাশিত হয়নি।"
-                                        ProfileTotals.THREADS -> "এই ব্যবহারকারী এখনো কোনো আলোচনা শুরু করেননি।"
-                                        else -> "এই ব্যবহারকারী এখনো কোনো উত্তর লেখেননি।"
+                                        ProfileTotals.ARTICLES -> tNow("এই ব্যবহারকারীর এখনো কোনো প্রকাশিত প্রবন্ধ নেই।")
+                                        ProfileTotals.SONGS -> tNow("এই ব্যবহারকারীর এখনো কোনো গান প্রকাশিত হয়নি।")
+                                        ProfileTotals.THREADS -> tNow("এই ব্যবহারকারী এখনো কোনো আলোচনা শুরু করেননি।")
+                                        else -> tNow("এই ব্যবহারকারী এখনো কোনো উত্তর লেখেননি।")
                                     },
                                     modifier = Modifier
                                         .padding(EditorialSpace.lg)
@@ -423,7 +425,7 @@ fun PublicProfileScreen(
                                         )
                                     } else {
                                         Text(
-                                            text = "আরও দেখুন (${toBengaliNumeral(page.total - page.loaded)})",
+                                            text = tNow("আরও দেখুন ({1})", toBengaliNumeral(page.total - page.loaded)),
                                             fontFamily = Kalpurush,
                                             fontWeight = FontWeight.SemiBold,
                                             fontSize = textSize(13),
@@ -573,9 +575,9 @@ private fun ProfileAnswerRow(answer: ForumActivityAnswer, onClick: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
             ) {
-                ProfileReactionCount(Icons.Default.ThumbUp, "লাইক", answer.likes, "public_profile_answer_likes_${answer.id}")
-                ProfileReactionCount(Icons.Default.CheckCircle, "একমত", answer.agrees, "public_profile_answer_agrees_${answer.id}")
-                ProfileReactionCount(Icons.Default.ThumbDown, "অপছন্দ", answer.dislikes, "public_profile_answer_dislikes_${answer.id}")
+                ProfileReactionCount(Icons.Default.ThumbUp, t("লাইক"), answer.likes, "public_profile_answer_likes_${answer.id}")
+                ProfileReactionCount(Icons.Default.CheckCircle, t("একমত"), answer.agrees, "public_profile_answer_agrees_${answer.id}")
+                ProfileReactionCount(Icons.Default.ThumbDown, t("অপছন্দ"), answer.dislikes, "public_profile_answer_dislikes_${answer.id}")
             }
         }
     }
@@ -622,7 +624,7 @@ private fun ProfileForumCounters(views: Long, replies: Int, answered: Boolean) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Default.Visibility,
-                contentDescription = "ভিউ",
+                contentDescription = t("ভিউ"),
                 tint = tokens.inkMuted,
                 modifier = Modifier.size(13.dp)
             )
@@ -638,7 +640,7 @@ private fun ProfileForumCounters(views: Long, replies: Int, answered: Boolean) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Default.ChatBubbleOutline,
-                contentDescription = "উত্তর",
+                contentDescription = t("উত্তর"),
                 tint = if (answered) tokens.accent else tokens.inkMuted,
                 modifier = Modifier.size(13.dp)
             )
@@ -687,9 +689,9 @@ private fun ProfileForumChip(
  */
 private fun profileListMessage(error: Throwable): String =
     if (error is PortalError.SchemaMissing) {
-        "তালিকা পড়তে ডেটাবেস আপডেট দরকার — 033_profile_paging.sql চালান।"
+        tNow("তালিকা পড়তে ডেটাবেস আপডেট দরকার — 033_profile_paging.sql চালান।")
     } else {
-        error.message ?: "তালিকাটি লোড হয়নি।"
+        error.message ?: tNow("তালিকাটি লোড হয়নি।")
     }
 
 /** How much of an excerpt a profile card shows before it ellipsises. */
@@ -771,7 +773,7 @@ private fun ProfileHeader(profile: PublicProfile) {
             Spacer(Modifier.height(2.dp))
             ProfileDetailLine(
                 icon = Icons.Default.WorkOutline,
-                text = profile.designation.ifBlank { "পাঠক" },
+                text = profile.designation.ifBlank { tNow("পাঠক") },
                 muted = profile.designation.isBlank(),
                 testTag = "public_profile_designation"
             )
@@ -844,7 +846,7 @@ private fun ProfileStatistics(profile: PublicProfile) {
                 StatisticTile(
                     icon = Icons.Default.Visibility,
                     value = profile.totalViews,
-                    label = "মোট ভিউ",
+                    label = t("মোট ভিউ"),
                     tint = tokens.accent,
                     modifier = Modifier.weight(1f)
                 )
@@ -852,7 +854,7 @@ private fun ProfileStatistics(profile: PublicProfile) {
                 StatisticTile(
                     icon = Icons.Default.Stars,
                     value = profile.points.toLong(),
-                    label = "মোট পয়েন্ট",
+                    label = t("মোট পয়েন্ট"),
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.weight(1f)
                 )
@@ -860,7 +862,7 @@ private fun ProfileStatistics(profile: PublicProfile) {
                 StatisticTile(
                     icon = Icons.Default.EmojiEvents,
                     value = profile.monthPoints.toLong(),
-                    label = "এই মাসের পয়েন্ট",
+                    label = t("এই মাসের পয়েন্ট"),
                     tint = tokens.accent,
                     modifier = Modifier.weight(1f)
                 )
@@ -888,14 +890,14 @@ private fun ProfileViewBreakdown(profile: PublicProfile) {
     val tokens = LocalEditorialTokens.current
     val minutes = profile.minutesListened
     val parts = buildList {
-        add("প্রবন্ধ ${toBengaliNumeral(profile.articleViews)}")
-        add("গান ${toBengaliNumeral(profile.musicViews)}")
-        add("আলোচনা ${toBengaliNumeral(profile.forumViews)}")
+        add(tNow("প্রবন্ধ {1}", toBengaliNumeral(profile.articleViews)))
+        add(tNow("গান {1}", toBengaliNumeral(profile.musicViews)))
+        add(tNow("আলোচনা {1}", toBengaliNumeral(profile.forumViews)))
         if (profile.visitors > 0L) {
-            add("পাঠক ${toBengaliNumeral(profile.visitors)}")
+            add(tNow("পাঠক {1}", toBengaliNumeral(profile.visitors)))
         }
         if (minutes > 0L) {
-            add("শোনা ${toBengaliNumeral(minutes)} মিনিট")
+            add(tNow("শোনা {1} মিনিট", toBengaliNumeral(minutes)))
         }
     }
     Text(
@@ -1074,7 +1076,7 @@ private fun PublicSongCard(track: MusicTrack, onPlay: () -> Unit) {
                         .joinToString(" · "),
                     date = formatBengaliDate(track.createdAt),
                     views = track.viewsCount,
-                    viewsLabel = "বার শোনা"
+                    viewsLabel = t("বার শোনা")
                 )
             }
             Spacer(Modifier.width(EditorialSpace.xs))
@@ -1096,7 +1098,7 @@ private fun ArticleFactRow(
     category: String,
     date: String,
     views: Long,
-    viewsLabel: String = "বার পঠিত"
+    viewsLabel: String = tNow("বার পঠিত")
 ) {
     val tokens = LocalEditorialTokens.current
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {

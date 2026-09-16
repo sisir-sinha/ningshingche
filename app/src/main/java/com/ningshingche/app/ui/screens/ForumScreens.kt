@@ -162,6 +162,8 @@ import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 
 /**
  * ফোরাম — a basic forum on the same rails as the rest of the reader.
@@ -421,7 +423,7 @@ fun ForumHomeScreen(
         error = null
         loadOverview(order)
             .onSuccess { overview = it }
-            .onFailure { error = it.message ?: "ফোরাম লোড হয়নি।" }
+            .onFailure { error = it.message ?: tNow("ফোরাম লোড হয়নি।") }
         loading = false
     }
 
@@ -444,10 +446,10 @@ fun ForumHomeScreen(
     }
 
     ForumScaffold(
-        title = "ফোরাম",
+        title = tNow("ফোরাম"),
         subtitle = overview?.let {
-            "আলোচনা ${toBengaliNumeral(it.totalDiscussions)} · উত্তর ${toBengaliNumeral(it.totalReplies)}"
-        } ?: "নিংশিং চে পাঠকদের আলোচনা",
+            tNow("আলোচনা {1} · উত্তর {2}", toBengaliNumeral(it.totalDiscussions), toBengaliNumeral(it.totalReplies))
+        } ?: tNow("নিংশিং চে পাঠকদের আলোচনা"),
         onBackClick = onBackClick,
         onRefreshClick = { reloadToken += 1 },
         onSearchClick = { searchFocus.requestFocus() },
@@ -484,7 +486,7 @@ fun ForumHomeScreen(
                 if (found != null) {
                     item {
                         ForumSectionTitle(
-                            title = "অনুসন্ধানের ফল",
+                            title = tNow("অনুসন্ধানের ফল"),
                             count = found.total,
                             modifier = Modifier.padding(horizontal = EditorialSpace.gutter)
                         )
@@ -492,7 +494,7 @@ fun ForumHomeScreen(
                     if (found.discussions.isEmpty()) {
                         item {
                             EmptyState(
-                                message = "«${found.query}» — এই শব্দে কোনো আলোচনা নেই।",
+                                message = tNow("«{1}» — এই শব্দে কোনো আলোচনা নেই।", found.query),
                                 modifier = Modifier.testTag("forum_search_empty")
                             )
                         }
@@ -529,7 +531,7 @@ fun ForumHomeScreen(
                 item {
                     Column(Modifier.padding(top = EditorialSpace.sm)) {
                         ForumSectionTitle(
-                            title = "সাম্প্রতিক আলোচনা",
+                            title = tNow("সাম্প্রতিক আলোচনা"),
                             count = loaded.latest.size,
                             modifier = Modifier.padding(horizontal = EditorialSpace.gutter)
                         )
@@ -545,9 +547,9 @@ fun ForumHomeScreen(
                     item {
                         EmptyState(
                             message = when (order) {
-                                ForumOverview.ORDER_OFFICIAL -> "এখনো প্রশাসকের কোনো আলোচনা নেই।"
-                                ForumOverview.ORDER_POPULAR -> "এখনো কোনো আলোচনায় উত্তর আসেনি।"
-                                else -> "এখনো কোনো আলোচনা হয়নি। প্রথম আলোচনাটি আপনিই শুরু করুন।"
+                                ForumOverview.ORDER_OFFICIAL -> tNow("এখনো প্রশাসকের কোনো আলোচনা নেই।")
+                                ForumOverview.ORDER_POPULAR -> tNow("এখনো কোনো আলোচনায় উত্তর আসেনি।")
+                                else -> tNow("এখনো কোনো আলোচনা হয়নি। প্রথম আলোচনাটি আপনিই শুরু করুন।")
                             },
                             modifier = Modifier.testTag("forum_latest_empty")
                         )
@@ -583,7 +585,7 @@ fun ForumHomeScreen(
             ExtendedFloatingActionButton(
                 onClick = onNewDiscussion,
                 icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("নতুন আলোচনা", fontFamily = Kalpurush, fontWeight = FontWeight.Bold) },
+                text = { Text(tNow("নতুন আলোচনা"), fontFamily = Kalpurush, fontWeight = FontWeight.Bold) },
                 containerColor = tokens.accent,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.testTag("forum_new_discussion")
@@ -592,7 +594,7 @@ fun ForumHomeScreen(
             ExtendedFloatingActionButton(
                 onClick = onSignInClick,
                 icon = { Icon(Icons.Default.Lock, contentDescription = null) },
-                text = { Text("সাইন ইন করুন", fontFamily = Kalpurush, fontWeight = FontWeight.Bold) },
+                text = { Text(tNow("সাইন ইন করুন"), fontFamily = Kalpurush, fontWeight = FontWeight.Bold) },
                 modifier = Modifier.testTag("forum_sign_in")
             )
         }
@@ -637,7 +639,7 @@ private fun ForumRoomsSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "বিভাগসমূহ (${toBengaliNumeral(categories.size)})",
+                text = t("বিভাগসমূহ ({1})", toBengaliNumeral(categories.size)),
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
                 // Scaled up, with every other heading on the page: the owner
@@ -649,7 +651,7 @@ private fun ForumRoomsSection(
             )
             Icon(
                 imageVector = Icons.Default.KeyboardArrowDown,
-                contentDescription = if (expanded) "বিভাগ গুটিয়ে নিন" else "বিভাগ দেখুন",
+                contentDescription = if (expanded) t("বিভাগ গুটিয়ে নিন") else t("বিভাগ দেখুন"),
                 tint = LocalEditorialTokens.current.inkMuted,
                 modifier = Modifier
                     .size(24.dp)
@@ -699,14 +701,14 @@ private fun ForumOrderChips(
         horizontalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
     ) {
         ForumOrderChip(
-            label = "সাম্প্রতিক",
+            label = t("সাম্প্রতিক"),
             icon = Icons.Default.Refresh,
             selected = selected == ForumOverview.ORDER_RECENT,
             onClick = { onSelect(ForumOverview.ORDER_RECENT) },
             modifier = Modifier.testTag("forum_order_recent")
         )
         ForumOrderChip(
-            label = "জনপ্রিয়",
+            label = t("জনপ্রিয়"),
             icon = Icons.Default.TrendingUp,
             selected = selected == ForumOverview.ORDER_POPULAR,
             onClick = { onSelect(ForumOverview.ORDER_POPULAR) },
@@ -714,9 +716,9 @@ private fun ForumOrderChips(
         )
         ForumOrderChip(
             label = if (officialCount > 0) {
-                "অনুমোদিত (${toBengaliNumeral(officialCount)})"
+                t("অনুমোদিত ({1})", toBengaliNumeral(officialCount))
             } else {
-                "অনুমোদিত"
+                t("অনুমোদিত")
             },
             icon = Icons.Default.Verified,
             selected = selected == ForumOverview.ORDER_OFFICIAL,
@@ -785,7 +787,7 @@ private fun ForumRoomChip(category: ForumCategory, onClick: () -> Unit) {
                 if (category.isLocked) {
                     Icon(
                         imageVector = Icons.Default.Lock,
-                        contentDescription = "বন্ধ বিভাগ",
+                        contentDescription = t("বন্ধ বিভাগ"),
                         tint = tokens.inkMuted,
                         modifier = Modifier.size(14.dp)
                     )
@@ -841,14 +843,14 @@ fun ForumCategoryScreen(
         error = null
         loadCategory(slug)
             .onSuccess { page = it }
-            .onFailure { error = it.message ?: "আলোচনা লোড হয়নি।" }
+            .onFailure { error = it.message ?: tNow("আলোচনা লোড হয়নি।") }
         loading = false
     }
 
     ForumScaffold(
-        title = page?.category?.title ?: "আলোচনা",
+        title = page?.category?.title ?: tNow("আলোচনা"),
         subtitle = page?.category?.description?.takeIf { it.isNotBlank() }
-            ?: "এই বিভাগের আলোচনাগুলো",
+            ?: tNow("এই বিভাগের আলোচনাগুলো"),
         onBackClick = onBackClick,
         onRefreshClick = { reloadToken += 1 }
     ) { padding ->
@@ -862,13 +864,13 @@ fun ForumCategoryScreen(
                     .testTag("forum_category_error")
             )
             page == null -> EmptyState(
-                message = "এই বিভাগ পাওয়া যায়নি।",
+                message = tNow("এই বিভাগ পাওয়া যায়নি।"),
                 modifier = Modifier
                     .padding(padding)
                     .testTag("forum_category_missing")
             )
             page?.discussions?.isEmpty() == true -> EmptyState(
-                message = "এই বিভাগে এখনো কোনো আলোচনা হয়নি।",
+                message = tNow("এই বিভাগে এখনো কোনো আলোচনা হয়নি।"),
                 modifier = Modifier
                     .padding(padding)
                     .testTag("forum_category_empty")
@@ -886,7 +888,7 @@ fun ForumCategoryScreen(
             ) {
                 item {
                     ForumSectionTitle(
-                        title = "আলোচনাসমূহ",
+                        title = tNow("আলোচনাসমূহ"),
                         count = page?.total ?: 0,
                         modifier = Modifier.padding(horizontal = EditorialSpace.gutter)
                     )
@@ -928,9 +930,9 @@ fun ForumCategoryScreen(
             text = {
                 Text(
                     text = when {
-                        room?.isLocked == true -> "বিভাগ বন্ধ"
-                        isSignedIn -> "নতুন আলোচনা"
-                        else -> "সাইন ইন করুন"
+                        room?.isLocked == true -> tNow("বিভাগ বন্ধ")
+                        isSignedIn -> tNow("নতুন আলোচনা")
+                        else -> tNow("সাইন ইন করুন")
                     },
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold
@@ -1109,7 +1111,7 @@ fun ForumThreadScreen(
                 if (countView) holder.markCounted()
                 holder.thread = loaded
             }
-            .onFailure { error = it.message ?: "আলোচনা খোলা যায়নি।" }
+            .onFailure { error = it.message ?: tNow("আলোচনা খোলা যায়নি।") }
         loading = false
         refreshing = false
     }
@@ -1151,13 +1153,13 @@ fun ForumThreadScreen(
             val picked = uris.take(ForumAttachmentUploader.roomLeft(attachments.size))
             if (picked.size < uris.size) {
                 replyError =
-                    "একটি উত্তরে সর্বোচ্চ ${toBengaliNumeral(ForumAttachmentUploader.MAX_FILES)}টি ফাইল যুক্ত করা যাবে।"
+                    tNow("একটি উত্তরে সর্বোচ্চ {1}টি ফাইল যুক্ত করা যাবে।", toBengaliNumeral(ForumAttachmentUploader.MAX_FILES))
             }
             picked.forEachIndexed { index, uri ->
                 ForumAttachmentUploader.upload(context, uri, index)
                     .onSuccess { file -> attachments = attachments + file }
                     .onFailure { failure ->
-                        replyError = failure.message ?: "ফাইল যুক্ত করা যায়নি।"
+                        replyError = failure.message ?: tNow("ফাইল যুক্ত করা যায়নি।")
                     }
             }
             attaching = false
@@ -1180,7 +1182,7 @@ fun ForumThreadScreen(
                         closeComposer()
                     }
                     .onFailure { failure ->
-                        replyError = failure.message ?: "সম্পাদনা সংরক্ষণ হয়নি।"
+                        replyError = failure.message ?: tNow("সম্পাদনা সংরক্ষণ হয়নি।")
                     }
                 posting = false
             }
@@ -1211,7 +1213,7 @@ fun ForumThreadScreen(
                     holder.thread = loadThread(discussionId, false).getOrNull() ?: holder.thread
                 }
                 .onFailure { failure ->
-                    replyError = failure.message ?: "উত্তর পাঠানো যায়নি।"
+                    replyError = failure.message ?: tNow("উত্তর পাঠানো যায়নি।")
                 }
             posting = false
         }
@@ -1261,7 +1263,7 @@ fun ForumThreadScreen(
                     .onFailure { failure ->
                         Toast.makeText(
                             context,
-                            failure.message ?: "উত্তর মুছে ফেলা যায়নি।",
+                            failure.message ?: tNow("উত্তর মুছে ফেলা যায়নি।"),
                             Toast.LENGTH_LONG
                         ).show()
                     }
@@ -1285,10 +1287,10 @@ fun ForumThreadScreen(
     )
 
     ForumScaffold(
-        title = thread?.discussion?.title ?: "আলোচনা",
+        title = thread?.discussion?.title ?: tNow("আলোচনা"),
         subtitle = thread?.discussion?.let {
             "${it.categoryTitle} · ${formatBengaliDate(it.createdAt)}"
-        } ?: "লোড হচ্ছে…",
+        } ?: tNow("লোড হচ্ছে…"),
         refreshing = refreshing,
         onBackClick = onBackClick,
         // Refreshing re-reads without counting a second view — the reader is the
@@ -1359,7 +1361,7 @@ fun ForumThreadScreen(
                     .testTag("forum_thread_error")
             )
             thread == null -> EmptyState(
-                message = "আলোচনা পাওয়া যায়নি।",
+                message = tNow("আলোচনা পাওয়া যায়নি।"),
                 modifier = Modifier
                     .padding(padding)
                     .testTag("forum_thread_missing")
@@ -1415,7 +1417,7 @@ fun ForumThreadScreen(
                     item {
                         Column {
                             ForumSectionTitle(
-                                title = "উত্তরসমূহ",
+                                title = tNow("উত্তরসমূহ"),
                                 count = loaded.answers.size,
                                 modifier = Modifier.padding(horizontal = EditorialSpace.gutter)
                             )
@@ -1429,7 +1431,7 @@ fun ForumThreadScreen(
                     if (loaded.answers.isEmpty()) {
                         item {
                             EmptyState(
-                                message = "এখনো কেউ উত্তর দেয়নি। আপনিই প্রথম উত্তর দিন।",
+                                message = tNow("এখনো কেউ উত্তর দেয়নি। আপনিই প্রথম উত্তর দিন।"),
                                 modifier = Modifier.testTag("forum_answers_empty")
                             )
                         }
@@ -1484,14 +1486,14 @@ private fun ForumAnswerOrderChips(selected: String, onSelect: (String) -> Unit) 
         FilterChip(
             selected = selected == ForumThread.ANSWER_TOP,
             onClick = { onSelect(ForumThread.ANSWER_TOP) },
-            label = { Text("শীর্ষ উত্তর", fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold) },
+            label = { Text(t("শীর্ষ উত্তর"), fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold) },
             leadingIcon = { Icon(Icons.Default.TrendingUp, contentDescription = null, modifier = Modifier.size(16.dp)) },
             modifier = Modifier.testTag("forum_answers_top")
         )
         FilterChip(
             selected = selected == ForumThread.ANSWER_RECENT,
             onClick = { onSelect(ForumThread.ANSWER_RECENT) },
-            label = { Text("সাম্প্রতিক", fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold) },
+            label = { Text(t("সাম্প্রতিক"), fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold) },
             leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp)) },
             modifier = Modifier.testTag("forum_answers_recent")
         )
@@ -1601,7 +1603,7 @@ private fun ForumAnswerCard(
                 horizontalArrangement = Arrangement.spacedBy(EditorialSpace.sm)
             ) {
                 ForumInlineAction(
-                    label = "উত্তর দিন",
+                    label = tNow("উত্তর দিন"),
                     icon = Icons.Default.Reply,
                     onClick = onReply,
                     modifier = Modifier.testTag("forum_reply_to_${answer.id}")
@@ -1609,9 +1611,9 @@ private fun ForumAnswerCard(
                 if (replies.isNotEmpty()) {
                     ForumInlineAction(
                         label = if (showAll) {
-                            "উত্তরগুলো লুকান"
+                            tNow("উত্তরগুলো লুকান")
                         } else {
-                            "সব উত্তর দেখুন (${toBengaliNumeral(replies.size)})"
+                            tNow("সব উত্তর দেখুন ({1})", toBengaliNumeral(replies.size))
                         },
                         icon = null,
                         color = tokens.accent,
@@ -1636,7 +1638,7 @@ private fun ForumAnswerCard(
                 Hairline()
                 if (hidden > 0) {
                     Text(
-                        text = "আরও ${toBengaliNumeral(hidden)} টি উত্তর — সব উত্তর দেখুন চাপুন",
+                        text = tNow("আরও {1} টি উত্তর — সব উত্তর দেখুন চাপুন", toBengaliNumeral(hidden)),
                         fontFamily = Kalpurush,
                         fontSize = textSize(11.5),
                         lineHeight = leading(11.5),
@@ -1770,7 +1772,7 @@ private fun ForumNestedReply(
                 // the same mark the top-level answers use, so the same gesture
                 // reads the same twice.
                 ForumInlineAction(
-                    label = "উত্তর",
+                    label = tNow("উত্তর"),
                     icon = Icons.Default.Reply,
                     onClick = onReply,
                     modifier = Modifier.testTag("forum_reply_nested_to_${reply.id}")
@@ -1844,7 +1846,7 @@ private fun ForumAnswerActions(
     ) {
         if (confirming) {
             Text(
-                text = "মুছে ফেলবেন?",
+                text = t("মুছে ফেলবেন?"),
                 fontFamily = Kalpurush,
                 fontSize = textSize(12.5),
                 lineHeight = leading(12.5),
@@ -1852,7 +1854,7 @@ private fun ForumAnswerActions(
                 modifier = Modifier.weight(1f)
             )
             ForumInlineAction(
-                label = "হ্যাঁ",
+                label = t("হ্যাঁ"),
                 icon = Icons.Default.Check,
                 color = MaterialTheme.colorScheme.error,
                 onClick = onConfirm,
@@ -1866,7 +1868,7 @@ private fun ForumAnswerActions(
             )
         } else {
             Text(
-                text = "আপনার উত্তর",
+                text = t("আপনার উত্তর"),
                 fontFamily = Kalpurush,
                 fontSize = textSize(12.5),
                 lineHeight = leading(12.5),
@@ -1874,13 +1876,13 @@ private fun ForumAnswerActions(
                 modifier = Modifier.weight(1f)
             )
             ForumInlineAction(
-                label = "সম্পাদনা",
+                label = t("সম্পাদনা"),
                 icon = Icons.Default.Edit,
                 onClick = onEdit,
                 modifier = Modifier.testTag("forum_answer_edit")
             )
             ForumInlineAction(
-                label = "মুছে ফেলুন",
+                label = t("মুছে ফেলুন"),
                 icon = Icons.Default.DeleteOutline,
                 color = MaterialTheme.colorScheme.error,
                 onClick = onDelete,
@@ -1965,7 +1967,7 @@ private fun ForumReactionRow(
     ) {
         ForumReactionCount(
             icon = Icons.Default.ThumbUp,
-            label = "লাইক",
+            label = t("লাইক"),
             count = reply.likes,
             mine = reply.myReaction == ForumReply.REACTION_LIKE,
             onClick = { onReact(ForumReply.REACTION_LIKE) },
@@ -1974,7 +1976,7 @@ private fun ForumReactionRow(
         )
         ForumReactionCount(
             icon = Icons.Default.CheckCircle,
-            label = "একমত",
+            label = t("একমত"),
             count = reply.agrees,
             mine = reply.myReaction == ForumReply.REACTION_AGREE,
             onClick = { onReact(ForumReply.REACTION_AGREE) },
@@ -1983,7 +1985,7 @@ private fun ForumReactionRow(
         )
         ForumReactionCount(
             icon = Icons.Default.ThumbDown,
-            label = "অপছন্দ",
+            label = t("অপছন্দ"),
             count = reply.dislikes,
             mine = reply.myReaction == ForumReply.REACTION_DISLIKE,
             onClick = { onReact(ForumReply.REACTION_DISLIKE) },
@@ -2087,7 +2089,7 @@ internal fun HomeForumBlock(
                 )
                 Spacer(Modifier.width(EditorialSpace.xs))
                 Text(
-                    text = "সাম্প্রতিক আলোচনা",
+                    text = t("সাম্প্রতিক আলোচনা"),
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
                     fontSize = textSize(17),
@@ -2095,7 +2097,7 @@ internal fun HomeForumBlock(
                     modifier = Modifier.weight(1f)
                 )
                 Text(
-                    text = "সব দেখুন",
+                    text = t("সব দেখুন"),
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = textSize(12.5),
@@ -2138,7 +2140,7 @@ internal fun HomeForumBlock(
                         modifier = Modifier.weight(1f)
                     )
                     Text(
-                        text = "আবার",
+                        text = t("আবার"),
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = textSize(12.5),
@@ -2153,7 +2155,7 @@ internal fun HomeForumBlock(
                 }
 
                 discussions.isEmpty() -> Text(
-                    text = "ফোরামে এখনো কোনো আলোচনা নেই।",
+                    text = t("ফোরামে এখনো কোনো আলোচনা নেই।"),
                     fontFamily = Kalpurush,
                     fontSize = textSize(12.5),
                     lineHeight = leading(12.5),
@@ -2317,7 +2319,7 @@ fun NewDiscussionScreen(
     LaunchedEffect(preselectSlug) {
         loadCategories(preselectSlug)
             .onSuccess { rooms = it }
-            .onFailure { categoriesError = it.message ?: "বিভাগ লোড হয়নি।" }
+            .onFailure { categoriesError = it.message ?: tNow("বিভাগ লোড হয়নি।") }
     }
 
     // What was left half-written comes back, cover and all.
@@ -2361,13 +2363,13 @@ fun NewDiscussionScreen(
             val picked = uris.take(ForumAttachmentUploader.roomLeft(attachments.size))
             if (picked.size < uris.size) {
                 attachError =
-                    "একটি আলোচনায় সর্বোচ্চ ${toBengaliNumeral(ForumAttachmentUploader.MAX_FILES)}টি ফাইল যুক্ত করা যাবে।"
+                    tNow("একটি আলোচনায় সর্বোচ্চ {1}টি ফাইল যুক্ত করা যাবে।", toBengaliNumeral(ForumAttachmentUploader.MAX_FILES))
             }
             picked.forEachIndexed { index, uri ->
                 ForumAttachmentUploader.upload(context, uri, index)
                     .onSuccess { file -> attachments = attachments + file }
                     .onFailure { failure ->
-                        attachError = failure.message ?: "ফাইল যুক্ত করা যায়নি।"
+                        attachError = failure.message ?: tNow("ফাইল যুক্ত করা যায়নি।")
                     }
             }
             attaching = false
@@ -2384,7 +2386,7 @@ fun NewDiscussionScreen(
                     coverUrl = image.displayUrl.ifBlank { image.url }
                     coverDeleteUrl = image.deleteUrl
                 }
-                .onFailure { coverError = it.message ?: "ছবি আপলোড হয়নি।" }
+                .onFailure { coverError = it.message ?: tNow("ছবি আপলোড হয়নি।") }
             coverUploading = false
         }
     }
@@ -2397,9 +2399,9 @@ fun NewDiscussionScreen(
         bodyProblem == null && !posting
 
     ForumScaffold(
-        title = "নতুন আলোচনা",
+        title = tNow("নতুন আলোচনা"),
         subtitle = rooms?.firstOrNull { it.slug == categorySlug }?.title
-            ?: "বিভাগ বেছে নিন",
+            ?: tNow("বিভাগ বেছে নিন"),
         onBackClick = onBackClick
     ) { padding ->
         LazyColumn(
@@ -2418,7 +2420,7 @@ fun NewDiscussionScreen(
         ) {
             item {
                 ForumSectionTitle(
-                    title = "বিভাগ",
+                    title = tNow("বিভাগ"),
                     count = rooms?.size,
                     modifier = Modifier.padding(horizontal = EditorialSpace.gutter)
                 )
@@ -2457,11 +2459,11 @@ fun NewDiscussionScreen(
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("শিরোনাম", fontFamily = Kalpurush) },
+                    label = { Text(tNow("শিরোনাম"), fontFamily = Kalpurush) },
                     isError = title.isNotBlank() && titleProblem != null,
                     supportingText = {
                         Text(
-                            text = titleProblem ?: "${toBengaliNumeral(ForumText.units(title))} অক্ষর",
+                            text = titleProblem ?: tNow("{1} অক্ষর", toBengaliNumeral(ForumText.units(title))),
                             fontFamily = Kalpurush,
                             fontSize = textSize(11),
                             lineHeight = leading(11)
@@ -2489,7 +2491,7 @@ fun NewDiscussionScreen(
 
             item {
                 Text(
-                    text = "আলোচনার কথা *",
+                    text = tNow("আলোচনার কথা *"),
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = textSize(13),
@@ -2507,7 +2509,7 @@ fun NewDiscussionScreen(
                     selectionPopup = false,
                     compact = true,
                     maxGrow = 420,
-                    placeholder = "আলোচনার কথা লিখুন…",
+                    placeholder = tNow("আলোচনার কথা লিখুন…"),
                     testTag = "forum_new_body"
                 )
                 // The cover is the thread's face; these are its files, and they
@@ -2579,7 +2581,7 @@ fun NewDiscussionScreen(
                                 .onFailure { failure ->
                                     postError = when (failure) {
                                         is PortalError.SignedOut -> PortalError.SignedOut.SESSION_EXPIRED
-                                        else -> failure.message ?: "আলোচনা খোলা যায়নি।"
+                                        else -> failure.message ?: tNow("আলোচনা খোলা যায়নি।")
                                     }
                                 }
                             posting = false
@@ -2608,7 +2610,7 @@ fun NewDiscussionScreen(
                 )
                         Spacer(Modifier.width(EditorialSpace.xs))
                         Text(
-                            text = "আলোচনা খুলুন",
+                            text = tNow("আলোচনা খুলুন"),
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold
                         )
@@ -2622,7 +2624,7 @@ fun NewDiscussionScreen(
 
             item {
                 Text(
-                    text = "লেখা জমা না হওয়া পর্যন্ত এখানে সংরক্ষিত থাকে — ফিরে এলে যা লিখেছিলেন তাই পাবেন।",
+                    text = tNow("লেখা জমা না হওয়া পর্যন্ত এখানে সংরক্ষিত থাকে — ফিরে এলে যা লিখেছিলেন তাই পাবেন।"),
                     fontFamily = Kalpurush,
                     fontSize = textSize(11),
                     lineHeight = leading(11),
@@ -2646,7 +2648,7 @@ private fun ForumCoverPicker(
     Column(verticalArrangement = Arrangement.spacedBy(EditorialSpace.xxs)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "কভার ছবি (ঐচ্ছিক)",
+                text = t("কভার ছবি (ঐচ্ছিক)"),
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = textSize(13),
@@ -2657,7 +2659,7 @@ private fun ForumCoverPicker(
                 Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(EditorialSpace.xxs))
                 Text(
-                    text = if (coverUrl.isBlank()) "ছবি যোগ করুন" else "ছবি বদলান",
+                    text = if (coverUrl.isBlank()) t("ছবি যোগ করুন") else t("ছবি বদলান"),
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = textSize(12.5),
@@ -2666,7 +2668,7 @@ private fun ForumCoverPicker(
             }
             if (coverUrl.isNotBlank()) {
                 TextButton(onClick = onRemove, modifier = Modifier.testTag("forum_cover_remove")) {
-                    Text("সরান", fontFamily = Kalpurush, fontSize = textSize(12.5), lineHeight = leading(12.5), color = tokens.inkMuted)
+                    Text(t("সরান"), fontFamily = Kalpurush, fontSize = textSize(12.5), lineHeight = leading(12.5), color = tokens.inkMuted)
                 }
             }
         }
@@ -2681,7 +2683,7 @@ private fun ForumCoverPicker(
             ) {
                 PortalAsyncImage(
                     url = coverUrl,
-                    contentDescription = "কভার ছবি",
+                    contentDescription = t("কভার ছবি"),
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxSize()
@@ -2689,7 +2691,7 @@ private fun ForumCoverPicker(
                 )
             }
             else -> Text(
-                text = error ?: "ছবি ImgBB-তে আপলোড হবে; না দিলেও আলোচনা খোলা যাবে।",
+                text = error ?: t("ছবি ImgBB-তে আপলোড হবে; না দিলেও আলোচনা খোলা যাবে।"),
                 fontFamily = Kalpurush,
                 fontSize = textSize(11),
                 lineHeight = leading(11),
@@ -2763,7 +2765,7 @@ private fun ForumScaffold(
                                 onClick = onBackClick,
                                 modifier = Modifier.testTag("forum_back")
                             ) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "পেছনে")
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t("পেছনে"))
                             }
                         }
                     },
@@ -2781,7 +2783,7 @@ private fun ForumScaffold(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Search,
-                                    contentDescription = "আলোচনা খুঁজুন"
+                                    contentDescription = t("আলোচনা খুঁজুন")
                                 )
                             }
                         }
@@ -2792,7 +2794,7 @@ private fun ForumScaffold(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Refresh,
-                                    contentDescription = "রিফ্রেশ"
+                                    contentDescription = t("রিফ্রেশ")
                                 )
                             }
                         }
@@ -2886,7 +2888,7 @@ private fun ForumSearchField(
             OutlinedTextField(
                 value = value,
                 onValueChange = onValueChange,
-                placeholder = { Text("আলোচনা খুঁজুন", fontFamily = Kalpurush, fontSize = textSize(13), lineHeight = leading(13)) },
+                placeholder = { Text(t("আলোচনা খুঁজুন"), fontFamily = Kalpurush, fontSize = textSize(13), lineHeight = leading(13)) },
                 trailingIcon = {
                     when {
                         searching -> CircularProgressIndicator(
@@ -2896,7 +2898,7 @@ private fun ForumSearchField(
                         value.isNotBlank() -> IconButton(onClick = { onValueChange("") }) {
                             Icon(
                                 Icons.Default.Clear,
-                                contentDescription = "মুছুন",
+                                contentDescription = t("মুছুন"),
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -3154,7 +3156,7 @@ private fun AdminBadge(modifier: Modifier = Modifier) {
         )
         Spacer(Modifier.width(3.dp))
         Text(
-            text = "অ্যাডমিন",
+            text = t("অ্যাডমিন"),
             fontFamily = Kalpurush,
             fontSize = textSize(10.5),
             lineHeight = leading(10.5),
@@ -3193,7 +3195,7 @@ private fun VerifiedMark(onImage: Boolean = false, modifier: Modifier = Modifier
     ) {
         Icon(
             imageVector = Icons.Default.Verified,
-            contentDescription = "অনুমোদিত",
+            contentDescription = t("অনুমোদিত"),
             tint = if (onImage) Color.White else tokens.accent,
             modifier = Modifier.size(if (onImage) 13.dp else 14.dp)
         )
@@ -3448,7 +3450,7 @@ private fun ForumBody(
             // Small, plain, no border and no fill — the owner asked for exactly
             // that, and a boxed button would shout over the text it is hiding.
             Text(
-                text = if (expanded) "কম দেখান" else "আরও দেখুন",
+                text = if (expanded) t("কম দেখান") else t("আরও দেখুন"),
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
                 fontSize = textSize(13.5),
@@ -3763,7 +3765,7 @@ private fun ForumReplyLauncher(onClick: () -> Unit) {
             )
             Spacer(Modifier.width(EditorialSpace.xs))
             Text(
-                text = "উত্তর যোগ করুন",
+                text = t("উত্তর যোগ করুন"),
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
                 fontSize = textSize(13.5),
@@ -3829,9 +3831,9 @@ private fun ForumReplyComposer(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = when {
-                        editing -> "উত্তর সম্পাদনা"
-                        targetName != null -> "$targetName কে উত্তর"
-                        else -> "নতুন উত্তর"
+                        editing -> tNow("উত্তর সম্পাদনা")
+                        targetName != null -> tNow("{1} কে উত্তর", targetName)
+                        else -> tNow("নতুন উত্তর")
                     },
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
@@ -3849,7 +3851,7 @@ private fun ForumReplyComposer(
                         onClick = onClearTarget,
                         modifier = Modifier.testTag("forum_reply_target_clear")
                     ) {
-                        Text("বাতিল", fontFamily = Kalpurush, fontSize = textSize(12), lineHeight = leading(12), color = tokens.inkMuted)
+                        Text(tNow("বাতিল"), fontFamily = Kalpurush, fontSize = textSize(12), lineHeight = leading(12), color = tokens.inkMuted)
                     }
                 }
                 IconButton(
@@ -3860,7 +3862,7 @@ private fun ForumReplyComposer(
                 ) {
                     Icon(
                         imageVector = Icons.Default.KeyboardArrowDown,
-                        contentDescription = "লেখা বন্ধ করুন",
+                        contentDescription = tNow("লেখা বন্ধ করুন"),
                         modifier = Modifier.size(18.dp),
                         tint = tokens.inkMuted
                     )
@@ -3874,7 +3876,7 @@ private fun ForumReplyComposer(
                 maxGrow = FORUM_COMPOSER_MAX,
                 selectionPopup = false,
                 compact = true,
-                placeholder = "উত্তর লিখুন…",
+                placeholder = tNow("উত্তর লিখুন…"),
                 testTag = "forum_reply_field",
                 controller = controller
             )
@@ -3928,7 +3930,7 @@ private fun ForumReplyComposer(
                         )
                         Spacer(Modifier.width(EditorialSpace.xxs))
                         Text(
-                            text = "পাঠান",
+                            text = tNow("পাঠান"),
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold
                         )
@@ -3980,7 +3982,7 @@ private fun ForumAttachmentRow(
             } else {
                 Icon(
                     imageVector = Icons.Default.AttachFile,
-                    contentDescription = "ফাইল সংযুক্ত করুন",
+                    contentDescription = t("ফাইল সংযুক্ত করুন"),
                     modifier = Modifier.size(18.dp),
                     tint = tokens.inkMuted
                 )
@@ -4040,7 +4042,7 @@ private fun ForumAttachmentRow(
             ) {
                 Icon(
                     imageVector = Icons.Default.Clear,
-                    contentDescription = "সংযুক্তি সরান",
+                    contentDescription = t("সংযুক্তি সরান"),
                     modifier = Modifier
                         .size(14.dp)
                         .background(MaterialTheme.colorScheme.surface, CircleShape),
@@ -4069,14 +4071,14 @@ private fun ForumSignInPrompt(onSignInClick: () -> Unit) {
         ) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    text = "উত্তর দিতে সাইন ইন করুন",
+                    text = t("উত্তর দিতে সাইন ইন করুন"),
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
                     fontSize = textSize(14),
                     lineHeight = leading(14)
                 )
                 Text(
-                    text = "পড়া যায় সবার — লেখা যায় নিজের নামে।",
+                    text = t("পড়া যায় সবার — লেখা যায় নিজের নামে।"),
                     fontFamily = Kalpurush,
                     fontSize = textSize(11.5),
                     lineHeight = leading(11.5),
@@ -4090,7 +4092,7 @@ private fun ForumSignInPrompt(onSignInClick: () -> Unit) {
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 )
             ) {
-                Text("সাইন ইন করুন", fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
+                Text(t("সাইন ইন করুন"), fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -4108,7 +4110,7 @@ private fun ForumInlineLoading() {
     Row(verticalAlignment = Alignment.CenterVertically) {
         CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
         Spacer(Modifier.width(EditorialSpace.xs))
-        Text("লোড হচ্ছে…", fontFamily = Kalpurush, fontSize = textSize(12), lineHeight = leading(12))
+        Text(t("লোড হচ্ছে…"), fontFamily = Kalpurush, fontSize = textSize(12), lineHeight = leading(12))
     }
 }
 
@@ -4132,13 +4134,13 @@ fun ForumActivityBlock(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(EditorialSpace.xs)
         ) {
-            ForumActivityCount("আলোচনা", activity.discussions, Modifier.weight(1f))
-            ForumActivityCount("উত্তর", activity.replies, Modifier.weight(1f))
-            ForumActivityCount("প্রতিক্রিয়া", activity.reactions, Modifier.weight(1f))
+            ForumActivityCount(t("আলোচনা"), activity.discussions, Modifier.weight(1f))
+            ForumActivityCount(t("উত্তর"), activity.replies, Modifier.weight(1f))
+            ForumActivityCount(t("প্রতিক্রিয়া"), activity.reactions, Modifier.weight(1f))
         }
         if (!activity.hasAnything) {
             Text(
-                text = "এখনো ফোরামে কিছু লেখা হয়নি।",
+                text = t("এখনো ফোরামে কিছু লেখা হয়নি।"),
                 fontFamily = Kalpurush,
                 fontSize = textSize(12),
                 lineHeight = leading(12),
@@ -4219,9 +4221,9 @@ fun ForumActivityBlock(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = "লাইক ${toBengaliNumeral(answer.likes)} · " +
-                            "একমত ${toBengaliNumeral(answer.agrees)} · " +
-                            "অপছন্দ ${toBengaliNumeral(answer.dislikes)} · " +
+                        text = t("লাইক {1} ·", toBengaliNumeral(answer.likes)) +
+                            t("একমত {1} ·", toBengaliNumeral(answer.agrees)) +
+                            t("অপছন্দ {1} ·", toBengaliNumeral(answer.dislikes)) +
                             formatBengaliDateTime(answer.createdAt),
                         fontFamily = Kalpurush,
                         fontSize = textSize(10.5),
@@ -4272,7 +4274,7 @@ fun ForumCard(
                 )
                 Spacer(Modifier.width(EditorialSpace.xs))
                 Text(
-                    text = "ফোরামে আপনার কাজ",
+                    text = tNow("ফোরামে আপনার কাজ"),
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
                     fontSize = textSize(15),
@@ -4281,7 +4283,7 @@ fun ForumCard(
                 )
                 TextButton(onClick = onOpenForum, modifier = Modifier.testTag("dashboard_forum_open")) {
                     Text(
-                        text = "ফোরামে যান",
+                        text = tNow("ফোরামে যান"),
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = textSize(12.5),
@@ -4293,7 +4295,7 @@ fun ForumCard(
             Hairline()
             if (activity == null) {
                 Text(
-                    text = "ফোরামের হিসাব লোড হচ্ছে…",
+                    text = tNow("ফোরামের হিসাব লোড হচ্ছে…"),
                     fontFamily = Kalpurush,
                     fontSize = textSize(12),
                     lineHeight = leading(12),
@@ -4323,7 +4325,7 @@ fun ForumCard(
                             )
                         } else {
                             Text(
-                                text = "আরও লোড করুন",
+                                text = tNow("আরও লোড করুন"),
                                 fontFamily = Kalpurush,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = textSize(12.5),

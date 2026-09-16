@@ -36,7 +36,7 @@ bengali,bishnupriya,kind,uses,slots,screens
 অ্যালবাম,,ui,4,0,"MusicBrowseScreens.kt, MusicPlayer.kt, MusicScreen.kt, NewMusicScreen.kt"
 আবার চেষ্টা করুন,,ui,4,0,"AttachmentViewer.kt, EditorialComponents.kt, HomeScreen.kt, PdfViewerScreen.kt"
 আমার সম্পর্কে,,ui,4,0,"PortalDrawer.kt, PortalPages.kt"
-গান {1},,ui,4,1,"ContributorScreen.kt, PublicProfileScreen.kt, UserProfileScreen.kt"
+গান {1},,ui,4,0,"ContributorScreen.kt, PublicProfileScreen.kt, UserProfileScreen.kt"
 ড. প্রদীপ সিংহ,,content,4,0,NinghsingCheContentData.kt
 ডাউনলোড,,ui,4,0,"AttachmentViewer.kt, MusicPlayer.kt, PdfArchiveScreen.kt, PdfViewerScreen.kt"
 নতুন PDF বই,,ui,4,0,"AppNotificationManager.kt, ContentNotice.kt, SettingsScreen.kt, WelcomeOnboardingScreen.kt"
@@ -53,9 +53,9 @@ bengali,bishnupriya,kind,uses,slots,screens
 সাধারণ,,ui,4,0,"ArticleRepository.kt, NinghsingCheAiAssistant.kt, PortalModels.kt"
 স্মৃতিচারণ,,ui,4,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 Google সাইন-ইন সময় শেষ হয়েছে। আবার চেষ্টা করুন।,,ui,3,0,"GoogleAuthMapper.kt, GoogleAuthRepository.kt"
-{1} টি প্রবন্ধ,,ui,3,1,ListScreens.kt
-{1}টি গান,,ui,3,1,"MusicBrowseScreens.kt, MusicScreen.kt"
-{1}টি প্রবন্ধ,,ui,3,1,"ExploreScreen.kt, PortalPages.kt"
+{1} টি প্রবন্ধ,,ui,3,0,ListScreens.kt
+{1}টি গান,,ui,3,0,"MusicBrowseScreens.kt, MusicScreen.kt"
+{1}টি প্রবন্ধ,,ui,3,0,"ExploreScreen.kt, PortalPages.kt"
 অপেক্ষমাণ,,ui,3,0,"UserDashboardCharts.kt, UserDashboardScreen.kt"
 অ্যাকাউন্ট,,ui,3,0,"AccountHeaderButton.kt, SettingsScreen.kt"
 অ্যাডমিনের বার্তা,,ui,3,0,"ContentNotice.kt, ContentUpdateNotifier.kt"
@@ -67,7 +67,7 @@ Google সাইন-ইন সময় শেষ হয়েছে। আব�
 ঘর,,ui,3,0,"NinghsingCheAiAssistant.kt, PortalDrawer.kt, UserDashboardScreen.kt"
 ছবি,,ui,3,0,"AttachmentViewer.kt, MarkdownText.kt, UserDashboardScreen.kt"
 ছবি আপলোড যায়নি।,,ui,3,0,ReaderWorkspaceViewModel.kt
-ডাউনলোড ফোল্ডারে সংরক্ষিত হয়েছে: {1},,ui,3,1,"ApkManager.kt, PdfHelper.kt"
+ডাউনলোড ফোল্ডারে সংরক্ষিত হয়েছে: {1},,ui,3,0,"ApkManager.kt, PdfHelper.kt"
 তালিকা,,ui,3,0,"HtmlContentEditor.kt, MusicPlayer.kt"
 তালিকা আনা যায়নি।,,ui,3,0,"ContributorScreen.kt, HomeScreen.kt"
 ধরন,,ui,3,0,"MusicBrowseScreens.kt, MusicPlayer.kt, MusicScreen.kt"
@@ -111,7 +111,8 @@ Google সাইন-ইন সময় শেষ হয়েছে। আব�
 Google দিয়ে প্রবেশ করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।,,ui,2,0,GoogleAuthMapper.kt
 Google সাইন-ইন খোলার জন্য অ্যাপ স্ক্রিন প্রয়োজন। আবার চেষ্টা করুন।,,ui,2,0,GoogleIdentityClient.kt
 {1} বিষয়ে নিংশিং চে-তে প্রকাশিত প্রবন্ধসমূহ।,,ui,2,1,NingshingCheWebsiteClient.kt
-{1} মিনিট,,ui,2,1,"EditorialComponents.kt, MusicPlayer.kt"
+{1} মি.,,ui,2,0,EditorialComponents.kt
+{1} মিনিট,,ui,2,0,"EditorialComponents.kt, MusicPlayer.kt"
 অক্ষরের আকার,,ui,2,0,ArticleScreen.kt
 অতিথি ভিউ,,ui,2,0,UserDashboardScreen.kt
 অনুমোদিত,,ui,2,0,ForumScreens.kt
@@ -122,7 +123,7 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 আগস্ট,,ui,2,0,"ContributorScreen.kt, UserDashboardCharts.kt"
 আপনার সেশনের মেয়াদ শেষ হয়েছে। আবার সাইন ইন করলে তালিকা ও পয়েন্ট দেখা যাবে।,,ui,2,0,"ContributorScreen.kt, PortalModels.kt"
 আপনি,,ui,2,0,"ContributorScreen.kt, UserDashboardScreen.kt"
-আলোচনা {1},,ui,2,1,"PublicProfileScreen.kt, UserProfileScreen.kt"
+আলোচনা {1},,ui,2,0,"PublicProfileScreen.kt, UserProfileScreen.kt"
 আলোচনা খুঁজুন,,ui,2,0,ForumScreens.kt
 আলোচনা খোলা যায়নি।,,ui,2,0,ForumScreens.kt
 আলোচনা ভিউ,,ui,2,0,UserDashboardScreen.kt
@@ -164,12 +165,12 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 নৃত্য,,ui,2,0,"MusicGenres.kt, NinghsingCheAiAssistant.kt"
 পছন্দের গান,,ui,2,0,"MusicLibraryStore.kt, MusicScreen.kt"
 পরের গান,,ui,2,0,MusicPlayer.kt
-পাঠক {1},,ui,2,1,"PublicProfileScreen.kt, UserProfileScreen.kt"
+পাঠক {1},,ui,2,0,"PublicProfileScreen.kt, UserProfileScreen.kt"
 পিডিএফটি খোলা যায়নি।,,ui,2,0,AttachmentViewer.kt
 পৌরাণিক,,ui,2,0,NingshingCheWebsiteClient.kt
 প্রত্যাখ্যাত,,ui,2,0,"UserDashboardCharts.kt, UserDashboardScreen.kt"
-প্রবন্ধ {1},,ui,2,1,"PublicProfileScreen.kt, UserProfileScreen.kt"
-প্রবন্ধ {1} ·,,ui,2,1,ContributorScreen.kt
+প্রবন্ধ {1},,ui,2,0,"PublicProfileScreen.kt, UserProfileScreen.kt"
+প্রবন্ধ {1} ·,,ui,2,0,ContributorScreen.kt
 প্রবন্ধ প্রকাশিত হয়েছে,,ui,2,0,"ContentUpdateNotifier.kt, InboxModels.kt"
 প্রবন্ধ ভিউ,,ui,2,0,UserDashboardScreen.kt
 প্রোফাইল,,ui,2,0,"AccountHeaderButton.kt, UserProfileScreen.kt"
@@ -184,7 +185,7 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 বন্ধ,,ui,2,0,"PdfViewerScreen.kt, UserDashboardScreen.kt"
 বাতিল,,ui,2,0,"ForumScreens.kt, MusicScreen.kt"
 বার্তা লিখুন।,,ui,2,0,"ReaderWorkspaceViewModel.kt, SupabaseClient.kt"
-বার্ষিক সংখ্যা • {1} সালে প্রকাশিত লেখাসমূহ,,ui,2,1,"ExploreScreen.kt, ListScreens.kt"
+বার্ষিক সংখ্যা • {1} সালে প্রকাশিত লেখাসমূহ,,ui,2,0,"ExploreScreen.kt, ListScreens.kt"
 বার্ষিক সাহিত্য সংকলন,,ui,2,0,SupabaseModels.kt
 বিজ্ঞপ্তি,,ui,2,0,"AccountHeaderButton.kt, UserDashboardScreen.kt"
 বিজ্ঞপ্তি চালু করুন,,ui,2,0,WelcomeOnboardingScreen.kt
@@ -212,7 +213,7 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 লোড হচ্ছে…,,ui,2,0,ForumScreens.kt
 শহীদ সুদেষ্ণা সিংহ,,content,2,0,NinghsingCheContentData.kt
 শেয়ার করুন,,ui,2,0,"ArticleScreen.kt, EditorialComponents.kt"
-শোনা {1} মিনিট,,ui,2,1,"PublicProfileScreen.kt, UserProfileScreen.kt"
+শোনা {1} মিনিট,,ui,2,0,"PublicProfileScreen.kt, UserProfileScreen.kt"
 শোনা মিনিট,,ui,2,0,UserDashboardScreen.kt
 সংযুক্তি,,ui,2,0,"PortalModels.kt, UserDashboardScreen.kt"
 সংরক্ষণ সরানো হয়েছে,,ui,2,0,MainViewModels.kt
@@ -237,9 +238,9 @@ APK সংরক্ষণ করুন,,ui,1,0,SettingsScreen.kt
 APK সংরক্ষণ ব্যর্থ হয়েছে,,ui,1,0,SettingsScreen.kt
 APK সফলভাবে ডাউনলোড ফোল্ডারে সংরক্ষিত হয়েছে!,,ui,1,0,SettingsScreen.kt
 Choose your language · লাউখোল,,ui,1,0,LanguageSetupScreen.kt
-Downloads/Ningshingche/{1} ফোল্ডারে সফলভাবে সংরক্ষিত হয়েছে!,,ui,1,1,ApkManager.kt
-Downloads/Ningshingche_PDFs/{1} ফোল্ডারে সংরক্ষিত হয়েছে!,,ui,1,1,PdfHelper.kt
-Downloads/{1}/{2} ফোল্ডারে সংরক্ষিত হয়েছে!,,ui,1,2,PdfHelper.kt
+Downloads/Ningshingche/{1} ফোল্ডারে সফলভাবে সংরক্ষিত হয়েছে!,,ui,1,0,ApkManager.kt
+Downloads/Ningshingche_PDFs/{1} ফোল্ডারে সংরক্ষিত হয়েছে!,,ui,1,0,PdfHelper.kt
+Downloads/{1}/{2} ফোল্ডারে সংরক্ষিত হয়েছে!,,ui,1,0,PdfHelper.kt
 Facebook আইডি / লিংক,,ui,1,0,UserProfileScreen.kt
 Facebook আইডি দিন।,,ui,1,0,ReaderWorkspaceViewModel.kt
 Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন,,ui,1,0,LoginScreen.kt
@@ -258,37 +259,35 @@ _নিচে তথ্যসূত্র কার্ড থেকে মূল
 chепе ধরে প্রতিক্রিয়া দিন,,ui,1,0,ForumScreens.kt
 ningshingche.com ওয়েবসাইটে যান,,ui,1,0,SettingsScreen.kt
 ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
-{1} ({2}) — বিষ্ণুপ্রিয়া মণিপুরি ডিজিটাল তথ্যকোষ 'নিংশিং চে' থেকে সংগৃহীত। https://ningshingche.com,,ui,1,2,PdfHelper.kt
+{1} ({2}) — বিষ্ণুপ্রিয়া মণিপুরি ডিজিটাল তথ্যকোষ 'নিংশিং চে' থেকে সংগৃহীত। https://ningshingche.com,,ui,1,0,PdfHelper.kt
 {1} {2} {3}  নিংশিং চে,,ui,1,3,HomeScreen.kt
-{1} অক্ষর,,ui,1,1,ForumScreens.kt
-{1} কে উত্তর,,ui,1,1,ForumScreens.kt
-{1} পয়েন্ট,,ui,1,1,UserDashboardScreen.kt
-{1} বার পঠিত,,ui,1,1,ArticleScreen.kt
-{1} বার শোনা,,ui,1,1,MusicBrowseScreens.kt
-{1} বার শোনা হয়েছে,,ui,1,1,MusicPlayer.kt
+{1} অক্ষর,,ui,1,0,ForumScreens.kt
+{1} কে উত্তর,,ui,1,0,ForumScreens.kt
+{1} পয়েন্ট,,ui,1,0,UserDashboardScreen.kt
+{1} বার পঠিত,,ui,1,0,ArticleScreen.kt
+{1} বার শোনা,,ui,1,0,MusicBrowseScreens.kt
+{1} বার শোনা হয়েছে,,ui,1,0,MusicPlayer.kt
 {1} বিষয়ক অন্যান্য গবেষণা প্রবন্ধ কী কী আছে?,,ui,1,1,NinghsingCheAiAssistant.kt
-{1} বিষয়ে প্রকাশিত প্রবন্ধসমূহ,,ui,1,1,ExploreScreen.kt
-{1} মাস,,ui,1,1,HomeScreen.kt
-{1} মাসে {2} পয়েন্ট,,ui,1,2,UserDashboardScreen.kt
-{1} মি.,,ui,1,1,EditorialComponents.kt
-{1} মিনিট পাঠ,,ui,1,1,ArticleScreen.kt
-{1} — নিংশিং চে PDF আর্কাইভ,,ui,1,1,PdfHelper.kt
-{1}-এর তালিকা,,ui,1,1,ContributorScreen.kt
-{1}:{2},,ui,1,2,MusicPlayer.kt
-{1}টি,,ui,1,1,ExploreScreen.kt
-{1}টি নতুন PDF বই,,ui,1,1,ContentNotice.kt
-{1}টি নতুন ছবি,,ui,1,1,ContentNotice.kt
-{1}টি নতুন প্রবন্ধ,,ui,1,1,ContentNotice.kt
-{1}টি নতুন বার্তা,,ui,1,1,ContentNotice.kt
-{1}টি নতুন ভিডিও,,ui,1,1,ContentNotice.kt
-{1}টি নির্বাচিত প্রবন্ধ,,ui,1,1,ContentNotice.kt
-{1}টি মন্তব্য,,ui,1,1,ArticleScreen.kt
-{1}টি মিল,,ui,1,1,ListScreens.kt
-{1}টি লেখা সংরক্ষিত,,ui,1,1,BookmarksScreen.kt
-© ২০২৬ {1} | সাইট উন্নয়ন,,ui,1,1,SiteFooter.kt
+{1} বিষয়ে প্রকাশিত প্রবন্ধসমূহ,,ui,1,0,ExploreScreen.kt
+{1} মাস,,ui,1,0,HomeScreen.kt
+{1} মাসে {2} পয়েন্ট,,ui,1,0,UserDashboardScreen.kt
+{1} মিনিট পাঠ,,ui,1,0,ArticleScreen.kt
+{1} — নিংশিং চে PDF আর্কাইভ,,ui,1,0,PdfHelper.kt
+{1}-এর তালিকা,,ui,1,0,ContributorScreen.kt
+{1}টি,,ui,1,0,ExploreScreen.kt
+{1}টি নতুন PDF বই,,ui,1,0,ContentNotice.kt
+{1}টি নতুন ছবি,,ui,1,0,ContentNotice.kt
+{1}টি নতুন প্রবন্ধ,,ui,1,0,ContentNotice.kt
+{1}টি নতুন বার্তা,,ui,1,0,ContentNotice.kt
+{1}টি নতুন ভিডিও,,ui,1,0,ContentNotice.kt
+{1}টি নির্বাচিত প্রবন্ধ,,ui,1,0,ContentNotice.kt
+{1}টি মন্তব্য,,ui,1,0,ArticleScreen.kt
+{1}টি মিল,,ui,1,0,ListScreens.kt
+{1}টি লেখা সংরক্ষিত,,ui,1,0,BookmarksScreen.kt
+© ২০২৬ {1} | সাইট উন্নয়ন,,ui,1,0,SiteFooter.kt
 «{1}» সম্পর্কে আরও বিস্তারিত তথ্য জানা যাবে কি?,,ui,1,1,NinghsingCheAiAssistant.kt
-«{1}» — এই শব্দে কোনো আলোচনা নেই।,,ui,1,1,ForumScreens.kt
-· {1}টি গান,,ui,1,1,MusicBrowseScreens.kt
+«{1}» — এই শব্দে কোনো আলোচনা নেই।,,ui,1,0,ForumScreens.kt
+· {1}টি গান,,ui,1,0,MusicBrowseScreens.kt
 অক্টো,,ui,1,0,UserDashboardCharts.kt
 অক্টোবর,,ui,1,0,ContributorScreen.kt
 অজানা ত্রুটি,,ui,1,0,ImgBbUploader.kt
@@ -303,7 +302,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 "অনন্য রাগ, পাখোয়াজ ও করতাল সংবলিত মণিপুরি লোকসংগীতের গভীরতা, বৈষ্ণব পদাবলী এবং বাউলধারার সমন্বিত রূপ।",,content,1,0,NinghsingCheContentData.kt
 অনুবাদ হালনাগাদ করুন,,ui,1,0,SettingsScreen.kt
 অনুমোদনের পর আপনার মন্তব্য এখানে প্রকাশিত হবে।,,ui,1,0,ArticleScreen.kt
-অনুমোদিত ({1}),,ui,1,1,ForumScreens.kt
+অনুমোদিত ({1}),,ui,1,0,ForumScreens.kt
 অনুসন্ধানের ফল,,ui,1,0,ForumScreens.kt
 "অন্তত দুই অক্ষর লিখুন। শিরোনাম, উপশিরোনাম, লেখক, ট্যাগ ও লেখার ভেতরে খোঁজা হয়।",,ui,1,0,ListScreens.kt
 অন্বেষণ,,ui,1,0,PortalDrawer.kt
@@ -311,7 +310,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 অন্য ধরন লিখুন,,ui,1,0,GenreCombobox.kt
 অন্য শব্দ দিয়ে খুঁজুন বা বিভাগ ফিল্টার বদলান।,,ui,1,0,BookmarksScreen.kt
 অন্য শব্দে চেষ্টা করুন,,ui,1,0,ListScreens.kt
-অপছন্দ {1} ·,,ui,1,1,ForumScreens.kt
+অপছন্দ {1} ·,,ui,1,0,ForumScreens.kt
 অপর্ণা,,content,1,0,AuthorProfiles.kt
 অফলাইন ক্যাশ সিঙ্ক ও পরিষ্কার করুন,,ui,1,0,SettingsScreen.kt
 অফলাইন ক্যাশে {1}টি প্রবন্ধ,,ui,1,1,ArticleRepository.kt
@@ -356,19 +355,19 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 আপনার সংরক্ষিত প্লেলিস্ট,,ui,1,0,MusicScreen.kt
 আপলোড সার্ভার এখন সাড়া দিচ্ছে না ({1})।,,ui,1,1,SatoruUploadClient.kt
 আপলোড সার্ভার ঠিকানা দেয়নি।,,ui,1,0,SatoruUploadClient.kt
-আপলোডার: {1},,ui,1,1,MusicBrowseScreens.kt
+আপলোডার: {1},,ui,1,0,MusicBrowseScreens.kt
 আবার,,ui,1,0,ForumScreens.kt
 আমাদের অনুসরণ করুন,,ui,1,0,SiteFooter.kt
 আমাদের সম্পর্কে,,ui,1,0,SiteFooter.kt
 আমার ড্যাশবোর্ড,,ui,1,0,UserDashboardScreen.kt
 আমি নিংশিং চে AI...,,ui,1,0,NinghsingCheAiAssistant.kt
 আরও,,ui,1,0,MusicPlayer.kt
-আরও {1} টি উত্তর — সব উত্তর দেখুন চাপুন,,ui,1,1,ForumScreens.kt
-আরও দেখুন ({1}),,ui,1,1,PublicProfileScreen.kt
+আরও {1} টি উত্তর — সব উত্তর দেখুন চাপুন,,ui,1,0,ForumScreens.kt
+আরও দেখুন ({1}),,ui,1,0,PublicProfileScreen.kt
 আরও লোড করুন,,ui,1,0,ForumScreens.kt
 আরতী,,ui,1,0,MusicGenres.kt
 আর্কাইভ,,content,1,0,NinghsingCheContentData.kt
-আলোচনা {1} · উত্তর {2},,ui,1,2,ForumScreens.kt
+আলোচনা {1} · উত্তর {2},,ui,1,0,ForumScreens.kt
 আলোচনা আনা যায়নি।,,ui,1,0,ReaderViewModels.kt
 আলোচনা খুলুন,,ui,1,0,ForumScreens.kt
 আলোচনা পাওয়া যায়নি।,,ui,1,0,ForumScreens.kt
@@ -414,7 +413,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 উত্তরসমূহ (৩),,ui,1,0,ForumScreens.kt
 উপর-নিচ স্ক্রল করে পুরো বই পড়ুন।,,ui,1,0,PdfViewerScreen.kt
 এআই সহায়িকা,,ui,1,0,ArticleScreen.kt
-এই {1}-এ কোনো গান নেই।,,ui,1,1,MusicBrowseScreens.kt
+এই {1}-এ কোনো গান নেই।,,ui,1,0,MusicBrowseScreens.kt
 এই অডিও ফর্ম্যাট সাপোর্টেড নয়। এমপি৩ নির্বাচন করুন।,,ui,1,0,SupabaseClient.kt
 এই গানের লিরিক এখনো যোগ করা হয়নি।,,ui,1,0,MusicPlayer.kt
 এই ডিভাইসে কোনো Google অ্যাকাউন্ট পাওয়া যায়নি। একটি Google অ্যাকাউন্ট যোগ করে আবার চেষ্টা করুন।,,ui,1,0,GoogleAuthMapper.kt
@@ -439,10 +438,10 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 এই মাসে এখনো কেউ পয়েন্ট নেয়নি।,,ui,1,0,ContributorScreen.kt
 এক দশকের সাহিত্যিক অভিযাত্রা এবং ঐতিহাসিক গবেষণা সংকলন।,,content,1,0,NinghsingCheContentData.kt
 এক পাতায় একটি পৃষ্ঠা। বাঁদিকে/ডানদিকে সোয়াইপ করলে পাতা উল্টে।,,ui,1,0,PdfViewerScreen.kt
-একটি আলোচনায় সর্বোচ্চ {1}টি ফাইল যুক্ত করা যাবে।,,ui,1,1,ForumScreens.kt
-একটি উত্তরে সর্বোচ্চ {1}টি ফাইল যুক্ত করা যাবে।,,ui,1,1,ForumScreens.kt
+একটি আলোচনায় সর্বোচ্চ {1}টি ফাইল যুক্ত করা যাবে।,,ui,1,0,ForumScreens.kt
+একটি উত্তরে সর্বোচ্চ {1}টি ফাইল যুক্ত করা যাবে।,,ui,1,0,ForumScreens.kt
 "একটি সাংস্কৃতিক আন্দোলনের এক দশকের পথপরিক্রমা, প্রাপ্তি ও আগামী দিনের ডিজিটাল রূপকল্প।",,content,1,0,NinghsingCheContentData.kt
-একমত {1} ·,,ui,1,1,ForumScreens.kt
+একমত {1} ·,,ui,1,0,ForumScreens.kt
 এখন নয়,,ui,1,0,WelcomeOnboardingScreen.kt
 এখন বাজছে,,ui,1,0,MusicPlayer.kt
 এখনো কেউ উত্তর দেয়নি। আপনিই প্রথম উত্তর দিন।,,ui,1,0,ForumScreens.kt
@@ -508,7 +507,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 "গরম কাগজ আর মাটির রঙ, দীর্ঘ পড়ার জন্য",,ui,1,0,EditorialPalettes.kt
 গল্প,,content,1,0,NinghsingCheContentData.kt
 গান {1}টি,,ui,1,0,Strings.kt
-গান · {1},,ui,1,1,UserDashboardScreen.kt
+গান · {1},,ui,1,0,UserDashboardScreen.kt
 গান আপলোড যায়নি ({1})।,,ui,1,1,SatoruUploadClient.kt
 গান জমা যায়নি ({1})। প্রোফাইল সম্পূর্ণ করে আবার চেষ্টা করুন।,,ui,1,1,SupabaseClient.kt
 গান জমা যায়নি।,,ui,1,0,ReaderWorkspaceViewModel.kt
@@ -573,7 +572,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 ড.,,content,1,0,AuthorProfiles.kt
 ড. প্রদীপ সিংহ ও সুজিত সিংহ,,content,1,0,NinghsingCheContentData.kt
 ডা.,,content,1,0,AuthorProfiles.kt
-ডাউনলোড ব্যর্থ হয়েছে: {1},,ui,1,1,MainViewModels.kt
+ডাউনলোড ব্যর্থ হয়েছে: {1},,ui,1,0,MainViewModels.kt
 ডাউনলোড হয়নি,,ui,1,0,PdfArchiveScreen.kt
 ডাউনলোড হয়নি।,,ui,1,0,AttachmentViewer.kt
 ডাকনাম,,ui,1,0,NinghsingCheAiAssistant.kt
@@ -584,7 +583,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 ডিজিটাল বই ও পত্রিকা প্রকাশিত হলে,,ui,1,0,SettingsScreen.kt
 "ডিজিটাল মাধ্যমে বিষ্ণুপ্রিয়া মণিপুরি ইউনিকোড ফন্ট, তথ্যকোষ এবং অনলাইন লাইব্রেরি তৈরিতে গুরুত্বপূর্ণ অবদান রাখছেন।",,content,1,0,NinghsingCheContentData.kt
 ডিজিটাল যুগে ভাষা সংরক্ষণ: ইউনিকোড ও ওপেন নলেজ আর্কাইভ,,content,1,0,NinghsingCheContentData.kt
-ডিভাইসে সফলভাবে ডাউনলোড হয়েছে: {1},,ui,1,1,ApkManager.kt
+ডিভাইসে সফলভাবে ডাউনলোড হয়েছে: {1},,ui,1,0,ApkManager.kt
 ডিসে,,ui,1,0,UserDashboardCharts.kt
 ডিসেম্বর,,ui,1,0,ContributorScreen.kt
 ডেটাবেজ আপডেট প্রয়োজন।,,ui,1,0,PortalRepository.kt
@@ -595,7 +594,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 তথ্য লোড করতে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।,,ui,1,0,PortalModels.kt
 "তথ্যকোষের উদ্দেশ্য, পরিকল্পনা ও বিষ্ণুপ্রিয়া মণিপুরি সাহিত্যের পটভূমি সংক্রান্ত সামগ্রিক ভূমিকা।",,content,1,0,NinghsingCheContentData.kt
 তথ্যসূত্র ও গবেষণা প্রবন্ধ:,,ui,1,0,AiAssistantScreen.kt
-তাক {1},,ui,1,1,PdfArchiveScreen.kt
+তাক {1},,ui,1,0,PdfArchiveScreen.kt
 তালিকা পড়তে ডেটাবেস আপডেট দরকার — 033_profile_paging.sql চালান।,,ui,1,0,PublicProfileScreen.kt
 তালিকাটি লোড হয়নি।,,ui,1,0,PublicProfileScreen.kt
 "তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট",,ui,1,0,SiteFooter.kt
@@ -668,7 +667,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 নিংশিং চে — পঞ্চম বর্ষ (২০১৮),,content,1,0,NinghsingCheContentData.kt
 নিংশিং চে — প্রারম্ভিক মুদ্রণ সংখ্যা (২০১৪),,content,1,0,NinghsingCheContentData.kt
 নিংশিং চে — প্রারম্ভিক সংখ্যা (২০১৪),,content,1,0,NinghsingCheContentData.kt
-নিংশিং চে — বিষ্ণুপ্রিয়া মণিপুরি ডিজিটাল তথ্যকোষ ও আর্কাইভ অ্যান্ড্রয়েড অ্যাপ (সংস্করণ {1})। ইনস্টল করতে সরাসরি এই APK ফাইলটি ব্যবহার করুন।,,ui,1,1,ApkManager.kt
+নিংশিং চে — বিষ্ণুপ্রিয়া মণিপুরি ডিজিটাল তথ্যকোষ ও আর্কাইভ অ্যান্ড্রয়েড অ্যাপ (সংস্করণ {1})। ইনস্টল করতে সরাসরি এই APK ফাইলটি ব্যবহার করুন।,,ui,1,0,ApkManager.kt
 নিংশিং চে — বিষ্ণুপ্রিয়া মণিপুরি সাহিত্য ও সংস্কৃতি পোর্টাল https://ningshingche.com,,ui,1,0,ReaderNavHost.kt
 নিংশিং চে — ষষ্ঠ বর্ষ (২০১৯),,content,1,0,NinghsingCheContentData.kt
 নিংশিং চে — সপ্তম বর্ষ (২০২০),,content,1,0,NinghsingCheContentData.kt
@@ -710,6 +709,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 প,,ui,1,0,ArticleCommentForm.kt
 পঠন ইতিহাস মুছে ফেলা হয়েছে,,ui,1,0,SettingsScreen.kt
 পঠন ইতিহাস রিসেট করুন,,ui,1,0,SettingsScreen.kt
+পঠন সেটিংস (Font & Spacing),,ui,1,0,ArticleScreen.kt
 পড়া যায় সবার — লেখা যায় নিজের নামে।,,ui,1,0,ForumScreens.kt
 পড়ার মতো কোনো লেখা পাওয়া যায়নি।,,ui,1,0,ArticleTtsPlayer.kt
 পড়ে শোনানোর সময় ত্রুটি হয়েছে।,,ui,1,0,ArticleTtsPlayer.kt
@@ -729,20 +729,20 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 পাঠানো হয়েছে,,ui,1,0,UserDashboardScreen.kt
 পাঠ্য লেখা,,ui,1,0,SettingsScreen.kt
 পাতা স্ন্যাপ,,ui,1,0,PdfViewerScreen.kt
-পাতার ফাঁক  ·  {1} dp,,ui,1,1,PdfViewerScreen.kt
+পাতার ফাঁক  ·  {1} dp,,ui,1,0,PdfViewerScreen.kt
 পালা-কীর্তন,,ui,1,0,MusicGenres.kt
 পিডিএফ খালি এসেছে।,,ui,1,0,PdfHelper.kt
 পিডিএফ খুলুন,,ui,1,0,PdfHelper.kt
 পিডিএফ খোলা হচ্ছে…,,ui,1,0,PdfViewerScreen.kt
 পিডিএফ ডকুমেন্ট,,ui,1,0,AttachmentViewer.kt
-পিডিএফ ডাউনলোড হয়নি ({1}),,ui,1,1,PdfHelper.kt
+পিডিএফ ডাউনলোড হয়নি ({1}),,ui,1,0,PdfHelper.kt
 পিডিএফ পড়া যায়নি।,,ui,1,0,UserDashboardScreen.kt
 পিডিএফ পাঠক,,ui,1,0,PdfViewerScreen.kt
 পিডিএফ বই,,ui,1,0,ArticleScreen.kt
 পিডিএফ লিংক পাওয়া যায়নি।,,ui,1,0,PdfHelper.kt
 পিডিএফ ২০০ এমবি-র বেশি হতে পারে না।,,ui,1,0,ForumAttachmentUploader.kt
 পূর্ণ আকারের ছবি,,ui,1,0,HtmlArticleRenderer.kt
-পৃষ্ঠা {1} / {2},,ui,1,2,PdfViewerScreen.kt
+পৃষ্ঠা {1} / {2},,ui,1,0,PdfViewerScreen.kt
 পৃষ্ঠা খোলা যায়নি,,ui,1,0,NingshingCheWebsiteClient.kt
 পৃষ্ঠায় যান,,ui,1,0,PdfViewerScreen.kt
 পেস্ট,,ui,1,0,HtmlContentEditor.kt
@@ -797,7 +797,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 ফাইল খালি এসেছে।,,ui,1,0,PdfHelper.kt
 ফাইল খালি।,,ui,1,0,MusicLibraryStore.kt
 ফাইল খোলা যায়নি।,,ui,1,0,SatoruUploadClient.kt
-ফাইল ডাউনলোড হয়নি ({1}),,ui,1,1,PdfHelper.kt
+ফাইল ডাউনলোড হয়নি ({1}),,ui,1,0,PdfHelper.kt
 ফাইল সংযুক্ত করুন,,ui,1,0,ForumScreens.kt
 ফাইলটি একটি বৈধ পিডিএফ নয়।,,ui,1,0,PdfHelper.kt
 ফাইলের ঠিকানা নেই।,,ui,1,0,PdfHelper.kt
@@ -841,7 +841,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 বার্তা পাঠানো যায়নি ({1})। SQL মাইগ্রেশন 007 চালান।,,ui,1,1,SupabaseClient.kt
 বার্তা পাঠানো যায়নি।,,ui,1,0,ReaderWorkspaceViewModel.kt
 বাস্তুসংস্থান,,content,1,0,NinghsingCheContentData.kt
-বিজ্ঞপ্তি ({1}),,ui,1,1,AccountHeaderButton.kt
+বিজ্ঞপ্তি ({1}),,ui,1,0,AccountHeaderButton.kt
 বিজ্ঞপ্তি ও আপডেট,,ui,1,0,SettingsScreen.kt
 বিজ্ঞান,,ui,1,0,NingshingCheWebsiteClient.kt
 বিজ্ঞান-ও-প্রযুক্তি,,ui,1,0,EditorialComponents.kt
@@ -851,7 +851,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 বিভাগ বেছে নিন,,ui,1,0,ForumScreens.kt
 বিভাগ লোড হয়নি।,,ui,1,0,ForumScreens.kt
 "বিভাগ, লেখক, বার্ষিক সংখ্যা ও নির্বাচিত লেখা",,ui,1,0,ExploreScreen.kt
-বিভাগসমূহ ({1}),,ui,1,1,ForumScreens.kt
+বিভাগসমূহ ({1}),,ui,1,0,ForumScreens.kt
 বিরল পাণ্ডুলিপি,,content,1,0,NinghsingCheContentData.kt
 বিরহ,,ui,1,0,MusicGenres.kt
 বিশু উৎসব কীভাবে পালিত হয়?,,ui,1,0,MainViewModels.kt
@@ -901,7 +901,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 ভয়েস থামান,,ui,1,0,ArticleScreen.kt
 ভয়েস পুনরায় চালু করুন,,ui,1,0,ArticleScreen.kt
 ভয়েস শুনুন,,ui,1,0,ArticleScreen.kt
-ভলিউম {1}%,,ui,1,1,MusicPlayer.kt
+ভলিউম {1}%,,ui,1,0,MusicPlayer.kt
 ভাষা,,ui,1,0,SettingsScreen.kt
 "ভাষা আন্দোলন, প্রামাণ্য দলিল ও নৃতাত্ত্বিক গবেষণা প্রবন্ধমালা।",,content,1,0,NinghsingCheContentData.kt
 ভাষা আন্দোলনের প্রেক্ষাপট ও প্রাচীন লোকনৃত্যের সমাজতাত্ত্বিক মূল্যায়ন।,,content,1,0,NinghsingCheContentData.kt
@@ -951,8 +951,8 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 মূল লেখা,,ui,1,0,NewArticleScreen.kt
 মেনু,,ui,1,0,AiAssistantScreen.kt
 মেমরি ও অফলাইন ক্যাশ ব্যবস্থাপনা,,ui,1,0,SettingsScreen.kt
-মোট {1} · শেষ {2} দিনে {3},,ui,1,3,UserDashboardCharts.kt
-মোট {1}টি জমা,,ui,1,1,UserDashboardCharts.kt
+মোট {1} · শেষ {2} দিনে {3},,ui,1,0,UserDashboardCharts.kt
+মোট {1}টি জমা,,ui,1,0,UserDashboardCharts.kt
 মোট পয়েন্ট,,ui,1,0,PublicProfileScreen.kt
 মোটা,,ui,1,0,HtmlContentEditor.kt
 "মৌলভীবাজার, বাংলাদেশ",,content,1,0,NinghsingCheContentData.kt
@@ -978,7 +978,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 রিমিক্স,,ui,1,0,MusicGenres.kt
 রিলোড,,ui,1,0,UserDashboardScreen.kt
 রিসেট,,ui,1,0,ArticleScreen.kt
-লাইক {1} ·,,ui,1,1,ForumScreens.kt
+লাইক {1} ·,,ui,1,0,ForumScreens.kt
 লাইট,,ui,1,0,SettingsScreen.kt
 লাইনের ফাঁক (Line Spacing),,ui,1,0,ArticleScreen.kt
 লাইভ প্রিভিউ (কালপুরুষ ফন্ট):,,ui,1,0,ArticleScreen.kt
@@ -1024,11 +1024,11 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 শুনুন,,ui,1,0,NewMusicScreen.kt
 শুভাশিস,,content,1,0,AuthorProfiles.kt
 শুরু করুন,,ui,1,0,LanguageSetupScreen.kt
-শেষ {1} দিন,,ui,1,1,UserDashboardCharts.kt
+শেষ {1} দিন,,ui,1,0,UserDashboardCharts.kt
 শেষ উত্তর,,ui,1,0,PortalModels.kt
 শেষ ছয় মাসে কোনো কার্যক্রম নেই।,,ui,1,0,UserDashboardCharts.kt
 শেষ ৬ মাস,,ui,1,0,UserDashboardCharts.kt
-শেষ ৬ মাসে মোট {1}টি,,ui,1,1,UserDashboardCharts.kt
+শেষ ৬ মাসে মোট {1}টি,,ui,1,0,UserDashboardCharts.kt
 শ্রী,,content,1,0,AuthorProfiles.kt
 সংকলন,,content,1,0,NinghsingCheContentData.kt
 সংক্রান্তি,,ui,1,0,NinghsingCheAiAssistant.kt
@@ -1036,20 +1036,20 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 সংযুক্তি সরান,,ui,1,0,ForumScreens.kt
 সংযুক্তি ২০০ এমবি-র বেশি হতে পারে না।,,ui,1,0,SatoruUploadClient.kt
 সংযুক্তি.pdf,,ui,1,0,PortalModels.kt
-সংরক্ষণ ব্যর্থ: {1},,ui,1,1,SettingsScreen.kt
+সংরক্ষণ ব্যর্থ: {1},,ui,1,0,SettingsScreen.kt
 সংরক্ষণ যায়নি ({1})। লিংক মেয়াদ শেষ হতে পারে।,,ui,1,1,MusicLibraryStore.kt
 সংরক্ষণ হচ্ছে...,,ui,1,0,SettingsScreen.kt
 সংরক্ষিত তথ্য লোড হচ্ছে...,,ui,1,0,ArticleCommentForm.kt
 সংরক্ষিত তালিকার মধ্যে খুঁজুন...,,ui,1,0,BookmarksScreen.kt
 সংরক্ষিত প্রবন্ধ,,ui,1,0,BookmarksScreen.kt
-সংস্করণ {1} • সাইজ: {2},,ui,1,2,SettingsScreen.kt
+সংস্করণ {1} • সাইজ: {2},,ui,1,0,SettingsScreen.kt
 সংস্করণ ১.০.০ (অফিশিয়াল সংস্করণ),,ui,1,0,SettingsScreen.kt
 সংস্কৃতির আলোয় পথচলা…,,ui,1,0,SplashScreen.kt
 সকল কন্টেন্ট তৈরি ও সম্পাদনার অনুমতি,,ui,1,0,SupabaseModels.kt
 "সকল ক্ষমতা, সেটিংস ও মুছে ফেলার পূর্ণ নিয়ন্ত্রণ",,ui,1,0,SupabaseModels.kt
 সঠিক ইমেইল দিন অথবা ঐচ্ছিক ঘরটি খালি রাখুন।,,ui,1,0,ReaderViewModels.kt
 সতীর্থ,,content,1,0,AuthorProfiles.kt
-সব উত্তর দেখুন ({1}),,ui,1,1,ForumScreens.kt
+সব উত্তর দেখুন ({1}),,ui,1,0,ForumScreens.kt
 সব গান,,ui,1,0,MusicScreen.kt
 সব চালান,,ui,1,0,MusicBrowseScreens.kt
 সব বিজ্ঞপ্তি,,ui,1,0,SettingsScreen.kt
@@ -1069,7 +1069,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 সম্পাদনা সংরক্ষণ হয়নি।,,ui,1,0,ForumScreens.kt
 সরাত,,ui,1,0,MusicGenres.kt
 সর্বশেষ আপডেট পেতে আমাদের অ্যাপটি ডাউনলোড করুন,,ui,1,0,SiteFooter.kt
-সর্বোচ্চ {1},,ui,1,1,UserDashboardCharts.kt
+সর্বোচ্চ {1},,ui,1,0,UserDashboardCharts.kt
 সাংস্কৃতিক অভিযাত্রা,,content,1,0,NinghsingCheContentData.kt
 সাংস্কৃতিক কর্মী ও প্রাবন্ধিক,,content,1,0,NinghsingCheContentData.kt
 সাইট হালনাগাদ,,ui,1,0,ContentUpdateNotifier.kt
@@ -1133,7 +1133,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 "১৯৫৫ সালের ভাষা আন্দোলনের ঐতিহাসিক পটভূমি, মাতৃভাষার অধিকার রক্ষা এবং শহীদ সুদেষ্ণা সিংহের অসামান্য আত্মত্যাগের প্রামাণ্য ইতিহাস।",,content,1,0,NinghsingCheContentData.kt
 ১৯৫৫ সালের ১৬ মার্চ থেকে শুরু করে মাতৃভাষা স্বীকৃতির দীর্ঘ ঐতিহাসিক সংগ্রামের পূর্ণাঙ্গ প্রামাণ্য নথি ও চিত্রাবলি।,,content,1,0,NinghsingCheContentData.kt
 ১৯৯৬ সালের ১৬ মার্চের ভাষা আন্দোলনের পটভূমি কী ছিল?,,ui,1,0,NinghsingCheAiAssistant.kt
-১–{1},,ui,1,1,PdfViewerScreen.kt
+১–{1},,ui,1,0,PdfViewerScreen.kt
 ২০ ডিসেম্বর ২০২৪,,content,1,0,NinghsingCheContentData.kt
 ২৮ ডিসেম্বর ২০২৪,,content,1,0,NinghsingCheContentData.kt
 ৩টি প্রবন্ধ · ৫টি গান · ৯২০ পয়েন্ট,,ui,1,0,PortalModels.kt

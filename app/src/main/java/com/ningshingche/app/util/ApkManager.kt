@@ -16,6 +16,7 @@ import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.ningshingche.app.ui.i18n.tNow
 
 data class InstalledApkInfo(
     val fileName: String,
@@ -116,7 +117,7 @@ object ApkManager {
                     contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
                     resolver.update(uri, contentValues, null, null)
 
-                    return@withContext Result.success("Downloads/Ningshingche/$targetFileName ফোল্ডারে সফলভাবে সংরক্ষিত হয়েছে!")
+                    return@withContext Result.success(tNow("Downloads/Ningshingche/{1} ফোল্ডারে সফলভাবে সংরক্ষিত হয়েছে!", targetFileName))
                 }
             }
 
@@ -131,7 +132,7 @@ object ApkManager {
                 }
             }
 
-            Result.success("ডাউনলোড ফোল্ডারে সংরক্ষিত হয়েছে: ${destFile.absolutePath}")
+            Result.success(tNow("ডাউনলোড ফোল্ডারে সংরক্ষিত হয়েছে: {1}", destFile.absolutePath))
         } catch (e: Exception) {
             // Internal app external files fallback
             try {
@@ -144,7 +145,7 @@ object ApkManager {
                         inStream.copyTo(outStream)
                     }
                 }
-                Result.success("ডিভাইসে সফলভাবে ডাউনলোড হয়েছে: ${destFile.name}")
+                Result.success(tNow("ডিভাইসে সফলভাবে ডাউনলোড হয়েছে: {1}", destFile.name))
             } catch (fallbackEx: Exception) {
                 Result.failure(e)
             }
@@ -185,12 +186,12 @@ object ApkManager {
                 putExtra(Intent.EXTRA_SUBJECT, "Ningshingche Bengali Encyclopedia APK (v$versionName)")
                 putExtra(
                     Intent.EXTRA_TEXT,
-                    "নিংশিং চে — বিষ্ণুপ্রিয়া মণিপুরি ডিজিটাল তথ্যকোষ ও আর্কাইভ অ্যান্ড্রয়েড অ্যাপ (সংস্করণ $versionName)। ইনস্টল করতে সরাসরি এই APK ফাইলটি ব্যবহার করুন।"
+                    tNow("নিংশিং চে — বিষ্ণুপ্রিয়া মণিপুরি ডিজিটাল তথ্যকোষ ও আর্কাইভ অ্যান্ড্রয়েড অ্যাপ (সংস্করণ {1})। ইনস্টল করতে সরাসরি এই APK ফাইলটি ব্যবহার করুন।", versionName)
                 )
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
 
-            val chooser = Intent.createChooser(shareIntent, "নিংশিং চে APK ফাইল পাঠান / শেয়ার করুন")
+            val chooser = Intent.createChooser(shareIntent, tNow("নিংশিং চে APK ফাইল পাঠান / শেয়ার করুন"))
             chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(chooser)
             true

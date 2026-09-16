@@ -60,6 +60,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
+import com.ningshingche.app.ui.i18n.tNow
 
 /**
  * Renders HTML formatted text (from author descriptions, bios, and rich CMS data)
@@ -609,7 +610,7 @@ private fun parseMarkdownBlocks(raw: String): List<MarkdownBlock> {
             blocks.add(
                 MarkdownBlock.Image(
                     url = imageMatch.groupValues[2].trim(),
-                    alt = imageMatch.groupValues[1].trim().ifBlank { "ছবি" }
+                    alt = imageMatch.groupValues[1].trim().ifBlank { tNow("ছবি") }
                 )
             )
             i++

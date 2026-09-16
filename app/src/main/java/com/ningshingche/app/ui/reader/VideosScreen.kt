@@ -52,6 +52,8 @@ import com.ningshingche.app.ui.editorial.EmptyState
 import com.ningshingche.app.ui.editorial.Hairline
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.editorial.VideoPlayerDialog
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,7 +89,7 @@ fun VideosScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "ভিডিও",
+                        text = t("ভিডিও"),
                         style = EditorialType.Title,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -95,7 +97,7 @@ fun VideosScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "পেছনে")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t("পেছনে"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -117,7 +119,7 @@ fun VideosScreen(
                 )
             }
             videos.isEmpty() -> EmptyState(
-                message = "এখনো কোনো ভিডিও প্রকাশিত হয়নি।",
+                message = t("এখনো কোনো ভিডিও প্রকাশিত হয়নি।"),
                 modifier = Modifier.padding(padding)
             )
             else -> LazyColumn(
@@ -136,7 +138,7 @@ fun VideosScreen(
                         Hairline()
                         Spacer(Modifier.height(EditorialSpace.md))
                         Text(
-                            text = "সব ভিডিও",
+                            text = t("সব ভিডিও"),
                             style = EditorialType.Headline,
                             color = MaterialTheme.colorScheme.onSurface
                         )
@@ -186,7 +188,7 @@ private fun VideoCatalogCard(
                         .padding(EditorialSpace.sm)
                 ) {
                     Text(
-                        text = video.platform.ifBlank { "ভিডিও" },
+                        text = video.platform.ifBlank { tNow("ভিডিও") },
                         style = EditorialType.Caption,
                         color = Color.White,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -199,7 +201,7 @@ private fun VideoCatalogCard(
                 ) {
                     Icon(
                         imageVector = Icons.Default.PlayArrow,
-                        contentDescription = "চালান",
+                        contentDescription = t("চালান"),
                         tint = Color.White,
                         modifier = Modifier.padding(10.dp)
                     )

@@ -26,7 +26,59 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..', '..');
 const APP = path.join(ROOT, 'app', 'src', 'main', 'java', 'com', 'ningshingche', 'app');
-const read = (...parts) => fs.readFileSync(path.join(APP, ...parts), 'utf8');
+// The app asks the language table for its copy now — `t("…")`, or `tNow("…")`
+// where no composable may run — so these sources are read with that call lifted
+// off: `tNow("মোটা")` reads as `"মোটা"`, and if the call filled slots, the
+// arguments stay where they were. An assertion about a string does not care
+// whether the call site asks for a translation, and this keeps every existing
+// anchor honest rather than loosened: the string still has to be there, in that
+// place, in that shape.
+function unwrap(text) {
+  const opener = /(?<![A-Za-z0-9_.])(?:t|tNow)\(\s*(?=")/g;
+  let out = '';
+  let i = 0;
+  while (i < text.length) {
+    opener.lastIndex = i;
+    const match = opener.exec(text);
+    if (!match) { out += text.slice(i); break; }
+    out += text.slice(i, match.index);
+    let j = match.index + match[0].length;
+    const literalStart = j;
+    j += 1;
+    while (j < text.length) {
+      if (text[j] === '\\') { j += 2; continue; }
+      if (text[j] === '"') { j += 1; break; }
+      j += 1;
+    }
+    const literal = text.slice(literalStart, j);
+    // Skip the rest of the call: the closing paren of the one that wraps it.
+    let depth = 0;
+    let rest = '';
+    while (j < text.length) {
+      const ch = text[j];
+      if (ch === '"') {
+        let k = j + 1;
+        while (k < text.length && text[k] !== '"') { if (text[k] === '\\') k += 1; k += 1; }
+        rest += text.slice(j, k + 1);
+        j = k + 1;
+        continue;
+      }
+      if (ch === '(') depth += 1;
+      else if (ch === ')') {
+        if (depth === 0) { j += 1; break; }
+        depth -= 1;
+      }
+      rest += ch;
+      j += 1;
+    }
+    // One argument (the string itself) leaves nothing behind; a filled slot
+    // keeps its arguments, minus the parens that only existed for the call.
+    out += rest.trim() ? literal + rest : literal;
+    i = j;
+  }
+  return out;
+}
+const read = (...parts) => unwrap(fs.readFileSync(path.join(APP, ...parts), 'utf8'));
 const readBackend = (...parts) => fs.readFileSync(path.join(ROOT, 'backend', ...parts), 'utf8');
 
 const FORUM_SCREENS = read('ui', 'screens', 'ForumScreens.kt');

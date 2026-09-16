@@ -53,13 +53,15 @@ import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.SettingsViewModel
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 
 @Composable
 fun WelcomeLoginScreen(
     viewModel: SettingsViewModel,
     onSignedIn: () -> Unit,
     onSkip: () -> Unit = onSignedIn,
-    skipLabel: String = "সাইন-ইন ছাড়া এগিয়ে যান"
+    skipLabel: String = tNow("সাইন-ইন ছাড়া এগিয়ে যান")
 ) {
     val context = LocalContext.current
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
@@ -83,7 +85,7 @@ fun WelcomeLoginScreen(
         NingshingCheBrandLogo(size = 88.dp)
         Spacer(Modifier.height(20.dp))
         Text(
-            text = "নিংশিং চে",
+            text = t("নিংশিং চে"),
             fontFamily = Kalpurush,
             fontWeight = FontWeight.Bold,
             fontSize = textSize(30),
@@ -91,7 +93,7 @@ fun WelcomeLoginScreen(
             color = MaterialTheme.colorScheme.onBackground
         )
         Text(
-            text = "স্বাগতম। Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন।",
+            text = t("স্বাগতম। Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন।"),
             fontFamily = Kalpurush,
             fontSize = textSize(15),
             lineHeight = leading(15),
@@ -100,7 +102,7 @@ fun WelcomeLoginScreen(
             modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
         )
         Text(
-            text = "প্রথমবার খুললে সাইন-ইন প্রয়োজন। তারপর বিজ্ঞপ্তি চালু করতে পারবেন।",
+            text = t("প্রথমবার খুললে সাইন-ইন প্রয়োজন। তারপর বিজ্ঞপ্তি চালু করতে পারবেন।"),
             fontFamily = Kalpurush,
             fontSize = textSize(13),
             lineHeight = leading(13),
@@ -155,7 +157,7 @@ fun WelcomeLoginScreen(
 fun WelcomeNotificationsScreen(
     viewModel: SettingsViewModel,
     onFinished: () -> Unit,
-    finishLabel: String = "বিজ্ঞপ্তি চালু করুন"
+    finishLabel: String = tNow("বিজ্ঞপ্তি চালু করুন")
 ) {
     val context = LocalContext.current
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -206,7 +208,7 @@ fun WelcomeNotificationsScreen(
         }
         Spacer(Modifier.height(20.dp))
         Text(
-            text = "বিজ্ঞপ্তি চালু করুন",
+            text = t("বিজ্ঞপ্তি চালু করুন"),
             fontFamily = Kalpurush,
             fontWeight = FontWeight.Bold,
             fontSize = textSize(26),
@@ -215,7 +217,7 @@ fun WelcomeNotificationsScreen(
             textAlign = TextAlign.Center
         )
         Text(
-            text = "নতুন কিছু প্রকাশিত হলে অ্যান্ড্রয়েড নোটিফিকেশনে জানানো হবে।",
+            text = t("নতুন কিছু প্রকাশিত হলে অ্যান্ড্রয়েড নোটিফিকেশনে জানানো হবে।"),
             fontFamily = Kalpurush,
             fontSize = textSize(14),
             lineHeight = leading(14),
@@ -234,10 +236,10 @@ fun WelcomeNotificationsScreen(
                 modifier = Modifier.padding(18.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                NoticeRow(Icons.Default.Article, "নতুন প্রবন্ধ")
-                NoticeRow(Icons.Default.Videocam, "নতুন ভিডিও")
-                NoticeRow(Icons.Default.MenuBook, "নতুন PDF বই")
-                NoticeRow(Icons.Default.SystemUpdate, "সিস্টেম আপডেট")
+                NoticeRow(Icons.Default.Article, t("নতুন প্রবন্ধ"))
+                NoticeRow(Icons.Default.Videocam, t("নতুন ভিডিও"))
+                NoticeRow(Icons.Default.MenuBook, t("নতুন PDF বই"))
+                NoticeRow(Icons.Default.SystemUpdate, t("সিস্টেম আপডেট"))
             }
         }
 
@@ -271,7 +273,7 @@ fun WelcomeNotificationsScreen(
             modifier = Modifier.testTag("welcome_skip_notifications_button")
         ) {
             Text(
-                text = "এখন নয়",
+                text = t("এখন নয়"),
                 fontFamily = Kalpurush,
                 fontSize = textSize(14),
                 lineHeight = leading(14),

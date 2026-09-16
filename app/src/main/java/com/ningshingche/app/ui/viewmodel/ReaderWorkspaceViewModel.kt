@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
+import com.ningshingche.app.ui.i18n.tNow
 
 data class ReaderMetrics(
     val totalArticles: Int = 0,
@@ -90,8 +91,8 @@ data class ReaderSubmission(
      */
     val confirmation: String
         get() = when (kind) {
-            KIND_ARTICLE -> "লেখা জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর প্রকাশিত হবে।"
-            KIND_SONG -> "গান জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর যুক্ত হবে।"
+            KIND_ARTICLE -> tNow("লেখা জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর প্রকাশিত হবে।")
+            KIND_SONG -> tNow("গান জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর যুক্ত হবে।")
             else -> ""
         }
 
@@ -395,7 +396,7 @@ class ReaderWorkspaceViewModel(
 
     fun sendAdminMessage(body: String) {
         if (body.isBlank()) {
-            _message.value = "বার্তা লিখুন।"
+            _message.value = tNow("বার্তা লিখুন।")
             return
         }
         viewModelScope.launch {
@@ -409,7 +410,7 @@ class ReaderWorkspaceViewModel(
                     _adminMessages.value = merged
                 }
                 .onFailure { error ->
-                    _message.value = error.message ?: "বার্তা পাঠানো যায়নি।"
+                    _message.value = error.message ?: tNow("বার্তা পাঠানো যায়নি।")
                 }
             _isSaving.value = false
         }
@@ -421,27 +422,27 @@ class ReaderWorkspaceViewModel(
 
     fun saveProfile(updated: UserProfile) {
         if (updated.displayFirstName.isBlank() || updated.displayLastName.isBlank()) {
-            _message.value = "নামের প্রথম ও শেষ অংশ পূরণ করুন।"
+            _message.value = tNow("নামের প্রথম ও শেষ অংশ পূরণ করুন।")
             return
         }
         if (updated.about.isBlank()) {
-            _message.value = "নিজের সম্পর্কে সংক্ষিপ্ত পরিচিতি লিখুন।"
+            _message.value = tNow("নিজের সম্পর্কে সংক্ষিপ্ত পরিচিতি লিখুন।")
             return
         }
         if (updated.phone.isBlank()) {
-            _message.value = "ফোন নম্বর দিন।"
+            _message.value = tNow("ফোন নম্বর দিন।")
             return
         }
         if (updated.address.isBlank()) {
-            _message.value = "ঠিকানা দিন।"
+            _message.value = tNow("ঠিকানা দিন।")
             return
         }
         if (updated.facebookId.isBlank()) {
-            _message.value = "Facebook আইডি দিন।"
+            _message.value = tNow("Facebook আইডি দিন।")
             return
         }
         if (updated.avatarUrl.isBlank()) {
-            _message.value = "প্রোফাইল ছবি আপলোড করুন।"
+            _message.value = tNow("প্রোফাইল ছবি আপলোড করুন।")
             return
         }
         viewModelScope.launch {
@@ -449,9 +450,9 @@ class ReaderWorkspaceViewModel(
             _message.value = null
             val result = supabaseClient.updateReaderProfile(updated)
             result.onSuccess {
-                _message.value = "প্রোফাইল সংরক্ষিত হয়েছে।"
+                _message.value = tNow("প্রোফাইল সংরক্ষিত হয়েছে।")
             }.onFailure { error ->
-                _message.value = error.message ?: "প্রোফাইল সংরক্ষণ যায়নি।"
+                _message.value = error.message ?: tNow("প্রোফাইল সংরক্ষণ যায়নি।")
             }
             _isSaving.value = false
         }
@@ -467,10 +468,10 @@ class ReaderWorkspaceViewModel(
                 val next = user.copy(avatarUrl = image.displayUrl.ifBlank { image.url }, imgbbDeleteUrl = image.deleteUrl)
                 val result = supabaseClient.updateReaderProfile(next)
                 result.onSuccess {
-                    _message.value = "প্রোফাইল ছবি আপডেট হয়েছে।"
-                }.onFailure { _message.value = it.message ?: "ছবি সংরক্ষণ যায়নি।" }
+                    _message.value = tNow("প্রোফাইল ছবি আপডেট হয়েছে।")
+                }.onFailure { _message.value = it.message ?: tNow("ছবি সংরক্ষণ যায়নি।") }
             }.onFailure {
-                _message.value = it.message ?: "ছবি আপলোড যায়নি।"
+                _message.value = it.message ?: tNow("ছবি আপলোড যায়নি।")
             }
             _avatarUploading.value = false
         }
@@ -479,7 +480,7 @@ class ReaderWorkspaceViewModel(
     fun submitArticle(title: String, content: String, thumbnailUri: Uri?, context: Context) {
         val user = currentUser.value ?: return
         if (!user.isProfileComplete) {
-            _message.value = "নতুন প্রবন্ধ জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।"
+            _message.value = tNow("নতুন প্রবন্ধ জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।")
             return
         }
         val plain = content.replace(Regex("<[^>]*>"), " ")
@@ -487,7 +488,7 @@ class ReaderWorkspaceViewModel(
             .replace("&amp;", "&", ignoreCase = true)
             .trim()
         if (title.isBlank() || plain.isBlank()) {
-            _message.value = "শিরোনাম ও লেখা আবশ্যক।"
+            _message.value = tNow("শিরোনাম ও লেখা আবশ্যক।")
             return
         }
         viewModelScope.launch {
@@ -499,7 +500,7 @@ class ReaderWorkspaceViewModel(
                 val upload = ImgBbUploader.uploadFromUri(context, thumbnailUri, "article_${System.currentTimeMillis()}")
                 val image = upload.getOrElse {
                     _isSaving.value = false
-                    _message.value = it.message ?: "ছবি আপলোড যায়নি।"
+                    _message.value = it.message ?: tNow("ছবি আপলোড যায়নি।")
                     return@launch
                 }
                 thumbnail = image.displayUrl.ifBlank { image.url }
@@ -525,7 +526,7 @@ class ReaderWorkspaceViewModel(
             )
             val result = supabaseClient.submitReaderArticle(record)
             result.onSuccess {
-                _message.value = "লেখা জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর প্রকাশিত হবে।"
+                _message.value = tNow("লেখা জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর প্রকাশিত হবে।")
                 // The note the dashboard lands on: the content tab, with the row
                 // the reader has just written highlighted.
                 _submission.value = ReaderSubmission(
@@ -535,7 +536,7 @@ class ReaderWorkspaceViewModel(
                 )
                 refresh()
             }.onFailure {
-                _message.value = it.message ?: "লেখা জমা যায়নি।"
+                _message.value = it.message ?: tNow("লেখা জমা যায়নি।")
             }
             _isSaving.value = false
         }
@@ -552,15 +553,15 @@ class ReaderWorkspaceViewModel(
     ) {
         val user = currentUser.value ?: return
         if (!user.isProfileComplete) {
-            _message.value = "নতুন গান জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।"
+            _message.value = tNow("নতুন গান জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।")
             return
         }
         if (title.isBlank()) {
-            _message.value = "শিরোনাম আবশ্যক।"
+            _message.value = tNow("শিরোনাম আবশ্যক।")
             return
         }
         if (audioUri == null) {
-            _message.value = "এমপি৩ ফাইল নির্বাচন করুন।"
+            _message.value = tNow("এমপি৩ ফাইল নির্বাচন করুন।")
             return
         }
         viewModelScope.launch {
@@ -568,7 +569,7 @@ class ReaderWorkspaceViewModel(
             _message.value = null
             val audio = uploadSong(context, user.id, audioUri).getOrElse {
                 _isSaving.value = false
-                _message.value = it.message ?: "অডিও আপলোড যায়নি।"
+                _message.value = it.message ?: tNow("অডিও আপলোড যায়নি।")
                 return@launch
             }
             var coverUrl = ""
@@ -576,7 +577,7 @@ class ReaderWorkspaceViewModel(
                 val upload = ImgBbUploader.uploadFromUri(context, coverUri, "music_${System.currentTimeMillis()}")
                 val image = upload.getOrElse {
                     _isSaving.value = false
-                    _message.value = it.message ?: "ছবি আপলোড যায়নি।"
+                    _message.value = it.message ?: tNow("ছবি আপলোড যায়নি।")
                     return@launch
                 }
                 coverUrl = image.displayUrl.ifBlank { image.url }
@@ -601,7 +602,7 @@ class ReaderWorkspaceViewModel(
                 fileSizeMb = audio.sizeBytes / 1_000_000.0
             )
             result.onSuccess {
-                _message.value = "গান জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর যুক্ত হবে।"
+                _message.value = tNow("গান জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর যুক্ত হবে।")
                 // A song's row id is made by the database, so the note carries
                 // what the app knows: the tab to land on and what it was called.
                 _submission.value = ReaderSubmission(
@@ -611,7 +612,7 @@ class ReaderWorkspaceViewModel(
                 )
                 refresh()
             }.onFailure {
-                _message.value = it.message ?: "গান জমা যায়নি।"
+                _message.value = it.message ?: tNow("গান জমা যায়নি।")
             }
             _isSaving.value = false
         }

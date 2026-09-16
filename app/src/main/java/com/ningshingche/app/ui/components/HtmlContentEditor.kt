@@ -73,6 +73,7 @@ import com.ningshingche.app.ui.theme.Kalpurush
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import com.ningshingche.app.ui.i18n.tNow
 
 /**
  * A handle on the editor's keyboard, for the screen that owns it.
@@ -150,7 +151,7 @@ fun HtmlContentEditor(
     onEditorHeightChange: (Int) -> Unit = {},
     selectionPopup: Boolean = true,
     compact: Boolean = false,
-    placeholder: String = "লেখা লিখুন… নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি, কাট ও পেস্ট আসবে।",
+    placeholder: String = tNow("লেখা লিখুন… নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি, কাট ও পেস্ট আসবে।"),
     testTag: String = "article_content",
     controller: HtmlEditorController? = null,
     autoGrow: Boolean = true,
@@ -252,7 +253,7 @@ fun HtmlContentEditor(
                 val url = image.displayUrl.ifBlank { image.url }
                 if (url.isNotBlank()) insertImageUrl(url)
             }.onFailure { error ->
-                uploadError = error.message ?: "ছবি আপলোড হয়নি।"
+                uploadError = error.message ?: tNow("ছবি আপলোড হয়নি।")
             }
         }
     }
@@ -271,37 +272,37 @@ fun HtmlContentEditor(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (!htmlMode) {
-                    ToolIcon("মোটা", Icons.Default.FormatBold, compact, "bold" in activeFormats) {
+                    ToolIcon(tNow("মোটা"), Icons.Default.FormatBold, compact, "bold" in activeFormats) {
                         run("bold")
                     }
-                    ToolIcon("বাঁকা", Icons.Default.FormatItalic, compact, "italic" in activeFormats) {
+                    ToolIcon(tNow("বাঁকা"), Icons.Default.FormatItalic, compact, "italic" in activeFormats) {
                         run("italic")
                     }
                     ToolIcon(
-                        "নিচে দাগ",
+                        tNow("নিচে দাগ"),
                         Icons.Default.FormatUnderlined,
                         compact,
                         "underline" in activeFormats
                     ) { run("underline") }
                     ToolIcon(
-                        "তালিকা",
+                        tNow("তালিকা"),
                         Icons.AutoMirrored.Filled.FormatListBulleted,
                         compact,
                         "insertUnorderedList" in activeFormats
                     ) { run("insertUnorderedList") }
                     if (!compact) {
-                        ToolIcon("পেস্ট", Icons.Default.ContentPaste) { pasteClipboard() }
+                        ToolIcon(tNow("পেস্ট"), Icons.Default.ContentPaste) { pasteClipboard() }
                     }
                     // The picture button is the article composer's. A forum post
                     // attaches its files on the row under the box — a picture and a
                     // PDF alike — so the four the owner listed are the four here.
                     if (!compact) {
-                        ToolIcon("ছবি যোগ", Icons.Default.Image) {
+                        ToolIcon(tNow("ছবি যোগ"), Icons.Default.Image) {
                             if (!uploading) imagePicker.launch("image/*")
                         }
                     }
                     if (!compact) {
-                        ToolIcon("আগের কাজ", Icons.Default.Undo) { run("undo") }
+                        ToolIcon(tNow("আগের কাজ"), Icons.Default.Undo) { run("undo") }
                     }
                 }
                 // The HTML switch belongs to the article composer: a forum reply
@@ -327,7 +328,7 @@ fun HtmlContentEditor(
 
         if (!compact) {
             Text(
-                "লেখা নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি, কাট ও পেস্ট দেখাবে। ছবি ImgBB-তে আপলোড হয়।",
+                tNow("লেখা নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি, কাট ও পেস্ট দেখাবে। ছবি ImgBB-তে আপলোড হয়।"),
             fontFamily = Kalpurush,
             style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -338,7 +339,7 @@ fun HtmlContentEditor(
             OutlinedTextField(
                 value = value,
                 onValueChange = onValueChange,
-                label = { Text("HTML লেখা", fontFamily = Kalpurush) },
+                label = { Text(tNow("HTML লেখা"), fontFamily = Kalpurush) },
                 minLines = 8,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -479,7 +480,7 @@ fun HtmlContentEditor(
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 2.dp)
-                            Text("ছবি আপলোড হচ্ছে…", fontFamily = Kalpurush, modifier = Modifier.padding(top = 8.dp))
+                            Text(tNow("ছবি আপলোড হচ্ছে…"), fontFamily = Kalpurush, modifier = Modifier.padding(top = 8.dp))
                         }
                     }
                 }
@@ -674,7 +675,7 @@ private fun editorHtml(
     onAccentArgb: Int,
     fontFaceCss: String,
     selectionPopup: Boolean = true,
-    placeholder: String = "লেখা লিখুন… নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি, কাট ও পেস্ট আসবে।"
+    placeholder: String = tNow("লেখা লিখুন… নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি, কাট ও পেস্ট আসবে।")
 ): String {
     val bg = hexColor(bgArgb)
     val fg = hexColor(fgArgb)

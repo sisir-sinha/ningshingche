@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.ningshingche.app.data.model.ContentLanguage
 import com.ningshingche.app.ui.viewmodel.SettingsViewModel
+import com.ningshingche.app.ui.i18n.t
 
 /** Steps in [FirstRunFlow]: language, sign-in, notifications. */
 const val FIRST_RUN_STEPS = 3
@@ -67,20 +68,20 @@ fun FirstRunFlow(
                 selected = selected,
                 onSelect = onSelectLanguage,
                 onContinue = { step = 1 },
-                continueLabel = "পরবর্তী"
+                continueLabel = t("পরবর্তী")
             )
 
             1 -> WelcomeLoginScreen(
                 viewModel = viewModel,
                 onSignedIn = { step = 2 },
                 onSkip = { step = 2 },
-                skipLabel = "সাইন-ইন ছাড়া পরবর্তী"
+                skipLabel = t("সাইন-ইন ছাড়া পরবর্তী")
             )
 
             else -> WelcomeNotificationsScreen(
                 viewModel = viewModel,
                 onFinished = onFinished,
-                finishLabel = "চালু করে শেষ করুন"
+                finishLabel = t("চালু করে শেষ করুন")
             )
         }
 

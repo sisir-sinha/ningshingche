@@ -38,6 +38,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import com.ningshingche.app.ui.i18n.tNow
 
 /**
  * ViewModels for the public reader.
@@ -49,7 +50,7 @@ import kotlinx.coroutines.launch
  */
 
 private fun PortalError?.message(): String =
-    (this as? PortalError)?.message ?: "তথ্য লোড করতে সমস্যা হয়েছে।"
+    (this as? PortalError)?.message ?: tNow("তথ্য লোড করতে সমস্যা হয়েছে।")
 
 // ---------------------------------------------------------------------------
 // Home
@@ -220,7 +221,7 @@ class HomeViewModel(private val repository: PortalRepository) : ViewModel() {
                     // is said in one quiet line under the heading, and the reader
                     // has the Forum row in the account menu either way.
                     _forumLatestError.value = (failure as? PortalError)?.message()
-                        ?: "আলোচনা আনা যায়নি।"
+                        ?: tNow("আলোচনা আনা যায়নি।")
                 }
             _forumLatestLoading.value = false
         }
@@ -417,7 +418,7 @@ class ArticleViewModel(
         }
         currentIdOrSlug = idOrSlug.trim()
         if (currentIdOrSlug.isBlank()) {
-            _state.value = ArticleUiState.Error("প্রবন্ধটি পাওয়া যায়নি।")
+            _state.value = ArticleUiState.Error(tNow("প্রবন্ধটি পাওয়া যায়নি।"))
             return
         }
         viewModelScope.launch {
@@ -492,9 +493,9 @@ class ArticleViewModel(
         val address = account?.address?.ifBlank { form.address } ?: form.address
         val avatarUrl = account?.avatarUrl?.ifBlank { form.avatarUrl } ?: form.avatarUrl
         val invalid = when {
-            name.isBlank() || form.content.isBlank() -> if (account != null) "মন্তব্য আবশ্যক।" else "নাম ও মন্তব্য আবশ্যক।"
+            name.isBlank() || form.content.isBlank() -> if (account != null) tNow("মন্তব্য আবশ্যক।") else tNow("নাম ও মন্তব্য আবশ্যক।")
             email.isNotBlank() && !Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$").matches(email.trim()) ->
-                "সঠিক ইমেইল দিন অথবা ঐচ্ছিক ঘরটি খালি রাখুন।"
+                tNow("সঠিক ইমেইল দিন অথবা ঐচ্ছিক ঘরটি খালি রাখুন।")
             else -> null
         }
         if (invalid != null) {
@@ -505,7 +506,7 @@ class ArticleViewModel(
         // Set synchronously, before launching: rapid taps must not create duplicate POSTs.
         _isPostingComment.value = true
         _commentForm.update { it.copy(isError = false) }
-        _commentStatus.value = "মন্তব্য পাঠানো হচ্ছে..."
+        _commentStatus.value = tNow("মন্তব্য পাঠানো হচ্ছে...")
         viewModelScope.launch {
             try {
                 repository.postComment(
@@ -533,7 +534,7 @@ class ArticleViewModel(
                             identityFromAccount = account != null
                         )
                     }
-                    _commentStatus.value = "মন্তব্য জমা হয়েছে। অনুমোদনের পর প্রকাশিত হবে।"
+                    _commentStatus.value = tNow("মন্তব্য জমা হয়েছে। অনুমোদনের পর প্রকাশিত হবে।")
                     _state.update { state ->
                         (state as? ArticleUiState.Ready)?.takeIf { it.article.id == current.article.id }
                             ?.copy(commentPosted = true) ?: state
@@ -545,12 +546,12 @@ class ArticleViewModel(
                     } catch (_: Exception) {
                         // The comment succeeded. Never report a failed POST or invite a duplicate
                         // submission merely because saving local contact details failed.
-                        _commentStatus.value = "মন্তব্য জমা হয়েছে। অনুমোদনের পর প্রকাশিত হবে। তবে এই ডিভাইসে আপনার তথ্য মনে রাখা যায়নি।"
+                        _commentStatus.value = tNow("মন্তব্য জমা হয়েছে। অনুমোদনের পর প্রকাশিত হবে। তবে এই ডিভাইসে আপনার তথ্য মনে রাখা যায়নি।")
                     }
                 }.onFailure { error ->
                     _commentForm.update { it.copy(isError = true) }
                     _commentStatus.value = if (error is PortalError.Offline) {
-                        "ইন্টারনেট সংযোগ যাচাই করে আবার চেষ্টা করুন। আপনার মন্তব্য মুছে ফেলা হয়নি।"
+                        tNow("ইন্টারনেট সংযোগ যাচাই করে আবার চেষ্টা করুন। আপনার মন্তব্য মুছে ফেলা হয়নি।")
                     } else (error as? PortalError).message()
                 }
             } finally {

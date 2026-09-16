@@ -1,14 +1,16 @@
 package com.ningshingche.app.ui.navigation
+import com.ningshingche.app.ui.i18n.tNow
+
 
 /**
  * Tabs of the "অন্বেষণ ও সংগ্রহ" (Explore) screen. The `key` is what goes into
  * the navigation route, so it must stay URL-safe and stable.
  */
 enum class ExploreTab(val key: String, val title: String) {
-    Categories("categories", "বিভাগসমূহ"),
-    Authors("authors", "লেখকবৃন্দ"),
-    Issues("issues", "বার্ষিক সংখ্যা"),
-    Popular("popular", "জনপ্রিয় ও নির্বাচিত");
+    Categories("categories", tNow("বিভাগসমূহ")),
+    Authors("authors", tNow("লেখকবৃন্দ")),
+    Issues("issues", tNow("বার্ষিক সংখ্যা")),
+    Popular("popular", tNow("জনপ্রিয় ও নির্বাচিত"));
 
     companion object {
         fun fromKey(key: String?): ExploreTab = entries.firstOrNull { it.key == key } ?: Categories

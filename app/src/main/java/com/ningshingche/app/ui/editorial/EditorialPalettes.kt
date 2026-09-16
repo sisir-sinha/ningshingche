@@ -3,6 +3,7 @@ package com.ningshingche.app.ui.editorial
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import com.ningshingche.app.data.model.AppPalette
+import com.ningshingche.app.ui.i18n.tNow
 
 /**
  * The app's palettes, and what "the theme" means now.
@@ -138,8 +139,8 @@ object EditorialPalettes {
     /** নীলা-কালি — the app's own palette, and the default. */
     val Indigo = EditorialPaletteSpec(
         id = AppPalette.INDIGO,
-        label = "নীলা-কালি",
-        note = "ঠান্ডা কাগজ, ইন্ডিগো আর সোনালি",
+        label = tNow("নীলা-কালি"),
+        note = tNow("ঠান্ডা কাগজ, ইন্ডিগো আর সোনালি"),
         light = PaletteSide(
             paper = Color(0xFFF7F8FB),
             paperSunken = Color(0xFFEDF0F7),
@@ -185,8 +186,8 @@ object EditorialPalettes {
     /** চোখে-আরাম — the warm sepia palette most readers ask for by that name. */
     val EyeWarm = EditorialPaletteSpec(
         id = AppPalette.EYE_WARM,
-        label = "চোখে-আরাম",
-        note = "গরম কাগজ আর মাটির রঙ, দীর্ঘ পড়ার জন্য",
+        label = tNow("চোখে-আরাম"),
+        note = tNow("গরম কাগজ আর মাটির রঙ, দীর্ঘ পড়ার জন্য"),
         light = PaletteSide(
             paper = Color(0xFFFAF3E3),
             paperSunken = Color(0xFFF2E7D2),
@@ -232,8 +233,8 @@ object EditorialPalettes {
     /** নিশীথ — true black, for an OLED screen and a dark room. */
     val Night = EditorialPaletteSpec(
         id = AppPalette.NIGHT,
-        label = "নিশীথ",
-        note = "আসল কালো, রাতের পড়ার জন্য",
+        label = tNow("নিশীথ"),
+        note = tNow("আসল কালো, রাতের পড়ার জন্য"),
         light = PaletteSide(
             paper = Color(0xFFF7F7F8),
             paperSunken = Color(0xFFEDEEF1),
@@ -280,7 +281,7 @@ object EditorialPalettes {
     val Forest = EditorialPaletteSpec(
         id = AppPalette.FOREST,
         label = "বন",
-        note = "সবুজ পাতা আর অলিভ-সোনালি",
+        note = tNow("সবুজ পাতা আর অলিভ-সোনালি"),
         light = PaletteSide(
             paper = Color(0xFFF5F8F4),
             paperSunken = Color(0xFFE9EFE7),
@@ -326,8 +327,8 @@ object EditorialPalettes {
     /** গোলাপ — rose, with a blue second that keeps it from going sweet. */
     val Rose = EditorialPaletteSpec(
         id = AppPalette.ROSE,
-        label = "গোলাপ",
-        note = "গোলাপি আর নীল — উষ্ণ অথচ শান্ত",
+        label = tNow("গোলাপ"),
+        note = tNow("গোলাপি আর নীল — উষ্ণ অথচ শান্ত"),
         light = PaletteSide(
             paper = Color(0xFFFBF6F7),
             paperSunken = Color(0xFFF3E9EB),
@@ -425,8 +426,8 @@ object EditorialPalettes {
 
         return EditorialPaletteSpec(
             id = AppPalette.CUSTOM,
-            label = "নিজের রঙ",
-            note = "চাকা ঘুরিয়ে নিজের অ্যাকসেন্ট বেছে নিন",
+            label = tNow("নিজের রঙ"),
+            note = tNow("চাকা ঘুরিয়ে নিজের অ্যাকসেন্ট বেছে নিন"),
             light = PaletteSide(
                 paper = lightPaper,
                 paperSunken = lightSunken,

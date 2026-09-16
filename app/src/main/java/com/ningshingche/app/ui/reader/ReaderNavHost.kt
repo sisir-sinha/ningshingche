@@ -25,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -92,6 +93,8 @@ import kotlinx.coroutines.launch
 import java.net.URLEncoder
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.unit.dp
+import com.ningshingche.app.ui.i18n.LocalTranslations
+import com.ningshingche.app.ui.i18n.tNow
 
 /**
  * Navigation routes for NingshingChe Portal.
@@ -228,6 +231,15 @@ fun EditorialReaderApp(
     modifier: Modifier = Modifier
 ) {
     val navController = rememberNavController()
+
+    // The table the app is rendering in. Reading it here is what makes a language
+    // swap visible: the graph below is keyed on it, so changing the language (or
+    // the language file arriving) rebuilds every destination in the new words —
+    // including the places that looked their text up with `tNow()` from a click
+    // handler or a view model. The controller is remembered above the key, so the
+    // reader's place in the app is not thrown away.
+    val translations = LocalTranslations.current
+
     val context = LocalContext.current
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
@@ -407,7 +419,7 @@ fun EditorialReaderApp(
                             )
                             type = "text/plain"
                         }
-                        context.startActivity(Intent.createChooser(sendIntent, "নিংশিং চে অ্যাপ শেয়ার করুন"))
+                        context.startActivity(Intent.createChooser(sendIntent, tNow("নিংশিং চে অ্যাপ শেয়ার করুন")))
                     }
                 },
                 onCloseDrawer = {
@@ -419,6 +431,7 @@ fun EditorialReaderApp(
         }
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
+        key(translations) {
         NavHost(
             navController = navController,
             startDestination = ReaderRoute.Splash,
@@ -1165,6 +1178,7 @@ fun EditorialReaderApp(
 
         }
         MusicMiniPlayerBar(controller = app.musicController)
+        }
         }
     }
     MusicFullPlayerOverlay(controller = app.musicController)

@@ -88,6 +88,8 @@ import com.ningshingche.app.ui.theme.PanelRule
 import com.ningshingche.app.ui.theme.PanelSoft
 import com.ningshingche.app.ui.viewmodel.PdfViewerViewModel
 import java.io.File
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 
 private val ReaderCanvas = Panel
 private val ReaderBar = PanelSoft
@@ -147,11 +149,11 @@ fun PdfViewerScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onNavigateBack, modifier = Modifier.testTag("pdf_viewer_back_button")) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "পেছনে", tint = PanelInk)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t("পেছনে"), tint = PanelInk)
             }
             Column(Modifier.weight(1f)) {
                 Text(
-                    pdfDocument?.title ?: "গ্রন্থাগার",
+                    pdfDocument?.title ?: t("গ্রন্থাগার"),
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
                     color = PanelInk,
@@ -161,23 +163,23 @@ fun PdfViewerScreen(
                     overflow = TextOverflow.Ellipsis
                 )
                 val subtitle = when {
-                    pageCount > 0 -> "পৃষ্ঠা ${currentPage + 1} / $pageCount"
+                    pageCount > 0 -> t("পৃষ্ঠা {1} / {2}", currentPage + 1, pageCount)
                     !pdfDocument?.edition.isNullOrBlank() -> pdfDocument?.edition.orEmpty()
-                    else -> "পিডিএফ পাঠক"
+                    else -> t("পিডিএফ পাঠক")
                 }
                 Text(subtitle, fontFamily = Kalpurush, color = BrandGoldLight, fontSize = textSize(12), lineHeight = leading(12))
             }
             IconButton(onClick = { showSettings = true }, enabled = localFile != null) {
-                Icon(Icons.Default.Settings, contentDescription = "সেটিংস", tint = BrandGoldLight)
+                Icon(Icons.Default.Settings, contentDescription = t("সেটিংস"), tint = BrandGoldLight)
             }
             IconButton(onClick = { viewModel.openExternally() }, enabled = localFile != null) {
-                Icon(Icons.Default.OpenInNew, contentDescription = "অন্য অ্যাপে খুলুন", tint = BrandGoldLight)
+                Icon(Icons.Default.OpenInNew, contentDescription = t("অন্য অ্যাপে খুলুন"), tint = BrandGoldLight)
             }
             IconButton(onClick = { viewModel.sharePdf() }, enabled = localFile != null) {
-                Icon(Icons.Default.Share, contentDescription = "শেয়ার", tint = BrandGoldLight)
+                Icon(Icons.Default.Share, contentDescription = t("শেয়ার"), tint = BrandGoldLight)
             }
             IconButton(onClick = { viewModel.downloadPdf() }, enabled = pdfDocument != null) {
-                Icon(Icons.Default.Download, contentDescription = "ডাউনলোড", tint = BrandGoldLight)
+                Icon(Icons.Default.Download, contentDescription = t("ডাউনলোড"), tint = BrandGoldLight)
             }
         }
 
@@ -195,14 +197,14 @@ fun PdfViewerScreen(
                     Icon(Icons.Default.PictureAsPdf, null, tint = BrandGoldLight, modifier = Modifier.size(56.dp))
                     Spacer(Modifier.height(12.dp))
                     Text(
-                        errorMessage ?: "বইটি খোলা যায়নি",
+                        errorMessage ?: t("বইটি খোলা যায়নি"),
                         fontFamily = Kalpurush,
                         color = PanelInk,
                         fontSize = textSize(15),
                         lineHeight = leading(15)
                     )
                     TextButton(onClick = { viewModel.loadPdf(pdfId) }) {
-                        Text("আবার চেষ্টা করুন", fontFamily = Kalpurush, color = BrandGoldLight)
+                        Text(t("আবার চেষ্টা করুন"), fontFamily = Kalpurush, color = BrandGoldLight)
                     }
                 }
                 localFile != null -> {
@@ -213,7 +215,7 @@ fun PdfViewerScreen(
                         onReady = { pdfViewRef = it },
                         onLoad = viewModel::onDocumentLoaded,
                         onPage = viewModel::onPageChanged,
-                        onError = { viewModel.onViewerError(it.message ?: "পিডিএফ খোলা যায়নি।") }
+                        onError = { viewModel.onViewerError(it.message ?: tNow("পিডিএফ খোলা যায়নি।")) }
                     )
                     if (settings.bookView && pageCount > 1) {
                         IconButton(
@@ -226,7 +228,7 @@ fun PdfViewerScreen(
                                 .clip(CircleShape)
                                 .background(Color(0x66000000))
                         ) {
-                            Icon(Icons.Default.ChevronLeft, "আগের পৃষ্ঠা", tint = Color.White)
+                            Icon(Icons.Default.ChevronLeft, t("আগের পৃষ্ঠা"), tint = Color.White)
                         }
                         IconButton(
                             onClick = { pdfViewRef?.jumpTo((currentPage + 1).coerceAtMost(pageCount - 1), true) },
@@ -238,7 +240,7 @@ fun PdfViewerScreen(
                                 .clip(CircleShape)
                                 .background(Color(0x66000000))
                         ) {
-                            Icon(Icons.Default.ChevronRight, "পরের পৃষ্ঠা", tint = Color.White)
+                            Icon(Icons.Default.ChevronRight, t("পরের পৃষ্ঠা"), tint = Color.White)
                         }
                     }
                     if (isLoading) {
@@ -252,7 +254,7 @@ fun PdfViewerScreen(
                 else -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator(color = BrandGoldLight, strokeWidth = 2.dp)
                     Spacer(Modifier.height(12.dp))
-                    Text("পিডিএফ খোলা হচ্ছে…", fontFamily = Kalpurush, color = PanelInk, fontSize = textSize(14), lineHeight = leading(14))
+                    Text(t("পিডিএফ খোলা হচ্ছে…"), fontFamily = Kalpurush, color = PanelInk, fontSize = textSize(14), lineHeight = leading(14))
                 }
             }
         }
@@ -282,9 +284,9 @@ fun PdfViewerScreen(
                 }
                 Text(
                     text = if (settings.bookView) {
-                        "বই দৃশ্য  ·  সোয়াইপ করে পাতা উল্টান"
+                        t("বই দৃশ্য  ·  সোয়াইপ করে পাতা উল্টান")
                     } else {
-                        "স্ক্রল দৃশ্য  ·  চিমটি করে জুম"
+                        t("স্ক্রল দৃশ্য  ·  চিমটি করে জুম")
                     },
                     fontFamily = Kalpurush,
                     color = PanelInkMuted,
@@ -451,9 +453,9 @@ private fun PdfReaderSettingsSheet(
             .padding(bottom = 24.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        Text("পাঠকের সেটিংস", fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = textSize(18), lineHeight = leading(18))
+        Text(t("পাঠকের সেটিংস"), fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = textSize(18), lineHeight = leading(18))
         Spacer(Modifier.height(14.dp))
-        Text("দৃশ্য", fontFamily = Kalpurush, color = BrandGoldLight, fontSize = textSize(13), lineHeight = leading(13))
+        Text(t("দৃশ্য"), fontFamily = Kalpurush, color = BrandGoldLight, fontSize = textSize(13), lineHeight = leading(13))
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ModeChip(
@@ -464,13 +466,13 @@ private fun PdfReaderSettingsSheet(
             ModeChip(
                 selected = !settings.bookView,
                 icon = Icons.Default.ViewDay,
-                label = "স্ক্রল"
+                label = t("স্ক্রল")
             ) { onChange(settings.copy(bookView = false)) }
         }
         Spacer(Modifier.height(6.dp))
         Text(
-            if (settings.bookView) "এক পাতায় একটি পৃষ্ঠা। বাঁদিকে/ডানদিকে সোয়াইপ করলে পাতা উল্টে।"
-            else "উপর-নিচ স্ক্রল করে পুরো বই পড়ুন।",
+            if (settings.bookView) t("এক পাতায় একটি পৃষ্ঠা। বাঁদিকে/ডানদিকে সোয়াইপ করলে পাতা উল্টে।")
+            else t("উপর-নিচ স্ক্রল করে পুরো বই পড়ুন।"),
             fontFamily = Kalpurush,
             color = PanelInkMuted,
             fontSize = textSize(12),
@@ -479,25 +481,25 @@ private fun PdfReaderSettingsSheet(
         Spacer(Modifier.height(16.dp))
         HorizontalDivider(color = Color(0x332A3141))
         Spacer(Modifier.height(12.dp))
-        SettingSwitch("রাতের মোড", settings.nightMode) { onChange(settings.copy(nightMode = it)) }
-        SettingSwitch("পাতা স্ন্যাপ", settings.snapPages) { onChange(settings.copy(snapPages = it)) }
-        SettingSwitch("দুবার ট্যাপে জুম", settings.doubleTapZoom) { onChange(settings.copy(doubleTapZoom = it)) }
-        SettingSwitch("অ্যানোটেশন দেখান", settings.annotations) { onChange(settings.copy(annotations = it)) }
-        SettingSwitch("স্ক্রল হ্যান্ডেল", settings.scrollHandle) { onChange(settings.copy(scrollHandle = it)) }
-        SettingSwitch("স্ক্রিন জ্বালিয়ে রাখুন", settings.keepScreenOn) { onChange(settings.copy(keepScreenOn = it)) }
+        SettingSwitch(t("রাতের মোড"), settings.nightMode) { onChange(settings.copy(nightMode = it)) }
+        SettingSwitch(t("পাতা স্ন্যাপ"), settings.snapPages) { onChange(settings.copy(snapPages = it)) }
+        SettingSwitch(t("দুবার ট্যাপে জুম"), settings.doubleTapZoom) { onChange(settings.copy(doubleTapZoom = it)) }
+        SettingSwitch(t("অ্যানোটেশন দেখান"), settings.annotations) { onChange(settings.copy(annotations = it)) }
+        SettingSwitch(t("স্ক্রল হ্যান্ডেল"), settings.scrollHandle) { onChange(settings.copy(scrollHandle = it)) }
+        SettingSwitch(t("স্ক্রিন জ্বালিয়ে রাখুন"), settings.keepScreenOn) { onChange(settings.copy(keepScreenOn = it)) }
         Spacer(Modifier.height(8.dp))
-        Text("ফ্রেমে মিল", fontFamily = Kalpurush, color = BrandGoldLight, fontSize = textSize(13), lineHeight = leading(13))
+        Text(t("ফ্রেমে মিল"), fontFamily = Kalpurush, color = BrandGoldLight, fontSize = textSize(13), lineHeight = leading(13))
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FitChip("প্রস্থ", settings.fitMode == PdfFitMode.WIDTH) { onChange(settings.copy(fitMode = PdfFitMode.WIDTH)) }
-            FitChip("উচ্চতা", settings.fitMode == PdfFitMode.HEIGHT) { onChange(settings.copy(fitMode = PdfFitMode.HEIGHT)) }
-            FitChip("প্রস্থ ও উচ্চতা দুটোই", settings.fitMode == PdfFitMode.BOTH) {
+            FitChip(t("প্রস্থ"), settings.fitMode == PdfFitMode.WIDTH) { onChange(settings.copy(fitMode = PdfFitMode.WIDTH)) }
+            FitChip(t("উচ্চতা"), settings.fitMode == PdfFitMode.HEIGHT) { onChange(settings.copy(fitMode = PdfFitMode.HEIGHT)) }
+            FitChip(t("প্রস্থ ও উচ্চতা দুটোই"), settings.fitMode == PdfFitMode.BOTH) {
                 onChange(settings.copy(fitMode = PdfFitMode.BOTH))
             }
         }
         if (!settings.bookView) {
             Spacer(Modifier.height(12.dp))
-            Text("পাতার ফাঁক  ·  ${settings.spacingDp} dp", fontFamily = Kalpurush, fontSize = textSize(13), lineHeight = leading(13))
+            Text(t("পাতার ফাঁক  ·  {1} dp", settings.spacingDp), fontFamily = Kalpurush, fontSize = textSize(13), lineHeight = leading(13))
             Slider(
                 value = settings.spacingDp.toFloat(),
                 onValueChange = { onChange(settings.copy(spacingDp = it.toInt())) },
@@ -511,27 +513,27 @@ private fun PdfReaderSettingsSheet(
         }
         if (pageCount > 1) {
             Spacer(Modifier.height(8.dp))
-            Text("পৃষ্ঠায় যান", fontFamily = Kalpurush, color = BrandGoldLight, fontSize = textSize(13), lineHeight = leading(13))
+            Text(t("পৃষ্ঠায় যান"), fontFamily = Kalpurush, color = BrandGoldLight, fontSize = textSize(13), lineHeight = leading(13))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 androidx.compose.material3.OutlinedTextField(
                     value = jump,
                     onValueChange = { jump = it.filter { ch -> ch.isDigit() }.take(5) },
                     singleLine = true,
                     modifier = Modifier.width(120.dp),
-                    label = { Text("১–$pageCount", fontFamily = Kalpurush) }
+                    label = { Text(t("১–{1}", pageCount), fontFamily = Kalpurush) }
                 )
                 Spacer(Modifier.width(12.dp))
                 TextButton(onClick = {
                     val page = (jump.toIntOrNull() ?: (currentPage + 1)) - 1
                     onJump(page)
                 }) {
-                    Text("যান", fontFamily = Kalpurush, color = BrandGoldLight)
+                    Text(t("যান"), fontFamily = Kalpurush, color = BrandGoldLight)
                 }
             }
         }
         Spacer(Modifier.height(8.dp))
         TextButton(onClick = onClose, modifier = Modifier.align(Alignment.End)) {
-            Text("বন্ধ", fontFamily = Kalpurush, color = BrandGoldLight)
+            Text(t("বন্ধ"), fontFamily = Kalpurush, color = BrandGoldLight)
         }
     }
 }

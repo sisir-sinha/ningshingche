@@ -94,6 +94,8 @@ import java.util.Locale
 import java.util.TimeZone
 import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.leading
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 
 /**
  * Reusable building blocks for the modern-editorial reader.
@@ -299,7 +301,7 @@ fun Byline(
         if (!category.isNullOrBlank()) add(category)
         val date = formatBengaliDate(publishedDate)
         if (date.isNotBlank()) add(date)
-        if (readingTimeMinutes > 0) add("$readingTimeMinutes মিনিট")
+        if (readingTimeMinutes > 0) add(tNow("{1} মিনিট", readingTimeMinutes))
     }
     if (parts.isEmpty()) return
     Text(
@@ -445,7 +447,7 @@ fun HeroArticleCard(
                     }
                     if (article.readingTimeMinutes > 0) {
                         Text(
-                            text = "•  ${article.readingTimeMinutes} মি.",
+                            text = "•  " + t("{1} মি.", article.readingTimeMinutes),
                             style = EditorialType.Caption,
                             color = Color.White.copy(alpha = 0.75f)
                         )
@@ -568,7 +570,7 @@ fun ArticleRow(
                 ) {
                     Icon(
                         imageVector = if (saved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                        contentDescription = if (saved) "সংরক্ষণ বাতিল করুন" else "সংরক্ষণ করুন",
+                        contentDescription = if (saved) t("সংরক্ষণ বাতিল করুন") else t("সংরক্ষণ করুন"),
                         tint = if (saved) LocalEditorialTokens.current.accent else LocalEditorialTokens.current.inkMuted,
                         modifier = Modifier.size(20.dp)
                     )
@@ -703,7 +705,7 @@ fun AiAssistantHomeBanner(
                 }
                 Column(Modifier.weight(1f)) {
                     Text(
-                        text = "নিংশিং চে AI সহকারী",
+                        text = t("নিংশিং চে AI সহকারী"),
                         fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
                         fontWeight = FontWeight.Bold,
                         fontSize = textSize(16),
@@ -711,7 +713,7 @@ fun AiAssistantHomeBanner(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, সংস্কৃতি ও ইতিহাসের যে কোনো প্রশ্ন করুন",
+                        text = t("বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, সংস্কৃতি ও ইতিহাসের যে কোনো প্রশ্ন করুন"),
                         fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
                         fontSize = textSize(12),
                         lineHeight = textSize(17),
@@ -727,7 +729,7 @@ fun AiAssistantHomeBanner(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                listOf("সুদেষ্ণা সিংহ", "মিংকৌ প্রথা", "বিষু উৎসব").forEach { tag ->
+                listOf(t("সুদেষ্ণা সিংহ"), t("মিংকৌ প্রথা"), t("বিষু উৎসব")).forEach { tag ->
                     Surface(
                         onClick = { onPromptClick(tag) },
                         shape = RoundedCornerShape(16.dp),
@@ -767,7 +769,7 @@ fun AiAssistantHomeBanner(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "AI সহকারীকে জিজ্ঞাসা করুন",
+                    text = t("AI সহকারীকে জিজ্ঞাসা করুন"),
                     fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
                     fontSize = textSize(13),
                     lineHeight = leading(13),
@@ -788,15 +790,15 @@ fun AiAssistantHomeBanner(
 
 private fun getFallbackCategoryImage(slug: String, title: String): String {
     return when {
-        slug.contains("history") || title.contains("ইতিহাস") ->
+        slug.contains("history") || title.contains(tNow("ইতিহাস")) ->
             "https://images.unsplash.com/photo-1461360370896-922624d12aa1?w=600&auto=format&fit=crop&q=80"
-        slug.contains("literature") || title.contains("সাহিত্য") ->
+        slug.contains("literature") || title.contains(tNow("সাহিত্য")) ->
             "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?w=600&auto=format&fit=crop&q=80"
-        slug.contains("culture") || title.contains("সংস্কৃতি") ->
+        slug.contains("culture") || title.contains(tNow("সংস্কৃতি")) ->
             "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=600&auto=format&fit=crop&q=80"
-        slug.contains("social") || title.contains("সমাজ") ->
+        slug.contains("social") || title.contains(tNow("সমাজ")) ->
             "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&auto=format&fit=crop&q=80"
-        slug.contains("play") || title.contains("নাটক") ->
+        slug.contains("play") || title.contains(tNow("নাটক")) ->
             "https://images.unsplash.com/photo-1507676184212-d03ab07a01bf?w=600&auto=format&fit=crop&q=80"
         else ->
             "https://images.unsplash.com/photo-1455390582262-044cdead277a?w=600&auto=format&fit=crop&q=80"
@@ -900,7 +902,7 @@ fun CategoryRail(
     if (categories.isEmpty()) return
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(
-            title = "বিষয় ও বিভাগসমূহ",
+            title = t("বিষয় ও বিভাগসমূহ"),
             actionLabel = if (onSeeAll != null) "সব" else null,
             onAction = onSeeAll
         )
@@ -974,7 +976,7 @@ fun GalleryModalDialog(
                             color = tokens.accentSoft
                         ) {
                             Text(
-                                text = items[pagerState.currentPage].category.ifBlank { "ছবি ঘর" },
+                                text = items[pagerState.currentPage].category.ifBlank { tNow("ছবি ঘর") },
                                 fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
                                 fontSize = textSize(12),
                                 lineHeight = leading(12),
@@ -998,7 +1000,7 @@ fun GalleryModalDialog(
                     IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "বন্ধ করুন",
+                            contentDescription = t("বন্ধ করুন"),
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
@@ -1041,7 +1043,7 @@ fun GalleryModalDialog(
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "আগের ছবি",
+                                contentDescription = t("আগের ছবি"),
                                 tint = if (pagerState.currentPage > 0) Color.White
                                 else Color.White.copy(alpha = 0.25f)
                             )
@@ -1059,7 +1061,7 @@ fun GalleryModalDialog(
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                contentDescription = "পরের ছবি",
+                                contentDescription = t("পরের ছবি"),
                                 tint = if (pagerState.currentPage < items.lastIndex) Color.White
                                 else Color.White.copy(alpha = 0.25f)
                             )
@@ -1134,7 +1136,7 @@ fun GalleryModalDialog(
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                text = "শেয়ার করুন",
+                                text = t("শেয়ার করুন"),
                                 fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
                                 fontWeight = FontWeight.Bold,
                                 color = tokens.accent
@@ -1187,7 +1189,7 @@ fun AuthorRail(
 ) {
     if (authors.isEmpty()) return
     Column(modifier = Modifier.fillMaxWidth()) {
-        SectionHeader(title = "লেখক")
+        SectionHeader(title = t("লেখক"))
         LazyRow(
             contentPadding = PaddingValues(horizontal = EditorialSpace.gutter),
             horizontalArrangement = Arrangement.spacedBy(EditorialSpace.md)
@@ -1286,7 +1288,7 @@ fun GalleryGrid(
     }
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        SectionHeader(title = "ছবি ঘর")
+        SectionHeader(title = t("ছবি ঘর"))
         HorizontalPager(
             state = pagerState,
             contentPadding = PaddingValues(horizontal = EditorialSpace.gutter),
@@ -1390,7 +1392,7 @@ fun PdfRail(
     if (books.isEmpty()) return
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(
-            title = "বই ও সাময়িকী",
+            title = t("বই ও সাময়িকী"),
             actionLabel = if (onSeeAll != null) "সব" else null,
             onAction = onSeeAll
         )
@@ -1448,7 +1450,7 @@ fun VideoRail(
     if (videos.isEmpty()) return
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(
-            title = "ভিডিও",
+            title = t("ভিডিও"),
             actionLabel = if (onSeeAll != null) "সব" else null,
             onAction = onSeeAll
         )
@@ -1516,7 +1518,7 @@ fun MusicRail(
     if (tracks.isEmpty()) return
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(
-            title = "সঙ্গীত",
+            title = t("সঙ্গীত"),
             actionLabel = if (onSeeAll != null) "সব" else null,
             onAction = onSeeAll
         )
@@ -1554,7 +1556,7 @@ fun MusicRail(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.PlayArrow,
-                                    contentDescription = "চালান",
+                                    contentDescription = t("চালান"),
                                     tint = Color.White,
                                     modifier = Modifier.padding(8.dp)
                                 )
@@ -1668,7 +1670,7 @@ fun ErrorState(
     EmptyState(
         message = message,
         modifier = modifier,
-        actionLabel = "আবার চেষ্টা করুন",
+        actionLabel = t("আবার চেষ্টা করুন"),
         onAction = onRetry
     )
 }

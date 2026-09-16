@@ -63,6 +63,8 @@ import com.ningshingche.app.ui.editorial.ErrorState
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.theme.Kalpurush
 import kotlinx.coroutines.launch
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 
 private enum class MusicTab { All, Genres, Artists, Albums, Playlists, Loved, Offline }
 
@@ -128,7 +130,7 @@ fun MusicScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "সঙ্গীত",
+                        text = tNow("সঙ্গীত"),
                         style = EditorialType.Title,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -136,13 +138,13 @@ fun MusicScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "পেছনে")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tNow("পেছনে"))
                     }
                 },
                 actions = {
                     if (tab == MusicTab.Playlists) {
                         IconButton(onClick = { creating = true }) {
-                            Icon(Icons.Default.Add, contentDescription = "নতুন প্লেলিস্ট")
+                            Icon(Icons.Default.Add, contentDescription = tNow("নতুন প্লেলিস্ট"))
                         }
                     }
                 },
@@ -163,12 +165,12 @@ fun MusicScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 item { MusicTabChip("সব", tab == MusicTab.All) { goToTab(MusicTab.All) } }
-                item { MusicTabChip("ধরন", tab == MusicTab.Genres) { goToTab(MusicTab.Genres) } }
-                item { MusicTabChip("শিল্পী", tab == MusicTab.Artists) { goToTab(MusicTab.Artists) } }
-                item { MusicTabChip("অ্যালবাম", tab == MusicTab.Albums) { goToTab(MusicTab.Albums) } }
-                item { MusicTabChip("প্লেলিস্ট", tab == MusicTab.Playlists) { goToTab(MusicTab.Playlists) } }
-                item { MusicTabChip("পছন্দ", tab == MusicTab.Loved) { goToTab(MusicTab.Loved) } }
-                item { MusicTabChip("অফলাইন", tab == MusicTab.Offline) { goToTab(MusicTab.Offline) } }
+                item { MusicTabChip(tNow("ধরন"), tab == MusicTab.Genres) { goToTab(MusicTab.Genres) } }
+                item { MusicTabChip(tNow("শিল্পী"), tab == MusicTab.Artists) { goToTab(MusicTab.Artists) } }
+                item { MusicTabChip(tNow("অ্যালবাম"), tab == MusicTab.Albums) { goToTab(MusicTab.Albums) } }
+                item { MusicTabChip(tNow("প্লেলিস্ট"), tab == MusicTab.Playlists) { goToTab(MusicTab.Playlists) } }
+                item { MusicTabChip(tNow("পছন্দ"), tab == MusicTab.Loved) { goToTab(MusicTab.Loved) } }
+                item { MusicTabChip(tNow("অফলাইন"), tab == MusicTab.Offline) { goToTab(MusicTab.Offline) } }
             }
 
             if (tab in setOf(MusicTab.All, MusicTab.Genres, MusicTab.Artists, MusicTab.Albums)) {
@@ -207,18 +209,18 @@ fun MusicScreen(
                             message = error.orEmpty(),
                             onRetry = { viewModel.loadMusicCatalog(force = true) }
                         )
-                        tracks.isEmpty() -> EmptyState(message = "এখনো কোনো গান যোগ করা হয়নি।")
+                        tracks.isEmpty() -> EmptyState(message = tNow("এখনো কোনো গান যোগ করা হয়নি।"))
                         else -> MusicTrackList(
                             onUploaderClick = onUploaderClick,
-                            title = if (query.isBlank()) "সব গান" else "খোঁজার ফলাফল",
+                            title = if (query.isBlank()) tNow("সব গান") else tNow("খোঁজার ফলাফল"),
                             // No tagline here: the count is the only useful line,
                             // and it only exists while searching.
-                            subtitle = if (query.isBlank()) "" else "${filtered.size}টি গান",
+                            subtitle = if (query.isBlank()) "" else tNow("{1}টি গান", filtered.size),
                             tracks = filtered,
                             empty = if (query.isBlank()) {
-                                "এখনো কোনো গান যোগ করা হয়নি।"
+                                tNow("এখনো কোনো গান যোগ করা হয়নি।")
                             } else {
-                                "কোনো গান মেলেনি।"
+                                tNow("কোনো গান মেলেনি।")
                             },
                             onPlay = { track -> player.play(track, filtered, expand = true) },
                             onArtistClick = onArtistClick,
@@ -228,17 +230,17 @@ fun MusicScreen(
                     }
                     MusicTab.Genres -> MusicShelfGrid(
                         shelves = genreShelves,
-                        empty = if (query.isBlank()) "কোনো ধরন নেই।" else "কোনো ধরন মেলেনি।",
+                        empty = if (query.isBlank()) tNow("কোনো ধরন নেই।") else tNow("কোনো ধরন মেলেনি।"),
                         onOpen = { onGenreClick(it.name) }
                     )
                     MusicTab.Artists -> MusicShelfGrid(
                         shelves = artistShelves,
-                        empty = if (query.isBlank()) "কোনো শিল্পী নেই।" else "কোনো শিল্পী মেলেনি।",
+                        empty = if (query.isBlank()) tNow("কোনো শিল্পী নেই।") else tNow("কোনো শিল্পী মেলেনি।"),
                         onOpen = { onArtistClick(it.name) }
                     )
                     MusicTab.Albums -> MusicShelfGrid(
                         shelves = albumShelves,
-                        empty = if (query.isBlank()) "কোনো অ্যালবাম নেই।" else "কোনো অ্যালবাম মেলেনি।",
+                        empty = if (query.isBlank()) tNow("কোনো অ্যালবাম নেই।") else tNow("কোনো অ্যালবাম মেলেনি।"),
                         onOpen = { onAlbumClick(it.name) }
                     )
                     MusicTab.Playlists -> PlaylistPane(
@@ -256,10 +258,10 @@ fun MusicScreen(
                             .mapNotNull { byId[it] }
                         MusicTrackList(
                             onUploaderClick = onUploaderClick,
-                            title = "পছন্দের গান",
-                            subtitle = "আপনার সংরক্ষিত প্লেলিস্ট",
+                            title = tNow("পছন্দের গান"),
+                            subtitle = tNow("আপনার সংরক্ষিত প্লেলিস্ট"),
                             tracks = loved,
-                            empty = "এখনো কোনো গান পছন্দ করা হয়নি।",
+                            empty = tNow("এখনো কোনো গান পছন্দ করা হয়নি।"),
                             onPlay = { track -> player.play(track, loved, expand = true) },
                             onArtistClick = onArtistClick,
                             onAlbumClick = onAlbumClick,
@@ -267,10 +269,10 @@ fun MusicScreen(
                         )
                     }
                     MusicTab.Offline -> MusicTrackList(
-                        title = "অফলাইন",
-                        subtitle = "এই ডিভাইসে সংরক্ষিত MP3",
+                        title = tNow("অফলাইন"),
+                        subtitle = tNow("এই ডিভাইসে সংরক্ষিত MP3"),
                         tracks = offline,
-                        empty = "কোনো গান অ্যাপে সংরক্ষণ করা হয়নি।",
+                        empty = tNow("কোনো গান অ্যাপে সংরক্ষণ করা হয়নি।"),
                         onPlay = { track -> player.play(track, offline, expand = true) },
                         onArtistClick = onArtistClick,
                         onAlbumClick = onAlbumClick,
@@ -284,13 +286,13 @@ fun MusicScreen(
     if (creating) {
         AlertDialog(
             onDismissRequest = { creating = false },
-            title = { Text("নতুন প্লেলিস্ট", fontFamily = Kalpurush) },
+            title = { Text(tNow("নতুন প্লেলিস্ট"), fontFamily = Kalpurush) },
             text = {
                 OutlinedTextField(
                     value = newName,
                     onValueChange = { newName = it },
                     singleLine = true,
-                    placeholder = { Text("প্লেলিস্টের নাম") }
+                    placeholder = { Text(tNow("প্লেলিস্টের নাম")) }
                 )
             },
             confirmButton = {
@@ -300,10 +302,10 @@ fun MusicScreen(
                         newName = ""
                         creating = false
                     }
-                }) { Text("তৈরি") }
+                }) { Text(tNow("তৈরি")) }
             },
             dismissButton = {
-                TextButton(onClick = { creating = false }) { Text("বাতিল") }
+                TextButton(onClick = { creating = false }) { Text(tNow("বাতিল")) }
             }
         )
     }
@@ -331,7 +333,7 @@ private fun PlaylistPane(
     onDelete: (UserPlaylist) -> Unit
 ) {
     if (playlists.isEmpty()) {
-        EmptyState(message = "প্লেলিস্ট তৈরি করতে উপরের + চাপুন।")
+        EmptyState(message = t("প্লেলিস্ট তৈরি করতে উপরের + চাপুন।"))
         return
     }
     LazyColumn(
@@ -373,12 +375,12 @@ private fun PlaylistPane(
                     Column(Modifier.weight(1f)) {
                         Text(playlist.title, style = EditorialType.Title, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(
-                            text = "${playlist.trackIds.size}টি গান",
+                            text = t("{1}টি গান", playlist.trackIds.size),
                             style = EditorialType.Caption,
                             color = LocalEditorialTokens.current.inkMuted
                         )
                     }
-                    TextButton(onClick = { onDelete(playlist) }) { Text("মুছুন") }
+                    TextButton(onClick = { onDelete(playlist) }) { Text(t("মুছুন")) }
                 }
             }
         }

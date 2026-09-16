@@ -39,6 +39,8 @@ import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import java.util.Calendar
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 
 /**
  * Charts for the signed-in dashboard, drawn from the reader's own records.
@@ -53,8 +55,8 @@ import java.util.Calendar
  */
 
 private val BENGALI_MONTHS = listOf(
-    "জানু", "ফেব", "মার্চ", "এপ্রিল", "মে", "জুন",
-    "জুলাই", "আগস্ট", "সেপ্টে", "অক্টো", "নভে", "ডিসে"
+    tNow("জানু"), tNow("ফেব"), tNow("মার্চ"), tNow("এপ্রিল"), "মে", tNow("জুন"),
+    tNow("জুলাই"), tNow("আগস্ট"), tNow("সেপ্টে"), tNow("অক্টো"), tNow("নভে"), tNow("ডিসে")
 )
 
 /** One calendar month of the reader's activity. [month] is 0-based, like `Calendar.MONTH`. */
@@ -134,24 +136,24 @@ internal fun ActivityChart(
     val totalActivity = activity.sumOf { it.total }
 
     ChartCard(
-        title = "কার্যক্রম",
+        title = t("কার্যক্রম"),
         subtitle = if (totalActivity > 0) {
-            "শেষ ৬ মাসে মোট ${toBengaliNumeral(totalActivity)}টি"
+            t("শেষ ৬ মাসে মোট {1}টি", toBengaliNumeral(totalActivity))
         } else {
-            "শেষ ৬ মাস"
+            t("শেষ ৬ মাস")
         },
         modifier = modifier
     ) {
         if (totalActivity == 0) {
-            ChartEmptyHint("শেষ ছয় মাসে কোনো কার্যক্রম নেই।")
+            ChartEmptyHint(t("শেষ ছয় মাসে কোনো কার্যক্রম নেই।"))
         } else {
             ActivityBars(activity)
             Spacer(Modifier.height(10.dp))
             Legend(
                 entries = listOf(
-                    "প্রবন্ধ" to (activity.sumOf { it.articles } to MaterialTheme.colorScheme.primary),
-                    "গান" to (activity.sumOf { it.songs } to MaterialTheme.colorScheme.tertiary),
-                    "মন্তব্য" to (activity.sumOf { it.comments } to MaterialTheme.colorScheme.secondary)
+                    t("প্রবন্ধ") to (activity.sumOf { it.articles } to MaterialTheme.colorScheme.primary),
+                    t("গান") to (activity.sumOf { it.songs } to MaterialTheme.colorScheme.tertiary),
+                    t("মন্তব্য") to (activity.sumOf { it.comments } to MaterialTheme.colorScheme.secondary)
                 )
             )
         }
@@ -171,20 +173,20 @@ internal fun ArticleStatusChart(
     val rejected = articles.count { it.status.equals("Rejected", true) }
 
     ChartCard(
-        title = "প্রবন্ধের অবস্থা",
-        subtitle = "মোট ${toBengaliNumeral(articles.size)}টি জমা",
+        title = t("প্রবন্ধের অবস্থা"),
+        subtitle = t("মোট {1}টি জমা", toBengaliNumeral(articles.size)),
         modifier = modifier
     ) {
         if (articles.isEmpty()) {
-            ChartEmptyHint("এখনো কোনো প্রবন্ধ জমা দেওয়া হয়নি।")
+            ChartEmptyHint(t("এখনো কোনো প্রবন্ধ জমা দেওয়া হয়নি।"))
         } else {
             StatusBar(published = published, pending = pending, rejected = rejected)
             Spacer(Modifier.height(10.dp))
             Legend(
                 entries = listOf(
-                    "প্রকাশিত" to (published to MaterialTheme.colorScheme.primary),
-                    "অপেক্ষমাণ" to (pending to MaterialTheme.colorScheme.tertiary),
-                    "প্রত্যাখ্যাত" to (rejected to MaterialTheme.colorScheme.error)
+                    t("প্রকাশিত") to (published to MaterialTheme.colorScheme.primary),
+                    t("অপেক্ষমাণ") to (pending to MaterialTheme.colorScheme.tertiary),
+                    t("প্রত্যাখ্যাত") to (rejected to MaterialTheme.colorScheme.error)
                 )
             )
         }
@@ -212,16 +214,16 @@ internal fun ViewsOverTimeChart(
     val accent = MaterialTheme.colorScheme.primary
 
     ChartCard(
-        title = "সময়ের সাথে ভিউ",
+        title = t("সময়ের সাথে ভিউ"),
         subtitle = if (totalViews > 0L) {
-            "মোট ${toBengaliNumeral(totalViews)} · শেষ ${toBengaliNumeral(days)} দিনে ${toBengaliNumeral(counted)}"
+            t("মোট {1} · শেষ {2} দিনে {3}", toBengaliNumeral(totalViews), toBengaliNumeral(days), toBengaliNumeral(counted))
         } else {
-            "শেষ ${toBengaliNumeral(days)} দিন"
+            t("শেষ {1} দিন", toBengaliNumeral(days))
         },
         modifier = modifier
     ) {
         if (series.isEmpty()) {
-            ChartEmptyHint("ভিউয়ের তথ্য এখনো পাওয়া যায়নি।")
+            ChartEmptyHint(t("ভিউয়ের তথ্য এখনো পাওয়া যায়নি।"))
             return@ChartCard
         }
         Canvas(
@@ -285,7 +287,7 @@ internal fun ViewsOverTimeChart(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = "সর্বোচ্চ ${toBengaliNumeral(peak)}",
+                text = t("সর্বোচ্চ {1}", toBengaliNumeral(peak)),
                 style = com.ningshingche.app.ui.editorial.EditorialType.Caption,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

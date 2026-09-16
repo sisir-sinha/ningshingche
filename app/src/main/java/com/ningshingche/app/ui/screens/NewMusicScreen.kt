@@ -64,6 +64,7 @@ import com.ningshingche.app.ui.i18n.t
 import com.ningshingche.app.ui.components.GenreCombobox
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.ReaderWorkspaceViewModel
+import com.ningshingche.app.ui.i18n.tNow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,7 +92,7 @@ fun NewMusicScreen(
     LaunchedEffect(message) {
         val text = message ?: return@LaunchedEffect
         if (text.isBlank()) return@LaunchedEffect
-        if (text.startsWith("গান জমা হয়েছে")) {
+        if (text.startsWith(tNow("গান জমা হয়েছে"))) {
             title = ""
             artist = ""
             album = ""

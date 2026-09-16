@@ -38,6 +38,7 @@ import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.SettingsViewModel
+import com.ningshingche.app.ui.i18n.t
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,10 +59,10 @@ fun LoginScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("সাইন ইন", fontFamily = Kalpurush, fontWeight = FontWeight.Bold) },
+                title = { Text(t("সাইন ইন"), fontFamily = Kalpurush, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick, modifier = Modifier.testTag("login_back_button")) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "ফিরুন")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t("ফিরুন"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -82,7 +83,7 @@ fun LoginScreen(
             NingshingCheBrandLogo(size = 72.dp)
             Spacer(Modifier.height(16.dp))
             Text(
-                text = "নিংশিং চে",
+                text = t("নিংশিং চে"),
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
                 fontSize = textSize(26),
@@ -90,7 +91,7 @@ fun LoginScreen(
                 color = MaterialTheme.colorScheme.onBackground
             )
             Text(
-                text = "Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন",
+                text = t("Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন"),
                 fontFamily = Kalpurush,
                 fontSize = textSize(14),
                 lineHeight = leading(14),

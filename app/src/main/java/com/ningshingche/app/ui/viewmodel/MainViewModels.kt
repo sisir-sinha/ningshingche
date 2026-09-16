@@ -45,6 +45,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.UUID
+import com.ningshingche.app.ui.i18n.tNow
 
 // Home ViewModel
 class HomeViewModel(
@@ -107,11 +108,11 @@ class SavedArticlesViewModel(
         viewModelScope.launch { repository.toggleBookmark(articleId) }
         if (!announce) return
         if (wasSaved) {
-            com.ningshingche.app.ui.components.AppToasts.undo("সংরক্ষণ সরানো হয়েছে") {
+            com.ningshingche.app.ui.components.AppToasts.undo(tNow("সংরক্ষণ সরানো হয়েছে")) {
                 toggle(articleId, announce = false)
             }
         } else {
-            com.ningshingche.app.ui.components.AppToasts.undo("প্রবন্ধ সংরক্ষণ হয়েছে") {
+            com.ningshingche.app.ui.components.AppToasts.undo(tNow("প্রবন্ধ সংরক্ষণ হয়েছে")) {
                 toggle(articleId, announce = false)
             }
         }
@@ -180,7 +181,7 @@ class BookmarksViewModel(
             repository.toggleBookmark(articleId)
         }
         if (announce) {
-            com.ningshingche.app.ui.components.AppToasts.undo("সংরক্ষণ সরানো হয়েছে") {
+            com.ningshingche.app.ui.components.AppToasts.undo(tNow("সংরক্ষণ সরানো হয়েছে")) {
                 removeBookmark(articleId, announce = false)
             }
         }
@@ -195,13 +196,13 @@ class AiViewModel(
 
     private val welcomeMessage = AiChatMessage(
         id = "welcome",
-        text = "নমস্কার! আমি নিংশিং চে AI সহকারী। বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, ঐতিহ্য ও সাধারণ জ্ঞানের প্রবন্ধ বিশ্লেষণ করে আমি সঠিক তথ্য প্রদান করি। ইঞ্চৌঘর, মিংকৌ, ভাষা আন্দোলন বা যেকোনো বিষয়ে প্রশ্ন করতে পারেন।",
+        text = tNow("নমস্কার! আমি নিংশিং চে AI সহকারী। বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, ঐতিহ্য ও সাধারণ জ্ঞানের প্রবন্ধ বিশ্লেষণ করে আমি সঠিক তথ্য প্রদান করি। ইঞ্চৌঘর, মিংকৌ, ভাষা আন্দোলন বা যেকোনো বিষয়ে প্রশ্ন করতে পারেন।"),
         isUser = false,
         citations = emptyList(),
         suggestedQuestions = listOf(
-            "বিষ্ণুপ্রিয়া মণিপুরি ভাষা আন্দোলনের ইতিহাস কী?",
-            "মণিপুরি সমাজের ঐতিহ্যবাহী 'ইঞ্চৌঘর' কী?",
-            "মণিপুরি সমাজে 'মিংকৌ' নামপ্রথা কী?"
+            tNow("বিষ্ণুপ্রিয়া মণিপুরি ভাষা আন্দোলনের ইতিহাস কী?"),
+            tNow("মণিপুরি সমাজের ঐতিহ্যবাহী 'ইঞ্চৌঘর' কী?"),
+            tNow("মণিপুরি সমাজে 'মিংকৌ' নামপ্রথা কী?")
         )
     )
 
@@ -212,12 +213,12 @@ class AiViewModel(
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     val suggestedQuestions = listOf(
-        "বিষ্ণুপ্রিয়া মণিপুরি ভাষা আন্দোলনের ইতিহাস কী?",
-        "মণিপুরি সমাজের ঐতিহ্যবাহী 'ইঞ্চৌঘর' কী?",
-        "মণিপুরি সমাজে 'মিংকৌ' নামপ্রথা কী?",
-        "বিশু উৎসব কীভাবে পালিত হয়?",
-        "শহীদ সুদেষ্ণা সিংহের আত্মত্যাগ সম্পর্কে বলুন",
-        "মহারাস ও রাখাল রাসের বিশেষত্ব কী?"
+        tNow("বিষ্ণুপ্রিয়া মণিপুরি ভাষা আন্দোলনের ইতিহাস কী?"),
+        tNow("মণিপুরি সমাজের ঐতিহ্যবাহী 'ইঞ্চৌঘর' কী?"),
+        tNow("মণিপুরি সমাজে 'মিংকৌ' নামপ্রথা কী?"),
+        tNow("বিশু উৎসব কীভাবে পালিত হয়?"),
+        tNow("শহীদ সুদেষ্ণা সিংহের আত্মত্যাগ সম্পর্কে বলুন"),
+        tNow("মহারাস ও রাখাল রাসের বিশেষত্ব কী?")
     )
 
     init {
@@ -254,7 +255,7 @@ class AiViewModel(
             } catch (e: Exception) {
                 val error = AiChatMessage(
                     id = UUID.randomUUID().toString(),
-                    text = "দুঃখিত, তথ্য সংগ্রহে একটি ত্রুটি দেখা দিয়েছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।",
+                    text = tNow("দুঃখিত, তথ্য সংগ্রহে একটি ত্রুটি দেখা দিয়েছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।"),
                     isUser = false
                 )
                 _messages.value = _messages.value + error
@@ -520,12 +521,12 @@ class PdfViewerViewModel(
             _pdfDocument.value = doc
             loadedPdfId = doc?.id.orEmpty()
             if (doc == null) {
-                _errorMessage.value = "বইটি খোলা যায়নি।"
+                _errorMessage.value = tNow("বইটি খোলা যায়নি।")
                 _isLoading.value = false
                 return@launch
             }
             if (doc.pdfUrl.isBlank() && doc.downloadUrl.isBlank()) {
-                _errorMessage.value = "এই বইয়ের পিডিএফ লিংক নেই।"
+                _errorMessage.value = tNow("এই বইয়ের পিডিএফ লিংক নেই।")
                 _isLoading.value = false
                 return@launch
             }
@@ -534,7 +535,7 @@ class PdfViewerViewModel(
                 val file = com.ningshingche.app.util.PdfHelper.downloadPdfFile(context, doc)
                 _localFile.value = file
             } catch (e: Exception) {
-                _errorMessage.value = e.message ?: "পিডিএফ খোলা যায়নি।"
+                _errorMessage.value = e.message ?: tNow("পিডিএফ খোলা যায়নি।")
                 _isLoading.value = false
             }
         }
@@ -556,7 +557,7 @@ class PdfViewerViewModel(
     }
 
     fun onViewerError(message: String) {
-        _errorMessage.value = message.ifBlank { "পিডিএফ খোলা যায়নি।" }
+        _errorMessage.value = message.ifBlank { tNow("পিডিএফ খোলা যায়নি।") }
         _isLoading.value = false
     }
 
@@ -567,9 +568,9 @@ class PdfViewerViewModel(
     fun downloadPdf() {
         val doc = _pdfDocument.value ?: return
         viewModelScope.launch {
-            _downloadStatus.value = "ডাউনলোড হচ্ছে..."
+            _downloadStatus.value = tNow("ডাউনলোড হচ্ছে...")
             val result = com.ningshingche.app.util.PdfHelper.savePdfToDownloads(context, doc)
-            _downloadStatus.value = result.getOrElse { "ডাউনলোড ব্যর্থ হয়েছে: ${it.message}" }
+            _downloadStatus.value = result.getOrElse { tNow("ডাউনলোড ব্যর্থ হয়েছে: {1}", it.message) }
         }
     }
 

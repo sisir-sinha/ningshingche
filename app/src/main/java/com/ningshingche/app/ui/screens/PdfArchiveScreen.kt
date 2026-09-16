@@ -59,6 +59,8 @@ import com.ningshingche.app.ui.theme.PanelInkMuted
 import com.ningshingche.app.ui.viewmodel.PdfArchiveViewModel
 import com.ningshingche.app.util.PdfHelper
 import kotlinx.coroutines.launch
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 
 @Composable
 fun PdfArchiveScreen(
@@ -97,7 +99,7 @@ fun PdfArchiveScreen(
                 IconButton(onClick = onNavigateBack) {
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "পেছনে",
+                        contentDescription = t("পেছনে"),
                         tint = PanelInk
                     )
                 }
@@ -110,7 +112,7 @@ fun PdfArchiveScreen(
                 Spacer(Modifier.width(8.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
-                        "ডিজিটাল গ্রন্থাগার",
+                        t("ডিজিটাল গ্রন্থাগার"),
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
                         fontSize = textSize(20),
@@ -120,7 +122,7 @@ fun PdfArchiveScreen(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        "নিংশিং চে মুদ্রিত সংখ্যা ও স্মারকপত্র",
+                        t("নিংশিং চে মুদ্রিত সংখ্যা ও স্মারকপত্র"),
                         fontFamily = Kalpurush,
                         color = PanelInkMuted,
                         fontSize = textSize(12),
@@ -163,12 +165,12 @@ fun PdfArchiveScreen(
             item {
                 LibraryShelf(
                     books = row,
-                    shelfLabel = if (index == 0) "মূল তাক" else "তাক ${index + 1}",
+                    shelfLabel = if (index == 0) t("মূল তাক") else t("তাক {1}", index + 1),
                     onOpen = onOpenPdf,
                     onDownload = { doc ->
                         scope.launch {
-                            Toast.makeText(context, "ডাউনলোড হচ্ছে...", Toast.LENGTH_SHORT).show()
-                            val msg = PdfHelper.savePdfToDownloads(context, doc).getOrElse { "ডাউনলোড হয়নি" }
+                            Toast.makeText(context, tNow("ডাউনলোড হচ্ছে..."), Toast.LENGTH_SHORT).show()
+                            val msg = PdfHelper.savePdfToDownloads(context, doc).getOrElse { tNow("ডাউনলোড হয়নি") }
                             Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                         }
                     }
@@ -292,11 +294,11 @@ private fun LibraryBook(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(Icons.Default.MenuBook, null, tint = BrandOnGold, modifier = Modifier.size(12.dp))
-                Text(" পাকরিক", color = BrandOnGold, fontFamily = Kalpurush, fontSize = textSize(12), lineHeight = leading(12), fontWeight = FontWeight.Bold)
+                Text(t(" পাকরিক"), color = BrandOnGold, fontFamily = Kalpurush, fontSize = textSize(12), lineHeight = leading(12), fontWeight = FontWeight.Bold)
             }
             Icon(
                 Icons.Default.Download,
-                contentDescription = "ডাউনলোড",
+                contentDescription = t("ডাউনলোড"),
                 tint = BrandGoldLight,
                 modifier = Modifier
                     .size(20.dp)

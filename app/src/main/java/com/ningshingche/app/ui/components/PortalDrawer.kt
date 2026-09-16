@@ -66,6 +66,8 @@ import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 
 /**
  * Navigation drawer for the portal.
@@ -135,40 +137,40 @@ fun PortalDrawerContent(
             DrawerRow("ঘর", Icons.Default.Home, currentRoute == Screen.Home.route) {
                 onCloseDrawer(); onNavigate(Screen.Home.route)
             }
-            DrawerRow("ফিচার্ড", Icons.Default.Star, currentRoute == Screen.Featured.route) {
+            DrawerRow(tNow("ফিচার্ড"), Icons.Default.Star, currentRoute == Screen.Featured.route) {
                 onCloseDrawer(); onNavigate(Screen.Featured.route)
             }
-            DrawerRow("অন্বেষণ", Icons.Default.Explore, onExploreRoute) {
+            DrawerRow(tNow("অন্বেষণ"), Icons.Default.Explore, onExploreRoute) {
                 onCloseDrawer(); onNavigate(exploreRoute)
             }
-            DrawerRow("PDF আর্কাইভ", Icons.Default.PictureAsPdf, currentRoute == Screen.PdfArchive.route) {
+            DrawerRow(tNow("PDF আর্কাইভ"), Icons.Default.PictureAsPdf, currentRoute == Screen.PdfArchive.route) {
                 onCloseDrawer(); onNavigate(Screen.PdfArchive.route)
             }
-            DrawerRow("সঙ্গীত", Icons.Default.LibraryMusic, currentRoute == Screen.Music.route) {
+            DrawerRow(tNow("সঙ্গীত"), Icons.Default.LibraryMusic, currentRoute == Screen.Music.route) {
                 onCloseDrawer(); onNavigate(Screen.Music.route)
             }
-            DrawerRow("অনুসন্ধান", Icons.Default.Search, currentRoute == Screen.Search.route) {
+            DrawerRow(tNow("অনুসন্ধান"), Icons.Default.Search, currentRoute == Screen.Search.route) {
                 onCloseDrawer(); onNavigate(Screen.Search.route)
             }
-            DrawerRow("সংরক্ষিত", Icons.Default.Bookmark, currentRoute == Screen.Bookmarks.route) {
+            DrawerRow(tNow("সংরক্ষিত"), Icons.Default.Bookmark, currentRoute == Screen.Bookmarks.route) {
                 onCloseDrawer(); onNavigate(Screen.Bookmarks.route)
             }
 
             DrawerDivider()
 
-            DrawerRow("বার্ষিক সংখ্যা", Icons.Default.CalendarMonth, false) {
+            DrawerRow(tNow("বার্ষিক সংখ্যা"), Icons.Default.CalendarMonth, false) {
                 onCloseDrawer(); onExploreTab(ExploreTab.Issues)
             }
-            DrawerRow("বিভাগসমূহ", Icons.Default.ViewModule, false) {
+            DrawerRow(tNow("বিভাগসমূহ"), Icons.Default.ViewModule, false) {
                 onCloseDrawer(); onExploreTab(ExploreTab.Categories)
             }
 
             DrawerDivider()
 
-            DrawerRow("আমার সম্পর্কে", Icons.Default.Info, currentRoute == Screen.About.route) {
+            DrawerRow(tNow("আমার সম্পর্কে"), Icons.Default.Info, currentRoute == Screen.About.route) {
                 onCloseDrawer(); onNavigate(Screen.About.route)
             }
-            DrawerRow("লেখক", Icons.Default.People, currentRoute == Screen.AuthorsDirectory.route) {
+            DrawerRow(tNow("লেখক"), Icons.Default.People, currentRoute == Screen.AuthorsDirectory.route) {
                 onCloseDrawer(); onNavigate(Screen.AuthorsDirectory.route)
             }
             // Registered readers only, as the owner asked. The row stays visible
@@ -176,22 +178,22 @@ fun PortalDrawerContent(
             // offers the sign-in when there is no session, and the database
             // refuses the read besides.
             DrawerRow(
-                "সেরা অবদানকারী",
+                tNow("সেরা অবদানকারী"),
                 Icons.Default.EmojiEvents,
                 currentRoute == Screen.Contributors.route
             ) {
                 onCloseDrawer(); onNavigate(Screen.Contributors.route)
             }
-            DrawerRow("ফোরাম", Icons.Default.Forum, currentRoute == Screen.Forum.route) {
+            DrawerRow(tNow("ফোরাম"), Icons.Default.Forum, currentRoute == Screen.Forum.route) {
                 onCloseDrawer(); onNavigate(Screen.Forum.route)
             }
 
             DrawerDivider()
 
-            DrawerRow("সেটিংস", Icons.Default.Settings, currentRoute == Screen.Settings.route) {
+            DrawerRow(tNow("সেটিংস"), Icons.Default.Settings, currentRoute == Screen.Settings.route) {
                 onCloseDrawer(); onNavigate(Screen.Settings.route)
             }
-            DrawerRow("অ্যাপ শেয়ার করুন", Icons.Default.Share, false) {
+            DrawerRow(tNow("অ্যাপ শেয়ার করুন"), Icons.Default.Share, false) {
                 onCloseDrawer(); onShareApp()
             }
 
@@ -219,9 +221,9 @@ private fun DrawerHeader(
         label = "drawer_header"
     )
     val (themeIcon, themeLabel) = when (themeMode) {
-        AppThemeMode.SYSTEM -> Icons.Default.BrightnessAuto to "থিম: সিস্টেম (স্বয়ংক্রিয়)"
-        AppThemeMode.LIGHT -> Icons.Default.LightMode to "থিম: লাইট"
-        AppThemeMode.DARK -> Icons.Default.DarkMode to "থিম: ডার্ক"
+        AppThemeMode.SYSTEM -> Icons.Default.BrightnessAuto to t("থিম: সিস্টেম (স্বয়ংক্রিয়)")
+        AppThemeMode.LIGHT -> Icons.Default.LightMode to t("থিম: লাইট")
+        AppThemeMode.DARK -> Icons.Default.DarkMode to t("থিম: ডার্ক")
     }
 
     Row(
@@ -237,7 +239,7 @@ private fun DrawerHeader(
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "নিংশিং চে",
+                text = t("নিংশিং চে"),
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
@@ -247,7 +249,7 @@ private fun DrawerHeader(
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = "বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ",
+                text = t("বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ"),
                 fontFamily = Kalpurush,
                 color = tokens.second,
                 fontSize = textSize(12),
@@ -271,7 +273,7 @@ private fun DrawerHeader(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Dashboard,
-                            contentDescription = "ড্যাশবোর্ড",
+                            contentDescription = t("ড্যাশবোর্ড"),
                             tint = Color.White,
                             modifier = Modifier.size(22.dp)
                         )

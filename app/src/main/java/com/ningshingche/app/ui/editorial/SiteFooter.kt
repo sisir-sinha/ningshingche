@@ -40,6 +40,8 @@ import com.ningshingche.app.ui.theme.PanelDeep
 import com.ningshingche.app.ui.theme.PanelInk
 import com.ningshingche.app.ui.theme.PanelInkMuted
 import com.ningshingche.app.ui.theme.PanelRule
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 
 /**
  * Footer details, mirroring the footer of https://ningshingche.com.
@@ -49,8 +51,8 @@ import com.ningshingche.app.ui.theme.PanelRule
  * the moment an editor fills those columns in, without needing a code change.
  */
 object SiteContact {
-    const val TAGLINE = "বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ"
-    const val ADDRESS = "তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট"
+    const val TAGLINE = tNow("বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ")
+    const val ADDRESS = tNow("তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট")
     const val MAPS_URL = "https://maps.app.goo.gl/1SmaUj5kGPYgP7gJA"
     const val PHONE = "+880 9638-781890"
     const val PHONE_URI = "tel:+8809638781890"
@@ -65,7 +67,7 @@ object SiteContact {
     const val PLAY_STORE_URL =
         "https://play.google.com/store/apps/details?id=com.shakilsoftltd.ningshingche"
     const val DEVELOPER_URL = "https://kehem.com/"
-    const val DEVELOPER_NAME = "কেহেম আইটি"
+    const val DEVELOPER_NAME = tNow("কেহেম আইটি")
 
     /** API value first, published site value second. */
     fun resolve(settings: SiteSettings) = Resolved(
@@ -163,19 +165,19 @@ fun EditorialFooter(
         FooterDivider()
 
         // --- Quick links --------------------------------------------------
-        FooterHeading("দ্রুত লিংকসমূহ")
+        FooterHeading(t("দ্রুত লিংকসমূহ"))
         Spacer(Modifier.height(10.dp))
         Row(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.weight(1f)) {
-                FooterLink("আমাদের সম্পর্কে") { onNavigate("about") }
-                FooterLink("লেখা জমাদান") { onOpenLink(SiteContact.SUBMIT_URL) }
-                FooterLink("গোপনীয়তা নীতি") { onOpenLink(SiteContact.PRIVACY_URL) }
+                FooterLink(t("আমাদের সম্পর্কে")) { onNavigate("about") }
+                FooterLink(t("লেখা জমাদান")) { onOpenLink(SiteContact.SUBMIT_URL) }
+                FooterLink(t("গোপনীয়তা নীতি")) { onOpenLink(SiteContact.PRIVACY_URL) }
             }
             Spacer(Modifier.width(EditorialSpace.md))
             Column(modifier = Modifier.weight(1f)) {
-                FooterLink("শর্তাবলী") { onOpenLink(SiteContact.TERMS_URL) }
-                FooterLink("যোগাযোগ করুন") { onOpenLink(info.emailUri) }
-                FooterLink("সাইটম্যাপ") { onOpenLink(SiteContact.SITEMAP_URL) }
+                FooterLink(t("শর্তাবলী")) { onOpenLink(SiteContact.TERMS_URL) }
+                FooterLink(t("যোগাযোগ করুন")) { onOpenLink(info.emailUri) }
+                FooterLink(t("সাইটম্যাপ")) { onOpenLink(SiteContact.SITEMAP_URL) }
             }
         }
 
@@ -183,7 +185,7 @@ fun EditorialFooter(
         FooterDivider()
 
         // --- Social -------------------------------------------------------
-        FooterHeading("আমাদের অনুসরণ করুন")
+        FooterHeading(t("আমাদের অনুসরণ করুন"))
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(EditorialSpace.md)) {
             SocialButton(R.drawable.ic_social_facebook, "Facebook") {
@@ -201,7 +203,7 @@ fun EditorialFooter(
         FooterDivider()
 
         // --- Download -----------------------------------------------------
-        FooterHeading("সর্বশেষ আপডেট পেতে আমাদের অ্যাপটি ডাউনলোড করুন")
+        FooterHeading(t("সর্বশেষ আপডেট পেতে আমাদের অ্যাপটি ডাউনলোড করুন"))
         Spacer(Modifier.height(12.dp))
         Surface(
             onClick = { onOpenLink(SiteContact.PLAY_STORE_URL) },
@@ -240,7 +242,7 @@ fun EditorialFooter(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "© ২০২৬ ${settings.title} | সাইট উন্নয়ন ",
+                text = t("© ২০২৬ {1} | সাইট উন্নয়ন", settings.title),
                 fontFamily = Kalpurush,
                 fontSize = textSize(12),
                 lineHeight = leading(12),

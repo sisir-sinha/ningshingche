@@ -23,6 +23,7 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import com.ningshingche.app.ui.i18n.tNow
 
 object PdfHelper {
 
@@ -46,7 +47,7 @@ object PdfHelper {
         if (targetFile.exists()) targetFile.delete()
 
         val url = doc.pdfUrl.ifBlank { doc.downloadUrl }
-        if (url.isBlank()) throw IOException("পিডিএফ লিংক পাওয়া যায়নি।")
+        if (url.isBlank()) throw IOException(tNow("পিডিএফ লিংক পাওয়া যায়নি।"))
 
         val request = Request.Builder()
             .url(url)
@@ -55,16 +56,16 @@ object PdfHelper {
             .build()
         http.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
-                throw IOException("পিডিএফ ডাউনলোড হয়নি (${response.code})")
+                throw IOException(tNow("পিডিএফ ডাউনলোড হয়নি ({1})", response.code))
             }
-            val body = response.body ?: throw IOException("পিডিএফ খালি এসেছে।")
+            val body = response.body ?: throw IOException(tNow("পিডিএফ খালি এসেছে।"))
             FileOutputStream(targetFile).use { output ->
                 body.byteStream().copyTo(output)
             }
         }
         if (!looksLikePdf(targetFile)) {
             targetFile.delete()
-            throw IOException("ফাইলটি একটি বৈধ পিডিএফ নয়।")
+            throw IOException(tNow("ফাইলটি একটি বৈধ পিডিএফ নয়।"))
         }
         targetFile
     }
@@ -112,7 +113,7 @@ object PdfHelper {
                     contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
                     resolver.update(uri, contentValues, null, null)
 
-                    return@withContext Result.success("Downloads/Ningshingche_PDFs/$targetFileName ফোল্ডারে সংরক্ষিত হয়েছে!")
+                    return@withContext Result.success(tNow("Downloads/Ningshingche_PDFs/{1} ফোল্ডারে সংরক্ষিত হয়েছে!", targetFileName))
                 }
             }
 
@@ -126,7 +127,7 @@ object PdfHelper {
                 }
             }
 
-            Result.success("ডাউনলোড ফোল্ডারে সংরক্ষিত হয়েছে: ${destFile.name}")
+            Result.success(tNow("ডাউনলোড ফোল্ডারে সংরক্ষিত হয়েছে: {1}", destFile.name))
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -141,7 +142,7 @@ object PdfHelper {
      */
     suspend fun downloadAttachment(context: Context, url: String, fileName: String): File =
         withContext(Dispatchers.IO) {
-            if (url.isBlank()) throw IOException("ফাইলের ঠিকানা নেই।")
+            if (url.isBlank()) throw IOException(tNow("ফাইলের ঠিকানা নেই।"))
             val safeName = safeFileName(fileName)
             val cacheDir = File(context.cacheDir, "attachment_cache").apply { mkdirs() }
             val target = File(cacheDir, safeName)
@@ -154,8 +155,8 @@ object PdfHelper {
                 .header("Accept", "*/*")
                 .build()
             http.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) throw IOException("ফাইল ডাউনলোড হয়নি (${response.code})")
-                val body = response.body ?: throw IOException("ফাইল খালি এসেছে।")
+                if (!response.isSuccessful) throw IOException(tNow("ফাইল ডাউনলোড হয়নি ({1})", response.code))
+                val body = response.body ?: throw IOException(tNow("ফাইল খালি এসেছে।"))
                 FileOutputStream(target).use { output -> body.byteStream().copyTo(output) }
             }
             target
@@ -196,7 +197,7 @@ object PdfHelper {
                     contentValues.clear()
                     contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
                     resolver.update(uri, contentValues, null, null)
-                    return@withContext Result.success("Downloads/$folder/$targetFileName ফোল্ডারে সংরক্ষিত হয়েছে!")
+                    return@withContext Result.success(tNow("Downloads/{1}/{2} ফোল্ডারে সংরক্ষিত হয়েছে!", folder, targetFileName))
                 }
             }
 
@@ -207,7 +208,7 @@ object PdfHelper {
             FileInputStream(source).use { inStream ->
                 FileOutputStream(destFile).use { outStream -> inStream.copyTo(outStream) }
             }
-            Result.success("ডাউনলোড ফোল্ডারে সংরক্ষিত হয়েছে: ${destFile.name}")
+            Result.success(tNow("ডাউনলোড ফোল্ডারে সংরক্ষিত হয়েছে: {1}", destFile.name))
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -233,15 +234,15 @@ object PdfHelper {
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                 type = "application/pdf"
                 putExtra(Intent.EXTRA_STREAM, pdfUri)
-                putExtra(Intent.EXTRA_SUBJECT, "${doc.title} — নিংশিং চে PDF আর্কাইভ")
+                putExtra(Intent.EXTRA_SUBJECT, tNow("{1} — নিংশিং চে PDF আর্কাইভ", doc.title))
                 putExtra(
                     Intent.EXTRA_TEXT,
-                    "${doc.title} (${doc.edition}) — বিষ্ণুপ্রিয়া মণিপুরি ডিজিটাল তথ্যকোষ 'নিংশিং চে' থেকে সংগৃহীত। https://ningshingche.com"
+                    tNow("{1} ({2}) — বিষ্ণুপ্রিয়া মণিপুরি ডিজিটাল তথ্যকোষ 'নিংশিং চে' থেকে সংগৃহীত। https://ningshingche.com", doc.title, doc.edition)
                 )
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
 
-            val chooser = Intent.createChooser(shareIntent, "PDF প্রকাশনা শেয়ার করুন")
+            val chooser = Intent.createChooser(shareIntent, tNow("PDF প্রকাশনা শেয়ার করুন"))
             chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(chooser)
             true
@@ -263,7 +264,7 @@ object PdfHelper {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            context.startActivity(Intent.createChooser(intent, "পিডিএফ খুলুন"))
+            context.startActivity(Intent.createChooser(intent, tNow("পিডিএফ খুলুন")))
             true
         } catch (e: Exception) {
             e.printStackTrace()

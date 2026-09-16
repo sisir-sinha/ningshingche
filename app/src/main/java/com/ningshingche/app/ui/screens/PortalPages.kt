@@ -76,6 +76,7 @@ import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.HomeViewModel
+import com.ningshingche.app.ui.i18n.t
 
 /** One swipeable tab on the Featured page: "সব" or a single category. */
 private data class FeaturedTab(
@@ -142,7 +143,7 @@ fun FeaturedScreen(
                 CenterAlignedTopAppBar(
                     title = {
                         Text(
-                            text = "ফিচার্ড প্রবন্ধসমূহ",
+                            text = t("ফিচার্ড প্রবন্ধসমূহ"),
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
                             fontSize = textSize(18),
@@ -154,7 +155,7 @@ fun FeaturedScreen(
                         IconButton(onClick = onBackClick, modifier = Modifier.testTag("featured_back_button")) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "পেছনে",
+                                contentDescription = t("পেছনে"),
                                 tint = MaterialTheme.colorScheme.onSurface
                             )
                         }
@@ -242,7 +243,7 @@ fun FeaturedScreen(
         ) {
             if (tabs.isEmpty() || featuredArticles.isEmpty()) {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    item { EmptyState(message = "কোনো ফিচার্ড প্রবন্ধ পাওয়া যায়নি।") }
+                    item { EmptyState(message = t("কোনো ফিচার্ড প্রবন্ধ পাওয়া যায়নি।")) }
                 }
             } else {
                 HorizontalPager(
@@ -298,7 +299,7 @@ private fun PortalPageScaffold(
                     IconButton(onClick = onBackClick) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "পেছনে",
+                            contentDescription = t("পেছনে"),
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
@@ -327,7 +328,7 @@ fun AuthorsDirectoryScreen(
     onAuthorClick: (String) -> Unit
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    PortalPageScaffold(title = "লেখক", onBackClick = onBackClick, testTag = "authors_directory_screen") { padding ->
+    PortalPageScaffold(title = t("লেখক"), onBackClick = onBackClick, testTag = "authors_directory_screen") { padding ->
         PullToRefreshBox(
             isRefreshing = (state as? ExploreUiState.Ready)?.isRefreshing == true,
             onRefresh = { viewModel.load(force = true) },
@@ -343,9 +344,9 @@ fun AuthorsDirectoryScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    item { PageIntro("লেখক", "নিংশিং চে তথ্যকোষের লেখক ও গবেষকবৃন্দ") }
+                    item { PageIntro(t("লেখক"), t("নিংশিং চে তথ্যকোষের লেখক ও গবেষকবৃন্দ")) }
                     if (current.data.authors.isEmpty()) {
-                        item { EmptyState(message = "কোনো লেখক পাওয়া যায়নি।") }
+                        item { EmptyState(message = t("কোনো লেখক পাওয়া যায়নি।")) }
                     }
                     items(current.data.authors, key = { it.author.id }) { facet ->
                         AuthorDirectoryRow(facet = facet, onClick = { onAuthorClick(facet.author.id) })
@@ -412,7 +413,7 @@ private fun AuthorDirectoryRow(facet: AuthorFacet, onClick: () -> Unit) {
                     )
                 }
                 Text(
-                    text = "${IssueTags.toBengaliDigits(facet.articleCount)}টি প্রবন্ধ" +
+                    text = t("{1}টি প্রবন্ধ", IssueTags.toBengaliDigits(facet.articleCount)) +
                         if (author.location.isNotBlank()) " • ${author.location}" else "",
                     fontFamily = Kalpurush,
                     fontSize = textSize(11),
@@ -430,7 +431,7 @@ private fun AuthorDirectoryRow(facet: AuthorFacet, onClick: () -> Unit) {
 @Composable
 fun AboutScreen(onBackClick: () -> Unit) {
     val uri = LocalUriHandler.current
-    PortalPageScaffold(title = "আমার সম্পর্কে", onBackClick = onBackClick, testTag = "about_screen") { padding ->
+    PortalPageScaffold(title = t("আমার সম্পর্কে"), onBackClick = onBackClick, testTag = "about_screen") { padding ->
         LazyColumn(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -438,7 +439,7 @@ fun AboutScreen(onBackClick: () -> Unit) {
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            item { PageIntro("আমার সম্পর্কে", "নিংশিং চে — বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ") }
+            item { PageIntro(t("আমার সম্পর্কে"), t("নিংশিং চে — বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ")) }
             item {
                 Surface(
                     shape = RoundedCornerShape(18.dp),
@@ -447,14 +448,14 @@ fun AboutScreen(onBackClick: () -> Unit) {
                 ) {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(
-                            "নিংশিং চে বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, ইতিহাস ও সংস্কৃতির ডিজিটাল তথ্যকোষ। পোর্টালটি তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট থেকে পরিচালিত।",
+                            t("নিংশিং চে বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, ইতিহাস ও সংস্কৃতির ডিজিটাল তথ্যকোষ। পোর্টালটি তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট থেকে পরিচালিত।"),
                             fontFamily = Kalpurush,
                             fontSize = textSize(16),
                             lineHeight = leading(16),
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        Text("ঠিকানা: তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট", fontFamily = Kalpurush, fontSize = textSize(15), lineHeight = leading(15))
-                        Text("ফোন: +880 9638-781890", fontFamily = Kalpurush, fontSize = textSize(15), lineHeight = leading(15))
+                        Text(t("ঠিকানা: তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট"), fontFamily = Kalpurush, fontSize = textSize(15), lineHeight = leading(15))
+                        Text(t("ফোন: +880 9638-781890"), fontFamily = Kalpurush, fontSize = textSize(15), lineHeight = leading(15))
                         TextButton(onClick = { uri.openUri("https://ningshingche.com/about-us") }) {
                             Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null)
                             Text("  ningshingche.com/about-us", fontFamily = Kalpurush)

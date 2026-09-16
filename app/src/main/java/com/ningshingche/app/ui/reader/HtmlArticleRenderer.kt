@@ -74,6 +74,8 @@ import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import java.util.regex.Pattern
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 
 /**
  * Semantic block model representing parsed WYSIWYG HTML content.
@@ -395,7 +397,7 @@ fun RichHtmlArticleBody(
 
     if (blocks.isEmpty()) {
         Text(
-            text = "এই প্রবন্ধে কোনো বিষয়বস্তু পাওয়া যায়নি।",
+            text = t("এই প্রবন্ধে কোনো বিষয়বস্তু পাওয়া যায়নি।"),
             fontFamily = Kalpurush,
             fontSize = fontSizeSp.sp,
             color = tokens.inkMuted,
@@ -603,7 +605,7 @@ fun FullWidthArticleImage(
         ) {
             SubcomposeAsyncImage(
                 model = url,
-                contentDescription = alt.ifBlank { "প্রবন্ধের ছবি" },
+                contentDescription = alt.ifBlank { tNow("প্রবন্ধের ছবি") },
                 contentScale = ContentScale.FillWidth,
                 loading = {
                     ShimmerPlaceholder(
@@ -621,7 +623,7 @@ fun FullWidthArticleImage(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "ছবি লোড করা যায়নি",
+                            text = t("ছবি লোড করা যায়নি"),
                             fontFamily = Kalpurush,
                             fontSize = textSize(13),
                             lineHeight = leading(13),
@@ -646,7 +648,7 @@ fun FullWidthArticleImage(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,
-                        contentDescription = "বড় করে দেখুন",
+                        contentDescription = t("বড় করে দেখুন"),
                         tint = Color.White,
                         modifier = Modifier.size(19.dp)
                     )
@@ -722,7 +724,7 @@ fun ImageEnlargeModal(
             ) {
                 SubcomposeAsyncImage(
                     model = imageUrl,
-                    contentDescription = "পূর্ণ আকারের ছবি",
+                    contentDescription = t("পূর্ণ আকারের ছবি"),
                     contentScale = ContentScale.Fit,
                     loading = {
                         ShimmerPlaceholder(modifier = Modifier.size(60.dp))
@@ -755,7 +757,7 @@ fun ImageEnlargeModal(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "বন্ধ করুন",
+                        contentDescription = t("বন্ধ করুন"),
                         tint = Color.White
                     )
                 }
@@ -772,7 +774,7 @@ fun ImageEnlargeModal(
                     ) {
                         Icon(
                             imageVector = Icons.Default.OpenInBrowser,
-                            contentDescription = "ব্রাউজারে খুলুন",
+                            contentDescription = t("ব্রাউজারে খুলুন"),
                             tint = Color.White
                         )
                     }
@@ -784,7 +786,7 @@ fun ImageEnlargeModal(
                                 type = "text/plain"
                                 putExtra(Intent.EXTRA_TEXT, imageUrl)
                             }
-                            context.startActivity(Intent.createChooser(send, "ছবি শেয়ার করুন"))
+                            context.startActivity(Intent.createChooser(send, tNow("ছবি শেয়ার করুন")))
                         },
                         modifier = Modifier
                             .size(42.dp)
@@ -792,7 +794,7 @@ fun ImageEnlargeModal(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Share,
-                            contentDescription = "শেয়ার",
+                            contentDescription = t("শেয়ার"),
                             tint = Color.White
                         )
                     }
@@ -808,7 +810,7 @@ fun ImageEnlargeModal(
                     .padding(bottom = 32.dp)
             ) {
                 Text(
-                    text = if (scale > 1.05f) "জুম রিসেট করতে ট্যাপ করুন" else "জুম করতে দুই আঙুল ব্যবহার করুন",
+                    text = if (scale > 1.05f) t("জুম রিসেট করতে ট্যাপ করুন") else t("জুম করতে দুই আঙুল ব্যবহার করুন"),
                     fontFamily = Kalpurush,
                     fontSize = textSize(12.5),
                     lineHeight = leading(12.5),

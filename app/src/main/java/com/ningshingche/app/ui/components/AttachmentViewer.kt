@@ -57,6 +57,8 @@ import com.ningshingche.app.ui.theme.PanelInk
 import com.ningshingche.app.util.PdfHelper
 import kotlinx.coroutines.launch
 import java.io.File
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 
 private val ViewerCanvas = Color(0xF20B0E14)
 private val ViewerInk = PanelInk
@@ -119,7 +121,7 @@ fun AttachmentViewer(
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = if (attachment.isPdf) "পিডিএফ ডকুমেন্ট" else "ছবি",
+                            text = if (attachment.isPdf) t("পিডিএফ ডকুমেন্ট") else t("ছবি"),
                             fontFamily = Kalpurush,
                             fontSize = textSize(11),
                             lineHeight = leading(11),
@@ -138,7 +140,7 @@ fun AttachmentViewer(
                                     mimeType = attachment.mime
                                 )
                                     .onSuccess { AppToasts.show(it) }
-                                    .onFailure { AppToasts.show(it.message ?: "ডাউনলোড হয়নি।") }
+                                    .onFailure { AppToasts.show(it.message ?: tNow("ডাউনলোড হয়নি।")) }
                                 saving = false
                             }
                         },
@@ -151,14 +153,14 @@ fun AttachmentViewer(
                                 color = ViewerInk
                             )
                         } else {
-                            Icon(Icons.Default.Download, contentDescription = "ডাউনলোড", tint = ViewerInk)
+                            Icon(Icons.Default.Download, contentDescription = t("ডাউনলোড"), tint = ViewerInk)
                         }
                     }
                     IconButton(
                         onClick = onDismiss,
                         modifier = Modifier.testTag("attachment_close")
                     ) {
-                        Icon(Icons.Default.Close, contentDescription = "বন্ধ করুন", tint = ViewerInk)
+                        Icon(Icons.Default.Close, contentDescription = t("বন্ধ করুন"), tint = ViewerInk)
                     }
                 }
 
@@ -206,7 +208,7 @@ private fun AttachmentPicture(attachment: ForumAttachment) {
         )
         if (scale > 1f) {
             Text(
-                text = "স্বাভাবিক আকারে ফিরতে দুই আঙুল টেনে ছোট করুন",
+                text = t("স্বাভাবিক আকারে ফিরতে দুই আঙুল টেনে ছোট করুন"),
                 fontFamily = Kalpurush,
                 fontSize = textSize(10.5),
                 lineHeight = leading(10.5),
@@ -241,7 +243,7 @@ private fun AttachmentPdf(attachment: ForumAttachment) {
         error = null
         runCatching { PdfHelper.downloadAttachment(context, attachment.url, attachment.downloadName) }
             .onSuccess { file = it }
-            .onFailure { error = it.message ?: "পিডিএফটি খোলা যায়নি।" }
+            .onFailure { error = it.message ?: tNow("পিডিএফটি খোলা যায়নি।") }
         loading = false
     }
 
@@ -274,7 +276,7 @@ private fun AttachmentPdf(attachment: ForumAttachment) {
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(Modifier.size(6.dp))
-                    Text("আবার চেষ্টা করুন", fontFamily = Kalpurush, color = ViewerInk, fontSize = textSize(13), lineHeight = leading(13))
+                    Text(t("আবার চেষ্টা করুন"), fontFamily = Kalpurush, color = ViewerInk, fontSize = textSize(13), lineHeight = leading(13))
                 }
             }
             pdfFile != null -> AndroidView(
@@ -298,7 +300,7 @@ private fun AttachmentPdf(attachment: ForumAttachment) {
                                     .spacing(12)
                                     .load()
                             }.onFailure { failure ->
-                                error = failure.message ?: "পিডিএফটি খোলা যায়নি।"
+                                error = failure.message ?: tNow("পিডিএফটি খোলা যায়নি।")
                             }
                         }
                     }

@@ -61,6 +61,7 @@ import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.ReaderMetrics
 import com.ningshingche.app.ui.viewmodel.ReaderWorkspaceViewModel
+import com.ningshingche.app.ui.i18n.t
 
 /**
  * The reader's own view count, at the top of প্রোফাইল.
@@ -114,7 +115,7 @@ private fun ProfileViewsCard(metrics: ReaderMetrics) {
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "মোট ভিউ",
+                    text = t("মোট ভিউ"),
                     fontFamily = Kalpurush,
                     fontSize = textSize(13),
                     lineHeight = leading(13),
@@ -126,10 +127,10 @@ private fun ProfileViewsCard(metrics: ReaderMetrics) {
             // translator fills each word once.
             Text(
                 text = listOf(
-                    "প্রবন্ধ ${toBengaliNumeral(metrics.articleViews)}",
-                    "গান ${toBengaliNumeral(metrics.musicViews)}",
-                    "আলোচনা ${toBengaliNumeral(metrics.forumViews)}",
-                    "পাঠক ${toBengaliNumeral(metrics.visitors)}"
+                    t("প্রবন্ধ {1}", toBengaliNumeral(metrics.articleViews)),
+                    t("গান {1}", toBengaliNumeral(metrics.musicViews)),
+                    t("আলোচনা {1}", toBengaliNumeral(metrics.forumViews)),
+                    t("পাঠক {1}", toBengaliNumeral(metrics.visitors))
                 ).joinToString("  ·  "),
                 fontFamily = Kalpurush,
                 fontSize = textSize(11.5),
@@ -140,7 +141,7 @@ private fun ProfileViewsCard(metrics: ReaderMetrics) {
             )
             if (metrics.minutesListened > 0L) {
                 Text(
-                    text = "শোনা ${toBengaliNumeral(metrics.minutesListened)} মিনিট",
+                    text = t("শোনা {1} মিনিট", toBengaliNumeral(metrics.minutesListened)),
                     fontFamily = Kalpurush,
                     fontSize = textSize(11.5),
                     lineHeight = leading(11.5),
@@ -207,10 +208,10 @@ fun UserProfileScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("প্রোফাইল", fontFamily = Kalpurush, fontWeight = FontWeight.Bold) },
+                title = { Text(t("প্রোফাইল"), fontFamily = Kalpurush, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick, modifier = Modifier.testTag("profile_back_button")) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "ফিরুন")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t("ফিরুন"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -219,7 +220,7 @@ fun UserProfileScreen(
     ) { padding ->
         if (signedIn == null) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("সাইন ইন করা নেই।", fontFamily = Kalpurush)
+                Text(t("সাইন ইন করা নেই।"), fontFamily = Kalpurush)
             }
             return@Scaffold
         }
@@ -241,7 +242,7 @@ fun UserProfileScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "ড্যাশবোর্ড ও নতুন প্রবন্ধ ব্যবহার করতে প্রোফাইলের সব আবশ্যক ঘর পূরণ করুন।",
+                        text = t("ড্যাশবোর্ড ও নতুন প্রবন্ধ ব্যবহার করতে প্রোফাইলের সব আবশ্যক ঘর পূরণ করুন।"),
                         fontFamily = Kalpurush,
                         modifier = Modifier.padding(12.dp)
                     )
@@ -253,7 +254,7 @@ fun UserProfileScreen(
                     if (signedIn.avatarUrl.isNotBlank()) {
                         AsyncImage(
                             model = signedIn.avatarUrl,
-                            contentDescription = "প্রোফাইল ছবি",
+                            contentDescription = t("প্রোফাইল ছবি"),
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize().clip(CircleShape)
                         )
@@ -270,24 +271,24 @@ fun UserProfileScreen(
                     if (uploading) {
                         CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
                     } else {
-                        Icon(Icons.Default.CameraAlt, contentDescription = "ছবি আপডেট")
+                        Icon(Icons.Default.CameraAlt, contentDescription = t("ছবি আপডেট"))
                     }
                 }
             }
-            Text("প্রোফাইল ছবি (ImgBB)", fontFamily = Kalpurush, fontSize = textSize(12), lineHeight = leading(12), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(t("প্রোফাইল ছবি (ImgBB)"), fontFamily = Kalpurush, fontSize = textSize(12), lineHeight = leading(12), color = MaterialTheme.colorScheme.onSurfaceVariant)
 
             ProfileViewsCard(metrics)
 
             OutlinedTextField(
                 value = firstName,
                 onValueChange = { firstName = it },
-                label = { Text("নামের প্রথম অংশ", fontFamily = Kalpurush) },
+                label = { Text(t("নামের প্রথম অংশ"), fontFamily = Kalpurush) },
                 modifier = Modifier.fillMaxWidth().testTag("profile_first_name")
             )
             OutlinedTextField(
                 value = lastName,
                 onValueChange = { lastName = it },
-                label = { Text("নামের শেষ অংশ", fontFamily = Kalpurush) },
+                label = { Text(t("নামের শেষ অংশ"), fontFamily = Kalpurush) },
                 modifier = Modifier.fillMaxWidth().testTag("profile_last_name")
             )
             OutlinedTextField(
@@ -295,51 +296,51 @@ fun UserProfileScreen(
                 onValueChange = {},
                 readOnly = true,
                 enabled = false,
-                label = { Text("ইমেইল (পরিবর্তন করা যায় না)", fontFamily = Kalpurush) },
+                label = { Text(t("ইমেইল (পরিবর্তন করা যায় না)"), fontFamily = Kalpurush) },
                 modifier = Modifier.fillMaxWidth()
             )
             OutlinedTextField(
                 value = about,
                 onValueChange = { about = it },
-                label = { Text("নিজের সম্পর্কে", fontFamily = Kalpurush) },
+                label = { Text(t("নিজের সম্পর্কে"), fontFamily = Kalpurush) },
                 minLines = 3,
                 modifier = Modifier.fillMaxWidth().testTag("profile_about")
             )
             OutlinedTextField(
                 value = phone,
                 onValueChange = { phone = it },
-                label = { Text("ফোন নম্বর", fontFamily = Kalpurush) },
+                label = { Text(t("ফোন নম্বর"), fontFamily = Kalpurush) },
                 modifier = Modifier.fillMaxWidth().testTag("profile_phone")
             )
             OutlinedTextField(
                 value = address,
                 onValueChange = { address = it },
-                label = { Text("ঠিকানা", fontFamily = Kalpurush) },
+                label = { Text(t("ঠিকানা"), fontFamily = Kalpurush) },
                 minLines = 2,
                 modifier = Modifier.fillMaxWidth().testTag("profile_address")
             )
             OutlinedTextField(
                 value = facebook,
                 onValueChange = { facebook = it },
-                label = { Text("Facebook আইডি / লিংক", fontFamily = Kalpurush) },
+                label = { Text(t("Facebook আইডি / লিংক"), fontFamily = Kalpurush) },
                 modifier = Modifier.fillMaxWidth().testTag("profile_facebook")
             )
             OutlinedTextField(
                 value = designation,
                 onValueChange = { designation = it },
-                label = { Text("পদবি / পরিচয় (ঐচ্ছিক)", fontFamily = Kalpurush) },
+                label = { Text(t("পদবি / পরিচয় (ঐচ্ছিক)"), fontFamily = Kalpurush) },
                 modifier = Modifier.fillMaxWidth()
             )
             OutlinedTextField(
                 value = location,
                 onValueChange = { location = it },
-                label = { Text("জেলা / দেশ (ঐচ্ছিক)", fontFamily = Kalpurush) },
+                label = { Text(t("জেলা / দেশ (ঐচ্ছিক)"), fontFamily = Kalpurush) },
                 modifier = Modifier.fillMaxWidth()
             )
             OutlinedTextField(
                 value = website,
                 onValueChange = { website = it },
-                label = { Text("ওয়েবসাইট (ঐচ্ছিক)", fontFamily = Kalpurush) },
+                label = { Text(t("ওয়েবসাইট (ঐচ্ছিক)"), fontFamily = Kalpurush) },
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -375,7 +376,7 @@ fun UserProfileScreen(
                 if (saving) {
                     CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                 } else {
-                    Text("প্রোফাইল সংরক্ষণ করুন", fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
+                    Text(t("প্রোফাইল সংরক্ষণ করুন"), fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
                 }
             }
             Spacer(Modifier.height(24.dp))

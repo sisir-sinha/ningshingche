@@ -45,6 +45,7 @@ import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.BookmarksViewModel
+import com.ningshingche.app.ui.i18n.t
 
 /**
  * "সংরক্ষিত" — every article the reader saved with the bookmark icon (on
@@ -72,7 +73,7 @@ fun BookmarksScreen(
                 title = {
                     Column {
                         Text(
-                            text = "সংরক্ষিত প্রবন্ধ",
+                            text = t("সংরক্ষিত প্রবন্ধ"),
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
                             fontSize = textSize(19),
@@ -82,8 +83,8 @@ fun BookmarksScreen(
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = if (savedCount == 0) "অফলাইনে পড়ার জন্য সংরক্ষিত লেখা"
-                            else "${toBengaliDigits(savedCount)}টি লেখা সংরক্ষিত",
+                            text = if (savedCount == 0) t("অফলাইনে পড়ার জন্য সংরক্ষিত লেখা")
+                            else t("{1}টি লেখা সংরক্ষিত", toBengaliDigits(savedCount)),
                             fontFamily = Kalpurush,
                             fontSize = textSize(12),
                             lineHeight = textSize(14),
@@ -95,7 +96,7 @@ fun BookmarksScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick, modifier = Modifier.testTag("bookmarks_back_button")) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "পেছনে")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t("পেছনে"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -116,7 +117,7 @@ fun BookmarksScreen(
                     onValueChange = { viewModel.onSearchQueryChange(it) },
                     placeholder = {
                         Text(
-                            text = "সংরক্ষিত তালিকার মধ্যে খুঁজুন...",
+                            text = t("সংরক্ষিত তালিকার মধ্যে খুঁজুন..."),
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                 fontSize = textSize(13),
@@ -137,7 +138,7 @@ fun BookmarksScreen(
                             IconButton(onClick = { viewModel.onSearchQueryChange("") }) {
                                 Icon(
                                     imageVector = Icons.Default.Close,
-                                    contentDescription = "মুছুন",
+                                    contentDescription = t("মুছুন"),
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(16.dp)
                                 )
@@ -202,7 +203,7 @@ fun BookmarksScreen(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = if (savedCount == 0) "কোনো সংরক্ষিত প্রবন্ধ নেই" else "কোনো মিল পাওয়া যায়নি",
+                        text = if (savedCount == 0) t("কোনো সংরক্ষিত প্রবন্ধ নেই") else t("কোনো মিল পাওয়া যায়নি"),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
@@ -212,8 +213,8 @@ fun BookmarksScreen(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = if (savedCount == 0)
-                            "যে কোনো প্রবন্ধের কার্ডে বা পড়ার সময় বুকমার্ক আইকনে চাপ দিলে তা এখানে সংরক্ষিত থাকবে।"
-                        else "অন্য শব্দ দিয়ে খুঁজুন বা বিভাগ ফিল্টার বদলান।",
+                            t("যে কোনো প্রবন্ধের কার্ডে বা পড়ার সময় বুকমার্ক আইকনে চাপ দিলে তা এখানে সংরক্ষিত থাকবে।")
+                        else t("অন্য শব্দ দিয়ে খুঁজুন বা বিভাগ ফিল্টার বদলান।"),
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = textSize(12),

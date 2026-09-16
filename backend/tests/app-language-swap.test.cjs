@@ -85,7 +85,8 @@ test('the packaged files are the shape the app parses', () => {
     // parseCsv() drops the header only when the first cell reads `key`; if the
     // header ever changed, `key` itself would become a translation.
     assert.equal(header, true, `${code}.csv should open with a key,value header row`);
-    assert.equal(rows.length, 940, `${code}.csv should carry every key`);
+    const source = parsePairs(fs.readFileSync(path.join(LANG_DIR, 'bn.csv'), 'utf8')).rows;
+    assert.equal(rows.length, source.length, `${code}.csv should carry every key the app says`);
     const blank = rows.filter(([, value]) => !value.trim()).map(([key]) => key);
     assert.deepEqual(blank, [], 'a blank value is what makes the app fall back to Bengali');
     assert.equal(new Set(rows.map(([key]) => key)).size, rows.length, 'and no key twice');
@@ -93,7 +94,7 @@ test('the packaged files are the shape the app parses', () => {
 });
 
 test('swapping languages actually changes the words', () => {
-  // A file of 940 rows that all read as the Bengali source would parse cleanly
+  // A file of 941 rows that all read as the Bengali source would parse cleanly
   // and swap nothing. Both packaged languages have to be doing real work.
   for (const code of LANGUAGES) {
     const rows = parsePairs(fs.readFileSync(path.join(ASSET_DIR, `${code}.csv`), 'utf8')).rows;
@@ -192,4 +193,142 @@ test('the whole interface speaks, and only names stay Bengali', () => {
     assert.ok(content.length > 0 && content.every((row) => !table.has(row.key)),
       'content strings (names, headings) are not the language file\'s business');
   }
+});
+
+/**
+ * The swap only works where the app *asks* for a translation.
+ *
+ * A Bengali literal that is never passed through `t()` or `tNow()` is invisible
+ * to the language files: the reader picks English and that line stays Bengali.
+ * This is the guard for that — every Bengali literal in the interface is either
+ * wired to the table or named here with the reason it is not.
+ */
+const APP_SRC = path.join(REPO, 'app', 'src', 'main', 'java');
+const SWEEP_DIRS = ['ui/', 'notifications/', 'util/'];
+
+/** Publication text: names and standing copy, the same in every language. */
+const CONTENT_FILES = new Set(['NinghsingCheContentData.kt', 'AuthorProfiles.kt', 'SiteContact.kt']);
+
+/** Bengali that is not copy a reader reads off a screen. */
+const NOT_COPY = [
+  'নমস্কার',                                   // the model's prompt, not a label
+  'নিংশিং চে — বিষ্ণুপ্রিয়া মণিপুরি সাহিত্য ও সংস্কৃতি পোর্টাল',   // a share link's text
+  'নিংশিং চে',                                 // the app's name, used as a value
+  'নিংশিংচে',                                  // an issue key's prefix
+  'সব সংরক্ষিত',                                // a folder name the code compares
+  'পৌ', 'ফিচা / ড', 'এলাহান বরিক', 'ইঞ্চৌঘর', 'নিংশিং_চে_-_{1}',
+];
+
+function kotlinFiles(dir) {
+  const out = [];
+  const walk = (current) => {
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith('.kt')) out.push(full);
+    }
+  };
+  walk(dir);
+  return out;
+}
+
+/** Every string literal in a file, with what it sits inside. */
+function bengaliLiterals(text) {
+  const found = [];
+  const source = text;
+  let i = 0;
+  while (i < source.length) {
+    if (source.startsWith('//', i)) { i = source.indexOf('\n', i); if (i < 0) break; continue; }
+    if (source.startsWith('/*', i)) { const j = source.indexOf('*/', i + 2); i = j < 0 ? source.length : j + 2; continue; }
+    if (source[i] !== '"') { i += 1; continue; }
+    let j = i + 1;
+    let raw = '';
+    let closed = false;
+    while (j < source.length) {
+      if (source[j] === '\\') { raw += source[j + 1]; j += 2; continue; }
+      if (source[j] === '"') { closed = true; break; }
+      if (source[j] === '\n') break;
+      raw += source[j];
+      j += 1;
+    }
+    if (!closed) { i = j + 1; continue; }
+    if (/[\u0980-\u09FF]/.test(raw)) {
+      const before = source.slice(Math.max(0, i - 120), i);   // a call may open a line above
+      found.push({ raw, wrapped: /(?:^|[^A-Za-z0-9_.])(?:t|tNow)\(\s*$/.test(before),
+                   line: source.slice(0, i).split('\n').length });
+    }
+    i = j + 1;
+  }
+  return found;
+}
+
+test('every Bengali literal in the interface is wired to the language files', () => {
+  const unwired = [];
+  let wired = 0;
+  for (const file of kotlinFiles(APP_SRC)) {
+    const rel = path.relative(path.join(APP_SRC, 'com', 'ningshingche', 'app'), file).split(path.sep).join('/');
+    const name = path.basename(file);
+    if (CONTENT_FILES.has(name) || !SWEEP_DIRS.some((dir) => rel.startsWith(dir))) continue;
+    for (const found of bengaliLiterals(fs.readFileSync(file, 'utf8'))) {
+      if (found.wrapped) { wired += 1; continue; }
+      if (NOT_COPY.some((kept) => found.raw.includes(kept))) continue;
+      // Single letters, digit tables and digests are values, not copy.
+      if (found.raw.trim().length <= 2) continue;
+      if (/^[\u09E6-\u09EF\s]+$/.test(found.raw)) continue;
+      unwired.push(`${rel}:${found.line}  ${found.raw.slice(0, 60)}`);
+    }
+  }
+  assert.ok(wired > 900, `only ${wired} literals reach the language files`);
+  assert.deepEqual(unwired, [], 'a screen still shows a Bengali literal no language file can change');
+});
+
+test('every wired string has somewhere to be translated', () => {
+  // A call site with no row falls back to Bengali for ever, silently.
+  const rows = new Map(parsePairs(fs.readFileSync(path.join(LANG_DIR, 'bn.csv'), 'utf8')).rows);
+  const missing = [];
+  for (const file of kotlinFiles(APP_SRC)) {
+    const name = path.basename(file);
+    const rel = path.relative(path.join(APP_SRC, 'com', 'ningshingche', 'app'), file).split(path.sep).join('/');
+    if (CONTENT_FILES.has(name) || !SWEEP_DIRS.some((dir) => rel.startsWith(dir))) continue;
+    for (const found of bengaliLiterals(fs.readFileSync(file, 'utf8'))) {
+      if (!found.wrapped) continue;
+      const key = found.raw.replace(/\$\{([^}]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)/g,
+        (() => { let n = 0; return () => `{${++n}}`; })()).trim();
+      // A string with no letters in it — a time like `{1}:{2}`, a bare number — has
+      // nothing to translate and needs no row.
+      if (!/[\p{L}]/u.test(key)) continue;
+      if (!rows.has(key)) missing.push(`${rel}:${found.line}  ${key.slice(0, 60)}`);
+    }
+  }
+  assert.deepEqual(missing, [], 'wired to a key the language files do not carry');
+});
+
+test('a language swap rebuilds the screens, not only the strings it happens to redraw', () => {
+  // Strings looked up with tNow() come from click handlers and view models, where
+  // no composable may run. The graph is keyed on the table so those screens are
+  // rebuilt when the language changes, and the controller is remembered above it
+  // so the reader's place in the app survives.
+  const host = fs.readFileSync(path.join(SWEEP_DIRS.length ? APP_SRC : APP_SRC,
+    'com', 'ningshingche', 'app', 'ui', 'reader', 'ReaderNavHost.kt'), 'utf8');
+  const controller = host.indexOf('val navController = rememberNavController()');
+  const table = host.indexOf('val translations = LocalTranslations.current');
+  const keyed = host.indexOf('key(translations) {');
+  assert.ok(controller >= 0 && table >= 0 && keyed >= 0, 'the graph reads and keys on the table');
+  assert.ok(controller < keyed && table < keyed, 'both are read above the keyed graph');
+  assert.match(host, /import androidx\.compose\.runtime\.key/);
+});
+
+test('a wired string has no template left inside it', () => {
+  // `t("গান ${count}টি")` would interpolate before the lookup, so the key it asks
+  // for is one no row can carry — it looks wired and translates nothing. The slots
+  // have to be written as `{1}` with the value passed as an argument.
+  const problems = [];
+  for (const file of kotlinFiles(APP_SRC)) {
+    const rel = path.relative(path.join(APP_SRC, 'com', 'ningshingche', 'app'), file).split(path.sep).join('/');
+    const text = fs.readFileSync(file, 'utf8');
+    for (const match of text.matchAll(/(?<![A-Za-z0-9_.])(?:t|tNow)\(\s*"((?:[^"\\\n]|\\.)*)"/g)) {
+      if (match[1].includes('$')) problems.push(`${rel}  ${match[1].slice(0, 60)}`);
+    }
+  }
+  assert.deepEqual(problems, [], 'a string that is filled in before it is looked up');
 });

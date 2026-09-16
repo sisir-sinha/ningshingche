@@ -75,3 +75,33 @@ fun translate(table: TranslationTable, bengali: String, vararg args: Any?): Stri
 @ReadOnlyComposable
 fun t(bengali: String, vararg args: Any?): String =
     translate(LocalTranslations.current, bengali, *args)
+
+/**
+ * The same lookup where a composable is not allowed.
+ *
+ * Most of the app can call [t] — it reads the composition, so a language swap
+ * redraws the screens that used it. Some places cannot: an `onClick` body, a
+ * `LaunchedEffect`, a coroutine, a data class's `toString`, and the view models
+ * that build the message a screen later shows. Compose forbids a composable call
+ * in any of those, and the alternative — translating the message at the screen
+ * instead — would mean every message in the app being rebuilt one at a time.
+ *
+ * So the table is also kept here, installed by [Translations.install] on every
+ * composition of the app's root. `tNow("…")` is a plain function call and works
+ * anywhere. Messages built at the moment an event happens (a tap, a failed
+ * request) are read exactly once and are therefore never stale.
+ */
+fun tNow(bengali: String, vararg args: Any?): String =
+    translate(Translations.current, bengali, *args)
+
+/** Where [tNow] finds the table: the one the app is rendering in right now. */
+object Translations {
+    @Volatile
+    var current: TranslationTable = TranslationTable()
+        private set
+
+    /** Called from the app's root. Cheap enough to run on every composition. */
+    fun install(table: TranslationTable) {
+        current = table
+    }
+}

@@ -95,6 +95,8 @@ import com.ningshingche.app.ui.editorial.SectionHeader
 import com.ningshingche.app.ui.editorial.MusicRail
 import com.ningshingche.app.ui.editorial.VideoRail
 import kotlinx.coroutines.launch
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 
 /**
  * Home — the magazine's front page.
@@ -196,7 +198,7 @@ fun HomeScreen(
                         // Brand wordmark (text, not the logo image). Tapping it
                         // scrolls the feed back to the top.
                         Text(
-                            text = "নিংশিং চে",
+                            text = tNow("নিংশিং চে"),
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
                             fontSize = textSize(21),
@@ -232,7 +234,7 @@ fun HomeScreen(
                         onClick = onSearchClick,
                         modifier = Modifier.testTag("search_top_button")
                     ) {
-                        Icon(Icons.Default.Search, contentDescription = "অনুসন্ধান")
+                        Icon(Icons.Default.Search, contentDescription = tNow("অনুসন্ধান"))
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -378,7 +380,7 @@ private fun HomeContent(
                     )
                     type = "text/plain"
                 }
-                context.startActivity(Intent.createChooser(sendIntent, "ছবি শেয়ার করুন"))
+                context.startActivity(Intent.createChooser(sendIntent, tNow("ছবি শেয়ার করুন")))
             }
         )
     }
@@ -463,7 +465,7 @@ private fun HomeContent(
         if (feed.settings.featuredEnabled && featuredArticles.isNotEmpty()) {
             item {
                 ArticleRail(
-                    title = "ফিচার্ড",
+                    title = tNow("ফিচার্ড"),
                     articles = featuredArticles,
                     onArticleClick = { onArticleClick(it.id) },
                     onSeeAll = onSeeAllFeatured
@@ -475,7 +477,7 @@ private fun HomeContent(
         if (feed.latest.isNotEmpty()) {
             item {
                 SectionHeader(
-                    title = "সাম্প্রতিক",
+                    title = tNow("সাম্প্রতিক"),
                     actionLabel = "সব",
                     onAction = onSeeAllLatest
                 )
@@ -486,7 +488,7 @@ private fun HomeContent(
             }
         } else {
             item {
-                EmptyState(message = "এখনো কোনো প্রবন্ধ প্রকাশিত হয়নি।")
+                EmptyState(message = tNow("এখনো কোনো প্রবন্ধ প্রকাশিত হয়নি।"))
             }
         }
 
@@ -495,7 +497,7 @@ private fun HomeContent(
             item {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     SectionHeader(
-                        title = "বিশেষ নির্বাচন",
+                        title = tNow("বিশেষ নির্বাচন"),
                         actionLabel = if (onSeeAllSpecial != null) "সব" else null,
                         onAction = onSeeAllSpecial
                     )
@@ -582,9 +584,9 @@ private fun HomeContent(
                 ) {
                     Column(Modifier.padding(vertical = EditorialSpace.sm)) {
                         SectionHeader(
-                            title = "সেরা অবদানকারী",
-                            subtitle = "${monthNameOf(contributorsMonth)} মাস",
-                            actionLabel = "সব দেখুন",
+                            title = tNow("সেরা অবদানকারী"),
+                            subtitle = tNow("{1} মাস", monthNameOf(contributorsMonth)),
+                            actionLabel = tNow("সব দেখুন"),
                             onAction = onSeeAllContributors,
                             modifier = Modifier.padding(horizontal = 0.dp)
                         )
@@ -648,7 +650,7 @@ private fun ContributorBoardNotice(
             .padding(horizontal = EditorialSpace.gutter, vertical = EditorialSpace.xs)
     ) {
         Text(
-            text = message.ifBlank { "তালিকা আনা যায়নি।" },
+            text = message.ifBlank { tNow("তালিকা আনা যায়নি।") },
             fontFamily = Kalpurush,
             fontSize = textSize(12.5),
             lineHeight = leading(12.5),
@@ -656,7 +658,7 @@ private fun ContributorBoardNotice(
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            text = if (refused) "সাইন ইন করুন" else "আবার চেষ্টা করুন",
+            text = if (refused) t("সাইন ইন করুন") else t("আবার চেষ্টা করুন"),
             fontFamily = Kalpurush,
             fontWeight = FontWeight.Bold,
             fontSize = textSize(13),
