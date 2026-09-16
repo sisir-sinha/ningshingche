@@ -1,0 +1,195 @@
+'use strict';
+
+/**
+ * Tests for the interface-language swap: picking English or Bishnupriya Manipuri
+ * in Settings has to change what the app says, not only what it remembers.
+ *
+ * The wording itself lives in `backend/assets/lang/{en,bpy}.csv` (see
+ * app-language-fill.test.cjs). This file is about the app *reaching* it. The
+ * translations are packaged inside the APK as `app/src/main/assets/i18n/*.csv`,
+ * so the swap works on a fresh install and offline — before anybody has pressed
+ * Save on the dashboard's Languages page, which is the only other source.
+ *
+ * Two kinds of test here:
+ *
+ *   - the packaged copy is really the committed translation, byte for byte, so
+ *     the two can never drift apart (the repository parses exactly this shape:
+ *     `key,value`, header included, no blank values);
+ *   - the repository reads them in the right order — a published file wins, the
+ *     packaged copy answers when nothing is published, and an empty row (which
+ *     is what every row in `app_language_files` looks like until it is saved)
+ *     never blanks a table the app already has.
+ *
+ * Fixture-free: it reads the CSVs and the Kotlin source.
+ */
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const REPO = path.join(__dirname, '..', '..');
+const LANG_DIR = path.join(REPO, 'backend', 'assets', 'lang');
+const ASSET_DIR = path.join(REPO, 'app', 'src', 'main', 'assets', 'i18n');
+const REPOSITORY = path.join(
+  REPO, 'app', 'src', 'main', 'java', 'com', 'ningshingche', 'app', 'data', 'i18n',
+  'TranslationRepository.kt'
+);
+
+const repository = fs.readFileSync(REPOSITORY, 'utf8');
+const LANGUAGES = ['en', 'bpy'];
+
+/** A tiny `key,value` reader, the same shape the app parses. */
+function parsePairs(text) {
+  const rows = [];
+  let row = [];
+  let cell = '';
+  let quoted = false;
+  const source = text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+  for (let i = 0; i < source.length; i += 1) {
+    const ch = source[i];
+    if (quoted) {
+      if (ch === '"' && source[i + 1] === '"') { cell += '"'; i += 1; }
+      else if (ch === '"') quoted = false;
+      else cell += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === ',') { row.push(cell); cell = ''; }
+    else if (ch === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
+    else cell += ch;
+  }
+  if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+  const header = rows.length && rows[0][0].trim().toLowerCase() === 'key';
+  if (header) rows.shift();
+  return { header, rows: rows.filter((entry) => entry.length >= 2) };
+}
+
+test('the translations travel inside the app', () => {
+  // The whole reason the swap did nothing: the files existed in the repository,
+  // and the only copy the app could read was the one on the server, which was —
+  // and until somebody presses Save, still is — empty.
+  for (const code of LANGUAGES) {
+    const asset = path.join(ASSET_DIR, `${code}.csv`);
+    assert.ok(fs.existsSync(asset), `app/src/main/assets/i18n/${code}.csv is missing`);
+    const packaged = fs.readFileSync(asset);
+    const committed = fs.readFileSync(path.join(LANG_DIR, `${code}.csv`));
+    assert.equal(
+      Buffer.compare(packaged, committed), 0,
+      `${code}.csv in the app differs from the committed translation — copy it again`
+    );
+  }
+});
+
+test('the packaged files are the shape the app parses', () => {
+  for (const code of LANGUAGES) {
+    const { header, rows } = parsePairs(fs.readFileSync(path.join(ASSET_DIR, `${code}.csv`), 'utf8'));
+    // parseCsv() drops the header only when the first cell reads `key`; if the
+    // header ever changed, `key` itself would become a translation.
+    assert.equal(header, true, `${code}.csv should open with a key,value header row`);
+    assert.equal(rows.length, 940, `${code}.csv should carry every key`);
+    const blank = rows.filter(([, value]) => !value.trim()).map(([key]) => key);
+    assert.deepEqual(blank, [], 'a blank value is what makes the app fall back to Bengali');
+    assert.equal(new Set(rows.map(([key]) => key)).size, rows.length, 'and no key twice');
+  }
+});
+
+test('swapping languages actually changes the words', () => {
+  // A file of 940 rows that all read as the Bengali source would parse cleanly
+  // and swap nothing. Both packaged languages have to be doing real work.
+  for (const code of LANGUAGES) {
+    const rows = parsePairs(fs.readFileSync(path.join(ASSET_DIR, `${code}.csv`), 'utf8')).rows;
+    const changed = rows.filter(([key, value]) => key !== value).length;
+    assert.ok(changed > 500, `${code}.csv only differs from Bengali in ${changed} rows`);
+  }
+});
+
+test('the app reads the copy it was shipped with', () => {
+  // The packaged copy is read from assets under the language's own code, which
+  // is the same `code()` the request uses — one name for a language everywhere.
+  assert.match(repository, /private const val ASSET_DIR = "i18n"/);
+  assert.match(repository, /assets\.open\("\$ASSET_DIR\/\$\{language\.code\(\)\}\.csv"\)/);
+  assert.match(repository, /ContentLanguage\.ENGLISH -> "en"/);
+  assert.match(repository, /ContentLanguage\.BISHNUPRIYA -> "bpy"/);
+  assert.ok(
+    fs.existsSync(path.join(ASSET_DIR, 'bn.csv')) === false,
+    'Bengali needs no packaged copy: the compiled strings are already Bengali'
+  );
+});
+
+test('the packaged copy is in place before the request goes out', () => {
+  // Offline first: the swap shows the right language immediately, and the
+  // network is only ever an improvement on it.
+  const strings = repository.slice(repository.indexOf('fun strings('));
+  const body = strings.slice(0, strings.indexOf('return flow'));
+  assert.match(body, /val base = readCache\(language\)\.ifEmpty \{ packaged\(language\) \}/);
+  assert.match(body, /if \(base\.isNotEmpty\(\)\) flow\.value = base/);
+  assert.match(body, /refresh\(language\)/);
+  assert.ok(
+    body.indexOf('packaged(language)') < body.indexOf('refresh(language)'),
+    'the packaged table has to land before the fetch, not after it'
+  );
+});
+
+test('a published file wins over the packaged one, and a blank row changes nothing', () => {
+  const refresh = repository.slice(repository.indexOf('suspend fun refresh('));
+  const body = refresh.slice(0, refresh.indexOf('\n    }'));
+  // Published first (with the freshness test on the row, not on the response):
+  assert.match(body, /published != null && published\.csv\.isNotBlank\(\)/);
+  assert.match(body, /writeCache\(language, published\.csv\)/);
+  assert.match(body, /flow\.value = published\.table/);
+  // And nothing is written to the flow from a blank row: the only other line
+  // that assigns a table is the packaged fallback, and only when the app has none.
+  const assignments = body.match(/flow\.value = /g) || [];
+  assert.equal(assignments.length, 2, 'exactly two ways a table is put in force');
+  assert.match(body, /flow\.value\.isEmpty\(\) -> flow\.value = packaged\(language\)/);
+
+  // The blank has to survive the fetch as a blank, or the caller cannot tell
+  // "this language has no strings" from "nobody has published it yet".
+  assert.match(
+    repository,
+    /Result\.success\(Published\(csv, if \(csv\.isBlank\(\)\) emptyMap\(\) else parseCsv\(csv\)\)\)/
+  );
+});
+
+test('the language switch keeps the flow Compose is collecting', () => {
+  // Compose keys its collection on the StateFlow instance: a fresh wrapper per
+  // recomposition would re-subscribe on every frame, and a swap would stutter.
+  assert.match(repository, /private val flows = ConcurrentHashMap<ContentLanguage, MutableStateFlow<Map<String, String>>>\(\)/);
+  assert.match(repository, /val flow = flows\.getOrPut\(language\) \{ MutableStateFlow<Map<String, String>>\(emptyMap\(\)\) \}/);
+  assert.match(repository, /return flow$/m);
+});
+
+test('everything the reader can pick has a way to speak', () => {
+  // Bengali is compiled in; the other two are only as good as their packaged
+  // file. Both are in the APK, so all three choices show something.
+  const files = fs.readdirSync(ASSET_DIR).sort();
+  assert.deepEqual(files, ['bpy.csv', 'en.csv']);
+  for (const code of LANGUAGES) {
+    const size = fs.statSync(path.join(ASSET_DIR, `${code}.csv`)).size;
+    assert.ok(size > 40000, `${code}.csv looks truncated (${size} bytes)`);
+  }
+});
+
+test('the whole interface speaks, and only names stay Bengali', () => {
+  // The app says 1,144 strings. The inventory knows which of them are interface
+  // and which are content — paper titles, author names, section headings that
+  // come from the database and are the same in every language. Every interface
+  // string has to resolve in both packaged files; if one does not, swapping the
+  // language leaves a Bengali line in the middle of an English screen.
+  const inventory = parsePairs(
+    fs.readFileSync(path.join(REPO, 'i18n', 'strings_inventory.csv'), 'utf8')
+      .replace(/^bengali,bishnupriya,/, 'key,value,')      // it has its own header
+  ).rows.map((cells) => ({ key: cells[0], kind: cells[2] }));
+  assert.ok(inventory.length > 1000, 'the inventory should still be the app-wide list');
+
+  for (const code of LANGUAGES) {
+    const table = new Map(parsePairs(fs.readFileSync(path.join(ASSET_DIR, `${code}.csv`), 'utf8')).rows);
+    const missing = inventory.filter((row) => row.kind === 'ui' && !table.has(row.key));
+    assert.deepEqual(
+      missing.map((row) => row.key), [],
+      `${code}: an interface string the app can never translate`
+    );
+    const content = inventory.filter((row) => row.kind !== 'ui');
+    assert.ok(content.length > 0 && content.every((row) => !table.has(row.key)),
+      'content strings (names, headings) are not the language file\'s business');
+  }
+});

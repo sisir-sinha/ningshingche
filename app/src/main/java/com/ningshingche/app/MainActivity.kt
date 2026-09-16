@@ -74,9 +74,11 @@ class MainActivity : ComponentActivity() {
                 preferences.customSaturation
             )
 
-            // Interface language: the cached table shows immediately, and a
-            // refresh runs whenever the reader switches language, so a language
-            // file edited in the dashboard arrives without an app update.
+            // Interface language: the table shows immediately — the copy that
+            // came with the app on a first run, the published one after that —
+            // and a refresh runs whenever the reader switches language, so a
+            // language file edited in the dashboard arrives without an app
+            // update. Swapping is therefore instant and works offline.
             val language = preferences.contentLanguage
             val strings by app.translations.strings(language)
                 .collectAsStateWithLifecycle()

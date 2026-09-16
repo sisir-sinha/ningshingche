@@ -472,7 +472,10 @@ test('languages page', { skip: JSDOM ? false : 'jsdom is not installed (npm inst
     const note = empty.root.querySelector('[data-publish-note]').textContent.replace(/\s+/g, ' ');
     assert.match(note, /Nothing has been published yet/,
       'the state the app is in when nobody has ever saved');
-    assert.match(note, /app shows its own Bengali text whatever language a reader picks/);
+    // The app carries the committed wording itself now, so the notice must not
+    // claim a reader is stuck in Bengali — only that nothing has been *saved*.
+    assert.match(note, /ships the committed translations/);
+    assert.doesNotMatch(note, /app shows its own Bengali text/, 'the old claim is not true any more');
     assert.match(note, /Load templates/);
     assert.match(note, /Save translations/, 'and the way out of it');
 
@@ -488,6 +491,7 @@ test('languages page', { skip: JSDOM ? false : 'jsdom is not installed (npm inst
     await half.window.NC.views.languages.render(half.root);
     const partly = half.root.querySelector('[data-publish-note]').textContent.replace(/\s+/g, ' ');
     assert.match(partly, /Not published yet: bpy/);
+    assert.match(partly, /Readers already have the committed wording/);
     assert.doesNotMatch(partly, /Nothing has been published yet/);
 
     // And a board with everything published says nothing at all.

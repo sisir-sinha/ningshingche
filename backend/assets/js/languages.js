@@ -415,10 +415,12 @@
   /**
    * What the app is showing, said plainly.
    *
-   * The file the dashboard saves is the only thing the app reads. A language whose
-   * stored file is empty is a language in which every screen still reads Bengali —
-   * a reader who picked English and got Bengali has no way to tell whether the
-   * translation is unwritten or simply unpublished.
+   * The file saved here is what the app prefers, not the only thing it can read:
+   * the language files are also packaged inside the app, so a language that has
+   * never been saved still speaks — it shows the committed wording. Saving is
+   * therefore about *edits* made on this page reaching readers, which is why the
+   * notice names the languages that have none, rather than warning that the app
+   * is stuck in Bengali.
    */
   function renderNotice() {
     const holder = root.querySelector('[data-publish-note]');
@@ -434,8 +436,8 @@
     // would be read out as a tag.
     holder.innerHTML = NC.components.notice(
       all
-        ? 'Nothing has been published yet: all three files in the database are empty, so the app shows its own Bengali text whatever language a reader picks. Press Load templates, fill the sheet, then Save translations.'
-        : `Not published yet: ${empty.join(', ')}. The app reads only what is saved here, so a reader who picks ${empty.length === 1 ? 'it' : 'one of them'} still sees Bengali.`,
+        ? 'Nothing has been published yet: all three files in the database are empty. The app ships the committed translations, so a reader who picks English or Bishnupriya Manipuri already sees that language. Press Load templates to edit the wording here, then Save translations to publish it.'
+        : `Not published yet: ${empty.join(', ')}. Readers already have the committed wording; saving here publishes your edits to ${empty.length === 1 ? 'it' : 'them'}.`,
       all ? 'warning' : 'info',
       'fa-language'
     );
