@@ -56,7 +56,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ningshingche.app.data.portal.IssueTags
 import com.ningshingche.app.ui.components.ArticleListItemCard
@@ -73,6 +72,7 @@ import com.ningshingche.app.ui.editorial.SectionHeader
 import com.ningshingche.app.ui.reader.AuthorFacet
 import com.ningshingche.app.ui.reader.ExploreUiState
 import com.ningshingche.app.ui.reader.ExploreViewModel
+import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.HomeViewModel
 
@@ -144,7 +144,7 @@ fun FeaturedScreen(
                             text = "ফিচার্ড প্রবন্ধসমূহ",
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
+                            fontSize = textSize(18),
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     },
@@ -209,14 +209,14 @@ fun FeaturedScreen(
                                             fontFamily = Kalpurush,
                                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                             color = tint,
-                                            fontSize = 14.sp,
+                                            fontSize = textSize(14),
                                             maxLines = 1
                                         )
                                         if (tab.key != "all") {
                                             Text(
                                                 text = IssueTags.toBengaliDigits(tab.articles.size),
                                                 fontFamily = Kalpurush,
-                                                fontSize = 11.sp,
+                                                fontSize = textSize(11),
                                                 color = tint.copy(alpha = 0.8f)
                                             )
                                         }
@@ -285,7 +285,7 @@ private fun PortalPageScaffold(
                         text = title,
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
+                        fontSize = textSize(18),
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 },
@@ -383,7 +383,7 @@ private fun AuthorDirectoryRow(facet: AuthorFacet, onClick: () -> Unit) {
                         text = author.name,
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
+                        fontSize = textSize(15),
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -398,7 +398,7 @@ private fun AuthorDirectoryRow(facet: AuthorFacet, onClick: () -> Unit) {
                     Text(
                         text = author.designation,
                         fontFamily = Kalpurush,
-                        fontSize = 12.sp,
+                        fontSize = textSize(12),
                         color = MaterialTheme.colorScheme.primary,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
@@ -408,7 +408,7 @@ private fun AuthorDirectoryRow(facet: AuthorFacet, onClick: () -> Unit) {
                     text = "${IssueTags.toBengaliDigits(facet.articleCount)}টি প্রবন্ধ" +
                         if (author.location.isNotBlank()) " • ${author.location}" else "",
                     fontFamily = Kalpurush,
-                    fontSize = 11.sp,
+                    fontSize = textSize(11),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -441,12 +441,12 @@ fun AboutScreen(onBackClick: () -> Unit) {
                         Text(
                             "নিংশিং চে বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, ইতিহাস ও সংস্কৃতির ডিজিটাল তথ্যকোষ। পোর্টালটি তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট থেকে পরিচালিত।",
                             fontFamily = Kalpurush,
-                            fontSize = 16.sp,
-                            lineHeight = 26.sp,
+                            fontSize = textSize(16),
+                            lineHeight = textSize(26),
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        Text("ঠিকানা: তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট", fontFamily = Kalpurush, fontSize = 15.sp)
-                        Text("ফোন: +880 9638-781890", fontFamily = Kalpurush, fontSize = 15.sp)
+                        Text("ঠিকানা: তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট", fontFamily = Kalpurush, fontSize = textSize(15))
+                        Text("ফোন: +880 9638-781890", fontFamily = Kalpurush, fontSize = textSize(15))
                         TextButton(onClick = { uri.openUri("https://ningshingche.com/about-us") }) {
                             Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null)
                             Text("  ningshingche.com/about-us", fontFamily = Kalpurush)
@@ -471,9 +471,9 @@ private fun PageIntro(title: String, subtitle: String) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Text(title, fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = 22.sp)
+                Text(title, fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = textSize(22))
             }
-            Text(subtitle, fontFamily = Kalpurush, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+            Text(subtitle, fontFamily = Kalpurush, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = textSize(14))
         }
     }
 }

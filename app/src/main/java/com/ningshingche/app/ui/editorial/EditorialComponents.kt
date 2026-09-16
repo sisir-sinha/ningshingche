@@ -78,7 +78,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.ningshingche.app.data.portal.ArticleSummary
@@ -93,6 +92,7 @@ import com.ningshingche.app.data.portal.stripHtml
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
+import com.ningshingche.app.ui.theme.textSize
 
 /**
  * Reusable building blocks for the modern-editorial reader.
@@ -405,7 +405,7 @@ fun HeroArticleCard(
                             style = EditorialType.Eyebrow.copy(
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp
+                                fontSize = textSize(11)
                             ),
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                         )
@@ -414,8 +414,8 @@ fun HeroArticleCard(
                 Text(
                     text = article.title,
                     style = EditorialType.Headline.copy(
-                        fontSize = 19.sp,
-                        lineHeight = 27.sp,
+                        fontSize = textSize(19),
+                        lineHeight = textSize(27),
                         fontWeight = FontWeight.Bold
                     ),
                     color = Color.White,
@@ -704,14 +704,14 @@ fun AiAssistantHomeBanner(
                         text = "নিংশিং চে AI সহকারী",
                         fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
+                        fontSize = textSize(16),
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, সংস্কৃতি ও ইতিহাসের যে কোনো প্রশ্ন করুন",
                         fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-                        fontSize = 12.sp,
-                        lineHeight = 17.sp,
+                        fontSize = textSize(12),
+                        lineHeight = textSize(17),
                         color = tokens.inkSoft
                     )
                 }
@@ -738,7 +738,7 @@ fun AiAssistantHomeBanner(
                         Text(
                             text = tag,
                             fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-                            fontSize = 11.sp,
+                            fontSize = textSize(11),
                             fontWeight = FontWeight.Medium,
                             color = tokens.accent,
                             maxLines = 1,
@@ -765,7 +765,7 @@ fun AiAssistantHomeBanner(
                 Text(
                     text = "AI সহকারীকে জিজ্ঞাসা করুন",
                     fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-                    fontSize = 13.sp,
+                    fontSize = textSize(13),
                     fontWeight = FontWeight.Bold,
                     color = tokens.accent
                 )
@@ -860,8 +860,8 @@ fun CategoryVisualCard(
                         text = category.title,
                         fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
-                        lineHeight = 20.sp,
+                        fontSize = textSize(15),
+                        lineHeight = textSize(20),
                         color = Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -871,8 +871,8 @@ fun CategoryVisualCard(
                     Text(
                         text = category.subTitle,
                         fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-                        fontSize = 11.sp,
-                        lineHeight = 14.sp,
+                        fontSize = textSize(11),
+                        lineHeight = textSize(14),
                         color = tokens.accentOverArt,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -971,7 +971,7 @@ fun GalleryModalDialog(
                             Text(
                                 text = items[pagerState.currentPage].category.ifBlank { "ছবি ঘর" },
                                 fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-                                fontSize = 12.sp,
+                                fontSize = textSize(12),
                                 fontWeight = FontWeight.Bold,
                                 color = tokens.accent,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
@@ -981,7 +981,7 @@ fun GalleryModalDialog(
                             Text(
                                 text = "${bengaliDigits(pagerState.currentPage + 1)} / ${bengaliDigits(items.size)}",
                                 fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-                                fontSize = 12.sp,
+                                fontSize = textSize(12),
                                 color = tokens.inkMuted,
                                 modifier = Modifier.padding(start = 10.dp, top = 4.dp)
                             )
@@ -1070,8 +1070,8 @@ fun GalleryModalDialog(
                         text = items[pagerState.currentPage].title,
                         fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        lineHeight = 25.sp,
+                        fontSize = textSize(18),
+                        lineHeight = textSize(25),
                         color = MaterialTheme.colorScheme.onSurface
                     )
 
@@ -1081,8 +1081,8 @@ fun GalleryModalDialog(
                         Text(
                             text = description,
                             fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-                            fontSize = 14.sp,
-                            lineHeight = 22.sp,
+                            fontSize = textSize(14),
+                            lineHeight = textSize(22),
                             color = tokens.inkSoft,
                             maxLines = 3,
                             overflow = TextOverflow.Ellipsis

@@ -44,12 +44,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.ningshingche.app.data.model.PdfDocument
 import com.ningshingche.app.ui.theme.BrandGoldLight
 import com.ningshingche.app.ui.theme.BrandIndigo
 import com.ningshingche.app.ui.theme.BrandIndigoDeep
 import com.ningshingche.app.ui.theme.BrandOnGold
+import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.theme.PanelChip
 import com.ningshingche.app.ui.theme.PanelDeep
@@ -112,7 +112,7 @@ fun PdfArchiveScreen(
                         "ডিজিটাল গ্রন্থাগার",
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp,
+                        fontSize = textSize(20),
                         color = PanelInk,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -121,7 +121,7 @@ fun PdfArchiveScreen(
                         "নিংশিং চে মুদ্রিত সংখ্যা ও স্মারকপত্র",
                         fontFamily = Kalpurush,
                         color = PanelInkMuted,
-                        fontSize = 12.sp,
+                        fontSize = textSize(12),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -137,7 +137,7 @@ fun PdfArchiveScreen(
                         Text(
                             text = category.name,
                             fontFamily = Kalpurush,
-                            fontSize = 13.sp,
+                            fontSize = textSize(13),
                             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                             color = if (selected) BrandOnGold else PanelInk,
                             modifier = Modifier
@@ -187,7 +187,7 @@ private fun LibraryShelf(
             shelfLabel,
             fontFamily = Kalpurush,
             color = BrandGoldLight,
-            fontSize = 13.sp,
+            fontSize = textSize(13),
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
         )
         LazyRow(
@@ -261,14 +261,14 @@ private fun LibraryBook(
                     color = BrandGoldLight,
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp
+                    fontSize = textSize(12)
                 )
                 Text(
                     book.title,
                     color = PanelInk,
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
+                    fontSize = textSize(13),
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -285,7 +285,7 @@ private fun LibraryBook(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(Icons.Default.MenuBook, null, tint = BrandOnGold, modifier = Modifier.size(12.dp))
-                Text(" পাকরিক", color = BrandOnGold, fontFamily = Kalpurush, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(" পাকরিক", color = BrandOnGold, fontFamily = Kalpurush, fontSize = textSize(12), fontWeight = FontWeight.Bold)
             }
             Icon(
                 Icons.Default.Download,

@@ -36,8 +36,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.ningshingche.app.data.model.ContentLanguage
+import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.Kalpurush
 
 /**
@@ -93,13 +93,13 @@ fun LanguageSetupScreen(
                 text = "ভাষা বাছাই করুন",
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
-                fontSize = 24.sp,
+                fontSize = textSize(24),
                 color = MaterialTheme.colorScheme.onBackground
             )
             Spacer(Modifier.height(6.dp))
             Text(
                 text = "Choose your language · লাউখোল",
-                fontSize = 13.sp,
+                fontSize = textSize(13),
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -132,14 +132,14 @@ fun LanguageSetupScreen(
                     text = continueLabel,
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
+                    fontSize = textSize(16)
                 )
             }
 
             Spacer(Modifier.height(14.dp))
             Text(
                 text = "পরে সেটিংস থেকে ভাষা বদলাতে পারবেন।",
-                fontSize = 12.sp,
+                fontSize = textSize(12),
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -179,13 +179,13 @@ private fun LanguageChoiceCard(
                     text = title,
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
+                    fontSize = textSize(18),
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
                     text = subtitle,
-                    fontSize = 12.sp,
+                    fontSize = textSize(12),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }

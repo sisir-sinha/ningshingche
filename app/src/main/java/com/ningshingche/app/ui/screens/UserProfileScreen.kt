@@ -52,10 +52,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.ningshingche.app.ui.editorial.cardBorder
 import com.ningshingche.app.ui.editorial.toBengaliNumeral
+import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.ReaderMetrics
 import com.ningshingche.app.ui.viewmodel.ReaderWorkspaceViewModel
@@ -80,6 +81,7 @@ import com.ningshingche.app.ui.viewmodel.ReaderWorkspaceViewModel
 @Composable
 private fun ProfileViewsCard(metrics: ReaderMetrics) {
     Surface(
+        border = cardBorder(),
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(12.dp),
         tonalElevation = 1.dp,
@@ -106,13 +108,13 @@ private fun ProfileViewsCard(metrics: ReaderMetrics) {
                     text = toBengaliNumeral(metrics.totalViews),
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 24.sp,
+                    fontSize = textSize(24),
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = "মোট ভিউ",
                     fontFamily = Kalpurush,
-                    fontSize = 13.sp,
+                    fontSize = textSize(13),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -127,7 +129,7 @@ private fun ProfileViewsCard(metrics: ReaderMetrics) {
                     "পাঠক ${toBengaliNumeral(metrics.visitors)}"
                 ).joinToString("  ·  "),
                 fontFamily = Kalpurush,
-                fontSize = 11.5.sp,
+                fontSize = textSize(11.5),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.testTag("profile_views_breakdown")
@@ -136,7 +138,7 @@ private fun ProfileViewsCard(metrics: ReaderMetrics) {
                 Text(
                     text = "শোনা ${toBengaliNumeral(metrics.minutesListened)} মিনিট",
                     fontFamily = Kalpurush,
-                    fontSize = 11.5.sp,
+                    fontSize = textSize(11.5),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -267,7 +269,7 @@ fun UserProfileScreen(
                     }
                 }
             }
-            Text("প্রোফাইল ছবি (ImgBB)", fontFamily = Kalpurush, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("প্রোফাইল ছবি (ImgBB)", fontFamily = Kalpurush, fontSize = textSize(12), color = MaterialTheme.colorScheme.onSurfaceVariant)
 
             ProfileViewsCard(metrics)
 

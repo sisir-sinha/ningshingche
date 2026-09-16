@@ -39,9 +39,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ningshingche.app.ui.components.ArticleListItemCard
+import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.BookmarksViewModel
 
@@ -74,8 +74,8 @@ fun BookmarksScreen(
                             text = "সংরক্ষিত প্রবন্ধ",
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 19.sp,
-                            lineHeight = 22.sp,
+                            fontSize = textSize(19),
+                            lineHeight = textSize(22),
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -84,8 +84,8 @@ fun BookmarksScreen(
                             text = if (savedCount == 0) "অফলাইনে পড়ার জন্য সংরক্ষিত লেখা"
                             else "${toBengaliDigits(savedCount)}টি লেখা সংরক্ষিত",
                             fontFamily = Kalpurush,
-                            fontSize = 12.sp,
-                            lineHeight = 14.sp,
+                            fontSize = textSize(12),
+                            lineHeight = textSize(14),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -118,7 +118,7 @@ fun BookmarksScreen(
                             text = "সংরক্ষিত তালিকার মধ্যে খুঁজুন...",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                fontSize = 13.sp
+                                fontSize = textSize(13)
                             )
                         )
                     },
@@ -214,7 +214,7 @@ fun BookmarksScreen(
                         else "অন্য শব্দ দিয়ে খুঁজুন বা বিভাগ ফিল্টার বদলান।",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 12.sp
+                            fontSize = textSize(12)
                         ),
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )

@@ -146,8 +146,22 @@ import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.editorial.SectionHeader
 import com.ningshingche.app.ui.editorial.formatBengaliDate
 import com.ningshingche.app.ui.editorial.toBengaliNumeral
+import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.Kalpurush
 import kotlinx.coroutines.launch
+
+/**
+ * How large an article's body opens, and how large the reader may make it.
+ *
+ * The body is the one text in the app that is not sized by `textSize` — the reader
+ * sets it themselves, and the sheet names the number — so the default moved with
+ * the rest of the app (18 → 20 sp) and the ceiling was raised, because the owner's
+ * note was that the app reads small and a limit of 28 sp is not much room on a
+ * long Bengali article. Both bounds now live here: the slider and the two buttons
+ * read the same ones instead of each writing 14f..28f out.
+ */
+private const val DEFAULT_READER_SP = 20f
+private val READER_SP_RANGE = 16f..34f
 
 /**
  * Article Reading Screen for NingshingChe Reader.
@@ -181,7 +195,7 @@ fun ArticleScreen(
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
 
-    var fontSizeSp by remember { mutableFloatStateOf(17.5f) }
+    var fontSizeSp by remember { mutableFloatStateOf(DEFAULT_READER_SP) }
     var lineSpacingMultiplier by remember { mutableFloatStateOf(1.65f) }
     var showFontSizeSheet by remember { mutableStateOf(false) }
     var showAiSheet by remember { mutableStateOf(false) }
@@ -369,7 +383,7 @@ fun ArticleScreen(
                             text = "এআই সহায়িকা",
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.5.sp
+                            fontSize = textSize(14.5)
                         )
                     }
                 }
@@ -427,7 +441,7 @@ fun ArticleScreen(
                             onFontSizeChange = { fontSizeSp = it },
                             onLineSpacingChange = { lineSpacingMultiplier = it },
                             onReset = {
-                                fontSizeSp = 17.5f
+                                fontSizeSp = DEFAULT_READER_SP
                                 lineSpacingMultiplier = 1.65f
                             },
                             onDismiss = { showFontSizeSheet = false }
@@ -567,7 +581,7 @@ private fun ArticleReaderContent(
                             Text(
                                 text = formatBengaliDate(article.summary.publishedDate).ifBlank { article.summary.publishedDate },
                                 fontFamily = Kalpurush,
-                                fontSize = 12.sp,
+                                fontSize = textSize(12),
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -582,8 +596,8 @@ private fun ArticleReaderContent(
                     text = article.title,
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 26.sp,
-                    lineHeight = 35.sp,
+                    fontSize = textSize(26),
+                    lineHeight = textSize(35),
                     color = MaterialTheme.colorScheme.onSurface
                 )
 
@@ -593,8 +607,8 @@ private fun ArticleReaderContent(
                     Text(
                         text = article.summary.subTitle,
                         fontFamily = Kalpurush,
-                        fontSize = 17.sp,
-                        lineHeight = 25.sp,
+                        fontSize = textSize(17),
+                        lineHeight = textSize(25),
                         color = tokens.inkSoft
                     )
                 }
@@ -619,14 +633,14 @@ private fun ArticleReaderContent(
                             Text(
                                 text = "${toBengaliNumeral(article.summary.readingTimeMinutes)} মিনিট পাঠ",
                                 fontFamily = Kalpurush,
-                                fontSize = 12.sp,
+                                fontSize = textSize(12),
                                 color = tokens.inkMuted
                             )
                         }
                     }
                     if (article.summary.viewsCount > 0) {
                         if (article.summary.readingTimeMinutes > 0) {
-                            Text("•", fontSize = 10.sp, color = tokens.inkMuted)
+                            Text("•", fontSize = textSize(10), color = tokens.inkMuted)
                         }
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -641,7 +655,7 @@ private fun ArticleReaderContent(
                             Text(
                                 text = "${toBengaliNumeral(article.summary.viewsCount.toInt())} বার পঠিত",
                                 fontFamily = Kalpurush,
-                                fontSize = 12.sp,
+                                fontSize = textSize(12),
                                 color = tokens.inkMuted
                             )
                         }
@@ -692,7 +706,7 @@ private fun ArticleReaderContent(
                         text = "ট্যাগসমূহ",
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
+                        fontSize = textSize(14),
                         color = tokens.inkMuted
                     )
                     Spacer(Modifier.height(EditorialSpace.xs))
@@ -718,7 +732,7 @@ private fun ArticleReaderContent(
                                     text = "#$tag",
                                     fontFamily = Kalpurush,
                                     fontWeight = FontWeight.Medium,
-                                    fontSize = 13.sp,
+                                    fontSize = textSize(13),
                                     color = tokens.accent,
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                                 )
@@ -796,13 +810,13 @@ private fun ArticleReaderContent(
                             text = "প্রথম মন্তব্যটি আপনিই লিখুন।",
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
+                            fontSize = textSize(15),
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = "অনুমোদনের পর আপনার মন্তব্য এখানে প্রকাশিত হবে।",
                             fontFamily = Kalpurush,
-                            fontSize = 13.sp,
+                            fontSize = textSize(13),
                             color = tokens.inkMuted
                         )
                     }
@@ -887,7 +901,7 @@ fun ArticleCategoryPill(
                 text = categoryTitle,
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
-                fontSize = 13.sp,
+                fontSize = textSize(13),
                 color = tokens.accent
             )
         }
@@ -958,7 +972,7 @@ fun ArticleAuthorMetaCard(
                         text = authorName,
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
+                        fontSize = textSize(16),
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -974,7 +988,7 @@ fun ArticleAuthorMetaCard(
                 Text(
                     text = designationText,
                     fontFamily = Kalpurush,
-                    fontSize = 13.sp,
+                    fontSize = textSize(13),
                     color = tokens.accent,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -1028,14 +1042,14 @@ private fun ModernCommentCard(comment: CommentItem) {
                                 text = comment.name,
                                 fontFamily = Kalpurush,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp,
+                                fontSize = textSize(15),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             if (comment.address.isNotBlank()) {
                                 Text(
                                     text = comment.address,
                                     fontFamily = Kalpurush,
-                                    fontSize = 12.sp,
+                                    fontSize = textSize(12),
                                     color = tokens.inkMuted
                                 )
                             }
@@ -1051,7 +1065,7 @@ private fun ModernCommentCard(comment: CommentItem) {
                             Text(
                                 text = formatBengaliDate(comment.createdAt),
                                 fontFamily = Kalpurush,
-                                fontSize = 11.5.sp,
+                                fontSize = textSize(11.5),
                                 color = tokens.inkMuted,
                                 modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
                             )
@@ -1064,8 +1078,8 @@ private fun ModernCommentCard(comment: CommentItem) {
                 Text(
                     text = comment.content,
                     fontFamily = Kalpurush,
-                    fontSize = 14.5.sp,
-                    lineHeight = 22.sp,
+                    fontSize = textSize(14.5),
+                    lineHeight = textSize(22),
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.95f)
                 )
             }
@@ -1260,13 +1274,13 @@ fun ArticleAiAssistantBottomSheet(
                                 text = "নিবন্ধ এআই সহায়িকা",
                                 fontFamily = Kalpurush,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 17.sp,
+                                fontSize = textSize(17),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = "শুধুমাত্র এই নিবন্ধের তথ্যের ভিত্তিতে উত্তর প্রদান করা হয়",
                                 fontFamily = Kalpurush,
-                                fontSize = 11.5.sp,
+                                fontSize = textSize(11.5),
                                 color = tokens.inkMuted
                             )
                         }
@@ -1302,7 +1316,7 @@ fun ArticleAiAssistantBottomSheet(
                                 text = label,
                                 fontFamily = Kalpurush,
                                 fontWeight = FontWeight.SemiBold,
-                                fontSize = 12.5.sp,
+                                fontSize = textSize(12.5),
                                 color = tokens.accent,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                             )
@@ -1345,14 +1359,14 @@ fun ArticleAiAssistantBottomSheet(
                                         Text(
                                             text = msg.text,
                                             fontFamily = Kalpurush,
-                                            fontSize = 14.5.sp,
+                                            fontSize = textSize(14.5),
                                             color = MaterialTheme.colorScheme.onPrimary
                                         )
                                     } else {
                                         MarkdownFormattedText(
                                             markdown = msg.text,
-                                            fontSize = 14.5.sp,
-                                            lineHeight = 21.sp,
+                                            fontSize = textSize(14.5),
+                                            lineHeight = textSize(21),
                                             baseTextColor = MaterialTheme.colorScheme.onSurface
                                         )
                                         Spacer(Modifier.height(6.dp))
@@ -1398,7 +1412,7 @@ fun ArticleAiAssistantBottomSheet(
                                 Text(
                                     text = "নিবন্ধ থেকে উত্তর তৈরি করা হচ্ছে...",
                                     fontFamily = Kalpurush,
-                                    fontSize = 13.sp,
+                                    fontSize = textSize(13),
                                     color = tokens.inkMuted
                                 )
                             }
@@ -1422,11 +1436,11 @@ fun ArticleAiAssistantBottomSheet(
                             Text(
                                 "এই নিবন্ধ সম্পর্কে প্রশ্ন লিখুন...",
                                 fontFamily = Kalpurush,
-                                fontSize = 14.sp
+                                fontSize = textSize(14)
                             )
                         },
                         singleLine = true,
-                        textStyle = androidx.compose.ui.text.TextStyle(fontFamily = Kalpurush, fontSize = 14.5.sp),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontFamily = Kalpurush, fontSize = textSize(14.5)),
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = tokens.accent,
@@ -1504,7 +1518,7 @@ fun FontSizeControlBottomSheet(
                     text = "পঠন সেটিংস (Font & Spacing)",
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
+                    fontSize = textSize(18),
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 IconButton(onClick = onReset) {
@@ -1528,13 +1542,13 @@ fun FontSizeControlBottomSheet(
                     text = "অক্ষরের আকার",
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp
+                    fontSize = textSize(15)
                 )
                 Text(
                     text = "${fontSizeSp.toInt()} sp",
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
+                    fontSize = textSize(14),
                     color = tokens.accent
                 )
             }
@@ -1544,7 +1558,7 @@ fun FontSizeControlBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 FilledTonalIconButton(
-                    onClick = { onFontSizeChange((fontSizeSp - 1f).coerceIn(14f, 28f)) },
+                    onClick = { onFontSizeChange((fontSizeSp - 1f).coerceIn(READER_SP_RANGE)) },
                     modifier = Modifier.size(36.dp)
                 ) {
                     Icon(Icons.Default.Remove, contentDescription = "ছোট করুন")
@@ -1552,7 +1566,7 @@ fun FontSizeControlBottomSheet(
                 Slider(
                     value = fontSizeSp,
                     onValueChange = onFontSizeChange,
-                    valueRange = 14f..28f,
+                    valueRange = READER_SP_RANGE,
                     steps = 13,
                     colors = SliderDefaults.colors(
                         thumbColor = tokens.accent,
@@ -1563,7 +1577,7 @@ fun FontSizeControlBottomSheet(
                         .padding(horizontal = 8.dp)
                 )
                 FilledTonalIconButton(
-                    onClick = { onFontSizeChange((fontSizeSp + 1f).coerceIn(14f, 28f)) },
+                    onClick = { onFontSizeChange((fontSizeSp + 1f).coerceIn(READER_SP_RANGE)) },
                     modifier = Modifier.size(36.dp)
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "বড় করুন")
@@ -1582,13 +1596,13 @@ fun FontSizeControlBottomSheet(
                     text = "লাইনের ফাঁক (Line Spacing)",
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp
+                    fontSize = textSize(15)
                 )
                 Text(
                     text = String.format("%.1fx", lineSpacing),
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
+                    fontSize = textSize(14),
                     color = tokens.accent
                 )
             }
@@ -1617,7 +1631,7 @@ fun FontSizeControlBottomSheet(
                     Text(
                         text = "লাইভ প্রিভিউ (কালপুরুষ ফন্ট):",
                         fontFamily = Kalpurush,
-                        fontSize = 12.sp,
+                        fontSize = textSize(12),
                         color = tokens.inkMuted
                     )
                     Spacer(Modifier.height(4.dp))

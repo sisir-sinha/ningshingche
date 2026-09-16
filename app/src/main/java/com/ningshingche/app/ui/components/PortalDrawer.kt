@@ -59,10 +59,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.ningshingche.app.data.model.AppThemeMode
 import com.ningshingche.app.ui.navigation.ExploreTab
 import com.ningshingche.app.ui.navigation.Screen
+import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 
@@ -240,8 +240,8 @@ private fun DrawerHeader(
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
-                fontSize = 20.sp,
-                lineHeight = 24.sp,
+                fontSize = textSize(20),
+                lineHeight = textSize(24),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -249,8 +249,8 @@ private fun DrawerHeader(
                 text = "বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ",
                 fontFamily = Kalpurush,
                 color = tokens.second,
-                fontSize = 12.sp,
-                lineHeight = 16.sp,
+                fontSize = textSize(12),
+                lineHeight = textSize(16),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -353,7 +353,7 @@ private fun DrawerRow(
         Text(
             text = label,
             fontFamily = Kalpurush,
-            fontSize = 16.sp,
+            fontSize = textSize(16),
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
             color = textColor,
             maxLines = 1,

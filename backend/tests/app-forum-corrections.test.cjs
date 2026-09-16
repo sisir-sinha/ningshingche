@@ -451,7 +451,7 @@ test('a long body folds behind a plain "আরও দেখুন"', async (t) =
     const line = body.slice(body.indexOf('if (canExpand)'), body.indexOf('if (canExpand)') + 700);
     assert.ok(!/Surface\(|border\(|background\(/.test(line),
       'no surface, no border, no fill around it');
-    assert.match(line, /fontSize = 13\.5\.sp/, 'and small enough not to shout');
+    assert.match(line, /fontSize = textSize\(13\.5\)/, 'and small enough not to shout');
   });
 
   await t.test('the fold is decided before anything is measured, at a hundred', () => {
@@ -624,7 +624,7 @@ test('the extras the owner asked for alongside the ten', async (t) => {
   await t.test('the search is not deleted — it is an icon that opens a smaller field', () => {
     assert.match(FORUM_SCREENS, /testTag\("forum_search"\)/, 'the forum is still searched');
     assert.match(FORUM_SCREENS,
-      /placeholder = \{ Text\("আলোচনা খুঁজুন", fontFamily = Kalpurush, fontSize = 13\.sp\) \}/,
+      /placeholder = \{ Text\("আলোচনা খুঁজুন", fontFamily = Kalpurush, fontSize = textSize\(13\)\) \}/,
       'in the forum page size, not a size above it');
     assert.match(FORUM_SCREENS, /testTag\("forum_search_toggle"\)/, 'behind a magnifier in the bar');
     assert.match(NAV_HOST, /search = \{ term -> app\.portalRepository\.forumSearch\(term\) \}/,

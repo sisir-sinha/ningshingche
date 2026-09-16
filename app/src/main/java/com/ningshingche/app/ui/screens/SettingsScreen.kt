@@ -93,7 +93,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.ningshingche.app.data.model.AppPalette
@@ -105,6 +104,7 @@ import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.editorial.PaletteSide
 import com.ningshingche.app.ui.i18n.LocalTranslations
 import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.SettingsViewModel
 import com.ningshingche.app.util.ApkManager
@@ -152,7 +152,7 @@ fun SettingsScreen(
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 18.sp
+                            fontSize = textSize(18)
                         )
                     )
                 },
@@ -201,7 +201,7 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
-                                fontSize = 13.sp,
+                                fontSize = textSize(13),
                             )
                         )
                     }
@@ -251,7 +251,7 @@ fun SettingsScreen(
                                             text = signedIn.fullName.ifBlank { "পাঠক" },
                                             style = MaterialTheme.typography.titleMedium.copy(
                                                 fontWeight = FontWeight.Bold,
-                                                fontSize = 15.sp
+                                                fontSize = textSize(15)
                                             )
                                         )
                                         if (signedIn.email.isNotBlank()) {
@@ -259,7 +259,7 @@ fun SettingsScreen(
                                                 text = signedIn.email,
                                                 style = MaterialTheme.typography.bodySmall.copy(
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    fontSize = 12.sp
+                                                    fontSize = textSize(12)
                                                 )
                                             )
                                         }
@@ -278,14 +278,14 @@ fun SettingsScreen(
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("লগ আউট", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    Text("লগ আউট", fontWeight = FontWeight.Bold, fontSize = textSize(13))
                                 }
                             } else {
                                 Text(
                                     text = "Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন। একবার সাইন-ইন করলে অ্যাপ বন্ধ করলেও সেশন থাকবে।",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 12.sp
+                                        fontSize = textSize(12)
                                     )
                                 )
                                 if (!googleAuthMessage.isNullOrBlank()) {
@@ -337,7 +337,7 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
-                                fontSize = 13.sp
+                                fontSize = textSize(13)
                             )
                         )
                     }
@@ -356,7 +356,7 @@ fun SettingsScreen(
                                 text = "যে রঙে অ্যাপটি পড়তে চান সেটি বেছে নিন — প্রতিটি প্যালেটে লাইট ও ডার্ক দুটি রূপ আছে।",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 12.sp
+                                    fontSize = textSize(12)
                                 )
                             )
 
@@ -398,7 +398,7 @@ fun SettingsScreen(
                                     text = chosen.note,
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 11.5.sp
+                                        fontSize = textSize(11.5)
                                     )
                                 )
                             }
@@ -433,7 +433,7 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
-                                fontSize = 13.sp,
+                                fontSize = textSize(13),
                             )
                         )
                     }
@@ -452,7 +452,7 @@ fun SettingsScreen(
                                 text = "আপনার পছন্দের প্রদর্শন শৈলী নির্বাচন করুন:",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 12.sp
+                                    fontSize = textSize(12)
                                 )
                             )
 
@@ -507,7 +507,7 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
-                                fontSize = 13.sp
+                                fontSize = textSize(13)
                             )
                         )
                     }
@@ -532,7 +532,7 @@ fun SettingsScreen(
                                 },
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 12.sp
+                                    fontSize = textSize(12)
                                 )
                             )
                             // One line showing the language in use; tapping it opens
@@ -565,12 +565,12 @@ fun SettingsScreen(
                                                 text = preferences.contentLanguage.displayName(),
                                                 fontFamily = Kalpurush,
                                                 fontWeight = FontWeight.Bold,
-                                                fontSize = 15.sp,
+                                                fontSize = textSize(15),
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
                                             Text(
                                                 text = t("অ্যাপের ভাষা — বদলাতে টিপুন"),
-                                                fontSize = 11.sp,
+                                                fontSize = textSize(11),
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
@@ -661,7 +661,7 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
-                                fontSize = 13.sp,
+                                fontSize = textSize(13),
                             )
                         )
                     }
@@ -701,7 +701,7 @@ fun SettingsScreen(
                                         style = MaterialTheme.typography.titleMedium.copy(
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface,
-                                            fontSize = 15.sp
+                                            fontSize = textSize(15)
                                         )
                                     )
                                     Text(
@@ -709,14 +709,14 @@ fun SettingsScreen(
                                         style = MaterialTheme.typography.bodySmall.copy(
                                             color = MaterialTheme.colorScheme.primary,
                                             fontWeight = FontWeight.SemiBold,
-                                            fontSize = 12.sp
+                                            fontSize = textSize(12)
                                         )
                                     )
                                     Text(
                                         text = "ইনস্টল্ড ডিভাইস থেকে সরাসরি সংগৃহীত অফিশিয়াল প্যাকেজ",
                                         style = MaterialTheme.typography.bodySmall.copy(
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            fontSize = 11.sp
+                                            fontSize = textSize(11)
                                         )
                                     )
                                 }
@@ -746,7 +746,7 @@ fun SettingsScreen(
                                             style = MaterialTheme.typography.bodySmall.copy(
                                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                                                 fontWeight = FontWeight.Medium,
-                                                fontSize = 12.sp
+                                                fontSize = textSize(12)
                                             )
                                         )
                                     }
@@ -790,7 +790,7 @@ fun SettingsScreen(
                                             modifier = Modifier.size(16.dp)
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text(text = "সংরক্ষণ হচ্ছে...", fontSize = 12.sp)
+                                        Text(text = "সংরক্ষণ হচ্ছে...", fontSize = textSize(12))
                                     } else {
                                         Icon(
                                             imageVector = Icons.Default.Download,
@@ -801,7 +801,7 @@ fun SettingsScreen(
                                         Text(
                                             text = "APK সংরক্ষণ করুন",
                                             fontWeight = FontWeight.Bold,
-                                            fontSize = 12.sp
+                                            fontSize = textSize(12)
                                         )
                                     }
                                 }
@@ -831,7 +831,7 @@ fun SettingsScreen(
                                     Text(
                                         text = "APK শেয়ার করুন",
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp
+                                        fontSize = textSize(12)
                                     )
                                 }
                             }
@@ -858,15 +858,15 @@ fun SettingsScreen(
                                 fontFamily = Kalpurush,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                fontSize = 17.sp
+                                fontSize = textSize(17)
                             )
                         )
                         Text(
                             text = "বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, ইতিহাস, সংস্কৃতি ও ঐতিহ্যের একমাত্র প্রামাণ্য ও মুক্ত ডিজিটাল তথ্যকোষ ও আর্কাইভ।",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f),
-                                fontSize = 12.sp,
-                                lineHeight = 18.sp
+                                fontSize = textSize(12),
+                                lineHeight = textSize(18)
                             )
                         )
 
@@ -919,7 +919,7 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary,
-                            fontSize = 12.sp
+                            fontSize = textSize(12)
                         )
                     )
 
@@ -997,7 +997,7 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary,
-                            fontSize = 12.sp
+                            fontSize = textSize(12)
                         )
                     )
 
@@ -1042,7 +1042,7 @@ fun SettingsScreen(
                                             text = "নতুন প্রবন্ধসমূহ পুনরায় সিঙ্ক করবে",
                                             style = MaterialTheme.typography.bodySmall.copy(
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                fontSize = 11.sp
+                                                fontSize = textSize(11)
                                             )
                                         )
                                     }
@@ -1085,7 +1085,7 @@ fun SettingsScreen(
                                             text = "সাম্প্রতিক পঠিত তালিকা মুছে ফেলুন",
                                             style = MaterialTheme.typography.bodySmall.copy(
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                fontSize = 11.sp
+                                                fontSize = textSize(11)
                                             )
                                         )
                                     }
@@ -1115,7 +1115,7 @@ fun SettingsScreen(
                         text = "কপিরাইট © নিংশিং চে • সর্বস্বত্ব সংরক্ষিত",
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                            fontSize = 10.sp
+                            fontSize = textSize(10)
                         )
                     )
                 }
@@ -1145,14 +1145,14 @@ private fun NotificationSwitchRow(
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 14.sp
+                    fontSize = textSize(14)
                 )
             )
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 11.sp
+                    fontSize = textSize(11)
                 )
             )
         }
@@ -1201,7 +1201,7 @@ private fun ThemeModeCard(
                 text = title,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                 color = previewFg,
-                fontSize = 12.sp
+                fontSize = textSize(12)
             )
         }
     }
@@ -1252,7 +1252,7 @@ private fun PaletteCard(
                 text = label,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 11.5.sp,
+                fontSize = textSize(11.5),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -1318,7 +1318,7 @@ private fun PaletteWheelBlock(
             text = "চাকা ঘুরিয়ে রঙ, কেন্দ্র থেকে দূরে টেনে গাঢ়তা — দুটোই এক আঙুলে।",
             style = MaterialTheme.typography.bodySmall.copy(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 11.sp
+                fontSize = textSize(11)
             ),
             textAlign = TextAlign.Center
         )
@@ -1422,10 +1422,10 @@ private fun PalettePreviewCard(label: String, side: PaletteSide, modifier: Modif
                     text = label,
                     color = side.ink,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 11.5.sp
+                    fontSize = textSize(11.5)
                 )
             }
-            Text(text = "পাঠ্য লেখা", color = side.inkSoft, fontSize = 11.sp)
+            Text(text = "পাঠ্য লেখা", color = side.inkSoft, fontSize = textSize(11))
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1442,7 +1442,7 @@ private fun PalettePreviewCard(label: String, side: PaletteSide, modifier: Modif
                 Text(
                     text = "অ্যাকসেন্ট",
                     color = side.onAccent,
-                    fontSize = 10.5.sp,
+                    fontSize = textSize(10.5),
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.align(Alignment.Center)
                 )

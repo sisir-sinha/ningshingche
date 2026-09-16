@@ -45,11 +45,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ningshingche.app.ui.components.GoogleSignInButton
 import com.ningshingche.app.ui.components.NingshingCheBrandLogo
+import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.SettingsViewModel
 
@@ -85,13 +85,13 @@ fun WelcomeLoginScreen(
             text = "নিংশিং চে",
             fontFamily = Kalpurush,
             fontWeight = FontWeight.Bold,
-            fontSize = 30.sp,
+            fontSize = textSize(30),
             color = MaterialTheme.colorScheme.onBackground
         )
         Text(
             text = "স্বাগতম। Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন।",
             fontFamily = Kalpurush,
-            fontSize = 15.sp,
+            fontSize = textSize(15),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
@@ -99,7 +99,7 @@ fun WelcomeLoginScreen(
         Text(
             text = "প্রথমবার খুললে সাইন-ইন প্রয়োজন। তারপর বিজ্ঞপ্তি চালু করতে পারবেন।",
             fontFamily = Kalpurush,
-            fontSize = 13.sp,
+            fontSize = textSize(13),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(bottom = 28.dp)
@@ -139,7 +139,7 @@ fun WelcomeLoginScreen(
             Text(
                 text = skipLabel,
                 fontFamily = Kalpurush,
-                fontSize = 14.sp,
+                fontSize = textSize(14),
                 color = MaterialTheme.colorScheme.primary
             )
         }
@@ -204,14 +204,14 @@ fun WelcomeNotificationsScreen(
             text = "বিজ্ঞপ্তি চালু করুন",
             fontFamily = Kalpurush,
             fontWeight = FontWeight.Bold,
-            fontSize = 26.sp,
+            fontSize = textSize(26),
             color = MaterialTheme.colorScheme.onBackground,
             textAlign = TextAlign.Center
         )
         Text(
             text = "নতুন কিছু প্রকাশিত হলে অ্যান্ড্রয়েড নোটিফিকেশনে জানানো হবে।",
             fontFamily = Kalpurush,
-            fontSize = 14.sp,
+            fontSize = textSize(14),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp, bottom = 24.dp)
@@ -252,7 +252,7 @@ fun WelcomeNotificationsScreen(
                 text = finishLabel,
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
-                fontSize = 16.sp
+                fontSize = textSize(16)
             )
         }
 
@@ -265,7 +265,7 @@ fun WelcomeNotificationsScreen(
             Text(
                 text = "এখন নয়",
                 fontFamily = Kalpurush,
-                fontSize = 14.sp,
+                fontSize = textSize(14),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -285,7 +285,7 @@ private fun NoticeRow(icon: ImageVector, label: String) {
         Text(
             text = label,
             fontFamily = Kalpurush,
-            fontSize = 15.sp,
+            fontSize = textSize(15),
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurface
         )

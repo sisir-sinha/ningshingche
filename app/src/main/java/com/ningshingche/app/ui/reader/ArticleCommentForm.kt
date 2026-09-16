@@ -42,10 +42,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.ningshingche.app.ui.editorial.EditorialSpace
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
+import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.Kalpurush
 
 @Composable
@@ -78,7 +78,7 @@ internal fun CommenterAvatar(
                 text = name.trim().take(1).uppercase().ifBlank { "প" },
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
-                fontSize = (size.value * 0.42f).sp,
+                fontSize = textSize(size.value * 0.42f),
                 color = tokens.accent
             )
         }
@@ -102,7 +102,7 @@ internal fun ArticleCommentForm(
         focusedBorderColor = tokens.accent,
         unfocusedBorderColor = tokens.rule
     )
-    val fieldStyle = TextStyle(fontFamily = Kalpurush, fontSize = 15.sp)
+    val fieldStyle = TextStyle(fontFamily = Kalpurush, fontSize = textSize(15))
     val canSubmit = editable && form.content.isNotBlank() && (registered || form.name.isNotBlank())
 
     Surface(
@@ -117,10 +117,10 @@ internal fun ArticleCommentForm(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(Icons.Default.Comment, contentDescription = null, tint = tokens.accent, modifier = Modifier.size(22.dp))
                 Text("মন্তব্য করুন", fontFamily = Kalpurush, fontWeight = FontWeight.Bold,
-                    fontSize = 16.5.sp, color = MaterialTheme.colorScheme.onSurface)
+                    fontSize = textSize(16.5), color = MaterialTheme.colorScheme.onSurface)
             }
             if (!form.detailsLoaded) {
-                Text("সংরক্ষিত তথ্য লোড হচ্ছে...", fontFamily = Kalpurush, fontSize = 13.sp, color = tokens.inkMuted)
+                Text("সংরক্ষিত তথ্য লোড হচ্ছে...", fontFamily = Kalpurush, fontSize = textSize(13), color = tokens.inkMuted)
             }
             if (registered) {
                 Row(
@@ -136,7 +136,7 @@ internal fun ArticleCommentForm(
                             text = form.name.ifBlank { "পাঠক" },
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
+                            fontSize = textSize(16),
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -144,7 +144,7 @@ internal fun ArticleCommentForm(
                         Text(
                             text = "নিবন্ধিত পাঠক",
                             fontFamily = Kalpurush,
-                            fontSize = 12.sp,
+                            fontSize = textSize(12),
                             color = tokens.inkMuted
                         )
                     }
@@ -199,7 +199,7 @@ internal fun ArticleCommentForm(
                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
                 }
                 Spacer(Modifier.width(8.dp))
-                Text("মন্তব্য জমা দিন", fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text("মন্তব্য জমা দিন", fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = textSize(15))
             }
             if (!status.isNullOrBlank()) {
                 Surface(
@@ -207,7 +207,7 @@ internal fun ArticleCommentForm(
                     color = if (form.isError) MaterialTheme.colorScheme.errorContainer else tokens.accentSoft,
                     modifier = Modifier.fillMaxWidth().testTag("comment_status")
                 ) {
-                    Text(status, fontFamily = Kalpurush, fontSize = 13.sp,
+                    Text(status, fontFamily = Kalpurush, fontSize = textSize(13),
                         color = if (form.isError) MaterialTheme.colorScheme.onErrorContainer else tokens.accent,
                         modifier = Modifier.padding(10.dp))
                 }

@@ -144,7 +144,13 @@ data class PdfReaderSettings(
 )
 
 data class ReaderPreferences(
-    val fontSizeSp: Float = 18f,
+    /**
+     * How large an article's body is drawn, in sp. The reader's own setting — the
+     * slider names the number — so it is not run through `textSize`; the default
+     * moved with the rest of the app (18 → 20) and the slider's range widened
+     * (14–28 → 16–34), because the owner's note was that the app reads small.
+     */
+    val fontSizeSp: Float = 20f,
     val lineSpacingMultiplier: Float = 1.6f,
     val themeMode: ReaderThemeMode = ReaderThemeMode.PAPER,
     /**

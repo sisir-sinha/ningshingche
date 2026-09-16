@@ -1,5 +1,6 @@
 package com.ningshingche.app.ui.editorial
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
@@ -12,8 +13,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.ningshingche.app.ui.theme.bengaliTextStyle
+import com.ningshingche.app.ui.theme.textSize
 
 /**
  * "Modern editorial" design system — the theme itself.
@@ -166,27 +167,27 @@ object EditorialType {
         trim = LineHeightStyle.Trim.None
     )
 
-    val Masthead = bengaliTextStyle(FontWeight.Bold, 26.sp, 32.sp)
+    val Masthead = bengaliTextStyle(FontWeight.Bold, textSize(26), textSize(32))
 
-    val Display = bengaliTextStyle(FontWeight.Bold, 34.sp, 42.sp, displayAlignment)
+    val Display = bengaliTextStyle(FontWeight.Bold, textSize(34), textSize(42), displayAlignment)
 
-    val Headline = bengaliTextStyle(FontWeight.SemiBold, 24.sp, 32.sp, displayAlignment)
+    val Headline = bengaliTextStyle(FontWeight.SemiBold, textSize(24), textSize(32), displayAlignment)
 
-    val Title = bengaliTextStyle(FontWeight.SemiBold, 19.sp, 27.sp, displayAlignment)
+    val Title = bengaliTextStyle(FontWeight.SemiBold, textSize(19), textSize(27), displayAlignment)
 
-    val Subtitle = bengaliTextStyle(FontWeight.SemiBold, 15.sp, 23.sp)
+    val Subtitle = bengaliTextStyle(FontWeight.SemiBold, textSize(15), textSize(23))
 
-    val Body = bengaliTextStyle(FontWeight.Normal, 16.sp, 27.sp)
+    val Body = bengaliTextStyle(FontWeight.Normal, textSize(16), textSize(27))
 
-    val BodySmall = bengaliTextStyle(FontWeight.Normal, 14.sp, 23.sp)
+    val BodySmall = bengaliTextStyle(FontWeight.Normal, textSize(14), textSize(23))
 
-    val Caption = bengaliTextStyle(FontWeight.Normal, 12.sp, 18.sp)
+    val Caption = bengaliTextStyle(FontWeight.Normal, textSize(12), textSize(18))
 
     /** Small caps–style section eyebrows. Uppercase Latin, normal Bengali. */
-    val Eyebrow = bengaliTextStyle(FontWeight.Bold, 12.sp, 16.sp)
+    val Eyebrow = bengaliTextStyle(FontWeight.Bold, textSize(12), textSize(16))
 
     /** Drop-cap-capable lede paragraph for the article reader. */
-    val Lede = bengaliTextStyle(FontWeight.Medium, 18.sp, 31.sp)
+    val Lede = bengaliTextStyle(FontWeight.Medium, textSize(18), textSize(31))
 }
 
 // ---------------------------------------------------------------------------
@@ -212,6 +213,26 @@ object EditorialShape {
     val chip = 999.dp
     val thumb = 10.dp
 }
+
+/**
+ * The hairline that gives a card its edge — one definition, used everywhere.
+ *
+ * The owner's note: *"I see my Forum, Profile, Dashboard, Has limited borders,
+ * bottom border."* Those three screens painted their cards with a surface colour
+ * and a `tonalElevation`, and nothing else: on the app's paper the tint is a
+ * couple of steps off the background, so what a reader sees is a faint edge, and
+ * at the bottom where the elevation shadow falls. Every other screen in the app
+ * draws an actual rule — `tokens.rule` in `EditorialComponents`, the palette's
+ * own hairline colour.
+ *
+ * So a card that sits on the paper gets this stroke, from the palette, at the
+ * width the palette was drawn for. It is a function rather than a constant so it
+ * follows the reader's theme: the same call is legible on all six palettes,
+ * light and dark, because `rule` is derived per side (see
+ * `EditorialPalettes.kt`) rather than picked once.
+ */
+@Composable
+fun cardBorder(): BorderStroke = BorderStroke(1.dp, LocalEditorialTokens.current.rule)
 
 // ---------------------------------------------------------------------------
 // Theme

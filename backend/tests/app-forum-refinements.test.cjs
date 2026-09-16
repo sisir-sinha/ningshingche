@@ -145,7 +145,7 @@ test('every forum screen has room at the top, and its own back arrow', async (t)
       'the search sits before the reload icon, as the owner asked');
 
     assert.match(field, /testTag\("forum_search"\)/, 'the field is still the field');
-    assert.match(field, /fontSize = 13\.sp/, 'with the forum page\'s own size, not a size above it');
+    assert.match(field, /fontSize = textSize\(13\)/, 'with the forum page\'s own size, not a size above it');
     assert.ok(!/leadingIcon/.test(field), 'and no second magnifier inside it');
   });
 });
@@ -196,10 +196,10 @@ test('বিভাগসমূহ is one line that opens into wider rooms', asyn
 
   await t.test('the room card\'s two lines sit close, and read a size bigger', () => {
     const chip = screen('ForumRoomChip');
-    assert.match(chip, /lineHeight = 15\.sp/, 'the description sets its own line height');
+    assert.match(chip, /lineHeight = textSize\(15\)/, 'the description sets its own line height');
     assert.match(chip, /\.padding\(top = 2\.dp\)/, 'and starts a hair under the title');
-    assert.match(chip, /fontSize = 16\.sp/, 'the room\'s own name, scaled up with the page');
-    assert.match(chip, /fontSize = 12\.5\.sp/, 'and so is its description');
+    assert.match(chip, /fontSize = textSize\(16\)/, 'the room\'s own name, scaled up with the page');
+    assert.match(chip, /fontSize = textSize\(12\.5\)/, 'and so is its description');
     assert.ok(!/verticalArrangement = Arrangement\.spacedBy\(EditorialSpace\.xxs\)/.test(chip),
       'the loose column spacing is gone from the card');
   });
@@ -210,7 +210,7 @@ test('বিভাগসমূহ is one line that opens into wider rooms', asyn
     const section = screen('ForumRoomsSection');
     assert.match(section, /top = EditorialSpace\.md/, 'more above the heading');
     assert.match(section, /bottom = EditorialSpace\.xs/, 'than below it');
-    assert.match(section, /fontSize = 17\.sp/, 'and the heading is a size up with the rest of the page');
+    assert.match(section, /fontSize = textSize\(17\)/, 'and the heading is a size up with the rest of the page');
   });
 });
 
@@ -231,10 +231,10 @@ test('the filters speak for themselves, and a card reads at a glance', async (t)
     // Every card has a picture beside it now — the owner's rule — so every card's
     // words are the same width and there is one title size, not two. It is still
     // bigger than the old 15.
-    assert.match(card, /fontSize = 16\.sp/,
+    assert.match(card, /fontSize = textSize\(16\)/,
       'the title a reader scans for, at one size');
-    assert.match(card, /lineHeight = 19\.sp/);
-    assert.ok(!/fontSize = 15\.sp[^]*maxLines = 2/.test(card),
+    assert.match(card, /lineHeight = textSize\(19\)/);
+    assert.ok(!/fontSize = textSize\(15\)[^]*maxLines = 2/.test(card),
       'and the old size is not left on the title');
   });
 
@@ -243,7 +243,7 @@ test('the filters speak for themselves, and a card reads at a glance', async (t)
     // the name. It is a second line under it now, and the two lines together are
     // the height of the face they stand beside — that is what "one unit" means.
     const card = screen('ForumDiscussionCard');
-    assert.match(card, /avatarSize = 30,\n\s*nameSize = 12\.5\.sp/,
+    assert.match(card, /avatarSize = 30,\n\s*nameSize = textSize\(12\.5\)/,
       'a face worth looking at, a size down because a cover shares the row on every card');
     const author = screen('ForumAuthorRow');
     const lines = author.split('\n').length;
@@ -252,7 +252,7 @@ test('the filters speak for themselves, and a card reads at a glance', async (t)
       'the name and the date are a column, not a row');
     assert.match(author, /testTag\("forum_author_date"\)/, 'the date has a line of its own');
     assert.match(author, /lineHeight = nameSize \* 1\.15f/, 'the name sets a tight line height');
-    assert.match(author, /lineHeight = 12\.sp/, 'and so does the date');
+    assert.match(author, /lineHeight = textSize\(12\)/, 'and so does the date');
     assert.ok(!/Spacer\(Modifier\.width\(6\.dp\)\)/.test(author),
       'the inline gap is gone with the inline date');
   });
@@ -453,8 +453,12 @@ test('the editor grows with the writing and pictures are attached, not typed', a
   await t.test('and it scrolls inside itself beyond the ceiling', () => {
     assert.match(FORUM_EDITOR, /#e \{ min-height:100%; padding:14px 14px 56px; outline:none; line-height:1\.65;/,
       'the writing area is the whole page');
-    assert.match(FORUM_EDITOR, /html,body \{ margin:0; padding:0; background:\$bg; color:\$fg; font-size:16px; height:100%;/,
+    // Re-anchored: the page's type is on the app's dial now — the size is
+    // computed from APP_TEXT_SCALE and interpolated, so it stays in step.
+    assert.match(FORUM_EDITOR, /html,body \{ margin:0; padding:0; background:\$bg; color:\$fg; font-size:\$\{bodyPx\}px; height:100%;/,
       'inside a viewport that scrolls');
+    assert.match(FORUM_EDITOR, /val bodyPx = \(16f \* APP_TEXT_SCALE\)\.roundToInt\(\)/,
+      'at the app\'s own text size');
     assert.match(FORUM_EDITOR, /maxGrow: Int = if \(compact\) 260 else 720/, 'with a ceiling per shape');
   });
 

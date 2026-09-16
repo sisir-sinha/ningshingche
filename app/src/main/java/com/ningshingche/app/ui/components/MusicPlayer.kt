@@ -100,7 +100,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.ningshingche.app.data.music.UserPlaylist
 import com.ningshingche.app.data.portal.MusicTrack
 import com.ningshingche.app.playback.MusicController
@@ -111,6 +110,7 @@ import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.editorial.SocialEmbedPlayer
 import com.ningshingche.app.ui.theme.BrandGoldLight
 import com.ningshingche.app.ui.theme.BrandIndigo
+import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.theme.Panel
 import com.ningshingche.app.ui.theme.PanelDeep
@@ -228,7 +228,7 @@ private fun MiniMusicPlayer(
                         text = track.title,
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
+                        fontSize = textSize(14),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         color = MaterialTheme.colorScheme.onSurface
@@ -236,7 +236,7 @@ private fun MiniMusicPlayer(
                     Text(
                         text = track.artist.ifBlank { "নিংশিং চে" },
                         fontFamily = Kalpurush,
-                        fontSize = 11.sp,
+                        fontSize = textSize(11),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         color = tokens.inkMuted
@@ -437,7 +437,7 @@ private fun FullMusicPlayer(
                         text = "এখন বাজছে",
                         fontFamily = Kalpurush,
                         color = BrandGoldLight,
-                        fontSize = 13.sp,
+                        fontSize = textSize(13),
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(Modifier.weight(1f))
@@ -474,7 +474,7 @@ private fun FullMusicPlayer(
                             text = pageTrack.title,
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 22.sp,
+                            fontSize = textSize(22),
                             color = Color.White,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -482,7 +482,7 @@ private fun FullMusicPlayer(
                         Text(
                             text = pageTrack.playerCreditLine(),
                             fontFamily = Kalpurush,
-                            fontSize = 14.sp,
+                            fontSize = textSize(14),
                             color = Color.White.copy(alpha = 0.88f),
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
@@ -510,7 +510,7 @@ private fun FullMusicPlayer(
                             Text(
                                 text = "${bengaliDigits(viewsForPage)} বার শোনা হয়েছে",
                                 fontFamily = Kalpurush,
-                                fontSize = 12.sp,
+                                fontSize = textSize(12),
                                 color = Color.White.copy(alpha = 0.8f)
                             )
                         }
@@ -630,8 +630,8 @@ private fun FullMusicPlayer(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(formatMs(sliderValue.toLong()), color = Color.White.copy(alpha = 0.85f), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                Text(formatMs(duration), color = Color.White.copy(alpha = 0.85f), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text(formatMs(sliderValue.toLong()), color = Color.White.copy(alpha = 0.85f), fontSize = textSize(15), fontWeight = FontWeight.SemiBold)
+                Text(formatMs(duration), color = Color.White.copy(alpha = 0.85f), fontSize = textSize(15), fontWeight = FontWeight.SemiBold)
             }
 
             Row(
@@ -746,14 +746,14 @@ private fun PlayerHud(volume: Float, minimize: Boolean, modifier: Modifier = Mod
                     text = "ছেড়ে দিলে ছোট হয়ে যাবে",
                     fontFamily = Kalpurush,
                     color = Color.White,
-                    fontSize = 13.sp
+                    fontSize = textSize(13)
                 )
             } else {
                 Text(
                     text = "ভলিউম ${bengaliDigits((level * 100f).roundToInt().toLong())}%",
                     fontFamily = Kalpurush,
                     color = Color.White,
-                    fontSize = 13.sp,
+                    fontSize = textSize(13),
                     fontWeight = FontWeight.Bold
                 )
                 Box(
@@ -791,7 +791,7 @@ private fun SleepTimerControl(untilMs: Long?, onClick: () -> Unit) {
             Text(
                 text = formatMs(left),
                 color = BrandGoldLight,
-                fontSize = 10.sp,
+                fontSize = textSize(10),
                 fontWeight = FontWeight.Bold,
                 fontFamily = Kalpurush
             )
@@ -873,7 +873,7 @@ private fun QueueSidebar(
                             .background(Color.White.copy(alpha = 0.28f))
                     )
                     Spacer(Modifier.height(12.dp))
-                    Text("তালিকা", fontFamily = Kalpurush, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 18.sp)
+                    Text("তালিকা", fontFamily = Kalpurush, fontWeight = FontWeight.Bold, color = Color.White, fontSize = textSize(18))
                     Spacer(Modifier.height(10.dp))
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.weight(1f)) {
                         items(queue, key = { it.id }) { item ->
@@ -984,7 +984,7 @@ private fun PlayerSheets(
                         }
                     }
                     PlayerSheet.Details -> {
-                        Text(track.title, fontFamily = Kalpurush, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                        Text(track.title, fontFamily = Kalpurush, color = Color.White, fontWeight = FontWeight.Bold, fontSize = textSize(20))
                         Spacer(Modifier.height(8.dp))
                         DetailLine("শিল্পী", track.artist.ifBlank { "নিংশিং চে" })
                         if (track.album.isNotBlank()) DetailLine("অ্যালবাম", track.album)
@@ -993,7 +993,7 @@ private fun PlayerSheets(
                         if (track.durationSeconds > 0) DetailLine("সময়", formatMs(track.durationSeconds * 1000L))
                         if (track.description.isNotBlank()) {
                             Spacer(Modifier.height(8.dp))
-                            Text(track.description, fontFamily = Kalpurush, color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
+                            Text(track.description, fontFamily = Kalpurush, color = Color.White.copy(alpha = 0.8f), fontSize = textSize(14))
                         }
                     }
                     PlayerSheet.Sleep -> {
@@ -1029,7 +1029,7 @@ private fun SheetRow(icon: ImageVector, label: String, onClick: () -> Unit) {
     ) {
         Icon(icon, contentDescription = null, tint = BrandGoldLight, modifier = Modifier.size(22.dp))
         Spacer(Modifier.width(14.dp))
-        Text(label, fontFamily = Kalpurush, color = Color.White, fontSize = 16.sp)
+        Text(label, fontFamily = Kalpurush, color = Color.White, fontSize = textSize(16))
     }
 }
 
@@ -1039,7 +1039,7 @@ private fun DetailLine(label: String, value: String) {
         text = "$label · $value",
         fontFamily = Kalpurush,
         color = Color.White.copy(alpha = 0.82f),
-        fontSize = 14.sp,
+        fontSize = textSize(14),
         modifier = Modifier.padding(vertical = 2.dp)
     )
 }
@@ -1082,7 +1082,7 @@ private fun QueueRow(
                 text = item.artist.ifBlank { "নিংশিং চে" },
                 fontFamily = Kalpurush,
                 color = Color.White.copy(alpha = 0.65f),
-                fontSize = 12.sp,
+                fontSize = textSize(12),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -1223,8 +1223,8 @@ private fun TrackCoverCanvas(
                         text = pageTrack.lyrics.ifBlank { "এই গানের লিরিক এখনো যোগ করা হয়নি।" },
                         fontFamily = Kalpurush,
                         color = Color.White,
-                        fontSize = 16.sp,
-                        lineHeight = 26.sp,
+                        fontSize = textSize(16),
+                        lineHeight = textSize(26),
                         modifier = Modifier
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState())
@@ -1275,7 +1275,7 @@ private fun TrackCoverCanvas(
                     color = Color.White,
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
+                    fontSize = textSize(16),
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
                 )
             }

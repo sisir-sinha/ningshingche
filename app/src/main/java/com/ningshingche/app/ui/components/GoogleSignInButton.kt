@@ -21,8 +21,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.ningshingche.app.R
+import com.ningshingche.app.ui.theme.textSize
 
 @Composable
 fun GoogleSignInButton(
@@ -52,7 +52,7 @@ fun GoogleSignInButton(
             Spacer(modifier = Modifier.width(10.dp))
             Text(
                 text = loadingLabel,
-                fontSize = 15.sp,
+                fontSize = textSize(15),
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )

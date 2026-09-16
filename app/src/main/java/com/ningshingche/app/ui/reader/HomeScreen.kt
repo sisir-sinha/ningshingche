@@ -58,8 +58,8 @@ import com.ningshingche.app.ui.editorial.EditorialSpace
 import com.ningshingche.app.ui.screens.ContributorList
 import com.ningshingche.app.ui.screens.HomeForumBlock
 import com.ningshingche.app.ui.screens.monthNameOf
+import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.Kalpurush
-import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
@@ -198,8 +198,8 @@ fun HomeScreen(
                             text = "নিংশিং চে",
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 21.sp,
-                            lineHeight = 24.sp,
+                            fontSize = textSize(21),
+                            lineHeight = textSize(24),
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -649,7 +649,7 @@ private fun ContributorBoardNotice(
         Text(
             text = message.ifBlank { "তালিকা আনা যায়নি।" },
             fontFamily = Kalpurush,
-            fontSize = 12.5.sp,
+            fontSize = textSize(12.5),
             color = tokens.inkMuted
         )
         Spacer(Modifier.height(6.dp))
@@ -657,7 +657,7 @@ private fun ContributorBoardNotice(
             text = if (refused) "সাইন ইন করুন" else "আবার চেষ্টা করুন",
             fontFamily = Kalpurush,
             fontWeight = FontWeight.Bold,
-            fontSize = 13.sp,
+            fontSize = textSize(13),
             color = tokens.accent,
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))

@@ -60,7 +60,6 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ningshingche.app.data.portal.AuthorRef
 import com.ningshingche.app.data.portal.CategoryRef
@@ -80,6 +79,7 @@ import com.ningshingche.app.ui.editorial.Hairline
 import com.ningshingche.app.ui.editorial.LoadingFeed
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.editorial.SectionHeader
+import com.ningshingche.app.ui.theme.textSize
 
 /**
  * The three list screens — search, category and author — share one paging
@@ -577,7 +577,7 @@ private fun AuthorHeader(author: AuthorRef?) {
                     Text(
                         text = author.name,
                         style = EditorialType.Display.copy(
-                            fontSize = 20.sp,
+                            fontSize = textSize(20),
                             fontWeight = FontWeight.Bold
                         ),
                         color = MaterialTheme.colorScheme.onSurface,
@@ -641,8 +641,8 @@ private fun AuthorHeader(author: AuthorRef?) {
 
                     HtmlFormattedText(
                         html = author.bio,
-                        fontSize = 14.5.sp,
-                        lineHeight = 23.sp,
+                        fontSize = textSize(14.5),
+                        lineHeight = textSize(23),
                         baseTextColor = tokens.inkSoft,
                         maxLines = if (isExpanded || !isLongBio) Int.MAX_VALUE else 3,
                         overflow = if (isExpanded || !isLongBio) TextOverflow.Clip else TextOverflow.Ellipsis,
@@ -662,7 +662,7 @@ private fun AuthorHeader(author: AuthorRef?) {
                             Text(
                                 text = if (isExpanded) "See less" else "See more",
                                 style = EditorialType.Subtitle.copy(
-                                    fontSize = 13.5.sp,
+                                    fontSize = textSize(13.5),
                                     fontWeight = FontWeight.SemiBold
                                 ),
                                 color = MaterialTheme.colorScheme.primary

@@ -62,7 +62,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ningshingche.app.R
 import com.ningshingche.app.data.model.AiChatMessage
@@ -76,6 +75,7 @@ import com.ningshingche.app.ui.components.keyboardAvoidingPadding
 import com.ningshingche.app.ui.viewmodel.AiViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.Kalpurush
 
 @Composable
@@ -196,7 +196,7 @@ fun AiAssistantScreen(
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 16.sp
+                            fontSize = textSize(16)
                         ),
                         maxLines = 1
                     )
@@ -204,7 +204,7 @@ fun AiAssistantScreen(
                         text = "বিষ্ণুপ্রিয়া মণিপুরি ঐতিহ্য ও বিশ্ব জ্ঞানকোষ",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 11.sp
+                            fontSize = textSize(11)
                         ),
                         maxLines = 1
                     )
@@ -278,7 +278,7 @@ fun AiAssistantScreen(
                             text = "AI বিশ্লেষণ ও উত্তর প্রস্তুত করা হচ্ছে...",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = MaterialTheme.colorScheme.primary,
-                                fontSize = 12.sp
+                                fontSize = textSize(12)
                             )
                         )
                     }
@@ -316,7 +316,7 @@ fun AiAssistantScreen(
                                 text = suggestion,
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    fontSize = 11.sp,
+                                    fontSize = textSize(11),
                                     fontWeight = FontWeight.Medium
                                 ),
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
@@ -356,7 +356,7 @@ fun AiAssistantScreen(
                             text = "যেকোনো বিষয়ে প্রশ্ন করুন...",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                fontSize = 13.sp
+                                fontSize = textSize(13)
                             )
                         )
                     },
@@ -432,8 +432,8 @@ fun ChatMessageItem(
                     text = message.text,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = MaterialTheme.colorScheme.onPrimary,
-                        fontSize = 14.sp,
-                        lineHeight = 20.sp
+                        fontSize = textSize(14),
+                        lineHeight = textSize(20)
                     ),
                     modifier = Modifier.padding(14.dp)
                 )
@@ -514,7 +514,7 @@ fun ChatMessageItem(
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 11.sp
+                                    fontSize = textSize(11)
                                 )
                             )
                         }
@@ -545,9 +545,9 @@ fun ChatMessageItem(
                                         text = question,
                                         style = MaterialTheme.typography.bodySmall.copy(
                                             color = MaterialTheme.colorScheme.onSurface,
-                                            fontSize = 12.sp,
+                                            fontSize = textSize(12),
                                             fontWeight = FontWeight.Medium,
-                                            lineHeight = 17.sp
+                                            lineHeight = textSize(17)
                                         ),
                                         modifier = Modifier.weight(1f)
                                     )
@@ -570,7 +570,7 @@ fun ChatMessageItem(
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
+                            fontSize = textSize(11)
                         ),
                         modifier = Modifier.padding(top = 4.dp)
                     )

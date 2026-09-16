@@ -30,12 +30,12 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.ningshingche.app.data.portal.ViewDay
 import com.ningshingche.app.data.remote.CommentRecord
 import com.ningshingche.app.data.remote.SubmittedBlogRecord
 import com.ningshingche.app.data.remote.SubmittedMusicRecord
 import com.ningshingche.app.ui.editorial.toBengaliNumeral
+import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.Kalpurush
 import java.util.Calendar
 
@@ -311,11 +311,11 @@ private fun ChartCard(
         modifier = modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            Text(title, fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = textSize(15))
             Text(
                 subtitle,
                 fontFamily = Kalpurush,
-                fontSize = 11.sp,
+                fontSize = textSize(11),
                 color = MaterialTheme.colorScheme.primary
             )
             Spacer(Modifier.height(12.dp))
@@ -350,7 +350,7 @@ private fun ActivityBars(activity: List<MonthlyActivity>) {
                     }
                 }
                 Spacer(Modifier.height(6.dp))
-                Text(month.label, fontFamily = Kalpurush, fontSize = 10.sp, maxLines = 1)
+                Text(month.label, fontFamily = Kalpurush, fontSize = textSize(10), maxLines = 1)
             }
         }
     }
@@ -431,7 +431,7 @@ private fun Legend(entries: List<Pair<String, Pair<Int, Color>>>) {
                 Text(
                     "${label} ${toBengaliNumeral(value)}",
                     fontFamily = Kalpurush,
-                    fontSize = 11.sp
+                    fontSize = textSize(11)
                 )
             }
         }
@@ -443,7 +443,7 @@ private fun ChartEmptyHint(text: String) {
     Text(
         text,
         fontFamily = Kalpurush,
-        fontSize = 12.sp,
+        fontSize = textSize(12),
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
 }

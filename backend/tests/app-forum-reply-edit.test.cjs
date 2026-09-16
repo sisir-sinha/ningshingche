@@ -435,7 +435,7 @@ test('every card on the forum page is the same card', async (t) => {
       'and the title is never given a third line: not with a cover, not without one');
     assert.match(card, /maxLines = 1,\s*\n\s*overflow = TextOverflow\.Ellipsis,\s*\n\s*modifier = Modifier\.padding\(top = 2\.dp\)/,
       'one line of summary, on every card — there is no card without a cover');
-    assert.match(card, /fontSize = 16\.sp/,
+    assert.match(card, /fontSize = textSize\(16\)/,
       'one size for the words, because the column beside the cover is the same width on every card');
     assert.ok(!/maxLines = if \(discussion\.hasCover\)/.test(card),
       'and nothing on the card asks whether it has a picture any more');
@@ -462,7 +462,7 @@ test('every card on the forum page is the same card', async (t) => {
       'a face worth looking at, a size down because a cover shares the row');
     assert.match(card, /date = discussion\.lastActivityAt/,
       'the date it was last alive');
-    assert.match(card, /nameSize = 12\.5\.sp/);
+    assert.match(card, /nameSize = textSize\(12.5\)/);
   });
 
   await t.test('one excerpt length, decided once', () => {

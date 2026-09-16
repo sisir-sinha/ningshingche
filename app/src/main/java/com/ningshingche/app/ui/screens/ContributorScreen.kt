@@ -51,7 +51,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.ningshingche.app.data.portal.ContributionStats
 import com.ningshingche.app.data.portal.Contributor
 import com.ningshingche.app.data.portal.ContributorBoard
@@ -64,6 +63,7 @@ import com.ningshingche.app.ui.editorial.ErrorState
 import com.ningshingche.app.ui.editorial.Hairline
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.editorial.toBengaliNumeral
+import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.Kalpurush
 
 /**
@@ -127,14 +127,14 @@ fun ContributorScreen(
                             text = "সেরা অবদানকারী",
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 17.sp
+                            fontSize = textSize(17)
                         )
                         val month = board?.monthKey.orEmpty()
                         if (month.isNotBlank()) {
                             Text(
                                 text = "${monthLabel(month)}-এর তালিকা",
                                 fontFamily = Kalpurush,
-                                fontSize = 11.5.sp,
+                                fontSize = textSize(11.5),
                                 color = LocalEditorialTokens.current.inkMuted
                             )
                         }
@@ -241,7 +241,7 @@ private fun MyStandingCard(points: Int) {
             Text(
                 text = "আপনার পয়েন্ট",
                 fontFamily = Kalpurush,
-                fontSize = 13.5.sp,
+                fontSize = textSize(13.5),
                 color = tokens.inkSoft,
                 modifier = Modifier.weight(1f)
             )
@@ -249,7 +249,7 @@ private fun MyStandingCard(points: Int) {
                 text = toBengaliNumeral(points),
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
-                fontSize = 20.sp,
+                fontSize = textSize(20),
                 color = MaterialTheme.colorScheme.primary
             )
         }
@@ -278,7 +278,7 @@ private fun SignedOutGate(onSignInClick: () -> Unit, expired: Boolean = false) {
             text = "এই পাতা নিবন্ধিত পাঠকের জন্য",
             fontFamily = Kalpurush,
             fontWeight = FontWeight.Bold,
-            fontSize = 17.sp,
+            fontSize = textSize(17),
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(6.dp))
@@ -289,7 +289,7 @@ private fun SignedOutGate(onSignInClick: () -> Unit, expired: Boolean = false) {
                 "অবদানকারীর তালিকা ও আপনার নিজের পয়েন্ট দেখতে সাইন ইন করুন।"
             },
             fontFamily = Kalpurush,
-            fontSize = 13.sp,
+            fontSize = textSize(13),
             color = tokens.inkMuted,
             textAlign = TextAlign.Center
         )
@@ -362,7 +362,7 @@ private fun ContributorCard(
                             text = contributor.name.trim().take(1).ifBlank { "ন" },
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 24.sp,
+                            fontSize = textSize(24),
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
@@ -376,7 +376,7 @@ private fun ContributorCard(
                             text = contributor.name,
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
+                            fontSize = textSize(16),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -387,7 +387,7 @@ private fun ContributorCard(
                         text = "প্রবন্ধ ${toBengaliNumeral(contributor.stats.articles)} · " +
                             "গান ${toBengaliNumeral(contributor.stats.songs)}",
                         fontFamily = Kalpurush,
-                        fontSize = 12.5.sp,
+                        fontSize = textSize(12.5),
                         color = tokens.inkMuted,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -417,14 +417,14 @@ private fun ContributorCard(
                     text = toBengaliNumeral(contributor.points),
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
+                    fontSize = textSize(20),
                     color = MaterialTheme.colorScheme.primary
                 )
                 Spacer(Modifier.width(6.dp))
                 Text(
                     text = "পয়েন্ট",
                     fontFamily = Kalpurush,
-                    fontSize = 12.5.sp,
+                    fontSize = textSize(12.5),
                     color = tokens.inkMuted
                 )
                 if (highlight) {
@@ -433,7 +433,7 @@ private fun ContributorCard(
                         text = "আপনি",
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp,
+                        fontSize = textSize(12),
                         color = tokens.accent
                     )
                 }
@@ -464,7 +464,7 @@ private fun RankBadge(rank: Int, medal: Color) {
                 text = toBengaliNumeral(rank),
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
-                fontSize = 13.sp,
+                fontSize = textSize(13),
                 color = medal
             )
         }
@@ -530,7 +530,7 @@ internal fun ContributorMiniRow(contributor: Contributor, rank: Int, onClick: ()
             text = toBengaliNumeral(rank),
             fontFamily = Kalpurush,
             fontWeight = FontWeight.Bold,
-            fontSize = 13.sp,
+            fontSize = textSize(13),
             color = if (rank <= 3) MaterialTheme.colorScheme.primary else tokens.inkMuted,
             modifier = Modifier.width(18.dp)
         )
@@ -553,7 +553,7 @@ internal fun ContributorMiniRow(contributor: Contributor, rank: Int, onClick: ()
                     text = contributor.name.trim().take(1).ifBlank { "ন" },
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
+                    fontSize = textSize(20),
                     color = MaterialTheme.colorScheme.primary
                 )
             }
@@ -564,7 +564,7 @@ internal fun ContributorMiniRow(contributor: Contributor, rank: Int, onClick: ()
                 text = contributor.name,
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.SemiBold,
-                fontSize = 14.5.sp,
+                fontSize = textSize(14.5),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -572,7 +572,7 @@ internal fun ContributorMiniRow(contributor: Contributor, rank: Int, onClick: ()
                 text = "প্রবন্ধ ${toBengaliNumeral(contributor.stats.articles)} · " +
                     "গান ${toBengaliNumeral(contributor.stats.songs)}",
                 fontFamily = Kalpurush,
-                fontSize = 11.5.sp,
+                fontSize = textSize(11.5),
                 color = tokens.inkMuted,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -584,13 +584,13 @@ internal fun ContributorMiniRow(contributor: Contributor, rank: Int, onClick: ()
                 text = toBengaliNumeral(contributor.points),
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
-                fontSize = 17.sp,
+                fontSize = textSize(17),
                 color = MaterialTheme.colorScheme.primary
             )
             Text(
                 text = "পয়েন্ট",
                 fontFamily = Kalpurush,
-                fontSize = 10.5.sp,
+                fontSize = textSize(10.5),
                 color = tokens.inkMuted
             )
         }

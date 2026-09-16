@@ -267,9 +267,9 @@ test('every thread has a cover, and a thread with no picture gets a stand-in', a
     assert.match(cover, /color = GLYPH_INK/, 'in the one ink the fills are chosen for');
     // Each surface sizes the letter for itself: the card\'s column, the thread\'s
     // whole cover, the home page\'s thumbnail.
-    assert.match(screen('ForumDiscussionCard'), /glyphSize = 34\.sp/);
-    assert.match(screen('ForumOpeningPost'), /glyphSize = 66\.sp/);
-    assert.match(screen('HomeForumRow'), /glyphSize = 22\.sp/);
+    assert.match(screen('ForumDiscussionCard'), /glyphSize = textSize\(34\)/);
+    assert.match(screen('ForumOpeningPost'), /glyphSize = textSize\(66\)/);
+    assert.match(screen('HomeForumRow'), /glyphSize = textSize\(22\)/);
   });
 
   await t.test('a reader\'s own picture is still the one that is shown', () => {

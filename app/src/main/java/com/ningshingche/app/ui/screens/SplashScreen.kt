@@ -48,9 +48,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.ningshingche.app.ui.components.NingshingCheBrandLogo
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
+import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.Kalpurush
 import kotlinx.coroutines.delay
 
@@ -204,7 +204,7 @@ fun SplashScreen(
                 text = "নিংশিং চে",
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
-                fontSize = 36.sp,
+                fontSize = textSize(36),
                 color = if (isDark) tokens.ink else tokens.accent,
                 textAlign = TextAlign.Center
             )
@@ -216,7 +216,7 @@ fun SplashScreen(
                 text = "বিষ্ণুপ্রিয়া মণিপুরি সাহিত্য ও সংস্কৃতি পোর্টাল",
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Medium,
-                fontSize = 15.sp,
+                fontSize = textSize(15),
                 color = tokens.second,
                 textAlign = TextAlign.Center
             )
@@ -243,7 +243,7 @@ fun SplashScreen(
                     Text(
                         text = "জ্ঞান, ইতিহাস ও সাহিত্যের মুক্ত তথ্যকোষ",
                         fontFamily = Kalpurush,
-                        fontSize = 12.sp,
+                        fontSize = textSize(12),
                         color = if (isDark) tokens.ink else tokens.accent,
                         fontWeight = FontWeight.Normal
                     )
@@ -275,7 +275,7 @@ fun SplashScreen(
             Text(
                 text = "সংস্কৃতির আলোয় পথচলা…",
                 fontFamily = Kalpurush,
-                fontSize = 12.sp,
+                fontSize = textSize(12),
                 color = tokens.inkMuted
             )
         }
@@ -291,7 +291,7 @@ fun SplashScreen(
             Text(
                 text = "ningshingche.com • সংস্করণ ১.০",
                 fontFamily = Kalpurush,
-                fontSize = 11.sp,
+                fontSize = textSize(11),
                 color = tokens.inkMuted
             )
         }

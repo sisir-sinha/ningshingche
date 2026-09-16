@@ -124,7 +124,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -144,12 +143,14 @@ import com.ningshingche.app.data.remote.UserProfile
 import com.ningshingche.app.data.remote.messageAttachmentUrls
 import com.ningshingche.app.data.remote.shortDateTime
 import com.ningshingche.app.ui.components.AppToasts
+import com.ningshingche.app.ui.editorial.cardBorder
 import com.ningshingche.app.ui.editorial.formatBengaliDate
 import com.ningshingche.app.ui.editorial.Hairline
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.editorial.toBengaliNumeral
 import com.ningshingche.app.ui.components.LocalMusicController
 import com.ningshingche.app.ui.reader.RichHtmlArticleBody
+import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.ReaderMetrics
 import com.ningshingche.app.ui.viewmodel.ReaderWorkspaceViewModel
@@ -342,7 +343,7 @@ fun UserDashboardScreen(
                                         Badge {
                                             Text(
                                                 if (noticeUnread > 99) "99+" else noticeUnread.toString(),
-                                                fontSize = 10.sp
+                                                fontSize = textSize(10)
                                             )
                                         }
                                     }
@@ -663,6 +664,7 @@ private fun ArticleAnalyticsList(
     }
 
     Surface(
+        border = cardBorder(),
         shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 1.dp,
@@ -675,7 +677,7 @@ private fun ArticleAnalyticsList(
                 text = "প্রবন্ধ বিশ্লেষণ",
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
-                fontSize = 15.sp
+                fontSize = textSize(15)
             )
             if (sorted.isEmpty()) {
                 EmptyHint("এখনো কোনো প্রবন্ধ জমা দেওয়া হয়নি।")
@@ -691,7 +693,7 @@ private fun ArticleAnalyticsList(
                             text = article.title,
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 13.5.sp,
+                            fontSize = textSize(13.5),
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -706,7 +708,7 @@ private fun ArticleAnalyticsList(
                                 }
                             },
                             fontFamily = Kalpurush,
-                            fontSize = 10.5.sp,
+                            fontSize = textSize(10.5),
                             color = tokens.inkMuted
                         )
                     }
@@ -1050,7 +1052,7 @@ private fun ArticlePreviewDialog(article: SubmittedBlogRecord, onDismiss: () -> 
                         text = "এভাবে প্রকাশিত হবে",
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
+                        fontSize = textSize(15),
                         modifier = Modifier.weight(1f)
                     )
                     ContentStatusChip(status = article.status)
@@ -1081,14 +1083,14 @@ private fun ArticlePreviewDialog(article: SubmittedBlogRecord, onDismiss: () -> 
                         text = article.title.ifBlank { "শিরোনামহীন" },
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 21.sp,
-                        lineHeight = 30.sp
+                        fontSize = textSize(21),
+                        lineHeight = textSize(30)
                     )
                     if (article.contentTitle.isNotBlank()) {
                         Text(
                             text = article.contentTitle,
                             fontFamily = Kalpurush,
-                            fontSize = 15.sp,
+                            fontSize = textSize(15),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -1097,7 +1099,7 @@ private fun ArticlePreviewDialog(article: SubmittedBlogRecord, onDismiss: () -> 
                             .filter { it.isNotBlank() }
                             .joinToString(" · "),
                         fontFamily = Kalpurush,
-                        fontSize = 13.sp,
+                        fontSize = textSize(13),
                         color = MaterialTheme.colorScheme.primary
                     )
                     Hairline()
@@ -1491,6 +1493,7 @@ private fun ChatBubble(item: AdminMessageRecord, onOpenImage: (String) -> Unit) 
     val text = images.fold(item.body) { acc, url -> acc.replace(url, "") }.trim()
     Box(modifier = Modifier.fillMaxWidth()) {
         Surface(
+            border = cardBorder(),
             shape = RoundedCornerShape(
                 topStart = 16.dp,
                 topEnd = 16.dp,
@@ -1508,10 +1511,10 @@ private fun ChatBubble(item: AdminMessageRecord, onOpenImage: (String) -> Unit) 
                     if (fromAdmin) "অ্যাডমিন" else "আপনি",
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp
+                    fontSize = textSize(11)
                 )
                 if (text.isNotBlank()) {
-                    Text(text, fontFamily = Kalpurush, fontSize = 15.sp)
+                    Text(text, fontFamily = Kalpurush, fontSize = textSize(15))
                 }
                 images.forEach { url ->
                     AsyncImage(
@@ -1534,7 +1537,7 @@ private fun ChatBubble(item: AdminMessageRecord, onOpenImage: (String) -> Unit) 
                         Text(
                             shortDateTime(item.createdAt),
                             fontFamily = Kalpurush,
-                            fontSize = 10.sp,
+                            fontSize = textSize(10),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -1559,6 +1562,7 @@ private fun UserInfoCard(
     val name = user?.composedFullName().orEmpty().ifBlank { "পাঠক" }
     val designation = user?.designation.orEmpty().ifBlank { "—" }
     Surface(
+        border = cardBorder(),
         shape = RoundedCornerShape(16.dp),
         tonalElevation = 2.dp,
         modifier = Modifier
@@ -1585,11 +1589,11 @@ private fun UserInfoCard(
                 }
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(name, fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text(name, fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = textSize(20))
                 Text(
                     designation,
                     fontFamily = Kalpurush,
-                    fontSize = 13.sp,
+                    fontSize = textSize(13),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -1685,6 +1689,7 @@ private fun MetricsGrid(metrics: ReaderMetrics) {
 private fun ContributorPointsCard(score: ContributorScore, modifier: Modifier = Modifier) {
     val tokens = LocalEditorialTokens.current
     Surface(
+        border = cardBorder(),
         shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 1.dp,
@@ -1705,21 +1710,21 @@ private fun ContributorPointsCard(score: ContributorScore, modifier: Modifier = 
                     text = "অবদান পয়েন্ট",
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
+                    fontSize = textSize(15)
                 )
                 Spacer(Modifier.weight(1f))
                 Text(
                     text = "${toBengaliNumeral(score.lifetime.points)} পয়েন্ট",
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
+                    fontSize = textSize(18),
                     color = MaterialTheme.colorScheme.primary
                 )
             }
             Text(
                 text = "${monthLabel(score.monthKey)} মাসে ${toBengaliNumeral(score.month.points)} পয়েন্ট",
                 fontFamily = Kalpurush,
-                fontSize = 12.sp,
+                fontSize = textSize(12),
                 color = tokens.inkMuted
             )
             Hairline()
@@ -1759,22 +1764,23 @@ private fun BreakdownItem(
             text = toBengaliNumeral(value),
             fontFamily = Kalpurush,
             fontWeight = FontWeight.Bold,
-            fontSize = 13.sp
+            fontSize = textSize(13)
         )
-        Text(text = label, fontFamily = Kalpurush, fontSize = 10.sp, color = tint)
+        Text(text = label, fontFamily = Kalpurush, fontSize = textSize(10), color = tint)
     }
 }
 
 @Composable
 private fun MetricCard(label: String, value: String, icon: ImageVector, modifier: Modifier = Modifier) {
     Surface(
+        border = cardBorder(),
         modifier = modifier,
         shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 1.dp
     ) {
         Column(Modifier.padding(horizontal = 10.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(value, fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text(value, fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = textSize(20))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -1788,7 +1794,7 @@ private fun MetricCard(label: String, value: String, icon: ImageVector, modifier
                 Text(
                     label,
                     fontFamily = Kalpurush,
-                    fontSize = 12.sp,
+                    fontSize = textSize(12),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -1809,6 +1815,7 @@ private fun NotificationCard(
     onOpen: () -> Unit
 ) {
     Surface(
+        border = cardBorder(),
         shape = RoundedCornerShape(14.dp),
         color = if (notice.isRead) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.primaryContainer,
         modifier = Modifier
@@ -1830,7 +1837,7 @@ private fun NotificationCard(
             Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.weight(1f)) {
                 Text(notice.title, fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
                 if (notice.body.isNotBlank()) {
-                    Text(notice.body, fontFamily = Kalpurush, fontSize = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                    Text(notice.body, fontFamily = Kalpurush, fontSize = textSize(13), maxLines = 3, overflow = TextOverflow.Ellipsis)
                 }
                 Text(
                     when {
@@ -1842,7 +1849,7 @@ private fun NotificationCard(
                         else -> notice.kind
                     },
                     fontFamily = Kalpurush,
-                    fontSize = 11.sp,
+                    fontSize = textSize(11),
                     color = MaterialTheme.colorScheme.primary
                 )
             }
@@ -1863,6 +1870,7 @@ private fun NotificationCard(
 @Composable
 private fun ContentCard(row: ContentRow, highlighted: Boolean = false, onOpen: () -> Unit) {
     Surface(
+        border = cardBorder(),
         shape = RoundedCornerShape(14.dp),
         color = if (highlighted) MaterialTheme.colorScheme.primaryContainer
         else MaterialTheme.colorScheme.surface,
@@ -1899,7 +1907,7 @@ private fun ContentCard(row: ContentRow, highlighted: Boolean = false, onOpen: (
                 Text(
                     if (row.isMusic) "গান · ${row.subtitle}" else row.subtitle,
                     fontFamily = Kalpurush,
-                    fontSize = 12.sp,
+                    fontSize = textSize(12),
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -1941,7 +1949,7 @@ private fun ContentStatusChip(status: String, modifier: Modifier = Modifier) {
         Text(
             text = label,
             fontFamily = Kalpurush,
-            fontSize = 11.sp,
+            fontSize = textSize(11),
             fontWeight = FontWeight.Bold,
             color = tint,
             maxLines = 1,
@@ -1953,6 +1961,7 @@ private fun ContentStatusChip(status: String, modifier: Modifier = Modifier) {
 @Composable
 private fun CommentStatusCard(comment: CommentRecord, highlighted: Boolean = false, onOpen: () -> Unit) {
     Surface(
+        border = cardBorder(),
         shape = RoundedCornerShape(14.dp),
         color = if (highlighted) MaterialTheme.colorScheme.primaryContainer
         else MaterialTheme.colorScheme.surface,
@@ -1966,13 +1975,13 @@ private fun CommentStatusCard(comment: CommentRecord, highlighted: Boolean = fal
             Icon(Icons.Default.Comment, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.weight(1f)) {
                 if (comment.blogTitle.isNotBlank()) {
-                    Text(comment.blogTitle, fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text(comment.blogTitle, fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = textSize(13))
                 }
-                Text(comment.content, fontFamily = Kalpurush, fontSize = 14.sp, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                Text(comment.content, fontFamily = Kalpurush, fontSize = textSize(14), maxLines = 4, overflow = TextOverflow.Ellipsis)
                 Text(
                     if (comment.isPublished) "প্রকাশিত" else "পর্যালোচনায়",
                     fontFamily = Kalpurush,
-                    fontSize = 12.sp,
+                    fontSize = textSize(12),
                     color = MaterialTheme.colorScheme.primary
                 )
             }

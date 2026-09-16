@@ -29,11 +29,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.ningshingche.app.R
 import com.ningshingche.app.data.portal.SiteSettings
 import com.ningshingche.app.ui.theme.BrandGoldLight
 import com.ningshingche.app.ui.theme.BrandIndigo
+import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.theme.PanelDeep
 import com.ningshingche.app.ui.theme.PanelInk
@@ -127,15 +127,15 @@ fun EditorialFooter(
                 Text(
                     text = settings.title,
                     fontFamily = Kalpurush,
-                    fontSize = 20.sp,
+                    fontSize = textSize(20),
                     fontWeight = FontWeight.Bold,
                     color = FooterText
                 )
                 Text(
                     text = SiteContact.TAGLINE,
                     fontFamily = Kalpurush,
-                    fontSize = 13.sp,
-                    lineHeight = 18.sp,
+                    fontSize = textSize(13),
+                    lineHeight = textSize(18),
                     color = FooterAccent
                 )
             }
@@ -220,7 +220,7 @@ fun EditorialFooter(
                 Text(
                     text = "Play Store",
                     fontFamily = Kalpurush,
-                    fontSize = 14.sp,
+                    fontSize = textSize(14),
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
@@ -239,14 +239,14 @@ fun EditorialFooter(
             Text(
                 text = "© ২০২৬ ${settings.title} | সাইট উন্নয়ন ",
                 fontFamily = Kalpurush,
-                fontSize = 12.sp,
+                fontSize = textSize(12),
                 color = FooterMuted,
                 textAlign = TextAlign.Center
             )
             Text(
                 text = SiteContact.DEVELOPER_NAME,
                 fontFamily = Kalpurush,
-                fontSize = 12.sp,
+                fontSize = textSize(12),
                 fontWeight = FontWeight.SemiBold,
                 color = FooterAccent,
                 modifier = Modifier.clickable { onOpenLink(SiteContact.DEVELOPER_URL) }
@@ -280,8 +280,8 @@ private fun ContactRow(
         Text(
             text = text,
             fontFamily = Kalpurush,
-            fontSize = 14.sp,
-            lineHeight = 22.sp,
+            fontSize = textSize(14),
+            lineHeight = textSize(22),
             color = FooterMuted
         )
     }
@@ -292,8 +292,8 @@ private fun FooterHeading(text: String) {
     Text(
         text = text,
         fontFamily = Kalpurush,
-        fontSize = 15.sp,
-        lineHeight = 22.sp,
+        fontSize = textSize(15),
+        lineHeight = textSize(22),
         fontWeight = FontWeight.Bold,
         color = FooterText
     )
@@ -318,8 +318,8 @@ private fun FooterLink(label: String, onClick: () -> Unit) {
         Text(
             text = label,
             fontFamily = Kalpurush,
-            fontSize = 14.sp,
-            lineHeight = 22.sp,
+            fontSize = textSize(14),
+            lineHeight = textSize(22),
             color = FooterMuted
         )
     }

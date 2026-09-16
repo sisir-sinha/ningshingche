@@ -63,7 +63,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import com.ningshingche.app.data.portal.ForumActivityAnswer
 import com.ningshingche.app.data.portal.ForumActivityThread
@@ -85,6 +84,7 @@ import com.ningshingche.app.ui.editorial.ErrorState
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.editorial.formatBengaliDate
 import com.ningshingche.app.ui.editorial.toBengaliNumeral
+import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.Kalpurush
 
 /**
@@ -217,7 +217,7 @@ fun PublicProfileScreen(
                         text = profile?.name ?: "ব্যবহারকারীর পাতা",
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 17.sp,
+                        fontSize = textSize(17),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -298,7 +298,7 @@ fun PublicProfileScreen(
                                                 } else {
                                                     FontWeight.Normal
                                                 },
-                                                fontSize = 14.sp,
+                                                fontSize = textSize(14),
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
                                             )
@@ -423,7 +423,7 @@ fun PublicProfileScreen(
                                             text = "আরও দেখুন (${toBengaliNumeral(page.total - page.loaded)})",
                                             fontFamily = Kalpurush,
                                             fontWeight = FontWeight.SemiBold,
-                                            fontSize = 13.sp,
+                                            fontSize = textSize(13),
                                             color = LocalEditorialTokens.current.accent
                                         )
                                     }
@@ -468,7 +468,7 @@ private fun ProfileThreadRow(thread: ForumActivityThread, onClick: () -> Unit) {
                     text = thread.categoryTitle,
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 11.sp,
+                    fontSize = textSize(11),
                     color = tokens.accent,
                     modifier = Modifier.weight(1f),
                     maxLines = 1,
@@ -477,7 +477,7 @@ private fun ProfileThreadRow(thread: ForumActivityThread, onClick: () -> Unit) {
                 Text(
                     text = formatBengaliDate(thread.createdAt),
                     fontFamily = Kalpurush,
-                    fontSize = 11.sp,
+                    fontSize = textSize(11),
                     color = tokens.inkMuted,
                     maxLines = 1,
                     modifier = Modifier.testTag("public_profile_thread_date_${thread.id}")
@@ -487,7 +487,7 @@ private fun ProfileThreadRow(thread: ForumActivityThread, onClick: () -> Unit) {
                 text = thread.title,
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
-                fontSize = 15.5.sp,
+                fontSize = textSize(15.5),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -498,8 +498,8 @@ private fun ProfileThreadRow(thread: ForumActivityThread, onClick: () -> Unit) {
                 Text(
                     text = words,
                     fontFamily = Kalpurush,
-                    fontSize = 12.5.sp,
-                    lineHeight = 17.sp,
+                    fontSize = textSize(12.5),
+                    lineHeight = textSize(17),
                     color = tokens.inkMuted,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis
@@ -532,7 +532,7 @@ private fun ProfileAnswerRow(answer: ForumActivityAnswer, onClick: () -> Unit) {
                     text = answer.discussionTitle,
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp,
+                    fontSize = textSize(13),
                     color = tokens.accent,
                     modifier = Modifier.weight(1f),
                     maxLines = 1,
@@ -541,7 +541,7 @@ private fun ProfileAnswerRow(answer: ForumActivityAnswer, onClick: () -> Unit) {
                 Text(
                     text = formatBengaliDate(answer.createdAt),
                     fontFamily = Kalpurush,
-                    fontSize = 11.sp,
+                    fontSize = textSize(11),
                     color = tokens.inkMuted,
                     maxLines = 1,
                     modifier = Modifier.testTag("public_profile_answer_date_${answer.id}")
@@ -551,8 +551,8 @@ private fun ProfileAnswerRow(answer: ForumActivityAnswer, onClick: () -> Unit) {
             Text(
                 text = words,
                 fontFamily = Kalpurush,
-                fontSize = 12.5.sp,
-                lineHeight = 17.sp,
+                fontSize = textSize(12.5),
+                lineHeight = textSize(17),
                 color = tokens.inkMuted,
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis
@@ -595,7 +595,7 @@ private fun ProfileReactionCount(
         Text(
             text = toBengaliNumeral(count),
             fontFamily = Kalpurush,
-            fontSize = 11.5.sp,
+            fontSize = textSize(11.5),
             color = tokens.inkMuted
         )
     }
@@ -620,7 +620,7 @@ private fun ProfileForumCounters(views: Long, replies: Int, answered: Boolean) {
             Text(
                 text = toBengaliNumeral(views),
                 fontFamily = Kalpurush,
-                fontSize = 11.5.sp,
+                fontSize = textSize(11.5),
                 color = tokens.inkMuted
             )
         }
@@ -635,7 +635,7 @@ private fun ProfileForumCounters(views: Long, replies: Int, answered: Boolean) {
             Text(
                 text = toBengaliNumeral(replies),
                 fontFamily = Kalpurush,
-                fontSize = 11.5.sp,
+                fontSize = textSize(11.5),
                 color = if (answered) tokens.accent else tokens.inkMuted
             )
         }
@@ -733,7 +733,7 @@ private fun ProfileHeader(profile: PublicProfile) {
                     Text(
                         text = profile.name.trim().take(1).ifBlank { "ন" },
                         fontFamily = Kalpurush,
-                        fontSize = 34.sp,
+                        fontSize = textSize(34),
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -745,7 +745,7 @@ private fun ProfileHeader(profile: PublicProfile) {
                 text = profile.name,
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
-                fontSize = 20.sp,
+                fontSize = textSize(20),
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -795,7 +795,7 @@ private fun ProfileDetailLine(
         Text(
             text = text,
             fontFamily = Kalpurush,
-            fontSize = 13.sp,
+            fontSize = textSize(13),
             color = if (muted) tokens.inkMuted else tokens.inkSoft,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -886,7 +886,7 @@ private fun ProfileViewBreakdown(profile: PublicProfile) {
     Text(
         text = parts.joinToString("  ·  "),
         fontFamily = Kalpurush,
-        fontSize = 11.5.sp,
+        fontSize = textSize(11.5),
         color = tokens.inkMuted,
         textAlign = TextAlign.Center,
         modifier = Modifier
@@ -919,7 +919,7 @@ private fun StatisticTile(
             text = toBengaliNumeral(value),
             fontFamily = Kalpurush,
             fontWeight = FontWeight.Bold,
-            fontSize = 18.sp,
+            fontSize = textSize(18),
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -929,7 +929,7 @@ private fun StatisticTile(
             // allowed rather than letting it push the numbers apart.
             text = label,
             fontFamily = Kalpurush,
-            fontSize = 11.5.sp,
+            fontSize = textSize(11.5),
             color = LocalEditorialTokens.current.inkMuted,
             maxLines = 2,
             textAlign = TextAlign.Center
@@ -996,8 +996,8 @@ private fun PublicArticleCard(article: PublicArticle, onOpen: () -> Unit) {
                     text = article.title,
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp,
-                    lineHeight = 22.sp,
+                    fontSize = textSize(15),
+                    lineHeight = textSize(22),
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -1043,8 +1043,8 @@ private fun PublicSongCard(track: MusicTrack, onPlay: () -> Unit) {
                     text = track.title,
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp,
-                    lineHeight = 22.sp,
+                    fontSize = textSize(15),
+                    lineHeight = textSize(22),
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -1087,7 +1087,7 @@ private fun ArticleFactRow(
             Text(
                 text = meta,
                 fontFamily = Kalpurush,
-                fontSize = 12.sp,
+                fontSize = textSize(12),
                 color = tokens.inkMuted,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -1104,7 +1104,7 @@ private fun ArticleFactRow(
             Text(
                 text = "${toBengaliNumeral(views)} $viewsLabel",
                 fontFamily = Kalpurush,
-                fontSize = 12.sp,
+                fontSize = textSize(12),
                 color = tokens.inkSoft
             )
         }

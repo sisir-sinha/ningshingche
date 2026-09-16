@@ -59,7 +59,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ningshingche.app.data.portal.ArticleSummary
 import com.ningshingche.app.data.portal.IssueSummary
@@ -79,6 +78,7 @@ import com.ningshingche.app.ui.reader.CategoryFacet
 import com.ningshingche.app.ui.reader.ExploreData
 import com.ningshingche.app.ui.reader.ExploreUiState
 import com.ningshingche.app.ui.reader.ExploreViewModel
+import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.Kalpurush
 import kotlinx.coroutines.launch
 
@@ -147,8 +147,8 @@ fun ExploreScreen(
                                 text = "অন্বেষণ ও সংগ্রহ",
                                 fontFamily = Kalpurush,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 19.sp,
-                                lineHeight = 22.sp,
+                                fontSize = textSize(19),
+                                lineHeight = textSize(22),
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -156,8 +156,8 @@ fun ExploreScreen(
                             Text(
                                 text = "বিভাগ, লেখক, বার্ষিক সংখ্যা ও নির্বাচিত লেখা",
                                 fontFamily = Kalpurush,
-                                fontSize = 12.sp,
-                                lineHeight = 14.sp,
+                                fontSize = textSize(12),
+                                lineHeight = textSize(14),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -286,7 +286,7 @@ private fun ExploreTabStrip(
                             fontFamily = Kalpurush,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                             color = tint,
-                            fontSize = 14.sp,
+                            fontSize = textSize(14),
                             maxLines = 1
                         )
                     }
@@ -406,7 +406,7 @@ private fun PopularArticleRow(article: ArticleSummary, onClick: () -> Unit) {
                 Text(
                     text = if (article.isSpecial) "নির্বাচিত লেখা" else "ফিচার্ড",
                     fontFamily = Kalpurush,
-                    fontSize = 11.sp,
+                    fontSize = textSize(11),
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -425,7 +425,7 @@ private fun CountChip(text: String) {
         Text(
             text = text,
             fontFamily = Kalpurush,
-            fontSize = 11.sp,
+            fontSize = textSize(11),
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -469,7 +469,7 @@ private fun CategoryFacetCard(facet: CategoryFacet, onClick: () -> Unit) {
                     text = category.title,
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
+                    fontSize = textSize(16),
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -477,8 +477,8 @@ private fun CategoryFacetCard(facet: CategoryFacet, onClick: () -> Unit) {
                 Text(
                     text = category.subTitle.ifBlank { "${category.title} বিষয়ে প্রকাশিত প্রবন্ধসমূহ" },
                     fontFamily = Kalpurush,
-                    fontSize = 12.sp,
-                    lineHeight = 17.sp,
+                    fontSize = textSize(12),
+                    lineHeight = textSize(17),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -532,7 +532,7 @@ private fun AuthorFacetCard(facet: AuthorFacet, onClick: () -> Unit) {
                         text = author.name,
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
+                        fontSize = textSize(15),
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -547,7 +547,7 @@ private fun AuthorFacetCard(facet: AuthorFacet, onClick: () -> Unit) {
                     Text(
                         text = author.designation,
                         fontFamily = Kalpurush,
-                        fontSize = 12.sp,
+                        fontSize = textSize(12),
                         color = MaterialTheme.colorScheme.primary,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
@@ -568,7 +568,7 @@ private fun AuthorFacetCard(facet: AuthorFacet, onClick: () -> Unit) {
                         text = "${IssueTags.toBengaliDigits(facet.articleCount)}টি প্রবন্ধ" +
                             if (author.location.isNotBlank()) " • ${author.location}" else "",
                         fontFamily = Kalpurush,
-                        fontSize = 11.sp,
+                        fontSize = textSize(11),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -621,7 +621,7 @@ private fun IssueCard(issue: IssueSummary, onClick: () -> Unit) {
                         text = issue.bengaliYear,
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Black,
-                        fontSize = 13.sp,
+                        fontSize = textSize(13),
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
@@ -631,13 +631,13 @@ private fun IssueCard(issue: IssueSummary, onClick: () -> Unit) {
                     text = issue.label,
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
+                    fontSize = textSize(16),
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = "বার্ষিক সংখ্যা • ${issue.bengaliYear} সালে প্রকাশিত লেখাসমূহ",
                     fontFamily = Kalpurush,
-                    fontSize = 12.sp,
+                    fontSize = textSize(12),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis

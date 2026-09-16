@@ -63,7 +63,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.ningshingche.app.R
@@ -71,6 +70,7 @@ import com.ningshingche.app.data.model.Article
 import com.ningshingche.app.data.model.ArticleCitation
 import com.ningshingche.app.data.model.PdfDocument
 import com.ningshingche.app.data.repository.NinghsingCheContentData
+import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.Kalpurush
 
 /**
@@ -221,7 +221,7 @@ fun ArticleListItemCard(
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 10.sp
+                            fontSize = textSize(10)
                         )
                     )
                     Text(
@@ -238,7 +238,7 @@ fun ArticleListItemCard(
                         text = "${article.readingTimeMinutes} মি.",
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 10.sp
+                            fontSize = textSize(10)
                         )
                     )
                 }
@@ -249,8 +249,8 @@ fun ArticleListItemCard(
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 14.sp,
-                        lineHeight = 20.sp
+                        fontSize = textSize(14),
+                        lineHeight = textSize(20)
                     ),
                     maxLines = 2,
                     minLines = 2,
@@ -271,7 +271,7 @@ fun ArticleListItemCard(
                         text = "${article.authorName} • ${article.publishedDate}",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 11.sp
+                            fontSize = textSize(11)
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -352,7 +352,7 @@ fun AiSourceCitationCard(
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 13.sp
+                        fontSize = textSize(13)
                     ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -361,7 +361,7 @@ fun AiSourceCitationCard(
                     text = "${citation.author} • ${citation.category}",
                     style = MaterialTheme.typography.bodySmall.copy(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp
+                        fontSize = textSize(11)
                     ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis

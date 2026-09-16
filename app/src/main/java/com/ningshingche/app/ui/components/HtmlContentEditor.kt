@@ -67,7 +67,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.ningshingche.app.data.remote.ImgBbUploader
+import com.ningshingche.app.ui.theme.APP_TEXT_SCALE
 import com.ningshingche.app.ui.theme.Kalpurush
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
@@ -677,6 +679,11 @@ private fun editorHtml(
     val fg = hexColor(fgArgb)
     val accent = hexColor(accentArgb)
     val onAccent = hexColor(onAccentArgb)
+    // The page's own type, on the same dial as the rest of the app: a reader
+    // writing a reply should be looking at the size they will read it at. The
+    // WebView is not Compose, so the scale arrives as pixels.
+    val bodyPx = (16f * APP_TEXT_SCALE).roundToInt()
+    val barPx = (13f * APP_TEXT_SCALE).roundToInt()
     return """
         <!DOCTYPE html>
         <html>
@@ -685,7 +692,7 @@ private fun editorHtml(
           <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
           <style>
             $fontFaceCss
-            html,body { margin:0; padding:0; background:$bg; color:$fg; font-size:16px; height:100%;
+            html,body { margin:0; padding:0; background:$bg; color:$fg; font-size:${bodyPx}px; height:100%;
               font-family:'Kalpurush', sans-serif !important;
               -webkit-touch-callout:none; -webkit-user-select:text; user-select:text; }
             body { position:relative; }
@@ -702,7 +709,7 @@ private fun editorHtml(
             }
             #selbar button {
               color:#fff; background:transparent; border:0; border-radius:7px;
-              padding:7px 9px; font-weight:700; font-size:13px;
+              padding:7px 9px; font-weight:700; font-size:${barPx}px;
             }
             #selbar button:active { background:rgba(255,255,255,.15); }
             /* A format that is already on, in the reader's own accent and its ink.
