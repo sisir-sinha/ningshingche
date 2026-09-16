@@ -163,6 +163,11 @@ fun HtmlContentEditor(
     var lastEmitted by remember { mutableStateOf("") }
     var lastPushed by remember { mutableStateOf("") }
     var uploading by remember { mutableStateOf(false) }
+    // Which formats the caret is inside, as the page last reported them —
+    // "bold,italic" and so on. A formatter button with a background is a button
+    // whose format is already on where the reader is writing, which is the one
+    // question a toolbar cannot answer about itself.
+    var activeFormats by remember { mutableStateOf(emptySet<String>()) }
     var uploadError by remember { mutableStateOf<String?>(null) }
     // What the box measures: the caller's height is the floor, what the reader
     // has written raises it, and `maxGrow` is the ceiling beyond which the box
@@ -263,12 +268,24 @@ fun HtmlContentEditor(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (!htmlMode) {
-                    ToolIcon("মোটা", Icons.Default.FormatBold, compact) { run("bold") }
-                    ToolIcon("বাঁকা", Icons.Default.FormatItalic, compact) { run("italic") }
-                    ToolIcon("নিচে দাগ", Icons.Default.FormatUnderlined, compact) { run("underline") }
-                    ToolIcon("তালিকা", Icons.AutoMirrored.Filled.FormatListBulleted, compact) {
-                        run("insertUnorderedList")
+                    ToolIcon("মোটা", Icons.Default.FormatBold, compact, "bold" in activeFormats) {
+                        run("bold")
                     }
+                    ToolIcon("বাঁকা", Icons.Default.FormatItalic, compact, "italic" in activeFormats) {
+                        run("italic")
+                    }
+                    ToolIcon(
+                        "নিচে দাগ",
+                        Icons.Default.FormatUnderlined,
+                        compact,
+                        "underline" in activeFormats
+                    ) { run("underline") }
+                    ToolIcon(
+                        "তালিকা",
+                        Icons.AutoMirrored.Filled.FormatListBulleted,
+                        compact,
+                        "insertUnorderedList" in activeFormats
+                    ) { run("insertUnorderedList") }
                     if (!compact) {
                         ToolIcon("পেস্ট", Icons.Default.ContentPaste) { pasteClipboard() }
                     }
@@ -331,6 +348,7 @@ fun HtmlContentEditor(
             val onSurface = MaterialTheme.colorScheme.onSurface
             val outline = MaterialTheme.colorScheme.outline
             val accent = MaterialTheme.colorScheme.primary
+            val onAccent = MaterialTheme.colorScheme.onPrimary
             Box {
                 AndroidView(
                     modifier = Modifier
@@ -375,6 +393,14 @@ fun HtmlContentEditor(
                                             // has asked for a fixed box.
                                             if (autoGrow) contentHeight = measured.coerceIn(0, 720)
                                         }
+                                    },
+                                    emitFormats = { csv ->
+                                        post {
+                                            activeFormats = csv.split(',')
+                                                .map { it.trim() }
+                                                .filter { it.isNotEmpty() }
+                                                .toSet()
+                                        }
                                     }
                                 ),
                                 "Android"
@@ -414,6 +440,7 @@ fun HtmlContentEditor(
                                     background.toArgb(),
                                     onSurface.toArgb(),
                                     accent.toArgb(),
+                                    onAccent.toArgb(),
                                     KalpurushWebFont.css(viewContext),
                                     selectionPopup,
                                     placeholder
@@ -514,23 +541,58 @@ fun HtmlContentEditor(
  * One toolbar button. [compact] shrinks it: the reply box is a strip at the
  * bottom of the screen, and three 40 dp buttons over a 96 dp box would be most
  * of the box.
+ *
+ * [active] is whether the format the button applies is already on at the caret,
+ * and the button says so with a filled background. It is filled with the theme's
+ * **accent and its own ink** — `colorScheme.primary` and `onPrimary` — which is
+ * the pair `EditorialPalettes` derives to 4.5:1 or better for every preset and
+ * every position of the custom wheel, and which
+ * `backend/tests/app-theme-palette.test.cjs` computes at exactly that ratio
+ * rather than trusting the derivation. The softer accent tint would have been
+ * prettier and is not used: walked over the whole wheel it drops to **4.27:1**
+ * against the accent on the light side, and a toolbar a reader cannot read is
+ * not a toolbar.
  */
 @Composable
 private fun ToolIcon(
     label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     compact: Boolean = false,
+    active: Boolean = false,
     onClick: () -> Unit
 ) {
-    IconButton(onClick = onClick, modifier = Modifier.size(if (compact) 30.dp else 40.dp)) {
-        Icon(icon, contentDescription = label, modifier = Modifier.size(if (compact) 16.dp else 20.dp))
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(if (compact) 30.dp else 40.dp)
+            .then(
+                if (active) {
+                    Modifier
+                        .clip(RoundedCornerShape(if (compact) 9.dp else 11.dp))
+                        .background(MaterialTheme.colorScheme.primary)
+                } else {
+                    Modifier
+                }
+            )
+    ) {
+        Icon(
+            icon,
+            contentDescription = label,
+            tint = if (active) {
+                MaterialTheme.colorScheme.onPrimary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            modifier = Modifier.size(if (compact) 16.dp else 20.dp)
+        )
     }
 }
 
 private class HtmlBridge(
     private val host: WebView,
     private val emit: (String) -> Unit,
-    private val emitHeight: (Int) -> Unit
+    private val emitHeight: (Int) -> Unit,
+    private val emitFormats: (String) -> Unit
 ) {
     @JavascriptInterface
     fun onHtml(html: String) {
@@ -541,6 +603,16 @@ private class HtmlBridge(
     @JavascriptInterface
     fun onHeight(px: Int) {
         host.post { emitHeight(px) }
+    }
+
+    /**
+     * The formats that are on at the caret, as a comma-separated list — the one
+     * thing the toolbar cannot see for itself, because the caret lives in the
+     * page. Empty means nothing is on.
+     */
+    @JavascriptInterface
+    fun onFormats(csv: String) {
+        host.post { emitFormats(csv) }
     }
 }
 
@@ -596,6 +668,7 @@ private fun editorHtml(
     bgArgb: Int,
     fgArgb: Int,
     accentArgb: Int,
+    onAccentArgb: Int,
     fontFaceCss: String,
     selectionPopup: Boolean = true,
     placeholder: String = "লেখা লিখুন… নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি, কাট ও পেস্ট আসবে।"
@@ -603,6 +676,7 @@ private fun editorHtml(
     val bg = hexColor(bgArgb)
     val fg = hexColor(fgArgb)
     val accent = hexColor(accentArgb)
+    val onAccent = hexColor(onAccentArgb)
     return """
         <!DOCTYPE html>
         <html>
@@ -631,6 +705,10 @@ private fun editorHtml(
               padding:7px 9px; font-weight:700; font-size:13px;
             }
             #selbar button:active { background:rgba(255,255,255,.15); }
+            /* A format that is already on, in the reader's own accent and its ink.
+               :active above stays as it is: one is "you are pressing this", the
+               other is "this is already true where the caret is". */
+            #selbar button.on { background:$accent; color:$onAccent; }
           </style>
         </head>
         <body>
@@ -666,12 +744,50 @@ private fun editorHtml(
               flushPending();
               saveSelection();
             });
+            // The four the toolbar toggles. Copy, cut and paste are actions, not
+            // states: there is no such thing as "the caret is inside a paste", so
+            // they are never asked about and never light up.
+            const FORMAT_CMDS = ['bold','italic','underline','insertUnorderedList'];
+            // What the toolbar was last told, so a caret moving through a line of
+            // ordinary text does not cross the bridge on every keystroke.
+            var lastFormats = null;
             function saveSelection(){
               if (composing) return;
               const sel = window.getSelection();
               if (sel && sel.rangeCount > 0 && e.contains(sel.anchorNode)) {
                 lastRange = sel.getRangeAt(0).cloneRange();
               }
+              reportFormats();
+            }
+            /**
+             * What is on at the caret, told to both bars at once: the little bar
+             * that is drawn here, and the app's toolbar on the other side of the
+             * bridge. queryCommandState is the page's own answer, and it is read
+             * at the caret rather than at the last range — a caret inside a <b>
+             * with nothing selected is bold, which is the whole point.
+             */
+            function reportFormats(){
+              // Mid-composition the DOM and the selection belong to the Bengali
+              // keyboard, so nothing here reads either of them; the answer that
+              // was already being shown stays until the word is finished.
+              if (composing) return;
+              var on = [];
+              for (var i = 0; i < FORMAT_CMDS.length; i++){
+                var active = false;
+                try { active = document.queryCommandState(FORMAT_CMDS[i]); }
+                catch (err) { active = false; }
+                if (active) on.push(FORMAT_CMDS[i]);
+              }
+              var buttons = document.querySelectorAll('#selbar [data-cmd]');
+              for (var k = 0; k < buttons.length; k++){
+                var cmd = buttons[k].getAttribute('data-cmd');
+                var toggles = FORMAT_CMDS.indexOf(cmd) >= 0;
+                buttons[k].classList.toggle('on', toggles && on.indexOf(cmd) >= 0);
+              }
+              const csv = on.join(',');
+              if (csv === lastFormats) return;
+              lastFormats = csv;
+              if (window.Android && Android.onFormats) Android.onFormats(csv);
             }
             function restoreSelection(){
               if (!lastRange) return;
@@ -712,6 +828,10 @@ private fun editorHtml(
               try { done = document.execCommand(cmd, false, arg === undefined ? null : arg); }
               catch (err) { done = false; }
               if (!composing) saveSelection();
+              // saveSelection said what was on before the command ran, or said
+              // nothing at all mid-composition; either way this is the answer the
+              // button that was just pressed has to show.
+              reportFormats();
               emit();
               grow();
               return done;
@@ -746,6 +866,7 @@ private fun editorHtml(
               lastRange = null;
               if (document.activeElement !== e) placeCaretAtEnd();
               grow();
+              reportFormats();
             }
             // A value from the caller. Refused while the reader is composing or
             // has the caret in the box — the app clears the box *after* blurring
@@ -773,6 +894,9 @@ private fun editorHtml(
               lastRange = null;
               if (e.innerHTML !== '') e.innerHTML = '';
               grow();
+              // Emptied: nothing is on anywhere, and the toolbar has to stop
+              // showing a format the reader is no longer inside.
+              reportFormats();
             };
             function flushPending(){
               if (pendingHtml === null) return;

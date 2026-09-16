@@ -1697,6 +1697,29 @@ Room-backed offline cache are the next increment. The components in
 `ui/reader/ReaderViewModels.kt` are already shared, so those screens are mostly
 layout.
 
+### 17.3 The formatter buttons say what is already on
+
+A formatter button had two states and showed one: bold, italic, underline and the bullet list looked
+the same whether or not the caret was inside that format, so a reader could not tell what the word they
+were about to type would look like.
+
+The answer can only come from the page — `document.queryCommandState` at the caret, which is true for a
+caret *inside* a `<b>` with nothing selected, not just for a selected run of bold text. So the page
+reports it: `reportFormats()` collects the four, fills the little selection bar's own buttons
+(`#selbar button.on`), and crosses the bridge once per **change** through `Android.onFormats(csv)`.
+`HtmlContentEditor` keeps the list (`activeFormats`) and passes `"bold" in activeFormats` to each
+`ToolIcon`, which fills with `colorScheme.primary` and inks the icon `onPrimary` when its format is on.
+Copy, cut and paste are actions rather than states and never light up, and nothing at all is read while
+a Bengali word is being composed — the DOM and the selection belong to the keyboard until it is
+finished, which is the rule the rest of that page already follows.
+
+The fill is the accent-on-accent pair because that pair is **measured**: `onAccent` on `accent` is held
+at 4.5:1 or better for every preset and every one of the 240 positions of the custom colour wheel by
+`backend/tests/app-theme-palette.test.cjs`, which computes the WCAG ratio rather than trusting the
+derivation. The softer `accentSoft` tint was the obvious prettier choice and was walked over the whole
+wheel before it was rejected: it falls to **4.27:1** against the accent on the light side, which is a
+toolbar a reader cannot read.
+
 ---
 
 *Generated from `app/` on branch `main`. Server contract: [`backend/API.md`](./backend/API.md).

@@ -159,15 +159,22 @@ test('the formatting buttons actually reach the caret', async (t) => {
 test('the compact toolbar is four buttons and no picture button', async (t) => {
   await t.test('bold, italic, underline and the list', () => {
     const editor = editorSource();
+    // Re-anchored: each button is also told whether its format is already on at
+    // the caret — the background the owner asked for — so the calls are longer
+    // and some are wrapped. The buttons themselves are unchanged, and the
+    // flattened source is matched with the same precision as before.
+    // A wrapped call puts a line break where the label used to follow the bracket,
+    // so both kinds of whitespace are squashed before the label is looked for.
+    const flat = editor.replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
     for (const button of ['মোটা', 'বাঁকা', 'নিচে দাগ', 'তালিকা']) {
-      assert.ok(editor.includes(`ToolIcon("${button}"`), `${button} is in the row`);
+      assert.ok(flat.includes(`ToolIcon("${button}"`), `${button} is in the row`);
     }
-    assert.match(editor, /Icons\.Default\.FormatBold, compact\) \{ run\("bold"\) \}/);
-    assert.match(editor, /Icons\.Default\.FormatItalic, compact\) \{ run\("italic"\) \}/);
-    assert.match(editor, /Icons\.Default\.FormatUnderlined, compact\) \{ run\("underline"\) \}/);
+    assert.match(flat, /Icons\.Default\.FormatBold, compact, "bold" in activeFormats\) \{ run\("bold"\) \}/);
+    assert.match(flat, /Icons\.Default\.FormatItalic, compact, "italic" in activeFormats\) \{ run\("italic"\) \}/);
+    assert.match(flat, /Icons\.Default\.FormatUnderlined, compact, "underline" in activeFormats\) \{ run\("underline"\) \}/);
     // Re-anchored: the list icon moved to the AutoMirrored family in icons 1.7,
     // where the filled one is deprecated.
-    assert.match(editor, /Icons\.AutoMirrored\.Filled\.FormatListBulleted, compact\) \{\s*run\("insertUnorderedList"\)\s*\}/);
+    assert.match(flat, /Icons\.AutoMirrored\.Filled\.FormatListBulleted, compact, "insertUnorderedList" in activeFormats\) \{ run\("insertUnorderedList"\) \}/);
   });
 
   await t.test('and the picture is not among them', () => {

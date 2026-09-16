@@ -350,8 +350,11 @@ test('the reply box is a strip at the bottom of the thread', async (t) => {
       FORUM_EDITOR.indexOf('private class HtmlBridge(')
     );
     assert.match(tool, /compact: Boolean = false/, 'the button knows its shape');
-    assert.match(tool, /Modifier\.size\(if \(compact\) 30\.dp else 40\.dp\)/, 'a 30 dp button');
-    assert.match(tool, /Modifier\.size\(if \(compact\) 16\.dp else 20\.dp\)/, 'with a 16 dp icon');
+    // Re-anchored: the size is now the first term of a modifier chain that may add
+    // the active fill behind it, so the chain is flattened before it is matched.
+    const flat = tool.replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
+    assert.match(flat, /Modifier \.size\(if \(compact\) 30\.dp else 40\.dp\)/, 'a 30 dp button');
+    assert.match(flat, /Modifier\.size\(if \(compact\) 16\.dp else 20\.dp\)/, 'with a 16 dp icon');
   });
 
   await t.test('Back puts the keyboard away first', () => {
@@ -508,13 +511,19 @@ test('the editor grows with the writing and pictures are attached, not typed', a
 
   await t.test('the toolbar is the four the owner listed', () => {
     const editor = editorSource();
+    // Re-anchored: the buttons are told whether their format is on at the caret,
+    // so a call is no longer one line — flattened, and read the same way.
+    // A wrapped call puts a line break where the label used to follow the bracket,
+    // so both kinds of whitespace are squashed before the label is looked for.
+    const flat = editor.replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
     for (const button of ['মোটা', 'বাঁকা', 'তালিকা']) {
-      assert.ok(editor.includes(`ToolIcon("${button}",`), `${button} is in the toolbar`);
+      assert.ok(flat.includes(`ToolIcon("${button}"`), `${button} is in the toolbar`);
     }
-    // Re-anchored for the AutoMirrored icon (icons 1.7 deprecates the filled one).
-    assert.match(editor, /Icons\.AutoMirrored\.Filled\.FormatListBulleted, compact\) \{\s*run\("insertUnorderedList"\)\s*\}/,
+    // Re-anchored for the AutoMirrored icon (icons 1.7 deprecates the filled one)
+    // and for the active flag the list button is now told.
+    assert.match(flat, /Icons\.AutoMirrored\.Filled\.FormatListBulleted, compact, "insertUnorderedList" in activeFormats\) \{ run\("insertUnorderedList"\) \}/,
       'the list button inserts a list');
-    assert.match(editor, /Icons\.Default\.FormatBold, compact\)/,
+    assert.match(flat, /Icons\.Default\.FormatBold, compact, "bold" in activeFormats\)/,
       'the bold button is the small one when the box is the small one');
   });
 });

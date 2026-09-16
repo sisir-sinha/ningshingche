@@ -245,16 +245,23 @@ test('a new thread can carry a cover, and its body has a toolbar', async (t) => 
   });
 
   await t.test('the toolbar has the five the owner asked for, and the rest is gone', () => {
+    // Re-anchored: a formatter button is passed whether its format is on at the
+    // caret, so its call is no longer one line — the labels are read off the
+    // flattened source, which is the same assertion in a shape that survives it.
+    // A wrapped call puts a line break where the label used to follow the bracket,
+    // so both kinds of whitespace are squashed before the label is looked for.
+    const flat = FORUM_EDITOR.replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
     for (const button of ['মোটা', 'বাঁকা', 'নিচে দাগ', 'তালিকা', 'ছবি যোগ']) {
-      assert.ok(FORUM_EDITOR.includes(`ToolIcon("${button}"`), `${button} is in the toolbar`);
+      assert.ok(flat.includes(`ToolIcon("${button}"`), `${button} is in the toolbar`);
     }
-    // Re-anchored for the AutoMirrored icon (icons 1.7 deprecates the filled one).
-    assert.match(FORUM_EDITOR, /Icons\.AutoMirrored\.Filled\.FormatListBulleted, compact\) \{\s*run\("insertUnorderedList"\)\s*\}/,
+    // Re-anchored for the AutoMirrored icon (icons 1.7 deprecates the filled one)
+    // and for the active flag the list button is now told.
+    assert.match(flat, /Icons\.AutoMirrored\.Filled\.FormatListBulleted, compact, "insertUnorderedList" in activeFormats\) \{ run\("insertUnorderedList"\) \}/,
       'the list button inserts a list');
     const compact = FORUM_EDITOR.slice(FORUM_EDITOR.indexOf('if (!compact) {'));
     assert.match(compact, /if \(!compact\)/, 'the article-only controls are conditional');
     for (const control of ['মোটা', 'বাঁকা', 'নিচে দাগ']) {
-      assert.ok(FORUM_EDITOR.includes(`ToolIcon("${control}"`), `${control} stays in both`);
+      assert.ok(flat.includes(`ToolIcon("${control}"`), `${control} stays in both`);
     }
   });
 
