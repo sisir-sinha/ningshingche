@@ -71,25 +71,23 @@ fun translate(table: TranslationTable, bengali: String, vararg args: Any?): Stri
     return filled
 }
 
-@Composable
-@ReadOnlyComposable
-fun t(bengali: String, vararg args: Any?): String =
-    translate(LocalTranslations.current, bengali, *args)
+fun t(bengali: String, vararg args: Any?): String = tNow(bengali, *args)
 
 /**
- * The same lookup where a composable is not allowed.
+ * The lookup itself: Bengali source text in, the reader's language out.
  *
- * Most of the app can call [t] — it reads the composition, so a language swap
- * redraws the screens that used it. Some places cannot: an `onClick` body, a
- * `LaunchedEffect`, a coroutine, a data class's `toString`, and the view models
- * that build the message a screen later shows. Compose forbids a composable call
- * in any of those, and the alternative — translating the message at the screen
- * instead — would mean every message in the app being rebuilt one at a time.
+ * It is deliberately a plain function and not a composable. The app says
+ * `t("…")` everywhere — in a screen, in an `onClick` body, in a `LaunchedEffect`,
+ * in a view model that builds the message a screen shows later, in a data class's
+ * `toString`. Only some of those are places a composable may be called from, and
+ * a call site that is wrong in that way is a build failure, not a fallback. One
+ * plain function cannot be wrong anywhere.
  *
- * So the table is also kept here, installed by [Translations.install] on every
- * composition of the app's root. `tNow("…")` is a plain function call and works
- * anywhere. Messages built at the moment an event happens (a tap, a failed
- * request) are read exactly once and are therefore never stale.
+ * Recomposition is the app's job instead, and it is done at the root: the reader
+ * host reads the table and keys the navigation graph on it, so a language swap
+ * rebuilds every screen — and the app's root recomposes whenever the table
+ * changes, which redraws everything outside the graph as well. The table itself
+ * lives in [Translations], installed by [Translations.install] from the root.
  */
 fun tNow(bengali: String, vararg args: Any?): String =
     translate(Translations.current, bengali, *args)

@@ -51,8 +51,8 @@ import com.ningshingche.app.ui.i18n.tNow
  * the moment an editor fills those columns in, without needing a code change.
  */
 object SiteContact {
-    const val TAGLINE = tNow("বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ")
-    const val ADDRESS = tNow("তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট")
+    val TAGLINE: String get() = tNow("বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ")
+    val ADDRESS: String get() = tNow("তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট")
     const val MAPS_URL = "https://maps.app.goo.gl/1SmaUj5kGPYgP7gJA"
     const val PHONE = "+880 9638-781890"
     const val PHONE_URI = "tel:+8809638781890"
@@ -67,7 +67,7 @@ object SiteContact {
     const val PLAY_STORE_URL =
         "https://play.google.com/store/apps/details?id=com.shakilsoftltd.ningshingche"
     const val DEVELOPER_URL = "https://kehem.com/"
-    const val DEVELOPER_NAME = tNow("কেহেম আইটি")
+    val DEVELOPER_NAME: String get() = tNow("কেহেম আইটি")
 
     /** API value first, published site value second. */
     fun resolve(settings: SiteSettings) = Resolved(

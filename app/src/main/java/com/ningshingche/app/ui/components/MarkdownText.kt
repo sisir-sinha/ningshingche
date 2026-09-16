@@ -72,7 +72,7 @@ fun HtmlFormattedText(
     modifier: Modifier = Modifier,
     baseTextColor: Color = MaterialTheme.colorScheme.onSurface,
     fontSize: TextUnit = textSize(14),
-    lineHeight: TextUnit = textSize(22),
+    lineHeight: TextUnit = leading(14),
     linkColor: Color = MaterialTheme.colorScheme.primary,
     maxLines: Int = Int.MAX_VALUE,
     overflow: TextOverflow = TextOverflow.Clip
@@ -138,7 +138,7 @@ fun parseHtmlToAnnotatedString(
                     addStyle(SpanStyle(color = Color(span.foregroundColor)), start, end)
                 }
                 is RelativeSizeSpan -> {
-                    addStyle(SpanStyle(fontSize = textSize(14f * span.sizeChange), lineHeight = leading(14f * span.sizeChange)), start, end)
+                    addStyle(SpanStyle(fontSize = textSize(14f * span.sizeChange)), start, end)
                 }
                 is URLSpan -> {
                     addStyle(
@@ -177,7 +177,7 @@ fun MarkdownFormattedText(
     modifier: Modifier = Modifier,
     baseTextColor: Color = MaterialTheme.colorScheme.onSurface,
     fontSize: TextUnit = textSize(14),
-    lineHeight: TextUnit = textSize(22),
+    lineHeight: TextUnit = leading(14),
     onLinkClick: (String) -> Unit = {}
 ) {
     val blocks = remember(markdown) { parseMarkdownBlocks(markdown) }

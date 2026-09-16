@@ -555,8 +555,7 @@ fun ChatMessageItem(
                                             color = MaterialTheme.colorScheme.onSurface,
                                             fontSize = textSize(12),
                                             lineHeight = leading(12),
-                                            fontWeight = FontWeight.Medium,
-                                            lineHeight = textSize(17)
+                                            fontWeight = FontWeight.Medium
                                         ),
                                         modifier = Modifier.weight(1f)
                                     )

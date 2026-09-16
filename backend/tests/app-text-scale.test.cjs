@@ -241,6 +241,10 @@ test('every text states its leading, so no line box is inherited', () => {
     lines.forEach((line, index) => {
       if (!/fontSize = textSize\(/.test(line)) return;
       if (/^\s*(\/\/|\*|\/\*)/.test(line)) return;
+      // A span sizes text; it has no line box of its own. `SpanStyle` is the one
+      // place a size legitimately stands alone — a `RelativeSizeSpan` in the
+      // article renderer, a highlight, a link.
+      if (/SpanStyle\(/.test(line)) return;
       const window = `${line}\n${lines[index + 1] ?? ''}`;
       if (!/lineHeight\s*=/.test(window)) loose.push(`${rel}:${index + 1}`);
     });
