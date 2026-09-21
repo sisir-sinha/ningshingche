@@ -1,5 +1,5 @@
 # Ningshing Che — Project Study Report (Phase 9)
-**Date:** 2026-09-22 | **Branch:** main | **HEAD:** 75d4364 (app 1.14.11 / 33, site 1.9.6)
+**Date:** 2026-09-22 | **Branch:** main | **HEAD:** (app 1.14.12 / 34, site 1.9.6)
 
 ---
 
@@ -128,8 +128,12 @@ When interfacing with Supabase via PostgREST, the following rules must strictly 
 
 ---
 
-## 6. Test Suite & Validation Health
+## 6. Test Suite & Build Validation Health
 
+- **Full Gradle Build Validation:**
+  - Command: `./gradlew assembleDebug`
+  - Output: `app/build/outputs/apk/debug/app-debug.apk` (34.5 MB) generated successfully with **0 compiler errors**.
+  - Verified graceful fallback in `app/build.gradle.kts` for `debugConfig` so builds succeed seamlessly in clean environments without requiring a local `debug.keystore`.
 - **Node.js Automated Test Suite:**
   - Command: `node --test $(ls backend/tests/*.cjs | grep -v '\.browser\.cjs')`
   - Results: **575 passed / 0 failed / 0 skipped** across 234 test groups.
