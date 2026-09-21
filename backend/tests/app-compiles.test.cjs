@@ -525,3 +525,42 @@ test('the missing-import checker finds one, and leaves its neighbours alone', ()
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('the four symbols the owner\'s build could not resolve are there, by name', () => {
+  // The build log, verbatim — the reason this file exists at all:
+  //
+  //   ArticleRepository.kt:508:52      Unresolved reference 'toBengaliDigits'
+  //   HomeScreen.kt:77,257             Unresolved reference 'HomeSkeletonLayout'
+  //   AiAssistantScreen.kt:72,140      Unresolved reference 'AiAssistantSkeletonLayout'
+  //   ExploreScreen.kt:66,209          Unresolved reference 'ExploreSkeletonLayout'
+  //
+  // Each of those is pinned by name here, so that if one is ever moved or removed
+  // again the failure is a test in this suite and not a build in the owner's
+  // terminal. (Note the line number: the call moved from 508 to 509 when it
+  // stopped going through the website client — a build log quoting 508 is a build
+  // of a tree that predates the fix.)
+
+  const readText = (...parts) => fs.readFileSync(path.join(APP, ...parts), 'utf8');
+  const repository = readText('data', 'repository', 'ArticleRepository.kt');
+  assert.match(repository, /^import com\.ningshingche\.app\.util\.toBengaliDigits$/m,
+    'the repository imports the one implementation of the numerals');
+  assert.match(repository, /val bn = toBengaliDigits\(year\)/,
+    'and calls it directly');
+  assert.doesNotMatch(repository, /NingshingCheWebsiteClient\.toBengaliDigits/,
+    'not through the website client, which no longer has it');
+
+  const shimmer = readText('ui', 'components', 'SkeletonShimmer.kt');
+  assert.match(shimmer, /fun Modifier\.shimmerEffect\(/, 'the shimmer is here');
+  for (const [name, parts] of [
+    ['HomeSkeletonLayout', ['ui', 'reader', 'HomeScreen.kt']],
+    ['AiAssistantSkeletonLayout', ['ui', 'screens', 'AiAssistantScreen.kt']],
+    ['ExploreSkeletonLayout', ['ui', 'screens', 'ExploreScreen.kt']],
+  ]) {
+    const screen = parts[parts.length - 1];
+    assert.match(shimmer, new RegExp(`fun ${name}\\(`), `${name} is declared`);
+    const text = readText(...parts);
+    assert.match(text, new RegExp(`import com\\.ningshingche\\.app\\.ui\\.components\\.${name}`),
+      `${screen} imports it`);
+    assert.match(text, new RegExp(`\\b${name}\\(\\)`), `${screen} calls it`);
+  }
+});
