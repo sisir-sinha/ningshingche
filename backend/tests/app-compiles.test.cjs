@@ -273,7 +273,7 @@ const KOTLIN_MODIFIERS =
 function declarationRegex(topLevelOnly) {
   return new RegExp(
     '^' + (topLevelOnly ? '' : '\\s*') + KOTLIN_MODIFIERS +
-    '(?:fun|val|var|class|object|interface|typealias)\\s+(?:<[^>]*>\\s*)?(?:[\\w.<>,?\\[\\] ]*?\\.)?(\\w+)\\s*[(:<>{,=]',
+    '(?:fun|val|var|class|object|interface|typealias)\\s+(?:<[^>]*>\\s*)?(?:[\\w.<>,?\\[\\] ]*?\\.)?(\\w+)\\s*[(:<>{,=\n]',
     'gm');
 }
 
@@ -380,6 +380,51 @@ function relFrom(rootDir, file) {
   return path.relative(rootDir, file).split(path.sep).join('/');
 }
 
+/** Capitalised app types used as a receiver in a file that never imports them. */
+function missingImports(rootDir) {
+  const problems = [];
+  const files = kotlinFiles(rootDir).map((file) => ({ file, text: masked(fs.readFileSync(file, 'utf8')) }));
+  const pkgOf = new Map();
+  const appsNamed = new Map();            // leaf name -> the package that declares it
+  const byPackage = new Map();            // package -> Set(names)
+  for (const { file, text } of files) {
+    const pkg = /^package\s+([\w.]+)/m.exec(text);
+    if (!pkg) continue;
+    pkgOf.set(file, pkg[1]);
+    const re = declarationRegex(true);
+    const names = new Set();
+    let m;
+    while ((m = re.exec(text)) !== null) names.add(m[1]);
+    if (!byPackage.has(pkg[1])) byPackage.set(pkg[1], new Set());
+    for (const name of names) byPackage.get(pkg[1]).add(name);
+  }
+  for (const [pkg, names] of byPackage) {
+    for (const name of names) if (!appsNamed.has(name)) appsNamed.set(name, pkg);
+  }
+  for (const { file, text } of files) {
+    const pkg = pkgOf.get(file);
+    if (!pkg) continue;
+    // A name declared anywhere in this file resolves here — including a nested
+    // `private const val`, which is not a top-level declaration of the package.
+    const own = new Set(byPackage.get(pkg) || []);
+    const localRe = declarationRegex(false);
+    let local;
+    while ((local = localRe.exec(text)) !== null) own.add(local[1]);
+    const imports = [...text.matchAll(/^import\s+([\w.]+)(?:\s+as\s+\w+)?\s*$/gm)].map((m) => m[1]);
+    if (imports.some((i) => i.endsWith('.*'))) continue;          // a star import hides the answer
+    const named = new Set(imports.filter((i) => !i.endsWith('.*')).map((i) => i.split('.').pop()));
+    const seen = new Set();
+    for (const m of text.matchAll(/(?<![\w.])([A-Z]\w*)\s*\./g)) {
+      const name = m[1];
+      if (seen.has(name) || own.has(name) || named.has(name)) continue;
+      if (!appsNamed.has(name)) continue;                          // not an app type: library, generic, JDK
+      seen.add(name);
+      problems.push(`${relFrom(rootDir, file)}:${lineOf(text, m.index)}: ${name} is declared in ${appsNamed.get(name)} but is never imported`);
+    }
+  }
+  return problems;
+}
+
 test('every import names something the app still declares', () => {
   // The build stops dead on one of these; the message is the compiler's, given
   // early. Two batches in a row shipped one.
@@ -430,6 +475,52 @@ test('the reference checker finds a dangling import and a removed member', () =>
     assert.ok(problems.some((p) => p.includes('import com.ningshingche.app.a.Gone')), 'the dangling import is reported');
     assert.ok(problems.some((p) => p.includes('Thing.removed(')), 'the removed member is reported');
     assert.ok(!problems.some((p) => p.includes('present') || p.includes('Thing.alive')), 'the good references are not');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a type used from another package is imported', () => {
+  // The third shape of the same mistake: a call site left behind when a symbol
+  // moves package. Kotlin says nothing about it until the build, and the build is
+  // the owner's. A capitalised name used as a receiver (`PanelInk` in
+  // `PanelInk.copy(...)`) that the file neither declares, nor imports under that
+  // name from *any* package, nor shares a package with, is one of these.
+  //
+  // The false positive to expect here is a capitalised local variable; if this
+  // ever fires on good code, allow-list the name rather than delete the test.
+  const problems = missingImports(APP);
+  assert.deepEqual(problems, []);
+});
+
+test('the missing-import checker finds one, and leaves its neighbours alone', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'appimports-'));
+  try {
+    fs.mkdirSync(path.join(dir, 'a'));
+    fs.mkdirSync(path.join(dir, 'b'));
+    fs.writeFileSync(path.join(dir, 'a', 'Parts.kt'), [
+      'package com.ningshingche.app.a',
+      '',
+      'object Panel',
+      'class Swatch',
+      '',
+    ].join('\n'));
+    fs.writeFileSync(path.join(dir, 'b', 'Screen.kt'), [
+      'package com.ningshingche.app.b',
+      '',
+      'import com.ningshingche.app.a.Swatch',
+      'import androidx.compose.foundation.layout.padding',
+      '',
+      'fun Screen() {',
+      '    Swatch().padding()          // imported: fine',
+      '    Panel.copy()                // never imported: the build stops here',
+      '}',
+      '',
+    ].join('\n'));
+
+    const problems = missingImports(dir);
+    assert.equal(problems.length, 1, `expected only the planted one, got:\n${problems.join('\n')}`);
+    assert.match(problems[0], /Screen\.kt:8: Panel/);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
