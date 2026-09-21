@@ -20,6 +20,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 
 const REPO = path.join(__dirname, '..', '..');
 const APP = path.join(REPO, 'app', 'src', 'main', 'java', 'com', 'ningshingche', 'app');
@@ -248,4 +249,188 @@ test('nothing draws a line box inside a text span', () => {
     }
   }
   assert.deepEqual(problems, [], 'a span was given a line box');
+});
+
+// ---------------------------------------------------------------------------
+// References that point at something the app no longer has.
+//
+// This is the shape of the two errors the owner hit next, both of them mine:
+// `ArticleRepository` called `NingshingCheWebsiteClient.toBengaliDigits(...)`
+// after the numeral helpers moved to `util/`, and three screens imported the
+// skeleton layouts from a file that had been deleted on the belief that nothing
+// called it. Neither was visible to any test we had, and both stopped the build
+// dead. The compiler would have caught them in a second — so this is that second.
+//
+// A Kotlin file can only mean three things by a name: something declared in its
+// own package, something it imported, or a member of a type it imported. The
+// first two need the declaration to exist at the top level of some file in that
+// package; the third needs the member to exist somewhere in the file that
+// declares the type. Both are checked here, on the masked sources.
+
+const KOTLIN_MODIFIERS =
+  '(?:@\\w+(?:\\([^()]*\\))?\\s+)*(?:(?:public|internal|private|protected|open|abstract|sealed|data|value|expect|actual|external|inline|operator|infix|suspend|tailrec|const|annotation|enum|companion|lateinit|override|final|vararg|noinline|crossinline)\\s+)*';
+
+function declarationRegex(topLevelOnly) {
+  return new RegExp(
+    '^' + (topLevelOnly ? '' : '\\s*') + KOTLIN_MODIFIERS +
+    '(?:fun|val|var|class|object|interface|typealias)\\s+(?:<[^>]*>\\s*)?(?:[\\w.<>,?\\[\\] ]*?\\.)?(\\w+)\\s*[(:<>{,=]',
+    'gm');
+}
+
+/**
+ * Everything a Kotlin file in `rootDir` names that nothing there declares.
+ * Returns `[]` for a tree that compiles.
+ */
+function danglingReferences(rootDir) {
+  const problems = [];
+  const files = kotlinFiles(rootDir).map((file) => ({ file, text: masked(fs.readFileSync(file, 'utf8')) }));
+  const declared = new Map();      // "pkg.Name" -> file
+  const membersOfFile = new Map();
+  const typeMembers = new Map();   // app type name -> every name declared in its file
+  const extensionMembers = new Map();  // receiver -> extension names (membership only)
+  const localTypes = new Map();    // file -> type names declared inside another type there
+
+  for (const { file, text } of files) {
+    const pkg = /^package\s+([\w.]+)/m.exec(text);
+    if (!pkg) continue;
+    let m;
+    const members = new Set();
+    const memberRe = declarationRegex(false);
+    while ((m = memberRe.exec(text)) !== null) members.add(m[1]);
+    membersOfFile.set(file, members);
+
+    const topRe = declarationRegex(true);
+    while ((m = topRe.exec(text)) !== null) declared.set(`${pkg[1]}.${m[1]}`, file);
+
+    // A type at the left margin is reachable as `Type.member` from another file:
+    // an `object`, or a `class`/`interface` whose companion holds the member.
+    const global = [];
+    for (const re of [/^(?:internal\s+|private\s+|abstract\s+|open\s+|sealed\s+|data\s+)*(?:class|interface)\s+(\w+)/gm,
+                      /^(?:internal\s+|private\s+)*object\s+(\w+)(?!\s*:)/gm]) {
+      while ((m = re.exec(text)) !== null) global.push(m[1]);
+    }
+    for (const name of global) {
+      if (!typeMembers.has(name)) typeMembers.set(name, new Set());
+      for (const member of members) typeMembers.get(name).add(member);
+    }
+
+    // `fun BlogDto.toSummary()`, `val ColorScheme.PanelInk` — as far as `Type.name(`
+    // is concerned an extension is a member, and it may live in any file. It is
+    // recorded separately: the receiver of an extension is often a library type
+    // (`Modifier`, `ColorScheme`), and the app cannot know all of such a type's
+    // members, so it must never become a receiver to check against.
+    for (const re of [/\bfun\s+(?:<[^>]*>\s*)?([\w.]+)\.(\w+)\s*\(/g,
+                      /\bval\s+([\w.]+)\.(\w+)\b/g,
+                      /\bvar\s+([\w.]+)\.(\w+)\b/g]) {
+      while ((m = re.exec(text)) !== null) {
+        const receiver = m[1].split('.').pop();
+        if (!extensionMembers.has(receiver)) extensionMembers.set(receiver, new Set());
+        extensionMembers.get(receiver).add(m[2]);
+      }
+    }
+
+    // Anything declared *inside* something else is reachable by its simple name
+    // only from within this file — `Thread` is both a `data class` here and the
+    // system's thread, and only the file that declares it may read it that way.
+    const locals = [];
+    for (const re of [/^\s+(?:private\s+|internal\s+)*(?:class|interface)\s+(\w+)/gm,
+                      /^\s+(?:private\s+|internal\s+)*object\s+(\w+)(?!\s*:)/gm]) {
+      while ((m = re.exec(text)) !== null) locals.push(m[1]);
+    }
+    localTypes.set(file, locals);
+  }
+
+  for (const { file, text } of files) {
+    const importRe = /^import\s+(com\.ningshingche\.app\.[\w.]+)(?:\s+as\s+\w+)?\s*$/gm;
+    let m;
+    while ((m = importRe.exec(text)) !== null) {
+      const fq = m[1];
+      const leaf = fq.split('.').pop();
+      if (fq === 'com.ningshingche.app.R' || leaf === 'BuildConfig') continue;   // generated by Gradle
+      if (!declared.has(fq)) {
+        problems.push(`${relFrom(rootDir, file)}:${lineOf(text, m.index)}: import ${fq} -> nothing declares it`);
+      }
+    }
+    const receivers = new Set([...typeMembers.keys(), ...(localTypes.get(file) || [])]);
+    for (const name of receivers) {
+      const callRe = new RegExp(`(?<![\\w.])${name}\\.(\\w+)\\s*[(\\{]`, 'g');
+      while ((m = callRe.exec(text)) !== null) {
+        const member = m[1];
+        if (member.startsWith('get') || member.startsWith('set')) continue;      // property accessors
+        // `fun BlogDto.toSummary()` declares a usable member; it is not a call on the type.
+        const before = text.slice(Math.max(0, m.index - 40), m.index);
+        if (/\b(fun|val|var)\s+(?:<[^>]*>\s*)?[\w.]*\.?$/.test(before)) continue;
+        if (member === 'valueOf' || member === 'values') continue;              // enum statics Kotlin adds
+        const known = new Set([
+          ...(typeMembers.get(name) || []),
+          ...(extensionMembers.get(name) || []),
+          ...((localTypes.get(file) || []).includes(name) ? membersOfFile.get(file) : []),
+        ]);
+        if (name in {}) continue;
+        if (!known.has(member)) {
+          problems.push(`${relFrom(rootDir, file)}:${lineOf(text, m.index)}: ${name}.${member}( -> the type has no such member`);
+        }
+      }
+    }
+  }
+  return problems;
+}
+
+function relFrom(rootDir, file) {
+  return path.relative(rootDir, file).split(path.sep).join('/');
+}
+
+test('every import names something the app still declares', () => {
+  // The build stops dead on one of these; the message is the compiler's, given
+  // early. Two batches in a row shipped one.
+  const problems = danglingReferences(APP).filter((p) => p.includes('-> nothing declares it'));
+  assert.deepEqual(problems, []);
+});
+
+test('every call on an app object names a member it still has', () => {
+  const problems = danglingReferences(APP).filter((p) => p.includes('the type has no such member'));
+  assert.deepEqual(problems, []);
+});
+
+test('the reference checker finds a dangling import and a removed member', () => {
+  // The self-test: a fixture that breaks in exactly the two ways the app broke,
+  // so the checker above is never quietly blind. A checker that finds nothing is
+  // worthless, and this is the only way to tell the difference from inside a file.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'apprefs-'));
+  try {
+    fs.mkdirSync(path.join(dir, 'a'));
+    fs.mkdirSync(path.join(dir, 'b'));
+    fs.writeFileSync(path.join(dir, 'a', 'Thing.kt'), [
+      'package com.ningshingche.app.a',
+      '',
+      'fun present() = 1',
+      '',
+      'object Thing {',
+      '    fun alive() = 2',
+      '}',
+      '',
+    ].join('\n'));
+    fs.writeFileSync(path.join(dir, 'b', 'Use.kt'), [
+      'package com.ningshingche.app.b',
+      '',
+      'import com.ningshingche.app.a.present',       // fine
+      'import com.ningshingche.app.a.Gone',          // the deleted file
+      'import com.ningshingche.app.a.Thing',
+      '',
+      'fun use() {',
+      '    present()',
+      '    Thing.alive()',                            // fine
+      '    Thing.removed()',                          // the removed member
+      '}',
+      '',
+    ].join('\n'));
+
+    const problems = danglingReferences(dir);
+    assert.equal(problems.length, 2, `expected exactly the two planted breaks, got:\n${problems.join('\n')}`);
+    assert.ok(problems.some((p) => p.includes('import com.ningshingche.app.a.Gone')), 'the dangling import is reported');
+    assert.ok(problems.some((p) => p.includes('Thing.removed(')), 'the removed member is reported');
+    assert.ok(!problems.some((p) => p.includes('present') || p.includes('Thing.alive')), 'the good references are not');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });

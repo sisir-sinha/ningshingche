@@ -58,6 +58,7 @@ test('no badge or row animates for ever', () => {
     'ui/screens/SplashScreen.kt': 'the splash, which leaves',
     'ui/editorial/EditorialComponents.kt': 'LoadingFeed, which exists only while loading',
     'ui/editorial/LazyImage.kt': 'an image placeholder, which ends when the image arrives',
+    'ui/components/SkeletonShimmer.kt': 'the loading skeletons, composed only while a screen has nothing to show',
   };
   const found = [];
   for (const file of kotlinFiles(APP)) {
@@ -168,17 +169,23 @@ test('an article can be skipped when nothing about it changed', () => {
   assert.match(models, /import androidx\.compose\.runtime\.Immutable/);
 });
 
-test('the shimmer that was never used is gone', () => {
-  // A whole file of skeleton placeholders, none of them called, with an infinite
-  // animation in each — dead code that would have cost a frame every frame the
-  // day somebody wired it up.
-  assert.equal(fs.existsSync(path.join(APP, 'ui', 'components', 'SkeletonShimmer.kt')), false);
-  const leftovers = [];
-  for (const file of kotlinFiles(APP)) {
-    const text = fs.readFileSync(file, 'utf8');
-    for (const name of ['HeroCarouselSkeleton', 'ArticleCardSkeleton', 'CategoryChipSkeleton', 'ShimmerBox']) {
-      if (new RegExp(`\\b${name}\\b`).test(text)) leftovers.push(`${rel(file)}: ${name}`);
-    }
+test('the loading skeletons are reachable, and only while loading', () => {
+  // An earlier pass of this work deleted `SkeletonShimmer.kt` on the belief that
+  // nothing called it. Three screens did: `HomeScreen`, `AiAssistantScreen` and
+  // `ExploreScreen` show a skeleton while their first page loads, and the file
+  // was restored. What matters for scrolling is not that the file is absent but
+  // that the animation behind it can only run while a screen has nothing to show.
+  const shimmer = read('ui', 'components', 'SkeletonShimmer.kt');
+  assert.match(shimmer, /fun Modifier\.shimmerEffect\(/, 'one shimmer implementation');
+
+  const LAYOUTS = ['HomeSkeletonLayout', 'ExploreSkeletonLayout', 'AiAssistantSkeletonLayout'];
+  for (const name of LAYOUTS) {
+    assert.match(shimmer, new RegExp(`fun ${name}\\(`), `${name} exists`);
+    const callers = kotlinFiles(APP).filter((file) => {
+      if (rel(file) === 'ui/components/SkeletonShimmer.kt') return false;
+      return new RegExp(`\\b${name}\\s*\\(`).test(fs.readFileSync(file, 'utf8'));
+    });
+    assert.ok(callers.length > 0,
+      `${name} is called from a screen (it is not dead code: a deletion here is a compile error)`);
   }
-  assert.deepEqual(leftovers, [], 'a skeleton component came back without a caller');
 });

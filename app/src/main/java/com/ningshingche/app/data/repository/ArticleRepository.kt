@@ -19,6 +19,7 @@ import com.ningshingche.app.data.remote.CommentRecord
 import com.ningshingche.app.data.remote.NingshingCheWebsiteClient
 import com.ningshingche.app.data.remote.PdfBookRecord
 import com.ningshingche.app.data.remote.SupabaseClient
+import com.ningshingche.app.util.toBengaliDigits
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -505,7 +506,7 @@ class ArticleRepository(
         return articles.groupBy { it.year }
             .toSortedMap(compareByDescending { it })
             .map { (year, list) ->
-                val bn = NingshingCheWebsiteClient.toBengaliDigits(year)
+                val bn = toBengaliDigits(year)
                 YearArchive(
                     year = year,
                     bengaliYearText = bn,
