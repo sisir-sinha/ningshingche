@@ -47,6 +47,23 @@ data class TranslationTable(
 internal fun looseKey(text: String): String =
     text.trim().replace(WHITESPACE, " ").trimEnd('।', '.', '!', '?', ' ', '\u200b')
 
+/**
+ * The same, computed once per string.
+ *
+ * The inputs are the literals the app is written with — a fixed set of about a
+ * thousand, not a stream — so a small map settles after the first pass and the
+ * regex stops running. The cap is a guard, not a policy: a caller passing a
+ * string built at runtime would otherwise grow this for ever.
+ */
+private val looseKeys = java.util.concurrent.ConcurrentHashMap<String, String>(1024)
+
+internal fun looseKeyOf(text: String): String {
+    looseKeys[text]?.let { return it }
+    val key = looseKey(text)
+    if (looseKeys.size < 4096) looseKeys[text] = key
+    return key
+}
+
 private val WHITESPACE = Regex("\\s+")
 
 val LocalTranslations = staticCompositionLocalOf { TranslationTable() }
@@ -60,9 +77,21 @@ fun translate(table: TranslationTable, bengali: String, vararg args: Any?): Stri
     // The file wins whenever it has this string — for Bengali as well, where a
     // row means an editor rewrote that wording. Anything absent or blank stays
     // exactly as compiled, which is what every key looks like by default.
-    val text = table.strings[bengali]?.takeIf { it.isNotBlank() }
-        ?: table.loose[looseKey(bengali)]?.takeIf { it.isNotBlank() }
-        ?: bengali
+    //
+    // Nothing at all in the file is the common case (Bengali out of the box, and
+    // every language before its first publish), and it is answered without
+    // touching the second map: the loose lookup normalises the string first —
+    // a regex and two allocations — and a screen asks this function about a
+    // thousand times per pass, which is not a price to pay for nothing.
+    val exact = table.strings[bengali]
+    val text = if (exact != null && exact.isNotBlank()) {
+        exact
+    } else if (table.loose.isEmpty()) {
+        bengali
+    } else {
+        val loose = table.loose[looseKeyOf(bengali)]
+        if (loose != null && loose.isNotBlank()) loose else bengali
+    }
     if (args.isEmpty()) return text
     var filled = text
     args.forEachIndexed { index, value ->

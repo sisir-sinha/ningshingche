@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import com.ningshingche.app.ui.theme.bengaliTextStyle
 import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.leading
+import com.ningshingche.app.util.bengaliDigits
 
 /**
  * "Modern editorial" design system — the theme itself.
@@ -266,10 +267,5 @@ fun EditorialTheme(
     }
 }
 
-fun toBengaliNumeral(number: Number): String {
-    val bnDigits = charArrayOf('০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯')
-    return number.toString().map { ch ->
-        if (ch in '0'..'9') bnDigits[ch - '0'] else ch
-    }.joinToString("")
-}
+fun toBengaliNumeral(number: Number): String = bengaliDigits(number.toString())
 

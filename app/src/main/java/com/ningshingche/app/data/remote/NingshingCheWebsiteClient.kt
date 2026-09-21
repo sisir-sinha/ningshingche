@@ -22,6 +22,7 @@ import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
+import com.ningshingche.app.util.toBengaliDigits
 
 data class WebsiteListing(
     val articles: List<Article>,
@@ -486,11 +487,7 @@ class NingshingCheWebsiteClient {
         fun encodePath(value: String): String =
             URLEncoder.encode(value, "UTF-8").replace("+", "%20")
 
-        fun toBengaliDigits(number: Int): String {
-            val digits = charArrayOf('০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯')
-            return number.toString().map { ch -> if (ch.isDigit()) digits[ch - '0'] else ch }.joinToString("")
-        }
-
+        
         fun fromBengaliDigits(raw: String): String {
             val map = mapOf(
                 '০' to '0', '১' to '1', '২' to '2', '৩' to '3', '৪' to '4',

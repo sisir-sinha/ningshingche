@@ -76,17 +76,26 @@ fun PlayingWaveBars(
     // badge it replaces. Read here rather than captured in a top-level val, because the
     // accent now depends on the palette the reader chose.
     val ink = color ?: LocalEditorialTokens.current.accentDeep
-    val transition = rememberInfiniteTransition(label = "playing_wave")
-    val phase by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = WavePeriodMs, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "wave_phase"
-    )
-    val sweep = if (animated) phase else 0.2f
+    // Built only when there is something to animate. An infinite transition that
+    // nobody reads still runs: it asks for a frame every frame, for as long as the
+    // composable is on screen — a paused player would keep the app's clock busy
+    // drawing a wave that is not moving. When it is not playing, the bars are one
+    // still frame.
+    val sweep = if (animated) {
+        val transition = rememberInfiniteTransition(label = "playing_wave")
+        val phase by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = WavePeriodMs, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "wave_phase"
+        )
+        phase
+    } else {
+        0.2f
+    }
 
     Row(
         modifier = modifier.height(height),

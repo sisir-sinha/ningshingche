@@ -95,6 +95,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.unit.dp
 import com.ningshingche.app.ui.i18n.LocalTranslations
 import com.ningshingche.app.ui.i18n.tNow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 /**
  * Navigation routes for NingshingChe Portal.
@@ -310,7 +312,15 @@ fun EditorialReaderApp(
     val currentRoute = navBackStackEntry?.destination?.route ?: ReaderRoute.Home
     val pendingHolder = remember { kotlinx.coroutines.flow.MutableStateFlow<String?>(null) }
     val launchRoute by (pendingRoute ?: pendingHolder).collectAsState()
-    val playerUi by app.musicController.state.collectAsState()
+    // Only the two facts this screen needs, not the whole player state: the state
+    // carries the position, which changes every 400 ms while a song plays, and
+    // collecting it here re-drew the entire reader — every visible row of every
+    // screen — two and a half times a second, for a bottom padding.
+    val showMiniBar by remember(app.musicController) {
+        app.musicController.state
+            .map { it.visible && !it.expanded }
+            .distinctUntilChanged()
+    }.collectAsState(initial = false)
 
     LaunchedEffect(launchRoute, currentRoute) {
         val route = launchRoute ?: return@LaunchedEffect
@@ -1186,7 +1196,7 @@ fun EditorialReaderApp(
         modifier = Modifier.padding(
             // Clears the mini player, which is 52dp of content below the
             // system navigation bar inset.
-            bottom = if (playerUi.visible && !playerUi.expanded) 56.dp else 0.dp
+            bottom = if (showMiniBar) 56.dp else 0.dp
         )
     )
     }

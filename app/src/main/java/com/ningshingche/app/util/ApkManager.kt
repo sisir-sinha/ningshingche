@@ -13,7 +13,6 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
-import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import com.ningshingche.app.ui.i18n.tNow
@@ -53,7 +52,7 @@ object ApkManager {
             val sizeMb = sizeBytes / (1024.0 * 1024.0)
             val sizeFormatted = String.format(Locale.US, "%.1f MB", sizeMb)
 
-            val dateFormat = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault())
+            val dateFormat = DateFormats.of("dd MMM yyyy, hh:mm a", Locale.getDefault())
             val lastModified = if (sourceApkFile.exists()) {
                 dateFormat.format(Date(sourceApkFile.lastModified()))
             } else {

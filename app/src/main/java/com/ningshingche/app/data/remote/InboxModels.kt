@@ -125,7 +125,7 @@ data class SubmittedMusicRecord(
 fun shortDateTime(iso: String): String {
     if (iso.isBlank()) return ""
     val parsed = parseIsoMillis(iso) ?: return iso.take(16).replace('T', ' ')
-    val fmt = java.text.SimpleDateFormat("d MMM, h:mm a", java.util.Locale.getDefault())
+    val fmt = com.ningshingche.app.util.DateFormats.of("d MMM, h:mm a", java.util.Locale.getDefault())
     return fmt.format(parsed)
 }
 
@@ -141,13 +141,13 @@ fun parseIsoMillis(iso: String): java.util.Date? {
     )
     val trimmed = iso.trim()
     for (pattern in candidates) {
-        val fmt = java.text.SimpleDateFormat(pattern, java.util.Locale.US)
+        val fmt = com.ningshingche.app.util.DateFormats.of(pattern)
         fmt.timeZone = java.util.TimeZone.getTimeZone("UTC")
         val value = runCatching { fmt.parse(trimmed) }.getOrNull()
         if (value != null) return value
     }
     val compact = trimmed.take(19).replace(' ', 'T')
-    val fallback = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US)
+    val fallback = com.ningshingche.app.util.DateFormats.of("yyyy-MM-dd'T'HH:mm:ss", utc = true)
     fallback.timeZone = java.util.TimeZone.getTimeZone("UTC")
     return runCatching { fallback.parse(compact) }.getOrNull()
 }

@@ -91,11 +91,13 @@ import com.ningshingche.app.data.portal.excerptOf
 import com.ningshingche.app.data.portal.stripHtml
 import java.text.SimpleDateFormat
 import java.util.Locale
-import java.util.TimeZone
 import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.i18n.t
 import com.ningshingche.app.ui.i18n.tNow
+import com.ningshingche.app.util.DateFormats
+import com.ningshingche.app.util.bengaliDigits
+import com.ningshingche.app.util.toBengaliDigits
 
 /**
  * Reusable building blocks for the modern-editorial reader.
@@ -244,16 +246,19 @@ fun rememberShimmerBrush(): Brush {
 /**
  * Formats `2025-06-17` as `১৭ জুন, ২০২৫`.
  *
- * Uses `SimpleDateFormat` rather than `java.time` on purpose: `minSdk` is 24 and
- * this module does not enable core library desugaring, so `java.time.*` would
- * throw `NoClassDefFoundError` on Android 7.
+ * The formatter comes from [DateFormats], which builds each pattern once per
+ * thread; the result is kept per timestamp, because a card's date does not change
+ * while the reader scrolls past it. (And it is `SimpleDateFormat` rather than
+ * `java.time` on purpose: `minSdk` is 24 and this module does not enable core
+ * library desugaring, so `java.time.*` would throw `NoClassDefFoundError` on
+ * Android 7.)
  */
-fun formatBengaliDate(iso: String): String {
-    if (iso.isBlank()) return ""
-    return runCatching {
-        val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(iso.take(10))
-            ?: return iso.take(10)
-        SimpleDateFormat("d MMMM, yyyy", Locale("bn", "BD")).format(parsed)
+fun formatBengaliDate(iso: String): String = memoisedDate(iso) {
+    if (iso.isBlank()) return@memoisedDate ""
+    runCatching {
+        val parsed = DateFormats.of("yyyy-MM-dd").parse(iso.take(10))
+            ?: return@memoisedDate iso.take(10)
+        DateFormats.of("d MMMM, yyyy", Locale("bn", "BD")).format(parsed)
     }.getOrDefault(iso.take(10))
 }
 
@@ -267,26 +272,59 @@ fun formatBengaliDate(iso: String): String {
  * as UTC and rendered in the phone's own zone: the reader sees the clock on their
  * wall, not the database's.
  *
- * `SimpleDateFormat`, like [formatBengaliDate], because `minSdk` is 24 and this
- * module does not enable core library desugaring.
+ * Like [formatBengaliDate], the formatter is cached and the answer remembered; the
+ * same reason applies, `minSdk` is 24 and this module does not enable core library
+ * desugaring.
  */
-fun formatBengaliDateTime(iso: String): String {
-    if (iso.isBlank()) return ""
-    return runCatching {
-        val utc = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
-            timeZone = TimeZone.getTimeZone("UTC")
-        }
-        val parsed = utc.parse(iso.take(19)) ?: return ""
-        val date = SimpleDateFormat("d MMMM", Locale("bn", "BD")).format(parsed)
-        val clock = SimpleDateFormat("h:mm", Locale.US).format(parsed)
-        val hour = SimpleDateFormat("H", Locale.US).format(parsed).toIntOrNull() ?: 0
+fun formatBengaliDateTime(iso: String): String = memoisedDate(iso) {
+    if (iso.isBlank()) return@memoisedDate ""
+    runCatching {
+        val parsed = DateFormats.of("yyyy-MM-dd'T'HH:mm:ss", utc = true).parse(iso.take(19)) ?: return@memoisedDate ""
+        val date = DateFormats.of("d MMMM", Locale("bn", "BD")).format(parsed)
+        val clock = DateFormats.of("h:mm").format(parsed)
+        val hour = DateFormats.of("H").format(parsed).toIntOrNull() ?: 0
         bengaliDigits("$date, $clock ${if (hour < 12) "পূর্বাহ্ণ" else "অপরাহ্ণ"}")
     }.getOrDefault("")
 }
 
+/**
+ * The same date, formatted once.
+ *
+ * These are called from list rows — a card's date, an answer's clock — and a row
+ * is re-drawn whenever anything above it changes. Re-formatting an unchanged
+ * timestamp on every frame of a scroll is work that cannot show anything new, so
+ * the last few hundred answers are kept keyed by their own text. The cache is
+ * small on purpose: a screen shows tens of dates, a scroll touches hundreds, and
+ * an unbounded map here would be a leak with a friendly face.
+ */
+private fun memoisedDate(iso: String, format: () -> String): String {
+    if (iso.isEmpty()) return ""
+    cachedDates[iso]?.let { return it }
+    val formatted = format()
+    if (cachedDates.size > DATE_CACHE_MAX) cachedDates.clear()
+    cachedDates[iso] = formatted
+    return formatted
+}
+
+/** Results of [memoisedDate]; a few hundred timestamps, replaced wholesale when full. */
+private val cachedDates = java.util.concurrent.ConcurrentHashMap<String, String>(512)
+private const val DATE_CACHE_MAX = 512
+
+/**
+ * The date formatters, one set per thread.
+ *
+ * `SimpleDateFormat` is not thread-safe, so each thread keeps its own — and
+ * building one is not cheap: the pattern is compiled and the locale's month and
+ * weekday names are loaded. Constructing two of them per row (`formatBengaliDate`
+ * built three) put that cost inside the scroll, where it was paid again for every
+ * visible row on every pass.
+ *
+ * `java.time` would do this without the ceremony, but `minSdk` is 24 and this
+ * module does not enable core library desugaring, so it would throw on Android 7.
+ */
+
 /** Every digit of [text] in Bengali numerals — dates and clocks included. */
-private fun bengaliDigits(text: String): String =
-    text.map { if (it in '0'..'9') '০' + (it - '0') else it }.joinToString("")
+
 
 @Composable
 fun Byline(
@@ -987,7 +1025,7 @@ fun GalleryModalDialog(
                         }
                         if (items.size > 1) {
                             Text(
-                                text = "${bengaliDigits(pagerState.currentPage + 1)} / ${bengaliDigits(items.size)}",
+                                text = "${toBengaliDigits(pagerState.currentPage + 1)} / ${toBengaliDigits(items.size)}",
                                 fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
                                 fontSize = textSize(12),
                                 lineHeight = leading(12),
@@ -1150,12 +1188,7 @@ fun GalleryModalDialog(
 }
 
 /** `12` -> `১২`, so the page counter matches the Bengali UI. */
-private fun bengaliDigits(value: Int): String {
-    val bengali = charArrayOf('০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯')
-    return value.toString().map { ch ->
-        if (ch in '0'..'9') bengali[ch - '0'] else ch
-    }.joinToString("")
-}
+
 
 @Composable
 fun ArticleRail(
@@ -1241,10 +1274,7 @@ fun AuthorChip(author: AuthorRef, onClick: () -> Unit) {
                 )
                 if (isVerified) {
                     Spacer(Modifier.width(4.dp))
-                    com.ningshingche.app.ui.components.VerifiedBadge(
-                        size = 14.dp,
-                        animated = false
-                    )
+                    com.ningshingche.app.ui.components.VerifiedBadge(size = 14.dp)
                 }
             }
             Text(

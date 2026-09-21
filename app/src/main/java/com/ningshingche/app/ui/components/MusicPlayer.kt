@@ -122,6 +122,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import com.ningshingche.app.ui.i18n.t
 import com.ningshingche.app.ui.i18n.tNow
+import com.ningshingche.app.ui.editorial.toBengaliNumeral
 
 val LocalMusicController = staticCompositionLocalOf<MusicController> {
     error("MusicController is not provided")
@@ -516,7 +517,7 @@ private fun FullMusicPlayer(
                                 modifier = Modifier.size(14.dp)
                             )
                             Text(
-                                text = t("{1} বার শোনা হয়েছে", bengaliDigits(viewsForPage)),
+                                text = t("{1} বার শোনা হয়েছে", toBengaliNumeral(viewsForPage)),
                                 fontFamily = Kalpurush,
                                 fontSize = textSize(12),
                                 lineHeight = leading(12),
@@ -760,7 +761,7 @@ private fun PlayerHud(volume: Float, minimize: Boolean, modifier: Modifier = Mod
                 )
             } else {
                 Text(
-                    text = t("ভলিউম {1}%", bengaliDigits((level * 100f).roundToInt().toLong())),
+                    text = t("ভলিউম {1}%", toBengaliNumeral((level * 100f).roundToInt().toLong())),
                     fontFamily = Kalpurush,
                     color = Color.White,
                     fontSize = textSize(13),
@@ -1345,10 +1346,6 @@ private fun formatMs(ms: Long): String {
     val total = (ms / 1000L).coerceAtLeast(0L)
     val m = total / 60
     val s = total % 60
-    return tNow("{1}:{2}", bengaliDigits(m), bengaliDigits(s).padStart(2, '০'))
+    return tNow("{1}:{2}", toBengaliNumeral(m), toBengaliNumeral(s).padStart(2, '০'))
 }
 
-private fun bengaliDigits(value: Long): String {
-    val map = charArrayOf('০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯')
-    return value.toString().map { ch -> if (ch in '0'..'9') map[ch - '0'] else ch }.joinToString("")
-}

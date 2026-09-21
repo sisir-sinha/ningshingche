@@ -1,5 +1,18 @@
 package com.ningshingche.app.data.model
 
+import androidx.compose.runtime.Immutable
+
+/**
+ * A published article.
+ *
+ * `@Immutable` because it is: every field is a `val`, the app never mutates the
+ * lists it is given, and anything that changes about an article arrives as a new
+ * instance from the server. The promise matters for scrolling — `tags` and
+ * `relatedArticleIds` are `List`, which Compose cannot prove is unchanging, and
+ * without this the card for every visible row is re-drawn whenever anything on the
+ * screen changes, because a row that cannot be skipped is re-executed.
+ */
+@Immutable
 data class Article(
     val id: String,
     val title: String,

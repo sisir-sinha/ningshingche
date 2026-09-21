@@ -46,6 +46,7 @@ import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.BookmarksViewModel
 import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.editorial.toBengaliNumeral
 
 /**
  * "সংরক্ষিত" — every article the reader saved with the bookmark icon (on
@@ -84,7 +85,7 @@ fun BookmarksScreen(
                         )
                         Text(
                             text = if (savedCount == 0) t("অফলাইনে পড়ার জন্য সংরক্ষিত লেখা")
-                            else t("{1}টি লেখা সংরক্ষিত", toBengaliDigits(savedCount)),
+                            else t("{1}টি লেখা সংরক্ষিত", toBengaliNumeral(savedCount)),
                             fontFamily = Kalpurush,
                             fontSize = textSize(12),
                             lineHeight = textSize(14),
@@ -176,7 +177,7 @@ fun BookmarksScreen(
                         }
                         items(categories, key = { it.slug }) { cat ->
                             FilterChipPill(
-                                label = "${cat.title} (${toBengaliDigits(cat.count)})",
+                                label = "${cat.title} (${toBengaliNumeral(cat.count)})",
                                 isSelected = selectedCategoryFilter == cat.slug,
                                 onClick = { viewModel.setCategoryFilter(cat.slug) }
                             )
@@ -265,7 +266,3 @@ private fun FilterChipPill(label: String, isSelected: Boolean, onClick: () -> Un
     }
 }
 
-private fun toBengaliDigits(value: Int): String {
-    val digits = "০১২৩৪৫৬৭৮৯"
-    return value.toString().map { ch -> if (ch.isDigit()) digits[ch - '0'] else ch }.joinToString("")
-}

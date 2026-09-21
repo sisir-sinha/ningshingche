@@ -318,7 +318,15 @@ test('the filters speak for themselves, and a card reads at a glance', async (t)
     assert.match(EDITORIAL, /১২ সেপ্টেম্বর, ৩:৪৫ অপরাহ্ণ|date\}, \$clock/, 'which reads as Bengali');
     assert.match(EDITORIAL, /if \(hour < 12\) "পূর্বাহ্ণ" else "অপরাহ্ণ"/, 'morning and afternoon named');
     const dt = bodyOf(EDITORIAL, 'formatBengaliDateTime');
-    assert.match(dt, /TimeZone\.getTimeZone\("UTC"\)/, 'parsed as the UTC the database wrote');
+    // Re-anchored for the scroll batch: the formatter is built once per thread and
+    // reused, so the UTC zone is set where the formatter is made. The claim the
+    // line is here to protect — the timestamp is read as the UTC the database
+    // wrote — is checked across both files rather than inside one body.
+    assert.match(dt, /DateFormats\.of\("yyyy-MM-dd'T'HH:mm:ss", utc = true\)/,
+      'parsed as the UTC the database wrote');
+    const formats = read('util', 'DateFormats.kt');
+    assert.match(formats, /formatter\.timeZone = TimeZone\.getTimeZone\("UTC"\)/,
+      'and the formatter it asks for is the one given a UTC zone');
     assert.ok(!/java\.time/.test(dt), 'and without java.time, which minSdk 24 does not have');
   });
 });
