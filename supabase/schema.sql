@@ -232,7 +232,13 @@ end; $$ language plpgsql security definer;
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users for each row execute function public.handle_new_user_signup();
 
--- ========== 5) RLS (tenant isolation by store_id) ==========
+-- ========== 5) RLS (tenant isolation by store_id) — recursion-safe via helper ==========
+-- Helper that bypasses RLS (SECURITY DEFINER) — prevents infinite recursion on profiles
+create or replace function public.current_store_id()
+returns uuid language sql security definer set search_path = public stable as $$
+  select store_id from public.profiles where id = auth.uid() limit 1
+$$;
+
 -- Enable RLS for core tables
 do $$
 declare t text;
@@ -243,34 +249,34 @@ begin
   end loop;
 end $$;
 
--- Policies for core (store_id isolation)
+-- Policies for core (use helper, not subquery on profiles which recurses)
 drop policy if exists "Tenant Isolation Policy for Products" on products;
-create policy "Tenant Isolation Policy for Products" on products for all using (store_id in (select store_id from profiles where id = auth.uid()));
+create policy "Tenant Isolation Policy for Products" on products for all using (store_id = public.current_store_id());
 drop policy if exists "Tenant isolation - stores" on stores;
-create policy "Tenant isolation - stores" on stores for all using (id in (select store_id from profiles where id = auth.uid()));
+create policy "Tenant isolation - stores" on stores for all using (id = public.current_store_id());
 drop policy if exists "Tenant isolation - profiles" on profiles;
-create policy "Tenant isolation - profiles" on profiles for all using (store_id in (select store_id from profiles where id = auth.uid()));
+create policy "Tenant isolation - profiles" on profiles for all using (id = auth.uid() or store_id = public.current_store_id());
 drop policy if exists "Tenant isolation - categories" on categories;
-create policy "Tenant isolation - categories" on categories for all using (store_id in (select store_id from profiles where id = auth.uid()));
+create policy "Tenant isolation - categories" on categories for all using (store_id = public.current_store_id());
 drop policy if exists "Tenant isolation - orders" on orders;
-create policy "Tenant isolation - orders" on orders for all using (store_id in (select store_id from profiles where id = auth.uid()));
+create policy "Tenant isolation - orders" on orders for all using (store_id = public.current_store_id());
 drop policy if exists "Tenant isolation - order_items" on order_items;
-create policy "Tenant isolation - order_items" on order_items for all using (order_id in (select id from orders where store_id in (select store_id from profiles where id = auth.uid())));
+create policy "Tenant isolation - order_items" on order_items for all using (order_id in (select id from orders where store_id = public.current_store_id()));
 
 -- Policies for new Lite tables
 do $$
 declare t text;
 begin
-  foreach t in array array['customers','suppliers','khata_entries','purchases','purchase_items','expenses','vat_profiles','cash_drawer_logs','returns']
+  foreach t in array array['customers','suppliers','khata_entries','purchases','expenses','vat_profiles','cash_drawer_logs','returns']
   loop
     execute format('alter table %I enable row level security', t);
     execute format('drop policy if exists "Tenant isolation" on %I', t);
-    if t = 'purchase_items' then
-      execute format('create policy "Tenant isolation" on %I for all using (purchase_id in (select id from purchases where store_id in (select store_id from profiles where id = auth.uid())))', t);
-    else
-      execute format('create policy "Tenant isolation" on %I for all using (store_id in (select store_id from profiles where id = auth.uid()))', t);
-    end if;
+    execute format('create policy "Tenant isolation" on %I for all using (store_id = public.current_store_id())', t);
   end loop;
+  -- purchase_items via purchases
+  execute 'alter table purchase_items enable row level security';
+  execute 'drop policy if exists "Tenant isolation" on purchase_items';
+  execute 'create policy "Tenant isolation" on purchase_items for all using (purchase_id in (select id from purchases where store_id = public.current_store_id()))';
 end $$;
 
 -- Verify: select * from stores limit 1; select * from customers limit 1;
