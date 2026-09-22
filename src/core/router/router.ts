@@ -4,11 +4,20 @@ export type ViewFn = (ctx: ViewContext) => string | HTMLElement | Promise<string
 export type Route = { path: string; view: ViewFn | (() => Promise<{ default: ViewFn }>); guard?: () => boolean | string | Promise<boolean | string>; title?: string }
 
 export function createRouter(routes: Route[], mount: HTMLElement) {
+  function normalize(path: string){
+    if(!path) return '/'
+    // decode and remove trailing slash except root
+    try{ path = decodeURI(path) }catch{}
+    if(path.length>1 && path.endsWith('/')) path = path.slice(0,-1)
+    return path || '/'
+  }
   function match(pathname: string) {
+    const npath = normalize(pathname)
     for (const r of routes) {
       const keys: string[] = []
-      const pattern = new RegExp('^' + r.path.replace(/:([^/]+)/g, (_, k) => { keys.push(k); return '([^/]+)' }) + '$')
-      const m = pathname.match(pattern)
+      const rPath = normalize(r.path)
+      const pattern = new RegExp('^' + rPath.replace(/:([^/]+)/g, (_, k) => { keys.push(k); return '([^/]+)' }) + '$')
+      const m = npath.match(pattern)
       if (m) return { route: r, params: Object.fromEntries(keys.map((k, i) => [k, m[i+1]])) }
     }
     return null

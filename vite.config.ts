@@ -1,31 +1,40 @@
 import { defineConfig } from 'vite'
 
 function historyFallback() {
+  const handler = (req: any, _res: any, next: any) => {
+    const url: string = req.url || '/'
+    const clean = url.split('?')[0].split('#')[0]
+    // keep vite internals and assets
+    if (
+      clean.startsWith('/@') ||
+      clean.startsWith('/src/') ||
+      clean.startsWith('/node_modules/') ||
+      clean.startsWith('/__') ||
+      // file with extension (js, css, png, ico, etc.)
+      /\.[a-z0-9]+$/i.test(clean)
+    ) return next()
+    // /app/* -> app.html (pos, products, etc.)
+    if (clean === '/app' || clean === '/app.html' || clean.startsWith('/app/')) {
+      req.url = '/app.html'
+      return next()
+    }
+    // all other SPA routes -> index.html (site router handles /login, /pricing, /help, /dashboard, etc.)
+    // previously we listed only few paths — now generic so /login never 404s from server
+    if (clean === '/' || !clean.includes('.')) {
+      // only rewrite if not already index/app
+      if (clean !== '/index.html' && clean !== '/app.html') {
+        req.url = '/index.html'
+      }
+    }
+    next()
+  }
   return {
     name: 'history-fallback',
     configureServer(server: any) {
-      server.middlewares.use((req: any, _res: any, next: any) => {
-        const url = req.url || '/'
-        // keep vite internals and assets
-        if (
-          url.startsWith('/@') ||
-          url.startsWith('/src/') ||
-          url.startsWith('/node_modules/') ||
-          url.includes('.') ||
-          url.startsWith('/__')
-        ) return next()
-        // /app/* -> app.html
-        if (url.startsWith('/app')) {
-          req.url = '/app.html'
-          return next()
-        }
-        // everything else without extension -> index.html (site router handles /pricing, /help, etc.)
-        if (url.startsWith('/pricing') || url.startsWith('/help') || url.startsWith('/login') || url.startsWith('/dashboard') || url.startsWith('/khata')) {
-          req.url = '/index.html'
-          return next()
-        }
-        next()
-      })
+      server.middlewares.use(handler)
+    },
+    configurePreviewServer(server: any) {
+      server.middlewares.use(handler)
     },
   }
 }
