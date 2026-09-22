@@ -1,5 +1,6 @@
 import '../styles/app.css'
 import { createRouter } from '../core/router/router'
+import { renderSupabaseStatus, mountSupabaseBanner } from '../core/components/supabase-status'
 import landing from './views/landing'
 import pricing from './views/pricing'
 import help from './views/help'
@@ -31,6 +32,9 @@ function toast(msg: string, ms = 2200) {
 // site interactions after each navigate
 window.addEventListener('mk:navigate', () => {
   initLanding()
+  // supabase status on dashboard
+  renderSupabaseStatus('supabase-status')
+  mountSupabaseBanner()
 })
 
 function initLanding() {
