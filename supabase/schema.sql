@@ -1,29 +1,69 @@
--- Mekholi Lite — Full Supabase Schema (Vanilla TS, No framework)
--- Run in Supabase Dashboard → SQL Editor
--- Compatible with your handle_new_user_signup() trigger (keeps 7-day trial)
+-- Mekholi Lite — COMPLETE Supabase Schema (fresh project)
+-- Run FULL file in Supabase Dashboard → SQL Editor → Run
+-- Works on empty project (creates stores/products/orders) AND on existing Mekholi (patches)
+-- Vanilla TS + History API (no hash) • 22 Sep 2026
 
 -- Enable pgcrypto for gen_random_uuid()
 create extension if not exists "pgcrypto";
 
--- ========== STORES & PROFILES (keep your existing, patch below) ==========
--- If you already ran Mekholi POS doc schema, these ALTERs are safe (IF NOT EXISTS)
--- Uncomment if starting fresh:
--- create table if not exists stores (
---   id uuid primary key default gen_random_uuid(),
---   name text not null,
---   trial_starts_at timestamptz default now(),
---   trial_ends_at timestamptz default (now() + interval '7 days'),
---   subscription_status text default 'trialing' check (subscription_status in ('trialing','active','expired'))
--- );
--- create table if not exists profiles (
---   id uuid primary key references auth.users(id) on delete cascade,
---   store_id uuid references stores(id),
---   full_name text,
---   auth_provider text,
---   role text check (role in ('owner','manager','cashier'))
--- );
+-- ========== 1) BASE TABLES (create if not exists — for fresh Supabase project) ==========
+create table if not exists stores (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  trial_starts_at timestamptz default now(),
+  trial_ends_at timestamptz default (now() + interval '7 days'),
+  subscription_status text default 'trialing' check (subscription_status in ('trialing','active','expired'))
+);
 
--- PATCH existing stores/products/orders for Bangladesh Lite
+create table if not exists profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  store_id uuid references stores(id),
+  full_name text,
+  auth_provider text,
+  role text check (role in ('owner','manager','cashier'))
+);
+
+create table if not exists categories (
+  id uuid primary key default gen_random_uuid(),
+  store_id uuid references stores(id) on delete cascade,
+  name text not null
+);
+
+create table if not exists products (
+  id uuid primary key default gen_random_uuid(),
+  store_id uuid references stores(id) on delete cascade,
+  category_id uuid references categories(id) on delete set null,
+  name text not null,
+  barcode text,
+  price numeric(10,2) not null check (price >= 0),
+  cost_price numeric(10,2),
+  stock_quantity integer default 0
+);
+create index if not exists idx_products_store on products(store_id);
+create index if not exists idx_products_barcode on products(barcode);
+
+create table if not exists orders (
+  id uuid primary key default gen_random_uuid(),
+  store_id uuid references stores(id) on delete cascade,
+  cashier_id uuid references profiles(id),
+  receipt_number text not null,
+  subtotal numeric(10,2) not null,
+  tax_amount numeric(10,2) default 0,
+  discount_amount numeric(10,2) default 0,
+  total_amount numeric(10,2) not null,
+  payment_method text check (payment_method in ('cash','card','qr','split','bkash','nagad','rocket','upay','bangla_qr','due','bank')) default 'cash',
+  created_at timestamptz default now()
+);
+
+create table if not exists order_items (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid references orders(id) on delete cascade,
+  product_id uuid references products(id),
+  quantity integer not null check (quantity > 0),
+  unit_price numeric(10,2) not null
+);
+
+-- ========== 2) BANGLADESH LITE PATCH (add BDT/VAT/Baki columns) ==========
 alter table stores add column if not exists bin text;
 alter table stores add column if not exists address text;
 alter table stores add column if not exists phone text;
@@ -40,23 +80,7 @@ alter table products add column if not exists vat_rate numeric(4,2) default 0;
 alter table products add column if not exists is_loose boolean default false;
 alter table products add column if not exists image_url text;
 
--- orders patches (client_uuid for offline idempotency, bin snapshot, vat)
-alter table orders add column if not exists customer_id uuid references customers(id);
-alter table orders add column if not exists is_due boolean default false;
-alter table orders add column if not exists due_amount numeric(10,2) default 0;
-alter table orders add column if not exists mfs_trxid text;
-alter table orders add column if not exists vat_rate numeric(4,2);
-alter table orders add column if not exists vat_amount numeric(10,2) default 0;
-alter table orders add column if not exists discount_type text default 'amount' check (discount_type in ('amount','percent'));
-alter table orders add column if not exists note text;
-alter table orders add column if not exists client_uuid text unique;
-alter table orders add column if not exists bin_snapshot text;
-
-alter table order_items add column if not exists vat_rate numeric(4,2) default 0;
-alter table order_items add column if not exists vat_amount numeric(10,2) default 0;
-alter table order_items add column if not exists unit_snapshot text;
-
--- ========== NEW TABLES (Bangladesh Lite) ==========
+-- Create customers/suppliers BEFORE altering orders (FK needs to exist)
 create table if not exists customers (
   id uuid primary key default gen_random_uuid(),
   store_id uuid references stores(id) on delete cascade not null,
@@ -81,6 +105,23 @@ create table if not exists suppliers (
   created_at timestamptz default now()
 );
 
+-- Now safe to patch orders (customers exists)
+alter table orders add column if not exists customer_id uuid references customers(id);
+alter table orders add column if not exists is_due boolean default false;
+alter table orders add column if not exists due_amount numeric(10,2) default 0;
+alter table orders add column if not exists mfs_trxid text;
+alter table orders add column if not exists vat_rate numeric(4,2);
+alter table orders add column if not exists vat_amount numeric(10,2) default 0;
+alter table orders add column if not exists discount_type text default 'amount' check (discount_type in ('amount','percent'));
+alter table orders add column if not exists note text;
+alter table orders add column if not exists client_uuid text unique;
+alter table orders add column if not exists bin_snapshot text;
+
+alter table order_items add column if not exists vat_rate numeric(4,2) default 0;
+alter table order_items add column if not exists vat_amount numeric(10,2) default 0;
+alter table order_items add column if not exists unit_snapshot text;
+
+-- ========== 3) NEW TABLES (Bangladesh Lite) ==========
 create table if not exists khata_entries (
   id uuid primary key default gen_random_uuid(),
   store_id uuid references stores(id) on delete cascade not null,
@@ -155,7 +196,7 @@ create table if not exists returns (
   created_at timestamptz default now()
 );
 
--- ========== TRIGGERS (stock & due) ==========
+-- ========== 4) TRIGGERS (stock & due) ==========
 create or replace function deduct_stock() returns trigger as $$
 begin update products set stock_quantity = stock_quantity - NEW.quantity where id = NEW.product_id; return NEW; end; $$ language plpgsql;
 drop trigger if exists trg_deduct on order_items;
@@ -176,8 +217,47 @@ begin
 drop trigger if exists trg_due on khata_entries;
 create trigger trg_due after insert on khata_entries for each row execute function update_due();
 
--- ========== RLS (copy your tenant isolation) ==========
--- Enable RLS and add tenant policy for new tables (repeat for each)
+-- 7-day trial auto-provision (from your Mekholi doc — keep if not exists)
+create or replace function public.handle_new_user_signup()
+returns trigger as $$
+declare new_store_id uuid;
+begin
+  insert into public.stores (name, trial_starts_at, trial_ends_at, subscription_status)
+  values (coalesce(NEW.raw_user_meta_data->>'store_name', 'My Mekholi Store'), now(), now() + interval '7 days', 'trialing')
+  returning id into new_store_id;
+  insert into public.profiles (id, store_id, full_name, auth_provider, role)
+  values (NEW.id, new_store_id, coalesce(NEW.raw_user_meta_data->>'full_name', NEW.email), NEW.raw_app_meta_data->>'provider', 'owner');
+  return NEW;
+end; $$ language plpgsql security definer;
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created after insert on auth.users for each row execute function public.handle_new_user_signup();
+
+-- ========== 5) RLS (tenant isolation by store_id) ==========
+-- Enable RLS for core tables
+do $$
+declare t text;
+begin
+  foreach t in array array['stores','profiles','categories','products','orders','order_items']
+  loop
+    execute format('alter table %I enable row level security', t);
+  end loop;
+end $$;
+
+-- Policies for core (store_id isolation)
+drop policy if exists "Tenant Isolation Policy for Products" on products;
+create policy "Tenant Isolation Policy for Products" on products for all using (store_id in (select store_id from profiles where id = auth.uid()));
+drop policy if exists "Tenant isolation - stores" on stores;
+create policy "Tenant isolation - stores" on stores for all using (id in (select store_id from profiles where id = auth.uid()));
+drop policy if exists "Tenant isolation - profiles" on profiles;
+create policy "Tenant isolation - profiles" on profiles for all using (store_id in (select store_id from profiles where id = auth.uid()));
+drop policy if exists "Tenant isolation - categories" on categories;
+create policy "Tenant isolation - categories" on categories for all using (store_id in (select store_id from profiles where id = auth.uid()));
+drop policy if exists "Tenant isolation - orders" on orders;
+create policy "Tenant isolation - orders" on orders for all using (store_id in (select store_id from profiles where id = auth.uid()));
+drop policy if exists "Tenant isolation - order_items" on order_items;
+create policy "Tenant isolation - order_items" on order_items for all using (order_id in (select id from orders where store_id in (select store_id from profiles where id = auth.uid())));
+
+-- Policies for new Lite tables
 do $$
 declare t text;
 begin
@@ -185,9 +265,12 @@ begin
   loop
     execute format('alter table %I enable row level security', t);
     execute format('drop policy if exists "Tenant isolation" on %I', t);
-    execute format('create policy "Tenant isolation" on %I for all using (store_id in (select store_id from profiles where id = auth.uid()))', t);
+    if t = 'purchase_items' then
+      execute format('create policy "Tenant isolation" on %I for all using (purchase_id in (select id from purchases where store_id in (select store_id from profiles where id = auth.uid())))', t);
+    else
+      execute format('create policy "Tenant isolation" on %I for all using (store_id in (select store_id from profiles where id = auth.uid()))', t);
+    end if;
   end loop;
 end $$;
 
--- ========== SEED CHECK ==========
 -- Verify: select * from stores limit 1; select * from customers limit 1;
