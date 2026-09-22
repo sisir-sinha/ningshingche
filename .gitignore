@@ -5,3 +5,6 @@ dist
 .DS_Store
 .vscode
 *.log
+
+# Git Auto Commit Generator learned data
+.git-auto-commit/
