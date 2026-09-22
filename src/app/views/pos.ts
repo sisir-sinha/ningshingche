@@ -14,20 +14,12 @@ const DEMO_PRODUCTS: Product[] = [
 
 export default function posView(): string {
   return `
-  <div class="min-h-screen bg-[#f8fafc] flex flex-col">
-    <header class="sticky top-0 z-30 bg-white border-b border-slate-200">
-      <div class="max-w-[1280px] mx-auto px-3 sm:px-4 h-[56px] flex items-center gap-2">
-        <a href="/app.html" data-link class="w-8 h-8 rounded-full border border-slate-200 grid place-items-center hover:bg-slate-50"><span class="material-symbols-rounded text-[18px]">arrow_back</span></a>
-        <div class="font-bold text-[15px]">New Sale</div>
-        <span id="pos-store" class="hidden sm:inline text-xs text-slate-500"></span>
-        <div class="ml-auto flex items-center gap-2">
-          <span id="outbox-badge" class="hidden text-xs font-bold bg-amber-50 border border-amber-200 text-amber-700 px-2.5 py-1 rounded-full">Offline</span>
-          <button id="pos-clear" class="text-xs font-bold border border-slate-200 bg-white px-3 py-1.5 rounded-full hover:bg-slate-50">Clear</button>
-        </div>
-      </div>
-    </header>
-
-    <div class="flex-1 max-w-[1280px] mx-auto w-full px-3 sm:px-4 py-3 sm:py-4 grid lg:grid-cols-[1.15fr_0.85fr] gap-4 items-start">
+  <div class="max-w-[1280px] mx-auto w-full px-4 lg:px-6 py-4 grid lg:grid-cols-[1.15fr_0.85fr] gap-4 items-start">
+    <div class="hidden lg:flex items-center justify-end col-span-full -mb-1">
+      <button id="pos-clear" class="text-xs font-bold border border-slate-200 bg-white px-3 py-1.5 rounded-full hover:bg-slate-50">Clear cart</button>
+      <span id="outbox-badge" class="hidden ml-2 text-xs font-bold bg-amber-50 border border-amber-200 text-amber-700 px-2.5 py-1 rounded-full">Offline</span>
+      <span id="pos-store" class="hidden ml-2 text-xs text-slate-500"></span>
+    </div>
       <!-- LEFT: Products -->
       <div class="bg-white border border-slate-200 rounded-[20px] p-3 sm:p-4">
         <div class="flex gap-2">
@@ -119,7 +111,6 @@ export default function posView(): string {
         </button>
         <div id="pos-receipt" class="hidden mt-4 bg-white border border-slate-200 rounded-2xl p-3 font-mono text-[11px] leading-4"></div>
       </div>
-    </div>
   </div>
   `
 }

@@ -2,16 +2,7 @@ import { supabase, isSupabaseConfigured } from '../../core/db/supabase'
 
 export function khataView(): string {
   return `
-  <div class="min-h-screen bg-[#f8fafc] flex flex-col">
-    <header class="sticky top-0 z-30 bg-white border-b border-slate-200">
-      <div class="max-w-[1120px] mx-auto px-4 h-[56px] flex items-center gap-3">
-        <a href="/app.html" data-link class="w-8 h-8 rounded-full border border-slate-200 grid place-items-center hover:bg-slate-50"><span class="material-symbols-rounded text-[18px]">arrow_back</span></a>
-        <div class="font-bold">Khata</div>
-        <span class="text-xs text-slate-500">Baki</span>
-        <a href="/app/pos" data-link class="ml-auto inline-flex items-center gap-1.5 bg-slate-900 text-white px-3 py-1.5 rounded-full text-xs font-bold">New Sale</a>
-      </div>
-    </header>
-    <div class="max-w-[1120px] mx-auto w-full px-4 py-4">
+  <div class="max-w-[1120px] mx-auto w-full px-4 lg:px-6 py-4">
       <div class="grid lg:grid-cols-[0.9fr_1.1fr] gap-4">
         <div class="bg-white border border-slate-200 rounded-[20px] p-4">
           <div class="flex gap-2">
@@ -27,7 +18,6 @@ export function khataView(): string {
           <div id="khata-detail" class="text-sm text-slate-500 py-16 text-center border-2 border-dashed border-slate-200 rounded-2xl">Select a customer</div>
         </div>
       </div>
-    </div>
   </div>
   `
 }
