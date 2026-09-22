@@ -1,0 +1,37 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+Bengali:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root{
+  --mk-ink:#0f172a;
+  --mk-accent:#0ea5e9;
+  --mk-green:#059669;
+}
+
+html{scroll-behavior:smooth}
+body{font-family:'Inter','Noto Sans Bengali',system-ui,sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.scrollbar-hide{scrollbar-width:none;-ms-overflow-style:none}
+.scrollbar-hide::-webkit-scrollbar{display:none}
+
+/* glass */
+.glass{background:rgba(255,255,255,0.82);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.6)}
+.glass-dark{background:rgba(15,23,42,0.78);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.08)}
+
+/* smooth card hover */
+.card-hover{transition:all 0.3s cubic-bezier(0.16,1,0.3,1)}
+.card-hover:hover{transform:translateY(-4px);box-shadow:0 12px 32px rgba(15,23,42,0.1)}
+
+/* gradient text */
+.gradient-text{background:linear-gradient(90deg,#059669 0%,#0ea5e9 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+
+/* receipt pattern */
+.receipt-dashed{border-top:1.5px dashed #cbd5e1}
+
+/* focus */
+*:focus-visible{outline:2px solid #0ea5e9;outline-offset:2px}
+
+/* animations */
+@keyframes floatY{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
