@@ -5,6 +5,7 @@ export default function login(): string {
   <section class="min-h-[80vh] grid place-items-center px-4 py-10 bg-slate-50 dark:bg-[#020617]">
     <div class="w-full max-w-[440px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[24px] p-6 sm:p-7 shadow-sm">
       <a href="/" data-link class="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900"><span class="material-symbols-rounded text-[18px]">arrow_back</span> Back to site</a>
+      <div id="auth-required-banner" class="hidden mt-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs font-semibold px-3 py-2.5 rounded-xl flex items-center gap-2"><span class="material-symbols-rounded text-[18px]">lock</span> Please log in to access the app — your session expired or you’re not signed in.</div>
       <div class="mt-4 flex items-center gap-3">
         <div class="w-9 h-9 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 grid place-items-center font-black text-xs">MK</div>
         <div class="font-extrabold dark:text-white">Mekholi</div>
@@ -79,6 +80,19 @@ export function initLogin(){
   const googleBtn = document.getElementById('google-btn')!
   const loginMsg = document.getElementById('login-msg')!
   const registerMsg = document.getElementById('register-msg')!
+  // show “auth required” banner if redirected from guard
+  const qp = new URLSearchParams(location.search)
+  if(qp.get('redirect')){
+    document.getElementById('auth-required-banner')?.classList.remove('hidden')
+  }
+  // if Supabase not configured, hint
+  import('../../core/db/supabase').then(m=>{
+    if(!m.isSupabaseConfigured){
+      loginMsg.textContent = 'Supabase not configured — set VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY in .env (see .env.example). Demo auth blocked.'
+      loginMsg.className = 'text-xs font-semibold p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800'
+      loginMsg.classList.remove('hidden')
+    }
+  })
 
   function showLogin(){
     loginForm.classList.remove('hidden'); registerForm.classList.add('hidden')
@@ -102,10 +116,13 @@ export function initLogin(){
 
   googleBtn.addEventListener('click', async ()=>{
     try{
-      const { error } = await supabase.auth.signInWithOAuth({ provider:'google', options:{ redirectTo: location.origin + '/dashboard' } })
+      const redirect = new URLSearchParams(location.search).get('redirect') || '/app'
+      // Google OAuth needs absolute URL — Supabase will redirect back to /dashboard or /app after OAuth; we use /app as default
+      const target = redirect.startsWith('/app') || redirect.startsWith('/dashboard') ? redirect : '/app'
+      const { error } = await supabase.auth.signInWithOAuth({ provider:'google', options:{ redirectTo: location.origin + target } })
       if(error) throw error
     }catch(e:any){
-      loginMsg.textContent = e.message || 'Google OAuth not configured in Supabase'
+      loginMsg.textContent = e.message || 'Google OAuth not configured in Supabase (enable Google provider + redirect URL in Supabase Auth)'
       loginMsg.className = 'text-xs font-semibold p-3 rounded-xl bg-red-50 border border-red-200 text-red-700'
       loginMsg.classList.remove('hidden')
     }
@@ -125,7 +142,9 @@ export function initLogin(){
       loginMsg.textContent='Logged in ✓ Redirecting…'
       loginMsg.className='text-xs font-semibold p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700'
       loginMsg.classList.remove('hidden')
-      setTimeout(()=> location.href='/dashboard', 600)
+      const redirect = new URLSearchParams(location.search).get('redirect')
+      const target = redirect && (redirect.startsWith('/app') || redirect.startsWith('/dashboard')) ? redirect : '/app'
+      setTimeout(()=> location.href=target, 500)
     }catch(err:any){
       loginMsg.textContent = err.message || 'Login failed'
       loginMsg.className='text-xs font-semibold p-3 rounded-xl bg-red-50 border border-red-200 text-red-700'

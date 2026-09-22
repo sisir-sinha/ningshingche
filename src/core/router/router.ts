@@ -1,7 +1,7 @@
 // Vanilla History Router — no hash, History API only
 export type ViewContext = { params: Record<string,string>; query: URLSearchParams; path: string }
 export type ViewFn = (ctx: ViewContext) => string | HTMLElement | Promise<string | HTMLElement>
-export type Route = { path: string; view: ViewFn | (() => Promise<{ default: ViewFn }>); guard?: () => boolean | string; title?: string }
+export type Route = { path: string; view: ViewFn | (() => Promise<{ default: ViewFn }>); guard?: () => boolean | string | Promise<boolean | string>; title?: string }
 
 export function createRouter(routes: Route[], mount: HTMLElement) {
   function match(pathname: string) {
@@ -28,7 +28,9 @@ export function createRouter(routes: Route[], mount: HTMLElement) {
       return
     }
     if (hit.route.guard) {
-      const g = hit.route.guard()
+      // show lightweight loading while guard resolves (prevents flash of protected view)
+      mount.innerHTML = `<div class="min-h-[50vh] grid place-items-center p-8"><div class="flex flex-col items-center gap-3"><div class="w-8 h-8 rounded-full border-2 border-slate-200 border-t-slate-900 dark:border-slate-700 dark:border-t-white animate-spin"></div><div class="text-xs font-bold tracking-widest text-slate-500 dark:text-slate-400">Checking session…</div></div></div>`
+      const g = await hit.route.guard()
       if (typeof g === 'string') { navigate(g); return }
       if (!g) return
     }

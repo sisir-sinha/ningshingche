@@ -1,6 +1,7 @@
 import '../styles/app.css'
 import { createRouter } from '../core/router/router'
 import { initTheme } from '../core/utils/theme'
+import { requireAuth, redirectIfAuthed } from '../core/auth/guard'
 import { renderSupabaseStatus, mountSupabaseBanner } from '../core/components/supabase-status'
 import landing from './views/landing'
 import pricing from './views/pricing'
@@ -16,8 +17,8 @@ const router = createRouter([
   { path: '/', view: landing, title: 'Mekholi — দোকানের হিসাব, এখন আরও সহজ' },
   { path: '/pricing', view: pricing, title: 'Mekholi Pricing — BDT via bKash' },
   { path: '/help', view: help, title: 'Mekholi Help' },
-  { path: '/login', view: loginView, title: 'Mekholi — Log in / Register' },
-  { path: '/dashboard', view: dashboard, title: 'Mekholi — Dashboard' },
+  { path: '/login', view: loginView, title: 'Mekholi — Log in / Register', guard: () => redirectIfAuthed() },
+  { path: '/dashboard', view: dashboard, title: 'Mekholi — Dashboard', guard: () => requireAuth() },
   { path: '/app', view: () => { location.href = '/app.html'; return '' } },
   { path: '/app.html', view: () => { location.href = '/app.html'; return '' } },
 ], mount)
@@ -34,12 +35,10 @@ window.addEventListener('mk:navigate', () => {
   setTimeout(()=> initSite(), 0)
   renderSupabaseStatus('supabase-status')
   mountSupabaseBanner()
-  // init login if on that route
   if(location.pathname==='/login') setTimeout(()=> initLogin(), 50)
 })
 
 function initSite() {
-  // theme toggle on site header
   const tBtn = document.getElementById('site-theme-toggle')
   const tBtnM = document.getElementById('site-theme-toggle-mobile')
   import('../core/utils/theme').then(m=>{
@@ -54,8 +53,6 @@ function initSite() {
     window.addEventListener('mk:theme', upd as any)
     upd()
   })
-
-  // mobile menu
   const btn = document.getElementById('mobile-menu-btn')
   const menu = document.getElementById('mobile-menu')
   if (btn && menu) {
@@ -80,7 +77,6 @@ function initSite() {
       }
     })
   })
-  // lang toggle demo
   const langBtn = document.getElementById('lang-toggle')
   const langLabel = document.getElementById('lang-label')
   let bn = true
@@ -175,6 +171,17 @@ function renderDemo() {
   ;(document.getElementById('demo-pay') as HTMLElement).textContent = `৳${total.toFixed(2)}`
   totals.classList.remove('hidden')
 }
-
-// initial
 setTimeout(()=> { initSite(); if(location.pathname==='/login') initLogin() }, 0)
+
+// global auth sync: if signed out while on /dashboard, bounce to /login
+import('./../core/db/supabase').then(({ supabase })=>{
+  supabase.auth.onAuthStateChange((event)=>{
+    if(event==='SIGNED_OUT' && location.pathname==='/dashboard'){
+      location.href = '/login?redirect=' + encodeURIComponent(location.pathname)
+    }
+    if(event==='SIGNED_IN' && location.pathname==='/login'){
+      const p = new URLSearchParams(location.search).get('redirect')
+      location.href = p && p.startsWith('/app') ? p : '/app'
+    }
+  })
+})

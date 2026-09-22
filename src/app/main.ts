@@ -1,6 +1,7 @@
 import '../styles/app.css'
 import { createRouter } from '../core/router/router'
 import { initTheme } from '../core/utils/theme'
+import { requireAuth } from '../core/auth/guard'
 import { homeView, initHome } from './views/home'
 import posView, { initPos } from './views/pos'
 import { khataView, initKhata } from './views/khata'
@@ -23,17 +24,20 @@ function withLayout(active: any, viewFn: () => string, title: string){
   }
 }
 
+const authGuard = () => requireAuth()
+
 createRouter([
-  { path: '/app', view: withLayout('home', homeView, 'Home'), title: 'Mekholi — Home' },
-  { path: '/app.html', view: withLayout('home', homeView, 'Home'), title: 'Mekholi — Home' },
-  { path: '/app/pos', view: withLayout('pos', posView, 'POS Billing'), title: 'Mekholi — POS' },
-  { path: '/app/products', view: withLayout('products', productsView, 'Products'), title: 'Mekholi — Products' },
-  { path: '/app/products/new', view: withLayout('products', productNewView, 'Add Product'), title: 'Mekholi — Add Product' },
-  { path: '/app/khata', view: withLayout('khata', khataView, 'Khata'), title: 'Mekholi — Khata' },
-  { path: '/app/expenses', view: withLayout('expenses', expensesView, 'Expenses'), title: 'Mekholi — Expenses' },
-  { path: '/app/expenses/new', view: withLayout('expenses', expenseNewView, 'Add Expense'), title: 'Mekholi — Add Expense' },
-  { path: '/app/reports', view: withLayout('reports', reportsView, 'Reports'), title: 'Mekholi — Reports' },
-  { path: '/app/settings', view: withLayout('settings', settingsView, 'Settings'), title: 'Mekholi — Settings' },
+  { path: '/app', view: withLayout('home', homeView, 'Home'), title: 'Mekholi — Home', guard: authGuard },
+  { path: '/app.html', view: withLayout('home', homeView, 'Home'), title: 'Mekholi — Home', guard: authGuard },
+  { path: '/app/pos', view: withLayout('pos', posView, 'POS Billing'), title: 'Mekholi — POS', guard: authGuard },
+  { path: '/app/products', view: withLayout('products', productsView, 'Products'), title: 'Mekholi — Products', guard: authGuard },
+  { path: '/app/products/new', view: withLayout('products', productNewView, 'Add Product'), title: 'Mekholi — Add Product', guard: authGuard },
+  { path: '/app/khata', view: withLayout('khata', khataView, 'Khata'), title: 'Mekholi — Khata', guard: authGuard },
+  { path: '/app/expenses', view: withLayout('expenses', expensesView, 'Expenses'), title: 'Mekholi — Expenses', guard: authGuard },
+  { path: '/app/expenses/new', view: withLayout('expenses', expenseNewView, 'Add Expense'), title: 'Mekholi — Add Expense', guard: authGuard },
+  { path: '/app/reports', view: withLayout('reports', reportsView, 'Reports'), title: 'Mekholi — Reports', guard: authGuard },
+  { path: '/app/settings', view: withLayout('settings', settingsView, 'Settings'), title: 'Mekholi — Settings', guard: authGuard },
+  // public fallback — landing redirect handled via site, but guard allows
   { path: '/', view: () => { location.href = '/'; return '' } },
 ], mount)
 
@@ -61,7 +65,6 @@ function runInits(){
         document.querySelectorAll('aside').forEach(el=>{
           el.innerHTML = el.innerHTML.replace(/Your Store/g, store.name)
         })
-        // also patch subtitle in top bars
         document.querySelectorAll('#store-subtitle').forEach(el=> el.textContent = store.name + ' • Bangladesh')
       }
     }catch{}
@@ -70,3 +73,17 @@ function runInits(){
 
 window.addEventListener('mk:navigate', () => setTimeout(runInits, 0))
 setTimeout(runInits, 0)
+
+// Also listen to auth changes globally: if session expires while on /app, bounce to login
+import('../core/db/supabase').then(({ supabase })=>{
+  supabase.auth.onAuthStateChange((event)=>{
+    if(event === 'SIGNED_OUT'){
+      if(location.pathname.startsWith('/app')){
+        location.href = '/login?redirect=' + encodeURIComponent(location.pathname + location.search)
+      }
+    }
+    if(event === 'SIGNED_IN'){
+      // if on login page, the guard will handle redirect; nothing needed
+    }
+  })
+})
