@@ -1,4 +1,5 @@
 import { getTheme, toggleTheme } from '../../core/utils/theme'
+import { getOutboxCount } from '../../core/db/idb'
 
 export type NavKey = 'home'|'pos'|'products'|'khata'|'expenses'|'reports'|'settings'
 
@@ -173,12 +174,9 @@ export function initLayout(){
   document.getElementById('app-logout')?.addEventListener('click', doLogout)
   document.getElementById('drawer-logout')?.addEventListener('click', doLogout)
 
-  // offline badge
-  import('../../core/db/idb').then(async m=>{
-    try{
-      const n = await m.getOutboxCount().catch(()=>0)
-      const el = document.getElementById('layout-offline')
-      if(el && (n>0 || !navigator.onLine)){ el.classList.remove('hidden'); el.textContent = n>0 ? `${n} pending • Offline` : 'Offline' }
-    }catch{}
-  })
+  // offline badge (now static import — fixes vite chunk warning)
+  getOutboxCount().then(n=>{
+    const el = document.getElementById('layout-offline')
+    if(el && (n>0 || !navigator.onLine)){ el.classList.remove('hidden'); el.textContent = n>0 ? `${n} pending • Offline` : 'Offline' }
+  }).catch(()=>{})
 }

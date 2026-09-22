@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../../core/db/supabase'
+import { getOutboxCount } from '../../core/db/idb'
 
 export function homeView(): string {
   return `
@@ -131,9 +132,8 @@ export async function initHome(){
     gEl.textContent = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
   }
 
-  // offline badge (only show when offline/pending)
+  // offline badge (only show when offline/pending) — static import fixes vite chunk warning
   try{
-    const { getOutboxCount } = await import('../../core/db/idb')
     const n = await getOutboxCount().catch(()=>0)
     const el = document.getElementById('home-offline-badge')
     if(el){
