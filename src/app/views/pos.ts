@@ -162,7 +162,7 @@ export default function posView(): string {
           <button id="pos-return-btn" class="flex-1 py-2 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold dark:text-white hover:bg-amber-50 dark:hover:bg-amber-900/20">↩ Return</button>
           <button id="pos-print-last" class="flex-1 py-2 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold dark:text-white">🖨 Print last</button>
         </div>
-        <div id="pos-receipt" class="hidden mt-4 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-2xl p-3 font-mono text-[11px] leading-4 dark:text-slate-200"></div>
+        <div id="pos-receipt" class="hidden mt-4"></div>
       </div>
     </div>
   </div>
@@ -246,6 +246,7 @@ export function initPos() {
   let splitOn = false
   let splitPayments: { method:string; amount:number }[] = []
   let selectedCustomer: { id:string|null; name:string; phone:string; due_balance?:number } | null = null
+  let storeInfo: { name?:string; address?:string; phone?:string; bin?:string } | null = null
   let heldCarts: Held[] = JSON.parse(localStorage.getItem('pos-held-v2') || '[]')
   // migrate old
   if(!heldCarts.length){
@@ -300,11 +301,14 @@ export function initPos() {
         if(user){
           const { data: prof } = await supabase.from('profiles').select('store_id').eq('id', user.id).maybeSingle() as any
           if(prof?.store_id){
-            const { data: store } = await supabase.from('stores').select('name').eq('id', prof.store_id).maybeSingle() as any
-            if(store?.name && storeEl) { storeEl.textContent = `• ${store.name}`; storeEl.classList.remove('hidden') }
+            const { data: store } = await supabase.from('stores').select('name,address,phone,bin').eq('id', prof.store_id).maybeSingle() as any
+            if(store){ storeInfo = store as any; if(store?.name && storeEl) { storeEl.textContent = `• ${store.name}`; storeEl.classList.remove('hidden') } }
           }
         }
       }catch{}
+    } else {
+      // demo store fallback
+      storeInfo = { name:'MEKHOLI Mart', address:'Sylhet Road • Sylhet, BD', phone:'01700-000000', bin:'000000000-0000' }
     }
   })()
 
@@ -703,24 +707,101 @@ export function initPos() {
 
     const receiptEl = document.getElementById('pos-receipt')!
     receiptEl.classList.remove('hidden')
+    receiptEl.scrollIntoView({ behavior:'smooth', block:'nearest' })
+    const storeName = storeInfo?.name || 'MEKHOLI Mart'
+    const storeAddr = storeInfo?.address || 'Sylhet Road • Sylhet, Bangladesh'
+    const storePhone = storeInfo?.phone || ''
+    const storeBin = (orderPayload as any).bin_snapshot || storeInfo?.bin || '—'
+    const dateStr = new Date().toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:true })
+    const custName = selectedCustomer?.name || 'Walk-in'
+    const custPhone = selectedCustomer?.phone || ''
     receiptEl.innerHTML = `
-      <div class="text-center font-black text-[13px] dark:text-white">MEKHOLI • Mushak 6.3</div>
-      <div class="text-center text-[10px] text-slate-500">BIN: ${(orderPayload.bin_snapshot||'—')} • ${receipt_number} • ${new Date().toLocaleString('en-GB')} • ${selectedCustomer? selectedCustomer.name+' '+selectedCustomer.phone : 'Walk-in'}</div>
-      <div class="border-t border-dashed border-slate-300 dark:border-slate-700 my-2"></div>
-      ${cart.map(c=>{
-        const ld=(c.disc_amt||0)+(c.price*c.qty*(c.disc_pct||0)/100); return `<div class="flex justify-between"><span>${c.name} ${c.qty}${c.unit} × ৳${c.price}${ld>0?` (-৳${ld.toFixed(0)})`:''}</span><span>৳${((c.price*c.qty)-ld).toFixed(2)}</span></div>`
-      }).join('')}
-      <div class="border-t border-dashed border-slate-300 dark:border-slate-700 my-2"></div>
-      <div class="flex justify-between"><span>Subtotal</span><span>৳${subtotal.toFixed(2)}</span></div>
-      <div class="flex justify-between"><span>Discount</span><span>-৳${globalDisc.toFixed(2)}</span></div>
-      <div class="flex justify-between"><span>VAT</span><span>৳${vat.toFixed(2)}</span></div>
-      <div class="flex justify-between font-black border-t border-slate-200 dark:border-slate-700 mt-1 pt-1 dark:text-white"><span>TOTAL</span><span>৳${total.toFixed(2)}</span></div>
-      ${splitOn? splitPayments.map(p=>`<div class="flex justify-between text-emerald-600"><span>Paid ${p.method}</span><span>৳${p.amount.toFixed(2)}</span></div>`).join('') : `<div class="flex justify-between text-emerald-600 font-bold"><span>Paid (${selectedPay})</span><span>৳${paidNow.toFixed(2)}</span></div>`}
-      ${due>0?`<div class="flex justify-between text-red-600 font-black bg-red-50 dark:bg-red-900/20 rounded px-1 py-0.5 mt-1"><span>Due</span><span>৳${due.toFixed(2)}</span></div>`:''}
-      <div class="text-center mt-2 text-[10px] text-slate-400">${savedOnline?'Synced ✓':'Queued — will sync when online'} • ${splitOn?'Split':'Single'} • Drawer kick</div>
-      <div class="mt-2 flex justify-center gap-2">
-        <button onclick="window.print()" class="px-3 py-1 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold">Print</button>
-        <button onclick="this.closest('#pos-receipt').classList.add('hidden')" class="px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold dark:text-white">Close</button>
+      <div class="relative">
+        <style>
+          @media print{
+            body *{ visibility:hidden !important; }
+            #pos-receipt, #pos-receipt *{ visibility:visible !important; }
+            #pos-receipt{ position:absolute !important; left:0 !important; top:0 !important; width:80mm !important; margin:0 !important; padding:0 !important; border:none !important; border-radius:0 !important; box-shadow:none !important; background:white !important; }
+            #pos-receipt .no-print{ display:none !important; }
+            @page{ size:80mm auto; margin:3mm; }
+          }
+        </style>
+        <div class="mx-auto w-full max-w-[360px] bg-white text-slate-900 rounded-[18px] border border-slate-200 overflow-hidden shadow-sm">
+          <div class="bg-slate-900 text-white px-4 pt-4 pb-3 text-center">
+            <div class="inline-flex items-center gap-2 justify-center">
+              <span class="w-7 h-7 rounded-full bg-white text-slate-900 grid place-items-center font-black text-[13px]">M</span>
+              <span class="font-black tracking-[0.22em] text-[12px]">MEKHOLI</span>
+              <span class="text-[8px] tracking-widest bg-white/15 border border-white/20 px-1.5 py-0.5 rounded-full">MUSHAK 6.3</span>
+            </div>
+            <div class="font-black text-[15px] leading-none mt-2.5 tracking-tight">${storeName}</div>
+            <div class="text-[10px] text-white/70 leading-tight mt-1">${storeAddr}${storePhone ? ` • ${storePhone}` : ''}</div>
+            <div class="text-[9px] tracking-wide text-white/60 mt-1">BIN: ${storeBin}</div>
+          </div>
+          <div class="px-4 py-3">
+            <div class="flex justify-between gap-3 text-[11px] leading-[1.3]">
+              <div>
+                <div class="text-slate-500 text-[9px] tracking-widest font-bold">RECEIPT</div>
+                <div class="font-mono font-bold tracking-widest text-slate-900">${receipt_number}</div>
+                <div class="text-[10px] text-slate-600 mt-1">${dateStr}</div>
+              </div>
+              <div class="text-right">
+                <div class="text-slate-500 text-[9px] tracking-widest font-bold">CUSTOMER</div>
+                <div class="font-bold text-slate-900">${custName}</div>
+                <div class="text-[10px] text-slate-600">${custPhone || 'Walk-in • Cash'}</div>
+              </div>
+            </div>
+            ${selectedCustomer && (selectedCustomer as any).due_balance ? `<div class="mt-2 text-[10px] font-bold bg-amber-50 border border-amber-200 text-amber-700 rounded-full px-3 py-1 text-center">Previous Due: ৳${Number((selectedCustomer as any).due_balance).toFixed(2)}</div>` : ''}
+            <div class="mt-3">
+              <div class="grid grid-cols-[1fr_38px_58px_68px] gap-1 text-[8px] font-bold tracking-widest text-slate-500 border-b-2 border-slate-900 pb-1">
+                <div>ITEM</div><div class="text-center">QTY</div><div class="text-right">RATE</div><div class="text-right">AMOUNT</div>
+              </div>
+              <div class="divide-y divide-dashed divide-slate-200">
+                ${cart.map((c:any,i:number)=>{
+                  const ld=(c.disc_amt||0)+(c.price*c.qty*(c.disc_pct||0)/100);
+                  const net=(c.price*c.qty - ld);
+                  const isDisc = ld>0.01;
+                  return `<div class="grid grid-cols-[1fr_38px_58px_68px] gap-1 py-2 items-start text-[11px] leading-tight">
+                    <div class="pr-1">
+                      <div class="font-bold leading-tight text-slate-900">${i+1}. ${c.name}</div>
+                      <div class="text-[9px] text-slate-500">${c.unit} ${c.vat_rate ? `• VAT ${c.vat_rate}%` : '• VAT 0%' }${isDisc ? ` • Disc ৳${ld.toFixed(0)}` : ''}</div>
+                    </div>
+                    <div class="text-center font-bold">${Number(c.qty).toString().replace(/\.0$/,'')} <span class="text-[9px] font-normal text-slate-500">${c.unit}</span></div>
+                    <div class="text-right text-slate-600">৳${c.price.toFixed(0)}</div>
+                    <div class="text-right font-black">৳${net.toFixed(2)}</div>
+                  </div>`
+                }).join('')}
+              </div>
+              <div class="text-[10px] text-slate-500 text-center border-t border-dashed border-slate-200 pt-1.5 mt-1">${cart.length} item${cart.length>1?'s':''} • ${cart.reduce((s:any,c:any)=>s+c.qty,0).toString().replace(/\.0$/,'')} qty</div>
+            </div>
+            <div class="mt-3 bg-slate-50 rounded-2xl p-3 border border-slate-200">
+              <div class="space-y-1 text-[11px]">
+                <div class="flex justify-between"><span class="text-slate-600">Subtotal</span><span class="font-bold">৳${subtotal.toFixed(2)}</span></div>
+                ${globalDisc>0.005 ? `<div class="flex justify-between text-emerald-700"><span>Discount</span><span class="font-bold">-৳${globalDisc.toFixed(2)}</span></div>` : ''}
+                <div class="flex justify-between"><span class="text-slate-600">VAT</span><span class="font-bold">৳${vat.toFixed(2)}</span></div>
+              </div>
+              <div class="flex justify-between items-center bg-slate-900 text-white rounded-xl px-3.5 py-2.5 mt-2.5">
+                <span class="text-[11px] font-black tracking-[0.18em]">TOTAL</span><span class="text-[18px] font-black tracking-tight">৳${total.toFixed(2)}</span>
+              </div>
+              <div class="mt-2.5 space-y-1.5 text-[11px]">
+                ${splitOn ? splitPayments.map((p:any)=>`<div class="flex justify-between items-center ${p.method==='due' ? 'bg-red-50 border border-red-200 text-red-700 rounded-full px-3 py-1.5 font-black' : ''}"><span class="capitalize ${p.method==='due'?'':'text-slate-600'}">${p.method.replace('_',' ')} ${p.method==='due'?'due':'paid'}</span><span class="font-bold">৳${p.amount.toFixed(2)}</span></div>`).join('') : `<div class="flex justify-between"><span class="text-slate-600">Paid — <span class="capitalize font-bold text-slate-900">${selectedPay.replace('_',' ')}</span></span><span class="font-bold text-emerald-700">৳${paidNow.toFixed(2)}</span></div>`}
+                ${due>0.005 ? `<div class="flex justify-between items-center bg-red-600 text-white rounded-full px-3.5 py-2 font-black"><span>Due</span><span>৳${due.toFixed(2)}</span></div>` : `<div class="text-center text-[11px] font-black text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full py-1">✓ Paid in full — no due</div>`}
+                ${trxInput.value.trim() ? `<div class="text-center text-[9px] text-slate-500 font-mono">TrxID: ${trxInput.value.trim()}</div>` : ''}
+              </div>
+            </div>
+            <div class="mt-3 pt-3 border-t border-dashed border-slate-200 text-center">
+              <img src="https://barcodeapi.org/api/128/${receipt_number}" alt="barcode" class="mx-auto h-9 w-full max-w-[240px] object-contain" />
+              <div class="font-mono text-[8px] tracking-[0.32em] font-bold text-slate-500 mt-1">${receipt_number}</div>
+              <div class="text-[10px] font-bold text-slate-900 mt-3">Thank you for shopping!</div>
+              <div class="text-[9px] leading-tight text-slate-500 mt-1">Exchange within 3 days with receipt.<br>VAT included as per NBR Mushak 6.3 • Customer Copy</div>
+              <div class="text-[8px] tracking-wide text-slate-400 mt-2">${savedOnline ? 'Synced ✓' : 'Queued — will sync when online'} • ${splitOn?'Split payment':'Single payment'}</div>
+              <div class="text-[7px] tracking-[0.2em] text-slate-400 mt-1">Powered by Mekholi — mekholi.com</div>
+            </div>
+            <div class="no-print mt-4 flex gap-2">
+              <button onclick="window.print()" class="flex-1 py-2.5 rounded-full bg-slate-900 text-white text-xs font-black flex items-center justify-center gap-1.5"><span class="material-symbols-rounded text-[16px]">print</span> Print 80mm</button>
+              <button onclick="this.closest('#pos-receipt').classList.add('hidden')" class="px-5 py-2.5 rounded-full border border-slate-200 bg-white text-xs font-bold">Close</button>
+            </div>
+          </div>
+        </div>
       </div>
     `
     ;(window as any).toast?.(savedOnline ? `Saved ৳${total.toFixed(2)}` : `Queued ৳${total.toFixed(2)}`)
