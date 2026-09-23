@@ -13,3 +13,6 @@ out/
 # Local data exports — may contain user records. Never commit.
 legacy-export/
 .env.db
+
+# Git Auto Commit Generator learned data
+.git-auto-commit/
