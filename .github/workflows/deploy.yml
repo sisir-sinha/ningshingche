@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - name: Build (Vite MPA)
@@ -29,18 +29,15 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          # if you deploy to https://<user>.github.io/Mekholi set base below
-          # VITE_BASE is read by vite.config.ts when present
+          VITE_BASE: /Mekholi/
       - name: SPA fallback for GitHub Pages
         run: |
-          # GitHub Pages is static — no server rewrite. Copy entry HTMLs to 404.html so History API still works on refresh/deep link
           cp dist/index.html dist/404.html
-          # keep app.html as is; 404.html handles /app/* deep links via client fallback
-          # also ensure .nojekyll so _assets not ignored
+          # keep app.html for /app deep links - also copy to handle direct app.html hits
+          # .nojekyll disables Jekyll filtering (_assets etc)
           touch dist/.nojekyll
-          # optional: list
-          ls -lah dist
-          ls -lah dist/assets | head
+          echo "dist contents:" && ls -lah dist
+          echo "assets:" && ls -lah dist/assets | head -n 20
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
