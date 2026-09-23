@@ -24,6 +24,7 @@ against the layer rules:
 | `plugins/<id>/` | `features/`, `app/` | A plugin gets a `PluginAPI`, never the application (spec §51) |
 | `plugins/<a>/` | `plugins/<b>/` | Compose via `dependencies` and events |
 | `components/` | `features/`, `plugins/`, `app/` | The UI kit stays business-ignorant |
+| `features/<a>/` | `features/<b>/` internals | Only `features/<b>/index.ts` is public; cross-feature needs go through shared services or events |
 | `shared/domain/` | `app/`, `components/`, `features/`, `plugins/`, I/O | Business logic stays pure — it is the Android specification |
 | `shared/` | `features/`, `plugins/` | Dependencies run downward only |
 

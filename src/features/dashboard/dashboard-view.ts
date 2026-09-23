@@ -58,15 +58,15 @@ export function dashboardView(registry: PluginRegistry): HTMLElement {
       }),
       stat('Product fields', String(registry.productFields.items.length), {
         iconName: 'view_agenda',
-        hint: `${CORE_FIELD_COUNT} core + ${registry.productFields.items.length} from plugins`,
+        hint: 'all contributed by plugins',
       }),
       stat('Permissions held', String(session.permissions.length), {
         iconName: 'verified_user',
         hint: 'granted by your role',
       }),
-      stat('Nav destinations', String(registry.nav.items.length + CORE_NAV_COUNT), {
+      stat('Plugin nav items', String(registry.nav.items.length), {
         iconName: 'explore',
-        hint: `${registry.nav.items.length} added by plugins`,
+        hint: 'added to the sidebar with no feature edits',
       })
     ),
 
@@ -82,9 +82,6 @@ export function dashboardView(registry: PluginRegistry): HTMLElement {
     h('div', null, nextStepsCard())
   )
 }
-
-const CORE_FIELD_COUNT = 0
-const CORE_NAV_COUNT = 15
 
 function pluginsCard(registry: PluginRegistry): HTMLElement {
   const registrations = registry.list()

@@ -91,6 +91,12 @@ function pluginIdOf(path) {
   return parts[0] === 'plugins' ? (parts[1] ?? '') : null
 }
 
+/** The feature name, for `features/<name>/...`. */
+function featureOf(path) {
+  const parts = path.split('/')
+  return parts[0] === 'features' ? (parts[1] ?? '') : null
+}
+
 const BAN_SUPABASE = '@supabase/supabase-js'
 
 /**
@@ -124,6 +130,25 @@ function violation(source, target) {
     }
     if (target === BAN_SUPABASE) {
       return 'a plugin may not hold a Supabase client'
+    }
+  }
+
+  // ── Features ───────────────────────────────────────────────────────────
+  if (sourceLayer === 'features') {
+    const sourceFeature = featureOf(source)
+    const targetFeature = featureOf(target)
+
+    if (targetFeature !== null && targetFeature !== sourceFeature) {
+      // docs/03 §3: a feature may consume another feature's public surface
+      // only. Reaching into a sibling's internals is how spaghetti starts.
+      const isPublicSurface = target === `features/${targetFeature}/index.ts`
+      if (!isPublicSurface) {
+        return (
+          `feature "${sourceFeature}" imports "${targetFeature}" internals — ` +
+          `only \`features/${targetFeature}/index.ts\` is public. Cross-feature ` +
+          'needs go through shared services or events.'
+        )
+      }
     }
   }
 
