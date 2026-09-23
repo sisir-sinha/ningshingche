@@ -36,6 +36,10 @@ window.addEventListener('mk:navigate', () => {
   renderSupabaseStatus('supabase-status')
   mountSupabaseBanner()
   if(location.pathname==='/login') setTimeout(()=> initLogin(), 50)
+  if(location.pathname==='/dashboard') setTimeout(async ()=>{
+    const { initDashboard } = await import('./views/dashboard')
+    initDashboard()
+  }, 80)
 })
 
 function initSite() {
@@ -171,7 +175,7 @@ function renderDemo() {
   ;(document.getElementById('demo-pay') as HTMLElement).textContent = `৳${total.toFixed(2)}`
   totals.classList.remove('hidden')
 }
-setTimeout(()=> { initSite(); if(location.pathname==='/login') initLogin() }, 0)
+setTimeout(()=> { initSite(); if(location.pathname==='/login') initLogin(); if(location.pathname==='/dashboard') import('./views/dashboard').then(m=>m.initDashboard()) }, 0)
 
 // global auth sync: if signed out while on /dashboard, bounce to /login
 import('./../core/db/supabase').then(({ supabase })=>{

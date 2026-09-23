@@ -153,6 +153,12 @@ export async function initOrders(){
         if(data) items=data.map((it:any)=> ({ name: it.products?.name || it.product_id, qty: it.quantity, price: it.unit_price, vat: it.vat_rate }))
       }catch{}
     }
+    if(!items.length){
+      try{
+        const di=JSON.parse(localStorage.getItem('demo-order-items')||'{}')
+        if(di[o.id]) items=di[o.id]
+      }catch{}
+    }
     if(!items.length) items=[{ name:'Miniket Rice 1kg', qty:2, price:78 }, { name:'Parachute Oil', qty:1, price:180 }]
     itemsEl.innerHTML=items.map((it:any)=>`
       <div class="flex justify-between py-2 text-sm"><div><span class="font-bold dark:text-white">${it.name}</span> <span class="text-slate-500">× ${it.qty}</span></div><div class="font-bold dark:text-white">৳${(it.qty*it.price).toFixed(2)}</div></div>

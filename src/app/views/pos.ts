@@ -678,6 +678,15 @@ export function initPos() {
       for(const it of itemsPayload) await enqueue('order_items', { ...it, order_id: null, _order_client_uuid: client_uuid })
       if(due>0) await enqueue('khata_entries', { store_id: store_id||'demo-store', customer_id: selectedCustomer?.id||null, type:'dilam', amount: due, note:`Sale ${receipt_number}`, client_uuid: Math.random().toString(36).slice(2) })
       refreshOutbox()
+      // demo fallback so Orders view shows this sale instantly even without Supabase/IDB sync
+      try{
+        const demo=JSON.parse(localStorage.getItem('demo-orders')||'[]')
+        demo.unshift({ id: client_uuid, receipt_number, subtotal, total_amount: total, payment_method, is_due: due>0, due_amount: due, created_at:new Date().toISOString(), customer_id: selectedCustomer?.phone||null })
+        localStorage.setItem('demo-orders', JSON.stringify(demo.slice(0,60)))
+        const dItems=JSON.parse(localStorage.getItem('demo-order-items')||'{}')
+        dItems[client_uuid]=cart.map(c=> ({ name:c.name, qty:c.qty, price:c.price }))
+        localStorage.setItem('demo-order-items', JSON.stringify(dItems))
+      }catch{}
     }
     // ESC/POS generate
     try{
