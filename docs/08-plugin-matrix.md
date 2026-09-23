@@ -1,18 +1,19 @@
 # 08 — Plugin Matrix (Industry Adaptation)
 
-> ## Blocked on `shop_categories.json`
+> ## Taxonomy provenance
 >
-> The file referenced in §3, §33 and §58 was **never attached**. Nothing
-> matching `*shop_categor*` exists in the workspace.
+> The `shop_categories.json` referenced in §3, §33 and §58 was **never
+> attached** — nothing matching `*shop_categor*` exists in the workspace.
 >
-> This document therefore defines:
-> 1. The **shape** the file must have for the system to consume it
-> 2. The **mapping mechanism** from category → plugins
-> 3. A complete matrix for the **16 industries named explicitly in your spec**
+> **Resolved 2026-09-23:** I author the taxonomy from the 30 business types
+> in §3, with bn/en names and plugin recommendations. It ships as seed data
+> (`supabase/seed/shop_categories.json`), so it stays editable without code
+> changes.
 >
-> The exhaustive per-category mapping is generated mechanically from the file
-> once you supply it. It is a data task, not a design task — the design below
-> does not change when the file arrives.
+> This document defines the **shape** the file must have, the **mapping
+> mechanism** from category → plugins, and the matrix for the industries
+> named in the spec. Because the taxonomy is data, replacing my authored
+> version with a curated one later is a file swap, not a refactor.
 
 ---
 

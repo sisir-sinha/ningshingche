@@ -314,13 +314,15 @@ capability; nothing before it is optional.
 
 ---
 
-## What I need to start Phase 1
+## Phase 1 prerequisites — answered 2026-09-23
 
-1. **Costing method** — weighted average (recommended) or FIFO?
-2. **`shop_categories.json`** — attach it, or confirm I should author the
-   taxonomy from the 30 business types in §3.
-3. **Restaurant** — in scope for this build, or deferred?
-4. **Supabase project** — do you want me to generate migrations for you to
-   apply, or will you provision and hand me the URL + anon key?
-5. **Product name** — the spec says "Universal POS." The repository is
-   currently named `Mekholi`. Which should the UI show?
+| Question | Answer |
+|---|---|
+| Costing method | **Weighted average.** `stock_balances.avg_unit_cost`, updated on stock-in. FIFO deferred to a plugin. |
+| `shop_categories.json` | **I author it** from the 30 business types in §3, with bn/en names and plugin recommendations. Delivered as seed data, editable without code changes. |
+| Restaurant | **Deferred.** Built last as an `order` aggregate wrapping the universal sale. |
+| Supabase | **I generate the 16 migration files; the owner applies them.** No credentials leave the owner's machine. |
+| Product name | **Mekholi.** Used in UI, setup wizard, receipts and invoice headers. "Universal" remains an architectural adjective only. |
+
+Phase 0 is therefore unblocked. It needs no further input — only approval to
+begin implementation.

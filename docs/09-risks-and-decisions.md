@@ -92,19 +92,16 @@ stored values. Historical reports are immutable.
 weighted average). If the system doesn't pick one explicitly, reports become
 indefensible and an accountant will reject them.
 
-**Decision:** Weighted average, stored as `stock_balances.avg_unit_cost`,
-updated on every stock-in:
+**Decision (confirmed 2026-09-23):** Weighted average, stored as
+`stock_balances.avg_unit_cost`, updated on every stock-in:
 
 ```
 new_avg = (old_qty × old_avg + in_qty × in_cost) / (old_qty + in_qty)
 ```
 
 FIFO ships as a plugin adding `stock_cost_layers`, overriding the costing
-function without changing the ledger.
-
-**⚠ Needs your confirmation.** Changing this later requires a full
-revaluation migration. It is the one open decision in this document that
-cannot be deferred to Phase 3.
+function without changing the ledger. Closed — no revaluation migration
+needed, because the decision was made before any stock data existed.
 
 ---
 
@@ -297,7 +294,7 @@ Invoice templates follow the same rule: the Mushak 6.3 format is a
 | 2 | Non-atomic writes | Very high | Low |
 | 3 | RLS recursion | High | Low |
 | 4 | Retroactive profit | High | Low |
-| 5 | Costing method | High | **Decision needed from you** |
+| 5 | Costing method | High | Closed — weighted average |
 | 6 | Variant/batch/serial | High | Medium |
 | 7 | Event reliability | High | Medium |
 | 8 | Version skew | Medium | Low |

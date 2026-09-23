@@ -1,6 +1,6 @@
-# Universal POS — Architecture & Design
+# Mekholi — Architecture & Design
 
-**Status:** Design phase — awaiting approval before Phase 1 implementation
+**Status:** Design complete — awaiting approval to begin Phase 1
 **Date:** 2026-09-23
 **Scope:** Requirements analysis, system architecture, database design, plugin system, navigation, permissions, plugin matrix, risks, roadmap
 
@@ -114,11 +114,20 @@ table the DDL fails to create. See [tools/README.md](../tools/README.md).
 
 ---
 
-## Open items
+## Resolved decisions — 2026-09-23
+
+| Item | Decision | Consequence |
+|---|---|---|
+| **Product name** | **Mekholi** | The UI, setup wizard, receipts and invoice headers show Mekholi. "Universal" survives only as an adjective describing the architecture, never as a brand. |
+| **Costing method** | **Weighted average** | `stock_balances.avg_unit_cost`, updated on every stock-in. FIFO becomes an optional plugin adding `stock_cost_layers`. Doc 09 #5 closed. |
+| **Shop taxonomy** | **Authored, not attached** | `shop_categories.json` never arrived, so I build the hierarchy from the 30 business types in §3 with bn/en names and plugin recommendations. It is data — editable without code changes. Doc 08 unblocked. |
+| **Supabase** | **I generate migrations, owner applies** | The 16 migration files land in `supabase/migrations/`. No Supabase credentials leave your machine; the anon key is never committed. |
+| **Restaurant** | Deferred unless stated otherwise | Built last as an `order` aggregate wrapping the universal sale. Doc 08 §6. |
+
+## Outstanding
 
 | Item | Status |
 |---|---|
-| `shop_categories.json` | **Not received.** Referenced in §3/§33/§58 but never attached. Doc 08 defines the *shape* the file must have and provides a matrix for the 16 industries named in your spec. The full per-category mapping is generated from the file once supplied. |
-| Costing method | Recommendation: weighted-average default, FIFO as a plugin. Needs your confirmation — it changes the ledger. See [09](./09-risks-and-decisions.md) #6. |
-| Restaurant support | Flagged as the one "industry" that may exceed the universal model (tables, kitchen, courses). See [08](./08-plugin-matrix.md#the-restaurant-problem). |
-| Demo data strategy | Must be build-time isolated, not a runtime flag. See [09](./09-risks-and-decisions.md) #13. |
+| **Design approval** | Required before implementation, per §58 ("after approval, implement Phase 1"). |
+| Taxonomy authoring | Assigned to me. Produces `supabase/seed/shop_categories.json` + the `ShopTypeProfile` seed rows. |
+| Demo data strategy | Decided, not open: build-time isolation via `VITE_ENABLE_DEMO`. See [09](./09-risks-and-decisions.md) #13. |
