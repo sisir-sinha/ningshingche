@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from '../../core/db/supabase'
 import { getOutboxCount } from '../../core/db/idb'
+import { showPrompt } from '../../core/components/modal'
 
 export function homeView(): string {
   return `
@@ -122,7 +123,6 @@ export function homeView(): string {
 }
 
 export async function initHome(){
-  // date
   const dEl = document.getElementById('home-date')
   const gEl = document.getElementById('home-greeting')
   const now = new Date()
@@ -132,7 +132,6 @@ export async function initHome(){
     gEl.textContent = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
   }
 
-  // offline badge (only show when offline/pending) — static import fixes vite chunk warning
   try{
     const n = await getOutboxCount().catch(()=>0)
     const el = document.getElementById('home-offline-badge')
@@ -142,7 +141,6 @@ export async function initHome(){
     }
   }catch{}
 
-  // load store name + stats (Supabase or demo)
   let sales = 0, due = 0, lowCount = 0
   let storeName = 'Your Store'
   let recentSales: any[] = []
@@ -157,7 +155,6 @@ export async function initHome(){
         if(sid){
           const { data: store } = await supabase.from('stores').select('name').eq('id', sid).maybeSingle() as any
           if(store?.name) storeName = store.name
-          // today sales: sum total_amount where created_at >= today
           const today = new Date(); today.setHours(0,0,0,0)
           const { data: orders } = await supabase.from('orders').select('id,receipt_number,total_amount,created_at,payment_method').eq('store_id', sid).gte('created_at', today.toISOString()).order('created_at', { ascending:false }).limit(20) as any
           if(orders){
@@ -173,7 +170,6 @@ export async function initHome(){
     }catch(e){ console.warn('home stats failed', e) }
   }
 
-  // demo fallback if no data
   if(!sales && !due && !lowCount){
     sales = 12480; due = 8350; lowCount = 3
     recentSales = [
@@ -224,14 +220,15 @@ export async function initHome(){
     `).join('')
   }
 
-  // quick actions
-  document.getElementById('quick-add-product')?.addEventListener('click', ()=>{
-    const name = prompt('Product name:')
+  // quick actions — now with pretty modal (no native prompt)
+  document.getElementById('quick-add-product')?.addEventListener('click', async ()=>{
+    const name = await showPrompt({ title:'Add Product', message:'Enter product name', placeholder:'Miniket Rice 1kg', required:true })
     if(!name) return
-    const price = parseFloat(prompt('Price ৳:', '100')||'0')
-    if(!price) return
+    const priceStr = await showPrompt({ title:'Price', message:`Price for “${name}”`, placeholder:'100', defaultValue:'100', inputType:'number', required:true, validator: v=> { const n=parseFloat(v); return (!n || n<=0)?'Enter valid price':null } })
+    if(!priceStr) return
+    const price = parseFloat(priceStr)
     if(isSupabaseConfigured){
-      (async()=>{
+      try{
         const { data:{ user } } = await supabase.auth.getUser()
         if(!user) { (window as any).toast?.('Please log in'); return }
         const { data: prof } = await supabase.from('profiles').select('store_id').eq('id', user.id).maybeSingle() as any
@@ -240,22 +237,23 @@ export async function initHome(){
         const { error } = await supabase.from('products').insert({ store_id: sid, name, price, stock_quantity: 10, unit:'pcs' } as any)
         if(error) (window as any).toast?.(error.message)
         else { (window as any).toast?.('Added ✓'); location.reload() }
-      })()
+      }catch(e:any){ (window as any).toast?.(e.message) }
     } else (window as any).toast?.('Demo: product added')
   })
-  document.getElementById('quick-add-expense')?.addEventListener('click', ()=>{
-    const amt = parseFloat(prompt('Expense amount ৳:', '200')||'0')
-    if(!amt) return
-    const note = prompt('Note:', 'Transport')||''
+  document.getElementById('quick-add-expense')?.addEventListener('click', async ()=>{
+    const amtStr = await showPrompt({ title:'Add Expense', message:'Expense amount', placeholder:'200', defaultValue:'200', inputType:'number', required:true, validator: v=> parseFloat(v) ? null : 'Enter amount' })
+    if(!amtStr) return
+    const amt = parseFloat(amtStr)
+    const note = await showPrompt({ title:'Note', message:'Optional note', placeholder:'Transport', defaultValue:'Transport' })
     if(isSupabaseConfigured){
-      (async()=>{
+      try{
         const { data:{ user } } = await supabase.auth.getUser()
         if(!user) return
         const { data: prof } = await supabase.from('profiles').select('store_id').eq('id', user.id).maybeSingle() as any
         const sid = prof?.store_id
-        await supabase.from('expenses').insert({ store_id: sid, category:'other', amount: amt, note } as any)
+        await supabase.from('expenses').insert({ store_id: sid, category:'other', amount: amt, note: note||null } as any)
         ;(window as any).toast?.('Expense saved')
-      })()
+      }catch(e:any){ (window as any).toast?.(e.message) }
     } else (window as any).toast?.(`Expense ৳${amt} saved (demo)`)
   })
 }

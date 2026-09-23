@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../../core/db/supabase'
+import { showPrompt } from '../../core/components/modal'
 
 export function suppliersView(): string {
   return `
@@ -86,7 +87,7 @@ export async function initSuppliers(){
       </div>
     `).join('')
     list.querySelectorAll('[data-sup-pay]').forEach(b=> b.addEventListener('click', async ()=>{
-      const amt=parseFloat(prompt('Pay amount:','1000')||'0'); if(!amt) return
+      const v=await showPrompt({ title:'Pay Due', message:'Enter amount to pay supplier', placeholder:'1000', defaultValue:'1000', inputType:'number', required:true, validator: vv=> { const n=parseFloat(vv); return (!n||n<=0)?'Enter valid amount':null } }); if(!v) return; const amt=parseFloat(v)
       const id=(b as HTMLElement).dataset.supPay!
       if(isSupabaseConfigured && !id.startsWith('d')){
         const { data:{ user } } = await supabase.auth.getUser()

@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../../core/db/supabase'
+import { showConfirm } from '../../core/components/modal'
 
 export function productsView(): string {
   return `
@@ -118,7 +119,7 @@ export async function initProducts(){
       </div>
     `}).join('')
     list.querySelectorAll('[data-del]').forEach(b=> b.addEventListener('click', async ()=>{
-      if(!confirm('Delete product? This will keep order history.')) return
+      const ok = await showConfirm({ title:'Delete product?', message:'This will keep order history. Continue?', confirmText:'Delete', variant:'danger', icon:'delete' }); if(!ok) return
       const id=(b as HTMLElement).dataset.del!
       if(isSupabaseConfigured && !id.startsWith('d')){
         const { error } = await supabase.from('products').delete().eq('id', id) as any

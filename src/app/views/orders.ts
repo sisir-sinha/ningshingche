@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../../core/db/supabase'
+import { showPrompt } from '../../core/components/modal'
 
 export function ordersView(): string {
   return `
@@ -189,17 +190,18 @@ export async function initOrders(){
 
   document.getElementById('ord-return')!.addEventListener('click', async ()=>{
     if(!selected) return
-    const amtStr=prompt(`Refund amount for ${selected.receipt_number} (max ৳${selected.total_amount}):`, String(selected.total_amount))
+    const cur = selected
+    const amtStr=await showPrompt({ title:'Refund amount', message:`Refund for ${cur.receipt_number} (max ৳${cur.total_amount})`, placeholder:String(cur.total_amount), defaultValue:String(cur.total_amount), inputType:'number', required:true, validator: vv=> { const n=parseFloat(vv); if(!n||n<=0) return 'Enter valid amount'; if(n> Number(cur.total_amount)) return `Max is ৳${cur.total_amount}`; return null } })
     if(!amtStr) return
     const amt=parseFloat(amtStr); if(!amt || amt<=0) return
     try{
       if(isSupabaseConfigured){
         const { data:{ user } }=await supabase.auth.getUser()
         let sid=null; if(user){ const { data:p }=await supabase.from('profiles').select('store_id').eq('id',user.id).maybeSingle() as any; sid=p?.store_id }
-        await supabase.from('returns').insert({ store_id:sid, order_id:selected.id, refund_amount:amt, reason:'POS return', refund_method:'cash' } as any)
+        await supabase.from('returns').insert({ store_id:sid, order_id:cur.id, refund_amount:amt, reason:'POS return', refund_method:'cash' } as any)
       } else {
         const arr=JSON.parse(localStorage.getItem('demo-returns')||'[]')
-        arr.push({ id:'r'+Date.now(), order_id:selected.id, refund_amount:amt, created_at:new Date().toISOString() })
+        arr.push({ id:'r'+Date.now(), order_id:cur.id, refund_amount:amt, created_at:new Date().toISOString() })
         localStorage.setItem('demo-returns', JSON.stringify(arr))
       }
       document.getElementById('ord-d-msg')!.textContent=`Refund ৳${amt.toFixed(2)} saved ✓`

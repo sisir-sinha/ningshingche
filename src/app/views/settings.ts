@@ -2,6 +2,7 @@ import { supabase, isSupabaseConfigured } from '../../core/db/supabase'
 import { getTheme } from '../../core/utils/theme'
 import { getOutboxCount } from '../../core/db/idb'
 import { bindImgbbDropZone } from '../../core/services/imgbb'
+import { showPrompt } from '../../core/components/modal'
 
 export function settingsView(): string {
   return `
@@ -309,8 +310,8 @@ export async function initSettings(){
           <div class="text-sm font-bold dark:text-white">${m.full_name||'—'}</div><span class="text-xs px-2 py-1 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 dark:text-white">${m.role}</span>
         </div>
       `).join('') || `<div class="text-sm text-slate-500">No team — invite first</div>`
-      document.getElementById('team-invite')?.addEventListener('click', ()=> {
-        const email=prompt('Invite email:'); if(!email) return
+      document.getElementById('team-invite')?.addEventListener('click', async ()=> {
+        const email=await showPrompt({ title:'Invite team member', message:'Enter email to invite', placeholder:'colleague@store.com', inputType:'email', required:true, validator: v=> /\S+@\S+\.\S+/.test(v)? null : 'Enter valid email' }); if(!email) return
         ;(window as any).toast?.('Invite sent to '+email+' (demo — add via Supabase Auth)')
       })
 
@@ -370,7 +371,7 @@ export async function initSettings(){
     btn.disabled=false; btn.textContent='Save profile'
   })
   document.getElementById('set-change-pass')?.addEventListener('click', async ()=>{
-    const email = prompt('Email for reset link:')
+    const email = await showPrompt({ title:'Reset password', message:'Enter email for reset link', placeholder:'you@store.com', inputType:'email', required:true, validator: v=> /\S+@\S+\.\S+/.test(v)? null : 'Enter valid email' })
     if(!email) return
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: location.origin + '/login' })
     if(error) (window as any).toast?.(error.message); else (window as any).toast?.('Reset link sent')

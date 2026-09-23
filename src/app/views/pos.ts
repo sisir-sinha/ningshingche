@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from '../../core/db/supabase'
 import { enqueue, getOutboxCount } from '../../core/db/idb'
 import { calcTotals, type CartItem } from '../../core/services/billing'
+import { showConfirm, showPrompt } from '../../core/components/modal'
 
 type Product = { id:string; name:string; barcode:string|null; sku:string|null; price:number; cost_price:number|null; stock_quantity:number; unit:string; vat_rate:number; is_loose:boolean }
 
@@ -348,12 +349,15 @@ export function initPos() {
         </div>
       </button>
     `).join('')
-    grid.querySelectorAll('[data-add]').forEach(b=> b.addEventListener('click', ()=> { addToCart((b as HTMLElement).dataset.add!); beep(true) }))
+    grid.querySelectorAll('[data-add]').forEach(b=> b.addEventListener('click', async ()=> { await addToCart((b as HTMLElement).dataset.add!); beep(true) }))
   }
 
-  function addToCart(id:string){
+  async function addToCart(id:string){
     const p = [...products, ...DEMO_PRODUCTS].find(x=>x.id===id) || products.find(x=>x.id===id); if(!p) return
-    if(p.stock_quantity<=0 && !confirm(`${p.name} out of stock — add anyway?`)) return
+    if(p.stock_quantity<=0){
+      const ok = await showConfirm({ title:`${p.name} out of stock`, message:`${p.name} is out of stock — add anyway?`, confirmText:'Add anyway', variant:'warning', icon:'warning' })
+      if(!ok) return
+    }
     const existing = cart.find(c=> c.product_id===p.id)
     if(existing) existing.qty += p.is_loose ? 0.5 : 1
     else cart.push({ id: Math.random().toString(36).slice(2), product_id:p.id, name:p.name, unit:p.unit, price:p.price, vat_rate:p.vat_rate, qty: 1, cost_price: p.cost_price || undefined, disc_amt:0, disc_pct:0 } as any)
@@ -538,11 +542,11 @@ export function initPos() {
   let t:any
   search.addEventListener('input', ()=>{ clearTimeout(t); t=setTimeout(()=> loadProducts(search.value.trim()), 220) })
   catSel?.addEventListener('change', ()=> loadProducts(search.value.trim()))
-  document.getElementById('pos-scan')?.addEventListener('click', ()=> {
-    const q = prompt('Barcode:', '') || ''
+  document.getElementById('pos-scan')?.addEventListener('click', async ()=> {
+    const q = await showPrompt({ title:'Scan barcode', message:'Enter barcode / SKU', placeholder:'8901...', inputType:'text' }) || ''
     if(!q) return
     const found = products.find(p=> p.barcode===q || p.sku===q)
-    if(found){ addToCart(found.id); beep(true) } else { beep(false); (window as any).toast?.('Not found') }
+    if(found){ await addToCart(found.id); beep(true) } else { beep(false); (window as any).toast?.('Not found') }
   })
   let buffer='', lastTime=0
   window.addEventListener('keydown', (e)=>{
@@ -583,17 +587,17 @@ export function initPos() {
   customerInput.addEventListener('input', ()=> searchCustomers(customerInput.value.trim()))
   customerInput.addEventListener('focus', ()=> searchCustomers(customerInput.value.trim()))
   document.addEventListener('click', (e)=> { if(!(e.target as HTMLElement).closest('#pos-customer') && !(e.target as HTMLElement).closest('#pos-customer-list')) customerList.classList.add('hidden') })
-  document.getElementById('pos-add-customer')?.addEventListener('click', ()=>{
+  document.getElementById('pos-add-customer')?.addEventListener('click', async ()=>{
     const phone = customerInput.value.trim()
     if(!/^01[3-9]\d{8}$/.test(phone)){ (window as any).toast?.('Enter valid 01XXXXXXXXX'); beep(false); return }
-    const name = prompt('Customer name:', 'Walk-in') || 'Walk-in'
+    const name = await showPrompt({ title:'Customer name', message:`Phone ${phone}`, placeholder:'Walk-in', defaultValue:'Walk-in', required:true }) || 'Walk-in'
     selectedCustomer = { id: null, name, phone, due_balance:0 }
     customerChip.textContent = `${name} • ${phone}`; customerChip.classList.remove('hidden'); customerList.classList.add('hidden'); updateTotals()
   })
 
-  holdBtn.addEventListener('click', ()=>{
+  holdBtn.addEventListener('click', async ()=>{
     if(!cart.length){ (window as any).toast?.('Cart empty'); return }
-    const name = prompt('Hold name (e.g., Table 3):', `Hold ${heldCarts.length+1}`) || `Hold ${heldCarts.length+1}`
+    const name = await showPrompt({ title:'Hold cart', message:'Name for held cart (e.g., Table 3)', placeholder:`Hold ${heldCarts.length+1}`, defaultValue:`Hold ${heldCarts.length+1}`, required:true }) || `Hold ${heldCarts.length+1}`
     heldCarts.push({id:'h'+Date.now(), name, at:Date.now(), cart:[...cart], customer:selectedCustomer}); persistHeld(); cart=[]; selectedCustomer=null; customerChip.classList.add('hidden'); customerInput.value=''; renderCart(); (window as any).toast?.('Held: '+name)
   })
   clearBtn.addEventListener('click', ()=>{ cart=[]; renderCart(); selectedCustomer=null; customerChip.classList.add('hidden'); customerInput.value=''; discount.value='0'; splitPayments=[]; splitOn=false; splitPanel.classList.add('hidden'); splitToggle.textContent='Split: OFF'; updateTotals() })
@@ -612,8 +616,8 @@ export function initPos() {
   document.getElementById('pos-print-last')!.addEventListener('click', ()=>{
     const el=document.getElementById('pos-receipt')!; if(el.classList.contains('hidden')) return (window as any).toast?.('No receipt'); window.print()
   })
-  document.getElementById('pos-return-btn')!.addEventListener('click', ()=>{
-    const rn = prompt('Receipt to return (MEK-...)'); if(!rn) return; (window as any).toast?.('Return for '+rn+' — will restore stock')
+  document.getElementById('pos-return-btn')!.addEventListener('click', async ()=>{
+    const rn = await showPrompt({ title:'Return receipt', message:'Enter receipt number to return', placeholder:'MEK-...', required:true }); if(!rn) return; (window as any).toast?.('Return for '+rn+' — will restore stock')
   })
 
   payBtn.addEventListener('click', async ()=>{
@@ -629,7 +633,8 @@ export function initPos() {
     const due = Math.max(0, total - paidNow)
     if(due>0 && !selectedCustomer){ (window as any).toast?.('Add customer for due'); customerInput.focus(); beep(false); return }
     if(!splitOn && ['bkash','nagad','rocket','upay','bangla_qr'].includes(selectedPay) && !trxInput.value.trim()){
-      if(!confirm('TrxID empty — continue?')) return
+      const ok = await showConfirm({ title:'TrxID empty', message:'bKash/Nagad transaction ID is empty — continue without it?', confirmText:'Continue', variant:'warning', icon:'warning' })
+      if(!ok) return
     }
     payBtn.disabled = true; payBtn.textContent = `Saving…`
     const client_uuid = (crypto as any).randomUUID ? (crypto as any).randomUUID() : Math.random().toString(36).slice(2)+Date.now()
@@ -719,9 +724,12 @@ export function initPos() {
       </div>
     `
     ;(window as any).toast?.(savedOnline ? `Saved ৳${total.toFixed(2)}` : `Queued ৳${total.toFixed(2)}`)
-    if(due>0 && selectedCustomer && confirm(`Due ৳${due.toFixed(2)} — send SMS?`)){
-      const msg = `Assalamu Alaikum, baki ৳${due.toFixed(2)} — ${receipt_number} — Mekholi.`
-      window.location.href = `sms:${selectedCustomer.phone}?&body=${encodeURIComponent(msg)}`
+    if(due>0 && selectedCustomer){
+      const ok = await showConfirm({ title:`Due ৳${due.toFixed(2)} — send SMS?`, message:`Send Tagada SMS to ${selectedCustomer.name} (${selectedCustomer.phone})?`, confirmText:'Send SMS', variant:'default', icon:'sms' })
+      if(ok){
+        const msg = `Assalamu Alaikum, baki ৳${due.toFixed(2)} — ${receipt_number} — Mekholi.`
+        window.location.href = `sms:${selectedCustomer.phone}?&body=${encodeURIComponent(msg)}`
+      }
     }
     cart=[]; renderCart(); splitPayments=[]; renderSplit(); payBtn.disabled=false; payBtn.innerHTML = `<span class="material-symbols-rounded">print</span> Pay (F8) — <span id="pos-pay-total">৳0.00</span>`
   })

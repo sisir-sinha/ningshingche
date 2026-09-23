@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../../core/db/supabase'
+import { showPrompt, showConfirm } from '../../core/components/modal'
 
 export function khataView(): string {
   return `
@@ -86,7 +87,6 @@ export async function initKhata(){
     if(filter==='due') rows = rows.filter(r=> r.due_balance>0)
     if(filter==='overdue') rows = rows.filter(r=> r.due_balance>0 && (Date.now()- new Date(r.created_at).getTime())>60*86400000)
     if(!rows.length){ list.innerHTML = `<div class="text-sm text-slate-500 py-6 text-center">No customers in this filter</div>`; return }
-    // sort due desc
     rows.sort((a,b)=> b.due_balance - a.due_balance)
     list.innerHTML = rows.map((r:any)=>{
       const days = Math.floor((Date.now()-new Date(r.created_at).getTime())/86400000)
@@ -170,8 +170,9 @@ export async function initKhata(){
       window.open(`https://wa.me/88${cust.phone}?text=${encodeURIComponent(msg)}`,'_blank')
     })
     document.getElementById('khata-pelam')?.addEventListener('click', async ()=>{
-      const amt = parseFloat(prompt('Pelam amount ৳:', '500')||'0')
-      if(!amt) return
+      const val = await showPrompt({ title:'Pelam — Received', message:`Amount received from ${cust.name}`, placeholder:'500', defaultValue:'500', inputType:'number', required:true, validator: v=> { const n=parseFloat(v); return (!n||n<=0)?'Enter valid amount':null } })
+      if(!val) return
+      const amt = parseFloat(val)
       if(isSupabaseConfigured && cust.id && !String(cust.id).startsWith('d')){
         const { data:{ user } } = await supabase.auth.getUser()
         let store_id = null
@@ -181,8 +182,9 @@ export async function initKhata(){
       } else (window as any).toast?.('Demo: ৳'+amt)
     })
     document.getElementById('khata-dilam')?.addEventListener('click', async ()=>{
-      const amt = parseFloat(prompt('Dilam amount ৳:', '500')||'0')
-      if(!amt) return
+      const val = await showPrompt({ title:'Dilam — Given', message:`Amount given to ${cust.name}`, placeholder:'500', defaultValue:'500', inputType:'number', required:true, validator: v=> { const n=parseFloat(v); return (!n||n<=0)?'Enter valid amount':null } })
+      if(!val) return
+      const amt = parseFloat(val)
       if(isSupabaseConfigured && cust.id && !String(cust.id).startsWith('d')){
         const { data:{ user } } = await supabase.auth.getUser()
         let store_id = null
@@ -201,16 +203,16 @@ export async function initKhata(){
       renderList()
     })
   })
-  document.getElementById('khata-bulk')?.addEventListener('click', ()=>{
+  document.getElementById('khata-bulk')?.addEventListener('click', async ()=>{
     const dueCustomers = allRows.filter(r=> r.due_balance>0)
     if(!dueCustomers.length) return (window as any).toast?.('No dues')
-    if(confirm(`Send SMS to ${dueCustomers.length} customers with due?`)){
-      dueCustomers.forEach(c=>{
-        const msg=`Baki ৳${c.due_balance} — please pay — Mekholi`
-        console.log(`SMS to ${c.phone}: ${msg}`)
-      })
-      ;(window as any).toast?.(`Bulk SMS queued for ${dueCustomers.length}`)
-    }
+    const ok = await showConfirm({ title:`Send SMS to ${dueCustomers.length} customers?`, message:`Bulk Tagada SMS will be queued for ${dueCustomers.length} dues. Proceed?`, confirmText:'Send SMS', variant:'default', icon:'sms' })
+    if(!ok) return
+    dueCustomers.forEach(c=>{
+      const msg=`Baki ৳${c.due_balance} — please pay — Mekholi`
+      console.log(`SMS to ${c.phone}: ${msg}`)
+    })
+    ;(window as any).toast?.(`Bulk SMS queued for ${dueCustomers.length}`)
   })
 
   btn.addEventListener('click', ()=> load(phone.value.trim()))
