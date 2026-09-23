@@ -1,4 +1,43 @@
-# Schema validation
+# Validation tools
+
+Two independent checkers, both run by `npm run check` and by CI.
+
+```bash
+npm run validate:migrations   # the database is real and behaves
+npm run check:boundaries      # the architecture holds
+```
+
+---
+
+## `check-boundaries.mjs` — architecture enforcement
+
+The rule that matters for this project is: **adding an industry plugin must
+never require editing `src/features/`.** That only holds if a plugin cannot
+reach into `src/features/` in the first place, so the boundary is enforced
+rather than documented.
+
+Every import under `src/` is resolved to a real file path, then checked
+against the layer rules:
+
+| From | May not import | Why |
+|---|---|---|
+| `plugins/<id>/` | `features/`, `app/` | A plugin gets a `PluginAPI`, never the application (spec §51) |
+| `plugins/<a>/` | `plugins/<b>/` | Compose via `dependencies` and events |
+| `components/` | `features/`, `plugins/`, `app/` | The UI kit stays business-ignorant |
+| `shared/domain/` | `app/`, `components/`, `features/`, `plugins/`, I/O | Business logic stays pure — it is the Android specification |
+| `shared/` | `features/`, `plugins/` | Dependencies run downward only |
+
+Why not rely on ESLint alone: `no-restricted-imports` matches the *specifier
+string*, so it can forbid `**/features/**` but cannot tell `../batch-expiry`
+(a sibling plugin — forbidden) from `../field-helpers` (inside the same
+plugin — fine). Resolving to a path removes the ambiguity.
+
+Exits non-zero on any violation, listing the importing file, the specifier,
+and the rule that was broken.
+
+---
+
+## `validate-migrations.mjs` — schema validation
 
 `validate-migrations.mjs` is the single schema check. It applies every file in
 `supabase/migrations/` and `supabase/seed/`, in filename order, to a real

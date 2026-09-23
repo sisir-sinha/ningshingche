@@ -170,6 +170,7 @@ const functions = await q(`
        'apply_stock_movement','adjust_stock','receive_purchase',
        'open_register','close_register','register_cash_movement','record_expense',
        'dashboard_summary','next_sequence',
+       'session_payload','provision_organization',
        'current_org_ids','in_org','current_branch_id','has_permission',
        'visible_branch_ids','in_visible_branch','require_permission','require_org',
        'tables_missing_rls'
@@ -555,6 +556,75 @@ try {
 } catch {
   check('ERD consistency (doc not found)', false)
 }
+
+// ── Session payload (migration 019) ─────────────────────────────────────
+// Verified here rather than inside the migration: it needs the seeded demo
+// organization, and seeds are applied after migrations. The preceding
+// assertion left the JWT claim pointing at a role-less user, so restore the
+// owner first.
+await db.query(`select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000dead', false)`)
+const payloadRows = await q(`select public.session_payload()::text as p`)
+const payload = JSON.parse(payloadRows[0].p)
+check(
+  'session_payload lists the owner organization',
+  payload.organizations.length === 1,
+  `${payload.organizations.length} org(s)`
+)
+const ownerOrg = payload.organizations[0] ?? { name: '(none)', is_owner: false, permissions: [] }
+check('session_payload carries org identity', ownerOrg.name === 'Seed Demo Shop', ownerOrg.name)
+check('session_payload marks the owner', ownerOrg.is_owner === true, String(ownerOrg.is_owner))
+check(
+  'session_payload exposes stable role keys',
+  Array.isArray(ownerOrg.role_keys) && ownerOrg.role_keys.includes('owner'),
+  JSON.stringify(ownerOrg.role_keys)
+)
+check(
+  'session_payload expands the owner wildcard into concrete keys',
+  ownerOrg.permissions.includes('sales.create') && ownerOrg.permissions.includes('users.delete'),
+  `${ownerOrg.permissions.length} keys`
+)
+check(
+  'session_payload does not leak the raw wildcard to the client',
+  !ownerOrg.permissions.includes('*'),
+  ownerOrg.permissions.includes('*') ? 'leaked *' : 'expanded'
+)
+
+// A cashier must not receive what the owner received. Scoped to the owner's
+// organization explicitly — an unqualified `(select id from organizations)`
+// returns more than one row as soon as a second org exists.
+const CASHIER = '11111111-1111-1111-1111-111111111111'
+await db.query(`insert into auth.users (id, email) values ('${CASHIER}', 'cashier@example.com')`)
+await db.query(`
+  insert into public.user_organizations (user_id, organization_id, is_active)
+  values ('${CASHIER}', '${ownerOrg.organization_id}', true)
+`)
+const cashierRole = await q(`
+  select id::text as id from public.roles
+   where key = 'cashier' and organization_id = '${ownerOrg.organization_id}'`)
+if (cashierRole.length !== 1) {
+  check('cashier role exists in the demo organization', false, `${cashierRole.length} rows`)
+} else {
+  await db.query(`
+    insert into public.user_roles (user_id, role_id, organization_id)
+    values ('${CASHIER}', '${cashierRole[0].id}', '${ownerOrg.organization_id}')`)
+}
+await db.query(`select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', false)`)
+const cashierRows = await q(`select public.session_payload()::text as p`)
+const cashierPayload = JSON.parse(cashierRows[0].p)
+const cashierOrg = cashierPayload.organizations[0] ?? { is_owner: true, permissions: [] }
+check('cashier holds sales.create', cashierOrg.permissions.includes('sales.create'))
+check(
+  'cashier does not hold sales.refund',
+  !cashierOrg.permissions.includes('sales.refund'),
+  cashierOrg.permissions.filter((k) => k.startsWith('sales.')).join(',')
+)
+check('cashier is not flagged as owner', cashierOrg.is_owner === false, String(cashierOrg.is_owner))
+check(
+  'cashier is denied the owner-only wildcard',
+  !cashierOrg.permissions.includes('*') && !cashierOrg.permissions.includes('users.delete'),
+  `users.delete=${cashierOrg.permissions.includes('users.delete')}`
+)
+await db.query(`select set_config('request.jwt.claim.sub', null, false)`)
 
 const failed = checks.filter((c) => !c.pass)
 console.log(`\n${checks.length - failed.length}/${checks.length} behavioral checks passed`)

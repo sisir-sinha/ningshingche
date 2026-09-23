@@ -1,5 +1,13 @@
 # 03 — Project Structure
 
+> **How these boundaries are enforced.** The rules below are checked by
+> `tools/check-boundaries.mjs`, which resolves every import under `src/` to a
+> real file path and rejects a violation with a non-zero exit. It runs in
+> `npm run check` and in CI. ESLint's `no-restricted-imports` covers the
+> glob-expressible subset as a first line of defence, but it matches the
+> specifier string and so cannot distinguish a sibling-plugin import from an
+> intra-plugin one — the resolver-based checker can, and it is authoritative.
+
 ## 1. Proposed layout
 
 Your sketch (§49) has three directories whose ownership overlaps: `pages/`,

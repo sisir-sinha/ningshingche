@@ -5,8 +5,9 @@ serves a corner shop, a pharmacy, a mobile phone store and a multi-branch
 retailer — with industry-specific behaviour delivered by plugins rather than
 forks.
 
-**Status:** Phase 0 complete. Design is in [`docs/`](./docs/README.md); the
-database, toolchain and validation harness are in place.
+**Status:** Phase 1 complete. The platform layer — event bus, plugin
+registry, router, auth, sidebar and command palette — is in place and the
+plugin architecture is proven. Design is in [`docs/`](./docs/README.md).
 
 ---
 
@@ -21,7 +22,8 @@ npm run dev               # http://localhost:5173
 Run everything CI runs:
 
 ```bash
-npm run check             # typecheck + lint + migrations + build
+npm run check
+# typecheck → lint → boundary check → 73 unit tests → 33 database assertions → build
 ```
 
 ---
@@ -31,11 +33,16 @@ npm run check             # typecheck + lint + migrations + build
 | Path | Contents |
 |---|---|
 | `docs/` | Architecture, database design, plugin system, navigation, permissions, plugin matrix, risks, roadmap |
-| `supabase/migrations/` | 18 migrations — 43 tables, RLS on every one, the RPC write path |
+| `supabase/migrations/` | 19 migrations — 43 tables, RLS on every one, the RPC write path |
 | `supabase/seed/` | Permission catalogue + a provisioning smoke test |
 | `data/shop_categories.json` | 30 business types in 7 groups, bn/en, with plugin recommendations |
-| `tools/` | Schema validation harness |
-| `src/` | Application source — Phase 0 scaffold |
+| `tools/` | Migration validator and architecture boundary checker |
+| `src/shared/bus/` | EventBus — typed, wildcard-aware, handler-isolated |
+| `src/shared/registry/` | Plugin host — dependency ordering, failure isolation, attribution |
+| `src/app/` | Router, state store, Supabase client, auth service |
+| `src/features/` | Auth screen, app shell, dynamic sidebar, command palette, dashboard |
+| `src/components/` | UI kit — `h()` builder, buttons, inputs, toasts, modals |
+| `src/plugins/batch-expiry/` | The reference plugin, and the architecture's acceptance test |
 
 ---
 
@@ -81,15 +88,34 @@ The migrations are applied to a real Postgres in CI on every push — see
 
 ## Architecture boundaries
 
-Enforced by ESLint, not by convention:
+The rule that matters: **adding a plugin must never require editing
+`src/features/`.** That only holds if a plugin cannot reach into
+`src/features/` at all, so it is enforced twice.
+
+`npm run check:boundaries` resolves every import in `src/` to a real file path
+and rejects:
 
 | Rule | Effect |
 |---|---|
-| `plugins/` cannot import `features/` | A plugin cannot fork the sales engine (§51 becomes impossible, not discouraged) |
-| `plugins/` cannot import other plugins | Composition via declared dependencies and events only |
-| `shared/domain/` cannot import I/O | Business logic stays pure and becomes the Android specification |
-| `components/` cannot import data sources | The UI kit stays reusable |
-| No `any` anywhere | Spec §59 |
+| `plugins/` → `features/` | A plugin cannot fork the sales engine (§51 becomes impossible, not discouraged) |
+| `plugins/` → `app/` | A plugin gets a `PluginAPI`, never the application |
+| `plugins/<a>/` → `plugins/<b>/` | Composition via `dependencies` and events, never a direct import |
+| `components/` → `features/`, `plugins/`, `app/` | The UI kit stays business-ignorant and reusable |
+| `shared/domain/` → UI or I/O | Business logic stays pure and becomes the Android specification |
+
+ESLint's `no-restricted-imports` enforces the glob-expressible subset as a
+first line of defence. It matches the specifier string, so it cannot tell
+`../batch-expiry` (a sibling plugin — forbidden) from `../field-helpers`
+(inside the same plugin — fine); the resolver-based checker can.
+
+No `any` anywhere (spec §59), enforced by `tsc`.
+
+**Proven, not asserted:** `src/features/layout/navigation.test.ts` loads the
+real `batch-expiry` plugin and confirms its nav item reaches the sidebar —
+interleaved at its declared order, gated on its declared permission — with no
+edit to any file under `src/features/`. That plugin's entire import list is one
+line: `import type { Plugin, ProductField, ProductDraft } from
+'../../shared/registry/plugin-types'`.
 
 ---
 
@@ -112,7 +138,7 @@ See [`docs/10-roadmap.md`](./docs/10-roadmap.md).
 | Phase | Scope |
 |---|---|
 | 0 | **Done** — toolchain, taxonomy, migrations, validation |
-| 1 | Platform: router, plugin registry, component kit, auth, sidebar, command palette |
+| 1 | **Done** — router, plugin registry, event bus, component kit, auth, sidebar, command palette |
 | 2 | Core POS: products, cart, payments, receipts, customers, register |
 | 3 | Inventory: ledger, stock in/out, transfers |
 | 4 | Purchases, expenses, returns |

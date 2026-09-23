@@ -8,19 +8,49 @@ import tseslint from 'typescript-eslint'
  * structurally impossible rather than merely discouraged. If a plugin cannot
  * import the sales engine, it cannot fork the sales engine.
  */
+/**
+ * Patterns are matched against the import specifier, and this project uses
+ * relative imports — there is no `@/` alias. An earlier revision of these
+ * rules matched `@/features/*` and therefore never fired at all.
+ * `**\/` matches any number of `..\/` segments.
+ *
+ * These rules are the first line of defence. The authoritative check is
+ * `tools/check-boundaries.mjs`, which resolves imports to real file paths and
+ * so can catch cases a glob cannot (e.g. one plugin importing a sibling).
+ */
+const anyDepth = ['**/', '../../', '../../../', '../../../../']
+
 const noFeaturesFromPlugins = {
-  group: ['@/features', '@/features/*', '@/features/**'],
+  group: anyDepth.flatMap((prefix) => [`${prefix}features`, `${prefix}features/*`, `${prefix}features/**`]),
   message:
-    'Plugins may not import features. Use the injected PluginContext, ' +
-    'declared dependencies, or events instead (docs/05 §4).',
+    'Plugins may not import features. Register a description through the ' +
+    'PluginAPI, or compose via events (docs/05 §4).',
 }
 
-const noCrossPluginImports = {
-  group: ['@/plugins', '@/plugins/*', '@/plugins/**'],
-  message:
-    'Plugins may not import other plugins by alias. Use relative imports ' +
-    'inside your own plugin, and compose across plugins via `dependencies` ' +
-    'and events (docs/05 §4).',
+const noPluginsFromComponents = {
+  group: anyDepth.flatMap((prefix) => [`${prefix}plugins`, `${prefix}plugins/*`, `${prefix}plugins/**`]),
+  message: 'The UI kit may not import plugins.',
+}
+
+const noFeaturesFromComponents = {
+  group: anyDepth.flatMap((prefix) => [`${prefix}features`, `${prefix}features/*`, `${prefix}features/**`]),
+  message: 'The UI kit may not import features — it must stay business-ignorant.',
+}
+
+const noAppFromComponents = {
+  group: anyDepth.flatMap((prefix) => [`${prefix}app`, `${prefix}app/*`, `${prefix}app/**`]),
+  message: 'The UI kit may not import the app layer — no stores, no router, no Supabase.',
+}
+
+const noUiFromDomain = {
+  group: anyDepth.flatMap((prefix) =>
+    ['app', 'components', 'features', 'plugins', 'layouts'].flatMap((layer) => [
+      `${prefix}${layer}`,
+      `${prefix}${layer}/*`,
+      `${prefix}${layer}/**`,
+    ])
+  ),
+  message: 'Domain logic may not import UI or platform layers — it must stay pure.',
 }
 
 export default tseslint.config(
@@ -61,7 +91,10 @@ export default tseslint.config(
         'error',
         { prefer: 'type-imports', fixStyle: 'separate-type-imports' },
       ],
-      'no-console': ['warn', { allow: ['warn', 'error'] }],
+      // `log` stays banned: it is the one that survives into production and
+      // becomes noise. `debug` is allowed because the plugin Logger wraps it
+      // deliberately and can be silenced by the browser's level filter.
+      'no-console': ['warn', { allow: ['warn', 'error', 'debug', 'info'] }],
       eqeqeq: ['error', 'always'],
     },
   },
@@ -74,9 +107,9 @@ export default tseslint.config(
         'error',
         {
           patterns: [
-            { group: ['@/features', '@/features/*', '@/features/**'], message: 'The UI kit may not import features.' },
-            { group: ['@/plugins', '@/plugins/*', '@/plugins/**'], message: 'The UI kit may not import plugins.' },
-            { group: ['@/shared/repositories', '@/shared/repositories/*', '@/shared/repositories/**'], message: 'The UI kit may not talk to data sources.' },
+            noFeaturesFromComponents,
+            noPluginsFromComponents,
+            noAppFromComponents,
             { group: ['@supabase/supabase-js'], message: 'The UI kit may not touch Supabase directly.' },
           ],
         },
@@ -92,8 +125,7 @@ export default tseslint.config(
         'error',
         {
           patterns: [
-            { group: ['@/app/*', '@/core/*', '@/components/*', '@/features/*', '@/plugins/*', '@/layouts/*'], message: 'Domain logic may not import UI or platform layers.' },
-            { group: ['@/shared/repositories', '@/shared/repositories/*', '@/shared/services', '@/shared/services/*', '@/shared/stores', '@/shared/stores/*'], message: 'Domain logic may not import I/O layers — it must stay pure.' },
+            noUiFromDomain,
             { group: ['@supabase/supabase-js'], message: 'Domain logic may not touch Supabase.' },
           ],
         },
@@ -110,8 +142,7 @@ export default tseslint.config(
         {
           patterns: [
             noFeaturesFromPlugins,
-            noCrossPluginImports,
-            { group: ['@supabase/supabase-js'], message: 'Use `ctx.db` from the PluginContext, not a raw Supabase client (docs/05 §4).' },
+            { group: ['@supabase/supabase-js'], message: 'Plugins may not hold a Supabase client (docs/05 §4).' },
           ],
         },
       ],

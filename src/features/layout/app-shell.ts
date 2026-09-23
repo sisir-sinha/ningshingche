@@ -1,0 +1,269 @@
+/**
+ * The application shell (docs/06).
+ *
+ * Sidebar + topbar + a router outlet. The shell owns no business logic; it
+ * renders what the navigation model and the router give it. A plugin that
+ * registers a nav item gets a sidebar entry and a route target with no change
+ * to this file.
+ */
+
+import { h, mount } from '../../components/ui/h'
+import { iconButton } from '../../components/ui/button'
+import { sidebar, markActive } from './sidebar'
+import { CommandPalette } from './command-palette'
+import type { PluginRegistry } from '../../shared/registry/plugin-registry'
+import { sessionStore, activeOrganization, can } from '../../app/state/session'
+import { selectOrganization } from '../../app/platform/auth'
+import type { EventBus } from '../../shared/bus'
+
+export interface AppShellOptions {
+  registry: PluginRegistry
+  /**
+   * The bus the registry was constructed with. Injected rather than imported
+   * from the singleton, so the shell cannot silently listen to a different
+   * bus than the one plugins publish to.
+   */
+  bus: EventBus
+  onNavigate: (path: string) => void
+  onSignOut: () => void
+  /** The element the router renders into. */
+  outlet: HTMLElement
+}
+
+export interface AppShell {
+  el: HTMLElement
+  outlet: HTMLElement
+  palette: CommandPalette
+  /** Re-render the sidebar — call after permissions or plugins change. */
+  refreshNav: () => void
+  setTitle: (title: string, subtitle?: string) => void
+}
+
+export function appShell(options: AppShellOptions): AppShell {
+  const { registry, bus, onNavigate, onSignOut, outlet } = options
+
+  const sidebarHost = h('div', { class: 'h-full' })
+  const titleEl = h('h1', { class: 'truncate text-base font-semibold text-content', text: 'Mekholi' })
+  const subtitleEl = h('p', { class: 'truncate text-xs text-content-muted' })
+
+  const palette = new CommandPalette({
+    registry,
+    onNavigate,
+    extraCommands: () => [
+      {
+        id: 'app:signout',
+        label: 'Sign out',
+        icon: 'logout',
+        group: 'Actions',
+        keywords: 'sign out logout exit',
+        run: onSignOut,
+      },
+      {
+        id: 'app:refresh',
+        label: 'Reload this page',
+        icon: 'refresh',
+        group: 'Actions',
+        keywords: 'reload refresh retry',
+        run: () => window.location.reload(),
+      },
+    ],
+  })
+
+  const org = activeOrganization()
+  const shopName = org?.name ?? sessionStore.state.email ?? 'Mekholi'
+  const shopInitial = shopName.charAt(0).toUpperCase()
+
+  const hasMultipleOrgs = sessionStore.state.organizations.length > 1
+
+  const renderSidebar = (): void => {
+    const switcher = hasMultipleOrgs ? buildOrgSwitcher() : undefined
+    mount(
+      sidebarHost,
+      sidebar({
+        registry,
+        shopName,
+        shopInitial,
+        onNavigate,
+        onOpenPalette: () => palette.open(),
+        onSignOut,
+        ...(switcher ? { footer: switcher } : {}),
+      })
+    )
+    markActive(sidebarHost, currentPath())
+  }
+
+  const shell = h(
+    'div',
+    { class: 'flex h-screen w-full overflow-hidden bg-surface-muted' },
+
+    // Sidebar — off-canvas below lg
+    h('div', { class: 'hidden lg:block h-full' }, sidebarHost),
+
+    h(
+      'div',
+      { class: 'flex min-w-0 flex-1 flex-col' },
+
+      // Topbar
+      h(
+        'header',
+        {
+          class:
+            'flex h-14 shrink-0 items-center gap-3 border-b border-border bg-surface px-4',
+        },
+        iconButton('menu', 'Open navigation', {
+          variant: 'ghost',
+          class: 'lg:hidden',
+          onClick: () => toggleMobileSidebar(),
+        }),
+        h(
+          'div',
+          { class: 'min-w-0 flex-1' },
+          titleEl,
+          subtitleEl
+        ),
+        h(
+          'div',
+          { class: 'flex items-center gap-1' },
+          onlineIndicator(),
+          headerActions(() =>
+            bus.emit('ui.toast', {
+              type: 'ui.toast',
+              data: { message: 'Press Ctrl+K to search pages and actions.', tone: 'info' },
+            })
+          )
+        )
+      ),
+
+      // Router outlet
+      h('main', { class: 'flex-1 overflow-y-auto', id: 'app-outlet' }, outlet)
+    ),
+
+    mobileSidebarDrawer()
+  )
+
+  renderSidebar()
+
+  // Permissions can change when the organization is switched.
+  sessionStore.subscribe(() => renderSidebar())
+
+  // A plugin finishing its load may have added nav items.
+  bus.on('plugin.loaded', () => renderSidebar())
+
+  return {
+    el: shell,
+    outlet,
+    palette,
+    refreshNav: renderSidebar,
+    setTitle: (title, subtitle) => {
+      titleEl.textContent = title
+      if (subtitle === undefined || subtitle === '') {
+        subtitleEl.textContent = ''
+        subtitleEl.classList.add('hidden')
+      } else {
+        subtitleEl.textContent = subtitle
+        subtitleEl.classList.remove('hidden')
+      }
+    },
+  }
+}
+
+function currentPath(): string {
+  const raw = window.location.hash.replace(/^#/, '')
+  const path = raw.split('?')[0]
+  return path === '' ? '/' : (path ?? '/')
+}
+
+function onlineIndicator(): HTMLElement {
+  const dot = h('span', {
+    class: 'h-2 w-2 rounded-full bg-success',
+    'aria-hidden': 'true',
+  })
+  const label = h('span', { class: 'text-xs text-content-muted', text: 'Online' })
+
+  const wrap = h(
+    'div',
+    { class: 'hidden items-center gap-1.5 rounded-full border border-border px-2 py-1 sm:flex', title: 'Connection status' },
+    dot,
+    label
+  )
+
+  const update = (): void => {
+    const online = navigator.onLine
+    dot.className = `h-2 w-2 rounded-full ${online ? 'bg-success' : 'bg-danger'}`
+    label.textContent = online ? 'Online' : 'Offline'
+  }
+
+  window.addEventListener('online', update)
+  window.addEventListener('offline', update)
+  update()
+
+  return wrap
+}
+
+function headerActions(onHelp: () => void): HTMLElement {
+  const actions = h('div', { class: 'flex items-center gap-1' })
+
+  if (can('register.view')) {
+    actions.appendChild(iconButton('point_of_sale', 'Open register', { variant: 'ghost' }))
+  }
+  actions.appendChild(
+    iconButton('help', 'Help', { variant: 'ghost', onClick: onHelp })
+  )
+  return actions
+}
+
+function buildOrgSwitcher(): HTMLElement {
+  const orgs = sessionStore.state.organizations
+  const active = sessionStore.state.activeOrganizationId
+
+  const list = h('select', {
+    class:
+      'w-full h-9 rounded-md border border-border bg-surface px-2 text-xs text-content ' +
+      'focus:outline-none focus:ring-2 focus:ring-ring',
+    'aria-label': 'Switch shop',
+  })
+  for (const org of orgs) {
+    list.appendChild(
+      h('option', {
+        value: org.organization_id,
+        text: org.name,
+        selected: org.organization_id === active,
+      })
+    )
+  }
+
+  list.addEventListener('change', () => {
+    // Same path as every other organization switch: updates the store, swaps
+    // permissions, and emits `session.changed`.
+    selectOrganization(list.value)
+  })
+
+  return h('div', { class: 'px-1 pb-1' }, list)
+}
+
+// ── Mobile drawer ─────────────────────────────────────────────────────────
+// A shop counter is often a tablet in portrait, so the sidebar has to survive
+// a narrow viewport rather than disappear.
+
+let drawerEl: HTMLDivElement | null = null
+
+function mobileSidebarDrawer(): HTMLDivElement {
+  drawerEl = h('div', {
+    class:
+      'fixed inset-0 z-[80] hidden bg-black/40 lg:hidden',
+    'aria-hidden': 'true',
+  })
+  drawerEl.addEventListener('click', (event) => {
+    if (event.target === drawerEl) toggleMobileSidebar()
+  })
+  return drawerEl
+}
+
+function toggleMobileSidebar(): void {
+  if (!drawerEl) return
+  const open = drawerEl.classList.contains('hidden')
+  drawerEl.classList.toggle('hidden', !open)
+  drawerEl.setAttribute('aria-hidden', String(!open))
+}
+
+

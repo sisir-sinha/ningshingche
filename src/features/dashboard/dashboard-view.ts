@@ -1,0 +1,284 @@
+/**
+ * Dashboard — Phase 1 status view.
+ *
+ * Deliberately not a sales dashboard yet: there are no sales until Phase 2.
+ * What it does show is the platform working — which plugins loaded, which
+ * product fields they contributed, and what the signed-in role can reach.
+ * That is the Phase 1 deliverable, and it is the evidence the plugin
+ * architecture holds.
+ */
+
+import { h, icon } from '../../components/ui/h'
+import { card, cardHeader, badge, stat, emptyState } from '../../components/ui/card'
+import { button } from '../../components/ui/button'
+import type { PluginRegistry } from '../../shared/registry/plugin-registry'
+import { sessionStore, activeOrganization } from '../../app/state/session'
+import { eventBus } from '../../shared/bus'
+
+export function dashboardView(registry: PluginRegistry): HTMLElement {
+  const session = sessionStore.state
+  const org = activeOrganization()
+
+  return h(
+    'div',
+    { class: 'mx-auto max-w-6xl space-y-4 p-4 lg:p-6' },
+
+    // Greeting
+    h(
+      'div',
+      { class: 'flex flex-wrap items-end justify-between gap-3' },
+      h(
+        'div',
+        null,
+        h('h2', {
+          class: 'text-xl font-semibold text-content',
+          text: org ? org.name : 'Your shop',
+        }),
+        h('p', {
+          class: 'mt-0.5 text-sm text-content-muted',
+          text: `Signed in as ${session.email ?? '—'} · ${session.organizations.length} shop(s)`,
+        })
+      ),
+      h(
+        'div',
+        { class: 'flex items-center gap-2' },
+        session.organizations.flatMap((o) => o.role_names).map((role) =>
+          badge(role, { tone: 'primary', iconName: 'shield' })
+        )
+      )
+    ),
+
+    // Platform vitals
+    h(
+      'div',
+      { class: 'grid grid-cols-2 gap-3 lg:grid-cols-4' },
+      stat('Plugins loaded', String(registry.list().filter((p) => p.status === 'loaded').length), {
+        iconName: 'extension',
+        hint: `${registry.list().length} declared`,
+      }),
+      stat('Product fields', String(registry.productFields.items.length), {
+        iconName: 'view_agenda',
+        hint: `${CORE_FIELD_COUNT} core + ${registry.productFields.items.length} from plugins`,
+      }),
+      stat('Permissions held', String(session.permissions.length), {
+        iconName: 'verified_user',
+        hint: 'granted by your role',
+      }),
+      stat('Nav destinations', String(registry.nav.items.length + CORE_NAV_COUNT), {
+        iconName: 'explore',
+        hint: `${registry.nav.items.length} added by plugins`,
+      })
+    ),
+
+    h(
+      'div',
+      { class: 'grid gap-4 lg:grid-cols-2' },
+      pluginsCard(registry),
+      productFieldsCard(registry)
+    ),
+
+    permissionsCard(),
+
+    h('div', null, nextStepsCard())
+  )
+}
+
+const CORE_FIELD_COUNT = 0
+const CORE_NAV_COUNT = 15
+
+function pluginsCard(registry: PluginRegistry): HTMLElement {
+  const registrations = registry.list()
+
+  const rows = registrations.map((registration) => {
+    const { plugin, status, error } = registration
+    const tone = status === 'loaded' ? 'success' : status === 'error' ? 'danger' : 'neutral'
+
+    return h(
+      'div',
+      { class: 'flex items-start gap-3 rounded-md border border-border p-3' },
+      h(
+        'span',
+        {
+          class:
+            'flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-surface-muted text-content-muted',
+        },
+        icon(plugin.icon ?? 'extension', 'text-lg')
+      ),
+      h(
+        'div',
+        { class: 'min-w-0 flex-1' },
+        h(
+          'div',
+          { class: 'flex items-center gap-2' },
+          h('p', { class: 'text-sm font-medium text-content', text: plugin.name }),
+          badge(plugin.version, { tone: 'neutral' })
+        ),
+        h('p', { class: 'mt-0.5 text-xs text-content-muted', text: plugin.description ?? '' }),
+        h('p', { class: 'mt-1 font-mono text-[10px] text-content-subtle', text: plugin.id }),
+        error ? h('p', { class: 'mt-1 text-xs text-danger', text: error }) : null
+      ),
+      badge(status, { tone: tone === 'neutral' ? 'neutral' : tone, iconName: status === 'loaded' ? 'check' : 'info' })
+    )
+  })
+
+  return card(
+    cardHeader('Plugins', {
+      subtitle: 'Declared in code, loaded at boot',
+      iconName: 'extension',
+      actions: button('Reload', {
+        size: 'sm',
+        variant: 'ghost',
+        onClick: () => window.location.reload(),
+      }),
+    }),
+    rows.length > 0
+      ? h('div', { class: 'space-y-2' }, ...rows)
+      : emptyState('No plugins declared', {
+          description: 'Plugins live in src/plugins/. Phase 6 adds the loader.',
+          iconName: 'extension_off',
+        })
+  )
+}
+
+function productFieldsCard(registry: PluginRegistry): HTMLElement {
+  const fields = registry.productFields.items
+
+  return card(
+    cardHeader('Plugin product fields', {
+      subtitle: 'The core product form renders these without knowing them',
+      iconName: 'view_agenda',
+    }),
+    fields.length === 0
+      ? emptyState('No plugin fields yet', { iconName: 'view_agenda' })
+      : h(
+          'div',
+          { class: 'overflow-x-auto' },
+          h(
+            'table',
+            { class: 'w-full text-sm' },
+            h(
+              'thead',
+              null,
+              h(
+                'tr',
+                { class: 'border-b border-border text-left text-xs text-content-subtle' },
+                h('th', { class: 'py-2 pr-3 font-medium', text: 'Field' }),
+                h('th', { class: 'py-2 pr-3 font-medium', text: 'Type' }),
+                h('th', { class: 'py-2 pr-3 font-medium', text: 'Section' }),
+                h('th', { class: 'py-2 pr-3 font-medium', text: 'Storage' }),
+                h('th', { class: 'py-2 font-medium', text: 'From' })
+              )
+            ),
+            h(
+              'tbody',
+              null,
+              ...fields.map((field) =>
+                h(
+                  'tr',
+                  { class: 'border-b border-border/50 last:border-0' },
+                  h('td', { class: 'py-2 pr-3 text-content', text: field.label }),
+                  h('td', { class: 'py-2 pr-3 font-mono text-xs text-content-muted', text: field.type }),
+                  h('td', { class: 'py-2 pr-3 text-content-muted', text: field.section ?? 'basic' }),
+                  h('td', { class: 'py-2 pr-3 text-content-muted', text: field.storage }),
+                  h(
+                    'td',
+                    { class: 'py-2' },
+                    badge(field.source ?? 'core', { tone: 'primary' })
+                  )
+                )
+              )
+            )
+          )
+        )
+  )
+}
+
+function permissionsCard(): HTMLElement {
+  const permissions = [...sessionStore.state.permissions].sort()
+
+  if (permissions.length === 0) {
+    return card(
+      cardHeader('Permissions', { iconName: 'verified_user' }),
+      emptyState('No permissions loaded', {
+        description: 'Sign in to load your role permissions from the server.',
+        iconName: 'lock',
+      })
+    )
+  }
+
+  // Group by resource so a long list stays readable.
+  const grouped = new Map<string, string[]>()
+  for (const key of permissions) {
+    const resource = key.split('.')[0] ?? 'other'
+    const action = key.split('.')[1] ?? key
+    const bucket = grouped.get(resource)
+    if (bucket) {
+      bucket.push(action)
+    } else {
+      grouped.set(resource, [action])
+    }
+  }
+
+  return card(
+    cardHeader('What your role can do', {
+      subtitle: `${permissions.length} permissions, expanded server-side from your role`,
+      iconName: 'verified_user',
+    }),
+    h(
+      'div',
+      { class: 'grid gap-2 sm:grid-cols-2 lg:grid-cols-3' },
+      ...[...grouped.entries()].map(([resource, actions]) =>
+        h(
+          'div',
+          { class: 'rounded-md border border-border p-2.5' },
+          h('p', { class: 'text-xs font-semibold text-content capitalize', text: resource }),
+          h('p', { class: 'mt-1 text-xs text-content-muted', text: actions.join(' · ') })
+        )
+      )
+    )
+  )
+}
+
+function nextStepsCard(): HTMLElement {
+  const steps = [
+    { phase: 'Phase 2', label: 'Core POS', detail: 'Take a real sale end to end' },
+    { phase: 'Phase 3', label: 'Inventory', detail: 'Stock in/out, transfers, ledger' },
+    { phase: 'Phase 4', label: 'Business management', detail: 'Purchases, expenses, returns' },
+    { phase: 'Phase 5', label: 'Analytics', detail: 'Dashboard, reports, insights' },
+  ]
+
+  return card(
+    cardHeader('Roadmap', { subtitle: 'Where this is going', iconName: 'route' }),
+    h(
+      'div',
+      { class: 'space-y-2' },
+      ...steps.map((step) =>
+        h(
+          'div',
+          { class: 'flex items-center gap-3 rounded-md bg-surface-muted p-2.5' },
+          badge(step.phase, { tone: 'neutral' }),
+          h(
+            'div',
+            { class: 'min-w-0 flex-1' },
+            h('p', { class: 'text-sm font-medium text-content', text: step.label }),
+            h('p', { class: 'text-xs text-content-muted', text: step.detail })
+          ),
+          icon('arrow_forward', 'text-content-subtle text-base')
+        )
+      )
+    ),
+    h('div', { class: 'mt-3' },
+      button('Test the event bus', {
+        size: 'sm',
+        variant: 'outline',
+        icon: 'bolt',
+        onClick: () => {
+          eventBus.emit('ui.toast', {
+            type: 'ui.toast',
+            data: { message: 'EventBus → toast works.', tone: 'success' },
+          })
+        },
+      })
+    )
+  )
+}
