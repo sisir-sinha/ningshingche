@@ -3,8 +3,13 @@ dist/
 build/
 out/
 .env
-.env.local
+.env.*
+!.env.example
 *.log
 .DS_Store
 .vscode/
 .idea/
+
+# Local data exports — may contain user records. Never commit.
+legacy-export/
+.env.db

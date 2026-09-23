@@ -161,6 +161,7 @@ const tables = await q(`
 
 const noRls = await q(`select * from app.tables_missing_rls()`)
 const policies = await q(`select count(*)::int as n from pg_policies where schemaname = 'public'`)
+const policies_text = await q(`select qual, with_check from pg_policies where schemaname = 'public'`)
 const functions = await q(`
   select n.nspname || '.' || p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')' as f
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -625,6 +626,56 @@ check(
   `users.delete=${cashierOrg.permissions.includes('users.delete')}`
 )
 await db.query(`select set_config('request.jwt.claim.sub', null, false)`)
+
+// ── RLS helper executability ──────────────────────────────────────────────
+// PGlite runs as superuser, so GRANT/REVOKE are never enforced at runtime and
+// a missing EXECUTE grant is invisible to every other assertion here. It is
+// not invisible on a real Supabase project: RLS policy expressions run as the
+// *querying* role, so an ungranted helper turns every anonymous read into
+// `42501 permission denied for function …` instead of an empty result.
+//
+// This check reads the recorded ACLs, which PGlite does maintain, and compares
+// them against the functions the policies actually call.
+const policyFns = new Map()
+for (const row of policies_text) {
+  for (const expr of [row.qual, row.with_check]) {
+    if (!expr) continue
+    for (const m of String(expr).matchAll(/\bapp\.([a-z_]+)\s*\(/g)) {
+      policyFns.set(m[1], (policyFns.get(m[1]) ?? 0) + 1)
+    }
+  }
+}
+
+for (const [name, refs] of [...policyFns.entries()].sort()) {
+  const g = await q(`
+    select has_function_privilege('anon', p.oid, 'EXECUTE')::text          as anon,
+           has_function_privilege('authenticated', p.oid, 'EXECUTE')::text as auth
+      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'app' and p.proname = '${name}'`)
+  const row = g[0] ?? { anon: 'missing', auth: 'missing' }
+  check(
+    `app.${name} is executable by anon and authenticated (${refs} policy refs)`,
+    row.anon === 'true' && row.auth === 'true',
+    `anon=${row.anon} authenticated=${row.auth}`
+  )
+}
+
+// The internal helpers must stay unreachable — that is the other half of the
+// grant story. If one of these ever becomes callable from the client, the
+// stock ledger can be written directly.
+for (const name of ['apply_stock_movement', 'next_sequence']) {
+  const g = await q(`
+    select has_function_privilege('anon', p.oid, 'EXECUTE')::text          as anon,
+           has_function_privilege('authenticated', p.oid, 'EXECUTE')::text as auth
+      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and p.proname = '${name}'`)
+  const row = g[0] ?? { anon: 'missing', auth: 'missing' }
+  check(
+    `internal helper ${name} stays revoked from anon and authenticated`,
+    row.anon === 'false' && row.auth === 'false',
+    `anon=${row.anon} authenticated=${row.auth}`
+  )
+}
 
 const failed = checks.filter((c) => !c.pass)
 console.log(`\n${checks.length - failed.length}/${checks.length} behavioral checks passed`)

@@ -1,11 +1,48 @@
 # Validation tools
 
-Two independent checkers, both run by `npm run check` and by CI.
+Four tools: two check the code, two operate on a real database.
 
 ```bash
-npm run validate:migrations   # the database is real and behaves
-npm run check:boundaries      # the architecture holds
+npm run validate:migrations   # the schema is real and behaves   (local, PGlite)
+npm run check:boundaries      # the architecture holds           (local, no DB)
+npm run db:status             # what is applied on the live project
+npm run db:push               # apply pending migrations to the live project
+npm run db:reset              # DESTRUCTIVE: drop public, re-apply everything
 ```
+
+---
+
+## `db-push.mjs` / `db-reset.mjs` — operating on a real Supabase project
+
+These are the hosted equivalent of `supabase db push` and `supabase db reset`,
+which both need either an access token or a local stack. These need only
+`.env.db` (gitignored) and a network route to the pooler.
+
+```
+MEKHOLI_DB_HOST=aws-0-<region>.pooler.supabase.com
+MEKHOLI_DB_PORT=5432          # session mode — never 6543
+MEKHOLI_DB_USER=postgres.<project-ref>
+MEKHOLI_DB_PASSWORD=<database password>
+MEKHOLI_DB_NAME=postgres
+```
+
+Three things that are easy to get wrong, all handled here:
+
+1. **Port 5432, not 6543.** Migrations run DDL and `alter publication`, which
+   transaction-mode pooling breaks.
+2. **IPv4.** Supabase's direct host is IPv6-only on newer projects, and many
+   sandboxes have no IPv6 route. The pooler has an A record.
+3. **PostgREST caches the schema.** Applying DDL by direct SQL bypasses the
+   reload the Supabase CLI performs, so new functions answer `404` until the
+   cache is refreshed. Both tools end with `notify pgrst, 'reload schema'`.
+
+`db-reset.mjs` drops only `public` (plus the `app` schema). It leaves
+`auth.*`, `storage.*` and `realtime.*` alone, so **user accounts survive a
+reset** — they can still sign in, they simply have no shop until they
+re-onboard. It also drops the trigger on `auth.users` that pointed into
+`public`, because leaving it would break every future signup.
+
+It requires `--yes` and prints an inventory first.
 
 ---
 

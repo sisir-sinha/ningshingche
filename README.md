@@ -16,8 +16,12 @@ plugin architecture is proven. Design is in [`docs/`](./docs/README.md).
 ```bash
 npm install
 cp .env.example .env      # fill in VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
+npm run db:push           # apply the schema to your Supabase project
 npm run dev               # http://localhost:5173
 ```
+
+`db:push` reads `.env.db` (gitignored) — see [tools/README.md](./tools/README.md)
+for the format and the three things that are easy to get wrong.
 
 Run everything CI runs:
 
@@ -73,16 +77,26 @@ npm run check
 
 ## Applying the schema
 
+Against a hosted project:
+
 ```bash
-supabase start
-supabase db reset        # migrations/ then seed/
+npm run db:status   # what is applied and what is pending
+npm run db:push     # apply pending migrations, then reload PostgREST
+npm run db:reset    # DESTRUCTIVE: drop public/ and re-apply everything
 ```
 
-`db reset` leaves you with a provisioned demo organization ("Seed Demo Shop")
-so the database is immediately usable.
+`db:reset` leaves `auth.*` and `storage.*` untouched, so existing user accounts
+survive — they just have no shop until they sign up again.
 
-The migrations are applied to a real Postgres in CI on every push — see
-[`tools/README.md`](./tools/README.md).
+Against a local stack:
+
+```bash
+supabase start
+supabase db reset
+```
+
+The migrations are also applied to a real Postgres (WASM) in CI on every push
+and checked against 38 behavioural assertions.
 
 ---
 
