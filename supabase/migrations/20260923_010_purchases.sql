@@ -1,12 +1,27 @@
 -- 010 — Purchases: orders, items, payments.
 
-create type public.purchase_status as enum (
-  'DRAFT',
-  'ORDERED',
-  'PARTIALLY_RECEIVED',
-  'RECEIVED',
-  'CANCELLED'
-);
+-- Guarded deliberately: `create type` has no `if not exists`, and dropping
+-- tables (the dashboard's delete, or a partial manual reset) does NOT drop
+-- enum types. A bare re-run of this file therefore dies with 42710
+-- "type already exists" even on a database whose tables are gone.
+do $$
+begin
+  if not exists (
+    select 1 from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where n.nspname = 'public' and t.typname = 'purchase_status'
+  ) then
+    create type public.purchase_status as enum (
+      'DRAFT',
+      'ORDERED',
+      'PARTIALLY_RECEIVED',
+      'RECEIVED',
+      'CANCELLED'
+    );
+  end if;
+end
+$$;
+
 
 create table public.purchases (
   id              uuid primary key default gen_random_uuid(),

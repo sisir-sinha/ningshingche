@@ -25,6 +25,7 @@ import { modal } from '../../components/feedback/modal'
 import { toastError, toastSuccess } from '../../components/feedback/toast'
 import { confirm } from '../../components/feedback/modal'
 import { getRepositories } from '../../app/data'
+import { bindDrafts, clearDraft, restoreDraft } from '../../app/state/drafts'
 import { translateError } from '../../app/platform/errors'
 import { activeOrganization } from '../../app/state/session'
 import type { PluginRegistry } from '../../shared/registry/plugin-registry'
@@ -259,6 +260,7 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
           is_active: true,
           metadata: {},
         })
+        clearDraft('products.quickAdd')
         dialog.close()
         toastSuccess(`“${name}” added`)
         await load(true)
@@ -278,6 +280,10 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
         errorSlot
       )
     )
+
+    // Survives a failed save or an accidental close; cleared only once the
+    // product actually exists.
+    bindDrafts(dialog.body, 'products.quickAdd')
 
     for (const el of [nameInput, priceInput, stockInput]) {
       el.addEventListener('keydown', (event) => {
@@ -301,6 +307,7 @@ interface FormOptions {
 function openProductForm(options: FormOptions): void {
   const { product, registry, onSaved } = options
   const repos = getRepositories()
+  const draftKey = `products.form.${product?.id ?? 'new'}`
 
   let categories: Category[] = []
   let brands: Brand[] = []
@@ -481,6 +488,7 @@ function openProductForm(options: FormOptions): void {
         await repos.products.create(payload)
         toastSuccess('Product created')
       }
+      clearDraft(draftKey)
       dialog.close()
       onSaved()
     } catch (error) {
@@ -522,6 +530,9 @@ function openProductForm(options: FormOptions): void {
     ...advancedPluginFields.map(renderPluginField)
   )
 
+  // Bind after every field exists, including the plugin-rendered ones.
+  bindDrafts(dialog.body, draftKey)
+
   void (async () => {
     const busy = spinner('h-4 w-4')
     advancedBody.prepend(busy)
@@ -540,6 +551,7 @@ function openProductForm(options: FormOptions): void {
       fill(brandSelect, brands.map((x) => ({ value: x.id, label: x.name })), product?.brand_id ?? null)
       fill(unitSelect, units.map((x) => ({ value: x.id, label: `${x.name} (${x.symbol})` })), product?.unit_id ?? null)
       fill(taxSelect, taxes.map((x) => ({ value: x.id, label: `${x.name} (${x.rate}%)` })), product?.tax_id ?? null)
+      restoreDraft(dialog.body, draftKey)
     } catch (error) {
       toastError(translateError(error).message)
     } finally {

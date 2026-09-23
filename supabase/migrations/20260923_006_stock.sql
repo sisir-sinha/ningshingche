@@ -4,23 +4,38 @@
 -- 37 units?" (spec §12). stock_balances answers "how many right now?" fast.
 -- The ledger is the truth; the balance is derived and reconcilable.
 
-create type public.stock_movement_type as enum (
-  'OPENING_STOCK',
-  'PURCHASE',
-  'SALE',
-  'RETURN_IN',
-  'RETURN_OUT',
-  'ADJUSTMENT_IN',
-  'ADJUSTMENT_OUT',
-  'TRANSFER_IN',
-  'TRANSFER_OUT',
-  'DAMAGE',
-  'LOSS',
-  'EXPIRED',
-  'COUNT',
-  'PRODUCTION_IN',
-  'PRODUCTION_OUT'
-);
+-- Guarded deliberately: `create type` has no `if not exists`, and dropping
+-- tables (the dashboard's delete, or a partial manual reset) does NOT drop
+-- enum types. A bare re-run of this file therefore dies with 42710
+-- "type already exists" even on a database whose tables are gone.
+do $$
+begin
+  if not exists (
+    select 1 from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where n.nspname = 'public' and t.typname = 'stock_movement_type'
+  ) then
+    create type public.stock_movement_type as enum (
+      'OPENING_STOCK',
+      'PURCHASE',
+      'SALE',
+      'RETURN_IN',
+      'RETURN_OUT',
+      'ADJUSTMENT_IN',
+      'ADJUSTMENT_OUT',
+      'TRANSFER_IN',
+      'TRANSFER_OUT',
+      'DAMAGE',
+      'LOSS',
+      'EXPIRED',
+      'COUNT',
+      'PRODUCTION_IN',
+      'PRODUCTION_OUT'
+    );
+  end if;
+end
+$$;
+
 
 create table public.stock_balances (
   organization_id uuid not null references public.organizations(id) on delete cascade,

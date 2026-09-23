@@ -4,15 +4,30 @@
 -- tax_rate are copied onto sale_items at sale time. Editing a price or cost
 -- next month must not rewrite last month's profit.
 
-create type public.sale_status as enum (
-  'DRAFT',
-  'HELD',
-  'COMPLETED',
-  'PARTIALLY_PAID',
-  'CANCELLED',
-  'REFUNDED',
-  'PARTIALLY_REFUNDED'
-);
+-- Guarded deliberately: `create type` has no `if not exists`, and dropping
+-- tables (the dashboard's delete, or a partial manual reset) does NOT drop
+-- enum types. A bare re-run of this file therefore dies with 42710
+-- "type already exists" even on a database whose tables are gone.
+do $$
+begin
+  if not exists (
+    select 1 from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where n.nspname = 'public' and t.typname = 'sale_status'
+  ) then
+    create type public.sale_status as enum (
+      'DRAFT',
+      'HELD',
+      'COMPLETED',
+      'PARTIALLY_PAID',
+      'CANCELLED',
+      'REFUNDED',
+      'PARTIALLY_REFUNDED'
+    );
+  end if;
+end
+$$;
+
 
 create table public.sales (
   id              uuid primary key default gen_random_uuid(),

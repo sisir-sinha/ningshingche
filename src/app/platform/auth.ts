@@ -22,10 +22,44 @@ interface SessionPayload {
   organizations: OrganizationMembership[]
 }
 
+/**
+ * GoTrue errors carry an HTTP status and a string code, not a Postgres code,
+ * so they get their own translation. The rate-limit case deserves special
+ * treatment because the raw message ("For security purposes…") never tells a
+ * shopkeeper that the real fix is a setting on the server.
+ */
+function translateAuthError(error: unknown): string | null {
+  const record = error as { code?: string; message?: string; status?: number; name?: string }
+  const raw = typeof record?.message === 'string' ? record.message : ''
+
+  if (record?.status === 429 || record?.code === 'over_email_send_rate_limit') {
+    return (
+      'Supabase is rate-limiting confirmation emails right now. ' +
+      'Disable "Confirm email" under Authentication → Sign In / Providers → Email ' +
+      'in the Supabase dashboard, then try again.'
+    )
+  }
+  if (record?.code === 'email_address_invalid') {
+    return 'That email address was rejected by the auth server. Use a real, deliverable address.'
+  }
+  if (record?.code === 'user_already_exists' || /already registered/i.test(raw)) {
+    return 'An account with that email already exists. Sign in instead, or use a different email.'
+  }
+  if (record?.code === 'email_not_confirmed' || /email not confirmed/i.test(raw)) {
+    return 'That email is not confirmed yet. Open the confirmation link we sent, or ask to resend it.'
+  }
+  return null
+}
+
 function fail(error: unknown): AuthResult {
+  const specific = translateAuthError(error)
   const translated = translateError(error)
   console.error('[auth]', translated.code, error)
-  return { ok: false, error: translated.message, retryable: translated.retryable }
+  return {
+    ok: false,
+    error: specific ?? translated.message,
+    retryable: translated.retryable,
+  }
 }
 
 /**
@@ -120,6 +154,27 @@ export async function signIn(email: string, password: string): Promise<AuthResul
     return { ok: true }
   } catch (error) {
     return fail(error)
+  }
+}
+
+/**
+ * Sign in with Google.
+ *
+ * The browser navigates away to finish the OAuth round trip, so there is no
+ * result to return: `bootstrapSession` picks the session up when Google
+ * redirects back. The app's URL must be listed under Supabase →
+ * Authentication → URL Configuration → Redirect URLs, or GoTrue sends the
+ * user back to the project's site URL instead.
+ */
+export async function signInWithGoogle(): Promise<void> {
+  const supabase = getSupabase()
+  if (!supabase) return
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin + window.location.pathname },
+  })
+  if (error) {
+    console.error('[auth] google sign-in failed', error)
   }
 }
 

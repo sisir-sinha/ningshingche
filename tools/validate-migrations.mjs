@@ -20,6 +20,24 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const dir = join(root, 'supabase', 'migrations')
 
 const files = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()
+
+// ── Static check: every `create type` must be guarded ────────────────────
+//
+// `create type` has no `if not exists`, and dropping tables does not drop
+// enums — so an unguarded one makes the whole migration set fragile to a
+// partial re-run (the 42710 "type already exists" failure that a manual
+// SQL-editor replay hits first). splitStatements respects dollar-quoting, so
+// a guarded create lives inside one `do $$ … $$;` statement and only a bare
+// create type surfaces here.
+const unguardedCreateTypes = []
+for (const file of files) {
+  const sql = readFileSync(join(dir, file), 'utf8')
+  for (const stmt of splitStatements(sql)) {
+    if (/^\s*create\s+type\b/i.test(stmt)) {
+      unguardedCreateTypes.push(`${file}: ${stmt.split('\n')[0].trim()}`)
+    }
+  }
+}
 if (files.length === 0) {
   console.error(`no migrations found in ${dir}`)
   process.exit(1)
@@ -195,6 +213,12 @@ const runChecks = async () => {
 // The ledger invariant: every movement must balance, and the balance must
 // equal the sum of its movements. Seeded and exercised below.
 console.log('\n-- behavioral checks --')
+
+check(
+  'every create type is guarded against re-runs',
+  unguardedCreateTypes.length === 0,
+  unguardedCreateTypes.join('; ')
+)
 
 // Seed a minimal org so the ledger constraint can be exercised.
 try {
