@@ -845,6 +845,35 @@ for (const name of ['complete_sale', 'hold_sale', 'resume_sale', 'refund_sale',
   )
 }
 
+// ── The POS catalogue view ────────────────────────────────────────────────
+// `security_invoker` is the difference between a saved query and a data leak.
+// A view without it executes as its owner, so it would return every
+// organization's catalogue to any signed-in user regardless of the RLS
+// policies on the tables underneath. PGlite does not enforce RLS, so this is
+// the only place the property is checked.
+const viewRow = await q(`
+  select c.reloptions::text as opts
+    from pg_class c join pg_namespace n on n.oid = c.relnamespace
+   where n.nspname = 'public' and c.relname = 'pos_catalog' and c.relkind = 'v'`)
+check(
+  'pos_catalog exists and runs as the invoker, so underlying RLS applies',
+  viewRow.length === 1 && /security_invoker=(true|on)/.test(String(viewRow[0].opts ?? '')),
+  viewRow[0] ? String(viewRow[0].opts) : 'view missing'
+)
+
+// A variant with a price override must win over the product's price, and one
+// without must inherit it. That resolution happens in the view, so if it is
+// wrong every client is wrong in the same way at once.
+const priced = await q(`
+  select pos.price as inherited
+    from public.pos_catalog pos
+   where pos.product_id = '00000000-0000-0000-0000-000000007b01'`)
+check(
+  'pos_catalog resolves a variant price from its product when not overridden',
+  priced.length === 1 && Number(priced[0].inherited) === 115,
+  priced[0] ? String(priced[0].inherited) : 'no row'
+)
+
 const failed = checks.filter((c) => !c.pass)
 console.log(`\n${checks.length - failed.length}/${checks.length} behavioral checks passed`)
 

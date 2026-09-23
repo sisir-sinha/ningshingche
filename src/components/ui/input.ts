@@ -9,31 +9,31 @@
 import { h, icon } from './h'
 
 export interface FieldOptions {
-  label?: string
-  hint?: string
-  error?: string | null
-  required?: boolean
-  class?: string
+  label?: string | undefined
+  hint?: string | undefined
+  error?: string | null | undefined
+  required?: boolean | undefined
+  class?: string | undefined
 }
 
 export interface InputOptions extends FieldOptions {
-  id?: string
-  type?: 'text' | 'number' | 'password' | 'email' | 'date' | 'datetime-local' | 'search' | 'tel'
-  value?: string
-  placeholder?: string
-  autocomplete?: string
-  inputmode?: 'numeric' | 'decimal' | 'text' | 'tel' | 'email'
-  min?: number | string
-  max?: number | string
-  step?: number | string
-  maxlength?: number
-  autofocus?: boolean
-  readonly?: boolean
-  disabled?: boolean
+  id?: string | undefined
+  type?: 'text' | 'number' | 'password' | 'email' | 'date' | 'datetime-local' | 'search' | 'tel' | undefined
+  value?: string | undefined
+  placeholder?: string | undefined
+  autocomplete?: string | undefined
+  inputmode?: 'numeric' | 'decimal' | 'text' | 'tel' | 'email' | undefined
+  min?: number | string | undefined
+  max?: number | string | undefined
+  step?: number | string | undefined
+  maxlength?: number | undefined
+  autofocus?: boolean | undefined
+  readonly?: boolean | undefined
+  disabled?: boolean | undefined
   /** Leading icon inside the control, e.g. `search` or a currency symbol. */
-  leadingIcon?: string
+  leadingIcon?: string | undefined
   /** Trailing text inside the control, e.g. `BDT`. */
-  suffix?: string
+  suffix?: string | undefined
   onInput?: (value: string, el: HTMLInputElement) => void
   onChange?: (value: string, el: HTMLInputElement) => void
   onEnter?: (value: string, el: HTMLInputElement) => void
@@ -100,12 +100,12 @@ export function input(options: InputOptions = {}): HTMLInputElement {
 }
 
 export interface TextAreaOptions extends FieldOptions {
-  id?: string
-  value?: string
-  placeholder?: string
-  rows?: number
-  maxlength?: number
-  onInput?: (value: string) => void
+  id?: string | undefined
+  value?: string | undefined
+  placeholder?: string | undefined
+  rows?: number | undefined
+  maxlength?: number | undefined
+  onInput?: ((value: string) => void) | undefined
 }
 
 export function textarea(options: TextAreaOptions = {}): HTMLTextAreaElement {
@@ -126,10 +126,10 @@ export function textarea(options: TextAreaOptions = {}): HTMLTextAreaElement {
 }
 
 export interface SelectOptions extends FieldOptions {
-  id?: string
-  value?: string
+  id?: string | undefined
+  value?: string | undefined
   options: readonly { value: string; label: string }[]
-  placeholder?: string
+  placeholder?: string | undefined
   onChange?: (value: string) => void
 }
 

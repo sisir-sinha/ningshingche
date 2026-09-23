@@ -25,6 +25,10 @@ import { eventBus } from './shared/bus'
 import { mountToasts, toastError } from './components/feedback/toast'
 import { installShortcuts } from './features/layout/command-palette'
 import { bootstrapSession, signOut, needsOnboarding } from './app/platform/auth'
+import { refreshSalesFloor, watchOrganization } from './app/state/sales-floor'
+import { resetRepositories } from './app/data'
+import { posRoutes } from './features/pos'
+import { productRoutes } from './features/products'
 import { sessionStore, can } from './app/state/session'
 import { translateError } from './app/platform/errors'
 import { h } from './components/ui/h'
@@ -57,6 +61,9 @@ const unmountToasts = mountToasts()
 
 let shell: AppShell | null = null
 
+/** Installed in enterApp, released in leaveApp, so a re-login re-subscribes. */
+let unwatchOrganization: () => void = () => {}
+
 const uninstallShortcuts = installShortcuts(registry, [
   { combo: 'ctrl+k', handler: () => shell?.palette.open() },
 ])
@@ -77,6 +84,8 @@ const routes: Route[] = [
     permission: 'dashboard.view',
     render: () => dashboardView(registry),
   },
+  ...posRoutes({ bus: eventBus }),
+  ...productRoutes(registry),
   {
     path: '/forbidden',
     title: 'Not permitted',
@@ -121,6 +130,12 @@ router.addAll(routes)
 function enterApp(): void {
   const outlet = h('div', { class: 'h-full' })
 
+  // Branch, warehouse and register are resolved here rather than lazily by
+  // each screen: the POS cannot render a priced product without knowing which
+  // stock room to read, and three screens resolving it independently is three
+  // chances to show a half-loaded counter.
+  void refreshSalesFloor()
+
   shell = appShell({
     registry,
     bus: eventBus,
@@ -138,6 +153,8 @@ async function leaveApp(): Promise<void> {
   router.stop()
   shell?.el.remove()
   shell = null
+  unwatchOrganization()
+  resetRepositories()
   await signOut()
   root.replaceChildren(loginView({ onAuthenticated: enterApp }))
 }
@@ -187,6 +204,7 @@ async function boot(): Promise<void> {
   }
 
   if (sessionStore.state.status === 'authenticated') {
+    unwatchOrganization = watchOrganization()
     enterApp()
   } else {
     root.replaceChildren(loginView({ onAuthenticated: enterApp }))
