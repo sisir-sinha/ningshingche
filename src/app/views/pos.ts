@@ -2,6 +2,7 @@ import { supabase, isSupabaseConfigured } from '../../core/db/supabase'
 import { enqueue, getOutboxCount } from '../../core/db/idb'
 import { calcTotals, type CartItem } from '../../core/services/billing'
 import { showConfirm, showPrompt } from '../../core/components/modal'
+import { getLang, setLang, t, tPay } from '../../core/i18n'
 
 type Product = { id:string; name:string; barcode:string|null; sku:string|null; price:number; cost_price:number|null; stock_quantity:number; unit:string; vat_rate:number; is_loose:boolean }
 
@@ -21,16 +22,17 @@ export default function posView(): string {
   <div class="max-w-[1420px] mx-auto w-full px-3 lg:px-4 py-3">
     <!-- Shortcuts bar — rich POS -->
     <div class="hidden lg:flex items-center gap-2 text-[11px] font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full px-3 py-2 mb-3 shadow-sm">
-      <span class="hidden xl:inline-flex items-center gap-1.5 text-slate-500 dark:text-slate-400"><span class="w-5 h-5 rounded bg-slate-900 dark:bg-white text-white dark:text-slate-900 grid place-items-center text-[10px]">F2</span> New</span>
-      <span class="hidden xl:inline-flex items-center gap-1.5 text-slate-500 dark:text-slate-400"><span class="w-5 h-5 rounded bg-slate-900 dark:bg-white text-white dark:text-slate-900 grid place-items-center text-[10px]">F4</span> Hold</span>
-      <span class="hidden xl:inline-flex items-center gap-1.5 text-slate-500 dark:text-slate-400"><span class="w-5 h-5 rounded bg-emerald-600 text-white grid place-items-center text-[10px]">F8</span> Pay</span>
-      <span class="hidden xl:inline-flex items-center gap-1.5 text-slate-500 dark:text-slate-400"><span class="w-5 h-5 rounded bg-sky-600 text-white grid place-items-center text-[10px]">F9</span> Customer</span>
-      <span class="inline-flex items-center gap-1.5 text-slate-500 dark:text-slate-400">• <span class="material-symbols-rounded text-[14px]">keyboard</span> +/- qty • Esc clear</span>
+      <span class="hidden xl:inline-flex items-center gap-1.5 text-slate-500 dark:text-slate-400"><span class="w-5 h-5 rounded bg-slate-900 dark:bg-white text-white dark:text-slate-900 grid place-items-center text-[10px]">F2</span> ${t('pos.new')}</span>
+      <span class="hidden xl:inline-flex items-center gap-1.5 text-slate-500 dark:text-slate-400"><span class="w-5 h-5 rounded bg-slate-900 dark:bg-white text-white dark:text-slate-900 grid place-items-center text-[10px]">F4</span> ${t('pos.hold')}</span>
+      <span class="hidden xl:inline-flex items-center gap-1.5 text-slate-500 dark:text-slate-400"><span class="w-5 h-5 rounded bg-emerald-600 text-white grid place-items-center text-[10px]">F8</span> ${t('pos.pay')}</span>
+      <span class="hidden xl:inline-flex items-center gap-1.5 text-slate-500 dark:text-slate-400"><span class="w-5 h-5 rounded bg-sky-600 text-white grid place-items-center text-[10px]">F9</span> ${t('pos.customer')}</span>
+      <span class="inline-flex items-center gap-1.5 text-slate-500 dark:text-slate-400">• <span class="material-symbols-rounded text-[14px]">keyboard</span> ${t('pos.shortcutsHint')}</span>
       <div class="ml-auto flex items-center gap-2">
         <span id="outbox-badge" class="hidden text-xs font-bold bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 px-2.5 py-1 rounded-full"></span>
+        <button id="pos-lang" class="hidden sm:inline-flex items-center gap-1 text-xs font-black px-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-white"><span class="material-symbols-rounded text-[14px]">language</span> <span id="pos-lang-label">${getLang()==='bn'?'EN':'বাংলা'}</span></button>
         <span id="pos-store" class="text-xs text-slate-500 dark:text-slate-400"></span>
-        <button id="pos-clear" class="text-xs font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-full hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-white">Clear (Esc)</button>
-        <button id="pos-drawer-btn" class="text-xs font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-3 py-1.5 rounded-full hover:bg-black dark:hover:bg-slate-100"><span class="material-symbols-rounded text-[14px]">point_of_sale</span> Drawer</button>
+        <button id="pos-clear" class="text-xs font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-full hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-white">${t('pos.clear')} (Esc)</button>
+        <button id="pos-drawer-btn" class="text-xs font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-3 py-1.5 rounded-full hover:bg-black dark:hover:bg-slate-100"><span class="material-symbols-rounded text-[14px]">point_of_sale</span> ${t('pos.drawer')}</button>
       </div>
     </div>
 
@@ -40,20 +42,20 @@ export default function posView(): string {
         <div class="flex gap-2">
           <div class="flex-1 relative">
             <span class="material-symbols-rounded absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]">search</span>
-            <input id="pos-search" placeholder="Search name / SKU / scan barcode — beep → auto add" class="w-full pl-9 pr-10 py-2.5 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 outline-none text-sm dark:text-white focus:border-slate-900 dark:focus:border-slate-600" autocomplete="off" />
+            <input id="pos-search" placeholder="${t('pos.searchPlaceholder')}" class="w-full pl-9 pr-10 py-2.5 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 outline-none text-sm dark:text-white focus:border-slate-900 dark:focus:border-slate-600" autocomplete="off" />
             <button id="pos-scan" class="absolute right-1 top-1 bottom-1 w-9 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 grid place-items-center hover:bg-black dark:hover:bg-slate-100"><span class="material-symbols-rounded text-[18px]">barcode_scanner</span></button>
           </div>
           <select id="pos-cat" class="hidden sm:block px-3 py-2.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm dark:text-white">
-            <option value="">All</option><option value="grocery">Grocery</option><option value="pcs">Pcs</option><option value="loose">Loose kg</option>
+            <option value="">${t('pos.all')}</option><option value="grocery">${t('pos.grocery')}</option><option value="pcs">${t('pos.pcs')}</option><option value="loose">${t('pos.loose')}</option>
           </select>
         </div>
 
         <!-- quick discounts -->
         <div class="mt-3 flex flex-wrap gap-2">
-          <span class="text-xs font-bold text-slate-500 dark:text-slate-400 py-1.5">Quick:</span>
+          <span class="text-xs font-bold text-slate-500 dark:text-slate-400 py-1.5">${t('pos.quick')}</span>
           ${[5,10,15].map(p=>`<button data-qd="${p}" class="px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold dark:text-white hover:bg-slate-900 hover:text-white dark:hover:bg-white dark:hover:text-slate-900">${p}%</button>`).join('')}
-          <button id="qd-clear" class="px-3 py-1.5 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold dark:text-white">Clear</button>
-          <span class="ml-auto hidden sm:inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400"><span class="material-symbols-rounded text-[14px]">info</span> Low ≤5 • Tap to add • Enter qty</span>
+          <button id="qd-clear" class="px-3 py-1.5 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold dark:text-white">${t('pos.clearShort')}</button>
+          <span class="ml-auto hidden sm:inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400"><span class="material-symbols-rounded text-[14px]">info</span> ${t('pos.lowHint')}</span>
         </div>
 
         <div id="pos-products" class="mt-3 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3 max-h-[52vh] lg:max-h-[62vh] overflow-auto pr-1"></div>
@@ -70,7 +72,7 @@ export default function posView(): string {
         <div class="flex gap-2">
           <div class="flex-1 relative">
             <span class="material-symbols-rounded absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">person</span>
-            <input id="pos-customer" placeholder="Customer 01XXXXXXXXX — F9 (Walk-in if empty)" class="w-full pl-9 pr-3 py-2.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none text-sm dark:text-white focus:border-slate-900" inputmode="numeric" />
+            <input id="pos-customer" placeholder="${t('pos.customerPlaceholder')}" class="w-full pl-9 pr-3 py-2.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none text-sm dark:text-white focus:border-slate-900" inputmode="numeric" />
             <div id="pos-customer-list" class="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl hidden max-h-48 overflow-auto z-20"></div>
           </div>
           <button id="pos-add-customer" class="shrink-0 w-10 h-10 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 grid place-items-center hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-white"><span class="material-symbols-rounded text-[18px]">person_add</span></button>
@@ -80,9 +82,9 @@ export default function posView(): string {
 
         <!-- Cart header + holds -->
         <div class="mt-4 flex items-center justify-between">
-          <div class="text-xs font-extrabold tracking-widest text-slate-500 dark:text-slate-400">CART • <span id="cart-count">0</span></div>
+          <div class="text-xs font-extrabold tracking-widest text-slate-500 dark:text-slate-400">${t('pos.cart')} • <span id="cart-count">0</span></div>
           <div class="flex items-center gap-2">
-            <button id="pos-hold" class="text-xs font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-full hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-white">Hold (F4)</button>
+            <button id="pos-hold" class="text-xs font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-full hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-white">${t('pos.hold')} (F4)</button>
             <button id="pos-held-view" class="hidden text-xs font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-3 py-1.5 rounded-full">Held <span id="pos-held-badge">0</span></button>
           </div>
         </div>
@@ -93,11 +95,11 @@ export default function posView(): string {
         </div>
 
         <!-- Per-item tip -->
-        <div class="mt-2 text-[11px] text-slate-500 dark:text-slate-400">Tip: tap item name to edit price/discount/VAT</div>
+        <div class="mt-2 text-[11px] text-slate-500 dark:text-slate-400">${t('pos.cartHint')}</div>
 
         <!-- Discount / VAT / Numpad desktop -->
         <div class="mt-3 grid grid-cols-2 gap-2">
-          <label class="text-xs font-bold text-slate-600 dark:text-slate-400">Discount
+          <label class="text-xs font-bold text-slate-600 dark:text-slate-400">${t('pos.discount')}
             <div class="mt-1 flex">
               <input id="pos-discount" type="number" value="0" min="0" step="0.01" class="flex-1 px-3 py-2 rounded-l-full border border-slate-200 dark:border-slate-700 outline-none text-sm bg-white dark:bg-slate-800 dark:text-white" />
               <select id="pos-discount-type" class="px-3 py-2 rounded-r-full border-y border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold dark:text-white">
@@ -105,7 +107,7 @@ export default function posView(): string {
               </select>
             </div>
           </label>
-          <label class="text-xs font-bold text-slate-600 dark:text-slate-400">VAT profile
+          <label class="text-xs font-bold text-slate-600 dark:text-slate-400">${t('pos.vatProfile')}
             <select id="pos-vat-profile" class="mt-1 w-full px-3 py-2 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm dark:text-white">
               <option value="0">0%</option><option value="5">5%</option><option value="7.5">7.5%</option><option value="10">10%</option><option value="15" selected>15%</option>
             </select>
@@ -119,21 +121,21 @@ export default function posView(): string {
 
         <!-- Totals -->
         <div class="mt-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3">
-          <div class="flex justify-between text-sm dark:text-white"><span class="text-slate-500 dark:text-slate-400">Subtotal</span><span id="pos-sub" class="font-bold">৳0.00</span></div>
-          <div class="flex justify-between text-sm dark:text-white"><span class="text-slate-500 dark:text-slate-400">Discount</span><span id="pos-disc" class="font-bold text-emerald-600">-৳0.00</span></div>
-          <div class="flex justify-between text-sm dark:text-white"><span class="text-slate-500 dark:text-slate-400">VAT</span><span id="pos-vat" class="font-bold">৳0.00</span></div>
-          <div class="flex justify-between font-black text-[18px] mt-2 pt-2 border-t border-slate-200 dark:border-slate-700 dark:text-white"><span>Total</span><span id="pos-total">৳0.00</span></div>
-          <div id="pos-due-row" class="hidden mt-2 flex justify-between text-sm font-black text-red-600 bg-white dark:bg-slate-900 border border-red-200 dark:border-red-800 rounded-full px-3 py-1.5"><span>Due</span><span id="pos-due">৳0.00</span></div>
+          <div class="flex justify-between text-sm dark:text-white"><span class="text-slate-500 dark:text-slate-400">${t('pos.subtotal')}</span><span id="pos-sub" class="font-bold">৳0.00</span></div>
+          <div class="flex justify-between text-sm dark:text-white"><span class="text-slate-500 dark:text-slate-400">${t('pos.discountLabel')}</span><span id="pos-disc" class="font-bold text-emerald-600">-৳0.00</span></div>
+          <div class="flex justify-between text-sm dark:text-white"><span class="text-slate-500 dark:text-slate-400">${t('pos.vatLabel')}</span><span id="pos-vat" class="font-bold">৳0.00</span></div>
+          <div class="flex justify-between font-black text-[18px] mt-2 pt-2 border-t border-slate-200 dark:border-slate-700 dark:text-white"><span>${t('pos.total')}</span><span id="pos-total">৳0.00</span></div>
+          <div id="pos-due-row" class="hidden mt-2 flex justify-between text-sm font-black text-red-600 bg-white dark:bg-slate-900 border border-red-200 dark:border-red-800 rounded-full px-3 py-1.5"><span>${t('pos.due')}</span><span id="pos-due">৳0.00</span></div>
         </div>
 
         <!-- Split payment -->
         <div class="mt-3">
           <div class="flex items-center justify-between">
-            <div class="text-xs font-extrabold tracking-widest text-slate-500 dark:text-slate-400">PAYMENT — SPLIT ALLOWED</div>
+            <div class="text-xs font-extrabold tracking-widest text-slate-500 dark:text-slate-400">${t('pos.splitAllowed')}</div>
             <button id="pos-split-toggle" class="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900">Split: OFF</button>
           </div>
           <div id="pos-pay-grid" class="mt-2 grid grid-cols-4 gap-2">
-            ${['cash','bkash','nagad','rocket','upay','bangla_qr','card','due'].map(m=>`<button data-pay="${m}" class="pay-btn px-2 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold capitalize hover:border-slate-900 dark:hover:border-white dark:text-white ${m==='cash'?'!bg-slate-900 !text-white !border-slate-900 dark:!bg-white dark:!text-slate-900':''}">${m.replace('_',' ')}</button>`).join('')}
+            ${['cash','bkash','nagad','rocket','upay','bangla_qr','card','due'].map(m=>`<button data-pay="${m}" class="pay-btn px-2 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold capitalize hover:border-slate-900 dark:hover:border-white dark:text-white ${m==='cash'?'!bg-slate-900 !text-white !border-slate-900 dark:!bg-white dark:!text-slate-900':''}">${tPay(m)}</button>`).join('')}
           </div>
           <div id="pos-split-panel" class="hidden mt-2 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-2xl p-3 space-y-2">
             <div class="text-xs font-bold text-amber-700 dark:text-amber-300">Split — enter amounts (must sum to total)</div>
@@ -146,21 +148,21 @@ export default function posView(): string {
             <div class="text-xs font-bold">Sum: <span id="pos-split-sum">৳0.00</span> / <span id="pos-split-total">৳0.00</span> <span id="pos-split-status" class="ml-2 px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300">Need ৳0.00</span></div>
           </div>
           <div id="pos-mfs-row" class="hidden mt-3">
-            <label class="text-xs font-bold text-slate-600 dark:text-slate-400">TrxID (for bKash/Nagad)</label>
-            <input id="pos-trxid" placeholder="TrxID 10-12 chars (optional)" class="mt-1 w-full px-3 py-2.5 rounded-full border border-slate-200 dark:border-slate-700 outline-none text-sm bg-white dark:bg-slate-800 dark:text-white" maxlength="12" />
+            <label class="text-xs font-bold text-slate-600 dark:text-slate-400">${t('pos.mfsTrx')}</label>
+            <input id="pos-trxid" placeholder="${t('pos.mfsTrxPh')}" class="mt-1 w-full px-3 py-2.5 rounded-full border border-slate-200 dark:border-slate-700 outline-none text-sm bg-white dark:bg-slate-800 dark:text-white" maxlength="12" />
           </div>
           <div id="pos-paid-row" class="hidden mt-3">
-            <label class="text-xs font-bold text-slate-600 dark:text-slate-400">Paid now (for Due)</label>
-            <input id="pos-paid" type="number" value="0" min="0" placeholder="Paid now ৳" class="mt-1 w-full px-3 py-2.5 rounded-full border border-slate-200 dark:border-slate-700 outline-none text-sm bg-white dark:bg-slate-800 dark:text-white" />
+            <label class="text-xs font-bold text-slate-600 dark:text-slate-400">${t('pos.paidNow')}</label>
+            <input id="pos-paid" type="number" value="0" min="0" placeholder="${t('pos.paidNowPh')}" class="mt-1 w-full px-3 py-2.5 rounded-full border border-slate-200 dark:border-slate-700 outline-none text-sm bg-white dark:bg-slate-800 dark:text-white" />
           </div>
         </div>
 
         <button id="pos-pay" class="mt-4 w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-full py-3.5 font-black text-[15px] flex items-center justify-center gap-2 hover:bg-black dark:hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed">
-          <span class="material-symbols-rounded">print</span> Pay (F8) — <span id="pos-pay-total">৳0.00</span>
+          <span class="material-symbols-rounded">print</span><span data-i18n-pay>${t('pos.payBtn')}</span> <span id="pos-pay-total">৳0.00</span>
         </button>
         <div class="mt-2 flex gap-2">
-          <button id="pos-return-btn" class="flex-1 py-2 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold dark:text-white hover:bg-amber-50 dark:hover:bg-amber-900/20">↩ Return</button>
-          <button id="pos-print-last" class="flex-1 py-2 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold dark:text-white">🖨 Print last</button>
+          <button id="pos-return-btn" class="flex-1 py-2 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold dark:text-white hover:bg-amber-50 dark:hover:bg-amber-900/20">${t('pos.return')}</button>
+          <button id="pos-print-last" class="flex-1 py-2 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold dark:text-white">${t('pos.printLast')}</button>
         </div>
         <div id="pos-receipt" class="hidden mt-4"></div>
       </div>
@@ -171,22 +173,22 @@ export default function posView(): string {
   <div id="pos-item-modal" class="hidden fixed inset-0 z-50">
     <div id="pos-item-backdrop" class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"></div>
     <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[92vw] max-w-[380px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-[20px] p-5 shadow-xl">
-      <h3 class="font-black dark:text-white">Edit Item</h3>
+      <h3 class="font-black dark:text-white">${t('pos.editItem')}</h3>
       <p id="pos-item-name" class="text-sm text-slate-500 dark:text-slate-400"></p>
       <div class="mt-4 space-y-3">
-        <label class="text-xs font-bold dark:text-slate-300">Price ৳ <input id="pos-item-price" type="number" class="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white" /></label>
+        <label class="text-xs font-bold dark:text-slate-300">${t('pos.price')} <input id="pos-item-price" type="number" class="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white" /></label>
         <div class="grid grid-cols-2 gap-3">
-          <label class="text-xs font-bold dark:text-slate-300">Qty <input id="pos-item-qty" type="number" step="0.5" class="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white" /></label>
-          <label class="text-xs font-bold dark:text-slate-300">VAT % <input id="pos-item-vat" type="number" class="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white" /></label>
+          <label class="text-xs font-bold dark:text-slate-300">${t('pos.qty')} <input id="pos-item-qty" type="number" step="0.5" class="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white" /></label>
+          <label class="text-xs font-bold dark:text-slate-300">${t('pos.vat')} <input id="pos-item-vat" type="number" class="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white" /></label>
         </div>
         <div class="grid grid-cols-2 gap-3">
-          <label class="text-xs font-bold dark:text-slate-300">Disc ৳ <input id="pos-item-disc-amt" type="number" class="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white" /></label>
-          <label class="text-xs font-bold dark:text-slate-300">Disc % <input id="pos-item-disc-pct" type="number" class="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white" /></label>
+          <label class="text-xs font-bold dark:text-slate-300">${t('pos.discAmt')} <input id="pos-item-disc-amt" type="number" class="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white" /></label>
+          <label class="text-xs font-bold dark:text-slate-300">${t('pos.discPct')} <input id="pos-item-disc-pct" type="number" class="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white" /></label>
         </div>
       </div>
       <div class="mt-5 flex gap-2">
-        <button id="pos-item-cancel" class="flex-1 py-2.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold dark:text-white">Cancel</button>
-        <button id="pos-item-save" class="flex-1 py-2.5 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold">Save</button>
+        <button id="pos-item-cancel" class="flex-1 py-2.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold dark:text-white">${t('pos.cancel')}</button>
+        <button id="pos-item-save" class="flex-1 py-2.5 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold">${t('pos.save')}</button>
       </div>
     </div>
   </div>
@@ -294,6 +296,23 @@ export function initPos() {
   }
   refreshOutbox(); setInterval(refreshOutbox, 3000)
 
+  // POS language toggle — mirrors Settings, instant
+  const posLangBtn = document.getElementById('pos-lang') as HTMLButtonElement | null
+  const posLangLabel = document.getElementById('pos-lang-label') as HTMLElement | null
+  function syncPosLangUI(){
+    if(posLangLabel) posLangLabel.textContent = getLang()==='bn' ? 'EN' : 'বাংলা'
+  }
+  syncPosLangUI()
+  posLangBtn?.addEventListener('click', ()=>{
+    const next = getLang()==='bn' ? 'en' : 'bn'
+    setLang(next as any)
+    syncPosLangUI()
+    ;(window as any).toast?.(next==='bn' ? 'ভাষা: বাংলা ✓ — পুনরায় লোড হচ্ছে' : 'Language: English ✓ — reloading')
+    setTimeout(()=> location.reload(), 350)
+  })
+  window.addEventListener('mk:lang', ()=> syncPosLangUI())
+
+
   ;(async()=>{
     if(isSupabaseConfigured){
       try{
@@ -339,7 +358,7 @@ export function initPos() {
   function filterLocal(q:string){ if(!q) return DEMO_PRODUCTS; const s=q.toLowerCase(); return DEMO_PRODUCTS.filter(p=> p.name.toLowerCase().includes(s) || (p.barcode && p.barcode.includes(q)) || (p.sku && p.sku.toLowerCase().includes(s)))}
 
   function renderProducts(list: Product[]) {
-    if (!list.length) { grid.innerHTML = `<div class="col-span-full text-sm text-slate-500 dark:text-slate-400 py-10 text-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl">No products — add first product</div>`; return }
+    if (!list.length) { grid.innerHTML = `<div class="col-span-full text-sm text-slate-500 dark:text-slate-400 py-10 text-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl">${t('pos.noProducts')}</div>`; return }
     grid.innerHTML = list.map(p=>`
       <button data-add="${p.id}" class="text-left bg-slate-50 dark:bg-slate-800 hover:bg-white dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 hover:border-slate-900 dark:hover:border-white rounded-2xl p-3 flex flex-col gap-2 transition">
         <div class="font-bold text-sm leading-4 line-clamp-2 dark:text-white">${p.name}</div>
@@ -359,7 +378,7 @@ export function initPos() {
   async function addToCart(id:string){
     const p = [...products, ...DEMO_PRODUCTS].find(x=>x.id===id) || products.find(x=>x.id===id); if(!p) return
     if(p.stock_quantity<=0){
-      const ok = await showConfirm({ title:`${p.name} out of stock`, message:`${p.name} is out of stock — add anyway?`, confirmText:'Add anyway', variant:'warning', icon:'warning' })
+      const ok = await showConfirm({ title:`${p.name} — ${t('pos.outOfStock')}` , message:`${p.name} ${t('pos.outOfStock')}`, confirmText:t('pos.addAnyway'), variant:'warning', icon:'warning' })
       if(!ok) return
     }
     const existing = cart.find(c=> c.product_id===p.id)
@@ -371,7 +390,7 @@ export function initPos() {
   function renderCart(){
     cartCountEl.textContent = String(cart.reduce((s,c)=> s+c.qty,0).toFixed(cart.some(c=>c.unit==='kg'||c.unit==='ltr') ? 1 : 0).replace(/\.0$/,''))
     if(!cart.length){
-      cartEl.innerHTML = `<div class="text-sm text-slate-500 dark:text-slate-400 py-10 text-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl">Cart empty — scan or tap • Tap name to edit</div>`
+      cartEl.innerHTML = `<div class="text-sm text-slate-500 dark:text-slate-400 py-10 text-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl">${t('pos.cartEmpty')}</div>`
       payBtn.disabled = true
     } else {
       cartEl.innerHTML = cart.map(c=>{
@@ -452,8 +471,8 @@ export function initPos() {
       const sum = splitPayments.reduce((s,p)=>s+p.amount,0)
       splitSumEl.textContent = `৳${sum.toFixed(2)}`
       const need = Math.max(0, total - sum)
-      if(Math.abs(sum-total) < 0.01){ splitStatus.textContent='✓ OK'; splitStatus.className='ml-2 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300' }
-      else { splitStatus.textContent=`Need ৳${need.toFixed(2)}`; splitStatus.className='ml-2 px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300' }
+      if(Math.abs(sum-total) < 0.01){ splitStatus.textContent=t('pos.ok'); splitStatus.className='ml-2 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300' }
+      else { splitStatus.textContent=`${t('pos.need')} ৳${need.toFixed(2)}`; splitStatus.className='ml-2 px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300' }
     }
     // due / paid
     const isDueSingle = selectedPay==='due' && !splitOn
@@ -493,7 +512,7 @@ export function initPos() {
   // split
   splitToggle.addEventListener('click', ()=>{
     splitOn = !splitOn
-    splitToggle.textContent = splitOn ? 'Split: ON' : 'Split: OFF'
+    splitToggle.textContent = splitOn ? t('pos.splitOn') : t('pos.splitOff')
     splitPanel.classList.toggle('hidden', !splitOn)
     if(splitOn){ splitPayments=[]; renderSplit(); updateTotals() } else { renderSplit() }
   })
@@ -504,7 +523,7 @@ export function initPos() {
         <span class="font-bold dark:text-white">৳${p.amount.toFixed(2)}</span>
         <button data-rm="${i}" class="w-7 h-7 rounded-full bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 grid place-items-center">×</button>
       </div>
-    `).join('') || `<div class="text-xs text-slate-500 dark:text-slate-400 text-center py-2">Add split amounts — e.g., Cash 200 + bKash 135</div>`
+    `).join('') || `<div class="text-xs text-slate-500 dark:text-slate-400 text-center py-2">${t('pos.splitEmpty')}</div>`
     splitRows.querySelectorAll('[data-rm]').forEach(b=> b.addEventListener('click', ()=>{ splitPayments.splice(Number((b as HTMLElement).dataset.rm!),1); renderSplit(); updateTotals() }))
     const sum = splitPayments.reduce((s,p)=>s+p.amount,0); splitSumEl.textContent=`৳${sum.toFixed(2)}`
   }
@@ -547,7 +566,7 @@ export function initPos() {
   search.addEventListener('input', ()=>{ clearTimeout(t); t=setTimeout(()=> loadProducts(search.value.trim()), 220) })
   catSel?.addEventListener('change', ()=> loadProducts(search.value.trim()))
   document.getElementById('pos-scan')?.addEventListener('click', async ()=> {
-    const q = await showPrompt({ title:'Scan barcode', message:'Enter barcode / SKU', placeholder:'8901...', inputType:'text' }) || ''
+    const q = await showPrompt({ title:t('pos.scanBarcode'), message:t('pos.enterBarcode'), placeholder:'8901...', inputType:'text' }) || ''
     if(!q) return
     const found = products.find(p=> p.barcode===q || p.sku===q)
     if(found){ await addToCart(found.id); beep(true) } else { beep(false); (window as any).toast?.('Not found') }
@@ -594,14 +613,14 @@ export function initPos() {
   document.getElementById('pos-add-customer')?.addEventListener('click', async ()=>{
     const phone = customerInput.value.trim()
     if(!/^01[3-9]\d{8}$/.test(phone)){ (window as any).toast?.('Enter valid 01XXXXXXXXX'); beep(false); return }
-    const name = await showPrompt({ title:'Customer name', message:`Phone ${phone}`, placeholder:'Walk-in', defaultValue:'Walk-in', required:true }) || 'Walk-in'
+    const name = await showPrompt({ title:t('pos.customerName'), message:`${t('pos.customer')} ${phone}`, placeholder:'Walk-in', defaultValue:'Walk-in', required:true }) || 'Walk-in'
     selectedCustomer = { id: null, name, phone, due_balance:0 }
     customerChip.textContent = `${name} • ${phone}`; customerChip.classList.remove('hidden'); customerList.classList.add('hidden'); updateTotals()
   })
 
   holdBtn.addEventListener('click', async ()=>{
     if(!cart.length){ (window as any).toast?.('Cart empty'); return }
-    const name = await showPrompt({ title:'Hold cart', message:'Name for held cart (e.g., Table 3)', placeholder:`Hold ${heldCarts.length+1}`, defaultValue:`Hold ${heldCarts.length+1}`, required:true }) || `Hold ${heldCarts.length+1}`
+    const name = await showPrompt({ title:t('pos.holdCart'), message:t('pos.holdNameHint'), placeholder:`Hold ${heldCarts.length+1}`, defaultValue:`Hold ${heldCarts.length+1}`, required:true }) || `Hold ${heldCarts.length+1}`
     heldCarts.push({id:'h'+Date.now(), name, at:Date.now(), cart:[...cart], customer:selectedCustomer}); persistHeld(); cart=[]; selectedCustomer=null; customerChip.classList.add('hidden'); customerInput.value=''; renderCart(); (window as any).toast?.('Held: '+name)
   })
   clearBtn.addEventListener('click', ()=>{ cart=[]; renderCart(); selectedCustomer=null; customerChip.classList.add('hidden'); customerInput.value=''; discount.value='0'; splitPayments=[]; splitOn=false; splitPanel.classList.add('hidden'); splitToggle.textContent='Split: OFF'; updateTotals() })
@@ -621,7 +640,7 @@ export function initPos() {
     const el=document.getElementById('pos-receipt')!; if(el.classList.contains('hidden')) return (window as any).toast?.('No receipt'); window.print()
   })
   document.getElementById('pos-return-btn')!.addEventListener('click', async ()=>{
-    const rn = await showPrompt({ title:'Return receipt', message:'Enter receipt number to return', placeholder:'MEK-...', required:true }); if(!rn) return; (window as any).toast?.('Return for '+rn+' — will restore stock')
+    const rn = await showPrompt({ title:t('pos.returnReceipt'), message:t('pos.enterReceipt'), placeholder:'MEK-...', required:true }); if(!rn) return; (window as any).toast?.('Return for '+rn+' — will restore stock')
   })
 
   payBtn.addEventListener('click', async ()=>{
@@ -637,7 +656,7 @@ export function initPos() {
     const due = Math.max(0, total - paidNow)
     if(due>0 && !selectedCustomer){ (window as any).toast?.('Add customer for due'); customerInput.focus(); beep(false); return }
     if(!splitOn && ['bkash','nagad','rocket','upay','bangla_qr'].includes(selectedPay) && !trxInput.value.trim()){
-      const ok = await showConfirm({ title:'TrxID empty', message:'bKash/Nagad transaction ID is empty — continue without it?', confirmText:'Continue', variant:'warning', icon:'warning' })
+      const ok = await showConfirm({ title: t('pos.trxEmpty').split('—')[0]?.trim() || 'TrxID empty', message:t('pos.trxEmpty'), confirmText:t('pos.save'), variant:'warning', icon:'warning' })
       if(!ok) return
     }
     payBtn.disabled = true; payBtn.textContent = `Saving…`
@@ -740,20 +759,20 @@ export function initPos() {
           <div class="px-4 py-3">
             <div class="flex justify-between gap-3 text-[11px] leading-[1.3]">
               <div>
-                <div class="text-slate-500 text-[9px] tracking-widest font-bold">RECEIPT</div>
+                <div class="text-slate-500 text-[9px] tracking-widest font-bold">${t('pos.receipt')}</div>
                 <div class="font-mono font-bold tracking-widest text-slate-900">${receipt_number}</div>
                 <div class="text-[10px] text-slate-600 mt-1">${dateStr}</div>
               </div>
               <div class="text-right">
-                <div class="text-slate-500 text-[9px] tracking-widest font-bold">CUSTOMER</div>
+                <div class="text-slate-500 text-[9px] tracking-widest font-bold">${t('pos.customerLabel')}</div>
                 <div class="font-bold text-slate-900">${custName}</div>
                 <div class="text-[10px] text-slate-600">${custPhone || 'Walk-in • Cash'}</div>
               </div>
             </div>
-            ${selectedCustomer && (selectedCustomer as any).due_balance ? `<div class="mt-2 text-[10px] font-bold bg-amber-50 border border-amber-200 text-amber-700 rounded-full px-3 py-1 text-center">Previous Due: ৳${Number((selectedCustomer as any).due_balance).toFixed(2)}</div>` : ''}
+            ${selectedCustomer && (selectedCustomer as any).due_balance ? `<div class="mt-2 text-[10px] font-bold bg-amber-50 border border-amber-200 text-amber-700 rounded-full px-3 py-1 text-center">${t('pos.previousDue')} ৳${Number((selectedCustomer as any).due_balance).toFixed(2)}</div>` : ''}
             <div class="mt-3">
               <div class="grid grid-cols-[1fr_38px_58px_68px] gap-1 text-[8px] font-bold tracking-widest text-slate-500 border-b-2 border-slate-900 pb-1">
-                <div>ITEM</div><div class="text-center">QTY</div><div class="text-right">RATE</div><div class="text-right">AMOUNT</div>
+                <div>${t('pos.item')}</div><div class="text-center">${t('pos.qty')}</div><div class="text-right">${t('pos.rate')}</div><div class="text-right">${t('pos.amount')}</div>
               </div>
               <div class="divide-y divide-dashed divide-slate-200">
                 ${cart.map((c:any,i:number)=>{
@@ -771,34 +790,34 @@ export function initPos() {
                   </div>`
                 }).join('')}
               </div>
-              <div class="text-[10px] text-slate-500 text-center border-t border-dashed border-slate-200 pt-1.5 mt-1">${cart.length} item${cart.length>1?'s':''} • ${cart.reduce((s:any,c:any)=>s+c.qty,0).toString().replace(/\.0$/,'')} qty</div>
+              <div class="text-[10px] text-slate-500 text-center border-t border-dashed border-slate-200 pt-1.5 mt-1">${cart.length} ${t('pos.itemsCount')}${cart.length>1?'':''} • ${cart.reduce((s:any,c:any)=>s+c.qty,0).toString().replace(/\.0$/,'')} ${t('pos.qtyShort')}</div>
             </div>
             <div class="mt-3 bg-slate-50 rounded-2xl p-3 border border-slate-200">
               <div class="space-y-1 text-[11px]">
-                <div class="flex justify-between"><span class="text-slate-600">Subtotal</span><span class="font-bold">৳${subtotal.toFixed(2)}</span></div>
-                ${globalDisc>0.005 ? `<div class="flex justify-between text-emerald-700"><span>Discount</span><span class="font-bold">-৳${globalDisc.toFixed(2)}</span></div>` : ''}
-                <div class="flex justify-between"><span class="text-slate-600">VAT</span><span class="font-bold">৳${vat.toFixed(2)}</span></div>
+                <div class="flex justify-between"><span class="text-slate-600">${t('pos.subtotal')}</span><span class="font-bold">৳${subtotal.toFixed(2)}</span></div>
+                ${globalDisc>0.005 ? `<div class="flex justify-between text-emerald-700"><span>${t('pos.discountLabel')}</span><span class="font-bold">-৳${globalDisc.toFixed(2)}</span></div>` : ''}
+                <div class="flex justify-between"><span class="text-slate-600">${t('pos.vatLabel')}</span><span class="font-bold">৳${vat.toFixed(2)}</span></div>
               </div>
               <div class="flex justify-between items-center bg-slate-900 text-white rounded-xl px-3.5 py-2.5 mt-2.5">
-                <span class="text-[11px] font-black tracking-[0.18em]">TOTAL</span><span class="text-[18px] font-black tracking-tight">৳${total.toFixed(2)}</span>
+                <span class="text-[11px] font-black tracking-[0.18em]">${t('pos.total')}</span><span class="text-[18px] font-black tracking-tight">৳${total.toFixed(2)}</span>
               </div>
               <div class="mt-2.5 space-y-1.5 text-[11px]">
-                ${splitOn ? splitPayments.map((p:any)=>`<div class="flex justify-between items-center ${p.method==='due' ? 'bg-red-50 border border-red-200 text-red-700 rounded-full px-3 py-1.5 font-black' : ''}"><span class="capitalize ${p.method==='due'?'':'text-slate-600'}">${p.method.replace('_',' ')} ${p.method==='due'?'due':'paid'}</span><span class="font-bold">৳${p.amount.toFixed(2)}</span></div>`).join('') : `<div class="flex justify-between"><span class="text-slate-600">Paid — <span class="capitalize font-bold text-slate-900">${selectedPay.replace('_',' ')}</span></span><span class="font-bold text-emerald-700">৳${paidNow.toFixed(2)}</span></div>`}
-                ${due>0.005 ? `<div class="flex justify-between items-center bg-red-600 text-white rounded-full px-3.5 py-2 font-black"><span>Due</span><span>৳${due.toFixed(2)}</span></div>` : `<div class="text-center text-[11px] font-black text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full py-1">✓ Paid in full — no due</div>`}
+                ${splitOn ? splitPayments.map((p:any)=>`<div class="flex justify-between items-center ${p.method==='due' ? 'bg-red-50 border border-red-200 text-red-700 rounded-full px-3 py-1.5 font-black' : ''}"><span class="capitalize ${p.method==='due'?'':'text-slate-600'}">${tPay(p.method)} ${p.method==='due'?t('pos.due'):t('pos.paid')}</span><span class="font-bold">৳${p.amount.toFixed(2)}</span></div>`).join('') : `<div class="flex justify-between"><span class="text-slate-600">${t('pos.paid')} — <span class="capitalize font-bold text-slate-900">${tPay(selectedPay)}</span></span><span class="font-bold text-emerald-700">৳${paidNow.toFixed(2)}</span></div>`}
+                ${due>0.005 ? `<div class="flex justify-between items-center bg-red-600 text-white rounded-full px-3.5 py-2 font-black"><span>${t('pos.due')}</span><span>৳${due.toFixed(2)}</span></div>` : `<div class="text-center text-[11px] font-black text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full py-1">✓ ${t('pos.paid')} — ${t('pos.due')} 0</div>`}
                 ${trxInput.value.trim() ? `<div class="text-center text-[9px] text-slate-500 font-mono">TrxID: ${trxInput.value.trim()}</div>` : ''}
               </div>
             </div>
             <div class="mt-3 pt-3 border-t border-dashed border-slate-200 text-center">
               <img src="https://barcodeapi.org/api/128/${receipt_number}" alt="barcode" class="mx-auto h-9 w-full max-w-[240px] object-contain" />
               <div class="font-mono text-[8px] tracking-[0.32em] font-bold text-slate-500 mt-1">${receipt_number}</div>
-              <div class="text-[10px] font-bold text-slate-900 mt-3">Thank you for shopping!</div>
-              <div class="text-[9px] leading-tight text-slate-500 mt-1">Exchange within 3 days with receipt.<br>VAT included as per NBR Mushak 6.3 • Customer Copy</div>
-              <div class="text-[8px] tracking-wide text-slate-400 mt-2">${savedOnline ? 'Synced ✓' : 'Queued — will sync when online'} • ${splitOn?'Split payment':'Single payment'}</div>
-              <div class="text-[7px] tracking-[0.2em] text-slate-400 mt-1">Powered by Mekholi — mekholi.com</div>
+              <div class="text-[10px] font-bold text-slate-900 mt-3">${t('pos.thankYou')}</div>
+              <div class="text-[9px] leading-tight text-slate-500 mt-1">${t('pos.exchangeNote')}<br>${t('pos.vatIncluded')}</div>
+              <div class="text-[8px] tracking-wide text-slate-400 mt-2">${savedOnline ? t('pos.synced') : t('pos.queued')} • ${splitOn?t('pos.splitPay'):t('pos.singlePay')}</div>
+              <div class="text-[7px] tracking-[0.2em] text-slate-400 mt-1">${t('pos.powered')}</div>
             </div>
             <div class="no-print mt-4 flex gap-2">
-              <button onclick="window.print()" class="flex-1 py-2.5 rounded-full bg-slate-900 text-white text-xs font-black flex items-center justify-center gap-1.5"><span class="material-symbols-rounded text-[16px]">print</span> Print 80mm</button>
-              <button onclick="this.closest('#pos-receipt').classList.add('hidden')" class="px-5 py-2.5 rounded-full border border-slate-200 bg-white text-xs font-bold">Close</button>
+              <button onclick="window.print()" class="flex-1 py-2.5 rounded-full bg-slate-900 text-white text-xs font-black flex items-center justify-center gap-1.5"><span class="material-symbols-rounded text-[16px]">print</span> ${t('pos.print80')}</button>
+              <button onclick="this.closest('#pos-receipt').classList.add('hidden')" class="px-5 py-2.5 rounded-full border border-slate-200 bg-white text-xs font-bold">${t('pos.close')}</button>
             </div>
           </div>
         </div>
@@ -806,13 +825,13 @@ export function initPos() {
     `
     ;(window as any).toast?.(savedOnline ? `Saved ৳${total.toFixed(2)}` : `Queued ৳${total.toFixed(2)}`)
     if(due>0 && selectedCustomer){
-      const ok = await showConfirm({ title:`Due ৳${due.toFixed(2)} — send SMS?`, message:`Send Tagada SMS to ${selectedCustomer.name} (${selectedCustomer.phone})?`, confirmText:'Send SMS', variant:'default', icon:'sms' })
+      const ok = await showConfirm({ title:`${t('pos.due')} ৳${due.toFixed(2)} — ${t('pos.dueSms')}`, message:`${selectedCustomer.name} (${selectedCustomer.phone}) — ${t('pos.dueSms')}`, confirmText:'SMS', variant:'default', icon:'sms' })
       if(ok){
         const msg = `Assalamu Alaikum, baki ৳${due.toFixed(2)} — ${receipt_number} — Mekholi.`
         window.location.href = `sms:${selectedCustomer.phone}?&body=${encodeURIComponent(msg)}`
       }
     }
-    cart=[]; renderCart(); splitPayments=[]; renderSplit(); payBtn.disabled=false; payBtn.innerHTML = `<span class="material-symbols-rounded">print</span> Pay (F8) — <span id="pos-pay-total">৳0.00</span>`
+    cart=[]; renderCart(); splitPayments=[]; renderSplit(); payBtn.disabled=false; payBtn.innerHTML = `<span class="material-symbols-rounded">print</span><span data-i18n-pay>${t('pos.payBtn')}</span> <span id="pos-pay-total">৳0.00</span>`
   })
 
   loadProducts(); renderCart(); updateTotals()

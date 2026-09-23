@@ -3,6 +3,7 @@ import { getTheme } from '../../core/utils/theme'
 import { getOutboxCount } from '../../core/db/idb'
 import { bindImgbbDropZone } from '../../core/services/imgbb'
 import { showPrompt } from '../../core/components/modal'
+import { getLang, setLang, t } from '../../core/i18n'
 
 export function settingsView(): string {
   return `
@@ -118,11 +119,16 @@ export function settingsView(): string {
       </div>
       <div class="mt-4 flex items-center justify-between">
         <div>
-          <div class="text-sm font-bold dark:text-slate-200">Language</div>
-          <div class="text-xs text-slate-500">Bangla + English, ৳</div>
+          <div class="text-sm font-bold dark:text-slate-200" id="lang-title">${t('settings.language')}</div>
+          <div class="text-xs text-slate-500" id="lang-hint">${t('settings.languageHint')}</div>
         </div>
-        <select id="pref-lang" class="px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm dark:text-white"><option value="bn">BN</option><option value="en">EN</option><option value="both" selected>BN+EN</option></select>
+        <div class="flex items-center gap-1 p-1 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+          <button data-lang="en" class="lang-btn px-3.5 py-1.5 rounded-full text-xs font-black transition ${getLang()==='en'?'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow':'text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-700'}">EN</button>
+          <button data-lang="bn" class="lang-btn px-3.5 py-1.5 rounded-full text-xs font-black transition ${getLang()==='bn'?'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow':'text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-700'}">বাংলা</button>
+        </div>
       </div>
+      <!-- keep legacy select hidden for compat -->
+      <select id="pref-lang" class="hidden"><option value="en">EN</option><option value="bn">BN</option></select>
       <div class="mt-4 flex items-center justify-between">
         <div>
           <div class="text-sm font-bold dark:text-slate-200">Sounds</div>
@@ -261,6 +267,22 @@ export async function initSettings(){
     const t = getTheme()
     const btn = document.getElementById('pref-theme')!
     btn.className = `w-12 h-7 rounded-full p-1 transition ${t==='dark'?'bg-slate-900':'bg-slate-200'} flex ${t==='dark'?'justify-end':'justify-start'}`
+  })
+  // language EN/BN — instant, persists, toast
+  document.querySelectorAll('.lang-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const lang = (btn as HTMLElement).dataset.lang as 'en'|'bn'
+      setLang(lang)
+      document.querySelectorAll('.lang-btn').forEach(b=>{
+        const l=(b as HTMLElement).dataset.lang
+        b.className = `lang-btn px-3.5 py-1.5 rounded-full text-xs font-black transition ${l===lang?'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow':'text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-700'}`
+      })
+      const lt=document.getElementById('lang-title'); if(lt) lt.textContent=t('settings.language')
+      const lh=document.getElementById('lang-hint'); if(lh) lh.textContent=t('settings.languageHint')
+      ;(window as any).toast?.(lang==='bn' ? 'ভাষা: বাংলা ✓' : 'Language: English ✓')
+      // also update hidden select for legacy
+      const sel=document.getElementById('pref-lang') as HTMLSelectElement|null; if(sel) sel.value=lang
+    })
   })
   document.getElementById('test-print')?.addEventListener('click', async ()=>{
     try{

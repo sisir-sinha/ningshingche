@@ -1,6 +1,7 @@
 import '../styles/app.css'
 import { createRouter } from '../core/router/router'
 import { initTheme } from '../core/utils/theme'
+import { initI18n } from '../core/i18n'
 import { requireAuth } from '../core/auth/guard'
 import { homeView, initHome } from './views/home'
 import posView, { initPos } from './views/pos'
@@ -18,6 +19,7 @@ import { ordersView, initOrders } from './views/orders'
 import { stockAdjustView, initStockAdjust } from './views/stock-adjust'
 import { appLayout, initLayout } from './components/layout'
 
+initI18n()
 initTheme()
 
 function toast(msg: string, ms = 2200) {
