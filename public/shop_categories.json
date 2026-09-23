@@ -1,0 +1,417 @@
+{
+    "retail_shop_categories": [
+        {
+            "category": "Food, Beverage, & Specialty Dining",
+            "subcategories": [
+                {
+                    "subcategory": "Fresh & Specialty Foods",
+                    "shops": [
+                        {
+                            "type": "Bakery",
+                            "description": "Sells fresh breads, pastries, cakes, and baked goods."
+                        },
+                        {
+                            "type": "Butcher Shop",
+                            "description": "Focuses on fresh meats, poultry, and sometimes specialty cuts."
+                        },
+                        {
+                            "type": "Cheese Shop (Fromagerie)",
+                            "description": "Sells specialty artisanal cheeses and dairy items."
+                        },
+                        {
+                            "type": "Fishmonger / Seafood Market",
+                            "description": "Sells fresh fish and other seafood."
+                        },
+                        {
+                            "type": "Greengrocer",
+                            "description": "Specializes primarily in fresh fruits and vegetables."
+                        }
+                    ]
+                },
+                {
+                    "subcategory": "General Grocery & Large Formats",
+                    "shops": [
+                        {
+                            "type": "Grocery Store",
+                            "description": "Stocks food, beverages, and basic household necessities."
+                        },
+                        {
+                            "type": "Supermarket",
+                            "description": "A large self-service store with a vast range of foods and household items."
+                        },
+                        {
+                            "type": "Convenience Store",
+                            "description": "A small neighborhood store with long hours, selling quick snacks and essentials."
+                        }
+                    ]
+                },
+                {
+                    "subcategory": "Prepared Food & Treats",
+                    "shops": [
+                        {
+                            "type": "Candy Store / Confectionery",
+                            "description": "Specializes in sweets, chocolates, and sugar confections."
+                        },
+                        {
+                            "type": "Coffee Shop / Caf\u00e9",
+                            "description": "Serves prepared coffee beverages, tea, and light snacks."
+                        },
+                        {
+                            "type": "Delicatessen (Deli)",
+                            "description": "Offers cold cuts, prepared salads, sandwiches, and cheeses."
+                        },
+                        {
+                            "type": "Ice Cream Parlor",
+                            "description": "Serves ice cream, sorbet, gelato, and frozen treats."
+                        }
+                    ]
+                },
+                {
+                    "subcategory": "Alcoholic Beverages",
+                    "shops": [
+                        {
+                            "type": "Liquor Store / Off-License",
+                            "description": "Sells alcoholic beverages including wine, beer, and spirits."
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "category": "Clothing, Fashion, & Personal Care",
+            "subcategories": [
+                {
+                    "subcategory": "Apparel & Garments",
+                    "shops": [
+                        {
+                            "type": "Apparel / Clothing Store",
+                            "description": "Sells everyday outfits, formal wear, and garments."
+                        },
+                        {
+                            "type": "Boutique",
+                            "description": "A small shop selling specialized, high-fashion clothes or accessories."
+                        },
+                        {
+                            "type": "Bridal Shop",
+                            "description": "Specializes in wedding dresses, veils, and bridal party attire."
+                        },
+                        {
+                            "type": "Lingerie Shop",
+                            "description": "Sells undergarments, sleepwear, and intimate apparel."
+                        },
+                        {
+                            "type": "Tailor / Alterations Shop",
+                            "description": "Provides custom clothing adjustments and bespoke tailoring."
+                        }
+                    ]
+                },
+                {
+                    "subcategory": "Footwear & Accessories",
+                    "shops": [
+                        {
+                            "type": "Shoe Store / Footwear Retailer",
+                            "description": "Sells shoes, boots, sneakers, and sandals."
+                        },
+                        {
+                            "type": "Jewelry Store",
+                            "description": "Offers rings, necklaces, watches, and precious gemstones."
+                        }
+                    ]
+                },
+                {
+                    "subcategory": "Health, Beauty & Grooming",
+                    "shops": [
+                        {
+                            "type": "Cosmetics / Beauty Supply Store",
+                            "description": "Sells makeup, skincare, and hair care products."
+                        },
+                        {
+                            "type": "Pharmacy / Drugstore",
+                            "description": "Dispenses prescription medications, wellness products, and toiletries."
+                        },
+                        {
+                            "type": "Barber Shop / Hair Salon",
+                            "description": "Provides hair cutting, styling, and grooming services."
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "category": "Technology, Entertainment, & Hobbies",
+            "subcategories": [
+                {
+                    "subcategory": "Specialized Electronics & Tech",
+                    "shops": [
+                        {
+                            "type": "Electronic Shop",
+                            "description": "Sells smartphones, computers, televisions, and household appliances."
+                        },
+                        {
+                            "type": "Audio/Visual & Hi-Fi Shop",
+                            "description": "Specializes in high-end sound systems, home theater speakers, amplifiers, and turntables."
+                        },
+                        {
+                            "type": "Camera / Photography Shop",
+                            "description": "Sells digital cameras, lenses, tripods, lighting equipment, and film development supplies."
+                        },
+                        {
+                            "type": "Computer Repair & Parts Shop",
+                            "description": "Sells internal PC components, custom build parts, and offers repair services."
+                        },
+                        {
+                            "type": "Drone & RC (Remote Control) Shop",
+                            "description": "Focuses on remote-controlled drones, cars, planes, and their replacement parts."
+                        },
+                        {
+                            "type": "Mobile Phone Kiosk / Repair Shop",
+                            "description": "Specializes in smartphones, screen protectors, phone cases, and quick repair services."
+                        },
+                        {
+                            "type": "Smart Home & Security Store",
+                            "description": "Sells connected home devices like smart locks, security cameras, and automated lighting."
+                        },
+                        {
+                            "type": "Vape / E-Cigarette Shop",
+                            "description": "Sells electronic cigarettes, e-liquids, and vaping accessories."
+                        }
+                    ]
+                },
+                {
+                    "subcategory": "Collectibles & Specialized Hobbies",
+                    "shops": [
+                        {
+                            "type": "Comic Book Shop",
+                            "description": "Specializes in comic books, graphic novels, and related collectibles."
+                        },
+                        {
+                            "type": "Game Store",
+                            "description": "Focuses on board games, puzzles, card games, and tabletop hobbies."
+                        },
+                        {
+                            "type": "Toy Store",
+                            "description": "Focuses on children's toys, action figures, and games."
+                        },
+                        {
+                            "type": "Video Game Store",
+                            "description": "Sells gaming consoles, video game discs, and accessories."
+                        },
+                        {
+                            "type": "Anime & Manga Shop",
+                            "description": "Sells Japanese comic books, merchandise, action figures, and posters."
+                        },
+                        {
+                            "type": "Coin & Stamp Dealer (Numismatics)",
+                            "description": "Specializes in rare, historical, and collectible coins and postage stamps."
+                        },
+                        {
+                            "type": "Magic & Joke Shop",
+                            "description": "Sells illusion kits, playing cards, trick items, and novelty practical jokes."
+                        },
+                        {
+                            "type": "Model & Diecast Shop",
+                            "description": "Specializes in scale models, model trains, slot cars, and diecast vehicle replicas."
+                        },
+                        {
+                            "type": "Sports Card & Memorabilia Shop",
+                            "description": "Sells collectible trading cards and autographed sports items."
+                        }
+                    ]
+                },
+                {
+                    "subcategory": "Arts, Crafts, & Creative Pursuits",
+                    "shops": [
+                        {
+                            "type": "Bookstore",
+                            "description": "Sells printed books, audiobooks, magazines, and maps."
+                        },
+                        {
+                            "type": "Hobby / Craft Shop",
+                            "description": "Supplies materials for painting, knitting, model-building, and DIY projects."
+                        },
+                        {
+                            "type": "Music Store",
+                            "description": "Sells physical music (vinyl, CDs), instruments, and audio gear."
+                        },
+                        {
+                            "type": "Art Supply Store",
+                            "description": "Supplies professional-grade paints, canvases, sketchbooks, and brushes."
+                        },
+                        {
+                            "type": "Fabric & Textile Shop",
+                            "description": "Specializes in sewing fabrics, upholstery materials, patterns, and clothing trims."
+                        },
+                        {
+                            "type": "Yarn & Needlework Shop",
+                            "description": "Focuses specifically on knitting yarn, crochet hooks, and embroidery threads."
+                        },
+                        {
+                            "type": "Pottery & Ceramics Studio Shop",
+                            "description": "Sells unpainted pottery pieces, glazes, clays, and rents out kiln time."
+                        }
+                    ]
+                },
+                {
+                    "subcategory": "Instrument & Performance Shops",
+                    "shops": [
+                        {
+                            "type": "Guitar / String Instrument Shop",
+                            "description": "Focuses specifically on acoustic, electric, and bass guitars, and effects pedals."
+                        },
+                        {
+                            "type": "Piano & Keyboard Showroom",
+                            "description": "Specializes in acoustic pianos, digital keyboards, and organs."
+                        },
+                        {
+                            "type": "Sheet Music Store",
+                            "description": "Sells physical music books, notation sheets, and instructional guides."
+                        },
+                        {
+                            "type": "Theatrical Supply Store",
+                            "description": "Sells stage makeup, costumes, lighting gels, props, and special effects gear."
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "category": "Home, Garden, & Maintenance",
+            "subcategories": [
+                {
+                    "subcategory": "Furnishings & Interior Decor",
+                    "shops": [
+                        {
+                            "type": "Furniture Store",
+                            "description": "Supplies beds, sofas, tables, chairs, and home furnishings."
+                        },
+                        {
+                            "type": "Home Decor Store",
+                            "description": "Focuses on rugs, curtains, lighting, and interior decorations."
+                        },
+                        {
+                            "type": "Mattress Store",
+                            "description": "Specializes specifically in beds, mattresses, and bedding accessories."
+                        },
+                        {
+                            "type": "Antiques Shop",
+                            "description": "Sells vintage furniture, collectibles, and historic items."
+                        }
+                    ]
+                },
+                {
+                    "subcategory": "Hardware & Large Appliances",
+                    "shops": [
+                        {
+                            "type": "Hardware Store",
+                            "description": "Stocks tools, building supplies, fasteners, and home repair gear."
+                        },
+                        {
+                            "type": "Appliance Store",
+                            "description": "Focuses heavily on large white goods like refrigerators, washers, and ovens."
+                        }
+                    ]
+                },
+                {
+                    "subcategory": "Plants, Garden, & Pets",
+                    "shops": [
+                        {
+                            "type": "Flower Shop (Florist)",
+                            "description": "Sells fresh cut flowers, floral arrangements, and indoor plants."
+                        },
+                        {
+                            "type": "Garden Center / Nursery",
+                            "description": "Sells outdoor plants, seeds, soil, and landscaping tools."
+                        },
+                        {
+                            "type": "Pet Shop",
+                            "description": "Sells pet food, supplies, toys, and sometimes small domestic animals."
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "category": "General Retail & Large Formats",
+            "subcategories": [
+                {
+                    "subcategory": "Mass Outlets & Value Stores",
+                    "shops": [
+                        {
+                            "type": "Department Store",
+                            "description": "A massive retail building divided into separate sections (clothing, home, beauty)."
+                        },
+                        {
+                            "type": "Discount / Dollar Store",
+                            "description": "Sells a variety of inexpensive household items, snacks, and toys."
+                        },
+                        {
+                            "type": "Warehouse Club",
+                            "description": "A large wholesale store requiring a membership to buy items in bulk."
+                        }
+                    ]
+                },
+                {
+                    "subcategory": "Specialty & Secondhand General Retail",
+                    "shops": [
+                        {
+                            "type": "Thrift Store / Charity Shop",
+                            "description": "Sells secondhand, used clothing and household goods."
+                        },
+                        {
+                            "type": "Duty-Free Shop",
+                            "description": "Found at international borders and airports, selling goods exempt from local taxes."
+                        },
+                        {
+                            "type": "Gift / Souvenir Shop",
+                            "description": "Sells mementos, postcards, and novelty gifts targeted at travelers."
+                        },
+                        {
+                            "type": "Newsagent / Newsstand",
+                            "description": "A small kiosk selling newspapers, magazines, lottery tickets, and snacks."
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "category": "Sports, Travel, & Automotive",
+            "subcategories": [
+                {
+                    "subcategory": "Automotive & Marine",
+                    "shops": [
+                        {
+                            "type": "Auto Parts Store",
+                            "description": "Sells car batteries, oil, replacement parts, and vehicle accessories."
+                        },
+                        {
+                            "type": "Marine Supply Store",
+                            "description": "Sells boating equipment, fishing gear, and nautical supplies."
+                        }
+                    ]
+                },
+                {
+                    "subcategory": "Sports & Outdoor Recreation",
+                    "shops": [
+                        {
+                            "type": "Sports Goods Store",
+                            "description": "Focuses on athletic clothing, gym equipment, and sport-specific gear."
+                        },
+                        {
+                            "type": "Bicycle Shop",
+                            "description": "Specializes in bikes, cycling gear, repairs, and accessories."
+                        }
+                    ]
+                },
+                {
+                    "subcategory": "Travel & Luggage",
+                    "shops": [
+                        {
+                            "type": "Luggage / Travel Gear Store",
+                            "description": "Sells suitcases, backpacks, and travel accessories."
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
