@@ -24,10 +24,14 @@ const router = createRouter([
 ], mount)
 
 function toast(msg: string, ms = 2200) {
-  const el = document.getElementById('toast')!
-  el.textContent = msg
-  el.classList.remove('hidden')
-  setTimeout(() => el.classList.add('hidden'), ms)
+  try {
+    const el = document.getElementById('toast') as HTMLElement | null
+    if (!el) { console.log('[toast]', msg); return }
+    el.textContent = msg
+    el.classList.remove('hidden')
+    clearTimeout((window as any)._t)
+    ;(window as any)._t = setTimeout(() => el.classList.add('hidden'), ms)
+  } catch { console.log('[toast]', msg) }
 }
 ;(window as any).toast = toast
 

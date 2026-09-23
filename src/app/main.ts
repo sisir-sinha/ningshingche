@@ -20,6 +20,20 @@ import { appLayout, initLayout } from './components/layout'
 
 initTheme()
 
+function toast(msg: string, ms = 2200) {
+  try {
+    const el = document.getElementById('toast') as HTMLElement | null
+    if (!el) { console.log('[toast]', msg); return }
+    el.textContent = msg
+    el.classList.remove('hidden')
+    clearTimeout((window as any)._t)
+    ;(window as any)._t = setTimeout(() => el.classList.add('hidden'), ms)
+  } catch { console.log('[toast]', msg) }
+}
+;(window as any).toast = toast
+// also expose as global for non-window calls
+;(globalThis as any).toast = toast
+
 const mount = document.getElementById('app')!
 
 function withLayout(active: any, viewFn: () => string, title: string){
