@@ -14,10 +14,15 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     strictPort: false,
+    // Dev server only, never shipped. Sandboxed preview environments proxy
+    // through a generated hostname, and Vite's host check rejects unknown
+    // hosts by default. There is no production surface here to protect.
+    allowedHosts: true,
   },
   preview: {
     host: '0.0.0.0',
     port: 4173,
+    allowedHosts: true,
   },
   build: {
     target: 'es2022',
