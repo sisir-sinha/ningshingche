@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # Strict TypeScript, no `any` (spec §59).
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Architecture boundaries — plugins cannot import features, domain stays
+      # pure, the UI kit stays business-ignorant (docs/03 §3).
+      - name: Lint
+        run: npm run lint
+
+      # Applies every migration and seed to a real Postgres (WASM) and runs the
+      # structural, behavioral and end-to-end assertions, including a full
+      # complete_sale against the seeded organization.
+      - name: Validate migrations
+        run: npm run validate:migrations
+
+      - name: Build
+        run: npm run build

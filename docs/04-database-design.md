@@ -1,5 +1,10 @@
 # 04 — Database Design
 
+> **The migrations are authoritative.** The DDL below explains the design.
+> The schema that actually runs lives in `supabase/migrations/`, and
+> `npm run validate:migrations` applies it to a real Postgres on every push.
+> Where the two disagree, the migration is correct and this document is stale.
+
 Supabase / PostgreSQL. Normalised, RLS-enforced, API-first so Android consumes
 the identical schema.
 
@@ -115,7 +120,7 @@ erDiagram
 The diagram is a summary, not the full schema. Omitted for readability are
 `product_images` (variant image list) and `sequences` (per-organization
 counter for invoice/return numbers, see §8). All 43 public tables are
-defined in §4–§11 and verified by `tools/validate-schema.mjs`.
+defined in §4–§11 and created by `supabase/migrations/`.
 
 ---
 

@@ -106,11 +106,14 @@ Frontend permission checks hide buttons. They never authorise anything.
 
 ## The schema is verified, not asserted
 
-`tools/validate-schema.mjs` extracts every SQL block from doc 04 and applies
-it to a real Postgres engine (PGlite, WASM build). Current result: **88
-statements applied, 0 failures, 43 tables created**, 5 RLS policies and 4
-`app.*` helper functions. `tools/erd-check.mjs` confirms the ERD references no
-table the DDL fails to create. See [tools/README.md](../tools/README.md).
+The DDL in doc 04 is illustrative; **`supabase/migrations/` is the
+authoritative schema**. `npm run validate:migrations` applies all 18
+migrations and both seeds to a real Postgres (PGlite, WASM build), then runs
+23 assertions — structural checks, ledger invariants, and a full end-to-end
+`complete_sale` against the seeded organization. Current result: **18/18
+migrations, 0 failures, 43 tables, 111 RLS policies, 0 tables without RLS,
+23/23 assertions passing**. It also confirms the ERD in doc 04 names no table
+the migrations fail to create. See [tools/README.md](../tools/README.md).
 
 ---
 

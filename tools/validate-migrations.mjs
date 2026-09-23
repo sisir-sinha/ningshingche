@@ -1,0 +1,565 @@
+#!/usr/bin/env node
+// Applies supabase/migrations/*.sql, in filename order, to a real Postgres
+// engine (PGlite — Postgres compiled to WASM).
+//
+// This is the check that keeps the schema honest. Unlike validate-schema.mjs,
+// which reads illustrative SQL out of the design docs, this executes the
+// actual migrations the way `supabase db reset` would, so a broken foreign
+// key, a malformed policy or a plpgsql syntax error fails here rather than
+// on the owner's machine.
+//
+//   node tools/validate-migrations.mjs
+
+import { readFileSync, readdirSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
+import { PGlite } from '@electric-sql/pglite'
+import { splitStatements, statementLabel } from './sql-split.mjs'
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+const dir = join(root, 'supabase', 'migrations')
+
+const files = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()
+if (files.length === 0) {
+  console.error(`no migrations found in ${dir}`)
+  process.exit(1)
+}
+
+const db = new PGlite()
+
+// Supabase provides these; PGlite does not. Stub them so the RLS policies,
+// auth.* helpers and the Realtime publication are all exercised rather than
+// skipped — the authorization layer is the part that most needs proving.
+await db.exec(`
+  -- Supabase creates these roles; PGlite does not. Without them the grants
+  -- migration cannot be exercised at all.
+  CREATE ROLE anon NOLOGIN;
+  CREATE ROLE authenticated NOLOGIN;
+  CREATE ROLE service_role NOLOGIN;
+
+  CREATE SCHEMA IF NOT EXISTS auth;
+  CREATE TABLE auth.users (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    email text
+  );
+  CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
+    LANGUAGE sql STABLE AS
+    $$ SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+  CREATE OR REPLACE FUNCTION auth.jwt() RETURNS jsonb
+    LANGUAGE sql STABLE AS
+    $$ SELECT coalesce(current_setting('request.jwt.claims', true), '{}')::jsonb $$;
+  CREATE PUBLICATION supabase_realtime;
+`)
+
+// pg_trgm is unavailable in the WASM build. The two trigram indexes and the
+// CREATE EXTENSION line are the only statements affected; both are valid on
+// real Postgres/Supabase.
+const SKIP = /gin_trgm_ops|create\s+extension\s+if\s+not\s+exists\s+pg_trgm/i
+
+const results = { ok: [], skipped: [], failed: [] }
+let skippedStatements = 0
+
+for (const file of files) {
+  const sql = readFileSync(join(dir, file), 'utf8')
+  const statements = splitStatements(sql)
+  const runnable = statements.filter((s) => !SKIP.test(s))
+  const omitted = statements.length - runnable.length
+  skippedStatements += omitted
+
+  if (omitted > 0) results.skipped.push({ file, omitted })
+  if (runnable.length === 0) continue
+
+  for (const stmt of runnable) {
+    try {
+      await db.exec(stmt)
+      results.ok.push(file)
+    } catch (e) {
+      results.failed.push({
+        file,
+        statement: statementLabel(stmt),
+        error: String(e.message ?? e).split('\n')[0],
+      })
+      // A failed statement usually cascades; stop this file but keep going so
+      // one run surfaces every independent problem.
+      break
+    }
+  }
+}
+
+// ── Seeds ─────────────────────────────────────────────────────────────────
+// Run after migrations, exactly as `supabase db reset` would. The seeds carry
+// their own self-verification (the permission catalogue assertion and the
+// provision_organization smoke test), so a failure here is meaningful.
+const seedDir = join(root, 'supabase', 'seed')
+let seedFiles = []
+try {
+  seedFiles = readdirSync(seedDir).filter((f) => f.endsWith('.sql')).sort()
+} catch {
+  /* no seeds yet */
+}
+
+const seedResults = { ok: 0, failed: [] }
+for (const file of seedFiles) {
+  const sql = readFileSync(join(seedDir, file), 'utf8')
+  for (const stmt of splitStatements(sql)) {
+    try {
+      await db.exec(stmt)
+      seedResults.ok++
+    } catch (e) {
+      seedResults.failed.push({
+        file,
+        statement: statementLabel(stmt),
+        error: String(e.message ?? e).split('\n')[0],
+      })
+      break
+    }
+  }
+}
+
+const filesOk = new Set(results.ok.map((f) => f)).size
+console.log(`migrations found:  ${files.length}`)
+console.log(`files applied:     ${filesOk}`)
+console.log(`statements run:    ${results.ok.length}`)
+console.log(`statements skipped: ${skippedStatements} (pg_trgm — unavailable in WASM)`)
+console.log(`failures:          ${results.failed.length}`)
+console.log(`\nseeds applied:     ${seedFiles.length}`)
+console.log(`seed statements:   ${seedResults.ok}`)
+console.log(`seed failures:     ${seedResults.failed.length}`)
+
+if (results.failed.length) {
+  console.log('\n-- FAILED --')
+  for (const f of results.failed) {
+    console.log(`  ${f.file}`)
+    console.log(`      stmt: ${f.statement}`)
+    console.log(`      ${f.error}`)
+  }
+  process.exitCode = 1
+}
+
+if (seedResults.failed.length) {
+  console.log('\n-- SEED FAILED --')
+  for (const f of seedResults.failed) {
+    console.log(`  ${f.file}`)
+    console.log(`      stmt: ${f.statement}`)
+    console.log(`      ${f.error}`)
+  }
+  process.exitCode = 1
+}
+
+if (process.exitCode) {
+  await db.close()
+  process.exit(1)
+}
+
+// ── Structural assertions ─────────────────────────────────────────────────
+const q = async (sql) => (await db.query(sql)).rows
+
+const tables = await q(`
+  select table_name from information_schema.tables
+   where table_schema = 'public' and table_type = 'BASE TABLE'
+   order by table_name`)
+
+const noRls = await q(`select * from app.tables_missing_rls()`)
+const policies = await q(`select count(*)::int as n from pg_policies where schemaname = 'public'`)
+const functions = await q(`
+  select n.nspname || '.' || p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')' as f
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname in ('public','app')
+     and p.proname in (
+       'complete_sale','hold_sale','resume_sale','refund_sale',
+       'apply_stock_movement','adjust_stock','receive_purchase',
+       'open_register','close_register','register_cash_movement','record_expense',
+       'dashboard_summary','next_sequence',
+       'current_org_ids','in_org','current_branch_id','has_permission',
+       'visible_branch_ids','in_visible_branch','require_permission','require_org',
+       'tables_missing_rls'
+     )
+   order by 1`)
+
+console.log(`\ntables:           ${tables.length}`)
+console.log(`RLS policies:     ${policies[0].n}`)
+console.log(`tables w/o RLS:   ${noRls.length}${noRls.length ? ' → ' + noRls.map((r) => r.table_name).join(', ') : ''}`)
+console.log(`\nkey functions present (${functions.length}):`)
+for (const f of functions) console.log(`  ${f.f}`)
+
+// ── Behavioral assertions ─────────────────────────────────────────────────
+const checks = []
+const check = (name, pass, detail = '') => {
+  checks.push({ name, pass })
+  console.log(`  ${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`)
+}
+
+const runChecks = async () => {
+// The ledger invariant: every movement must balance, and the balance must
+// equal the sum of its movements. Seeded and exercised below.
+console.log('\n-- behavioral checks --')
+
+// Seed a minimal org so the ledger constraint can be exercised.
+try {
+await db.exec(`
+  INSERT INTO auth.users (id, email)
+  VALUES ('00000000-0000-0000-0000-000000000001', 'owner@test.local');
+
+  INSERT INTO public.organizations (id, name, slug, currency)
+  VALUES ('00000000-0000-0000-0000-000000000001', 'Test Org', 'test-org', 'BDT');
+
+  INSERT INTO public.branches (id, organization_id, name, code)
+  VALUES ('00000000-0000-0000-0000-0000000000b1',
+          '00000000-0000-0000-0000-000000000001', 'Main', 'MAIN');
+
+  INSERT INTO public.warehouses (id, organization_id, branch_id, name, code, is_retail_floor)
+  VALUES ('00000000-0000-0000-0000-0000000000a1',
+          '00000000-0000-0000-0000-000000000001',
+          '00000000-0000-0000-0000-0000000000b1', 'Floor', 'FLOOR', true);
+
+  INSERT INTO public.products (id, organization_id, name, selling_price, cost_price)
+  VALUES ('00000000-0000-0000-0000-0000000000f1',
+          '00000000-0000-0000-0000-000000000001', 'Test Product', 100, 60);
+
+  INSERT INTO public.product_variants (id, organization_id, product_id, is_default)
+  VALUES ('00000000-0000-0000-0000-0000000000e1',
+          '00000000-0000-0000-0000-000000000001',
+          '00000000-0000-0000-0000-0000000000f1', true);
+`)
+} catch (e) {
+  console.error('  seed failed: ' + String(e.message ?? e).split('\n')[0])
+  process.exit(1)
+}
+
+// 1. The movements_arithmetic CHECK rejects an unbalanced row.
+let rejected = false
+try {
+  await db.exec(`
+    INSERT INTO public.stock_movements
+      (organization_id, warehouse_id, variant_id, product_id, type,
+       quantity, direction, before_quantity, after_quantity)
+    VALUES ('00000000-0000-0000-0000-000000000001',
+            '00000000-0000-0000-0000-0000000000a1',
+            '00000000-0000-0000-0000-0000000000e1',
+            '00000000-0000-0000-0000-0000000000f1',
+            'PURCHASE', 10, 1, 0, 99)
+  `)
+} catch {
+  rejected = true
+}
+check('unbalanced stock movement is rejected by CHECK', rejected)
+
+// 2. The ledger is append-only.
+await db.exec(`
+  INSERT INTO public.stock_movements
+    (organization_id, warehouse_id, variant_id, product_id, type,
+     quantity, direction, before_quantity, after_quantity, unit_cost)
+  VALUES ('00000000-0000-0000-0000-000000000001',
+          '00000000-0000-0000-0000-0000000000a1',
+          '00000000-0000-0000-0000-0000000000e1',
+          '00000000-0000-0000-0000-0000000000f1',
+          'PURCHASE', 10, 1, 0, 10, 60)
+`)
+let immutable = false
+try {
+  await db.exec(`UPDATE public.stock_movements SET quantity = 999`)
+} catch {
+  immutable = true
+}
+check('stock_movements is append-only (UPDATE blocked)', immutable)
+
+// 3. One open register session per register.
+await db.exec(`
+  INSERT INTO public.registers (id, organization_id, branch_id, name, code)
+  VALUES ('00000000-0000-0000-0000-0000000000d1',
+          '00000000-0000-0000-0000-000000000001',
+          '00000000-0000-0000-0000-0000000000b1', 'Counter 1', 'C1');
+  INSERT INTO public.register_sessions
+    (organization_id, register_id, branch_id, opened_by, opening_cash)
+  VALUES ('00000000-0000-0000-0000-000000000001',
+          '00000000-0000-0000-0000-0000000000d1',
+          '00000000-0000-0000-0000-0000000000b1',
+          '00000000-0000-0000-0000-000000000001', 500);
+`)
+let dupSession = false
+try {
+  await db.exec(`
+    INSERT INTO public.register_sessions
+      (organization_id, register_id, branch_id, opened_by, opening_cash)
+    VALUES ('00000000-0000-0000-0000-000000000001',
+            '00000000-0000-0000-0000-0000000000d1',
+            '00000000-0000-0000-0000-0000000000b1',
+            '00000000-0000-0000-0000-000000000001', 500)
+  `)
+} catch {
+  dupSession = true
+}
+check('second open session on one register is rejected', dupSession)
+
+// 4. Money columns are exact numerics, never floats.
+const money = await q(`
+  select column_name, data_type from information_schema.columns
+   where table_name = 'sales' and column_name in ('total','cogs','profit')
+   order by column_name`)
+check(
+  'sales money columns are numeric, not float',
+  money.length === 3 && money.every((r) => r.data_type === 'numeric'),
+  money.map((r) => `${r.column_name}:${r.data_type}`).join(' ')
+)
+
+// 5. Profit is generated, so it cannot drift from its inputs.
+const profitCol = await q(`
+  select is_generated from information_schema.columns
+   where table_name = 'sales' and column_name = 'profit'`)
+check('sales.profit is a generated column', profitCol[0]?.is_generated === 'ALWAYS')
+
+// 6. Default-variant uniqueness.
+let dupDefault = false
+try {
+  await db.exec(`
+    INSERT INTO public.product_variants
+      (organization_id, product_id, is_default)
+    VALUES ('00000000-0000-0000-0000-000000000001',
+            '00000000-0000-0000-0000-0000000000f1', true)
+  `)
+} catch {
+  dupDefault = true
+}
+check('a product cannot have two default variants', dupDefault)
+
+// 7. next_sequence produces gap-free, monotonically increasing values.
+const seqs = []
+for (let i = 0; i < 5; i++) {
+  const r = await q(`select public.next_sequence(
+    '00000000-0000-0000-0000-000000000001', 'invoice:2026')::int as n`)
+  seqs.push(r[0].n)
+}
+check(
+  'next_sequence is monotonic and gap-free',
+  seqs.every((n, i) => n === i + 1),
+  seqs.join(',')
+)
+
+}
+
+try {
+  await runChecks()
+} catch (e) {
+  console.log(`  ERROR  ${String(e.message ?? e).split('\n')[0]}`)
+  checks.push({ name: 'unexpected error', pass: false })
+}
+
+// ── End-to-end: complete_sale ─────────────────────────────────────────────
+// The seed provisions a demo organization with an owner, roles and payment
+// methods. Signing in as that owner and running a real sale proves the whole
+// write path: authorization → stock lock → ledger → invoice → register →
+// outbox. This is the check that would catch a broken RPC.
+const seeded = await q(`
+  select o.id as org, b.id as branch, w.id as warehouse, r.id as register,
+         (select id from public.payment_methods
+           where organization_id = o.id and key = 'cash') as cash,
+         '00000000-0000-0000-0000-00000000dead' as owner
+    from public.organizations o
+    join public.branches b    on b.organization_id = o.id
+    join public.warehouses w  on w.organization_id = o.id and w.is_retail_floor
+    join public.registers r   on r.organization_id = o.id
+   where o.slug = 'seed-demo-shop'
+   limit 1`)
+
+if (seeded.length === 0) {
+  check('seeded demo organization exists', false, 'seed-demo-shop not found')
+} else {
+  const s = seeded[0]
+  await db.exec(`select set_config('request.jwt.claim.sub', '${s.owner}', false)`)
+
+  const canSee = await q(`select app.current_org_ids() as orgs`)
+  check(
+    'signed-in owner resolves their organization',
+    canSee[0].orgs.includes(s.org),
+    String(canSee[0].orgs)
+  )
+
+  const isOwner = await q(`select app.has_permission('sales.create') as ok`)
+  check('owner holds sales.create via the * wildcard', isOwner[0].ok === true)
+
+  // A product with stock.
+  await db.exec(`
+    INSERT INTO public.products (id, organization_id, name, selling_price, cost_price, track_stock)
+    VALUES ('00000000-0000-0000-0000-00000000c001', '${s.org}', 'E2E Widget', 250, 150, true);
+    INSERT INTO public.product_variants (id, organization_id, product_id, is_default)
+    VALUES ('00000000-0000-0000-0000-00000000c002', '${s.org}',
+            '00000000-0000-0000-0000-00000000c001', true);
+  `)
+
+  const afterStockIn = await q(`
+    select public.apply_stock_movement(
+      '${s.warehouse}', '00000000-0000-0000-0000-00000000c002',
+      'PURCHASE', 10, 150, 'test', null, null)::numeric as qty`)
+  check('stock-in records 10 units', Number(afterStockIn[0].qty) === 10, String(afterStockIn[0].qty))
+
+  const session = await q(`
+    select public.open_register('${s.register}', 1000, null) as id`)
+  check('register opens', Boolean(session[0].id))
+
+  const sale = await q(`
+    select public.complete_sale(
+      '${s.branch}',
+      jsonb_build_array(jsonb_build_object(
+        'variant_id', '00000000-0000-0000-0000-00000000c002',
+        'qty', 3)),
+      jsonb_build_array(jsonb_build_object(
+        'method_id', '${s.cash}', 'amount', 750)),
+      '${s.register}', null, null, null, null, null) as r`)
+
+  const result = sale[0].r
+  check('complete_sale returns COMPLETED', result.status === 'COMPLETED', String(result.status))
+  check('sale total is 3 × 250', Number(result.total) === 750, String(result.total))
+  check('invoice number is formatted', /^INV-\d{4}-\d{6}$/.test(result.invoice_no), result.invoice_no)
+
+  const bal = await q(`
+    select quantity from public.stock_balances
+     where warehouse_id = '${s.warehouse}'
+       and variant_id = '00000000-0000-0000-0000-00000000c002'`)
+  check('stock decremented 10 → 7', Number(bal[0].quantity) === 7, String(bal[0].quantity))
+
+  const ledger = await q(`
+    select type, before_quantity, after_quantity, unit_cost
+      from public.stock_movements
+     where variant_id = '00000000-0000-0000-0000-00000000c002'
+     order by created_at`)
+  check(
+    'ledger has balanced PURCHASE and SALE rows',
+    ledger.length === 2 &&
+      ledger[0].type === 'PURCHASE' &&
+      ledger[1].type === 'SALE' &&
+      Number(ledger[1].before_quantity) === 10 &&
+      Number(ledger[1].after_quantity) === 7,
+    ledger.map((r) => `${r.type}:${r.before_quantity}→${r.after_quantity}`).join(' ')
+  )
+
+  const profit = await q(`
+    select cogs, profit from public.sales where invoice_no = '${result.invoice_no}'`)
+  check(
+    'profit captured at sale time (750 − 3×150 = 300)',
+    Number(profit[0].cogs) === 450 && Number(profit[0].profit) === 300,
+    `cogs=${profit[0].cogs} profit=${profit[0].profit}`
+  )
+
+  const outbox = await q(`
+    select event_type from public.outbox
+     where organization_id = '${s.org}' and aggregate_type = 'sale'`)
+  check(
+    'sale.completed event written to the outbox',
+    outbox.some((r) => r.event_type === 'sale.completed'),
+    outbox.map((r) => r.event_type).join(',')
+  )
+
+  const cash = await q(`
+    select sales_cash, opening_cash from public.register_sessions where id = '${session[0].id}'`)
+  check(
+    'register tracked the cash sale',
+    Number(cash[0].sales_cash) === 750 && Number(cash[0].opening_cash) === 1000,
+    `sales_cash=${cash[0].sales_cash}`
+  )
+
+  // Overselling must be impossible — the whole point of the row lock.
+  let blocked = false
+  try {
+    await db.exec(`
+      select public.complete_sale(
+        '${s.branch}',
+        jsonb_build_array(jsonb_build_object(
+          'variant_id', '00000000-0000-0000-0000-00000000c002',
+          'qty', 999)),
+        jsonb_build_array(jsonb_build_object(
+          'method_id', '${s.cash}', 'amount', 1)),
+        '${s.register}', null, null, null, null, null)`)
+  } catch (e) {
+    blocked = /insufficient_stock/.test(String(e.message ?? e))
+  }
+  check('overselling is rejected by the database', blocked)
+
+  // An unauthorized user must not be able to sell.
+  await db.exec(`
+    INSERT INTO auth.users (id, email)
+    VALUES ('00000000-0000-0000-0000-00000000beef', 'intruder@test.local')
+    ON CONFLICT DO NOTHING;
+    select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000beef', false)`)
+  // An outsider must be refused. A user with no user_organizations row is
+  // stopped by require_org ('forbidden'); one with membership but no role is
+  // stopped by require_permission ('permission_denied'). Either proves the
+  // check is server-side, so accept both.
+  let denied = false
+  let denialReason = ''
+  try {
+    await db.exec(`
+      select public.complete_sale(
+        '${s.branch}',
+        jsonb_build_array(jsonb_build_object(
+          'variant_id', '00000000-0000-0000-0000-00000000c002',
+          'qty', 1)),
+        jsonb_build_array(jsonb_build_object(
+          'method_id', '${s.cash}', 'amount', 250)),
+        '${s.register}', null, null, null, null, null)`)
+  } catch (e) {
+    denialReason = String(e.message ?? e).split('\n')[0]
+    denied = /permission_denied|forbidden/.test(denialReason)
+  }
+  check('a user outside the organization cannot complete a sale', denied, denialReason)
+
+  // A member with a role lacking the permission must also be refused. This is
+  // the case that matters for a cashier trying to refund.
+  await db.exec(`
+    INSERT INTO auth.users (id, email)
+    VALUES ('00000000-0000-0000-0000-00000000cafe', 'cashier@test.local')
+    ON CONFLICT DO NOTHING;
+    INSERT INTO public.user_organizations (user_id, organization_id)
+    VALUES ('00000000-0000-0000-0000-00000000cafe', '${s.org}')
+    ON CONFLICT DO NOTHING;
+    INSERT INTO public.user_roles (user_id, organization_id, role_id)
+    SELECT '00000000-0000-0000-0000-00000000cafe', '${s.org}', id
+      FROM public.roles WHERE organization_id = '${s.org}' AND key = 'cashier';
+    select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000cafe', false)`)
+
+  const cashierCan = await q(`select app.has_permission('sales.create') as yes,
+                                     app.has_permission('sales.refund') as no`)
+  check(
+    'cashier holds sales.create but not sales.refund',
+    cashierCan[0].yes === true && cashierCan[0].no === false,
+    `create=${cashierCan[0].yes} refund=${cashierCan[0].no}`
+  )
+
+  await db.exec(`select set_config('request.jwt.claim.sub', '', false)`)
+
+}
+
+// ── ERD consistency ───────────────────────────────────────────────────────
+// The Mermaid ERD in the design doc must not promise a table the migrations
+// fail to create. Checked against the live schema, not against the doc's own
+// illustrative DDL, so the migrations stay the single source of truth.
+const tableNames = new Set(tables.map((r) => r.table_name))
+let erdMissing = []
+try {
+  const doc = readFileSync(join(root, 'docs', '04-database-design.md'), 'utf8')
+  const erd = doc.match(/```mermaid\n([\s\S]*?)```/)?.[1] ?? ''
+  const entities = new Set()
+  for (const line of erd.split('\n')) {
+    const m = line.match(/^\s*(\w+)\s+[|o{}]+--+[|o{}]+\s+(\w+)\s*:/)
+    if (m) {
+      entities.add(m[1])
+      entities.add(m[2])
+    }
+  }
+  // `users` is auth.users, provided by Supabase rather than our migrations.
+  erdMissing = [...entities].filter((e) => !tableNames.has(e) && e !== 'users')
+  check(
+    'ERD references no table the migrations fail to create',
+    erdMissing.length === 0,
+    erdMissing.length ? erdMissing.join(', ') : `${entities.size} entities`
+  )
+} catch {
+  check('ERD consistency (doc not found)', false)
+}
+
+const failed = checks.filter((c) => !c.pass)
+console.log(`\n${checks.length - failed.length}/${checks.length} behavioral checks passed`)
+
+await db.close()
+
+if (failed.length || noRls.length) process.exit(1)
+console.log('\nAll migrations applied and all assertions passed.')

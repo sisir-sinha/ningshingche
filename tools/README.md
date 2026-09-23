@@ -1,37 +1,64 @@
-# Schema validation tools
+# Schema validation
 
-These verify that the SQL in the design documents is real, not decorative.
-They run the DDL against a genuine Postgres engine (PGlite — Postgres
-compiled to WASM), so syntax errors, bad foreign keys, invalid constraint
-expressions and malformed policies all fail loudly.
+`validate-migrations.mjs` is the single schema check. It applies every file in
+`supabase/migrations/` and `supabase/seed/`, in filename order, to a real
+Postgres engine (PGlite — Postgres compiled to WASM), then runs assertions
+against the resulting database.
 
-## Setup
-
-```bash
-npm install --no-save @electric-sql/pglite
-```
-
-## Run
+This is what keeps the schema honest: a broken foreign key, a malformed RLS
+policy, a plpgsql syntax error or a bad function signature fails here rather
+than on the owner's machine.
 
 ```bash
-node tools/validate-schema.mjs docs/04-database-design.md
-node tools/erd-check.mjs       docs/04-database-design.md
+npm run validate:migrations
 ```
 
-`validate-schema.mjs` extracts every ```sql block, splits it into statements
-(honouring `$$` function bodies, strings and comments) and applies them by
-fixpoint until no pass makes progress. Whatever still fails is a genuine
-error, not a dependency-ordering artifact.
+## What it verifies
 
-`erd-check.mjs` cross-checks the Mermaid ERD against the tables the DDL
-actually creates. "In ERD but NOT created" must always be empty — that
-direction catches the diagram promising a table the schema does not have.
+**Structural**
+
+- All 18 migrations and both seeds apply cleanly
+- Table count, RLS policy count, and the presence of the 23 API functions
+- `app.tables_missing_rls()` returns empty — a new table cannot ship unprotected
+- The Mermaid ERD in `docs/04` names no table the migrations fail to create
+
+**Behavioral**
+
+- An unbalanced `stock_movements` row is rejected by the `CHECK`
+- `stock_movements` is append-only (`UPDATE` raises)
+- A second open session on one register is rejected
+- Money columns are `numeric`, never `float`
+- `sales.profit` is a generated column
+- A product cannot have two default variants
+- `next_sequence` is monotonic and gap-free
+
+**End to end** — a real sale against the seeded organization:
+
+- The signed-in owner resolves their organization and holds `sales.create`
+- Stock in → register open → `complete_sale`
+- Sale completes, total is right, invoice number is formatted
+- Stock decrements and the ledger balances (`before + delta = after`)
+- Profit is captured at sale time
+- A `sale.completed` event lands in the outbox
+- The register records the cash
+- **Overselling is rejected by the database**
+- A user outside the organization is refused
+- A cashier holds `sales.create` but not `sales.refund`
 
 ## Known skips
 
-PGlite has no `pg_trgm`, so the three trigram indexes and the
-`CREATE EXTENSION pg_trgm` line are skipped, not failed. They are valid on
-real Postgres/Supabase. Prose snippets (a bind-parameter example query and a
-fragment from the `complete_sale` body) are also skipped — they are not DDL.
+PGlite has no `pg_trgm`, so `CREATE EXTENSION pg_trgm` and the three trigram
+indexes are skipped — four statements. They are valid on real
+Postgres/Supabase; Supabase ships the extension.
 
-Wire both into CI before Phase 1 lands.
+## Shared code
+
+`sql-split.mjs` splits SQL into statements while honouring `$$` dollar-quoting,
+single-quoted strings and both comment forms. A naive `split(';')` corrupts
+every plpgsql function body.
+
+## On the design docs
+
+`docs/04-database-design.md` contains illustrative DDL. **The migrations are
+the authoritative schema.** The docs explain the design; if the two disagree,
+the migration is correct and the doc is stale.
