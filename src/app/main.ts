@@ -11,6 +11,11 @@ import { expensesView, initExpenses } from './views/expenses'
 import { expenseNewView, initExpenseNew } from './views/expense-new'
 import { reportsView, initReports } from './views/reports'
 import { settingsView, initSettings } from './views/settings'
+import { suppliersView, initSuppliers } from './views/suppliers'
+import { purchasesView, initPurchases } from './views/purchases'
+import { purchaseNewView, initPurchaseNew } from './views/purchase-new'
+import { ordersView, initOrders } from './views/orders'
+import { stockAdjustView, initStockAdjust } from './views/stock-adjust'
 import { appLayout, initLayout } from './components/layout'
 
 initTheme()
@@ -32,12 +37,16 @@ createRouter([
   { path: '/app/pos', view: withLayout('pos', posView, 'POS Billing'), title: 'Mekholi — POS', guard: authGuard },
   { path: '/app/products', view: withLayout('products', productsView, 'Products'), title: 'Mekholi — Products', guard: authGuard },
   { path: '/app/products/new', view: withLayout('products', productNewView, 'Add Product'), title: 'Mekholi — Add Product', guard: authGuard },
+  { path: '/app/purchases', view: withLayout('purchases', purchasesView, 'Purchases'), title: 'Mekholi — Purchases', guard: authGuard },
+  { path: '/app/purchases/new', view: withLayout('purchases', purchaseNewView, 'New GRN'), title: 'Mekholi — New GRN', guard: authGuard },
+  { path: '/app/suppliers', view: withLayout('suppliers', suppliersView, 'Suppliers'), title: 'Mekholi — Suppliers', guard: authGuard },
+  { path: '/app/orders', view: withLayout('orders', ordersView, 'Orders'), title: 'Mekholi — Orders', guard: authGuard },
+  { path: '/app/stock', view: withLayout('stock', stockAdjustView, 'Stock Adjust'), title: 'Mekholi — Stock Adjust', guard: authGuard },
   { path: '/app/khata', view: withLayout('khata', khataView, 'Khata'), title: 'Mekholi — Khata', guard: authGuard },
   { path: '/app/expenses', view: withLayout('expenses', expensesView, 'Expenses'), title: 'Mekholi — Expenses', guard: authGuard },
   { path: '/app/expenses/new', view: withLayout('expenses', expenseNewView, 'Add Expense'), title: 'Mekholi — Add Expense', guard: authGuard },
   { path: '/app/reports', view: withLayout('reports', reportsView, 'Reports'), title: 'Mekholi — Reports', guard: authGuard },
   { path: '/app/settings', view: withLayout('settings', settingsView, 'Settings'), title: 'Mekholi — Settings', guard: authGuard },
-  // public fallback — landing redirect handled via site, but guard allows
   { path: '/', view: () => { location.href = '/'; return '' } },
 ], mount)
 
@@ -48,6 +57,11 @@ function runInits(){
   if (p === '/app/pos') initPos()
   if (p === '/app/products') initProducts()
   if (p === '/app/products/new') initProductNew()
+  if (p === '/app/purchases') initPurchases()
+  if (p === '/app/purchases/new') initPurchaseNew()
+  if (p === '/app/suppliers') initSuppliers()
+  if (p === '/app/orders') initOrders()
+  if (p === '/app/stock') initStockAdjust()
   if (p === '/app/khata') initKhata()
   if (p === '/app/expenses') initExpenses()
   if (p === '/app/expenses/new') initExpenseNew()
@@ -74,16 +88,12 @@ function runInits(){
 window.addEventListener('mk:navigate', () => setTimeout(runInits, 0))
 setTimeout(runInits, 0)
 
-// Also listen to auth changes globally: if session expires while on /app, bounce to login
 import('../core/db/supabase').then(({ supabase })=>{
   supabase.auth.onAuthStateChange((event)=>{
     if(event === 'SIGNED_OUT'){
       if(location.pathname.startsWith('/app')){
         location.href = '/login?redirect=' + encodeURIComponent(location.pathname + location.search)
       }
-    }
-    if(event === 'SIGNED_IN'){
-      // if on login page, the guard will handle redirect; nothing needed
     }
   })
 })
