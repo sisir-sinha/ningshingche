@@ -1,4 +1,5 @@
 import { supabase } from '../../core/db/supabase'
+import { withBase } from '../../core/utils/base'
 
 export default function login(): string {
   return `
@@ -141,12 +142,40 @@ export function initLogin(){
     }
   })
 
+  // --- helper: parse 49 seconds from "after 49 seconds" / handle 429 ---
+  function parseWaitSeconds(msg: string): number {
+    const m = msg.match(/(\d+)\s*seconds?/i) || msg.match(/after\s+(\d+)/i)
+    if(m) return parseInt(m[1], 10)
+    return 60
+  }
+  function startCountdown(btn: HTMLButtonElement, msgEl: HTMLElement, baseMsg: string, secs: number, originalText: string){
+    let s = secs
+    btn.disabled = true
+    const tick = () => {
+      if(s <= 0){
+        btn.disabled = false
+        btn.textContent = originalText
+        msgEl.innerHTML = `${baseMsg} <span class="font-bold">You can try again now.</span>`
+        return
+      }
+      btn.textContent = `Wait ${s}s…`
+      msgEl.innerHTML = `${baseMsg} <span class="font-bold">Try again in ${s}s</span> • Check inbox/spam.`
+      s--
+      setTimeout(tick, 1000)
+    }
+    tick()
+  }
+  function isRateLimit(err:any){
+    return err?.code === 'over_email_send_rate_limit' || err?.status === 429 || /over_email_send_rate_limit/i.test(err?.message||'') || /only request this after/i.test(err?.message||'')
+  }
+
   loginForm.addEventListener('submit', async (e)=>{
     e.preventDefault()
     const fd = new FormData(loginForm)
     const email = String(fd.get('email')||'').trim()
     const password = String(fd.get('password')||'')
     const btn = loginForm.querySelector('button[type="submit"]') as HTMLButtonElement
+    const original = 'Log in'
     btn.disabled=true; btn.textContent='Logging in…'
     loginMsg.classList.add('hidden')
     try{
@@ -156,13 +185,46 @@ export function initLogin(){
       loginMsg.className='text-xs font-semibold p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700'
       loginMsg.classList.remove('hidden')
       const redirect = new URLSearchParams(location.search).get('redirect')
-      const target = redirect && (redirect.startsWith('/app') || redirect.startsWith('/dashboard')) ? redirect : '/app'
+      const target = redirect && (redirect.includes('/app') || redirect.includes('/dashboard')) ? redirect : withBase('/app')
       setTimeout(()=> location.href=target, 500)
     }catch(err:any){
-      loginMsg.textContent = err.message || 'Login failed'
-      loginMsg.className='text-xs font-semibold p-3 rounded-xl bg-red-50 border border-red-200 text-red-700'
-      loginMsg.classList.remove('hidden')
-      btn.disabled=false; btn.textContent='Log in'
+      if(isRateLimit(err)){
+        const secs = parseWaitSeconds(err.message||'')
+        loginMsg.innerHTML = `⏳ Too many requests — Supabase limits email to 1 per ~60s.<br><span class="text-[11px]">You asked too quickly. Please wait <b>${secs}s</b> then try again. For login, email is NOT needed — use your password. If you just registered, check spam and wait.</span>`
+        loginMsg.className='text-xs font-semibold p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 leading-4'
+        loginMsg.classList.remove('hidden')
+        startCountdown(btn, loginMsg, `⏳ Email rate limited.`, secs, original)
+        return
+      }
+      // email not confirmed etc
+      const msg = err.message || 'Login failed'
+      if(/email not confirmed/i.test(msg)){
+        loginMsg.innerHTML = `Email not confirmed. Check inbox (and spam) for confirmation link.<br><button id="resend-confirm" class="mt-2 text-xs font-bold underline">Resend confirmation</button>`
+        loginMsg.className='text-xs font-semibold p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800'
+        loginMsg.classList.remove('hidden')
+        setTimeout(()=>{
+          document.getElementById('resend-confirm')?.addEventListener('click', async ()=>{
+            const { error } = await supabase.auth.resend({ type:'signup', email })
+            if(error){
+              if(isRateLimit(error)){
+                const secs = parseWaitSeconds(error.message||'')
+                loginMsg.innerHTML = `Resend limited — wait ${secs}s.`
+                startCountdown(btn, loginMsg, 'Resend limited.', secs, original)
+              } else {
+                loginMsg.textContent = error.message
+              }
+            } else {
+              loginMsg.textContent = 'Confirmation resent — check email.'
+              loginMsg.className='text-xs font-semibold p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700'
+            }
+          })
+        }, 50)
+      } else {
+        loginMsg.textContent = msg
+        loginMsg.className='text-xs font-semibold p-3 rounded-xl bg-red-50 border border-red-200 text-red-700'
+        loginMsg.classList.remove('hidden')
+      }
+      btn.disabled=false; btn.textContent=original
     }
   })
 
@@ -174,23 +236,60 @@ export function initLogin(){
     const store_name = String(fd.get('store_name')||'').trim()
     const full_name = String(fd.get('full_name')||'').trim()
     const btn = registerForm.querySelector('button[type="submit"]') as HTMLButtonElement
+    const original = 'Create store & start trial'
     btn.disabled=true; btn.textContent='Creating…'
     registerMsg.classList.add('hidden')
     try{
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email, password,
         options: { data: { store_name, full_name } }
       })
       if(error) throw error
-      registerMsg.textContent='Account created ✓ Check email to confirm, then log in. Store will auto-create with 7-day trial.'
+      // Supabase may not error but need confirmation: data.user && !data.session means email confirmation required
+      if(data?.user && !data.session){
+        registerMsg.innerHTML = `Account created ✓<br>Check <b>${email}</b> (and spam) for confirmation link. After confirming, log in. Store auto-creates with 7-day trial.<br><span class="text-[11px] text-slate-600">Didn't get email? Wait 60s then</span> <button id="resend-signup" class="text-xs font-bold underline">Resend</button>`
+        registerMsg.className='text-xs font-semibold p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 leading-4'
+        registerMsg.classList.remove('hidden')
+        btn.textContent='Check email'
+        setTimeout(()=>{
+          document.getElementById('resend-signup')?.addEventListener('click', async ()=>{
+            const { error } = await supabase.auth.resend({ type:'signup', email })
+            if(error){
+              if(isRateLimit(error)){
+                const secs = parseWaitSeconds(error.message||'')
+                registerMsg.innerHTML = `Resend limited — wait ${secs}s.`
+                registerMsg.className='text-xs font-semibold p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800'
+                startCountdown(btn, registerMsg, 'Resend limited.', secs, original)
+              } else {
+                registerMsg.textContent = error.message
+                registerMsg.className='text-xs font-semibold p-3 rounded-xl bg-red-50 border border-red-200 text-red-700'
+              }
+            } else {
+              registerMsg.textContent = 'Confirmation resent — check email & spam.'
+              registerMsg.className='text-xs font-semibold p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700'
+            }
+          })
+        }, 50)
+        return
+      }
+      registerMsg.textContent='Account created ✓ You can now log in. Store will auto-create with 7-day trial.'
       registerMsg.className='text-xs font-semibold p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700'
       registerMsg.classList.remove('hidden')
-      btn.textContent='Created'
+      btn.textContent='Created — Log in'
+      setTimeout(()=> showLogin(), 1200)
     }catch(err:any){
+      if(isRateLimit(err)){
+        const secs = parseWaitSeconds(err.message||'')
+        registerMsg.innerHTML = `⏳ <b>Email rate limited</b> — Supabase allows ~1 email per 60s.<br>You hit the limit. Please wait <b>${secs}s</b> then try again. Check inbox/spam for the previous email in the meantime.`
+        registerMsg.className='text-xs font-semibold p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 leading-4'
+        registerMsg.classList.remove('hidden')
+        startCountdown(btn, registerMsg, `⏳ Email limited — wait ${secs}s.`, secs, original)
+        return
+      }
       registerMsg.textContent = err.message
       registerMsg.className='text-xs font-semibold p-3 rounded-xl bg-red-50 border border-red-200 text-red-700'
       registerMsg.classList.remove('hidden')
-      btn.disabled=false; btn.textContent='Create store & start trial'
+      btn.disabled=false; btn.textContent=original
     }
   })
 }
