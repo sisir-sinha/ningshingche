@@ -85,12 +85,25 @@ export function initLogin(){
   if(qp.get('redirect')){
     document.getElementById('auth-required-banner')?.classList.remove('hidden')
   }
-  // if Supabase not configured, hint
+  // if Supabase not configured, show demo bypass
   import('../../core/db/supabase').then(m=>{
     if(!m.isSupabaseConfigured){
-      loginMsg.textContent = 'Supabase not configured — set VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY in .env (see .env.example). Demo auth blocked.'
+      loginMsg.innerHTML = `
+        <div class="font-bold">Supabase not configured — Demo mode available</div>
+        <div class="mt-1 text-[11px] leading-4">Set <code class="bg-white border px-1 rounded">VITE_SUPABASE_URL</code> / <code class="bg-white border px-1 rounded">VITE_SUPABASE_ANON_KEY</code> in <code>.env</code> for real auth, or continue offline.</div>
+        <button id="demo-bypass" type="button" class="mt-3 w-full py-2.5 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-black">Continue in Demo (offline) →</button>
+        <div class="mt-1 text-[11px] text-slate-500">GitHub Pages: add secrets in Settings → Secrets → Actions → VITE_SUPABASE_* then re-deploy.</div>
+      `
       loginMsg.className = 'text-xs font-semibold p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800'
       loginMsg.classList.remove('hidden')
+      setTimeout(()=>{
+        document.getElementById('demo-bypass')?.addEventListener('click', ()=>{
+          try { localStorage.setItem('mekholi:demo','1'); localStorage.setItem('mekholi-auth','demo') } catch {}
+          const redirect = new URLSearchParams(location.search).get('redirect')
+          const target = redirect && (redirect.startsWith('/app') || redirect.startsWith('/dashboard')) ? redirect : '/app'
+          location.href = target
+        })
+      }, 50)
     }
   })
 

@@ -47,6 +47,10 @@ export async function isAuthenticated(): Promise<boolean> {
  * Returns true = allow, string = redirect path
  */
 export async function requireAuth(): Promise<true | string> {
+  // Demo bypass: if Supabase not configured but user entered Demo mode, allow
+  if (!isSupabaseConfigured) {
+    try { if (localStorage.getItem('mekholi:demo') === '1') return true } catch {}
+  }
   // If Supabase env missing — still enforce: try session, but show meaningful redirect
   const s = await loadSession()
   if(s) return true
@@ -62,6 +66,15 @@ export async function requireAuth(): Promise<true | string> {
  * If already authed → bounce to /app (or ?redirect target if valid)
  */
 export async function redirectIfAuthed(): Promise<true | string> {
+  // demo already in → bounce to app
+  if (!isSupabaseConfigured) {
+    try { if (localStorage.getItem('mekholi:demo') === '1') {
+      const params = new URLSearchParams(location.search)
+      const r = params.get('redirect')
+      if (r && (r.startsWith('/app') || r.startsWith('/dashboard'))) return r
+      return '/app'
+    }} catch {}
+  }
   const s = await loadSession()
   if(!s) return true
   // respect ?redirect if it's an /app route
