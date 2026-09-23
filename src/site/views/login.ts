@@ -146,6 +146,8 @@ export function initLogin(){
   function parseWaitSeconds(msg: string): number {
     const m = msg.match(/(\d+)\s*seconds?/i) || msg.match(/after\s+(\d+)/i)
     if(m) return parseInt(m[1], 10)
+    // global hourly limit "email rate limit exceeded" has no seconds -> suggest 60s retry but note hourly
+    if(/email rate limit exceeded/i.test(msg)) return 60
     return 60
   }
   function startCountdown(btn: HTMLButtonElement, msgEl: HTMLElement, baseMsg: string, secs: number, originalText: string){
@@ -166,7 +168,11 @@ export function initLogin(){
     tick()
   }
   function isRateLimit(err:any){
-    return err?.code === 'over_email_send_rate_limit' || err?.status === 429 || /over_email_send_rate_limit/i.test(err?.message||'') || /only request this after/i.test(err?.message||'')
+    const msg = (err?.message||'').toLowerCase()
+    return err?.code === 'over_email_send_rate_limit' || err?.status === 429 || /over_email_send_rate_limit/i.test(err?.message||'') || /only request this after/i.test(msg) || /email rate limit exceeded/i.test(msg)
+  }
+  function isGlobalRateLimit(err:any){
+    return /email rate limit exceeded/i.test(err?.message||'') && !/\d+\s*seconds/i.test(err?.message||'')
   }
 
   loginForm.addEventListener('submit', async (e)=>{
@@ -189,11 +195,16 @@ export function initLogin(){
       setTimeout(()=> location.href=target, 500)
     }catch(err:any){
       if(isRateLimit(err)){
+        const global = isGlobalRateLimit(err)
         const secs = parseWaitSeconds(err.message||'')
-        loginMsg.innerHTML = `⏳ Too many requests — Supabase limits email to 1 per ~60s.<br><span class="text-[11px]">You asked too quickly. Please wait <b>${secs}s</b> then try again. For login, email is NOT needed — use your password. If you just registered, check spam and wait.</span>`
+        if(global){
+          loginMsg.innerHTML = `🚫 <b>Hourly email limit reached</b> (free Supabase ~30/hr).<br><span class="text-[11px] leading-4">All confirmation emails paused for ~1 hour. <b>Do NOT spam</b> — check spam, or log in if already registered, or <b>Continue in Demo</b>, or ask admin: <code class="bg-white border px-1 rounded">Supabase → Auth → Rate Limits</code> → increase, or <code>Confirm email OFF</code> for dev.<br>Button re-enables in ${secs}s but limit may persist.</span>`
+        } else {
+          loginMsg.innerHTML = `⏳ Too many requests — Supabase limits email to 1 per ~60s.<br><span class="text-[11px]">You asked too quickly. Please wait <b>${secs}s</b> then try again. For login, email is NOT needed — use your password. If you just registered, check spam and wait.</span>`
+        }
         loginMsg.className='text-xs font-semibold p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 leading-4'
         loginMsg.classList.remove('hidden')
-        startCountdown(btn, loginMsg, `⏳ Email rate limited.`, secs, original)
+        startCountdown(btn, loginMsg, global ? `🚫 Hourly limit — retry in` : `⏳ Email rate limited.`, secs, original)
         return
       }
       // email not confirmed etc
@@ -208,8 +219,9 @@ export function initLogin(){
             if(error){
               if(isRateLimit(error)){
                 const secs = parseWaitSeconds(error.message||'')
-                loginMsg.innerHTML = `Resend limited — wait ${secs}s.`
-                startCountdown(btn, loginMsg, 'Resend limited.', secs, original)
+                const global = isGlobalRateLimit(error)
+                loginMsg.innerHTML = global ? `🚫 Hourly limit — wait ~1h or use Demo.` : `Resend limited — wait ${secs}s.`
+                startCountdown(btn, loginMsg, global ? '🚫 Hourly limit' : 'Resend limited.', secs, original)
               } else {
                 loginMsg.textContent = error.message
               }
@@ -257,9 +269,10 @@ export function initLogin(){
             if(error){
               if(isRateLimit(error)){
                 const secs = parseWaitSeconds(error.message||'')
-                registerMsg.innerHTML = `Resend limited — wait ${secs}s.`
+                const global = isGlobalRateLimit(error)
+                registerMsg.innerHTML = global ? `🚫 Hourly limit — wait ~1h or use Demo.` : `Resend limited — wait ${secs}s.`
                 registerMsg.className='text-xs font-semibold p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800'
-                startCountdown(btn, registerMsg, 'Resend limited.', secs, original)
+                startCountdown(btn, registerMsg, global ? '🚫 Hourly limit' : 'Resend limited.', secs, original)
               } else {
                 registerMsg.textContent = error.message
                 registerMsg.className='text-xs font-semibold p-3 rounded-xl bg-red-50 border border-red-200 text-red-700'
@@ -279,11 +292,16 @@ export function initLogin(){
       setTimeout(()=> showLogin(), 1200)
     }catch(err:any){
       if(isRateLimit(err)){
+        const global = isGlobalRateLimit(err)
         const secs = parseWaitSeconds(err.message||'')
-        registerMsg.innerHTML = `⏳ <b>Email rate limited</b> — Supabase allows ~1 email per 60s.<br>You hit the limit. Please wait <b>${secs}s</b> then try again. Check inbox/spam for the previous email in the meantime.`
+        if(global){
+          registerMsg.innerHTML = `🚫 <b>Hourly email limit reached</b> — free project ~30 emails/hour exceeded.<br><span class="text-[11px]">Supabase blocked all emails for ~1 hour. Options: (1) wait, (2) try different email, (3) <b>Continue in Demo</b>, (4) admin → <code class="bg-white border px-1 rounded">Supabase → Auth → Configuration → Rate Limits</code> → increase, or disable <code>Confirm email</code> for dev.</span>`
+        } else {
+          registerMsg.innerHTML = `⏳ <b>Email rate limited</b> — Supabase allows ~1 email per 60s.<br>You hit the limit. Please wait <b>${secs}s</b> then try again. Check inbox/spam for the previous email in the meantime.`
+        }
         registerMsg.className='text-xs font-semibold p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 leading-4'
         registerMsg.classList.remove('hidden')
-        startCountdown(btn, registerMsg, `⏳ Email limited — wait ${secs}s.`, secs, original)
+        startCountdown(btn, registerMsg, global ? `🚫 Hourly limit — retry in` : `⏳ Email limited — wait ${secs}s.`, secs, original)
         return
       }
       registerMsg.textContent = err.message
