@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from '../../core/db/supabase'
 import { showPrompt } from '../../core/components/modal'
+import { withBase } from '../../core/utils/base'
 
 export function suppliersView(): string {
   return `
@@ -96,7 +97,7 @@ export async function initSuppliers(){
       }
       ;(window as any).toast?.('Paid ৳'+amt); load(search.value)
     }))
-    list.querySelectorAll('[data-sup-purchase]').forEach(b=> b.addEventListener('click', ()=> location.href=`/app/purchases/new?supplier=${(b as HTMLElement).dataset.supPurchase}`))
+    list.querySelectorAll('[data-sup-purchase]').forEach(b=> b.addEventListener('click', ()=> location.href = withBase(`/app/purchases/new?supplier=${(b as HTMLElement).dataset.supPurchase}`)))
   }
 
   function showModal(show:boolean){ document.getElementById('sup-modal')!.classList.toggle('hidden', !show) }

@@ -18,6 +18,7 @@ import { purchaseNewView, initPurchaseNew } from './views/purchase-new'
 import { ordersView, initOrders } from './views/orders'
 import { stockAdjustView, initStockAdjust } from './views/stock-adjust'
 import { appLayout, initLayout } from './components/layout'
+import { withBase, withoutBase } from '../core/utils/base'
 
 initI18n()
 initTheme()
@@ -63,11 +64,11 @@ createRouter([
   { path: '/app/expenses/new', view: withLayout('expenses', expenseNewView, 'Add Expense'), title: 'Mekholi — Add Expense', guard: authGuard },
   { path: '/app/reports', view: withLayout('reports', reportsView, 'Reports'), title: 'Mekholi — Reports', guard: authGuard },
   { path: '/app/settings', view: withLayout('settings', settingsView, 'Settings'), title: 'Mekholi — Settings', guard: authGuard },
-  { path: '/', view: () => { location.href = '/'; return '' } },
+  { path: '/', view: () => { location.href = withBase('/'); return '' } },
 ], mount)
 
 function runInits(){
-  const p = location.pathname
+  const p = withoutBase(location.pathname)
   initLayout()
   if (p === '/app' || p === '/app.html') initHome()
   if (p === '/app/pos') initPos()
@@ -107,8 +108,8 @@ setTimeout(runInits, 0)
 import('../core/db/supabase').then(({ supabase })=>{
   supabase.auth.onAuthStateChange((event)=>{
     if(event === 'SIGNED_OUT'){
-      if(location.pathname.startsWith('/app')){
-        location.href = '/login?redirect=' + encodeURIComponent(location.pathname + location.search)
+      if(withoutBase(location.pathname).startsWith('/app')){
+        location.href = withBase('/login?redirect=') + encodeURIComponent(location.pathname + location.search)
       }
     }
   })

@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from '../../core/db/supabase'
 import { bindImgbbDropZone } from '../../core/services/imgbb'
+import { withBase } from '../../core/utils/base'
 
 export function productNewView(): string {
   return `
@@ -249,14 +250,14 @@ export function initProductNew(){
           try{ await supabase.from('suppliers').insert({ store_id, name: payload.supplier } as any) }catch{}
         }
         msg.textContent='Product saved ✓'; msg.className='text-sm font-semibold text-emerald-600'; msg.classList.remove('hidden')
-        setTimeout(()=> location.href='/app/products', 600)
+        setTimeout(()=> location.href = withBase('/app/products'), 600)
       } else {
         const key='demo-products'
         const arr = JSON.parse(localStorage.getItem(key)||'[]')
         arr.push({ id:'d'+Date.now(), ...payload })
         localStorage.setItem(key, JSON.stringify(arr))
         msg.textContent='Saved (demo) ✓'; msg.className='text-sm font-semibold text-emerald-600'; msg.classList.remove('hidden')
-        setTimeout(()=> location.href='/app/products', 600)
+        setTimeout(()=> location.href = withBase('/app/products'), 600)
       }
     }catch(err:any){
       msg.textContent = err.message || 'Failed'; msg.className='text-sm font-semibold text-red-600'; msg.classList.remove('hidden')

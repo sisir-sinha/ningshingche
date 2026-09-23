@@ -1,5 +1,6 @@
 import { getTheme, toggleTheme } from '../../core/utils/theme'
 import { getOutboxCount } from '../../core/db/idb'
+import { withBase } from '../../core/utils/base'
 
 export type NavKey = 'home'|'pos'|'products'|'khata'|'expenses'|'reports'|'settings'|'purchases'|'suppliers'|'orders'|'stock'
 
@@ -35,7 +36,7 @@ export function appLayout(active: NavKey, content: string, opts?: { title?: stri
       </div>
       <nav class="flex-1 p-3 space-y-1 overflow-auto">
         ${NAV.map(n=> `
-          <a href="${n.href}" data-link class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${active===n.key ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}">
+          <a href="${withBase(n.href)}" data-link class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${active===n.key ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}">
             <span class="material-symbols-rounded text-[20px]">${n.icon}</span> ${n.label}
           </a>
         `).join('')}
@@ -47,7 +48,7 @@ export function appLayout(active: NavKey, content: string, opts?: { title?: stri
           <div class="mt-1 flex items-center gap-1.5 text-xs text-slate-500"><span class="w-2 h-2 bg-emerald-500 rounded-full"></span> Online</div>
         </div>
         <div class="flex gap-2">
-          <a href="/" data-link class="flex-1 flex items-center justify-center gap-1.5 text-xs font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 py-2 rounded-full hover:bg-slate-50 dark:hover:bg-slate-700">Website</a>
+          <a href="${withBase('/')}" data-link class="flex-1 flex items-center justify-center gap-1.5 text-xs font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 py-2 rounded-full hover:bg-slate-50 dark:hover:bg-slate-700">Website</a>
           <button id="app-logout" class="flex-1 text-xs font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 py-2 rounded-full hover:bg-red-50 hover:text-red-600 hover:border-red-200">Log out</button>
         </div>
       </div>
@@ -69,7 +70,7 @@ export function appLayout(active: NavKey, content: string, opts?: { title?: stri
         </div>
         <nav class="flex-1 p-3 space-y-1 overflow-auto">
           ${NAV.map(n=> `
-            <a href="${n.href}" data-link class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold ${active===n.key ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'text-slate-600 dark:text-slate-400'}">
+            <a href="${withBase(n.href)}" data-link class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold ${active===n.key ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'text-slate-600 dark:text-slate-400'}">
               <span class="material-symbols-rounded text-[20px]">${n.icon}</span> ${n.label}
             </a>
           `).join('')}
@@ -92,7 +93,7 @@ export function appLayout(active: NavKey, content: string, opts?: { title?: stri
               <span class="material-symbols-rounded text-[18px]">notifications</span>
               <span id="notif-dot" class="hidden absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
             </button>
-            <a href="/app/pos" data-link class="inline-flex items-center gap-1 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-3 py-1.5 rounded-full text-xs font-bold">New Sale</a>
+            <a href="${withBase('/app/pos')}" data-link class="inline-flex items-center gap-1 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-3 py-1.5 rounded-full text-xs font-bold">New Sale</a>
           </div>
         </div>
       </header>
@@ -111,8 +112,8 @@ export function appLayout(active: NavKey, content: string, opts?: { title?: stri
               </button>
               <div id="notif-dropdown" class="hidden absolute right-0 top-full mt-2 z-50"></div>
             </div>
-            <a href="/app/settings" data-link class="w-9 h-9 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 grid place-items-center hover:bg-slate-50"><span class="material-symbols-rounded text-[18px]">person</span></a>
-            <a href="/app/pos" data-link class="inline-flex items-center gap-1.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-4 py-2 rounded-full text-sm font-bold hover:bg-black dark:hover:bg-slate-100"><span class="material-symbols-rounded text-[18px]">add</span> New Sale</a>
+            <a href="${withBase('/app/settings')}" data-link class="w-9 h-9 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 grid place-items-center hover:bg-slate-50"><span class="material-symbols-rounded text-[18px]">person</span></a>
+            <a href="${withBase('/app/pos')}" data-link class="inline-flex items-center gap-1.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-4 py-2 rounded-full text-sm font-bold hover:bg-black dark:hover:bg-slate-100"><span class="material-symbols-rounded text-[18px]">add</span> New Sale</a>
           </div>
         </div>
       </header>
@@ -173,7 +174,7 @@ export function initLayout(){
     const { supabase } = await import('../../core/db/supabase')
     await supabase.auth.signOut()
     localStorage.removeItem('mekholi-auth')
-    location.href = '/login'
+    location.href = withBase('/login')
   }
   document.getElementById('app-logout')?.addEventListener('click', doLogout)
   document.getElementById('drawer-logout')?.addEventListener('click', doLogout)

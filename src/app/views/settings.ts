@@ -4,6 +4,7 @@ import { getOutboxCount } from '../../core/db/idb'
 import { bindImgbbDropZone } from '../../core/services/imgbb'
 import { showPrompt } from '../../core/components/modal'
 import { getLang, setLang, t } from '../../core/i18n'
+import { withBase } from '../../core/utils/base'
 
 export function settingsView(): string {
   return `
@@ -436,7 +437,7 @@ export async function initSettings(){
   })
   document.getElementById('set-logout')?.addEventListener('click', async ()=>{
     await supabase.auth.signOut()
-    location.href='/login'
+    location.href = withBase('/login')
   })
   document.getElementById('set-export-all')?.addEventListener('click', async ()=>{
     const blob=new Blob(['id,name\n demo'],{type:'text/csv'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='mekholi-backup.csv'; a.click(); URL.revokeObjectURL(url)

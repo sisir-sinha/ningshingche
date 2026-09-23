@@ -1,7 +1,35 @@
 // Vanilla History Router — no hash, History API only
+// Now base-aware for GitHub Pages project site (/Mekholi/) via Vite BASE_URL
 export type ViewContext = { params: Record<string,string>; query: URLSearchParams; path: string }
 export type ViewFn = (ctx: ViewContext) => string | HTMLElement | Promise<string | HTMLElement>
 export type Route = { path: string; view: ViewFn | (() => Promise<{ default: ViewFn }>); guard?: () => boolean | string | Promise<boolean | string>; title?: string }
+
+function getBase(): string {
+  try{
+    const b: any = (import.meta as any)?.env?.BASE_URL
+    if(typeof b === 'string' && b && b !== '/') return b.endsWith('/') ? b : b + '/'
+  }catch{}
+  return '/'
+}
+function withoutBase(path: string): string {
+  const base = getBase()
+  if(base === '/' ) return path
+  // base like /Mekholi/ — strip it if present
+  if(path === base.slice(0,-1)) return '/' // /Mekholi -> /
+  if(path.startsWith(base)) {
+    const stripped = path.slice(base.length - 1) // keep leading /
+    return stripped || '/'
+  }
+  return path
+}
+function withBase(path: string): string {
+  const base = getBase()
+  if(base === '/' ) return path
+  if(path.startsWith(base)) return path
+  // ensure single slash
+  const cleanBase = base.replace(/\/$/, '')
+  return cleanBase + (path.startsWith('/') ? path : '/' + path)
+}
 
 export function createRouter(routes: Route[], mount: HTMLElement) {
   function normalize(path: string){
@@ -12,7 +40,8 @@ export function createRouter(routes: Route[], mount: HTMLElement) {
     return path || '/'
   }
   function match(pathname: string) {
-    const npath = normalize(pathname)
+    const stripped = withoutBase(pathname)
+    const npath = normalize(stripped)
     for (const r of routes) {
       const keys: string[] = []
       const rPath = normalize(r.path)
@@ -32,7 +61,7 @@ export function createRouter(routes: Route[], mount: HTMLElement) {
           <div class="w-20 h-20 rounded-2xl bg-slate-100 flex items-center justify-center text-3xl mb-4">🗺️</div>
           <h1 class="text-2xl font-extrabold text-slate-900">পৃষ্ঠা পাওয়া যায়নি — 404</h1>
           <p class="text-slate-500 mt-2 max-w-md">The page <code class="bg-slate-100 px-2 py-0.5 rounded text-xs">${url.pathname}</code> doesn’t exist.</p>
-          <a href="/" data-link class="mt-6 inline-flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-full font-semibold hover:bg-black transition">← Go Home</a>
+          <a href="${withBase('/')}" data-link class="mt-6 inline-flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-full font-semibold hover:bg-black transition">← Go Home</a>
         </div>`
       return
     }
@@ -66,7 +95,10 @@ export function createRouter(routes: Route[], mount: HTMLElement) {
   }
 
   function navigate(path: string) {
-    history.pushState({}, '', path)
+    // ensure base prefix for pushes (so /login -> /Mekholi/login on Pages)
+    const url = new URL(path, location.origin)
+    const withBasePath = withBase(url.pathname) + url.search + url.hash
+    history.pushState({}, '', withBasePath)
     render()
   }
 

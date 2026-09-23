@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from '../../core/db/supabase'
 import { bindImgbbDropZone } from '../../core/services/imgbb'
+import { withBase } from '../../core/utils/base'
 
 export function expenseNewView(): string {
   return `
@@ -126,13 +127,13 @@ export function initExpenseNew(){
         // also persist receipt_url mapping locally for UI
         if(payload.receipt_url) localStorage.setItem('mekholi:last-receipt', payload.receipt_url)
         msg.textContent='Saved ✓'; msg.className='text-sm font-semibold text-emerald-600'; msg.classList.remove('hidden')
-        setTimeout(()=> location.href='/app/expenses', 600)
+        setTimeout(()=> location.href = withBase('/app/expenses'), 600)
       } else {
         const arr = JSON.parse(localStorage.getItem('demo-expenses')||'[]')
         arr.unshift({ id:'d'+Date.now(), ...payload })
         localStorage.setItem('demo-expenses', JSON.stringify(arr))
         msg.textContent='Saved (demo) ✓'; msg.className='text-sm font-semibold text-emerald-600'; msg.classList.remove('hidden')
-        setTimeout(()=> location.href='/app/expenses', 600)
+        setTimeout(()=> location.href = withBase('/app/expenses'), 600)
       }
     }catch(err:any){
       msg.textContent = err.message; msg.className='text-sm font-semibold text-red-600'; msg.classList.remove('hidden')

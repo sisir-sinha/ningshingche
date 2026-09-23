@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../../core/db/supabase'
+import { withBase } from '../../core/utils/base'
 
 export function purchaseNewView(): string {
   return `
@@ -130,7 +131,7 @@ export async function initPurchaseNew(){
         arr.push({id:'d'+Date.now(), receipt_no:receipt.value, subtotal:total+disc, total_amount:total, paid_amount:paid, suppliers:{name: selSup||'Walk-in'}, created_at:new Date().toISOString()})
         localStorage.setItem('demo-purchases', JSON.stringify(arr))
       }
-      ;(window as any).toast?.('GRN saved — stock +'); location.href='/app/purchases'
+      ;(window as any).toast?.('GRN saved — stock +'); location.href = withBase('/app/purchases')
     }catch(err:any){ (document.getElementById('pur-msg') as HTMLElement).textContent=err.message; (document.getElementById('pur-msg') as HTMLElement).classList.remove('hidden'); btn.disabled=false; btn.textContent='Save GRN → Stock +' }
   })
 }

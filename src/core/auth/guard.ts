@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../db/supabase'
+import { withoutBase } from '../utils/base'
 
 // --- session cache + live sync ---
 let cachedSession: import('@supabase/supabase-js').Session | null | undefined = undefined
@@ -54,10 +55,10 @@ export async function requireAuth(): Promise<true | string> {
   // If Supabase env missing — still enforce: try session, but show meaningful redirect
   const s = await loadSession()
   if(s) return true
-  // not logged → redirect to /login with original target
+  // not logged → redirect to /login with original target (keep base)
   const target = location.pathname + location.search
-  // avoid redirect loop when already on /login
-  if(target.startsWith('/login')) return true
+  // avoid redirect loop when already on /login (base-aware)
+  if(withoutBase(target).startsWith('/login')) return true
   return `/login?redirect=${encodeURIComponent(target)}`
 }
 
@@ -77,11 +78,11 @@ export async function redirectIfAuthed(): Promise<true | string> {
   }
   const s = await loadSession()
   if(!s) return true
-  // respect ?redirect if it's an /app route
+  // respect ?redirect if it's an /app route (base-aware)
   try{
     const params = new URLSearchParams(location.search)
     const r = params.get('redirect')
-    if(r && r.startsWith('/app')) return r
+    if(r && (r.startsWith('/app') || withoutBase(r).startsWith('/app'))) return r
   }catch{}
   return '/app'
 }

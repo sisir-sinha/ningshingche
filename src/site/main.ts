@@ -8,6 +8,7 @@ import pricing from './views/pricing'
 import help from './views/help'
 import loginView, { initLogin } from './views/login'
 import dashboard from './views/dashboard'
+import { withBase, withoutBase } from '../core/utils/base'
 
 initTheme()
 
@@ -19,8 +20,8 @@ const router = createRouter([
   { path: '/help', view: help, title: 'Mekholi Help' },
   { path: '/login', view: loginView, title: 'Mekholi — Log in / Register', guard: () => redirectIfAuthed() },
   { path: '/dashboard', view: dashboard, title: 'Mekholi — Dashboard', guard: () => requireAuth() },
-  { path: '/app', view: () => { location.href = '/app.html'; return '' } },
-  { path: '/app.html', view: () => { location.href = '/app.html'; return '' } },
+  { path: '/app', view: () => { location.href = withBase('/app.html'); return '' } },
+  { path: '/app.html', view: () => { location.href = withBase('/app.html'); return '' } },
 ], mount)
 
 function toast(msg: string, ms = 2200) {
@@ -39,8 +40,8 @@ window.addEventListener('mk:navigate', () => {
   setTimeout(()=> initSite(), 0)
   renderSupabaseStatus('supabase-status')
   mountSupabaseBanner()
-  if(location.pathname==='/login') setTimeout(()=> initLogin(), 50)
-  if(location.pathname==='/dashboard') setTimeout(async ()=>{
+  if(withoutBase(location.pathname)==='/login') setTimeout(()=> initLogin(), 50)
+  if(withoutBase(location.pathname)==='/dashboard') setTimeout(async ()=>{
     const { initDashboard } = await import('./views/dashboard')
     initDashboard()
   }, 80)
@@ -179,17 +180,18 @@ function renderDemo() {
   ;(document.getElementById('demo-pay') as HTMLElement).textContent = `৳${total.toFixed(2)}`
   totals.classList.remove('hidden')
 }
-setTimeout(()=> { initSite(); if(location.pathname==='/login') initLogin(); if(location.pathname==='/dashboard') import('./views/dashboard').then(m=>m.initDashboard()) }, 0)
+setTimeout(()=> { initSite(); if(withoutBase(location.pathname)==='/login') initLogin(); if(withoutBase(location.pathname)==='/dashboard') import('./views/dashboard').then(m=>m.initDashboard()) }, 0)
 
 // global auth sync: if signed out while on /dashboard, bounce to /login
 import('./../core/db/supabase').then(({ supabase })=>{
   supabase.auth.onAuthStateChange((event)=>{
-    if(event==='SIGNED_OUT' && location.pathname==='/dashboard'){
-      location.href = '/login?redirect=' + encodeURIComponent(location.pathname)
+    if(event==='SIGNED_OUT' && withoutBase(location.pathname)==='/dashboard'){
+      location.href = withBase('/login?redirect=') + encodeURIComponent(location.pathname)
     }
-    if(event==='SIGNED_IN' && location.pathname==='/login'){
+    if(event==='SIGNED_IN' && withoutBase(location.pathname)==='/login'){
       const p = new URLSearchParams(location.search).get('redirect')
-      location.href = p && p.startsWith('/app') ? p : '/app'
+      const isApp = p && (p.startsWith('/app') || p.startsWith(withBase('/app')) || p.includes('/app'))
+      location.href = isApp ? p! : withBase('/app')
     }
   })
 })

@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from '../../core/db/supabase'
 import { showConfirm } from '../../core/components/modal'
+import { withBase } from '../../core/utils/base'
 
 export function productsView(): string {
   return `
@@ -131,7 +132,7 @@ export async function initProducts(){
     }))
     list.querySelectorAll('[data-edit]').forEach(b=> b.addEventListener('click', ()=>{
       const id=(b as HTMLElement).dataset.edit!
-      location.href = `/app/products/new?edit=${id}`
+      location.href = withBase(`/app/products/new?edit=${id}`)
     }))
     list.querySelectorAll('[data-barcode]').forEach(b=> b.addEventListener('click', ()=>{
       const r = rows.find((x:any)=> x.id===(b as HTMLElement).dataset.barcode)

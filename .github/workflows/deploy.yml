@@ -30,14 +30,29 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_BASE: /Mekholi/
-      - name: SPA fallback for GitHub Pages
+      - name: SPA fallback for GitHub Pages (MPA site + app)
         run: |
-          cp dist/index.html dist/404.html
-          # keep app.html for /app deep links - also copy to handle direct app.html hits
-          # .nojekyll disables Jekyll filtering (_assets etc)
           touch dist/.nojekyll
+          # Smart 404.html for MPA: detects /app deep links vs site, stores redirect and goes to correct entry
+          cat > dist/404.html << 'EOF'
+          <!doctype html><html><head><meta charset="utf-8"><title>Redirecting…</title><script>
+          (function(){
+            var l=window.location;
+            var path=l.pathname + l.search + l.hash;
+            var isApp = path.indexOf('/app') !== -1;
+            var base = l.pathname.indexOf('/Mekholi/')===0 ? '/Mekholi/' : '/';
+            try{ sessionStorage.setItem('gh:redirect', path); }catch(e){}
+            if(isApp){
+              l.replace(base + 'app.html' + l.search + l.hash);
+            } else {
+              l.replace(base);
+            }
+          })();
+          </script></head><body>Redirecting…</body></html>
+          EOF
           echo "dist contents:" && ls -lah dist
           echo "assets:" && ls -lah dist/assets | head -n 20
+          echo "404.html:" && cat dist/404.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
