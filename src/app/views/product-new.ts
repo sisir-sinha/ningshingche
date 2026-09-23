@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../../core/db/supabase'
+import { bindImgbbDropZone } from '../../core/services/imgbb'
 
 export function productNewView(): string {
   return `
@@ -7,7 +8,7 @@ export function productNewView(): string {
       <a href="/app/products" data-link class="w-9 h-9 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 grid place-items-center hover:bg-slate-50 dark:hover:bg-slate-800 dark:text-white"><span class="material-symbols-rounded">arrow_back</span></a>
       <div>
         <h1 class="text-[18px] font-black dark:text-white">Add Product</h1>
-        <p class="text-xs text-slate-500 dark:text-slate-400">Rich inventory: variant, batch, expiry, supplier, VAT</p>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Rich inventory: variant, batch, expiry, supplier, VAT • imgbb drag-drop</p>
       </div>
     </div>
 
@@ -83,9 +84,34 @@ export function productNewView(): string {
         </label>
       </div>
 
-      <label class="text-sm font-bold dark:text-white">Image URL (optional)
-        <input name="image_url" placeholder="https://..." class="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 outline-none text-sm bg-white dark:bg-slate-800 dark:text-white" />
-      </label>
+      <!-- Image upload — imgbb drag & drop -->
+      <div>
+        <div class="text-sm font-bold dark:text-white flex items-center gap-2"><span class="material-symbols-rounded text-[18px]">image</span> Product image <span class="text-xs font-normal text-slate-500">• drag & drop, paste, or click • imgbb</span></div>
+        <div id="prod-drop" tabindex="0" class="mt-2 group border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-[18px] bg-slate-50 dark:bg-slate-800/50 p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:border-slate-400 dark:hover:border-slate-600 hover:bg-white dark:hover:bg-slate-800 transition outline-none focus:border-slate-900 dark:focus:border-white focus:ring-2 focus:ring-slate-900/10">
+          <div id="prod-drop-icon" class="w-12 h-12 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 grid place-items-center shadow-sm">
+            <span class="material-symbols-rounded text-slate-600 dark:text-slate-300">cloud_upload</span>
+          </div>
+          <div class="mt-2 text-sm font-bold dark:text-white">Drop image here or click to browse</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400">PNG, JPG, WEBP up to 32 MB • auto-uploads to imgbb</div>
+          <div id="prod-progress" class="hidden mt-3 w-full max-w-[320px] h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden"><div id="prod-bar" class="h-full bg-slate-900 dark:bg-white w-0 transition-all"></div></div>
+          <div id="prod-status" class="hidden mt-2 text-xs font-semibold"></div>
+          <input id="prod-file" type="file" accept="image/*" class="hidden" />
+        </div>
+        <div id="prod-preview-wrap" class="hidden mt-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 flex items-center gap-3">
+          <img id="prod-preview" src="" alt="preview" class="w-16 h-16 rounded-xl object-cover border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800" />
+          <div class="flex-1 min-w-0">
+            <div class="text-xs font-bold text-slate-500">Uploaded URL</div>
+            <a id="prod-url-link" href="#" target="_blank" class="text-xs font-mono text-sky-600 dark:text-sky-400 break-all hover:underline">—</a>
+            <div class="mt-1 flex gap-2">
+              <button type="button" id="prod-copy" class="text-xs font-bold px-3 py-1 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900">Copy link</button>
+              <button type="button" id="prod-clear-img" class="text-xs font-bold px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white">Remove</button>
+            </div>
+          </div>
+        </div>
+        <label class="block mt-3 text-xs font-bold text-slate-500 dark:text-slate-400">Image URL (auto-filled, you can also paste)
+          <input name="image_url" id="prod-image-url" placeholder="https://i.ibb.co/..." class="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 outline-none text-sm bg-white dark:bg-slate-800 dark:text-white font-mono" />
+        </label>
+      </div>
 
       <div class="pt-2 flex gap-3">
         <a href="/app/products" data-link class="flex-1 py-3 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-bold text-center hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-white">Cancel</a>
@@ -100,6 +126,76 @@ export function productNewView(): string {
 export function initProductNew(){
   const form = document.getElementById('prod-form') as HTMLFormElement
   const msg = document.getElementById('prod-msg')!
+  const drop = document.getElementById('prod-drop') as HTMLElement
+  const fileInput = document.getElementById('prod-file') as HTMLInputElement
+  const imgUrlInput = document.getElementById('prod-image-url') as HTMLInputElement
+  const previewWrap = document.getElementById('prod-preview-wrap') as HTMLElement
+  const previewImg = document.getElementById('prod-preview') as HTMLImageElement
+  const urlLink = document.getElementById('prod-url-link') as HTMLAnchorElement
+  const statusEl = document.getElementById('prod-status') as HTMLElement
+  const prog = document.getElementById('prod-progress') as HTMLElement
+  const bar = document.getElementById('prod-bar') as HTMLElement
+
+  // live preview when pasting URL manually
+  function showPreview(url: string){
+    if(!url) return
+    previewImg.src = url
+    urlLink.href = url
+    urlLink.textContent = url
+    previewWrap.classList.remove('hidden')
+  }
+  function hidePreview(){
+    previewWrap.classList.add('hidden')
+    previewImg.src = ''
+    urlLink.textContent = '—'
+  }
+
+  imgUrlInput.addEventListener('input', ()=>{
+    const v = imgUrlInput.value.trim()
+    if(/^https?:\/\/.+\.(png|jpe?g|webp|gif|avif|svg)(\?.*)?$/i.test(v) || v.includes('ibb.co')) showPreview(v)
+    else if(!v) hidePreview()
+  })
+
+  document.getElementById('prod-copy')?.addEventListener('click', async ()=>{
+    const v = imgUrlInput.value.trim(); if(!v) return
+    await navigator.clipboard.writeText(v).catch(()=>{})
+    ;(window as any).toast?.('Copied ✓')
+  })
+  document.getElementById('prod-clear-img')?.addEventListener('click', ()=>{
+    imgUrlInput.value=''; hidePreview(); statusEl.classList.add('hidden'); prog.classList.add('hidden')
+  })
+
+  bindImgbbDropZone({
+    zone: drop,
+    input: fileInput,
+    onUrl: (url)=>{
+      imgUrlInput.value = url
+      showPreview(url)
+    },
+    onProgress: (p, m)=>{
+      if(p==='uploading'){
+        statusEl.textContent = `Uploading ${m||''}…`
+        statusEl.className = 'mt-2 text-xs font-bold text-slate-600 dark:text-slate-300'
+        statusEl.classList.remove('hidden')
+        prog.classList.remove('hidden'); bar.style.width='55%'
+        // animate to 90% fake
+        setTimeout(()=> bar.style.width='90%', 400)
+      } else if(p==='done'){
+        bar.style.width='100%'
+        statusEl.textContent = 'Uploaded ✓'
+        statusEl.className = 'mt-2 text-xs font-bold text-emerald-600'
+        setTimeout(()=>{ prog.classList.add('hidden'); bar.style.width='0%' }, 900)
+      } else if(p==='error'){
+        bar.style.width='0%'; prog.classList.add('hidden')
+        statusEl.textContent = m || 'Upload failed'
+        statusEl.className = 'mt-2 text-xs font-bold text-red-600'
+        statusEl.classList.remove('hidden')
+      } else {
+        prog.classList.add('hidden')
+      }
+    }
+  })
+
   form.addEventListener('submit', async (e)=>{
     e.preventDefault()
     const fd = new FormData(form)
@@ -131,7 +227,6 @@ export function initProductNew(){
         const { data: prof } = await supabase.from('profiles').select('store_id').eq('id', user.id).maybeSingle() as any
         const store_id = prof?.store_id
         if(!store_id) throw new Error('No store found for user')
-        // map to actual columns (batch/supplier/expiry stored as meta json in variant field if column missing, but schema has variant/batch not yet — we store in variant + note)
         const dbPayload: any = {
           store_id,
           name: payload.name,
@@ -150,7 +245,6 @@ export function initProductNew(){
         }
         const { error } = await supabase.from('products').insert(dbPayload as any)
         if(error) throw error
-        // if supplier provided, upsert supplier
         if(payload.supplier){
           try{ await supabase.from('suppliers').insert({ store_id, name: payload.supplier } as any) }catch{}
         }

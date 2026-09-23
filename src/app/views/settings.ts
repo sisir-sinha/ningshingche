@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from '../../core/db/supabase'
 import { getTheme } from '../../core/utils/theme'
 import { getOutboxCount } from '../../core/db/idb'
+import { bindImgbbDropZone } from '../../core/services/imgbb'
 
 export function settingsView(): string {
   return `
@@ -8,7 +9,10 @@ export function settingsView(): string {
     <!-- Profile -->
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[18px] p-5">
       <div class="flex items-center gap-3">
-        <div class="w-12 h-12 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 grid place-items-center font-black text-lg">ME</div>
+        <div class="relative">
+          <img id="prof-avatar" src="" alt="" class="hidden w-12 h-12 rounded-full object-cover border border-slate-200 dark:border-slate-700" />
+          <div id="prof-avatar-fallback" class="w-12 h-12 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 grid place-items-center font-black text-lg">ME</div>
+        </div>
         <div class="min-w-0 flex-1">
           <div id="set-name" class="font-black dark:text-white truncate">Loading…</div>
           <div id="set-email" class="text-xs text-slate-500 truncate">—</div>
@@ -20,6 +24,18 @@ export function settingsView(): string {
         </div>
         <button id="set-logout" class="shrink-0 px-4 py-2 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-bold hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:text-white">Log out</button>
       </div>
+      <!-- Profile avatar upload — imgbb drag & drop -->
+      <div id="prof-drop" class="mt-4 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl bg-slate-50 dark:bg-slate-800/50 p-3 flex items-center gap-3 cursor-pointer hover:border-slate-400 dark:hover:border-slate-600 hover:bg-white dark:hover:bg-slate-800 transition">
+        <div class="w-9 h-9 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 grid place-items-center shrink-0"><span class="material-symbols-rounded text-[18px]">face</span></div>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-bold dark:text-white">Profile photo — drag & drop or click</div>
+          <div class="text-xs text-slate-500">Auto-uploads to imgbb • URL saved to profile</div>
+          <div id="prof-status" class="hidden text-xs font-semibold mt-1"></div>
+        </div>
+        <span class="text-xs font-bold px-3 py-1 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900">Browse</span>
+        <input id="prof-file" type="file" accept="image/*" class="hidden" />
+      </div>
+      <input type="hidden" id="prof-avatar-url" />
       <div class="mt-4 grid sm:grid-cols-2 gap-3">
         <label class="text-sm font-bold dark:text-slate-200">Full name
           <input id="set-fullname" class="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none text-sm dark:text-white" placeholder="Your name" />
@@ -65,6 +81,20 @@ export function settingsView(): string {
           <input id="store-area" placeholder="e.g., 101" class="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm dark:text-white" />
         </label>
       </div>
+      <!-- Store logo — imgbb drag & drop -->
+      <div id="store-logo-drop" class="mt-4 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl bg-slate-50 dark:bg-slate-800/50 p-3 flex items-center gap-3 cursor-pointer hover:border-slate-400 dark:hover:border-slate-600 hover:bg-white dark:hover:bg-slate-800 transition">
+        <img id="store-logo-preview" src="" alt="" class="hidden w-12 h-12 rounded-xl object-cover border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900" />
+        <div id="store-logo-ph" class="w-12 h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 grid place-items-center"><span class="material-symbols-rounded">storefront</span></div>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-bold dark:text-white">Store logo / banner — drag & drop or click</div>
+          <div class="text-xs text-slate-500">PNG/JPG • imgbb • shows on receipt</div>
+          <div id="store-logo-status" class="hidden text-xs font-semibold mt-1"></div>
+          <a id="store-logo-link" href="#" target="_blank" class="hidden text-xs font-mono text-sky-600 dark:text-sky-400 break-all">—</a>
+        </div>
+        <span class="text-xs font-bold px-3 py-1 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 shrink-0">Browse</span>
+        <input id="store-logo-file" type="file" accept="image/*" class="hidden" />
+      </div>
+      <input type="hidden" id="store-logo-url" />
       <div class="mt-4 flex gap-2">
         <button id="store-save" class="px-5 py-2.5 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-black">Save store</button>
         <button id="store-preview-receipt" class="px-5 py-2.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-bold dark:text-white">Preview receipt</button>
@@ -172,6 +202,57 @@ export async function initSettings(){
   const sVat = document.getElementById('store-vat') as HTMLSelectElement
   const sVatRate = document.getElementById('store-vat-rate') as HTMLSelectElement
   const sArea = document.getElementById('store-area') as HTMLInputElement
+
+  // imgbb bindings — profile + store logo (drag & drop, click, paste)
+  {
+    const profDrop = document.getElementById('prof-drop') as HTMLElement
+    const profFile = document.getElementById('prof-file') as HTMLInputElement
+    const profUrl = document.getElementById('prof-avatar-url') as HTMLInputElement
+    const profImg = document.getElementById('prof-avatar') as HTMLImageElement
+    const profFallback = document.getElementById('prof-avatar-fallback') as HTMLElement
+    const profStatus = document.getElementById('prof-status') as HTMLElement
+    const storedProf = localStorage.getItem('mekholi:prof-avatar') || (profUrl?.value||'')
+    if(storedProf){ profUrl.value = storedProf; profImg.src=storedProf; profImg.classList.remove('hidden'); profFallback.classList.add('hidden') }
+    if(profDrop && profFile){
+      bindImgbbDropZone({
+        zone: profDrop, input: profFile,
+        onUrl: (url)=>{
+          profUrl.value = url; localStorage.setItem('mekholi:prof-avatar', url)
+          profImg.src = url; profImg.classList.remove('hidden'); profFallback.classList.add('hidden')
+          profStatus.textContent = url; profStatus.className='text-xs font-mono text-emerald-600 break-all'; profStatus.classList.remove('hidden')
+        },
+        onProgress: (p,m)=>{
+          if(p==='uploading'){ profStatus.textContent='Uploading…'; profStatus.className='text-xs font-bold text-slate-600'; profStatus.classList.remove('hidden') }
+          else if(p==='done'){ profStatus.textContent='Uploaded ✓'; profStatus.className='text-xs font-bold text-emerald-600'; }
+          else if(p==='error'){ profStatus.textContent=m||'Upload failed'; profStatus.className='text-xs font-bold text-red-600'; profStatus.classList.remove('hidden') }
+        }
+      })
+    }
+    const logoDrop = document.getElementById('store-logo-drop') as HTMLElement
+    const logoFile = document.getElementById('store-logo-file') as HTMLInputElement
+    const logoUrl = document.getElementById('store-logo-url') as HTMLInputElement
+    const logoPrev = document.getElementById('store-logo-preview') as HTMLImageElement
+    const logoPh = document.getElementById('store-logo-ph') as HTMLElement
+    const logoStatus = document.getElementById('store-logo-status') as HTMLElement
+    const logoLink = document.getElementById('store-logo-link') as HTMLAnchorElement
+    const storedLogo = localStorage.getItem('mekholi:store-logo') || (logoUrl?.value||'')
+    if(storedLogo){ logoUrl.value=storedLogo; logoPrev.src=storedLogo; logoPrev.classList.remove('hidden'); logoPh.classList.add('hidden'); logoLink.href=storedLogo; logoLink.textContent=storedLogo; logoLink.classList.remove('hidden') }
+    if(logoDrop && logoFile){
+      bindImgbbDropZone({
+        zone: logoDrop, input: logoFile,
+        onUrl: (url)=>{
+          logoUrl.value=url; localStorage.setItem('mekholi:store-logo', url)
+          logoPrev.src=url; logoPrev.classList.remove('hidden'); logoPh.classList.add('hidden')
+          logoLink.href=url; logoLink.textContent=url; logoLink.classList.remove('hidden')
+          logoStatus.textContent='Uploaded ✓ — shows on receipt'; logoStatus.className='text-xs font-bold text-emerald-600'; logoStatus.classList.remove('hidden')
+        },
+        onProgress: (p,m)=>{
+          if(p==='uploading'){ logoStatus.textContent='Uploading…'; logoStatus.className='text-xs font-bold text-slate-600'; logoStatus.classList.remove('hidden') }
+          else if(p==='error'){ logoStatus.textContent=m||'Upload failed'; logoStatus.className='text-xs font-bold text-red-600'; logoStatus.classList.remove('hidden') }
+        }
+      })
+    }
+  }
 
   document.getElementById('pref-theme')?.addEventListener('click', async ()=>{
     const { toggleTheme, getTheme } = await import('../../core/utils/theme')
