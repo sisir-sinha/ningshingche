@@ -1,7 +1,7 @@
 import { getTheme, toggleTheme } from '../../core/utils/theme'
 import { getOutboxCount } from '../../core/db/idb'
 
-export type NavKey = 'home'|'pos'|'products'|'khata'|'expenses'|'reports'|'settings'|'purchases'|'suppliers'
+export type NavKey = 'home'|'pos'|'products'|'khata'|'expenses'|'reports'|'settings'|'purchases'|'suppliers'|'orders'|'stock'
 
 const NAV: { key: NavKey; label: string; href: string; icon: string }[] = [
   { key:'home', label:'Home', href:'/app.html', icon:'home' },
@@ -9,6 +9,8 @@ const NAV: { key: NavKey; label: string; href: string; icon: string }[] = [
   { key:'products', label:'Products', href:'/app/products', icon:'inventory_2' },
   { key:'purchases', label:'Purchases', href:'/app/purchases', icon:'local_shipping' },
   { key:'suppliers', label:'Suppliers', href:'/app/suppliers', icon:'storefront' },
+  { key:'orders', label:'Orders', href:'/app/orders', icon:'shopping_bag' },
+  { key:'stock', label:'Stock Adjust', href:'/app/stock', icon:'warehouse' },
   { key:'khata', label:'Khata', href:'/app/khata', icon:'book' },
   { key:'expenses', label:'Expenses', href:'/app/expenses', icon:'receipt_long' },
   { key:'reports', label:'Reports', href:'/app/reports', icon:'bar_chart' },

@@ -14,6 +14,8 @@ import { settingsView, initSettings } from './views/settings'
 import { suppliersView, initSuppliers } from './views/suppliers'
 import { purchasesView, initPurchases } from './views/purchases'
 import { purchaseNewView, initPurchaseNew } from './views/purchase-new'
+import { ordersView, initOrders } from './views/orders'
+import { stockAdjustView, initStockAdjust } from './views/stock-adjust'
 import { appLayout, initLayout } from './components/layout'
 
 initTheme()
@@ -38,6 +40,8 @@ createRouter([
   { path: '/app/purchases', view: withLayout('purchases', purchasesView, 'Purchases'), title: 'Mekholi — Purchases', guard: authGuard },
   { path: '/app/purchases/new', view: withLayout('purchases', purchaseNewView, 'New GRN'), title: 'Mekholi — New GRN', guard: authGuard },
   { path: '/app/suppliers', view: withLayout('suppliers', suppliersView, 'Suppliers'), title: 'Mekholi — Suppliers', guard: authGuard },
+  { path: '/app/orders', view: withLayout('orders', ordersView, 'Orders'), title: 'Mekholi — Orders', guard: authGuard },
+  { path: '/app/stock', view: withLayout('stock', stockAdjustView, 'Stock Adjust'), title: 'Mekholi — Stock Adjust', guard: authGuard },
   { path: '/app/khata', view: withLayout('khata', khataView, 'Khata'), title: 'Mekholi — Khata', guard: authGuard },
   { path: '/app/expenses', view: withLayout('expenses', expensesView, 'Expenses'), title: 'Mekholi — Expenses', guard: authGuard },
   { path: '/app/expenses/new', view: withLayout('expenses', expenseNewView, 'Add Expense'), title: 'Mekholi — Add Expense', guard: authGuard },
@@ -56,6 +60,8 @@ function runInits(){
   if (p === '/app/purchases') initPurchases()
   if (p === '/app/purchases/new') initPurchaseNew()
   if (p === '/app/suppliers') initSuppliers()
+  if (p === '/app/orders') initOrders()
+  if (p === '/app/stock') initStockAdjust()
   if (p === '/app/khata') initKhata()
   if (p === '/app/expenses') initExpenses()
   if (p === '/app/expenses/new') initExpenseNew()
