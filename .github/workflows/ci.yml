@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # Strict TypeScript, no `any` (spec §59).
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Style plus the glob-level import boundaries.
+      - name: Lint
+        run: npm run lint
+
+      # Resolves every import to a real path and enforces the layer rules.
+      # This is the check behind "adding a plugin requires zero edits under
+      # src/features/" — a plugin that cannot reach src/features/ cannot fork
+      # the sales engine (spec §51).
+      - name: Architecture boundaries
+        run: npm run check:boundaries
+
+      # Kernel unit tests: event bus, plugin registry, permission matching.
+      - name: Unit tests
+        run: npm run test
+
+      # Applies every migration and seed to a real Postgres (WASM) and runs the
+      # structural, behavioral and end-to-end assertions, including a full
+      # complete_sale against the seeded organization.
+      - name: Validate migrations
+        run: npm run validate:migrations
+
+      - name: Build
+        run: npm run build

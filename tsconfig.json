@@ -1,15 +1,25 @@
 {
   "compilerOptions": {
+<<<<<<< HEAD
     "target": "ES2020",
     "useDefineForClassFields": true,
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
+=======
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "skipLibCheck": true,
+
+>>>>>>> 30d95614fd203d94c586b0dd2b3d52ad7b55a0e1
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
+<<<<<<< HEAD
     "strict": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
@@ -17,4 +27,22 @@
     "types": ["vite/client"]
   },
   "include": ["src", "vite.config.ts"]
+=======
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "exactOptionalPropertyTypes": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  },
+  "include": ["src", "data", "tools", "vite.config.ts", "tailwind.config.ts"]
+>>>>>>> 30d95614fd203d94c586b0dd2b3d52ad7b55a0e1
 }

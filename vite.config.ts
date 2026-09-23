@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { defineConfig } from 'vite'
 declare const process: any
 
@@ -52,10 +53,33 @@ export default defineConfig({
     allowedHosts: true,
     cors: true,
     headers: { 'X-Frame-Options': 'ALLOWALL' },
+=======
+import { fileURLToPath, URL } from 'node:url'
+import { defineConfig } from 'vite'
+
+// `base: './'` so the built bundle works from any sub-path (GitHub Pages,
+// a CDN prefix, or an Android WebView asset root) without a rebuild.
+export default defineConfig({
+  base: './',
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
+  },
+  server: {
+    host: '0.0.0.0',
+    port: 5173,
+    strictPort: false,
+    // Dev server only, never shipped. Sandboxed preview environments proxy
+    // through a generated hostname, and Vite's host check rejects unknown
+    // hosts by default. There is no production surface here to protect.
+    allowedHosts: true,
+>>>>>>> 30d95614fd203d94c586b0dd2b3d52ad7b55a0e1
   },
   preview: {
     host: '0.0.0.0',
     port: 4173,
+<<<<<<< HEAD
     allowedHosts: true as any,
   },
   build: {
@@ -64,6 +88,20 @@ export default defineConfig({
       input: {
         main: 'index.html',
         app: 'app.html',
+=======
+    allowedHosts: true,
+  },
+  build: {
+    target: 'es2022',
+    sourcemap: true,
+    rollupOptions: {
+      output: {
+        // Keep vendor code in its own chunk so app chunks stay small and
+        // cache-friendly across deploys.
+        manualChunks: {
+          supabase: ['@supabase/supabase-js'],
+        },
+>>>>>>> 30d95614fd203d94c586b0dd2b3d52ad7b55a0e1
       },
     },
   },

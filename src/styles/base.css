@@ -1,0 +1,54 @@
+@import './tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body {
+    @apply h-full;
+  }
+
+  body {
+    @apply bg-surface text-content;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'tnum';
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Tabular figures everywhere: a POS full of proportionally-spaced numbers
+     is unreadable at a glance. */
+  table,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-surface;
+  }
+
+  /* Material Symbols must not be selectable or they get copied with prices. */
+  .material-symbols-rounded {
+    user-select: none;
+    font-variation-settings:
+      'FILL' 0,
+      'wght' 400,
+      'GRAD' 0,
+      'opsz' 24;
+  }
+}
+
+@layer utilities {
+  /* Hide scrollbars where the affordance is drag, not scroll. */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

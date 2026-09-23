@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 node_modules
 dist
 .env
@@ -8,3 +9,15 @@ dist
 
 # Git Auto Commit Generator learned data
 .git-auto-commit/
+=======
+node_modules/
+dist/
+build/
+out/
+.env
+.env.local
+*.log
+.DS_Store
+.vscode/
+.idea/
+>>>>>>> 30d95614fd203d94c586b0dd2b3d52ad7b55a0e1

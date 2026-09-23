@@ -1,0 +1,103 @@
+/**
+ * Semantic design tokens (spec §38).
+ *
+ * Colours are HSL triplets consumed by tailwind.config.ts. Components use the
+ * semantic name (`bg-primary`, `text-content-muted`) and never a raw value, so
+ * dark mode and re-theming are a variable swap rather than a find-and-replace
+ * across the codebase.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Brand */
+  --color-primary: 172 66% 28%;
+  --color-primary-foreground: 0 0% 100%;
+
+  --color-secondary: 220 14% 96%;
+  --color-secondary-foreground: 222 47% 11%;
+
+  /* Feedback */
+  --color-success: 152 69% 31%;
+  --color-success-foreground: 0 0% 100%;
+
+  --color-warning: 36 92% 44%;
+  --color-warning-foreground: 0 0% 100%;
+
+  --color-danger: 0 72% 48%;
+  --color-danger-foreground: 0 0% 100%;
+
+  --color-info: 210 100% 42%;
+  --color-info-foreground: 0 0% 100%;
+
+  /* Surfaces */
+  --color-surface: 0 0% 100%;
+  --color-surface-muted: 220 20% 97%;
+  --color-surface-raised: 0 0% 100%;
+
+  /* Lines and controls */
+  --color-border: 220 13% 90%;
+  --color-input: 220 13% 88%;
+  --color-ring: 172 66% 28%;
+
+  /* Text */
+  --color-content: 222 47% 11%;
+  --color-content-muted: 215 16% 44%;
+  --color-content-subtle: 215 16% 62%;
+
+  /* Elevation */
+  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.06);
+  --shadow-md: 0 4px 12px -2px rgb(15 23 42 / 0.10);
+  --shadow-lg: 0 12px 32px -8px rgb(15 23 42 / 0.16);
+
+  /* Density — a POS is used for hours at a time; these keep the till fast. */
+  --control-height-sm: 1.75rem;
+  --control-height-md: 2.25rem;
+  --control-height-lg: 2.75rem;
+  --tap-target: 2.75rem;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --color-primary: 172 60% 44%;
+  --color-primary-foreground: 222 47% 8%;
+
+  --color-secondary: 217 33% 20%;
+  --color-secondary-foreground: 210 40% 96%;
+
+  --color-success: 152 58% 44%;
+  --color-success-foreground: 222 47% 8%;
+
+  --color-warning: 38 92% 52%;
+  --color-warning-foreground: 222 47% 8%;
+
+  --color-danger: 0 72% 56%;
+  --color-danger-foreground: 0 0% 100%;
+
+  --color-info: 210 100% 56%;
+  --color-info-foreground: 222 47% 8%;
+
+  --color-surface: 222 47% 8%;
+  --color-surface-muted: 222 40% 12%;
+  --color-surface-raised: 217 33% 16%;
+
+  --color-border: 217 33% 22%;
+  --color-input: 217 33% 26%;
+  --color-ring: 172 60% 44%;
+
+  --color-content: 210 40% 96%;
+  --color-content-muted: 215 20% 68%;
+  --color-content-subtle: 215 16% 52%;
+
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+  --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 12px 32px -8px rgb(0 0 0 / 0.6);
+}
+
+/* Respect the OS setting until the user picks explicitly. */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not(.dark) {
+    color-scheme: dark;
+  }
+}

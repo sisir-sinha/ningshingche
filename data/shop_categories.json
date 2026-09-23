@@ -1,0 +1,579 @@
+{
+  "version": 1,
+  "note": "Authored 2026-09-23 — the original shop_categories.json was never supplied. This is data, not code: replace or extend it without touching the application. Shape is specified in docs/08-plugin-matrix.md §1.",
+  "categories": [
+    {
+      "id": "food-grocery",
+      "name": "Food & Grocery",
+      "name_bn": "খাদ্য ও মুদি",
+      "parentId": null,
+      "icon": "shopping_basket",
+      "children": [
+        {
+          "id": "grocery",
+          "name": "Grocery Store",
+          "name_bn": "মুদি দোকান",
+          "parentId": "food-grocery",
+          "icon": "local_grocery_store",
+          "recommends": {
+            "plugins": ["batch-expiry", "weight-scale", "promotions", "stocktake"],
+            "suggested": ["variants", "loyalty", "wholesale", "production"],
+            "promotedProductFields": ["expiry_date", "batch_no", "shelf_location"],
+            "units": ["Each", "Kilogram", "Gram", "Litre", "Dozen", "Pack"],
+            "categories": ["Rice & Grains", "Oil & Ghee", "Spices", "Snacks", "Beverages", "Dairy", "Household", "Personal Care"],
+            "paymentMethods": ["Cash", "Mobile Banking", "Card"],
+            "taxProfile": "vat-standard",
+            "posLayout": "grid-with-quick-keys"
+          }
+        },
+        {
+          "id": "supermarket",
+          "name": "Supermarket",
+          "name_bn": "সুপারমার্কেট",
+          "parentId": "food-grocery",
+          "icon": "storefront",
+          "recommends": {
+            "plugins": ["batch-expiry", "weight-scale", "promotions", "stocktake", "loyalty", "wholesale"],
+            "suggested": ["variants", "production", "gift-cards"],
+            "promotedProductFields": ["expiry_date", "batch_no", "shelf_location"],
+            "units": ["Each", "Kilogram", "Gram", "Litre", "Dozen", "Pack", "Carton"],
+            "categories": ["Produce", "Meat & Fish", "Dairy", "Bakery", "Frozen", "Beverages", "Snacks", "Household", "Personal Care"],
+            "paymentMethods": ["Cash", "Mobile Banking", "Card", "Bank Transfer"],
+            "taxProfile": "vat-standard",
+            "posLayout": "grid-with-quick-keys"
+          }
+        },
+        {
+          "id": "convenience",
+          "name": "Convenience Store",
+          "name_bn": "কনভিনিয়েন্স স্টোর",
+          "parentId": "food-grocery",
+          "icon": "convenience_store",
+          "recommends": {
+            "plugins": ["promotions", "loyalty"],
+            "suggested": ["batch-expiry", "gift-cards"],
+            "promotedProductFields": ["expiry_date"],
+            "units": ["Each", "Pack"],
+            "categories": ["Snacks", "Beverages", "Tobacco", "Household", "Personal Care"],
+            "paymentMethods": ["Cash", "Mobile Banking"],
+            "taxProfile": "vat-standard",
+            "posLayout": "grid-with-quick-keys"
+          }
+        },
+        {
+          "id": "bakery",
+          "name": "Bakery",
+          "name_bn": "বেকারি",
+          "parentId": "food-grocery",
+          "icon": "bakery_dining",
+          "recommends": {
+            "plugins": ["batch-expiry", "weight-scale", "production", "promotions", "loyalty", "stocktake"],
+            "suggested": ["variants"],
+            "promotedProductFields": ["expiry_date", "produced_at", "best_before_hours"],
+            "units": ["Each", "Kilogram", "Gram", "Dozen"],
+            "categories": ["Bread", "Cakes", "Pastries", "Biscuits", "Ingredients"],
+            "paymentMethods": ["Cash", "Mobile Banking", "Card"],
+            "taxProfile": "vat-standard",
+            "posLayout": "grid"
+          }
+        },
+        {
+          "id": "butcher",
+          "name": "Butcher Shop",
+          "name_bn": "কসাইখানা",
+          "parentId": "food-grocery",
+          "icon": "set_meal",
+          "recommends": {
+            "plugins": ["batch-expiry", "weight-scale", "production", "stocktake"],
+            "suggested": ["wholesale"],
+            "promotedProductFields": ["expiry_date", "cut", "origin", "grade"],
+            "units": ["Kilogram", "Gram", "Each"],
+            "categories": ["Beef", "Mutton", "Chicken", "Fish", "Offal"],
+            "paymentMethods": ["Cash", "Mobile Banking"],
+            "taxProfile": "vat-standard",
+            "posLayout": "list"
+          }
+        }
+      ]
+    },
+    {
+      "id": "fashion",
+      "name": "Fashion & Apparel",
+      "name_bn": "ফ্যাশন ও পোশাক",
+      "parentId": null,
+      "icon": "checkroom",
+      "children": [
+        {
+          "id": "clothing",
+          "name": "Clothing Store",
+          "name_bn": "কাপড়ের দোকান",
+          "parentId": "fashion",
+          "icon": "checkroom",
+          "recommends": {
+            "plugins": ["variants", "loyalty", "promotions", "stocktake"],
+            "suggested": ["wholesale", "gift-cards"],
+            "promotedProductFields": ["size", "colour", "material", "season"],
+            "units": ["Each", "Pair", "Set"],
+            "categories": ["Men", "Women", "Kids", "Traditional", "Accessories"],
+            "paymentMethods": ["Cash", "Mobile Banking", "Card"],
+            "taxProfile": "vat-standard",
+            "posLayout": "grid"
+          }
+        },
+        {
+          "id": "shoe",
+          "name": "Shoe Store",
+          "name_bn": "জুতার দোকান",
+          "parentId": "fashion",
+          "icon": "ice_skating",
+          "recommends": {
+            "plugins": ["variants", "loyalty", "promotions", "stocktake"],
+            "suggested": ["wholesale"],
+            "promotedProductFields": ["size", "width", "colour"],
+            "units": ["Each", "Pair"],
+            "categories": ["Men", "Women", "Kids", "Sports", "Formal", "Casual"],
+            "paymentMethods": ["Cash", "Mobile Banking", "Card"],
+            "taxProfile": "vat-standard",
+            "posLayout": "grid"
+          }
+        },
+        {
+          "id": "jewelry",
+          "name": "Jewelry Store",
+          "name_bn": "স্বর্ণালংকারের দোকান",
+          "parentId": "fashion",
+          "icon": "diamond",
+          "recommends": {
+            "plugins": ["serial-numbers", "warranty", "weight-scale", "loyalty", "stocktake"],
+            "suggested": ["variants", "production"],
+            "promotedProductFields": ["carat", "metal", "metal_weight_g", "certificate_no"],
+            "units": ["Each", "Gram"],
+            "categories": ["Gold", "Silver", "Diamond", "Bridal", "Everyday"],
+            "paymentMethods": ["Cash", "Card", "Bank Transfer"],
+            "taxProfile": "vat-standard",
+            "posLayout": "list"
+          }
+        },
+        {
+          "id": "luggage",
+          "name": "Luggage Store",
+          "name_bn": "লাগেজ দোকান",
+          "parentId": "fashion",
+          "icon": "luggage",
+          "recommends": {
+            "plugins": ["variants", "warranty", "promotions", "stocktake"],
+            "suggested": [],
+            "promotedProductFields": ["dimensions", "capacity_l", "material"],
+            "units": ["Each", "Set"],
+            "categories": ["Suitcases", "Backpacks", "Travel Bags", "Accessories"],
+            "paymentMethods": ["Cash", "Mobile Banking", "Card"],
+            "taxProfile": "vat-standard",
+            "posLayout": "grid"
+          }
+        }
+      ]
+    },
+    {
+      "id": "health-beauty",
+      "name": "Health & Beauty",
+      "name_bn": "স্বাস্থ্য ও সৌন্দর্য",
+      "parentId": null,
+      "icon": "medical_services",
+      "children": [
+        {
+          "id": "pharmacy",
+          "name": "Pharmacy",
+          "name_bn": "ফার্মেসি",
+          "parentId": "health-beauty",
+          "icon": "local_pharmacy",
+          "recommends": {
+            "plugins": ["batch-expiry", "loyalty", "stocktake"],
+            "suggested": ["variants", "wholesale", "notifications"],
+            "promotedProductFields": ["expiry_date", "batch_no", "salt_composition", "strength", "requires_prescription"],
+            "units": ["Each", "Strip", "Bottle", "Box"],
+            "categories": ["Medicines", "Surgical", "Baby Care", "Personal Care", "Supplements"],
+            "paymentMethods": ["Cash", "Mobile Banking", "Card"],
+            "taxProfile": "vat-exempt-medicine",
+            "posLayout": "list"
+          }
+        },
+        {
+          "id": "cosmetics",
+          "name": "Cosmetics Store",
+          "name_bn": "প্রসাধনী দোকান",
+          "parentId": "health-beauty",
+          "icon": "face_retouching_natural",
+          "recommends": {
+            "plugins": ["variants", "batch-expiry", "loyalty", "promotions", "stocktake"],
+            "suggested": ["wholesale", "gift-cards"],
+            "promotedProductFields": ["shade", "volume_ml", "expiry_date"],
+            "units": ["Each", "Millilitre", "Set"],
+            "categories": ["Skincare", "Makeup", "Haircare", "Fragrance", "Tools"],
+            "paymentMethods": ["Cash", "Mobile Banking", "Card"],
+            "taxProfile": "vat-standard",
+            "posLayout": "grid"
+          }
+        }
+      ]
+    },
+    {
+      "id": "electronics",
+      "name": "Electronics & Technology",
+      "name_bn": "ইলেকট্রনিক্স ও প্রযুক্তি",
+      "parentId": null,
+      "icon": "devices",
+      "children": [
+        {
+          "id": "electronics-store",
+          "name": "Electronics Store",
+          "name_bn": "ইলেকট্রনিক্স দোকান",
+          "parentId": "electronics",
+          "icon": "tv",
+          "recommends": {
+            "plugins": ["serial-numbers", "warranty", "stocktake", "promotions"],
+            "suggested": ["variants", "wholesale", "repair"],
+            "promotedProductFields": ["model_no", "warranty_months"],
+            "units": ["Each", "Pair", "Set"],
+            "categories": ["TV & Display", "Audio", "Home Appliance", "Accessories", "Cables"],
+            "paymentMethods": ["Cash", "Mobile Banking", "Card", "Bank Transfer", "Credit"],
+            "taxProfile": "vat-standard",
+            "posLayout": "grid"
+          }
+        },
+        {
+          "id": "computer",
+          "name": "Computer Shop",
+          "name_bn": "কম্পিউটার দোকান",
+          "parentId": "electronics",
+          "icon": "computer",
+          "recommends": {
+            "plugins": ["serial-numbers", "warranty", "variants", "production", "stocktake"],
+            "suggested": ["wholesale", "repair"],
+            "promotedProductFields": ["model_no", "specs", "warranty_months"],
+            "units": ["Each", "Set"],
+            "categories": ["Laptops", "Desktops", "Components", "Peripherals", "Networking"],
+            "paymentMethods": ["Cash", "Mobile Banking", "Card", "Bank Transfer", "Credit"],
+            "taxProfile": "vat-standard",
+            "posLayout": "grid"
+          }
+        },
+        {
+          "id": "mobile",
+          "name": "Mobile Phone Shop",
+          "name_bn": "মোবাইল ফোন দোকান",
+          "parentId": "electronics",
+          "icon": "smartphone",
+          "recommends": {
+            "plugins": ["serial-numbers", "warranty", "loyalty", "promotions", "stocktake"],
+            "suggested": ["wholesale", "repair"],
+            "promotedProductFields": ["imei_1", "imei_2", "storage_gb", "ram_gb", "colour", "warranty_months"],
+            "units": ["Each"],
+            "categories": ["Smartphones", "Feature Phones", "Accessories", "Chargers", "Cases"],
+            "paymentMethods": ["Cash", "Mobile Banking", "Card", "Credit"],
+            "taxProfile": "vat-standard",
+            "posLayout": "grid"
+          }
+        },
+        {
+          "id": "repair",
+          "name": "Repair Shop",
+          "name_bn": "মেরামতের দোকান",
+          "parentId": "electronics",
+          "icon": "build",
+          "recommends": {
+            "plugins": ["repair", "warranty", "loyalty"],
+            "suggested": ["serial-numbers", "notifications"],
+            "promotedProductFields": ["model_no"],
+            "units": ["Each", "Hour"],
+            "categories": ["Parts", "Service Charges", "Accessories"],
+            "paymentMethods": ["Cash", "Mobile Banking"],
+            "taxProfile": "vat-standard",
+            "posLayout": "list"
+          }
+        }
+      ]
+    },
+    {
+      "id": "home-living",
+      "name": "Home & Living",
+      "name_bn": "গৃহ ও বসবাস",
+      "parentId": null,
+      "icon": "chair",
+      "children": [
+        {
+          "id": "furniture",
+          "name": "Furniture Store",
+          "name_bn": "আসবাবপত্রের দোকান",
+          "parentId": "home-living",
+          "icon": "chair",
+          "recommends": {
+            "plugins": ["variants", "warranty", "production", "stocktake"],
+            "suggested": ["wholesale", "delivery"],
+            "promotedProductFields": ["dimensions", "material", "made_to_order"],
+            "units": ["Each", "Set"],
+            "categories": ["Living Room", "Bedroom", "Dining", "Office", "Outdoor"],
+            "paymentMethods": ["Cash", "Mobile Banking", "Card", "Bank Transfer", "Credit"],
+            "taxProfile": "vat-standard",
+            "posLayout": "grid"
+          }
+        },
+        {
+          "id": "hardware",
+          "name": "Hardware Store",
+          "name_bn": "হার্ডওয়্যার দোকান",
+          "parentId": "home-living",
+          "icon": "hardware",
+          "recommends": {
+            "plugins": ["weight-scale", "wholesale", "stocktake"],
+            "suggested": ["variants", "production", "promotions"],
+            "promotedProductFields": ["grade", "dimensions", "sold_by_length"],
+            "units": ["Each", "Kilogram", "Metre", "Feet", "Box", "Dozen"],
+            "categories": ["Tools", "Fasteners", "Plumbing", "Electrical", "Paint", "Building Materials"],
+            "paymentMethods": ["Cash", "Mobile Banking", "Credit"],
+            "taxProfile": "vat-standard",
+            "posLayout": "list"
+          }
+        },
+        {
+          "id": "appliance",
+          "name": "Appliance Store",
+          "name_bn": "ইলেকট্রিক সামগ্রীর দোকান",
+          "parentId": "home-living",
+          "icon": "kitchen",
+          "recommends": {
+            "plugins": ["serial-numbers", "warranty", "promotions", "stocktake"],
+            "suggested": ["delivery"],
+            "promotedProductFields": ["model_no", "energy_rating", "warranty_months"],
+            "units": ["Each"],
+            "categories": ["Refrigerators", "Washing Machines", "Air Conditioning", "Kitchen", "Small Appliances"],
+            "paymentMethods": ["Cash", "Mobile Banking", "Card", "Bank Transfer", "Credit"],
+            "taxProfile": "vat-standard",
+            "posLayout": "grid"
+          }
+        },
+        {
+          "id": "garden",
+          "name": "Garden Center",
+          "name_bn": "নার্সারি",
+          "parentId": "home-living",
+          "icon": "yard",
+          "recommends": {
+            "plugins": ["batch-expiry", "weight-scale", "production", "variants"],
+            "suggested": ["promotions"],
+            "promotedProductFields": ["plant_type", "pot_size", "season"],
+            "units": ["Each", "Kilogram", "Litre", "Bag"],
+            "categories": ["Plants", "Seeds", "Soil & Fertilizer", "Tools", "Pots"],
+            "paymentMethods": ["Cash", "Mobile Banking"],
+            "taxProfile": "vat-standard",
+            "posLayout": "grid"
+          }
+        }
+      ]
+    },
+    {
+      "id": "hobby-leisure",
+      "name": "Hobby & Leisure",
+      "name_bn": "শখ ও বিনোদন",
+      "parentId": null,
+      "icon": "toys",
+      "children": [
+        {
+          "id": "bookstore",
+          "name": "Bookstore",
+          "name_bn": "বইঘর",
+          "parentId": "hobby-leisure",
+          "icon": "menu_book",
+          "recommends": {
+            "plugins": ["loyalty", "promotions", "stocktake"],
+            "suggested": ["variants", "wholesale"],
+            "promotedProductFields": ["isbn", "author", "publisher"],
+            "units": ["Each", "Dozen"],
+            "categories": ["Fiction", "Non-fiction", "Academic", "Children", "Religious", "Stationery"],
+            "paymentMethods": ["Cash", "Mobile Banking", "Card"],
+            "taxProfile": "vat-exempt-books",
+            "posLayout": "list"
+          }
+        },
+        {
+          "id": "toy",
+          "name": "Toy Store",
+          "name_bn": "খেলনার দোকান",
+          "parentId": "hobby-leisure",
+          "icon": "toys",
+          "recommends": {
+            "plugins": ["variants", "loyalty", "promotions", "stocktake"],
+            "suggested": ["gift-cards"],
+            "promotedProductFields": ["age_min", "age_max", "franchise"],
+            "units": ["Each", "Set"],
+            "categories": ["Action Figures", "Dolls", "Educational", "Outdoor", "Board Games"],
+            "paymentMethods": ["Cash", "Mobile Banking", "Card"],
+            "taxProfile": "vat-standard",
+            "posLayout": "grid"
+          }
+        },
+        {
+          "id": "game",
+          "name": "Game Store",
+          "name_bn": "গেম স্টোর",
+          "parentId": "hobby-leisure",
+          "icon": "sports_esports",
+          "recommends": {
+            "plugins": ["variants", "loyalty", "promotions", "stocktake"],
+            "suggested": ["serial-numbers", "wholesale"],
+            "promotedProductFields": ["platform", "franchise", "players"],
+            "units": ["Each"],
+            "categories": ["Console Games", "PC Games", "Consoles", "Controllers", "Collectibles"],
+            "paymentMethods": ["Cash", "Mobile Banking", "Card"],
+            "taxProfile": "vat-standard",
+            "posLayout": "grid"
+          }
+        },
+        {
+          "id": "sports",
+          "name": "Sports Shop",
+          "name_bn": "খেলাধুলার সামগ্রীর দোকান",
+          "parentId": "hobby-leisure",
+          "icon": "sports_cricket",
+          "recommends": {
+            "plugins": ["variants", "loyalty", "promotions", "stocktake"],
+            "suggested": ["warranty", "wholesale"],
+            "promotedProductFields": ["size", "sport", "level"],
+            "units": ["Each", "Pair", "Set"],
+            "categories": ["Cricket", "Football", "Badminton", "Fitness", "Apparel"],
+            "paymentMethods": ["Cash", "Mobile Banking", "Card"],
+            "taxProfile": "vat-standard",
+            "posLayout": "grid"
+          }
+        },
+        {
+          "id": "bicycle",
+          "name": "Bicycle Shop",
+          "name_bn": "সাইকেলের দোকান",
+          "parentId": "hobby-leisure",
+          "icon": "pedal_bike",
+          "recommends": {
+            "plugins": ["variants", "serial-numbers", "warranty", "repair", "loyalty", "stocktake"],
+            "suggested": [],
+            "promotedProductFields": ["frame_size", "wheel_size", "service_interval_km"],
+            "units": ["Each", "Pair", "Set"],
+            "categories": ["Bicycles", "Parts", "Accessories", "Service"],
+            "paymentMethods": ["Cash", "Mobile Banking", "Card"],
+            "taxProfile": "vat-standard",
+            "posLayout": "grid"
+          }
+        },
+        {
+          "id": "gift",
+          "name": "Gift Shop",
+          "name_bn": "উপহার সামগ্রীর দোকান",
+          "parentId": "hobby-leisure",
+          "icon": "card_giftcard",
+          "recommends": {
+            "plugins": ["loyalty", "promotions", "gift-cards", "stocktake"],
+            "suggested": ["variants"],
+            "promotedProductFields": [],
+            "units": ["Each", "Set"],
+            "categories": ["Occasion", "Home Décor", "Cards & Wrapping", "Novelty"],
+            "paymentMethods": ["Cash", "Mobile Banking", "Card"],
+            "taxProfile": "vat-standard",
+            "posLayout": "grid"
+          }
+        },
+        {
+          "id": "flower",
+          "name": "Flower Shop",
+          "name_bn": "ফুলের দোকান",
+          "parentId": "hobby-leisure",
+          "icon": "local_florist",
+          "recommends": {
+            "plugins": ["batch-expiry", "production", "variants", "loyalty", "promotions"],
+            "suggested": ["delivery", "weight-scale"],
+            "promotedProductFields": ["occasion", "vase_life_days"],
+            "units": ["Each", "Dozen", "Bunch"],
+            "categories": ["Fresh Flowers", "Arrangements", "Bouquets", "Plants", "Vases"],
+            "paymentMethods": ["Cash", "Mobile Banking", "Card"],
+            "taxProfile": "vat-standard",
+            "posLayout": "grid"
+          }
+        }
+      ]
+    },
+    {
+      "id": "specialty",
+      "name": "Specialty",
+      "name_bn": "বিশেষায়িত",
+      "parentId": null,
+      "icon": "store",
+      "children": [
+        {
+          "id": "pet",
+          "name": "Pet Shop",
+          "name_bn": "পোষা প্রাণীর দোকান",
+          "parentId": "specialty",
+          "icon": "pets",
+          "recommends": {
+            "plugins": ["variants", "batch-expiry", "weight-scale", "loyalty", "stocktake"],
+            "suggested": ["promotions"],
+            "promotedProductFields": ["breed", "life_stage", "is_live_animal"],
+            "units": ["Each", "Kilogram", "Bag"],
+            "categories": ["Food", "Toys", "Health", "Grooming", "Live Animals", "Accessories"],
+            "paymentMethods": ["Cash", "Mobile Banking", "Card"],
+            "taxProfile": "vat-standard",
+            "posLayout": "grid"
+          }
+        },
+        {
+          "id": "auto-parts",
+          "name": "Auto Parts Store",
+          "name_bn": "অটো পার্টস দোকান",
+          "parentId": "specialty",
+          "icon": "directions_car",
+          "recommends": {
+            "plugins": ["variants", "wholesale", "warranty", "stocktake"],
+            "suggested": ["serial-numbers"],
+            "promotedProductFields": ["oem_no", "position"],
+            "units": ["Each", "Litre", "Metre", "Set"],
+            "categories": ["Engine", "Brakes", "Electrical", "Filters", "Body Parts", "Oils & Fluids"],
+            "paymentMethods": ["Cash", "Mobile Banking", "Credit"],
+            "taxProfile": "vat-standard",
+            "posLayout": "list"
+          }
+        },
+        {
+          "id": "department",
+          "name": "Department Store",
+          "name_bn": "ডিপার্টমেন্ট স্টোর",
+          "parentId": "specialty",
+          "icon": "apartment",
+          "recommends": {
+            "plugins": ["variants", "loyalty", "wholesale", "promotions", "stocktake", "gift-cards"],
+            "suggested": ["batch-expiry", "serial-numbers", "warranty", "weight-scale", "delivery"],
+            "promotedProductFields": ["department", "floor", "counter"],
+            "units": ["Each", "Kilogram", "Litre", "Pair", "Set", "Dozen"],
+            "categories": ["Grocery", "Apparel", "Electronics", "Home", "Beauty", "Toys"],
+            "paymentMethods": ["Cash", "Mobile Banking", "Card", "Bank Transfer", "Credit"],
+            "taxProfile": "vat-standard",
+            "posLayout": "grid-with-quick-keys"
+          }
+        },
+        {
+          "id": "wholesale",
+          "name": "Wholesale / Distributor",
+          "name_bn": "পাইকারি / পরিবেশক",
+          "parentId": "specialty",
+          "icon": "inventory_2",
+          "recommends": {
+            "plugins": ["wholesale", "weight-scale", "batch-expiry", "stocktake", "promotions"],
+            "suggested": ["variants", "delivery", "multi-currency"],
+            "promotedProductFields": ["pack_size", "min_order_qty"],
+            "units": ["Carton", "Box", "Dozen", "Kilogram", "Each"],
+            "categories": ["Beverages", "Food", "Household", "Personal Care", "General"],
+            "paymentMethods": ["Cash", "Bank Transfer", "Credit", "Mobile Banking"],
+            "taxProfile": "vat-standard",
+            "posLayout": "list"
+          }
+        }
+      ]
+    }
+  ]
+}
