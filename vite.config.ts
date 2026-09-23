@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+declare const process: any
 
 function historyFallback() {
   const handler = (req: any, _res: any, next: any) => {
@@ -40,6 +41,9 @@ function historyFallback() {
 }
 
 export default defineConfig({
+  // GitHub Pages project site lives under /<repo>/ . Set VITE_BASE=/Mekholi/ in Actions env to enable.
+  // Vercel/Netlify/custom-domain keeps base = '/' (default). Local dev ignores base.
+  base: process.env.VITE_BASE || '/',
   appType: 'mpa' as any,
   plugins: [historyFallback()],
   server: {

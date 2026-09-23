@@ -1,0 +1,56 @@
+name: Deploy Mekholi Lite to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Build (Vite MPA)
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          # if you deploy to https://<user>.github.io/Mekholi set base below
+          # VITE_BASE is read by vite.config.ts when present
+      - name: SPA fallback for GitHub Pages
+        run: |
+          # GitHub Pages is static — no server rewrite. Copy entry HTMLs to 404.html so History API still works on refresh/deep link
+          cp dist/index.html dist/404.html
+          # keep app.html as is; 404.html handles /app/* deep links via client fallback
+          # also ensure .nojekyll so _assets not ignored
+          touch dist/.nojekyll
+          # optional: list
+          ls -lah dist
+          ls -lah dist/assets | head
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
