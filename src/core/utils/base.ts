@@ -1,7 +1,8 @@
 // Base-aware URL helper for GitHub Pages project site (/Mekholi/) vs root (/)
 export function getBase(): string {
   try{
-    const b: any = (import.meta as any)?.env?.BASE_URL
+    // @ts-ignore — Vite replaces at build time
+    const b: string = import.meta.env.BASE_URL
     if(typeof b === 'string' && b && b !== '/') return b.endsWith('/') ? b : b + '/'
   }catch{}
   return '/'

@@ -6,7 +6,8 @@ export type Route = { path: string; view: ViewFn | (() => Promise<{ default: Vie
 
 function getBase(): string {
   try{
-    const b: any = (import.meta as any)?.env?.BASE_URL
+    // @ts-ignore — Vite replaces at build time
+    const b: string = import.meta.env.BASE_URL
     if(typeof b === 'string' && b && b !== '/') return b.endsWith('/') ? b : b + '/'
   }catch{}
   return '/'
