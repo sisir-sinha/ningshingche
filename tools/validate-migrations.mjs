@@ -476,6 +476,148 @@ if (seeded.length === 0) {
   }
   check('overselling is rejected by the database', blocked)
 
+  // ── Migration 021: tax-inclusive pricing must not double-charge ──────────
+  //
+  // Before 021 complete_sale computed the correct inclusive line total and
+  // then ignored it, summing `subtotal - discount + tax` instead. Since
+  // `subtotal` already contains the VAT for an inclusive product, the VAT was
+  // charged twice. Found by porting the client cart arithmetic to
+  // src/shared/domain/cart.ts and diffing it against the RPC.
+  await db.exec(`
+    INSERT INTO public.taxes (id, organization_id, name, rate, is_inclusive, applies_to)
+    VALUES ('00000000-0000-0000-0000-000000007a01', '${s.org}',
+            'VAT 15%', 15, false, 'products');
+    INSERT INTO public.products (id, organization_id, name, selling_price, cost_price,
+                                 tax_id, tax_inclusive, track_stock)
+    VALUES ('00000000-0000-0000-0000-000000007b01', '${s.org}', 'Inclusive Soap',
+            115, 80, '00000000-0000-0000-0000-000000007a01', true, false);
+    INSERT INTO public.product_variants (id, organization_id, product_id, is_default)
+    VALUES ('00000000-0000-0000-0000-000000007c01', '${s.org}',
+            '00000000-0000-0000-0000-000000007b01', true);
+  `)
+
+  const inclusive = await q(`
+    select public.complete_sale(
+      '${s.branch}',
+      jsonb_build_array(jsonb_build_object(
+        'variant_id', '00000000-0000-0000-0000-000000007c01', 'qty', 1)),
+      jsonb_build_array(jsonb_build_object(
+        'method_id', '${s.cash}', 'amount', 115)),
+      '${s.register}', null, null, null, null, null) as r`)
+
+  check(
+    'tax-inclusive product charges its shelf price, not price + VAT (021)',
+    Number(inclusive[0].r.total) === 115,
+    `total=${inclusive[0].r.total} tax=${inclusive[0].r.tax}`
+  )
+  check(
+    'the VAT inside an inclusive price is still reported (021)',
+    Number(inclusive[0].r.tax) === 15,
+    `tax=${inclusive[0].r.tax}`
+  )
+
+  const mixed = await q(`
+    select public.complete_sale(
+      '${s.branch}',
+      jsonb_build_array(
+        jsonb_build_object('variant_id', '00000000-0000-0000-0000-000000007c01', 'qty', 1),
+        jsonb_build_object('variant_id', '00000000-0000-0000-0000-00000000c002', 'qty', 1)),
+      jsonb_build_array(jsonb_build_object(
+        'method_id', '${s.cash}', 'amount', 365)),
+      '${s.register}', null, null, null, null, null) as r`)
+  check(
+    'a mixed inclusive/exclusive cart totals correctly (021)',
+    Number(mixed[0].r.total) === 365,
+    `total=${mixed[0].r.total} (soap 115 inclusive + widget 250 untaxed)`
+  )
+
+  // An order-level discount must still reduce the total after 021.
+  const discounted = await q(`
+    select public.complete_sale(
+      p_branch_id    => '${s.branch}',
+      p_items        => jsonb_build_array(jsonb_build_object(
+        'variant_id', '00000000-0000-0000-0000-00000000c002', 'qty', 2)),
+      p_payments     => jsonb_build_array(jsonb_build_object(
+        'method_id', '${s.cash}', 'amount', 450)),
+      p_register_id  => '${s.register}',
+      p_discount_type  => 'FLAT',
+      p_discount_value => 50
+    ) as r`)
+  check(
+    'an order-level FLAT discount still applies after 021',
+    Number(discounted[0].r.total) === 450 && Number(discounted[0].r.discount) === 50,
+    `total=${discounted[0].r.total} discount=${discounted[0].r.discount}`
+  )
+
+  // ── Migration 021: the hold / resume loop must close ─────────────────────
+  const held = await q(`
+    select public.hold_sale(
+      '${s.branch}',
+      jsonb_build_array(jsonb_build_object(
+        'variant_id', '00000000-0000-0000-0000-00000000c002', 'qty', 2,
+        'discount_type', 'FLAT', 'discount_value', 50)),
+      null, 'customer went to the car') as id`)
+  check('hold_sale returns an id', Boolean(held[0].id), String(held[0].id))
+
+  const resumed = await q(`select public.resume_sale('${held[0].id}') as r`)
+  const resumedItems = resumed[0].r.items
+  check(
+    'resume_sale returns the stored lines (021)',
+    Array.isArray(resumedItems) && resumedItems.length === 1,
+    JSON.stringify(resumedItems)
+  )
+  check(
+    'resume_sale returns the per-line discount hold_sale stored (021)',
+    resumedItems[0]?.discount_type === 'FLAT'
+      && Number(resumedItems[0]?.discount_value) === 50,
+    JSON.stringify(resumedItems[0])
+  )
+
+  const stillHeld = await q(`select status from public.sales where id = '${held[0].id}'`)
+  check(
+    'a resumed hold stays HELD until its sale lands (021)',
+    stillHeld[0].status === 'HELD',
+    String(stillHeld[0].status)
+  )
+
+  // Named notation: with ten parameters and several untyped NULLs, positional
+  // calls leave Postgres guessing at types. Naming them is unambiguous and
+  // survives a future parameter being inserted in the middle.
+  const completedFromHold = await q(`
+    select public.complete_sale(
+      p_branch_id      => '${s.branch}',
+      p_items          => jsonb_build_array(jsonb_build_object(
+        'variant_id', '00000000-0000-0000-0000-00000000c002', 'qty', 2,
+        'discount_type', 'FLAT', 'discount_value', 50)),
+      p_payments       => jsonb_build_array(jsonb_build_object(
+        'method_id', '${s.cash}', 'amount', 450)),
+      p_register_id    => '${s.register}',
+      p_held_sale_id   => '${held[0].id}'
+    ) as r`)
+  check(
+    'a resumed cart completes through complete_sale (021)',
+    completedFromHold[0].r.status === 'COMPLETED',
+    String(completedFromHold[0].r.status)
+  )
+
+  const heldAfter = await q(`select status from public.sales where id = '${held[0].id}'`)
+  check(
+    'completing a resumed cart cancels its hold atomically (021)',
+    heldAfter[0].status === 'CANCELLED',
+    String(heldAfter[0].status)
+  )
+
+  const heldRowsInReports = await q(`
+    select count(*)::int as n from public.sales
+     where organization_id = '${s.org}'
+       and status in ('COMPLETED','PARTIALLY_PAID','PARTIALLY_REFUNDED')
+       and invoice_no like 'HELD-%'`)
+  check(
+    'no held cart is ever counted as a sale',
+    heldRowsInReports[0].n === 0,
+    String(heldRowsInReports[0].n)
+  )
+
   // An unauthorized user must not be able to sell.
   await db.exec(`
     INSERT INTO auth.users (id, email)
@@ -674,6 +816,32 @@ for (const name of ['apply_stock_movement', 'next_sequence']) {
     `internal helper ${name} stays revoked from anon and authenticated`,
     row.anon === 'false' && row.auth === 'false',
     `anon=${row.anon} authenticated=${row.auth}`
+  )
+}
+
+// ── Client-facing RPC reachability ────────────────────────────────────────
+// Two distinct failure modes, both invisible to PGlite at runtime because it
+// runs as superuser:
+//
+//   42725 "is not unique" — adding a parameter with `create or replace` leaves
+//     the old signature in place, so an existing call matches two overloads.
+//     Migration 021 did exactly this until the old signature was dropped.
+//
+//   42501 "permission denied" — `drop function` takes the grant with it, so a
+//     re-created function is unreachable until it is granted again.
+for (const name of ['complete_sale', 'hold_sale', 'resume_sale', 'refund_sale',
+                    'open_register', 'close_register', 'register_cash_movement']) {
+  const g = await q(`
+    select count(*)::int as overloads,
+           bool_and(has_function_privilege('authenticated', p.oid, 'EXECUTE'))::text as auth,
+           bool_or(has_function_privilege('anon', p.oid, 'EXECUTE'))::text          as anon
+      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and p.proname = '${name}'`)
+  const row = g[0] ?? { overloads: 0, auth: 'missing', anon: 'missing' }
+  check(
+    `${name} has exactly one overload, granted to authenticated only`,
+    row.overloads === 1 && row.auth === 'true' && row.anon === 'false',
+    `overloads=${row.overloads} authenticated=${row.auth} anon=${row.anon}`
   )
 }
 

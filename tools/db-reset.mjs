@@ -144,6 +144,35 @@ for (const seq of sequences) {
 }
 if (sequences.length > 0) console.log(`  ✓ ${sequences.length} sequence(s)`)
 
+// Custom types — enums and domains — belong to no table and no function, so
+// they survive everything dropped above. Leaving them behind makes the
+// re-apply fail immediately: migration 006 opens with
+// `create type public.stock_movement_type` and dies with
+// "type already exists". Only ours are dropped; a type owned by an extension
+// must be left alone for the same reason as its functions.
+const customTypes = (
+  await client.query(`
+    select t.typname, t.typtype
+      from pg_type t
+      join pg_namespace n on n.oid = t.typnamespace
+      left join pg_depend d on d.objid = t.oid and d.deptype = 'e'
+     where n.nspname = 'public'
+       and t.typtype in ('e', 'd')
+       and d.objid is null
+     order by 1`)
+).rows
+for (const type of customTypes) {
+  const keyword = type.typtype === 'd' ? 'domain' : 'type'
+  try {
+    await client.query(`drop ${keyword} if exists public."${type.typname}" cascade`)
+  } catch (error) {
+    console.log(`  ✗ ${keyword} ${type.typname}: ${String(error.message).split('\n')[0]}`)
+  }
+}
+if (customTypes.length > 0) {
+  console.log(`  ✓ ${customTypes.length} custom type(s): ${customTypes.map((t) => t.typname).join(', ')}`)
+}
+
 // The `app` schema holds only our helpers, so it can go entirely.
 await client.query('drop schema if exists app cascade')
 await client.query('truncate table supabase_migrations.schema_migrations')

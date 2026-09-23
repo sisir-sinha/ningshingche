@@ -19,8 +19,13 @@ declare
   v_units  int;
   v_methods int;
 begin
+  -- Idempotent on purpose. `db:reset` deliberately preserves auth.users so
+  -- real accounts survive, which means this seed runs against a table that
+  -- may already hold the row. Without the conflict clause a second reset
+  -- dies on users_pkey and leaves the shop half-provisioned.
   insert into auth.users (id, email)
-  values ('00000000-0000-0000-0000-00000000dead', 'seed-owner@mekholi.test');
+  values ('00000000-0000-0000-0000-00000000dead', 'seed-owner@mekholi.test')
+  on conflict (id) do nothing;
   v_owner := '00000000-0000-0000-0000-00000000dead';
 
   v_org := public.provision_organization(
