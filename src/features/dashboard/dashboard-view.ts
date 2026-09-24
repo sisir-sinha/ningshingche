@@ -123,7 +123,7 @@ function pluginsCard(registry: PluginRegistry): HTMLElement {
       subtitle: 'Declared in code, loaded at boot',
       iconName: 'extension',
       actions: button('Reload', {
-        size: 'sm',
+        size: 'md',
         variant: 'ghost',
         onClick: () => window.location.reload(),
       }),
@@ -266,7 +266,7 @@ function nextStepsCard(): HTMLElement {
     ),
     h('div', { class: 'mt-3' },
       button('Test the event bus', {
-        size: 'sm',
+        size: 'md',
         variant: 'outline',
         icon: 'bolt',
         onClick: () => {

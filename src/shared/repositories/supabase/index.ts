@@ -868,12 +868,16 @@ function createOrganization(client: SupabaseClient): OrganizationRepository {
           .returns<{ id: string; name: string }[]>()
       )
 
+      // A register session is open while `closed_at` is null. There is no
+      // `status` column on this table — filtering on one made PostgREST answer
+      // 400 (column does not exist), which failed the whole floor resolve and
+      // left the POS stuck on "The shop is still loading" for every shop.
       const sessions = unwrap(
         await client
           .from('register_sessions')
           .select('id')
           .eq('branch_id', branchId)
-          .eq('status', 'OPEN')
+          .is('closed_at', null)
           .order('opened_at', { ascending: false })
           .limit(1)
           .returns<{ id: string }[]>()

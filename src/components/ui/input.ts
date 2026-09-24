@@ -79,7 +79,8 @@ export function input(options: InputOptions = {}): HTMLInputElement {
     readonly,
     disabled,
     class:
-      'w-full h-11 rounded-md border border-input bg-surface px-3 text-sm text-content ' +
+      'w-full h-11 rounded-md border border-input bg-surface px-3 text-base text-content ' +
+      'sm:text-sm ' +
       'placeholder:text-content-subtle ' +
       'focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring ' +
       'disabled:opacity-60 disabled:bg-surface-muted',
@@ -117,7 +118,8 @@ export function textarea(options: TextAreaOptions = {}): HTMLTextAreaElement {
     rows,
     maxlength,
     class:
-      'w-full rounded-md border border-input bg-surface px-3 py-2 text-sm text-content ' +
+      'w-full rounded-md border border-input bg-surface px-3 py-2 text-base text-content ' +
+      'sm:text-sm ' +
       'placeholder:text-content-subtle resize-y ' +
       'focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring',
   })
@@ -138,7 +140,8 @@ export function select(options: SelectOptions): HTMLSelectElement {
   const el = h('select', {
     id,
     class:
-      'w-full h-11 rounded-md border border-input bg-surface px-3 text-sm text-content ' +
+      'w-full h-11 rounded-md border border-input bg-surface px-3 text-base text-content ' +
+      'sm:text-sm ' +
       'focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring',
   })
 

@@ -92,7 +92,14 @@ export function onboardingView(options: OnboardingViewOptions): HTMLElement {
 
   const el = h(
     'div',
-    { class: 'mx-auto w-full max-w-md p-4 sm:p-6' },
+    {
+      // Centred in the space under the topbar rather than pinned to the top:
+      // on a 6" phone a short form floating above half a screen of nothing
+      // reads as a broken page. dvh, not vh — mobile browser chrome moves.
+      class:
+        'mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-md ' +
+        'items-center justify-center p-4 sm:p-6',
+    },
     h(
       'div',
       { class: 'rounded-xl border border-border bg-surface p-6 shadow-sm' },

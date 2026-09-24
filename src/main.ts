@@ -26,6 +26,8 @@ import { mountToasts, toastError } from './components/feedback/toast'
 import { installShortcuts } from './features/layout/command-palette'
 import { bootstrapSession, signOut, needsOnboarding } from './app/platform/auth'
 import { refreshSalesFloor, watchOrganization } from './app/state/sales-floor'
+import { CORE_NAV } from './features/layout/navigation'
+import { placeholderView } from './features/layout/placeholder-view'
 import { resetRepositories } from './app/data'
 import { posRoutes } from './features/pos'
 import { productRoutes } from './features/products'
@@ -129,7 +131,25 @@ const router = new Router({
     toastError(`${route.title}: ${translated.message}`)
   },
 })
-router.addAll(routes)
+// Every item the sidebar advertises must lead somewhere. The router silently
+// redirects an unknown path to the dashboard, so an unbuilt screen looked
+// like a broken menu rather than a screen that does not exist yet. Deriving
+// the gap from the route table above means each placeholder disappears on its
+// own the moment the real route is registered — there is no list to keep in
+// step by hand.
+const registered = new Set(routes.map((route) => route.path))
+const placeholders: Route[] = CORE_NAV.filter((item) => !registered.has(item.route)).map(
+  (item) => ({
+    path: item.route,
+    title: item.label,
+    // exactOptionalPropertyTypes: an absent permission is a different thing
+    // from a permission that happens to be undefined.
+    ...(item.permission ? { permission: item.permission } : {}),
+    render: () => placeholderView({ item, onBack: () => router.navigate('/') }),
+  })
+)
+
+router.addAll([...routes, ...placeholders])
 
 // ── 5. Shell mount and teardown ───────────────────────────────────────────
 
@@ -138,6 +158,13 @@ function enterApp(): void {
   // each screen: the POS cannot render a priced product without knowing which
   // stock room to read, and three screens resolving it independently is three
   // chances to show a half-loaded counter.
+  //
+  // Subscribed here, not in boot(): signing in through the form calls this
+  // function directly, and a subscription installed only on the
+  // session-already-exists path meant switching shops stopped re-resolving the
+  // floor for the rest of that browser session.
+  unwatchOrganization()
+  unwatchOrganization = watchOrganization()
   void refreshSalesFloor()
 
   shell = appShell({
@@ -191,7 +218,6 @@ async function boot(): Promise<void> {
   }
 
   if (sessionStore.state.status === 'authenticated') {
-    unwatchOrganization = watchOrganization()
     enterApp()
   } else {
     root.replaceChildren(loginView({ onAuthenticated: enterApp }))

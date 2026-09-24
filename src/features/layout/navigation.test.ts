@@ -51,7 +51,7 @@ function signInAs(keys: string[]): void {
 const ALL_KEYS = [
   'dashboard.view', 'sales.view', 'sales.create', 'customers.view', 'products.view',
   'inventory.view', 'purchases.view', 'expenses.view', 'reports.view', 'analytics.view',
-  'register.view', 'users.view', 'roles.view', 'plugins.view', 'settings.view',
+  'register.open', 'users.view', 'roles.manage', 'plugins.view', 'settings.view',
 ]
 
 beforeEach(async () => {

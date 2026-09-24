@@ -59,6 +59,25 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
 
+  // The browser-driving audit runs real page code through page.evaluate, so
+  // its callbacks legitimately touch DOM globals even though node executes
+  // the file. Everything else in tools/ is a plain node script.
+  {
+    files: ['tools/mobile-audit.mjs'],
+    languageOptions: {
+      globals: {
+        window: 'readonly',
+        document: 'readonly',
+        localStorage: 'readonly',
+        sessionStorage: 'readonly',
+        getComputedStyle: 'readonly',
+        MouseEvent: 'readonly',
+        KeyboardEvent: 'readonly',
+        Event: 'readonly',
+      },
+    },
+  },
+
   // Node-run scripts and config files: browser-free, console allowed.
   {
     files: ['tools/**/*.mjs', '*.config.js', '*.config.mjs'],

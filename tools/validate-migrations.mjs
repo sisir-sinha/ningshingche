@@ -898,6 +898,103 @@ check(
   priced[0] ? String(priced[0].inherited) : 'no row'
 )
 
+// ── Slugs survive a name collision (023) ─────────────────────────────────
+//
+// Two shops called "Rahim Store" is the normal case in a Bangladeshi bazaar.
+// Before 023 the second signup died on organizations_slug_key and the
+// shopkeeper got a raw Postgres error instead of a shop.
+const twinA = await q(`
+  insert into public.organizations (id, name, slug)
+  values (gen_random_uuid(), 'Rahim Store', 'rahim-store')
+  returning slug`)
+const twinB = await q(`
+  insert into public.organizations (id, name, slug)
+  values (gen_random_uuid(), 'Rahim Store', 'rahim-store')
+  returning slug`)
+const twinC = await q(`
+  insert into public.organizations (id, name, slug)
+  values (gen_random_uuid(), 'Rahim Store', 'rahim-store')
+  returning slug`)
+check(
+  'a second organization with a colliding slug is created, not rejected',
+  twinA.length === 1 && twinB.length === 1 && twinC.length === 1,
+  [twinA, twinB, twinC].map((r) => r[0]?.slug).join(', ')
+)
+check(
+  'colliding slugs are de-conflicted with a numeric suffix',
+  twinA[0]?.slug === 'rahim-store' &&
+    twinB[0]?.slug === 'rahim-store-2' &&
+    twinC[0]?.slug === 'rahim-store-3',
+  [twinA, twinB, twinC].map((r) => r[0]?.slug).join(', ')
+)
+
+// A slug the caller hand-rolled is normalised rather than trusted: the
+// database is the last word on what a slug may look like, because an
+// unslugified value fails the same way a collision does.
+const messy = await q(`
+  insert into public.organizations (id, name, slug)
+  values (gen_random_uuid(), 'Karim & Sons', '  Karim & Sons!  ')
+  returning slug`)
+check(
+  'a malformed slug is normalised on the way in',
+  messy[0]?.slug === 'karim-sons',
+  messy[0] ? String(messy[0].slug) : 'no row'
+)
+
+// and a name that slugifies to nothing at all (Bengali, emoji) still lands.
+const nameless = await q(`
+  insert into public.organizations (id, name, slug)
+  values (gen_random_uuid(), 'মায়ের দোয়া স্টোর', '')
+  returning slug`)
+check(
+  'a slug that normalises to nothing falls back rather than failing',
+  nameless[0]?.slug === 'shop',
+  nameless[0] ? String(nameless[0].slug) : 'no row'
+)
+
+// ── Every permission key the client names must exist (023-era guard) ─────
+//
+// The catalogue is the contract between the database and the UI. Two nav
+// items referenced `register.view` and `roles.view`, keys that have never
+// existed, so `can()` answered false for everyone and the Register and Roles
+// screens were invisible in every shop — an absence, which is exactly the
+// kind of bug nobody reports. Scanning src/ for the keys the client asks for
+// turns it into a build failure.
+const srcFiles = []
+const walkSrc = (dir) => {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name)
+    if (entry.isDirectory()) walkSrc(path)
+    // Tests carry fixtures, not the product's vocabulary.
+    else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.test.ts')) srcFiles.push(path)
+  }
+}
+walkSrc(join(root, 'src'))
+
+const referenced = new Map()
+const take = (file, key) => {
+  if (!referenced.has(key)) referenced.set(key, file.replace(root + '/', ''))
+}
+for (const file of srcFiles) {
+  const text = readFileSync(file, 'utf8')
+  for (const m of text.matchAll(/\bcan\(\s*'([^']+)'/g)) take(file, m[1])
+  for (const m of text.matchAll(/\bpermission:\s*'([^']+)'/g)) take(file, m[1])
+  for (const m of text.matchAll(/\brequirePermission\(\s*'([^']+)'/g)) take(file, m[1])
+}
+
+const catalogueRows = await q('select key from public.permissions')
+const catalogue = new Set(catalogueRows.map((r) => r.key))
+const unknownKeys = [...referenced.entries()]
+  .filter(([key]) => !catalogue.has(key))
+  .map(([key, file]) => `${key} (${file})`)
+  .sort()
+
+check(
+  'every permission key referenced in src/ exists in the catalogue',
+  unknownKeys.length === 0,
+  unknownKeys.length ? unknownKeys.join(', ') : `${referenced.size} keys checked`
+)
+
 const failed = checks.filter((c) => !c.pass)
 console.log(`\n${checks.length - failed.length}/${checks.length} behavioral checks passed`)
 

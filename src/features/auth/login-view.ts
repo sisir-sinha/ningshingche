@@ -272,12 +272,18 @@ function card(...children: HTMLElement[]): HTMLElement {
 function footer(switchMode: () => void, prompt: string, linkLabel: string): HTMLElement {
   return h(
     'p',
-    { class: 'mt-5 text-center text-sm text-content-muted' },
+    { class: 'mt-3 text-center text-sm text-content-muted' },
     prompt,
     ' ',
+    // The link carries its own 44px hit area: it is the only way between sign
+    // in and sign up, and a bare 20px-tall inline link is a miss on a phone.
+    // The negative margins keep the visual rhythm of the card unchanged.
     h('button', {
       type: 'button',
-      class: 'font-medium text-primary hover:underline',
+      class:
+        'inline-flex min-h-[44px] -my-3 items-center px-2 -mx-2 align-middle ' +
+        'font-medium text-primary hover:underline ' +
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md',
       text: linkLabel,
       onclick: switchMode,
     })

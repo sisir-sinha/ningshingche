@@ -143,9 +143,11 @@ export function sidebar(options: SidebarOptions): HTMLElement {
         icon('search', 'text-base'),
         h('span', { class: 'flex-1 text-left', text: 'Search…' }),
         h('kbd', {
+          // Hidden on touch-sized screens: a keyboard shortcut hint is noise
+          // on a phone, and it steals width from the search label.
           class:
-            'rounded border border-border bg-surface-muted px-1.5 py-0.5 font-mono ' +
-            'text-[10px] text-content-subtle',
+            'hidden rounded border border-border bg-surface-muted px-1.5 py-0.5 ' +
+            'font-mono text-[10px] text-content-subtle sm:inline-block',
           text: 'Ctrl K',
         })
       )

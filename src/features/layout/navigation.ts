@@ -33,7 +33,14 @@ export const NAV_SECTIONS: NavSection[] = [
 
 /**
  * The core navigation. Every entry is gated by a permission key that exists
- * in supabase/seed/001_permissions.sql — the seed asserts that agreement.
+ * in supabase/seed/001_permissions.sql.
+ *
+ * That agreement is not optional and is now enforced: two items here used to
+ * name `register.view` and `roles.view`, keys the catalogue has never had, so
+ * Register and Roles were invisible to every user in every shop — including
+ * the owner. `tools/validate-migrations.mjs` now checks every permission key
+ * referenced anywhere in src/ against the applied catalogue, which is what
+ * turned that from a silent absence into a failing build.
  */
 export const CORE_NAV: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: 'dashboard', section: 'main', route: '/', permission: 'dashboard.view', order: 10 },
@@ -46,9 +53,9 @@ export const CORE_NAV: NavItem[] = [
   { id: 'expenses', label: 'Expenses', icon: 'payments', section: 'inventory', route: '/expenses', permission: 'expenses.view', order: 40 },
   { id: 'reports', label: 'Reports', icon: 'assessment', section: 'insights', route: '/reports', permission: 'reports.view', order: 10 },
   { id: 'analytics', label: 'Analytics', icon: 'monitoring', section: 'insights', route: '/analytics', permission: 'analytics.view', order: 20 },
-  { id: 'register', label: 'Register', icon: 'point_of_sale', section: 'admin', route: '/register', permission: 'register.view', order: 10 },
+  { id: 'register', label: 'Register', icon: 'point_of_sale', section: 'admin', route: '/register', permission: 'register.open', order: 10 },
   { id: 'users', label: 'Staff', icon: 'manage_accounts', section: 'admin', route: '/users', permission: 'users.view', order: 20 },
-  { id: 'roles', label: 'Roles', icon: 'admin_panel_settings', section: 'admin', route: '/roles', permission: 'roles.view', order: 30 },
+  { id: 'roles', label: 'Roles', icon: 'admin_panel_settings', section: 'admin', route: '/roles', permission: 'roles.manage', order: 30 },
   { id: 'plugins', label: 'Plugins', icon: 'extension', section: 'admin', route: '/plugins', permission: 'plugins.view', order: 40 },
   { id: 'settings', label: 'Settings', icon: 'settings', section: 'admin', route: '/settings', permission: 'settings.view', order: 50 },
 ]

@@ -23,7 +23,7 @@
  * stale price in the browser cannot reach the customer's receipt.
  */
 
-import { h } from '../../components/ui/h'
+import { h, mount } from '../../components/ui/h'
 import { button, iconButton, spinner } from '../../components/ui/button'
 import { badge, emptyState } from '../../components/ui/card'
 import { toastError, toastSuccess, toastWarning } from '../../components/feedback/toast'
@@ -33,11 +33,11 @@ import { CartStore } from './cart-store'
 import { SaleService, toCartLine } from './sale-service'
 import { openPaymentDialog } from './payment-dialog'
 import { openReceipt } from './receipt'
-import { salesFloor } from '../../app/state/sales-floor'
+import { refreshSalesFloor, salesFloor, salesFloorStore } from '../../app/state/sales-floor'
 import { activeOrganization } from '../../app/state/session'
 import { getRepositories } from '../../app/data'
 import type { EventBus } from '../../shared/bus/event-bus'
-import type { SellableProduct } from '../../shared/repositories/contracts'
+import type { SalesFloor, SellableProduct } from '../../shared/repositories/contracts'
 import type { SaleRow } from '../../shared/types/records'
 import {
   formatMoney,
@@ -55,17 +55,81 @@ export interface PosViewOptions {
 }
 
 export function posView(options: PosViewOptions): HTMLElement {
-  const { bus } = options
   const floor = salesFloor()
+  // The floor resolve starts when the shell mounts, but the router can render
+  // this route first — a bookmarked #/pos, or a fast tap after signing in. So
+  // the gate below subscribes and swaps itself for the real screen; reading
+  // the floor once and giving up produced a permanent hourglass, which is
+  // indistinguishable from a broken app.
+  return floor ? posScreen(options, floor) : posGate(options)
+}
+
+/**
+ * Holds the POS until the sales floor is resolved.
+ *
+ * Deliberately loud on failure: the previous version said "The shop is still
+ * loading" while the resolve had already failed, so a real error looked like
+ * patience. A shopkeeper cannot act on an hourglass, and neither can support.
+ */
+function posGate(options: PosViewOptions): HTMLElement {
+  const root = h('div', { class: 'h-full min-h-0' })
+  let done = false
+
+  const render = (): void => {
+    if (done) return
+    const state = salesFloorStore.state
+
+    if (state.floor) {
+      done = true
+      unsubscribe()
+      mount(root, posScreen(options, state.floor))
+      return
+    }
+
+    if (state.status === 'error') {
+      done = true
+      unsubscribe()
+      mount(
+        root,
+        emptyState('The shop could not be loaded', {
+          description:
+            (state.error ?? 'Unknown error') +
+            ' — branch, stock room and register are needed before anything can be sold.',
+          iconName: 'error',
+          action: button('Try again', {
+            variant: 'primary',
+            onClick: () => {
+              // Re-entering sets the gate back to its loading state rather
+              // than leaving a dead "Try again" on screen.
+              mount(root, posGate(options))
+              void refreshSalesFloor()
+            },
+          }),
+        })
+      )
+      return
+    }
+
+    mount(
+      root,
+      emptyState('Loading the shop…', {
+        description: 'Branch, stock room and register.',
+        iconName: 'hourglass_top',
+      })
+    )
+  }
+
+  const unsubscribe = salesFloorStore.subscribe(render)
+  if (salesFloorStore.state.status === 'idle') void refreshSalesFloor()
+  render()
+
+  return root
+}
+
+function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
+  const { bus } = options
   const organization = activeOrganization()
   const currency = organization?.currency ?? 'BDT'
-
-  if (!floor) {
-    return emptyState('The shop is still loading', {
-      description: 'Branch, stock room and register are resolved when you sign in.',
-      iconName: 'hourglass_top',
-    })
-  }
 
   const repos = getRepositories()
   const sales = new SaleService(repos, bus)

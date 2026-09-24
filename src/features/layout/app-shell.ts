@@ -190,6 +190,9 @@ export function appShell(options: AppShellOptions): AppShell {
         },
         iconButton('menu', 'Open navigation', {
           variant: 'ghost',
+          // 48px: the one control that has to be hit with a thumb, one-handed,
+          // while the other hand is holding a customer's change.
+          size: 'lg',
           class: 'lg:hidden',
           onClick: () => toggleDrawer(),
         }),
@@ -281,7 +284,7 @@ function onlineIndicator(): HTMLElement {
 function headerActions(onHelp: () => void): HTMLElement {
   const actions = h('div', { class: 'flex items-center gap-1' })
 
-  if (can('register.view')) {
+  if (can('register.open')) {
     actions.appendChild(iconButton('point_of_sale', 'Open register', { variant: 'ghost' }))
   }
   actions.appendChild(
