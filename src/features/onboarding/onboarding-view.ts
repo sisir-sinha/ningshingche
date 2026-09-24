@@ -92,7 +92,7 @@ export function onboardingView(options: OnboardingViewOptions): HTMLElement {
 
   const el = h(
     'div',
-    { class: 'mx-auto max-w-md p-6' },
+    { class: 'mx-auto w-full max-w-md p-4 sm:p-6' },
     h(
       'div',
       { class: 'rounded-xl border border-border bg-surface p-6 shadow-sm' },

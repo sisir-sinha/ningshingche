@@ -115,6 +115,49 @@ describe('app shell', () => {
     shell.palette.close()
   })
 
+  it('opens the mobile drawer from the hamburger and renders nav inside it', () => {
+    const { el } = build()
+    const burger = el.querySelector<HTMLButtonElement>('[aria-label="Open navigation"]')
+    const drawer = el.querySelector<HTMLElement>('#mobile-drawer')
+    expect(burger).not.toBeNull()
+    expect(drawer).not.toBeNull()
+    expect(drawer!.classList.contains('hidden')).toBe(true)
+
+    burger!.click()
+
+    expect(drawer!.classList.contains('hidden')).toBe(false)
+    // The bug this prevents: an earlier drawer was an empty overlay — the
+    // hamburger darkened the screen and contained no navigation at all.
+    expect(drawer!.querySelector('[data-nav-id="dashboard"]')).not.toBeNull()
+  })
+
+  it('closes the drawer when a nav link inside it is used', () => {
+    const { el } = build()
+    const burger = el.querySelector<HTMLButtonElement>('[aria-label="Open navigation"]')!
+    const drawer = el.querySelector<HTMLElement>('#mobile-drawer')!
+    burger.click()
+
+    const link = drawer.querySelector<HTMLElement>('[data-nav-id="dashboard"]')!
+    link.click()
+
+    expect(drawer.classList.contains('hidden')).toBe(true)
+  })
+
+  it('closes the drawer on backdrop click and on Escape', () => {
+    const { el } = build()
+    const burger = el.querySelector<HTMLButtonElement>('[aria-label="Open navigation"]')!
+    const drawer = el.querySelector<HTMLElement>('#mobile-drawer')!
+
+    burger.click()
+    // A click that lands on the backdrop itself (event.target === drawer).
+    drawer.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(drawer.classList.contains('hidden')).toBe(true)
+
+    burger.click()
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    expect(drawer.classList.contains('hidden')).toBe(true)
+  })
+
   it('re-renders the sidebar when the session changes', () => {
     const { el } = build()
     expect(el.querySelector('[data-nav-id="batch-expiry"]')).not.toBeNull()

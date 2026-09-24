@@ -43,6 +43,56 @@ export function appShell(options: AppShellOptions): AppShell {
   const { registry, bus, onNavigate, onSignOut, outlet } = options
 
   const sidebarHost = h('div', { class: 'h-full' })
+  const drawerHost = h('div', { class: 'h-full' })
+
+  // ── Mobile drawer ───────────────────────────────────────────────────────
+  // A shop counter is often a phone or a tablet in portrait, so the sidebar
+  // has to survive a narrow viewport as an off-canvas panel rather than
+  // disappear. The previous version of this drawer was an empty overlay:
+  // the hamburger darkened the screen and rendered no navigation at all.
+  const drawerPanel = h(
+    'div',
+    { class: 'flex h-full w-72 max-w-[85vw] flex-col bg-surface shadow-2xl' },
+    drawerHost
+  )
+  const drawer = h(
+    'div',
+    {
+      id: 'mobile-drawer',
+      class: 'fixed inset-0 z-[80] hidden bg-black/40 lg:hidden',
+      'aria-hidden': 'true',
+    },
+    drawerPanel
+  )
+
+  const onDrawerKey = (event: KeyboardEvent): void => {
+    if (event.key === 'Escape') closeDrawer()
+  }
+
+  function closeDrawer(): void {
+    drawer.classList.add('hidden')
+    drawer.setAttribute('aria-hidden', 'true')
+    document.removeEventListener('keydown', onDrawerKey)
+  }
+
+  function openDrawer(): void {
+    // Re-render so permissions or plugins that changed since the last open
+    // are reflected the moment the panel slides in.
+    renderSidebar()
+    drawer.classList.remove('hidden')
+    drawer.setAttribute('aria-hidden', 'false')
+    document.addEventListener('keydown', onDrawerKey)
+  }
+
+  function toggleDrawer(): void {
+    if (drawer.classList.contains('hidden')) openDrawer()
+    else closeDrawer()
+  }
+
+  // Tapping the dimmed backdrop closes; tapping the panel does not.
+  drawer.addEventListener('click', (event) => {
+    if (event.target === drawer) closeDrawer()
+  })
   const titleEl = h('h1', { class: 'truncate text-base font-semibold text-content', text: 'Mekholi' })
   const subtitleEl = h('p', { class: 'truncate text-xs text-content-muted' })
 
@@ -76,20 +126,48 @@ export function appShell(options: AppShellOptions): AppShell {
   const hasMultipleOrgs = sessionStore.state.organizations.length > 1
 
   const renderSidebar = (): void => {
-    const switcher = hasMultipleOrgs ? buildOrgSwitcher() : undefined
+    const common = { registry, shopName, shopInitial }
+    // The footer is built per instance: it is a single DOM element, and a
+    // node shared between both sidebars would end up mounted in only one.
+    const desktopFooter = hasMultipleOrgs ? buildOrgSwitcher() : undefined
+    const drawerFooter = hasMultipleOrgs ? buildOrgSwitcher() : undefined
+
     mount(
       sidebarHost,
       sidebar({
-        registry,
-        shopName,
-        shopInitial,
+        ...common,
         onNavigate,
         onOpenPalette: () => palette.open(),
         onSignOut,
-        ...(switcher ? { footer: switcher } : {}),
+        ...(desktopFooter ? { footer: desktopFooter } : {}),
       })
     )
     markActive(sidebarHost, currentPath())
+
+    // The drawer gets its own instance whose every escape hatch — navigating,
+    // opening the palette, signing out — closes it first. A drawer that stays
+    // open over the page it just navigated to is how mobile UIs end up
+    // feeling broken.
+    mount(
+      drawerHost,
+      sidebar({
+        ...common,
+        onNavigate: (path) => {
+          closeDrawer()
+          onNavigate(path)
+        },
+        onOpenPalette: () => {
+          closeDrawer()
+          palette.open()
+        },
+        onSignOut: () => {
+          closeDrawer()
+          onSignOut()
+        },
+        ...(drawerFooter ? { footer: drawerFooter } : {}),
+      })
+    )
+    markActive(drawerHost, currentPath())
   }
 
   const shell = h(
@@ -113,7 +191,7 @@ export function appShell(options: AppShellOptions): AppShell {
         iconButton('menu', 'Open navigation', {
           variant: 'ghost',
           class: 'lg:hidden',
-          onClick: () => toggleMobileSidebar(),
+          onClick: () => toggleDrawer(),
         }),
         h(
           'div',
@@ -138,7 +216,7 @@ export function appShell(options: AppShellOptions): AppShell {
       h('main', { class: 'flex-1 overflow-y-auto', id: 'app-outlet' }, outlet)
     ),
 
-    mobileSidebarDrawer()
+    drawer
   )
 
   renderSidebar()
@@ -239,31 +317,6 @@ function buildOrgSwitcher(): HTMLElement {
   })
 
   return h('div', { class: 'px-1 pb-1' }, list)
-}
-
-// ── Mobile drawer ─────────────────────────────────────────────────────────
-// A shop counter is often a tablet in portrait, so the sidebar has to survive
-// a narrow viewport rather than disappear.
-
-let drawerEl: HTMLDivElement | null = null
-
-function mobileSidebarDrawer(): HTMLDivElement {
-  drawerEl = h('div', {
-    class:
-      'fixed inset-0 z-[80] hidden bg-black/40 lg:hidden',
-    'aria-hidden': 'true',
-  })
-  drawerEl.addEventListener('click', (event) => {
-    if (event.target === drawerEl) toggleMobileSidebar()
-  })
-  return drawerEl
-}
-
-function toggleMobileSidebar(): void {
-  if (!drawerEl) return
-  const open = drawerEl.classList.contains('hidden')
-  drawerEl.classList.toggle('hidden', !open)
-  drawerEl.setAttribute('aria-hidden', String(!open))
 }
 
 
