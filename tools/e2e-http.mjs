@@ -182,18 +182,35 @@ try {
   )
     const userId = created.rows[0].id
 
-    const provisioned = await client.query(
-      `select public.provision_organization($1, $2, $3, 'grocery') as id`,
-      [userId, `E2E ${tag} Shop`, `e2e-${tag}-${Date.now()}`]
-    )
-    const organizationId = provisioned.rows[0].id
-
     const tokenRes = await api('/auth/v1/token?grant_type=password', {
       method: 'POST',
       body: { email, password: PASSWORD },
     })
     const token = tokenRes.body?.access_token
     if (!token) throw new Error(`sign-in failed for ${tag}: HTTP ${tokenRes.status}`)
+
+    // Provision through PostgREST as the user, exactly the way the app's
+    // signup and onboarding screens do it — not as postgres via SQL. This is
+    // the call that silently produced organization-less accounts in the
+    // field, so it is the call the harness must exercise.
+    const slug = `e2e-${tag}-${Date.now()}`
+    const provisioned = await api('/rest/v1/rpc/provision_organization', {
+      method: 'POST',
+      token,
+      body: {
+        p_owner_user_id: userId,
+        p_org_name: `E2E ${tag} Shop`,
+        p_slug: slug,
+        p_shop_type: 'grocery',
+      },
+    })
+    const organizationId = provisioned.body
+    if (provisioned.status !== 200 || !organizationId) {
+      throw new Error(
+        `provision_organization failed for ${tag}: HTTP ${provisioned.status} ` +
+          `${JSON.stringify(provisioned.body).slice(0, 160)}`
+      )
+    }
 
     const pick = async (sql) =>
       (await client.query(sql, [organizationId])).rows[0]

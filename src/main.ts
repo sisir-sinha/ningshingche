@@ -29,6 +29,7 @@ import { refreshSalesFloor, watchOrganization } from './app/state/sales-floor'
 import { resetRepositories } from './app/data'
 import { posRoutes } from './features/pos'
 import { productRoutes } from './features/products'
+import { onboardingRoutes } from './features/onboarding'
 import { sessionStore, can } from './app/state/session'
 import { translateError } from './app/platform/errors'
 import { h } from './components/ui/h'
@@ -71,6 +72,15 @@ const uninstallShortcuts = installShortcuts(registry, [
 // ── 4. Router ─────────────────────────────────────────────────────────────
 
 /**
+ * The router renders routes into this element and the shell mounts this same
+ * element. They must be one and the same: handing the router a detached
+ * container means every view renders into memory and the page stays blank —
+ * which is exactly the bug this comment now prevents. Module-scoped so it
+ * survives sign-out/sign-in cycles.
+ */
+const outlet = h('div', { class: 'h-full' })
+
+/**
  * Every route requires a permission. The guard redirects to the onboarding
  * view when the account exists but has no shop, and to `/forbidden` when the
  * role lacks the key. There is no `/login` route: signing out unmounts the
@@ -100,15 +110,11 @@ const routes: Route[] = [
         })
       ),
   },
-  {
-    path: '/onboarding',
-    title: 'Set up your shop',
-    render: () => onboardingView(),
-  },
+  ...onboardingRoutes({ onDone: () => router.navigate('/') }),
 ]
 
 const router = new Router({
-  container: h('div', { class: 'h-full' }),
+  container: outlet,
   fallback: '/',
   guard: (route) => {
     if (sessionStore.state.status !== 'authenticated') return null
@@ -128,8 +134,6 @@ router.addAll(routes)
 // ── 5. Shell mount and teardown ───────────────────────────────────────────
 
 function enterApp(): void {
-  const outlet = h('div', { class: 'h-full' })
-
   // Branch, warehouse and register are resolved here rather than lazily by
   // each screen: the POS cannot render a priced product without knowing which
   // stock room to read, and three screens resolving it independently is three
@@ -157,23 +161,6 @@ async function leaveApp(): Promise<void> {
   resetRepositories()
   await signOut()
   root.replaceChildren(loginView({ onAuthenticated: enterApp }))
-}
-
-function onboardingView(): HTMLElement {
-  return h(
-    'div',
-    { class: 'p-6' },
-    emptyState('Your shop has not been created yet', {
-      description:
-        'Provisioning creates your branch, stock location, register and staff roles in one step.',
-      iconName: 'storefront',
-      action: button('Sign out and start again', { variant: 'primary', onClick: () => void leaveApp() }),
-    }),
-    h('p', {
-      class: 'mt-4 text-center text-xs text-content-subtle',
-      text: 'This usually means provisioning failed. Check the browser console.',
-    })
-  )
 }
 
 // ── 6. Boot ───────────────────────────────────────────────────────────────

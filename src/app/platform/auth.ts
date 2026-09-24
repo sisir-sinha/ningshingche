@@ -178,6 +178,47 @@ export async function signInWithGoogle(): Promise<void> {
   }
 }
 
+export interface ProvisionInput {
+  shopName: string
+  shopType: string
+}
+
+/**
+ * Provision a shop for the *signed-in* user.
+ *
+ * This is the recovery path for an account that exists but has no
+ * organization — a signup whose provisioning step failed, a user invited
+ * before their shop existed, or an OAuth sign-in for a brand-new account.
+ * The database only allows provisioning for oneself (`p_owner_user_id` must
+ * equal `auth.uid()`), so there is no way to call this for another user.
+ */
+export async function provisionShop(input: ProvisionInput): Promise<AuthResult> {
+  const supabase = getSupabase()
+  if (!supabase) return { ok: false, error: 'Mekholi is not connected to a server yet.', retryable: false }
+
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return { ok: false, error: 'You are not signed in.', retryable: false }
+
+    const { error } = await supabase.rpc('provision_organization', {
+      p_owner_user_id: user.id,
+      p_org_name: input.shopName.trim(),
+      p_slug: slugify(input.shopName),
+      p_shop_type: input.shopType,
+    })
+    if (error) return fail(error)
+
+    // Re-read the session payload so organizations and permissions appear
+    // without a page reload; the onboarding guard re-evaluates on navigation.
+    await loadSessionPayload()
+    return { ok: true }
+  } catch (error) {
+    return fail(error)
+  }
+}
+
 export interface SignUpInput {
   name: string
   email: string
@@ -223,16 +264,8 @@ export async function signUp(input: SignUpInput): Promise<AuthResult> {
       }
     }
 
-    const { error: provisionError } = await supabase.rpc('provision_organization', {
-      p_owner_user_id: user.id,
-      p_org_name: input.shopName.trim(),
-      p_slug: slugify(input.shopName),
-      p_shop_type: input.shopType,
-    })
-    if (provisionError) return fail(provisionError)
-
-    await loadSessionPayload()
-    return { ok: true }
+    // One provisioning path, shared with the onboarding screen.
+    return provisionShop({ shopName: input.shopName, shopType: input.shopType })
   } catch (error) {
     return fail(error)
   }
