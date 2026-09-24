@@ -11,10 +11,84 @@
 
 import { getSupabase, isConfigured } from './supabase'
 import { translateError } from './errors'
+import { env } from '../env'
 import { sessionStore, EMPTY_SESSION, type OrganizationMembership } from '../state/session'
 import { eventBus } from '../../shared/bus'
 
 export type AuthResult = { ok: true } | { ok: false; error: string; retryable: boolean }
+
+/**
+ * What this auth server does with a brand-new email sign-up.
+ *
+ * Project-level, not app-level: whether a new account must click a link before
+ * it can sign in is a Supabase setting, and the client has no business
+ * guessing. When confirmation is on, an email sign-up cannot reach the app —
+ * the account is created, no session is issued, and (on the default Supabase
+ * mailer, which is rate-limited and cannot deliver to arbitrary addresses) the
+ * confirmation email usually never arrives. The shopkeeper is left with an
+ * account they cannot use, and the email address is now burned for a retry.
+ *
+ * Reading the setting lets the sign-up screen say that up front instead of
+ * producing a stranded account. `/auth/v1/settings` is a public endpoint —
+ * the publishable key is all it needs — and `mailer_autoconfirm` is the flag
+ * the dashboard's "Confirm email" switch controls.
+ */
+export interface AuthSettings {
+  /** The server confirms new email sign-ups itself: no inbox round trip. */
+  mailerAutoconfirm: boolean
+  /** Password sign-up is open at all. */
+  signupDisabled: boolean
+}
+
+let settingsRequest: Promise<AuthSettings | null> | null = null
+
+/**
+ * Cached: settings change by a dashboard edit, not during a session, and the
+ * sign-up screen asks on every render.
+ *
+ * Returns null when the answer is unknown (offline, blocked, not configured).
+ * Callers must treat null as "carry on" — a failed preflight must never stop a
+ * signup that would otherwise have worked.
+ */
+export function authSettings(): Promise<AuthSettings | null> {
+  if (!settingsRequest) settingsRequest = fetchAuthSettings()
+  return settingsRequest
+}
+
+/** Test seam. */
+export function resetAuthSettings(): void {
+  settingsRequest = null
+}
+
+async function fetchAuthSettings(): Promise<AuthSettings | null> {
+  if (!isConfigured()) return null
+  try {
+    const response = await fetch(`${env.supabaseUrl}/auth/v1/settings`, {
+      headers: { apikey: env.supabaseAnonKey },
+    })
+    if (!response.ok) return null
+    const body = (await response.json()) as {
+      mailer_autoconfirm?: boolean
+      disable_signup?: boolean
+    }
+    return {
+      mailerAutoconfirm: body.mailer_autoconfirm === true,
+      signupDisabled: body.disable_signup === true,
+    }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The one place the "email confirmation is still on" instruction is written.
+ *
+ * It names the exact dashboard path, because this is the difference between a
+ * shopkeeper signing up in thirty seconds and giving up: the setting is two
+ * clicks away, and nothing in the app's own error message would ever say so.
+ */
+export const EMAIL_CONFIRMATION_SETTING_HINT =
+  'turn off "Confirm email" in Supabase → Authentication → Sign In / Providers → Email'
 
 /** The shape returned by `app.session_payload()`. */
 interface SessionPayload {
@@ -46,7 +120,10 @@ function translateAuthError(error: unknown): string | null {
     return 'An account with that email already exists. Sign in instead, or use a different email.'
   }
   if (record?.code === 'email_not_confirmed' || /email not confirmed/i.test(raw)) {
-    return 'That email is not confirmed yet. Open the confirmation link we sent, or ask to resend it.'
+    return (
+      'That account exists but was never confirmed. Confirm it once, or ' +
+      `${EMAIL_CONFIRMATION_SETTING_HINT} — then sign in again.`
+    )
   }
   return null
 }
@@ -239,6 +316,23 @@ export async function signUp(input: SignUpInput): Promise<AuthResult> {
   const supabase = getSupabase()
   if (!supabase) return { ok: false, error: 'Mekholi is not connected to a server yet.', retryable: false }
 
+  const settings = await authSettings()
+  if (settings && !settings.mailerAutoconfirm) {
+    // Refuse *before* the account exists. Creating it and then reporting that
+    // it cannot be used leaves a stranded user row (one of which is still in
+    // this project) and burns the address: a retry with the same email is
+    // rejected as already registered until the account is confirmed.
+    return {
+      ok: false,
+      error:
+        'This project still requires email confirmation, so a new email sign-up ' +
+        `cannot get past this screen — and its confirmation email is usually never ` +
+        `delivered. To sign up with email and password, ${EMAIL_CONFIRMATION_SETTING_HINT}. ` +
+        'Or use "Continue with Google", which needs no confirmation.',
+      retryable: false,
+    }
+  }
+
   try {
     const { data, error } = await supabase.auth.signUp({
       email: input.email.trim(),
@@ -256,10 +350,16 @@ export async function signUp(input: SignUpInput): Promise<AuthResult> {
       }
     }
     if (!data.session) {
-      // Email confirmation is on: the account exists but is not signed in.
+      // Reached only when the preflight had no answer (offline, or the setting
+      // changed mid-flight) and the server turned out to require confirmation
+      // anyway. The account exists and is not signed in, so say exactly that —
+      // including the two-click fix, because the mail may never arrive.
       return {
         ok: false,
-        error: 'Account created. Confirm your email, then sign in.',
+        error:
+          `Account created for ${input.email.trim()}, but this project requires email ` +
+          `confirmation before signing in. Open the confirmation link (if it arrives) — ` +
+          `or ${EMAIL_CONFIRMATION_SETTING_HINT} and sign in.`,
         retryable: false,
       }
     }

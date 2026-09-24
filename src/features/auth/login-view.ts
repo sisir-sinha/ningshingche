@@ -9,7 +9,13 @@
 import { h, icon } from '../../components/ui/h'
 import { button } from '../../components/ui/button'
 import { input, field, select } from '../../components/ui/input'
-import { signIn, signInWithGoogle, signUp, type SignUpInput } from '../../app/platform/auth'
+import {
+  signIn,
+  signInWithGoogle,
+  signUp,
+  authSettings,
+  type SignUpInput,
+} from '../../app/platform/auth'
 import { bindDrafts, clearDraft } from '../../app/state/drafts'
 import { isConfigured } from '../../app/platform/supabase'
 import taxonomy from '../../../data/shop_categories.json'
@@ -153,6 +159,14 @@ export function loginView(options: { onAuthenticated: () => void }): HTMLElement
     const errorSlot = h('p', { class: 'hidden text-sm text-danger', role: 'alert' })
     const submit = button('Create my shop', { variant: 'primary', fullWidth: true, size: 'lg' })
 
+    // Told before the fields are filled, not after the account is created.
+    // With confirmation switched on, an email sign-up cannot reach the app:
+    // the account exists, no session is issued, and the confirmation mail
+    // (default Supabase mailer, rate-limited, cannot deliver to arbitrary
+    // addresses) usually never arrives. Saying so afterwards leaves a
+    // stranded account behind; saying so here costs the shopkeeper nothing.
+    const noticeSlot = h('div', { class: 'mt-4' })
+
     const showError = (message: string): void => {
       errorSlot.textContent = message
       errorSlot.classList.remove('hidden')
@@ -196,6 +210,7 @@ export function loginView(options: { onAuthenticated: () => void }): HTMLElement
         class: 'mt-1 text-sm text-content-muted',
         text: 'Takes about a minute. Your stock location, register and staff roles are created for you.',
       }),
+      noticeSlot,
       h(
         'div',
         { class: 'mt-5 space-y-4' },
@@ -220,6 +235,12 @@ export function loginView(options: { onAuthenticated: () => void }): HTMLElement
     // A failed signup (rate limit, network drop, accidental refresh) must not
     // cost the shopkeeper the form they just filled in. Cleared on success.
     bindDrafts(el, 'auth.signup')
+
+    void authSettings().then((settings) => {
+      if (!settings || settings.mailerAutoconfirm) return
+      noticeSlot.replaceChildren(confirmationNotice())
+    })
+
     return el
   }
 
@@ -257,6 +278,39 @@ function googleButton(errorSlot: HTMLElement): HTMLElement {
     h('span', { text: 'Continue with Google' })
   )
   return btn
+}
+
+/**
+ * Shown on the sign-up card when the auth server still requires email
+ * confirmation. Marks itself with `data-signup-notice` so the mobile audit can
+ * assert the screen agrees with the server's own setting.
+ */
+function confirmationNotice(): HTMLElement {
+  return h(
+    'div',
+    {
+      class:
+        'flex gap-2.5 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-content',
+      dataset: { signupNotice: 'true' },
+      role: 'status',
+    },
+    icon('mark_email_unread', 'text-lg text-warning shrink-0'),
+    h(
+      'div',
+      { class: 'min-w-0' },
+      h('p', {
+        class: 'font-medium',
+        text: 'Email confirmation is switched on for this project',
+      }),
+      h('p', {
+        class: 'mt-1 text-content-muted',
+        text:
+          'A new email sign-up cannot sign in until the link is clicked, and that ' +
+          'email usually never arrives. Continue with Google below, or turn off ' +
+          '"Confirm email" in Supabase → Authentication → Sign In / Providers → Email.',
+      })
+    )
+  )
 }
 
 function card(...children: HTMLElement[]): HTMLElement {

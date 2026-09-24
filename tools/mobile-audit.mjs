@@ -341,6 +341,21 @@ try {
   // The sign-up mode is the longer form — the real mobile risk.
   await clickByText(page, 'button', 'Create your shop')
   await page.waitForSelector('#signup-shop', { timeout: 10000 })
+
+  // The screen must agree with the server about email confirmation. This
+  // passes in both worlds and fails only on disagreement, so it keeps working
+  // after the project setting is changed.
+  const settings = await api('/auth/v1/settings')
+  const requiresConfirmation = settings.body?.mailer_autoconfirm !== true
+  await new Promise((r) => setTimeout(r, 800))
+  const noticeShown = await page.evaluate(() =>
+    Boolean(document.querySelector('[data-signup-notice]'))
+  )
+  check(
+    'sign-up screen matches the auth server on email confirmation',
+    noticeShown === requiresConfirmation,
+    `server requires confirmation: ${requiresConfirmation}, warning shown: ${noticeShown}`
+  )
   const signupAudit = await auditLayout(page, 'signup')
   await page.screenshot({ path: join(OUT, '02-signup.png'), fullPage: true })
   report.audits.push(signupAudit)

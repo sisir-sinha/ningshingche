@@ -237,6 +237,22 @@ try {
   orgId = member.organizationId
   console.log()
 
+  // ── 2a. Sign-ups must not need an email round trip ───────────────────────
+  //
+  // The harness creates its users by inserting straight into auth.users with
+  // email_confirmed_at = now(), so it passes whether or not the project
+  // requires confirmation — which is exactly how real signups stayed broken
+  // while every check was green. This asserts the project setting itself.
+  const authSettings = await api('/auth/v1/settings')
+  const autoconfirm = authSettings.body?.mailer_autoconfirm === true
+  check(
+    'sign-ups do not require email confirmation (mailer_autoconfirm)',
+    autoconfirm,
+    autoconfirm
+      ? 'confirmed server-side'
+      : 'ACTION NEEDED: turn off "Confirm email" in Supabase → Authentication → Sign In / Providers → Email'
+  )
+
   // ── 2. The token the whole run uses came from a real password grant ──────
   const token = member.token
   check(
