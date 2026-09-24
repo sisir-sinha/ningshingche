@@ -11,6 +11,7 @@
 import type { NavItem } from '../../shared/registry/plugin-types'
 import type { PluginRegistry } from '../../shared/registry/plugin-registry'
 import { can } from '../../app/state/session'
+import { lowStockCount } from '../../app/state/stock-alerts'
 
 /**
  * Sidebar sections, in display order. A plugin that names an unknown section
@@ -48,7 +49,18 @@ export const CORE_NAV: NavItem[] = [
   { id: 'sales', label: 'Sales', icon: 'receipt_long', section: 'selling', route: '/sales', permission: 'sales.view', order: 20 },
   { id: 'customers', label: 'Customers', icon: 'group', section: 'selling', route: '/customers', permission: 'customers.view', order: 30 },
   { id: 'products', label: 'Products', icon: 'inventory_2', section: 'inventory', route: '/products', permission: 'products.view', order: 10 },
-  { id: 'stock', label: 'Stock', icon: 'warehouse', section: 'inventory', route: '/stock', permission: 'inventory.view', order: 20 },
+  {
+    id: 'stock',
+    label: 'Stock',
+    icon: 'warehouse',
+    section: 'inventory',
+    route: '/stock',
+    permission: 'inventory.view',
+    order: 20,
+    // Read live on each render, so the count follows the data rather than
+    // being frozen at whatever it was when the sidebar was built.
+    badge: () => lowStockCount(),
+  },
   { id: 'purchases', label: 'Purchases', icon: 'local_shipping', section: 'inventory', route: '/purchases', permission: 'purchases.view', order: 30 },
   { id: 'expenses', label: 'Expenses', icon: 'payments', section: 'inventory', route: '/expenses', permission: 'expenses.view', order: 40 },
   { id: 'reports', label: 'Reports', icon: 'assessment', section: 'insights', route: '/reports', permission: 'reports.view', order: 10 },

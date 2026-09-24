@@ -118,28 +118,52 @@ Setup
 
 ---
 
-## Phase 3 — Inventory
+## Phase 3 — Inventory — ✅ complete 2026-09-25
 
 ```
-  □ Migration 006: movements, balances, transfers
-  □ Stock ledger with before/after + immutability trigger
-  □ Weighted-average costing in RPCs                        doc 09 #5
-  □ Stock In: scan → qty → cost → supplier → save           §13
-  □ Stock Out: scan → qty → reason → save                   §13
-  □ Adjustments with reason codes
-  □ Transfers between warehouses                            §28
-  □ Stock history per product ("why 37 units?")             §12
-  □ Stock overview: on hand, reserved, value, low stock
-  □ Low-stock and out-of-stock lists + reorder points
-  □ Realtime: low-stock badge
+  ✅ Migration 006: movements, balances, transfers        (already existed)
+  ✅ Stock ledger with before/after + immutability trigger
+  ✅ Weighted-average costing in RPCs                      doc 09 #5
+  ✅ Migration 024: stock_in / stock_out / transfer_stock / stock_summary
+  ✅ Stock In: scan → qty → cost → supplier → save         §13
+  ✅ Stock Out: scan → qty → reason → save                 §13
+  ✅ Adjustments with reason codes
+  ✅ Transfers between warehouses                          §28
+  ✅ Stock history per product ("why 37 units?")           §12
+  ✅ Stock overview: on hand, reserved, value, low stock
+  ✅ Low-stock and out-of-stock lists + reorder points
+  ✅ Realtime: low-stock badge
 ```
 
-**Acceptance:**
-- Every balance change has a ledger row whose `before + delta = after`; a
-  property test asserts this over randomized operation sequences.
-- The stock history screen explains any balance end to end.
+Migration 024 filled the gap between 006 (the ledger) and 013 (the costing
+primitive): three operations had no reachable path at all. `stock_in` carries a
+unit cost — `adjust_stock` passes zero, so receiving through it would have
+blended the weighted average toward zero, silently corrupting the stock
+valuation. `stock_out` needs `inventory.stock_out`, not `inventory.adjust`, so
+being allowed to write off damage no longer implies being allowed to post
+arbitrary corrections. `transfer_stock` gives the transfer tables their first
+writer.
+
+**Acceptance — all verified by `npm run validate:migrations` (81 checks) and
+the browser audit (72 checks):**
+
+- Every balance change has a ledger row with `before + delta = after` — proven
+  by a randomized property test (60 operations, deterministic seed, ~32 applied
+  and ~28 refused) over which the invariant is asserted for *every* row.
+  Balances are additionally checked to equal the sum of their movements, and no
+  operation may drive a balance negative.
+- The stock history screen explains any balance end to end: each row states
+  `before → after` and the signed delta, with the reason in words.
 - `UPDATE`/`DELETE` on `stock_movements` raises.
-- Stock value on the dashboard matches `Σ(balance × avg_cost)` exactly.
+- Stock value on the dashboard equals Σ(balance × avg_cost) exactly — asserted
+  in Postgres (dashboard_summary vs the direct sum) *and* end to end, by
+  receiving stock over HTTP as the owner and comparing both screens' rendered
+  figures with SQL.
+
+**Deliberately deferred:** a guided stock-count workflow (walk the shelves,
+enter counted quantities, post the variances as `COUNT` movements). The
+`adjust` path covers correcting one product; a full count session is its own
+screen and belongs with the Purchases/receiving work in Phase 4.
 
 ---
 

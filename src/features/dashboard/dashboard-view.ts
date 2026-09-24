@@ -8,16 +8,24 @@
  * architecture holds.
  */
 
-import { h, icon } from '../../components/ui/h'
+import { h, icon, mount } from '../../components/ui/h'
 import { card, cardHeader, badge, stat, emptyState } from '../../components/ui/card'
 import { button } from '../../components/ui/button'
+import { getRepositories } from '../../app/data'
+import { stockAlertStore, refreshStockAlerts } from '../../app/state/stock-alerts'
+import { formatMoney } from '../../shared/domain/money'
 import type { PluginRegistry } from '../../shared/registry/plugin-registry'
 import { sessionStore, activeOrganization } from '../../app/state/session'
 import { eventBus } from '../../shared/bus'
 
-export function dashboardView(registry: PluginRegistry): HTMLElement {
+export interface DashboardOptions {
+  onNavigate?: (path: string) => void
+}
+
+export function dashboardView(registry: PluginRegistry, options: DashboardOptions = {}): HTMLElement {
   const session = sessionStore.state
   const org = activeOrganization()
+  const onNavigate = options.onNavigate
 
   return h(
     'div',
@@ -47,6 +55,12 @@ export function dashboardView(registry: PluginRegistry): HTMLElement {
         )
       )
     ),
+
+    // Inventory at a glance. The value comes from `stock_summary`, which
+    // computes Σ(quantity × avg_unit_cost) the same way the stock screen does —
+    // the Phase 3 acceptance test asserts the two are equal exactly, so neither
+    // may grow its own arithmetic.
+    stockCard(onNavigate),
 
     // Platform vitals
     h(
@@ -80,6 +94,100 @@ export function dashboardView(registry: PluginRegistry): HTMLElement {
     permissionsCard(),
 
     h('div', null, nextStepsCard())
+  )
+}
+
+/**
+ * Stock value and the two counts worth acting on.
+ *
+ * The counts come from the shared alert store — the same number the sidebar
+ * badge shows, so the two can never disagree — while the value is fetched here
+ * because only this card displays money. `stock_summary` computes it as
+ * Σ(quantity × avg_unit_cost), the same expression the stock screen uses; the
+ * Phase 3 acceptance test asserts those two are equal exactly, so neither may
+ * grow its own arithmetic.
+ */
+function stockCard(onNavigate?: (path: string) => void): HTMLElement {
+  const currency = activeOrganization()?.currency ?? 'BDT'
+
+  const valueSlot = h('p', {
+    class: 'mt-1 text-2xl font-semibold tabular-nums text-content',
+    text: '—',
+  })
+  const countsSlot = h('div', { class: 'mt-3 flex flex-wrap gap-2' })
+  const noteSlot = h('p', { class: 'mt-2 text-xs text-content-subtle' })
+
+  let stockValue: number | null = null
+  let failure: string | null = null
+
+  const render = (): void => {
+    const { lowStock, outOfStock } = stockAlertStore.state
+
+    valueSlot.textContent = stockValue === null ? '—' : formatMoney(stockValue as never, { currency })
+
+    mount(
+      countsSlot,
+      badge(`${lowStock} low`, {
+        tone: lowStock > 0 ? 'warning' : 'neutral',
+        iconName: 'trending_down',
+      }),
+      badge(`${outOfStock} out`, {
+        tone: outOfStock > 0 ? 'danger' : 'neutral',
+        iconName: 'production_quantity_limits',
+      })
+    )
+
+    mount(
+      noteSlot,
+      h('span', {
+        text: failure
+          ? failure
+          : lowStock > 0 || outOfStock > 0
+            ? 'Tap to see what needs reordering'
+            : 'Everything is above its reorder point',
+      })
+    )
+  }
+
+  const unsubscribe = stockAlertStore.subscribe(render)
+  const load = async (): Promise<void> => {
+    try {
+      const summary = await getRepositories().stock.summary()
+      stockValue = summary.stockValue
+      failure = null
+    } catch (error) {
+      failure = error instanceof Error ? error.message : 'Stock value is unavailable right now.'
+    }
+    // The view may have been replaced while this was in flight; writing into a
+    // detached node would leak the subscription.
+    if (!valueSlot.isConnected) {
+      unsubscribe()
+      return
+    }
+    render()
+  }
+
+  render()
+  void refreshStockAlerts().then(load)
+
+  if (onNavigate) {
+    const go = (): void => onNavigate('/stock')
+    countsSlot.addEventListener('click', go)
+    countsSlot.classList.add('cursor-pointer')
+    valueSlot.classList.add('cursor-pointer')
+    valueSlot.addEventListener('click', go)
+  }
+
+  return card(
+    cardHeader('Stock', { subtitle: 'What is on the shelves, and what it cost', iconName: 'warehouse' }),
+    // The label is not decoration: "৳ 11,641.50" on its own does not say
+    // whether it is what the stock cost, what it would sell for, or today's
+    // take. The Phase 3 acceptance test reads this figure off the screen, so
+    // it also has to be unambiguous to a human reading it.
+    h('p', { class: 'text-xs font-medium text-content-muted', text: 'Stock value' }),
+    valueSlot,
+    countsSlot,
+    noteSlot
   )
 }
 

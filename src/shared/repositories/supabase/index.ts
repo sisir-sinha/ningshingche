@@ -37,12 +37,24 @@ import type {
   OrganizationRepository,
   ProductRepository,
   RegisterRepository,
+  StockMovementRow,
+  StockOperationResult,
+  StockRepository,
+  StockRow,
+  WarehouseOption,
   Repositories,
   SaleRepository,
   SellableProduct,
   SalesFloor,
 } from '../contracts'
-import { milli, minor, type Milli, type Minor } from '../../domain/money'
+import {
+  milli,
+  milliToNumber,
+  minor,
+  minorToNumber,
+  type Milli,
+  type Minor,
+} from '../../domain/money'
 import type { SaleItemPayload, SalePaymentPayload } from '../../domain/cart'
 
 // ── Conversion ────────────────────────────────────────────────────────────
@@ -141,6 +153,40 @@ function paginate<T extends { id: string; created_at: string }>(
     items: rows,
     nextCursor: hasMore && last ? encodeCursor(last.created_at, last.id) : null,
   }
+}
+
+/**
+ * Cursor for `stock_balances`, which has no `id`/`created_at` of its own —
+ * it is keyed by (warehouse, variant) and updated in place. Paging on
+ * `(updated_at, variant_id)` keeps the same "rows after this point" guarantee.
+ */
+function encodeStockCursor(updatedAt: string, variantId: string): string {
+  return btoa(`${updatedAt}|${variantId}`)
+}
+
+function decodeStockCursor(cursor: string): { updatedAt: string; variantId: string } | null {
+  try {
+    const [updatedAt, variantId] = atob(cursor).split('|')
+    if (!updatedAt || !variantId) return null
+    return { updatedAt, variantId }
+  } catch {
+    return null
+  }
+}
+
+function stockAfterCursor<T extends Chainable<T>>(builder: T, cursor: string | null | undefined): T {
+  if (!cursor) return builder
+  const decoded = decodeStockCursor(cursor)
+  if (!decoded) return builder
+  return builder.or(
+    `updated_at.lt.${decoded.updatedAt},and(updated_at.eq.${decoded.updatedAt},variant_id.lt.${decoded.variantId})`
+  )
+}
+
+function stockNextCursor(rows: { updated_at: string; variant_id: string }[], limit: number): string | null {
+  const last = rows[rows.length - 1]
+  if (rows.length < limit || !last) return null
+  return encodeStockCursor(last.updated_at, last.variant_id)
 }
 
 /** Escape the characters PostgREST treats as operators inside an `or` value. */
@@ -908,6 +954,341 @@ function createOrganization(client: SupabaseClient): OrganizationRepository {
   }
 }
 
+// ── Stock (Phase 3) ───────────────────────────────────────────────────────
+
+/** A row of the joined stock view, as PostgREST returns it (numeric = text). */
+interface StockBalanceRow {
+  quantity: string
+  avg_unit_cost: string
+  warehouse_id: string
+  variant_id: string
+  product_id: string
+  updated_at: string
+  warehouses: { name: string } | { name: string }[] | null
+  product_variants:
+    | { name_suffix: string | null; sku: string | null }
+    | { name_suffix: string | null; sku: string | null }[]
+    | null
+  products:
+    | { name: string; reorder_point: string; track_stock: boolean }
+    | { name: string; reorder_point: string; track_stock: boolean }[]
+    | null
+}
+
+interface MovementRowRaw {
+  id: string
+  created_at: string
+  type: string
+  direction: number
+  quantity: string
+  before_quantity: string
+  after_quantity: string
+  unit_cost: string
+  warehouse_id: string
+  warehouse_name: string
+  variant_id: string
+  product_name: string
+  variant_name: string | null
+  reference_type: string | null
+  reference_id: string | null
+  note: string | null
+  user_id: string | null
+}
+
+/** PostgREST embeds a to-one join as an object, but the types say either. */
+function embedded<T>(value: T | T[] | null | undefined): T | null {
+  if (value === null || value === undefined) return null
+  return Array.isArray(value) ? (value[0] ?? null) : value
+}
+
+function toStockRow(row: StockBalanceRow): StockRow {
+  const variant = embedded(row.product_variants)
+  const product = embedded(row.products)
+  const warehouse = embedded(row.warehouses)
+  const quantity = toMilli(row.quantity)
+  const reorderPoint = toMilli(product?.reorder_point)
+  const avgUnitCost = toMinor(row.avg_unit_cost)
+  return {
+    variantId: row.variant_id,
+    productId: row.product_id,
+    productName: product?.name ?? 'Unknown product',
+    variantName: variant?.name_suffix ?? null,
+    sku: variant?.sku ?? null,
+    warehouseId: row.warehouse_id,
+    warehouseName: warehouse?.name ?? '—',
+    quantity,
+    avgUnitCost,
+    // Rounded to a minor unit once, here, so the screens agree with each
+    // other and with `stock_summary` (which rounds the same way).
+    stockValue: toMinor(Number(row.quantity) * Number(row.avg_unit_cost)),
+    reorderPoint,
+    trackStock: product?.track_stock ?? true,
+    isLow: Boolean(product?.track_stock) && quantity > 0 && quantity <= reorderPoint,
+    isOut: Boolean(product?.track_stock) && quantity <= 0,
+    updatedAt: row.updated_at,
+  }
+}
+
+function toMovementRow(row: MovementRowRaw): StockMovementRow {
+  const quantity = toMilli(row.quantity)
+  const direction: 1 | -1 = row.direction < 0 ? -1 : 1
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    type: row.type,
+    direction,
+    quantity,
+    delta: toMilli(Number(row.quantity) * direction),
+    beforeQuantity: toMilli(row.before_quantity),
+    afterQuantity: toMilli(row.after_quantity),
+    // Displayed, not multiplied: rounding to a minor unit here is what the
+    // screen shows anyway, and the exact figure stays in the ledger.
+    unitCost: toMinor(row.unit_cost),
+    warehouseId: row.warehouse_id,
+    warehouseName: row.warehouse_name,
+    variantId: row.variant_id,
+    productName: row.product_name,
+    variantName: row.variant_name,
+    referenceType: row.reference_type,
+    referenceId: row.reference_id,
+    note: row.note,
+    userId: row.user_id,
+  }
+}
+
+const STOCK_SELECT = [
+  'quantity',
+  'avg_unit_cost',
+  'warehouse_id',
+  'variant_id',
+  'product_id',
+  'updated_at',
+  'warehouses(name)',
+  'product_variants(name_suffix,sku)',
+  'products(name,reorder_point,track_stock)',
+].join(',')
+
+const MOVEMENT_SELECT = [
+  'id',
+  'created_at',
+  'type',
+  'direction',
+  'quantity',
+  'before_quantity',
+  'after_quantity',
+  'unit_cost',
+  'warehouse_id',
+  'warehouse_name',
+  'variant_id',
+  'product_name',
+  'variant_name',
+  'reference_type',
+  'reference_id',
+  'note',
+  'user_id',
+].join(',')
+
+function createStock(
+  client: SupabaseClient,
+  organizationId: () => string | null
+): StockRepository {
+  return {
+    async list(query) {
+      const limit = clampLimit(query.limit, 25)
+      let builder = client
+        .from('stock_balances')
+        .select(STOCK_SELECT)
+        .order('updated_at', { ascending: false })
+        .order('variant_id', { ascending: false })
+        .limit(limit)
+
+      builder = stockAfterCursor(builder, query.cursor)
+
+      if (query.warehouseId) builder = builder.eq('warehouse_id', query.warehouseId)
+
+      const rows = unwrap(await builder.returns<StockBalanceRow[]>())
+      let items = rows.map(toStockRow)
+
+      // Search, the low/out filters and the "worth showing at all" rule are
+      // applied after the join, because they depend on the product rows and on
+      // arithmetic across two of them. The alternative — filtering in SQL —
+      // would need a view, and the visible set is a page of 25, so the cost is
+      // bounded and the code stays in one place.
+      const search = query.search?.trim().toLowerCase()
+      if (search) {
+        items = items.filter(
+          (row) =>
+            row.productName.toLowerCase().includes(search) ||
+            (row.variantName ?? '').toLowerCase().includes(search) ||
+            (row.sku ?? '').toLowerCase().includes(search)
+        )
+      }
+      if (query.filter === 'low') items = items.filter((row) => row.isLow)
+      if (query.filter === 'out') items = items.filter((row) => row.isOut)
+
+      return { items, nextCursor: stockNextCursor(rows, limit) }
+    },
+
+    async history(variantId, query) {
+      const limit = clampLimit(query.limit, 50)
+      let builder = client
+        .from('stock_history')
+        .select(MOVEMENT_SELECT)
+        .eq('variant_id', variantId)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(limit)
+
+      builder = afterCursor(builder, query.cursor)
+      if (query.warehouseId) builder = builder.eq('warehouse_id', query.warehouseId)
+
+      const rows = unwrap(await builder.returns<MovementRowRaw[]>())
+      return { items: rows.map(toMovementRow), nextCursor: paginate(rows, limit).nextCursor }
+    },
+
+    async recent(query) {
+      const limit = clampLimit(query.limit, 15)
+      let builder = client
+        .from('stock_history')
+        .select(MOVEMENT_SELECT)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(limit)
+
+      builder = afterCursor(builder, query.cursor)
+      if (query.warehouseId) builder = builder.eq('warehouse_id', query.warehouseId)
+
+      const rows = unwrap(await builder.returns<MovementRowRaw[]>())
+      return { items: rows.map(toMovementRow), nextCursor: paginate(rows, limit).nextCursor }
+    },
+
+    async summary() {
+      const raw = unwrap(
+        await client.rpc('stock_summary', { p_organization_id: requireOrg(organizationId) })
+      ) as {
+        stock_value: string
+        variants_in_stock: number
+        low_stock: number
+        out_of_stock: number
+        warehouses: number
+        movements_today: number
+      }
+      return {
+        stockValue: toMinor(raw.stock_value),
+        variantsInStock: Number(raw.variants_in_stock),
+        lowStock: Number(raw.low_stock),
+        outOfStock: Number(raw.out_of_stock),
+        warehouses: Number(raw.warehouses),
+        movementsToday: Number(raw.movements_today),
+      }
+    },
+
+    async listWarehouses() {
+      const rows = unwrap(
+        await client
+          .from('warehouses')
+          .select('id,name,is_retail_floor')
+          .is('deleted_at', null)
+          .order('is_retail_floor', { ascending: false })
+          .order('name')
+          .returns<{ id: string; name: string; is_retail_floor: boolean }[]>()
+      )
+      return rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        isRetailFloor: row.is_retail_floor,
+      })) satisfies WarehouseOption[]
+    },
+
+    async stockIn(warehouseId, lines, options) {
+      const result = unwrap(
+        await client.rpc('stock_in', {
+          p_warehouse_id: warehouseId,
+          // Quantities and costs go back as plain numbers: PostgREST casts
+          // them into numeric(14,3) / numeric(14,4), and the branded types
+          // exist to stop accidental arithmetic, not to reach the wire.
+          p_items: lines.map((line) => ({
+            variant_id: line.variantId,
+            qty: milliToNumber(line.qty),
+            ...(line.unitCost === undefined ? {} : { unit_cost: minorToNumber(line.unitCost) }),
+          })),
+          p_supplier_id: options?.supplierId ?? null,
+          p_reference: options?.reference ?? null,
+          p_note: options?.note ?? null,
+        })
+      ) as { line_count: number; total_qty: string; total_cost: string }
+      return {
+        lineCount: Number(result.line_count),
+        totalQty: toMilli(result.total_qty),
+        totalCost: toMinor(result.total_cost),
+      } satisfies StockOperationResult
+    },
+
+    async stockOut(warehouseId, lines, reason, note) {
+      const result = unwrap(
+        await client.rpc('stock_out', {
+          p_warehouse_id: warehouseId,
+          p_items: lines.map((line) => ({
+            variant_id: line.variantId,
+            qty: milliToNumber(line.qty),
+          })),
+          p_reason: reason,
+          p_note: note ?? null,
+        })
+      ) as { line_count: number; total_qty: string }
+      return {
+        lineCount: Number(result.line_count),
+        totalQty: toMilli(result.total_qty),
+      } satisfies StockOperationResult
+    },
+
+    async transfer(fromWarehouseId, toWarehouseId, lines, note) {
+      const transferId = unwrap(
+        await client.rpc('transfer_stock', {
+          p_from_warehouse_id: fromWarehouseId,
+          p_to_warehouse_id: toWarehouseId,
+          p_items: lines.map((line) => ({
+            variant_id: line.variantId,
+            qty: milliToNumber(line.qty),
+          })),
+          p_note: note ?? null,
+        })
+      ) as string
+      const totalQty = lines.reduce((sum, line) => sum + milliToNumber(line.qty), 0)
+      return {
+        lineCount: lines.length,
+        totalQty: milli(totalQty),
+        transferId,
+      } satisfies StockOperationResult
+    },
+
+    async adjust(warehouseId, variantId, qty, reason, direction, note) {
+      unwrap(
+        await client.rpc('adjust_stock', {
+          p_warehouse_id: warehouseId,
+          p_variant_id: variantId,
+          p_quantity: milliToNumber(qty),
+          p_reason: reason,
+          p_direction: direction,
+          p_note: note ?? null,
+        })
+      )
+    },
+
+    async setReorderPoint(productId, reorderPoint) {
+      const rows = unwrap(
+        await client
+          .from('products')
+          .update({ reorder_point: milliToNumber(reorderPoint) })
+          .eq('id', productId)
+          .select('id')
+          .returns<{ id: string }[]>()
+      )
+      if (rows.length === 0) throw new Error('Product not found, or you cannot edit it.')
+    },
+  }
+}
+
 // ── Composition ───────────────────────────────────────────────────────────
 
 /**
@@ -928,6 +1309,7 @@ export function createSupabaseRepositories(
     sales: createSales(client),
     registers: createRegisters(client),
     organization: createOrganization(client),
+    stock: createStock(client, organizationId),
   }
 }
 

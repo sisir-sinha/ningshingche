@@ -952,6 +952,269 @@ check(
   nameless[0] ? String(nameless[0].slug) : 'no row'
 )
 
+// ── Phase 3 — inventory operations and the ledger invariants ─────────────
+//
+// The acceptance criteria for this phase are properties, not examples: every
+// balance change must have a ledger row where before + delta = after, the
+// balance must equal the sum of its movements, and the stock value the
+// dashboard reports must equal Σ(quantity × avg_unit_cost) exactly. A handful
+// of hand-picked cases cannot show that, so the first check below drives
+// randomized operation sequences and then verifies the invariants over every
+// row they produced.
+if (seeded.length !== 0) {
+  const s = seeded[0]
+
+  // The checks above end with the JWT claim cleared or switched to another
+  // user; the stock operations all call app.require_org, so re-establish the
+  // signed-in owner before exercising them.
+  await db.query(`select set_config('request.jwt.claim.sub', '${s.owner}', false)`)
+
+  // A second warehouse to transfer into, and a variant used only by these
+  // checks so their arithmetic is not entangled with the sale above.
+  await db.exec(`
+    INSERT INTO public.warehouses (id, organization_id, name, code, is_retail_floor)
+    VALUES ('00000000-0000-0000-0000-00000000d001', '${s.org}', 'Back Room', 'BACK', false)
+    ON CONFLICT (id) DO NOTHING;
+
+    INSERT INTO public.products (id, organization_id, name, selling_price, cost_price, track_stock, reorder_point)
+    VALUES ('00000000-0000-0000-0000-00000000d002', '${s.org}', 'Invariant Widget', 200, 100, true, 5)
+    ON CONFLICT (id) DO NOTHING;
+
+    INSERT INTO public.product_variants (id, organization_id, product_id, is_default)
+    VALUES ('00000000-0000-0000-0000-00000000d003', '${s.org}',
+            '00000000-0000-0000-0000-00000000d002', true)
+    ON CONFLICT (id) DO NOTHING;
+  `)
+
+  // ── Weighted-average costing ────────────────────────────────────────────
+  //
+  // 10 @ 100 then 10 @ 200 is 150 a unit. Getting this wrong is invisible
+  // until a profit report is wrong, so it is worth asserting directly.
+  await q(`select public.stock_in('${s.warehouse}',
+             jsonb_build_array(jsonb_build_object('variant_id', '00000000-0000-0000-0000-00000000d003', 'qty', 10, 'unit_cost', 100)),
+             null, 'AVG-1', null)`)
+  await q(`select public.stock_in('${s.warehouse}',
+             jsonb_build_array(jsonb_build_object('variant_id', '00000000-0000-0000-0000-00000000d003', 'qty', 10, 'unit_cost', 200)),
+             null, 'AVG-2', null)`)
+
+  const avg = await q(`select quantity, avg_unit_cost from public.stock_balances
+                        where warehouse_id = '${s.warehouse}' and variant_id = '00000000-0000-0000-0000-00000000d003'`)
+  check(
+    'weighted average blends two receipts: 10@100 + 10@200 → 150',
+    Number(avg[0].quantity) === 20 && Number(avg[0].avg_unit_cost) === 150,
+    `qty=${avg[0].quantity} avg=${avg[0].avg_unit_cost}`
+  )
+
+  // Stock out must not move the average — the units left at the cost they
+  // came in at, whatever the new market price is.
+  await q(`select public.stock_out('${s.warehouse}',
+             jsonb_build_array(jsonb_build_object('variant_id', '00000000-0000-0000-0000-00000000d003', 'qty', 5)),
+             'damage', 'bottles broke')`)
+  const afterOut = await q(`select quantity, avg_unit_cost from public.stock_balances
+                             where warehouse_id = '${s.warehouse}' and variant_id = '00000000-0000-0000-0000-00000000d003'`)
+  check(
+    'stock out leaves the average untouched',
+    Number(afterOut[0].quantity) === 15 && Number(afterOut[0].avg_unit_cost) === 150,
+    `qty=${afterOut[0].quantity} avg=${afterOut[0].avg_unit_cost}`
+  )
+
+  const damageRow = await q(`select type, note from public.stock_movements
+                              where variant_id = '00000000-0000-0000-0000-00000000d003'
+                                and direction = -1 order by created_at desc limit 1`)
+  check(
+    'a damage write-off lands on the ledger as DAMAGE, not a generic adjustment',
+    damageRow[0]?.type === 'DAMAGE',
+    String(damageRow[0]?.type)
+  )
+
+  // ── Unknown reasons are refused ─────────────────────────────────────────
+  let badReason = null
+  try {
+    await q(`select public.stock_out('${s.warehouse}',
+               jsonb_build_array(jsonb_build_object('variant_id', '00000000-0000-0000-0000-00000000d003', 'qty', 1)),
+               'banana', null)`)
+  } catch (error) {
+    badReason = String(error.message ?? error)
+  }
+  check('stock out refuses a reason outside the allow-list', /unknown_reason/.test(String(badReason)), String(badReason).slice(0, 60))
+
+  // ── Transfers conserve value ────────────────────────────────────────────
+  const valueBefore = await q(`select coalesce(sum(quantity * avg_unit_cost), 0) as v
+                                 from public.stock_balances where organization_id = '${s.org}'`)
+  const transferId = await q(`select public.transfer_stock('${s.warehouse}', '00000000-0000-0000-0000-00000000d001',
+      jsonb_build_array(jsonb_build_object('variant_id', '00000000-0000-0000-0000-00000000d003', 'qty', 4)), 'nightly move') as id`)
+  const moved = await q(`select warehouse_id, quantity, avg_unit_cost from public.stock_balances
+                          where variant_id = '00000000-0000-0000-0000-00000000d003' order by warehouse_id`)
+  const valueAfter = await q(`select coalesce(sum(quantity * avg_unit_cost), 0) as v
+                                from public.stock_balances where organization_id = '${s.org}'`)
+  const dest = moved.find((r) => r.warehouse_id === '00000000-0000-0000-0000-00000000d001')
+  const src = moved.find((r) => r.warehouse_id === s.warehouse)
+  check(
+    'a transfer moves stock and conserves the shop\'s stock value exactly',
+    Boolean(transferId[0].id) &&
+      Number(src.quantity) === 11 &&
+      Number(dest.quantity) === 4 &&
+      Number(valueBefore[0].v) === Number(valueAfter[0].v),
+    `src=${src.quantity} dest=${dest.quantity} value ${valueBefore[0].v} → ${valueAfter[0].v}`
+  )
+  check(
+    'the receiving warehouse inherits the sending warehouse\'s cost',
+    Number(dest.avg_unit_cost) === Number(src.avg_unit_cost),
+    `${src.avg_unit_cost} vs ${dest.avg_unit_cost}`
+  )
+  check(
+    'a transfer writes both legs with a shared reference',
+    (await q(`select count(*)::int as n from public.stock_movements
+               where reference_id = '${transferId[0].id}'
+                 and type in ('TRANSFER_OUT','TRANSFER_IN')`))[0].n === 2,
+    'expected 2 legs'
+  )
+
+  // ── Over-issue is refused, and leaves nothing behind ─────────────────────
+  let overIssue = null
+  const rowsBefore = (await q(`select count(*)::int as n from public.stock_movements`))[0].n
+  try {
+    await q(`select public.stock_out('${s.warehouse}',
+               jsonb_build_array(jsonb_build_object('variant_id', '00000000-0000-0000-0000-00000000d003', 'qty', 99999)),
+               'loss', null)`)
+  } catch (error) {
+    overIssue = String(error.message ?? error)
+  }
+  const rowsAfter = (await q(`select count(*)::int as n from public.stock_movements`))[0].n
+  check('issuing more than is on hand is refused', /insufficient_stock/.test(String(overIssue)), String(overIssue).slice(0, 50))
+  check('a refused issue writes no ledger rows at all', rowsBefore === rowsAfter, `${rowsBefore} → ${rowsAfter}`)
+
+  // ── The property test ───────────────────────────────────────────────────
+  //
+  // Randomized operation sequences, then the invariants over everything they
+  // produced. A deterministic LCG keeps the run reproducible: when this fails,
+  // the seed in the message is enough to replay it by hand.
+  let seed = 20260925
+  const rand = () => {
+    seed = (seed * 1103515245 + 12345) % 2147483648
+    return seed / 2147483648
+  }
+  const pick = (options) => options[Math.floor(rand() * options.length)]
+  const variant = '00000000-0000-0000-0000-00000000d003'
+  const warehouseA = s.warehouse
+  const warehouseB = '00000000-0000-0000-0000-00000000d001'
+  let applied = 0
+  let refused = 0
+
+  for (let i = 0; i < 60; i++) {
+    const qty = 1 + Math.floor(rand() * 12)
+    try {
+      const op = pick(['in', 'in', 'out', 'adjust', 'adjust', 'transfer'])
+      if (op === 'in') {
+        await q(`select public.stock_in('${warehouseA}',
+                   jsonb_build_array(jsonb_build_object('variant_id', '${variant}', 'qty', ${qty}, 'unit_cost', ${50 + Math.floor(rand() * 150)})),
+                   null, 'fuzz', null)`)
+      } else if (op === 'out') {
+        await q(`select public.stock_out('${warehouseA}',
+                   jsonb_build_array(jsonb_build_object('variant_id', '${variant}', 'qty', ${qty})),
+                   '${pick(['damage', 'loss', 'expired', 'theft', 'other'])}', 'fuzz')`)
+      } else if (op === 'adjust') {
+        await q(`select public.adjust_stock('${warehouseA}', '${variant}', ${qty},
+                   '${pick(['damage', 'loss', 'expired'])}',
+                   ${pick([1, -1])}, 'fuzz')`)
+      } else {
+        await q(`select public.transfer_stock('${warehouseA}', '${warehouseB}',
+                   jsonb_build_array(jsonb_build_object('variant_id', '${variant}', 'qty', ${qty})), 'fuzz')`)
+      }
+      applied++
+    } catch {
+      // Refusals are expected — the point is that they leave no trace.
+      refused++
+    }
+  }
+
+  const unbalanced = await q(`
+    select count(*)::int as n from public.stock_movements
+     where before_quantity + (quantity * direction) <> after_quantity`)
+  check(
+    `every one of ${applied} randomized operations wrote before + delta = after`,
+    unbalanced[0].n === 0,
+    unbalanced[0].n === 0 ? `${refused} refused cleanly` : `${unbalanced[0].n} unbalanced rows (seed ${seed})`
+  )
+
+  // The balance is a cache of the ledger. If they ever disagree, every number
+  // the shop sees is wrong.
+  const drifted = await q(`
+    select sb.warehouse_id, sb.variant_id, sb.quantity, coalesce(sum(sm.quantity * sm.direction), 0) as ledger_qty
+      from public.stock_balances sb
+      left join public.stock_movements sm
+        on sm.warehouse_id = sb.warehouse_id and sm.variant_id = sb.variant_id
+     group by sb.warehouse_id, sb.variant_id, sb.quantity
+    having sb.quantity <> coalesce(sum(sm.quantity * sm.direction), 0)`)
+  check(
+    'every balance equals the sum of its ledger movements',
+    drifted.length === 0,
+    drifted.length ? `${drifted.length} drifted balances, e.g. ${JSON.stringify(drifted[0])}` : 'all reconcile'
+  )
+
+  const negative = await q(`
+    select count(*)::int as n from public.stock_balances sb
+      join public.products p on p.id = sb.product_id
+     where sb.quantity < 0 and not p.allow_negative`)
+  check('no operation drove a balance negative', negative[0].n === 0, `${negative[0].n} negative balances`)
+
+  // ── The dashboard number and the stock screen must agree exactly ─────────
+  const summary = await q(`select public.stock_summary('${s.org}') as r`)
+  const direct = await q(`select coalesce(sum(quantity * avg_unit_cost), 0) as v
+                            from public.stock_balances where organization_id = '${s.org}'`)
+  const dashboard = await q(`select public.dashboard_summary('${s.branch}', current_date) as r`)
+  check(
+    'stock_summary equals Σ(quantity × avg_unit_cost) exactly',
+    Number(summary[0].r.stock_value) === Number(direct[0].v),
+    `${summary[0].r.stock_value} vs ${direct[0].v}`
+  )
+  check(
+    'the dashboard stock value equals the stock screen value exactly',
+    Number(dashboard[0].r.stock_value) === Number(direct[0].v),
+    `dashboard ${dashboard[0].r.stock_value} vs Σ ${direct[0].v}`
+  )
+  check(
+    'stock_summary counts low and out of stock separately',
+    summary[0].r.low_stock >= 0 && summary[0].r.out_of_stock >= 0 && 'variants_in_stock' in summary[0].r,
+    `in stock=${summary[0].r.variants_in_stock} low=${summary[0].r.low_stock} out=${summary[0].r.out_of_stock}`
+  )
+
+  // ── Cross-tenant transfer is refused ────────────────────────────────────
+  await db.exec(`
+    INSERT INTO public.organizations (id, name, slug) VALUES
+      ('00000000-0000-0000-0000-00000000e001', 'Other Shop', 'fuzz-other-shop')
+    ON CONFLICT (id) DO NOTHING;
+    INSERT INTO public.warehouses (id, organization_id, name, code, is_retail_floor) VALUES
+      ('00000000-0000-0000-0000-00000000e002', '00000000-0000-0000-0000-00000000e001', 'Their Room', 'THEIRS', true)
+    ON CONFLICT (id) DO NOTHING;
+  `)
+  let crossTenant = null
+  try {
+    await q(`select public.transfer_stock('${warehouseA}', '00000000-0000-0000-0000-00000000e002',
+               jsonb_build_array(jsonb_build_object('variant_id', '${variant}', 'qty', 1)), null)`)
+  } catch (error) {
+    crossTenant = String(error.message ?? error)
+  }
+  check(
+    'stock cannot be transferred into another shop',
+    /cannot transfer between organizations/.test(String(crossTenant)),
+    String(crossTenant).slice(0, 50)
+  )
+
+  // ── The client still cannot reach the ledger primitive ──────────────────
+  const primitiveGrants = await q(`
+    select has_function_privilege('authenticated', 'public.apply_stock_movement(uuid, uuid, public.stock_movement_type, numeric, numeric, text, uuid, text)', 'EXECUTE') as ok`)
+  check(
+    'the new operations did not hand the ledger primitive to clients',
+    primitiveGrants[0].ok === false,
+    `apply_stock_movement executable by authenticated: ${primitiveGrants[0].ok}`
+  )
+
+  // Leave the session as it was found: the checks after this one load the
+  // seed state and should not inherit a signed-in user.
+  await db.query(`select set_config('request.jwt.claim.sub', null, false)`)
+}
+
 // ── Every permission key the client names must exist (023-era guard) ─────
 //
 // The catalogue is the contract between the database and the UI. Two nav

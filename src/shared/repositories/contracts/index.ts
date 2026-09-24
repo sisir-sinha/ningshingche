@@ -191,6 +191,144 @@ export interface OrganizationRepository {
  * depend on `CatalogRepository` directly, which keeps its real requirements
  * visible in its signature.
  */
+// ── Inventory (Phase 3) ───────────────────────────────────────────────────
+
+/**
+ * One line of the stock list: a variant in a warehouse, with what it is worth.
+ *
+ * Quantities are `Milli` (thousandths) and money is `Minor`, converted at the
+ * repository boundary so no screen parses a numeric itself — the same rule the
+ * rest of the data surface follows.
+ */
+export interface StockRow {
+  variantId: string
+  productId: string
+  productName: string
+  variantName: string | null
+  sku: string | null
+  warehouseId: string
+  warehouseName: string
+  quantity: Milli
+  avgUnitCost: Minor
+  stockValue: Minor
+  reorderPoint: Milli
+  trackStock: boolean
+  isLow: boolean
+  isOut: boolean
+  updatedAt: string
+}
+
+/** A ledger entry, with the before/after that makes it an explanation. */
+export interface StockMovementRow {
+  id: string
+  createdAt: string
+  type: string
+  direction: 1 | -1
+  quantity: Milli
+  /** Signed: positive for stock in, negative for stock out. */
+  delta: Milli
+  beforeQuantity: Milli
+  afterQuantity: Milli
+  unitCost: Minor
+  warehouseId: string
+  warehouseName: string
+  variantId: string
+  productName: string
+  variantName: string | null
+  referenceType: string | null
+  referenceId: string | null
+  note: string | null
+  userId: string | null
+}
+
+/** The numbers the stock screen header and the dashboard card both show. */
+export interface StockSummary {
+  stockValue: Minor
+  variantsInStock: number
+  lowStock: number
+  outOfStock: number
+  warehouses: number
+  movementsToday: number
+}
+
+export interface StockLineInput {
+  variantId: string
+  qty: Milli
+  /** Omitted on a receipt means "use the product's last known cost". */
+  unitCost?: Minor
+}
+
+/** What a stock operation reports back, for the confirmation message. */
+export interface StockOperationResult {
+  lineCount: number
+  totalQty: Milli
+  /** Receipts only. */
+  totalCost?: Minor
+  /** Transfers only. */
+  transferId?: string
+}
+
+/** Query for the stock list. Every filter is optional and composes. */
+export interface StockQuery extends PageRequest {
+  search?: string
+  warehouseId?: string
+  /** The tabs above the list. */
+  filter?: 'all' | 'low' | 'out'
+}
+
+/** A warehouse the stock screens can move stock between. */
+export interface WarehouseOption {
+  id: string
+  name: string
+  isRetailFloor: boolean
+}
+
+export interface StockRepository {
+  /** One page of stock, newest movement first within each product. */
+  list(query: StockQuery): Promise<Page<StockRow>>
+  /** The ledger for one variant — the answer to "why 37 units?". */
+  history(variantId: string, query: PageRequest & { warehouseId?: string }): Promise<Page<StockMovementRow>>
+  /** Recent movements across the shop, for the overview's activity list. */
+  recent(query: PageRequest & { warehouseId?: string }): Promise<Page<StockMovementRow>>
+  summary(): Promise<StockSummary>
+
+  listWarehouses(): Promise<WarehouseOption[]>
+
+  /**
+   * Writes. Each maps to exactly one Postgres function, because the function
+   * is where the row lock, the stock check and the ledger write happen
+   * together — a client that wrote the balance itself would be a second
+   * implementation of the invariant.
+   */
+  stockIn(
+    warehouseId: string,
+    lines: StockLineInput[],
+    options?: { supplierId?: string | null; reference?: string | null; note?: string | null }
+  ): Promise<StockOperationResult>
+  stockOut(
+    warehouseId: string,
+    lines: { variantId: string; qty: Milli }[],
+    reason: string,
+    note?: string | null
+  ): Promise<StockOperationResult>
+  transfer(
+    fromWarehouseId: string,
+    toWarehouseId: string,
+    lines: { variantId: string; qty: Milli }[],
+    note?: string | null
+  ): Promise<StockOperationResult>
+  adjust(
+    warehouseId: string,
+    variantId: string,
+    qty: Milli,
+    reason: string,
+    direction: 1 | -1,
+    note?: string | null
+  ): Promise<void>
+  /** Reorder point lives on the product; editing it is a product update. */
+  setReorderPoint(productId: string, reorderPoint: Milli): Promise<void>
+}
+
 export interface Repositories {
   readonly catalog: CatalogRepository
   readonly products: ProductRepository
@@ -198,6 +336,7 @@ export interface Repositories {
   readonly customers: CustomerRepository
   readonly registers: RegisterRepository
   readonly organization: OrganizationRepository
+  readonly stock: StockRepository
 }
 
 /** Re-exported so features can build payloads without importing the domain. */

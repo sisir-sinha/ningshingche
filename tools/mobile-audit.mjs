@@ -135,7 +135,12 @@ async function provision(user) {
   if (provisioned.status !== 200 || !provisioned.body) {
     throw new Error(`provision failed: ${provisioned.status} ${JSON.stringify(provisioned.body)}`)
   }
-  members.find((m) => m.userId === user.userId).organizationId = provisioned.body
+  const record = members.find((m) => m.userId === user.userId)
+  record.organizationId = provisioned.body
+  // Keep the token: later checks act as this member (seeding stock through the
+  // RPCs the app calls). Without it the requests go out anonymous and RLS
+  // refuses them — which is how this was found.
+  record.token = token
   return provisioned.body
 }
 
@@ -522,6 +527,7 @@ try {
   for (const [name, route] of [
     ['pos', '#/pos'],
     ['products', '#/products'],
+    ['stock', '#/stock'],
     ['sales', '#/sales'],
     ['customers', '#/customers'],
     ['register', '#/register'],
@@ -544,6 +550,148 @@ try {
     )
     const stuck = /still loading|Loading the shop|could not be loaded/i.test(body)
     check(`route ${route}: shows content, not a loading or error state`, !stuck, body.slice(0, 90))
+  }
+
+  // ── E. Phase 3: the stock value the dashboard shows must equal the
+  // database's own arithmetic. This is the acceptance criterion "stock value
+  // on the dashboard matches Σ(balance × avg_cost) exactly", verified against
+  // the live project rather than a fixture.
+  console.log('\n── stock value reconciliation ──')
+  const member = members.find((m) => m.organizationId) ?? null
+  if (member?.organizationId) {
+    // Receive stock the way the app does — over PostgREST, as the signed-in
+    // user, through the RPC the UI calls. A reconciliation against an empty
+    // shop would pass at 0 vs 0 and prove nothing.
+    const warehouse = (
+      await client.query('select id from public.warehouses where organization_id = $1 limit 1', [
+        member.organizationId,
+      ])
+    ).rows[0].id
+
+    const productRes = await api('/rest/v1/products', {
+      method: 'POST',
+      token: member.token,
+      body: {
+        organization_id: member.organizationId,
+        name: 'Audit Rice 5kg',
+        selling_price: 1500,
+        cost_price: 1200,
+        track_stock: true,
+        reorder_point: 5,
+      },
+    })
+    if (productRes.status !== 201 || !productRes.body?.[0]?.id) {
+      throw new Error(`product insert failed: HTTP ${productRes.status} ${JSON.stringify(productRes.body).slice(0, 300)}`)
+    }
+    const productId = productRes.body[0].id
+
+    const variantRes = await api('/rest/v1/product_variants', {
+      method: 'POST',
+      token: member.token,
+      body: { organization_id: member.organizationId, product_id: productId, is_default: true },
+    })
+    if (variantRes.status !== 201 || !variantRes.body?.[0]?.id) {
+      throw new Error(`variant insert failed: HTTP ${variantRes.status} ${JSON.stringify(variantRes.body).slice(0, 200)}`)
+    }
+    const variantId = variantRes.body[0].id
+
+    const received = await api('/rest/v1/rpc/stock_in', {
+      method: 'POST',
+      token: member.token,
+      body: {
+        p_warehouse_id: warehouse,
+        p_items: [
+          { variant_id: variantId, qty: 7, unit_cost: 1234.5 },
+          { variant_id: variantId, qty: 3, unit_cost: 1000 },
+        ],
+        p_supplier_id: null,
+        p_reference: 'AUDIT',
+        p_note: 'browser audit',
+      },
+    })
+    check(
+      'stock_in is reachable over HTTP by the signed-in owner',
+      received.status === 200 && Number(received.body?.total_qty) === 10,
+      `HTTP ${received.status} qty=${received.body?.total_qty} cost=${received.body?.total_cost}`
+    )
+    // 7 @ 1234.50 + 3 @ 1000.00 = 8641.50 + 3000 = 11641.50, average 1164.15.
+    check(
+      'stock_in reports the weighted cost it recorded',
+      Number(received.body?.total_cost) === 11641.5,
+      String(received.body?.total_cost)
+    )
+
+    const expected = await client.query(
+      `select coalesce(sum(quantity * avg_unit_cost), 0) as v
+         from public.stock_balances where organization_id = $1`,
+      [member.organizationId]
+    )
+    const expectedValue = Number(expected.rows[0].v)
+
+    await page.evaluate(() => {
+      window.location.hash = '#/stock'
+    })
+    await new Promise((r) => setTimeout(r, 2500))
+    const shown = await page.evaluate(() => {
+      const outlet = document.querySelector('#app-outlet')
+      return outlet ? (outlet.textContent || '') : ''
+    })
+    const audit = await auditLayout(page, 'stock screen')
+    report.audits.push(audit)
+    reportAudit(audit)
+    await page.screenshot({ path: join(OUT, '09-stock.png'), fullPage: true })
+
+    check(
+      'stock screen: loads with its summary rather than an error',
+      /Stock value|Items in stock/i.test(shown) && !/could not be loaded/i.test(shown),
+      shown.slice(0, 90)
+    )
+
+    // The rendered figure is compared with the SQL above. A currency string
+    // carries separators, so the digits are extracted and compared as a number.
+    const rendered = await page.evaluate(() => {
+      const cards = [...document.querySelectorAll('#app-outlet div')]
+      const card = cards.find((el) => (el.textContent || '').includes('Stock value'))
+      return card ? (card.textContent || '') : ''
+    })
+    // The card's icon renders its ligature *name* as text between the label
+    // and the figure ("Stock valuepayments৳ 11,641.50"), so match the first
+    // amount-looking number after the label rather than stripping letters.
+    const amountAfter = (text, label) => {
+      const match = text.match(new RegExp(`${label}[\\s\\S]{0,60}?([0-9][0-9,]*\\.\\d{2})`))
+      return match ? Number(match[1].replace(/,/g, '')) : 0
+    }
+    const shownValue = amountAfter(rendered, 'Stock value')
+    check(
+      'stock screen: value equals Σ(balance × avg_unit_cost) as the database computes it',
+      Math.abs(shownValue - expectedValue) < 0.01,
+      `screen ${shownValue} vs database ${expectedValue}`
+    )
+    check(
+      'stock screen: the received product appears with its quantity',
+      /Audit Rice 5kg/.test(shown) && /10\b/.test(shown),
+      shown.slice(0, 80)
+    )
+
+    // The dashboard card must show the same number: the Phase 3 criterion
+    // names the dashboard specifically, and two screens computing one figure
+    // differently is the failure mode worth guarding.
+    await page.evaluate(() => {
+      window.location.hash = '#/'
+    })
+    await new Promise((r) => setTimeout(r, 2500))
+    const dashRendered = await page.evaluate(() => {
+      const cards = [...document.querySelectorAll('#app-outlet div')]
+      const card = cards.find((el) => (el.textContent || '').includes('Stock'))
+      return card ? (card.textContent || '') : ''
+    })
+    const dashValue = amountAfter(dashRendered, 'Stock value')
+    check(
+      'dashboard: stock value equals the same Σ the stock screen shows',
+      Math.abs(dashValue - expectedValue) < 0.01,
+      `dashboard ${dashValue} vs database ${expectedValue} — card text: "${dashRendered.slice(0, 160)}"`
+    )
+    await page.screenshot({ path: join(OUT, '10-dashboard-stock.png'), fullPage: true })
   }
 
   // Persist the raw audit for the record.

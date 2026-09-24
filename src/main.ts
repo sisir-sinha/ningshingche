@@ -26,11 +26,13 @@ import { mountToasts, toastError } from './components/feedback/toast'
 import { installShortcuts } from './features/layout/command-palette'
 import { bootstrapSession, signOut, needsOnboarding } from './app/platform/auth'
 import { refreshSalesFloor, watchOrganization } from './app/state/sales-floor'
+import { watchStockAlerts, watchVisibility } from './app/state/stock-alerts'
 import { CORE_NAV } from './features/layout/navigation'
 import { placeholderView } from './features/layout/placeholder-view'
 import { resetRepositories } from './app/data'
 import { posRoutes } from './features/pos'
 import { productRoutes } from './features/products'
+import { stockRoutes } from './features/stock'
 import { onboardingRoutes } from './features/onboarding'
 import { sessionStore, can } from './app/state/session'
 import { translateError } from './app/platform/errors'
@@ -66,6 +68,8 @@ let shell: AppShell | null = null
 
 /** Installed in enterApp, released in leaveApp, so a re-login re-subscribes. */
 let unwatchOrganization: () => void = () => {}
+let unwatchStockAlerts: () => void = () => {}
+let unwatchVisibility: () => void = () => {}
 
 const uninstallShortcuts = installShortcuts(registry, [
   { combo: 'ctrl+k', handler: () => shell?.palette.open() },
@@ -94,10 +98,11 @@ const routes: Route[] = [
     path: '/',
     title: 'Dashboard',
     permission: 'dashboard.view',
-    render: () => dashboardView(registry),
+    render: () => dashboardView(registry, { onNavigate: (path) => router.navigate(path) }),
   },
   ...posRoutes({ bus: eventBus }),
   ...productRoutes(registry),
+  ...stockRoutes({ onNavigate: (path) => router.navigate(path) }),
   {
     path: '/forbidden',
     title: 'Not permitted',
@@ -167,6 +172,17 @@ function enterApp(): void {
   unwatchOrganization = watchOrganization()
   void refreshSalesFloor()
 
+  // The low-stock badge is ambient: it must be right without the stock screen
+  // being open, and on a device that never writes stock of its own — hence the
+  // Realtime subscription rather than a refresh-on-my-own-changes.
+  unwatchStockAlerts()
+  unwatchStockAlerts = watchStockAlerts()
+
+  // A tablet that slept through the afternoon must not wake up showing the
+  // count it had at lunchtime.
+  unwatchVisibility()
+  unwatchVisibility = watchVisibility()
+
   shell = appShell({
     registry,
     bus: eventBus,
@@ -185,6 +201,8 @@ async function leaveApp(): Promise<void> {
   shell?.el.remove()
   shell = null
   unwatchOrganization()
+  unwatchStockAlerts()
+  unwatchVisibility()
   resetRepositories()
   await signOut()
   root.replaceChildren(loginView({ onAuthenticated: enterApp }))
