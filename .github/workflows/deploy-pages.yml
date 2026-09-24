@@ -1,0 +1,59 @@
+# Deploys the production build to GitHub Pages on every push to main.
+#
+# Pages is configured as build_type "workflow" on this repo, so the upload +
+# deploy actions below are what actually publish the site. The Supabase
+# credentials are injected from repository variables: the anon key is a
+# *publishable* key (public by design, with RLS protecting the data), and
+# VITE_-prefixed values end up in the browser bundle either way (spec §44 —
+# the service-role key must never appear in frontend code).
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; a newer push supersedes an in-flight deploy.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          VITE_APP_ENV: ${{ vars.VITE_APP_ENV }}
+          VITE_APP_NAME: ${{ vars.VITE_APP_NAME }}
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
