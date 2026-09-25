@@ -35,6 +35,7 @@ function signIn(): void {
         timezone: 'Asia/Dhaka',
         role_names: ['Owner'],
         role_keys: ['owner'],
+        shop_type: 'grocery',
         is_owner: true,
         permissions: ['dashboard.view', 'inventory.view', 'sales.create'],
       },

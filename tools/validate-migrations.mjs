@@ -755,6 +755,15 @@ check(
   !ownerOrg.permissions.includes('*'),
   ownerOrg.permissions.includes('*') ? 'leaked *' : 'expanded'
 )
+// The shop's business type is what the client uses to decide what a shopkeeper
+// meets first — a pharmacy's expiry date, a mobile shop's serial tracking
+// (047, docs/08 §2). It has to travel with the session, because the taxonomy
+// that knows the rules lives in the bundle and the key lives in the database.
+check(
+  'session_payload carries the shop type the taxonomy keys on',
+  typeof ownerOrg.shop_type === 'string' && ownerOrg.shop_type.length > 0,
+  String(ownerOrg.shop_type)
+)
 
 // A cashier must not receive what the owner received. Scoped to the owner's
 // organization explicitly — an unqualified `(select id from organizations)`

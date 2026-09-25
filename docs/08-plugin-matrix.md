@@ -317,6 +317,25 @@ does — not a checkbox wall. Default plugins are pre-checked and grouped as
 "Recommended for a Pharmacy"; suggested ones sit under "You can add these
 later" so they do not compete visually.
 
+**How promotion actually works.** A promoted key is not a field the shop type
+creates — it is a *plugin's own* field (`ProductField.key`) that this shop type
+wants in front of it. Three pieces, and no plugin ever learns which shop it is
+in:
+
+1. `organizations.shop_type` is written by the wizard (step 2) and now travels
+   with the session payload (migration 047), because the client could not
+   promote anything it could not name;
+2. `data/shop_categories.json` names the keys in `promotedProductFields`;
+3. `splitPluginFields` (in `src/shared/types/shop-profile.ts`, used by the
+   product form) moves a registered field whose key is named out of the
+   collapsed section. Everything else keeps the section the plugin asked for.
+
+A key no plugin registers yet is inert, not broken: `model_no`, `carat` and
+`isbn` are fields an industry bundle contributes when it ships. What is *not*
+tolerated is a near miss — `batch_no` beside a plugin's `batch_number` promotes
+nothing at all and looks exactly like a promotion that works, which is why
+`src/app/shop-profile.test.ts` fails on one.
+
 Step 7 is deliberately last-but-one: by then the form already shows the right
 fields, so the first product feels natural rather than like a 30-field
 ordeal.

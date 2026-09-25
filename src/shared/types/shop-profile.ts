@@ -56,6 +56,55 @@ export interface ResolvedShopType {
   readonly recommendations: ShopTypeRecommendations
 }
 
+/**
+ * The product fields this shop type wants in front of it.
+ *
+ * `promotedProductFields` names *metadata keys* — a plugin's `ProductField.key`,
+ * or a field an industry bundle registers when it ships. The keys are compared
+ * as written, because a near miss is silent: `batch_no` beside a plugin's
+ * `batch_number` promotes nothing at all, and a promotion that does nothing
+ * looks exactly like a promotion that works.
+ *
+ * A key no plugin registers is not an error — it is a field some industry
+ * bundle will contribute (`model_no`, `carat`, `isbn`), and until then it is
+ * simply inert. That is why this list is advisory data and not a registry.
+ */
+export function promotedFieldsFor(
+  taxonomy: ShopCategoryTaxonomy,
+  shopTypeId: string | null | undefined
+): readonly string[] {
+  if (!shopTypeId) return []
+  return findShopType(taxonomy, shopTypeId)?.recommendations.promotedProductFields ?? []
+}
+
+/**
+ * Splits plugin-registered fields into the two sections the product form
+ * draws, honouring the shop type's promotions.
+ *
+ * A field a shop type promotes moves from the collapsed section into the basic
+ * one — the whole point of the taxonomy (docs/08 §2). Everything else keeps the
+ * section the plugin asked for, so a plugin never needs to know which shop it
+ * is in, and a shop type never needs the plugin to change.
+ *
+ * Pure, and separate from the form, because "which fields does this shop see
+ * first" is a rule worth testing without a DOM.
+ */
+export function splitPluginFields<T extends { key: string; section?: 'basic' | 'advanced' }>(
+  fields: readonly T[],
+  promoted: readonly string[]
+): { basic: T[]; advanced: T[] } {
+  const wanted = new Set(promoted)
+  const basic: T[] = []
+  const advanced: T[] = []
+
+  for (const field of fields) {
+    if ((field.section ?? 'basic') === 'basic' || wanted.has(field.key)) basic.push(field)
+    else advanced.push(field)
+  }
+
+  return { basic, advanced }
+}
+
 /** Every plugin id referenced anywhere in the taxonomy, for validation. */
 export const KNOWN_PLUGIN_IDS = [
   'variants',

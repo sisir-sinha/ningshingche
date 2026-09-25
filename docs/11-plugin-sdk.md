@@ -106,7 +106,10 @@ const myPlugin: Plugin = {
       key: MY_KEY,
       label: 'Warranty ends',
       type: 'date',
-      section: 'advanced',        // 'basic' shows immediately, 'advanced' is collapsed
+      section: 'advanced',        // 'basic' shows immediately, 'advanced' is collapsed —
+                                  // unless this shop's business type promotes the key
+                                  // (`data/shop_categories.json`); that is the shop's
+                                  // decision and it never touches your code
       storage: 'metadata',
       showInPOS: true,            // the cashier sees it on the till
       printable: true,            // and it prints under the line on the receipt

@@ -13,8 +13,15 @@
  * ── Plugin fields ────────────────────────────────────────────────────────
  * The form renders whatever `registry.productFields` contains, so a plugin
  * adding an expiry date appears here with no edit to this file. Fields marked
- * `advanced` land in the collapsed section automatically, which is what makes
- * "a plugin can promote its field into the basic section" a data change.
+ * `advanced` land in the collapsed section — unless the *shop type* promotes
+ * them, which is the other half of the same idea: a pharmacy should meet the
+ * expiry date on the way in, a bookstore should never meet it at all, and
+ * neither of those is the plugin's decision to make (docs/08 §2, spec §8).
+ *
+ * Promotion is data: `data/shop_categories.json` names the keys, the session
+ * carries the shop's type (migration 047), and `splitPluginFields` does the
+ * rest. A field a shop type promotes is the same field a plugin registered —
+ * nothing is duplicated and no plugin learns which shop it is in.
  */
 
 import { h } from '../../components/ui/h'
@@ -29,6 +36,8 @@ import { pluginFormSectionsHost } from '../../app/plugin-slots'
 import { bindDrafts, clearDraft, restoreDraft } from '../../app/state/drafts'
 import { translateError } from '../../app/platform/errors'
 import { activeOrganization } from '../../app/state/session'
+import { activePromotedFields } from '../../app/shop-profile'
+import { splitPluginFields } from '../../shared/types/shop-profile'
 import type { PluginRegistry } from '../../shared/registry/plugin-registry'
 import type { ProductField } from '../../shared/registry/plugin-types'
 import type { Brand, Category, ProductRow, Tax, Unit } from '../../shared/types/records'
@@ -358,10 +367,15 @@ function openProductForm(options: FormOptions): void {
     ],
   })
 
-  // Plugin-registered fields, split by the section the plugin asked for.
+  // Plugin-registered fields, split by the section the plugin asked for — and
+  // by what this shop type promotes out of it. A promoted field is drawn in the
+  // basic section, once, and the fields a shop type does not name keep exactly
+  // the section their plugin chose.
   const pluginFields = registry.productFields.items
-  const basicPluginFields = pluginFields.filter((f) => (f.section ?? 'basic') === 'basic')
-  const advancedPluginFields = pluginFields.filter((f) => f.section === 'advanced')
+  const { basic: basicPluginFields, advanced: advancedPluginFields } = splitPluginFields(
+    pluginFields,
+    activePromotedFields()
+  )
   const pluginInputs = new Map<string, HTMLElement & { value?: string }>()
 
   function renderPluginField(definition: ProductField): HTMLElement {

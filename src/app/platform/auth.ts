@@ -431,6 +431,7 @@ function normalizeMembership(raw: Partial<OrganizationMembership>): Organization
     slug: raw.slug ?? '',
     currency: raw.currency ?? 'BDT',
     timezone: raw.timezone ?? 'Asia/Dhaka',
+    shop_type: raw.shop_type ?? null,
     role_names: Array.isArray(raw.role_names) ? raw.role_names : [],
     role_keys: Array.isArray(raw.role_keys) ? raw.role_keys : [],
     is_owner: raw.is_owner === true,

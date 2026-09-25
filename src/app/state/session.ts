@@ -17,7 +17,8 @@ import { Store } from './store'
 
 /**
  * Mirrors the JSON returned by `app.session_payload()` in
- * supabase/migrations/20260923_019_session_payload.sql. Change one, change both.
+ * supabase/migrations/20260923_019_session_payload.sql, plus `shop_type`
+ * (047). Change one, change both.
  */
 export interface OrganizationMembership {
   organization_id: string
@@ -25,6 +26,12 @@ export interface OrganizationMembership {
   slug: string
   currency: string
   timezone: string
+  /**
+   * The shop's business type — a key into `data/shop_categories.json`, e.g.
+   * `pharmacy` or `mobile`. Null for a shop created before the wizard asked,
+   * which the taxonomy treats as "no recommendations" rather than an error.
+   */
+  shop_type: string | null
   /** Display names, for the UI. */
   role_names: string[]
   /** Stable keys, for logic. `owner`, `admin`, `manager`, `cashier`, … */

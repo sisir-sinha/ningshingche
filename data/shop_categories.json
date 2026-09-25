@@ -18,7 +18,7 @@
           "recommends": {
             "plugins": ["batch-expiry", "weight-scale", "promotions", "stocktake"],
             "suggested": ["variants", "loyalty", "wholesale", "production"],
-            "promotedProductFields": ["expiry_date", "batch_no", "shelf_location"],
+            "promotedProductFields": ["expiry_date", "batch_number", "shelf_location"],
             "units": ["Each", "Kilogram", "Gram", "Litre", "Dozen", "Pack"],
             "categories": ["Rice & Grains", "Oil & Ghee", "Spices", "Snacks", "Beverages", "Dairy", "Household", "Personal Care"],
             "paymentMethods": ["Cash", "Mobile Banking", "Card"],
@@ -35,7 +35,7 @@
           "recommends": {
             "plugins": ["batch-expiry", "weight-scale", "promotions", "stocktake", "loyalty", "wholesale"],
             "suggested": ["variants", "production", "gift-cards"],
-            "promotedProductFields": ["expiry_date", "batch_no", "shelf_location"],
+            "promotedProductFields": ["expiry_date", "batch_number", "shelf_location"],
             "units": ["Each", "Kilogram", "Gram", "Litre", "Dozen", "Pack", "Carton"],
             "categories": ["Produce", "Meat & Fish", "Dairy", "Bakery", "Frozen", "Beverages", "Snacks", "Household", "Personal Care"],
             "paymentMethods": ["Cash", "Mobile Banking", "Card", "Bank Transfer"],
@@ -146,7 +146,7 @@
           "recommends": {
             "plugins": ["serial-numbers", "warranty", "weight-scale", "loyalty", "stocktake"],
             "suggested": ["variants", "production"],
-            "promotedProductFields": ["carat", "metal", "metal_weight_g", "certificate_no"],
+            "promotedProductFields": ["serial_tracked", "carat", "metal", "metal_weight_g", "certificate_no"],
             "units": ["Each", "Gram"],
             "categories": ["Gold", "Silver", "Diamond", "Bridal", "Everyday"],
             "paymentMethods": ["Cash", "Card", "Bank Transfer"],
@@ -189,7 +189,7 @@
           "recommends": {
             "plugins": ["batch-expiry", "loyalty", "stocktake"],
             "suggested": ["variants", "wholesale", "notifications"],
-            "promotedProductFields": ["expiry_date", "batch_no", "salt_composition", "strength", "requires_prescription"],
+            "promotedProductFields": ["expiry_date", "batch_number", "salt_composition", "strength", "requires_prescription"],
             "units": ["Each", "Strip", "Bottle", "Box"],
             "categories": ["Medicines", "Surgical", "Baby Care", "Personal Care", "Supplements"],
             "paymentMethods": ["Cash", "Mobile Banking", "Card"],
@@ -232,7 +232,7 @@
           "recommends": {
             "plugins": ["serial-numbers", "warranty", "stocktake", "promotions"],
             "suggested": ["variants", "wholesale", "repair"],
-            "promotedProductFields": ["model_no", "warranty_months"],
+            "promotedProductFields": ["serial_tracked", "model_no", "warranty_months"],
             "units": ["Each", "Pair", "Set"],
             "categories": ["TV & Display", "Audio", "Home Appliance", "Accessories", "Cables"],
             "paymentMethods": ["Cash", "Mobile Banking", "Card", "Bank Transfer", "Credit"],
@@ -249,7 +249,7 @@
           "recommends": {
             "plugins": ["serial-numbers", "warranty", "variants", "production", "stocktake"],
             "suggested": ["wholesale", "repair"],
-            "promotedProductFields": ["model_no", "specs", "warranty_months"],
+            "promotedProductFields": ["serial_tracked", "model_no", "specs", "warranty_months"],
             "units": ["Each", "Set"],
             "categories": ["Laptops", "Desktops", "Components", "Peripherals", "Networking"],
             "paymentMethods": ["Cash", "Mobile Banking", "Card", "Bank Transfer", "Credit"],
@@ -266,7 +266,7 @@
           "recommends": {
             "plugins": ["serial-numbers", "warranty", "loyalty", "promotions", "stocktake"],
             "suggested": ["wholesale", "repair"],
-            "promotedProductFields": ["imei_1", "imei_2", "storage_gb", "ram_gb", "colour", "warranty_months"],
+            "promotedProductFields": ["serial_tracked", "storage_gb", "ram_gb", "colour", "warranty_months"],
             "units": ["Each"],
             "categories": ["Smartphones", "Feature Phones", "Accessories", "Chargers", "Cases"],
             "paymentMethods": ["Cash", "Mobile Banking", "Card", "Credit"],
@@ -343,7 +343,7 @@
           "recommends": {
             "plugins": ["serial-numbers", "warranty", "promotions", "stocktake"],
             "suggested": ["delivery"],
-            "promotedProductFields": ["model_no", "energy_rating", "warranty_months"],
+            "promotedProductFields": ["serial_tracked", "model_no", "energy_rating", "warranty_months"],
             "units": ["Each"],
             "categories": ["Refrigerators", "Washing Machines", "Air Conditioning", "Kitchen", "Small Appliances"],
             "paymentMethods": ["Cash", "Mobile Banking", "Card", "Bank Transfer", "Credit"],
@@ -454,7 +454,7 @@
           "recommends": {
             "plugins": ["variants", "serial-numbers", "warranty", "repair", "loyalty", "stocktake"],
             "suggested": [],
-            "promotedProductFields": ["frame_size", "wheel_size", "service_interval_km"],
+            "promotedProductFields": ["serial_tracked", "frame_size", "wheel_size", "service_interval_km"],
             "units": ["Each", "Pair", "Set"],
             "categories": ["Bicycles", "Parts", "Accessories", "Service"],
             "paymentMethods": ["Cash", "Mobile Banking", "Card"],

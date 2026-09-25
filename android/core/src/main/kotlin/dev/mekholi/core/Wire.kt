@@ -49,6 +49,13 @@ data class OrganizationMembership(
     val slug: String,
     val currency: String,
     val timezone: String,
+    /**
+     * The shop's business type, as a key into the taxonomy the web client
+     * ships (`data/shop_categories.json`). It is what decides which fields a
+     * shop meets first — but that decision belongs to the client's UI, so this
+     * is carried and not interpreted here.
+     */
+    @SerialName("shop_type") val shopType: String? = null,
     @SerialName("role_names") val roleNames: List<String> = emptyList(),
     @SerialName("role_keys") val roleKeys: List<String> = emptyList(),
     @SerialName("is_owner") val isOwner: Boolean = false,

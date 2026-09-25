@@ -470,17 +470,22 @@ Before that the till's panel could see the cart total and not the cart, so no
 plugin could say which line a scan belonged to. The hole was fixed in the host,
 once, for every plugin that decorates a sale — which is the rule above, applied.
 
-**Two seams this plugin exposes and does not yet use** (both are host work, not
-plugin work, and both are on the list before the industry bundles):
+**Two seams this plugin exposed.** One is fixed, one is not:
 
-- `promotedProductFields` in `data/shop_categories.json` still has no reader, so
-  nothing is promoted out of “+ Advanced Options” for any shop type — including
-  the six that recommend this plugin. The field is registered and works; the
-  promotion is what is missing.
-- A receipt line can print a *product* field (`printable`), so batch numbers
-  print today, but there is no seam for a value the plugin only learns *after*
-  the sale — a unit's own number. The plugin prints its own sheet from the sale
-  instead, and the receipt seam is the next thing to add.
+- ✅ **`promotedProductFields` now has a reader** (this commit). The session
+  payload carries `shop_type` (migration 047), the taxonomy's promoted keys are
+  matched against the registered ones by `splitPluginFields`, and the product
+  form draws a promoted field in its basic section. Fixing it also found the
+  reason it had never worked: the file promoted `batch_no` while the plugin
+  registers `batch_number`, and mobile promoted `imei_1`/`imei_2` — per-unit
+  data modelled as a product field. The data is now true, and
+  `src/app/shop-profile.test.ts` fails on a near miss instead of letting it pass
+  silently. That is acceptance bullet 2 met for every capability plugin.
+- ❌ **A receipt line still cannot print a value learned *after* the sale.** A
+  *product* field prints (`printable`), so a batch number is on the slip today,
+  but a unit's own number is attached to the sale minutes later, and the core's
+  receipt is drawn from the sale snapshot. The plugin prints its own sheet from
+  the sale tab in the meantime; the receipt seam is the next host job.
 
 ---
 
