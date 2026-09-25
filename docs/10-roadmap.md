@@ -455,6 +455,33 @@ Industry bundles (each ≈ a profile row + fields + navigation)
   for the entire architecture. If it fails, the plugin system has a hole —
   fix the hole, don't merge the plugin.
 
+### Shipped so far
+
+| # | Plugin | Shipped | Accepted by |
+|---|---|---|---|
+| 1 | `variants` | `bd0482a` | `variants.test.ts`; the package migration is applied by the validator, which drives `plugin_rpc` end to end |
+| 2 | `batch-expiry` | `b06dc66`, `d844021` | `batch-expiry.test.ts`; product fields shown on the till and printed on the receipt |
+| 3 | `serial-numbers` | this commit | `serial-numbers.test.ts` (38 tests); `tools/validate-migrations.mjs` §Phase 7 — 13 checks against a real Postgres — and a live run against the project, both of which leave the shop untouched |
+
+`serial-numbers` is the first plugin whose subject is an *individual unit*
+rather than a product, and it is the reason the SDK grew one thing:
+`PanelContext.lines` (committed in `c2e4a55`, one call site in `pos-view.ts`).
+Before that the till's panel could see the cart total and not the cart, so no
+plugin could say which line a scan belonged to. The hole was fixed in the host,
+once, for every plugin that decorates a sale — which is the rule above, applied.
+
+**Two seams this plugin exposes and does not yet use** (both are host work, not
+plugin work, and both are on the list before the industry bundles):
+
+- `promotedProductFields` in `data/shop_categories.json` still has no reader, so
+  nothing is promoted out of “+ Advanced Options” for any shop type — including
+  the six that recommend this plugin. The field is registered and works; the
+  promotion is what is missing.
+- A receipt line can print a *product* field (`printable`), so batch numbers
+  print today, but there is no seam for a value the plugin only learns *after*
+  the sale — a unit's own number. The plugin prints its own sheet from the sale
+  instead, and the receipt seam is the next thing to add.
+
 ---
 
 ## Phase 8 — Offline & Android readiness

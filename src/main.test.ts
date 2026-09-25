@@ -47,7 +47,7 @@ describe('application bootstrap', () => {
     expect(registry).toBeDefined()
 
     const ids = (registry?.list() ?? []).map((entry) => entry.id).sort()
-    expect(ids).toEqual(['batch-expiry', 'loyalty-lite', 'variants'])
+    expect(ids).toEqual(['batch-expiry', 'loyalty-lite', 'serial-numbers', 'variants'])
   })
 
   it('leaves plugins disabled until a shop enables them', () => {

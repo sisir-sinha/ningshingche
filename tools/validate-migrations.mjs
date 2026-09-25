@@ -2987,6 +2987,341 @@ if (seeded.length !== 0) {
   await db.exec(`select set_config('request.jwt.claim.sub', '', false)`)
 }
 
+// ── Phase 7 — the serial-numbers capability plugin ────────────────────────
+//
+// The plugin for shops that sell things with a number of their own. It is the
+// first plugin whose subject is an *individual unit* rather than a product, so
+// the checks below are about identity and history: one unit cannot be sold
+// twice, a unit that comes back is not still counted as sold, and a shop that
+// never scans still gets codes that are labelled as the shop's own.
+//
+// The last check is the §51 one, in the form this plugin can be caught by: the
+// plugin owns exactly one table, and the sale it decorates is still a core
+// sale, read back through the core's own catalogue.
+if (seeded.length !== 0) {
+  const s = seeded[0]
+  const owner = s.owner
+  const cashier = '00000000-0000-0000-0000-00000000cafe'
+  // Fixtures of its own: a phone, whose units are what a mobile shop tracks.
+  const phone = '00000000-0000-0000-0000-00000000d401'
+  const phoneVariant = '00000000-0000-0000-0000-00000000d402'
+  // A second product that never asked to be tracked, so the refusal below is
+  // the plugin's answer and not a missing checkbox on the phone.
+  const cable = '00000000-0000-0000-0000-00000000d403'
+  const cableVariant = '00000000-0000-0000-0000-00000000d404'
+
+  const asUser = async (id) => {
+    await db.exec(`select set_config('request.jwt.claim.sub', '${id}', false)`)
+  }
+  const fails = async (sql, pattern) => {
+    try {
+      await q(sql)
+      return `no error raised (expected ${pattern})`
+    } catch (error) {
+      const message = String(error.message ?? error)
+      return pattern.test(message) ? null : message
+    }
+  }
+
+  await asUser(owner)
+
+  await db.exec(`
+    insert into public.products
+      (id, organization_id, name, sku, selling_price, cost_price, track_stock,
+       metadata)
+    values ('${phone}', '${s.org}', 'Serial Probe Phone', 'SP-1', 250, 150, true,
+            '{"serial_tracked": true}'::jsonb);
+    insert into public.product_variants (id, organization_id, product_id, is_default)
+    values ('${phoneVariant}', '${s.org}', '${phone}', true);
+    insert into public.products
+      (id, organization_id, name, sku, selling_price, cost_price, track_stock, metadata)
+    values ('${cable}', '${s.org}', 'Serial Probe Cable', 'SC-1', 40, 20, true, '{}'::jsonb);
+    insert into public.product_variants (id, organization_id, product_id, is_default)
+    values ('${cableVariant}', '${s.org}', '${cable}', true);
+  `)
+
+  const enabled = (await q(
+    `select public.plugin_enable('${s.org}', 'serial-numbers', '1.0.0', '{}'::jsonb) as r`
+  ))[0].r
+  check(
+    'the serial-numbers plugin installs: both migration files applied in one call',
+    enabled.enabled === true && enabled.migrations_applied === 2,
+    JSON.stringify(enabled)
+  )
+
+  const call = async (fn, args = {}) =>
+    (await q(
+      `select public.plugin_rpc('${s.org}', 'serial-numbers', '${fn}', '${JSON.stringify(args)}'::jsonb) as r`
+    ))[0].r
+
+  // ── The product has to opt in ───────────────────────────────────────────
+  const untracked = await fails(
+    `select public.plugin_rpc('${s.org}', 'serial-numbers', 'add',
+       '{"variant_id":"${cableVariant}","serials":["D-1"]}'::jsonb)`,
+    /serial_product_not_tracked/
+  )
+  check(
+    'a unit cannot be registered for a product that never asked to be tracked',
+    untracked === null,
+    untracked ?? 'refused: serial_product_not_tracked'
+  )
+
+  // ── The pool cannot outgrow the shelf ───────────────────────────────────
+  const beforeStock = await call('add', { variant_id: phoneVariant, serials: ['D-1', 'D-2'] })
+  check(
+    'labelling cannot invent stock: with nothing on hand, nothing registers',
+    beforeStock.added === 0 &&
+      beforeStock.stock_on_hand === 0 &&
+      beforeStock.skipped.every((entry) => entry.reason === 'over_stock'),
+    JSON.stringify({ added: beforeStock.added, skipped: beforeStock.skipped })
+  )
+
+  await db.exec(
+    `select public.apply_stock_movement('${s.warehouse}', '${phoneVariant}', 'PURCHASE', 3, 150, 'sn-probe', null, null)`
+  )
+  const added = await call('add', {
+    variant_id: phoneVariant,
+    warehouse_id: s.warehouse,
+    serials: ['D-1', 'd-1', 'D-2', ''],
+  })
+  const oneOver = await call('add', { variant_id: phoneVariant, serials: ['D-3', 'D-4'] })
+  check(
+    'a delivery registers, counts a repeated unit once, and refuses to pass the stock on hand',
+    added.added === 2 &&
+      added.skipped.some((entry) => entry.reason === 'duplicate_in_list') &&
+      added.skipped.some((entry) => entry.reason === 'empty') &&
+      oneOver.added === 1 &&
+      oneOver.skipped.some((entry) => entry.reason === 'over_stock'),
+    JSON.stringify({ added: added.added, oneOver: oneOver.added })
+  )
+
+  // ── A unit that is sold is attached to the line it left on ──────────────
+  const sale = (await q(
+    `select public.complete_sale('${s.branch}',
+       jsonb_build_array(jsonb_build_object('variant_id', '${phoneVariant}', 'qty', 2)),
+       jsonb_build_array(jsonb_build_object('method_id', '${s.cash}', 'amount', 500)),
+       '${s.register}', null, null, null, null, null) as r`
+  ))[0].r
+  const saleId = sale.sale_id ?? sale.id
+
+  const pendingBefore = await call('pending', { days: 60, limit: 10 })
+  const captured = await call('capture', {
+    sale_id: saleId,
+    serials: ['D-1', 'D-2', 'NOT-A-UNIT'],
+  })
+  const after = await call('for_sale', { sale_id: saleId })
+  check(
+    'the till attaches units to the sale, and the shop can see what is still missing',
+    pendingBefore.some((entry) => entry.sale_id === saleId && entry.missing === 2) &&
+      captured.captured === 2 &&
+      captured.refusals.some((entry) => entry.reason === 'not_registered') &&
+      after.missing === 0 &&
+      after.lines[0].bound.length === 2,
+    JSON.stringify({ pending: pendingBefore.length, captured: captured.captured, missing: after.missing })
+  )
+
+  const twice = await call('capture', { sale_id: saleId, serials: ['D-1', 'D-3'] })
+  check(
+    'one unit is sold once: a second attempt on the same unit is refused by name',
+    twice.captured === 0 &&
+      twice.refusals.some((entry) => entry.reason === 'not_in_stock') &&
+      twice.refusals.some((entry) => entry.reason === 'every_line_full'),
+    JSON.stringify(twice.refusals)
+  )
+
+  const soldRow = await q(
+    `select s.serial, s.status, s.sale_id, sa.invoice_no
+       from public.plg_serial_numbers_serials s
+       join public.sales sa on sa.id = s.sale_id
+      where s.organization_id = '${s.org}' and s.serial = 'D-1'`
+  )
+  check(
+    'the unit carries the invoice it left on, which is the whole point of a serial',
+    soldRow.length === 1 && soldRow[0].status === 'SOLD' && soldRow[0].sale_id === saleId,
+    soldRow.map((row) => `${row.serial} ${row.status} ${row.invoice_no}`).join(' · ') || 'no row'
+  )
+
+  // ── A shop that does not scan still gets a code ─────────────────────────
+  const secondSale = (await q(
+    `select public.complete_sale('${s.branch}',
+       jsonb_build_array(jsonb_build_object('variant_id', '${phoneVariant}', 'qty', 1)),
+       jsonb_build_array(jsonb_build_object('method_id', '${s.cash}', 'amount', 250)),
+       '${s.register}', null, null, null, null, null) as r`
+  ))[0].r
+  const secondId = secondSale.sale_id ?? secondSale.id
+  const minted = await call('autofill', { sale_id: secondId })
+  const internalRow = await q(
+    `select s.serial, s.source, s.status, s.sale_item_id
+       from public.plg_serial_numbers_serials s
+      where s.organization_id = '${s.org}' and s.sale_id = '${secondId}'`
+  )
+  check(
+    'a till that never scans mints its own codes, and they are labelled as the shop’s',
+    minted.created === 1 &&
+      minted.serials[0].serial.startsWith('SN-') &&
+      internalRow.length === 1 &&
+      internalRow[0].source === 'INTERNAL' &&
+      internalRow[0].status === 'SOLD',
+    `${minted.created} minted ${internalRow[0]?.serial ?? '—'} (${internalRow[0]?.source ?? '—'})`
+  )
+
+  // ── A refund already says which units came back ─────────────────────────
+  const item = (await q(
+    `select si.id from public.sale_items si where si.sale_id = '${saleId}' order by si.id limit 1`
+  ))[0]
+  await q(
+    `select public.refund_sale('${saleId}',
+       jsonb_build_array(jsonb_build_object('sale_item_id', '${item.id}', 'qty', 1)),
+       jsonb_build_array(), 'probe', true)`
+  )
+  const synced = await call('sync_refunds', { sale_id: saleId })
+  const syncedAgain = await call('sync_refunds', { sale_id: saleId })
+  const returned = await q(
+    `select count(*)::int as n from public.plg_serial_numbers_serials s
+      where s.organization_id = '${s.org}' and s.sale_id = '${saleId}' and s.status = 'RETURNED'`
+  )
+  check(
+    'a refund marks the units that came back — exactly once, however often it is told',
+    synced.marked === 1 && syncedAgain.marked === 0 && returned[0].n === 1,
+    JSON.stringify({ first: synced.marked, second: syncedAgain.marked, returned: returned[0].n })
+  )
+
+  const releasedIds = (
+    await q(
+      `select s.id from public.plg_serial_numbers_serials s
+        where s.organization_id = '${s.org}' and s.sale_id = '${saleId}' and s.status = 'RETURNED'`
+    )
+  ).map((row) => row.id)
+  const released = await call('release', { ids: releasedIds })
+  const afterRelease = await call('sync_refunds', { sale_id: saleId })
+  const backInStock = await q(
+    `select count(*)::int as n from public.plg_serial_numbers_serials s
+      where s.organization_id = '${s.org}' and s.id = '${releasedIds[0]}' and s.status = 'IN_STOCK'`
+  )
+  check(
+    'a unit put back on the shelf is in stock, and a later refund sync does not undo it',
+    released.released === 1 && afterRelease.marked === 0 && backInStock[0].n === 1,
+    JSON.stringify({ released: released.released, resynced: afterRelease.marked })
+  )
+
+  // ── Reporting ───────────────────────────────────────────────────────────
+  const report = await call('report', { days: 30 })
+  const overview = await call('overview')
+  check(
+    'the report counts what is in hand — the number a stock count cannot show',
+    report.totals.sold === 3 &&
+      report.totals.internal === 1 &&
+      report.by_product.some((entry) => entry.product_name === 'Serial Probe Phone') &&
+      report.aging.length > 0 &&
+      overview.totals.in_stock === report.totals.in_stock,
+    JSON.stringify({ sold: report.totals.sold, in_stock: report.totals.in_stock, aging: report.aging })
+  )
+
+  // ── Tenant safety, by construction ──────────────────────────────────────
+  const tables = await q(
+    `select c.relname,
+            c.relrowsecurity as rls,
+            (select count(*)::int from information_schema.columns col
+              where col.table_schema = 'public' and col.table_name = c.relname
+                and col.column_name = 'organization_id') as org_col,
+            (select count(*)::int from pg_policies p
+              where p.schemaname = 'public' and p.tablename = c.relname) as policies
+       from pg_class c join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public' and c.relkind = 'r'
+        and c.relname like 'plg_serial%'`
+  )
+  check(
+    'the plugin owns one table, and it is tenant-safe by construction: org-scoped, RLS on, policies present',
+    tables.length === 1 && tables[0].rls === true && tables[0].org_col === 1 && tables[0].policies >= 1,
+    tables.map((row) => `${row.relname} rls=${row.rls} org=${row.org_col} policies=${row.policies}`).join(' ') || 'no table'
+  )
+
+  const granted = await q(
+    `select key from public.permissions where plugin_key = 'serial-numbers' order by key`
+  )
+  check(
+    'its two permissions are in the shop’s catalogue, namespaced to the plugin',
+    granted.length === 2 && granted.every((row) => row.key.startsWith('serial-numbers.')),
+    granted.map((row) => row.key).join(' · ')
+  )
+
+  const foreign = await fails(
+    `select public.serial_numbers_list('00000000-0000-0000-0000-00000000e001', '{}'::jsonb)`,
+    /forbidden|permission_denied/
+  )
+  check(
+    'another shop cannot read this pool by calling the function directly',
+    foreign === null,
+    foreign ?? 'refused'
+  )
+
+  await asUser(cashier)
+  const cashierRefusals = [
+    await fails(
+      `select public.plugin_rpc('${s.org}', 'serial-numbers', 'add',
+         '{"variant_id":"${phoneVariant}","serials":["NOPE"]}'::jsonb)`,
+      /permission_denied/
+    ),
+    await fails(
+      `select public.plugin_rpc('${s.org}', 'serial-numbers', 'list', '{}'::jsonb)`,
+      /permission_denied/
+    ),
+  ]
+  check(
+    'a cashier holds neither serial-numbers.view nor serial-numbers.manage',
+    cashierRefusals.every((problem) => problem === null),
+    cashierRefusals.filter(Boolean).join(' · ') || 'both refused'
+  )
+  await asUser(owner)
+
+  // ── The §51 check ───────────────────────────────────────────────────────
+  // Nothing below knows the plugin exists. The sale it decorates is still the
+  // core's sale — its ledger rows and its receipt come from the core — and not
+  // one stock movement anywhere carries the plugin's name or points at one of
+  // its rows. That is the whole promise in one query: the plugin remembers
+  // *which* unit, and touches nothing else.
+  const core = await q(
+    `select (select count(*)::int from public.stock_movements m
+              where m.organization_id = '${s.org}' and m.reference_id = '${saleId}'
+                and m.type = 'SALE') as sale_movements,
+            (select count(*)::int from public.stock_movements m
+              where m.organization_id = '${s.org}'
+                and (m.reference_type like 'serial%'
+                     or m.reference_id in (select s.id from public.plg_serial_numbers_serials s
+                                            where s.organization_id = '${s.org}'))) as stray_movements,
+            (select app.sale_receipt('${saleId}') ->> 'total') as receipt_total,
+            (select app.sale_receipt('${saleId}') ->> 'invoice_no') as invoice_no`
+  )
+  check(
+    'the sale and its ledger stay the core’s: no movement anywhere belongs to the plugin',
+    core[0].sale_movements === 1 &&
+      core[0].stray_movements === 0 &&
+      core[0].receipt_total === '500.00' &&
+      typeof core[0].invoice_no === 'string',
+    JSON.stringify(core[0])
+  )
+
+  // ── Switching it off keeps the shop's units ─────────────────────────────
+  await q(`select public.plugin_disable('${s.org}', 'serial-numbers')`)
+  const kept = await q(
+    `select (select count(*)::int from public.plg_serial_numbers_serials s
+              where s.organization_id = '${s.org}') as units,
+            (select enabled from public.plugins p
+              where p.organization_id = '${s.org}' and p.plugin_key = 'serial-numbers') as enabled`
+  )
+  const afterDisable = await fails(
+    `select public.plugin_rpc('${s.org}', 'serial-numbers', 'list', '{}'::jsonb)`,
+    /plugin_not_enabled/
+  )
+  check(
+    'switching the plugin off keeps every unit the shop registered, and stops it answering',
+    kept[0].units > 0 && kept[0].enabled === false && afterDisable === null,
+    JSON.stringify({ units: kept[0].units, enabled: kept[0].enabled, refused: afterDisable === null })
+  )
+
+  await db.exec(`select set_config('request.jwt.claim.sub', '', false)`)
+}
+
 // ── Phase 8 — an offline sale may be sent twice, and must sell once ───────
 //
 // The queue on the device cannot know whether a call landed before the
