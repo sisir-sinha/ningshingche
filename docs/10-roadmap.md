@@ -462,12 +462,37 @@ Industry bundles (each ≈ a profile row + fields + navigation)
 | 1 | `variants` | `bd0482a` | `variants.test.ts`; the package migration is applied by the validator, which drives `plugin_rpc` end to end |
 | 2 | `batch-expiry` | `b06dc66`, `d844021` | `batch-expiry.test.ts`; product fields shown on the till and printed on the receipt |
 | 3 | `serial-numbers` | `bef3526` | `serial-numbers.test.ts` (43 tests); `tools/validate-migrations.mjs` §Phase 7 — 13 checks against a real Postgres — and a live run against the project, both of which leave the shop untouched |
+| 4 | `warranty` | `603d780` | `warranty.test.ts` (50 tests); migration 049 applied live and a 27-check probe against the project (rolled back); validator 214/214 |
 
-All three now meet the acceptance bullets: 1 (wizard defaults — the taxonomy
+All four now meet the acceptance bullets: 1 (wizard defaults — the taxonomy
 recommends them and the shop type is what the wizard writes), 2 (promoted
-fields, `c3b9f20`), 3 (a report in the core reports screen, this commit) and 4
-(no file under `src/features/` was modified by any of them — the reports seam
-above is the *host* being fixed so that a plugin can have a report at all).
+fields, `c3b9f20`), 3 (a report in the core reports screen, `a15cf1c` + this
+commit) and 4 (no file under `src/features/` was modified by any of them — the
+reports seam above is the *host* being fixed so that a plugin can have a report
+at all).
+
+`warranty` is the first plugin that needed **no new seam**. It uses the product
+field the taxonomy already promotes (`warranty_months` — promoted today for
+electronics, mobile, computer and appliance shops), the till's cart
+(`PanelContext.lines`), the sale tab, the form-section slot and two of the core
+reports screen's rows. Its acceptance run is therefore also the check that the
+three seams the earlier plugins forced into the host are seams and not
+one-offs.
+
+What it added to the shape of a plugin, rather than to the host:
+
+- **A promise is derived, never stored.** The server keeps `starts_on` and
+  `ends_on` and computes `days_left`, `expiring` and `expired` on read. A stored
+  status would need a nightly job and would be wrong for anyone who looked
+  between midnight and the job.
+- **The unit is a `sale_item`, and the day it starts is the day it was sold.**
+  Registration therefore happens after the sale and is *idempotent* (one partial
+  unique index per unit), so the till can write cover on `sale.completed` — an
+  event that arrives twice by design — without a ledger of its own.
+- **Nothing is silently unrecorded.** Every path that fails to write a promise
+  (a till that was offline, a plugin switched on after the fact) lands on one
+  work queue, which is the second thing the plugin's screen shows. That is what
+  makes an automatic write safe to ship.
 
 `serial-numbers` is the first plugin whose subject is an *individual unit*
 rather than a product, and it is the reason the SDK grew one thing:
