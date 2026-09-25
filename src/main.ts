@@ -33,6 +33,13 @@ import { resetRepositories } from './app/data'
 import { posRoutes } from './features/pos'
 import { productRoutes } from './features/products'
 import { stockRoutes } from './features/stock'
+import { salesRoutes } from './features/sales'
+import { customerRoutes } from './features/customers'
+import { supplierRoutes } from './features/suppliers'
+import { purchaseRoutes } from './features/purchases'
+import { expenseRoutes } from './features/expenses'
+import { registerRoutes } from './features/register'
+import { auditRoutes } from './features/audit'
 import { onboardingRoutes } from './features/onboarding'
 import { sessionStore, can } from './app/state/session'
 import { translateError } from './app/platform/errors'
@@ -103,6 +110,13 @@ const routes: Route[] = [
   ...posRoutes({ bus: eventBus }),
   ...productRoutes(registry),
   ...stockRoutes({ onNavigate: (path) => router.navigate(path) }),
+  ...salesRoutes(),
+  ...customerRoutes({ onNavigate: (path) => router.navigate(path) }),
+  ...supplierRoutes({ onNavigate: (path) => router.navigate(path) }),
+  ...purchaseRoutes(),
+  ...expenseRoutes(),
+  ...registerRoutes(),
+  ...auditRoutes(),
   {
     path: '/forbidden',
     title: 'Not permitted',

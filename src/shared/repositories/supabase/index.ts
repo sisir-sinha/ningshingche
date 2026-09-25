@@ -32,20 +32,37 @@ import type {
   VariantRow,
 } from '../../types/records'
 import type {
+  AuditEntry,
+  AuditRepository,
   CatalogRepository,
   CustomerRepository,
+  ExpenseRepository,
+  ExpenseRow,
   OrganizationRepository,
   ProductRepository,
+  PurchaseDetail,
+  PurchasePaymentRow,
+  PurchaseRepository,
+  PurchaseRow,
+  RefundResult,
+  ReturnsRepository,
+  RegisterReport,
   RegisterRepository,
+  RegisterSessionSummary,
+  Repositories,
+  SaleDetail,
+  SaleRepository,
+  SaleReturnRow,
+  SalesListRow,
+  SellableProduct,
+  SalesFloor,
   StockMovementRow,
   StockOperationResult,
   StockRepository,
   StockRow,
+  SupplierRepository,
+  SupplierRow,
   WarehouseOption,
-  Repositories,
-  SaleRepository,
-  SellableProduct,
-  SalesFloor,
 } from '../contracts'
 import {
   milli,
@@ -181,6 +198,11 @@ function stockAfterCursor<T extends Chainable<T>>(builder: T, cursor: string | n
   return builder.or(
     `updated_at.lt.${decoded.updatedAt},and(updated_at.eq.${decoded.updatedAt},variant_id.lt.${decoded.variantId})`
   )
+}
+
+/** Postgres `date` arrives as `YYYY-MM-DD` — keep it a string, never a Date. */
+function asDate(value: string | null | undefined): string | null {
+  return value ? String(value).slice(0, 10) : null
 }
 
 function stockNextCursor(rows: { updated_at: string; variant_id: string }[], limit: number): string | null {
@@ -698,6 +720,197 @@ function createSales(client: SupabaseClient): SaleRepository {
       )
     },
 
+    async listAll(query) {
+      const limit = clampLimit(query.limit, 25)
+      let builder = client
+        .from('sales_detail')
+        .select('id,invoice_no,status,customer_id,customer_name,branch_name,total,paid_total,created_at,completed_at')
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(limit)
+
+      builder = afterCursor(builder, query.cursor)
+
+      if (query.status) builder = builder.eq('status', query.status)
+      const search = query.search?.trim()
+      if (search) {
+        builder = builder.or(
+          `invoice_no.ilike.%${likeTerm(search)}%,customer_name.ilike.%${likeTerm(search)}%`
+        )
+      }
+      if (query.from) builder = builder.gte('created_at', query.from)
+      if (query.to) builder = builder.lte('created_at', query.to)
+
+      const rows = unwrap(
+        await builder.returns<
+          {
+            id: string
+            invoice_no: string
+            status: string
+            customer_id: string | null
+            customer_name: string | null
+            branch_name: string | null
+            total: string
+            paid_total: string
+            created_at: string
+            completed_at: string | null
+          }[]
+        >()
+      )
+      const items = rows.map(
+        (row): SalesListRow => ({
+          id: row.id,
+          invoiceNo: row.invoice_no,
+          status: row.status,
+          customerId: row.customer_id,
+          customerName: row.customer_name,
+          branchName: row.branch_name,
+          total: toMinor(row.total),
+          paidTotal: toMinor(row.paid_total),
+          createdAt: row.created_at,
+          completedAt: row.completed_at,
+        })
+      )
+      return { items, nextCursor: paginate(rows, limit).nextCursor }
+    },
+
+    async detail(id) {
+      const saleRows = unwrap(
+        await client
+          .from('sales_detail')
+          .select('id,invoice_no,status,customer_id,customer_name,branch_name,total,paid_total,created_at,completed_at')
+          .eq('id', id)
+          .limit(1)
+          .returns<
+            {
+              id: string
+              invoice_no: string
+              status: string
+              customer_id: string | null
+              customer_name: string | null
+              branch_name: string | null
+              total: string
+              paid_total: string
+              created_at: string
+              completed_at: string | null
+            }[]
+          >()
+      )
+      const sale = saleRows[0]
+      if (!sale) return null
+
+      // Returned quantities matter here more than anywhere else: the refund
+      // dialog must not offer to give back something already given back, and
+      // the database would refuse it anyway.
+      const itemRows = unwrap(
+        await client
+          .from('sale_items')
+          .select('id,product_name,variant_name,quantity,returned_qty,unit_price,line_total')
+          .eq('sale_id', id)
+          .order('created_at')
+          .returns<
+            {
+              id: string
+              product_name: string
+              variant_name: string | null
+              quantity: string
+              returned_qty: string
+              unit_price: string
+              line_total: string
+            }[]
+          >()
+      )
+
+      const paymentRows = unwrap(
+        await client
+          .from('sale_payments')
+          .select('id,amount,received_at,payment_methods(name)')
+          .eq('sale_id', id)
+          .order('received_at')
+          .returns<
+            {
+              id: string
+              amount: string
+              received_at: string
+              payment_methods: { name: string } | { name: string }[] | null
+            }[]
+          >()
+      )
+
+      const returnRows = unwrap(
+        await client
+          .from('sale_returns')
+          .select('id,return_no,created_at,reason,restock,refund_total,sale_return_items(sale_item_id,quantity,refund_amount,sale_items(product_name))')
+          .eq('sale_id', id)
+          .order('created_at', { ascending: false })
+          .returns<
+            {
+              id: string
+              return_no: string
+              created_at: string
+              reason: string | null
+              restock: boolean
+              refund_total: string
+              sale_return_items:
+                | {
+                    sale_item_id: string
+                    quantity: string
+                    refund_amount: string
+                    sale_items: { product_name: string } | { product_name: string }[] | null
+                  }[]
+                | null
+            }[]
+          >()
+      )
+
+      const detail: SaleDetail = {
+        sale: {
+          id: sale.id,
+          invoiceNo: sale.invoice_no,
+          status: sale.status,
+          customerId: sale.customer_id,
+          customerName: sale.customer_name,
+          branchName: sale.branch_name,
+          total: toMinor(sale.total),
+          paidTotal: toMinor(sale.paid_total),
+          createdAt: sale.created_at,
+          completedAt: sale.completed_at,
+        },
+        items: itemRows.map((row) => ({
+          id: row.id,
+          productName: row.product_name,
+          variantName: row.variant_name,
+          quantity: toMilli(row.quantity),
+          returnedQty: toMilli(row.returned_qty),
+          unitPrice: toMinor(row.unit_price),
+          lineTotal: toMinor(row.line_total),
+        })),
+        payments: paymentRows.map((row) => ({
+          id: row.id,
+          methodName: embedded(row.payment_methods)?.name ?? null,
+          amount: toMinor(row.amount),
+          receivedAt: row.received_at,
+        })),
+        returns: returnRows.map(
+          (row): SaleReturnRow => ({
+            id: row.id,
+            returnNo: row.return_no,
+            createdAt: row.created_at,
+            reason: row.reason,
+            restock: row.restock,
+            refundTotal: toMinor(row.refund_total),
+            items: (row.sale_return_items ?? []).map((item) => ({
+              saleItemId: item.sale_item_id,
+              quantity: toMilli(item.quantity),
+              refundAmount: toMinor(item.refund_amount),
+              productName: embedded(item.sale_items)?.product_name ?? 'Item',
+            })),
+          })
+        ),
+      }
+      return detail
+    },
+
     async byCustomer(customerId, query) {
       const limit = clampLimit(query?.limit, 25)
       let builder = client
@@ -869,6 +1082,105 @@ function createRegisters(client: SupabaseClient): RegisterRepository {
       if (note) args.p_note = note
       const { error } = await client.rpc('register_cash_movement', args)
       if (error) throw error
+    },
+
+    async sessions(branchId, limit = 30) {
+      const rows = unwrap(
+        await client
+          .from('register_session_summary')
+          .select(
+            'id,register_id,register_name,branch_id,opened_at,closed_at,is_open,opening_cash,' +
+              'closing_cash,variance,sales_total,sale_count,refund_total,expense_total'
+          )
+          .eq('branch_id', branchId)
+          .order('opened_at', { ascending: false })
+          .limit(clampLimit(limit, 30))
+          .returns<
+            {
+              id: string
+              register_id: string
+              register_name: string | null
+              branch_id: string
+              opened_at: string
+              closed_at: string | null
+              is_open: boolean
+              opening_cash: string
+              closing_cash: string | null
+              variance: string | null
+              sales_total: string
+              sale_count: number
+              refund_total: string
+              expense_total: string
+            }[]
+          >()
+      )
+      return rows.map(
+        (row): RegisterSessionSummary => ({
+          id: row.id,
+          registerId: row.register_id,
+          registerName: row.register_name,
+          branchId: row.branch_id,
+          openedAt: row.opened_at,
+          closedAt: row.closed_at,
+          isOpen: row.is_open,
+          openingCash: toMinor(row.opening_cash),
+          closingCash: row.closing_cash === null ? null : toMinor(row.closing_cash),
+          variance: row.variance === null ? null : toMinor(row.variance),
+          salesTotal: toMinor(row.sales_total),
+          saleCount: Number(row.sale_count),
+          refundTotal: toMinor(row.refund_total),
+          expenseTotal: toMinor(row.expense_total),
+        })
+      )
+    },
+
+    async report(sessionId) {
+      const raw = unwrap(await client.rpc('register_session_report', { p_session_id: sessionId })) as {
+        session_id: string
+        is_open: boolean
+        opened_at: string
+        closed_at: string | null
+        opening_cash: string
+        cash_in: string
+        cash_out: string
+        sales_cash: string
+        refund_cash: string
+        expense_cash: string
+        expected_cash: string
+        closing_cash: string | null
+        variance: string | null
+        sale_count: number
+        sales_total: string
+        refund_total: string
+        expense_total: string
+        by_method: { method_id: string; method: string; is_cash: boolean; amount: string; count: number }[]
+      }
+      return {
+        sessionId: raw.session_id,
+        isOpen: raw.is_open,
+        openedAt: raw.opened_at,
+        closedAt: raw.closed_at,
+        openingCash: toMinor(raw.opening_cash),
+        cashIn: toMinor(raw.cash_in),
+        cashOut: toMinor(raw.cash_out),
+        salesCash: toMinor(raw.sales_cash),
+        refundCash: toMinor(raw.refund_cash),
+        expenseCash: toMinor(raw.expense_cash),
+        expectedCash: toMinor(raw.expected_cash),
+        closingCash: raw.closing_cash === null ? null : toMinor(raw.closing_cash),
+        variance: raw.variance === null ? null : toMinor(raw.variance),
+        saleCount: Number(raw.sale_count),
+        salesTotal: toMinor(raw.sales_total),
+        refundTotal: toMinor(raw.refund_total),
+        expenseTotal: toMinor(raw.expense_total),
+        byMethod: (raw.by_method ?? []).map((method) => ({
+          methodId: method.method_id,
+          method: method.method,
+          isCash: method.is_cash,
+          amount: toMinor(method.amount),
+          count: Number(method.count),
+        })),
+      } satisfies RegisterReport
     },
   }
 }
@@ -1289,6 +1601,645 @@ function createStock(
   }
 }
 
+// ── Suppliers (Phase 4) ───────────────────────────────────────────────────
+
+interface SupplierRaw {
+  id: string
+  name: string
+  phone: string | null
+  email: string | null
+  address: string | null
+  note: string | null
+  balance: string
+  created_at: string
+  updated_at: string
+}
+
+const SUPPLIER_SELECT = 'id,name,phone,email,address,note,balance,created_at,updated_at'
+
+function toSupplier(row: SupplierRaw): SupplierRow {
+  return {
+    id: row.id,
+    name: row.name,
+    phone: row.phone,
+    email: row.email,
+    address: row.address,
+    note: row.note,
+    // Positive means the shop owes them.
+    balance: toMinor(row.balance),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+function createSuppliers(
+  client: SupabaseClient,
+  organizationId: () => string | null
+): SupplierRepository {
+  return {
+    async list(query) {
+      const limit = clampLimit(query.limit, 25)
+      let builder = client
+        .from('suppliers')
+        .select(SUPPLIER_SELECT)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(limit)
+
+      builder = afterCursor(builder, query.cursor)
+
+      const search = query.search?.trim()
+      if (search) {
+        // Name, phone or email: a shopkeeper looking for "Karim" and one
+        // looking for the number on the invoice are the same gesture.
+        builder = builder.or(
+          `name.ilike.%${likeTerm(search)}%,phone.ilike.%${likeTerm(search)}%,email.ilike.%${likeTerm(search)}%`
+        )
+      }
+
+      const rows = unwrap(await builder.returns<SupplierRaw[]>())
+      return { items: rows.map(toSupplier), nextCursor: paginate(rows, limit).nextCursor }
+    },
+
+    async get(id) {
+      const rows = unwrap(
+        await client.from('suppliers').select(SUPPLIER_SELECT).eq('id', id).limit(1).returns<SupplierRaw[]>()
+      )
+      return rows[0] ? toSupplier(rows[0]) : null
+    },
+
+    async create(draft) {
+      const rows = unwrap(
+        await client
+          .from('suppliers')
+          .insert({
+            organization_id: requireOrg(organizationId),
+            name: draft.name.trim(),
+            phone: draft.phone?.trim() || null,
+            email: draft.email?.trim() || null,
+            address: draft.address?.trim() || null,
+            note: draft.note?.trim() || null,
+          })
+          .select(SUPPLIER_SELECT)
+          .returns<SupplierRaw[]>()
+      )
+      const row = rows[0]
+      if (!row) throw new Error('The supplier could not be created.')
+      return toSupplier(row)
+    },
+
+    async update(id, draft) {
+      const patch: Record<string, unknown> = {}
+      if (draft.name !== undefined) patch.name = draft.name.trim()
+      if (draft.phone !== undefined) patch.phone = draft.phone?.trim() || null
+      if (draft.email !== undefined) patch.email = draft.email?.trim() || null
+      if (draft.address !== undefined) patch.address = draft.address?.trim() || null
+      if (draft.note !== undefined) patch.note = draft.note?.trim() || null
+
+      const rows = unwrap(
+        await client.from('suppliers').update(patch).eq('id', id).select(SUPPLIER_SELECT).returns<SupplierRaw[]>()
+      )
+      const row = rows[0]
+      if (!row) throw new Error('Supplier not found, or you cannot edit it.')
+      return toSupplier(row)
+    },
+
+    async purchases(supplierId, query = {}) {
+      const limit = clampLimit(query.limit, 25)
+      let builder = client
+        .from('purchases')
+        .select(PURCHASE_SELECT)
+        .eq('supplier_id', supplierId)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(limit)
+      builder = afterCursor(builder, query.cursor)
+      const rows = unwrap(await builder.returns<PurchaseRaw[]>())
+      return { items: rows.map(toPurchase), nextCursor: paginate(rows, limit).nextCursor }
+    },
+  }
+}
+
+// ── Purchases (Phase 4) ───────────────────────────────────────────────────
+
+interface PurchaseRaw {
+  id: string
+  invoice_no: string
+  reference_no: string | null
+  status: PurchaseRow['status']
+  supplier_id: string | null
+  warehouse_id: string
+  subtotal: string
+  tax_total: string
+  total: string
+  paid_total: string
+  note: string | null
+  expected_at: string | null
+  created_at: string
+  received_at: string | null
+  suppliers: { name: string } | { name: string }[] | null
+  warehouses: { name: string } | { name: string }[] | null
+}
+
+const PURCHASE_SELECT = [
+  'id',
+  'invoice_no',
+  'reference_no',
+  'status',
+  'supplier_id',
+  'warehouse_id',
+  'subtotal',
+  'tax_total',
+  'total',
+  'paid_total',
+  'note',
+  'expected_at',
+  'created_at',
+  'received_at',
+  'suppliers(name)',
+  'warehouses(name)',
+].join(',')
+
+function toPurchase(row: PurchaseRaw): PurchaseRow {
+  const total = toMinor(row.total)
+  const paidTotal = toMinor(row.paid_total)
+  return {
+    id: row.id,
+    invoiceNo: row.invoice_no,
+    referenceNo: row.reference_no,
+    status: row.status,
+    supplierId: row.supplier_id,
+    supplierName: embedded(row.suppliers)?.name ?? null,
+    warehouseId: row.warehouse_id,
+    warehouseName: embedded(row.warehouses)?.name ?? null,
+    subtotal: toMinor(row.subtotal),
+    taxTotal: toMinor(row.tax_total),
+    total,
+    paidTotal,
+    outstanding: minor(minorToNumber(total) - minorToNumber(paidTotal)),
+    note: row.note,
+    expectedAt: asDate(row.expected_at),
+    createdAt: row.created_at,
+    receivedAt: row.received_at,
+  } satisfies PurchaseRow
+}
+
+function createPurchases(client: SupabaseClient): PurchaseRepository {
+  return {
+    async list(query) {
+      const limit = clampLimit(query.limit, 25)
+      let builder = client
+        .from('purchases')
+        .select(PURCHASE_SELECT)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(limit)
+
+      builder = afterCursor(builder, query.cursor)
+      if (query.status) builder = builder.eq('status', query.status)
+      if (query.supplierId) builder = builder.eq('supplier_id', query.supplierId)
+
+      const search = query.search?.trim()
+      if (search) {
+        builder = builder.or(
+          `invoice_no.ilike.%${likeTerm(search)}%,reference_no.ilike.%${likeTerm(search)}%`
+        )
+      }
+
+      const rows = unwrap(await builder.returns<PurchaseRaw[]>())
+      return { items: rows.map(toPurchase), nextCursor: paginate(rows, limit).nextCursor }
+    },
+
+    async get(id) {
+      const rows = unwrap(
+        await client.from('purchases').select(PURCHASE_SELECT).eq('id', id).limit(1).returns<PurchaseRaw[]>()
+      )
+      const row = rows[0]
+      if (!row) return null
+
+      const items = unwrap(
+        await client
+          .from('purchase_items')
+          .select(
+            'id,variant_id,product_name,quantity,received_qty,unit_cost,line_total,product_variants(name_suffix)'
+          )
+          .eq('purchase_id', id)
+          .order('product_name')
+          .returns<
+            {
+              id: string
+              variant_id: string
+              product_name: string
+              quantity: string
+              received_qty: string
+              unit_cost: string
+              line_total: string
+              product_variants: { name_suffix: string | null } | { name_suffix: string | null }[] | null
+            }[]
+          >()
+      )
+
+      const payments = unwrap(
+        await client
+          .from('purchase_payments')
+          .select('id,amount,method_id,reference,paid_at,payment_methods(name)')
+          .eq('purchase_id', id)
+          .order('paid_at', { ascending: false })
+          .returns<
+            {
+              id: string
+              amount: string
+              method_id: string
+              reference: string | null
+              paid_at: string
+              payment_methods: { name: string } | { name: string }[] | null
+            }[]
+          >()
+      )
+
+      const detail: PurchaseDetail = {
+        purchase: toPurchase(row),
+        items: items.map((item) => {
+          const quantity = toMilli(item.quantity)
+          const receivedQty = toMilli(item.received_qty)
+          return {
+            id: item.id,
+            variantId: item.variant_id,
+            productName: item.product_name,
+            variantName: embedded(item.product_variants)?.name_suffix ?? null,
+            quantity,
+            receivedQty,
+            // What is still to come — the number the receiving dialog defaults to.
+            outstanding: milli(milliToNumber(quantity) - milliToNumber(receivedQty)),
+            unitCost: toMinor(item.unit_cost),
+            lineTotal: toMinor(item.line_total),
+          }
+        }),
+        payments: payments.map(
+          (payment): PurchasePaymentRow => ({
+            id: payment.id,
+            amount: toMinor(payment.amount),
+            methodId: payment.method_id,
+            methodName: embedded(payment.payment_methods)?.name ?? null,
+            reference: payment.reference,
+            paidAt: payment.paid_at,
+          })
+        ),
+      }
+      return detail
+    },
+
+    async save(input) {
+      const id = unwrap(
+        await client.rpc('save_purchase', {
+          p_warehouse_id: input.warehouseId,
+          p_items: input.lines.map((line) => ({
+            variant_id: line.variantId,
+            qty: milliToNumber(line.qty),
+            unit_cost: minorToNumber(line.unitCost),
+            tax_rate: line.taxRate ?? 0,
+          })),
+          p_supplier_id: input.supplierId,
+          p_purchase_id: input.id ?? null,
+          p_status: input.status,
+          p_reference_no: input.referenceNo ?? null,
+          p_note: input.note ?? null,
+          p_expected_at: input.expectedAt ?? null,
+        })
+      ) as string
+      return id
+    },
+
+    async receive(id, lines, payments) {
+      const result = unwrap(
+        await client.rpc('receive_purchase', {
+          p_purchase_id: id,
+          p_items: lines.map((line) => ({
+            purchase_item_id: line.purchaseItemId,
+            qty: milliToNumber(line.qty),
+            ...(line.unitCost === undefined ? {} : { unit_cost: minorToNumber(line.unitCost) }),
+          })),
+          p_paid: payments.map((payment) => ({
+            method_id: payment.methodId,
+            amount: minorToNumber(payment.amount),
+            reference: payment.reference ?? null,
+          })),
+        })
+      ) as { status: string; received_value: string; paid: string }
+      return {
+        status: result.status,
+        receivedValue: toMinor(result.received_value),
+        paid: toMinor(result.paid),
+      }
+    },
+
+    async cancel(id, reason) {
+      const result = unwrap(
+        await client.rpc('cancel_purchase', { p_purchase_id: id, p_reason: reason ?? null })
+      ) as { released: string }
+      return { released: toMinor(result.released) }
+    },
+
+    async pay(input) {
+      const result = unwrap(
+        await client.rpc('apply_payment', {
+          p_supplier_id: input.supplierId,
+          p_amount: minorToNumber(input.amount),
+          p_method_id: input.methodId,
+          p_purchase_id: input.purchaseId ?? null,
+          p_reference: input.reference ?? null,
+          p_note: null,
+        })
+      ) as { supplier_balance: string }
+      return { supplierBalance: toMinor(result.supplier_balance) }
+    },
+  }
+}
+
+// ── Expenses (Phase 4) ────────────────────────────────────────────────────
+
+interface ExpenseRaw {
+  id: string
+  expense_date: string
+  amount: string
+  category_id: string | null
+  method_id: string | null
+  description: string | null
+  attachment_url: string | null
+  session_id: string | null
+  created_at: string
+  expense_categories: { name: string } | { name: string }[] | null
+  payment_methods: { name: string; is_cash: boolean } | { name: string; is_cash: boolean }[] | null
+}
+
+const EXPENSE_SELECT =
+  'id,expense_date,amount,category_id,method_id,description,attachment_url,session_id,created_at,' +
+  'expense_categories(name),payment_methods(name,is_cash)'
+
+function toExpense(row: ExpenseRaw): ExpenseRow {
+  const method = embedded(row.payment_methods)
+  return {
+    id: row.id,
+    expenseDate: asDate(row.expense_date) ?? '',
+    amount: toMinor(row.amount),
+    categoryId: row.category_id,
+    categoryName: embedded(row.expense_categories)?.name ?? null,
+    methodId: row.method_id,
+    methodName: method?.name ?? null,
+    isCash: method?.is_cash ?? false,
+    description: row.description,
+    attachmentUrl: row.attachment_url,
+    sessionId: row.session_id,
+    createdAt: row.created_at,
+  }
+}
+
+function createExpenses(
+  client: SupabaseClient,
+  organizationId: () => string | null
+): ExpenseRepository {
+  return {
+    async list(query) {
+      const limit = clampLimit(query.limit, 25)
+      let builder = client
+        .from('expenses')
+        .select(EXPENSE_SELECT)
+        .is('deleted_at', null)
+        .order('expense_date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(limit)
+
+      builder = afterCursor(builder, query.cursor)
+      if (query.from) builder = builder.gte('expense_date', query.from)
+      if (query.to) builder = builder.lte('expense_date', query.to)
+      if (query.categoryId) builder = builder.eq('category_id', query.categoryId)
+
+      const search = query.search?.trim()
+      if (search) builder = builder.ilike('description', `%${likeTerm(search)}%`)
+
+      const rows = unwrap(await builder.returns<ExpenseRaw[]>())
+      return { items: rows.map(toExpense), nextCursor: paginate(rows, limit).nextCursor }
+    },
+
+    async totalForDay(date) {
+      const rows = unwrap(
+        await client
+          .from('expenses')
+          .select('amount')
+          .is('deleted_at', null)
+          .eq('expense_date', date)
+          .returns<{ amount: string }[]>()
+      )
+      // Summed in minor units so the total is exact: adding floats and
+      // rounding at the end drifts by a paisa on a long expense list.
+      return toMinor(rows.reduce((sum, row) => sum + Number(row.amount), 0))
+    },
+
+    async create(input) {
+      // Through the RPC, not an insert: recording an expense is what moves the
+      // register's cash figure, and that has to happen in the same transaction.
+      const id = unwrap(
+        await client.rpc('record_expense', {
+          p_branch_id: input.branchId,
+          p_amount: minorToNumber(input.amount),
+          p_category_id: input.categoryId ?? null,
+          p_method_id: input.methodId ?? null,
+          p_description: input.description ?? null,
+          p_session_id: input.sessionId ?? null,
+          p_expense_date: input.expenseDate ?? null,
+        })
+      ) as string
+      return id
+    },
+
+    async update(id, patch) {
+      const body: Record<string, unknown> = {}
+      if (patch.amount !== undefined) body.amount = minorToNumber(patch.amount)
+      if (patch.categoryId !== undefined) body.category_id = patch.categoryId
+      if (patch.description !== undefined) body.description = patch.description
+      const rows = unwrap(
+        await client.from('expenses').update(body).eq('id', id).select('id').returns<{ id: string }[]>()
+      )
+      if (rows.length === 0) throw new Error('Expense not found, or you cannot edit it.')
+    },
+
+    async remove(id) {
+      // Soft delete. A hard delete would silently change a closed session's
+      // expected cash, leaving a reconciled drawer permanently unexplained.
+      const rows = unwrap(
+        await client
+          .from('expenses')
+          .update({ deleted_at: new Date().toISOString() })
+          .eq('id', id)
+          .select('id')
+          .returns<{ id: string }[]>()
+      )
+      if (rows.length === 0) throw new Error('Expense not found, or you cannot delete it.')
+    },
+
+    async categories() {
+      const rows = unwrap(
+        await client
+          .from('expense_categories')
+          .select('id,name,is_system')
+          .order('is_system', { ascending: false })
+          .order('name')
+          .returns<{ id: string; name: string; is_system: boolean }[]>()
+      )
+      return rows.map((row) => ({ id: row.id, name: row.name, isSystem: row.is_system }))
+    },
+
+    async createCategory(name) {
+      const rows = unwrap(
+        await client
+          .from('expense_categories')
+          .insert({ organization_id: requireOrg(organizationId), name: name.trim() })
+          .select('id,name,is_system')
+          .returns<{ id: string; name: string; is_system: boolean }[]>()
+      )
+      const row = rows[0]
+      if (!row) throw new Error('The category could not be created.')
+      return { id: row.id, name: row.name, isSystem: row.is_system }
+    },
+
+    async removeCategory(id) {
+      const rows = unwrap(
+        await client.from('expense_categories').delete().eq('id', id).select('id').returns<{ id: string }[]>()
+      )
+      if (rows.length === 0) {
+        throw new Error('Category not found — categories in use by an expense cannot be removed.')
+      }
+    },
+  }
+}
+
+// ── Returns (Phase 4) ─────────────────────────────────────────────────────
+
+function createReturns(client: SupabaseClient): ReturnsRepository {
+  return {
+    async refund(input) {
+      const result = unwrap(
+        await client.rpc('refund_sale', {
+          p_sale_id: input.saleId,
+          p_items: input.lines.map((line) => ({
+            sale_item_id: line.saleItemId,
+            qty: milliToNumber(line.qty),
+          })),
+          p_payments: input.payments.map((payment) => ({
+            method_id: payment.methodId,
+            amount: minorToNumber(payment.amount),
+            reference: payment.reference ?? null,
+          })),
+          p_reason: input.reason ?? null,
+          p_restock: input.restock ?? true,
+        })
+      ) as { return_id: string; refund_total: string; sale_status: string }
+      return {
+        returnId: result.return_id,
+        refundTotal: toMinor(result.refund_total),
+        saleStatus: result.sale_status,
+      } satisfies RefundResult
+    },
+
+    async refundToCredit(input) {
+      const result = unwrap(
+        await client.rpc('refund_sale_to_credit', {
+          p_sale_id: input.saleId,
+          p_items: input.lines.map((line) => ({
+            sale_item_id: line.saleItemId,
+            qty: milliToNumber(line.qty),
+          })),
+          p_reason: input.reason ?? null,
+          p_restock: input.restock ?? true,
+        })
+      ) as { return_id: string; refund_total: string; sale_status: string; store_credit: string }
+      return {
+        returnId: result.return_id,
+        refundTotal: toMinor(result.refund_total),
+        saleStatus: result.sale_status,
+        storeCredit: toMinor(result.store_credit),
+      } satisfies RefundResult
+    },
+  }
+}
+
+// ── Audit trail (Phase 4) ─────────────────────────────────────────────────
+
+interface AuditRaw {
+  id: number | string
+  created_at: string
+  action: AuditEntry['action']
+  entity_type: string
+  entity_id: string | null
+  actor_id: string | null
+  actor_email: string | null
+  before: Record<string, unknown> | null
+  after: Record<string, unknown> | null
+}
+
+function createAudit(client: SupabaseClient): AuditRepository {
+  return {
+    async list(query) {
+      const limit = clampLimit(query.limit, 25)
+      let builder = client
+        .from('audit_trail')
+        .select('id,created_at,action,entity_type,entity_id,actor_id,actor_email,before,after')
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(limit)
+
+      // The cursor helper keys on a uuid id; audit ids are bigints, so the
+      // comparison is built here rather than reused.
+      if (query.cursor) {
+        const decoded = decodeCursor(query.cursor)
+        if (decoded) {
+          builder = builder.or(
+            `created_at.lt.${decoded.createdAt},and(created_at.eq.${decoded.createdAt},id.lt.${decoded.id})`
+          )
+        }
+      }
+
+      if (query.entityType) builder = builder.eq('entity_type', query.entityType)
+      if (query.actorId) builder = builder.eq('actor_id', query.actorId)
+      if (query.action) builder = builder.eq('action', query.action)
+      if (query.entityId) builder = builder.eq('entity_id', query.entityId)
+      if (query.search) builder = builder.ilike('entity_type', `%${likeTerm(query.search)}%`)
+
+      const rows = unwrap(await builder.returns<AuditRaw[]>())
+      const items = rows.map(
+        (row): AuditEntry => ({
+          id: String(row.id),
+          createdAt: row.created_at,
+          action: row.action,
+          entityType: row.entity_type,
+          entityId: row.entity_id,
+          actorId: row.actor_id,
+          actorEmail: row.actor_email,
+          before: row.before,
+          after: row.after,
+        })
+      )
+      const last = rows[rows.length - 1]
+      const nextCursor =
+        rows.length === limit && last ? encodeCursor(last.created_at, String(last.id)) : null
+      return { items, nextCursor }
+    },
+
+    async entityTypes() {
+      const rows = unwrap(
+        await client
+          .from('audit_trail')
+          .select('entity_type')
+          .limit(1000)
+          .returns<{ entity_type: string }[]>()
+      )
+      return [...new Set(rows.map((row) => row.entity_type))].sort()
+    },
+  }
+}
+
 // ── Composition ───────────────────────────────────────────────────────────
 
 /**
@@ -1310,6 +2261,11 @@ export function createSupabaseRepositories(
     registers: createRegisters(client),
     organization: createOrganization(client),
     stock: createStock(client, organizationId),
+    suppliers: createSuppliers(client, organizationId),
+    purchases: createPurchases(client),
+    expenses: createExpenses(client, organizationId),
+    returns: createReturns(client),
+    audit: createAudit(client),
   }
 }
 

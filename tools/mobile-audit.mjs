@@ -111,7 +111,7 @@ async function makeUser(tag) {
     [email, hashSync(PASSWORD, 10)]
   )
   const userId = created.rows[0].id
-  members.push({ userId, organizationId: null })
+  members.push({ userId, organizationId: null, email })
   return { email, userId }
 }
 
@@ -162,8 +162,28 @@ async function cleanup() {
         member.organizationId = owned.rows[0]?.id ?? null
       }
       const organizationId = member.organizationId
+      // The Phase 4 audit trigger writes a row per change, and those rows hold
+      // the organization down: `audit_logs` is append-only, so a leftover row
+      // from this run would block the next `delete from organizations`.
       await client.query('delete from public.audit_logs where actor_id = $1', [id])
       if (organizationId) {
+        await client.query('delete from public.audit_logs where organization_id = $1', [organizationId])
+        // `sale_returns.sale_id` and `purchase_payments` do not cascade from
+        // their parents, so they are cleared before the parents go.
+        await client.query(
+          `delete from public.sale_returns
+            where sale_id in (select id from public.sales
+                               where branch_id in (select id from public.branches
+                                                    where organization_id = $1))`,
+          [organizationId]
+        )
+        await client.query(
+          `delete from public.purchase_payments
+            where purchase_id in (select id from public.purchases where organization_id = $1)`,
+          [organizationId]
+        )
+        await client.query('delete from public.purchases where organization_id = $1', [organizationId])
+        await client.query('delete from public.expenses where organization_id = $1', [organizationId])
         await client.query('alter table public.stock_movements disable trigger movements_immutable')
         await client.query(
           `delete from public.stock_movements
@@ -531,6 +551,10 @@ try {
     ['sales', '#/sales'],
     ['customers', '#/customers'],
     ['register', '#/register'],
+    ['suppliers', '#/suppliers'],
+    ['purchases', '#/purchases'],
+    ['expenses', '#/expenses'],
+    ['audit', '#/audit'],
   ]) {
     await page.evaluate((r) => {
       window.location.hash = r
@@ -558,11 +582,16 @@ try {
   // the live project rather than a fixture.
   console.log('\n── stock value reconciliation ──')
   const member = members.find((m) => m.organizationId) ?? null
+  // Declared out here because the Phase 4 block below buys and refunds the
+  // same product the stock block receives: one fixture, two phases, no second
+  // product quietly appearing in the shop.
+  let warehouse = null
+  let variantId = null
   if (member?.organizationId) {
     // Receive stock the way the app does — over PostgREST, as the signed-in
     // user, through the RPC the UI calls. A reconciliation against an empty
     // shop would pass at 0 vs 0 and prove nothing.
-    const warehouse = (
+    warehouse = (
       await client.query('select id from public.warehouses where organization_id = $1 limit 1', [
         member.organizationId,
       ])
@@ -593,7 +622,7 @@ try {
     if (variantRes.status !== 201 || !variantRes.body?.[0]?.id) {
       throw new Error(`variant insert failed: HTTP ${variantRes.status} ${JSON.stringify(variantRes.body).slice(0, 200)}`)
     }
-    const variantId = variantRes.body[0].id
+    variantId = variantRes.body[0].id
 
     const received = await api('/rest/v1/rpc/stock_in', {
       method: 'POST',
@@ -692,6 +721,306 @@ try {
       `dashboard ${dashValue} vs database ${expectedValue} — card text: "${dashRendered.slice(0, 160)}"`
     )
     await page.screenshot({ path: join(OUT, '10-dashboard-stock.png'), fullPage: true })
+  }
+
+  // ── F. Phase 4: buying, spending, refunding, and the trail that records
+  // all three. Every write below goes through the same RPC the screen calls,
+  // as the signed-in owner, so a pass means the deployed bundle and the
+  // deployed database agree — not just that the fixtures were valid.
+  console.log('\n── business management ──')
+  if (member?.organizationId) {
+    const registers = await client.query(
+      'select id from public.registers where organization_id = $1 order by created_at limit 1',
+      [member.organizationId]
+    )
+    const registerId = registers.rows[0]?.id ?? null
+    const methods = await client.query(
+      `select id, is_cash from public.payment_methods
+        where organization_id = $1 and is_active order by is_cash desc limit 1`,
+      [member.organizationId]
+    )
+    const methodId = methods.rows[0]?.id ?? null
+    const branchId = (
+      await client.query('select id from public.branches where organization_id = $1 limit 1', [
+        member.organizationId,
+      ])
+    ).rows[0]?.id ?? null
+
+    // Open the drawer first: a cash expense is only attached to the register
+    // when there is one, and the register screen is one of the screens under
+    // test. Without this the screen would only ever prove its empty state.
+    if (registerId) {
+      const opened = await api('/rest/v1/rpc/open_register', {
+        method: 'POST',
+        token: member.token,
+        body: { p_register_id: registerId, p_opening_cash: 5000, p_note: 'audit' },
+      })
+      check(
+        'the drawer opens over HTTP for the signed-in owner',
+        opened.status === 200,
+        `HTTP ${opened.status}`
+      )
+    }
+
+    // ── Supplier ──────────────────────────────────────────────────────────
+    const supplierRes = await api('/rest/v1/suppliers', {
+      method: 'POST',
+      token: member.token,
+      body: { organization_id: member.organizationId, name: 'Audit Wholesale', phone: '01711111111' },
+    })
+    check(
+      'a supplier can be created by the owner through PostgREST',
+      supplierRes.status === 201 && Boolean(supplierRes.body?.[0]?.id),
+      `HTTP ${supplierRes.status}`
+    )
+    const supplierId = supplierRes.body?.[0]?.id
+
+    // ── Purchase order, then a partial receipt ────────────────────────────
+    const poRes = await api('/rest/v1/rpc/save_purchase', {
+      method: 'POST',
+      token: member.token,
+      body: {
+        p_warehouse_id: warehouse,
+        p_items: [{ variant_id: variantId, qty: 20, unit_cost: 210 }],
+        p_supplier_id: supplierId,
+        p_status: 'ORDERED',
+        p_reference_no: 'AUDIT-PO-1',
+      },
+    })
+    const poId = poRes.body
+    check(
+      'a purchase order is raised for the supplier',
+      poRes.status === 200 && typeof poId === 'string',
+      `HTTP ${poRes.status}`
+    )
+
+    const poNumber = poId
+      ? (await client.query('select invoice_no from public.purchases where id = $1', [poId])).rows[0]
+          ?.invoice_no
+      : null
+
+    const poItemId = poId
+      ? (await client.query('select id from public.purchase_items where purchase_id = $1 limit 1', [poId]))
+          .rows[0]?.id
+      : null
+
+    if (poId && poItemId) {
+      const received = await api('/rest/v1/rpc/receive_purchase', {
+        method: 'POST',
+        token: member.token,
+        body: {
+          p_purchase_id: poId,
+          p_items: [{ purchase_item_id: poItemId, qty: 8 }],
+          p_paid: [],
+        },
+      })
+      const afterPartial = (
+        await client.query(
+          `select p.status, p.total, i.quantity, i.received_qty
+             from public.purchases p
+             join public.purchase_items i on i.purchase_id = p.id
+            where p.id = $1`,
+          [poId]
+        )
+      ).rows[0]
+      check(
+        'a partial receipt leaves the order PARTIALLY_RECEIVED with the right outstanding quantity',
+        afterPartial?.status === 'PARTIALLY_RECEIVED' &&
+          Number(afterPartial?.quantity) - Number(afterPartial?.received_qty) === 12,
+        `${poNumber} ${afterPartial?.status} ${afterPartial?.received_qty} of ${afterPartial?.quantity}`
+      )
+      check(
+        'the receipt actually moved stock into the shop',
+        received.status === 200,
+        `HTTP ${received.status}`
+      )
+    }
+
+    // ── Expense against the open drawer ───────────────────────────────────
+    const expenseRes = await api('/rest/v1/rpc/record_expense', {
+      method: 'POST',
+      token: member.token,
+      body: {
+        p_branch_id: branchId,
+        p_amount: 150,
+        p_method_id: methodId,
+        p_description: 'Audit tea for staff',
+        p_session_id: registerId ? (await client.query(
+          `select id from public.register_sessions where register_id = $1 and closed_at is null limit 1`,
+          [registerId]
+        )).rows[0]?.id ?? null : null,
+      },
+    })
+    check(
+      'an expense is recorded through the RPC the screen calls',
+      expenseRes.status === 200,
+      `HTTP ${expenseRes.status}${expenseRes.status === 200 ? '' : ` ${JSON.stringify(expenseRes.body).slice(0, 160)}`}`
+    )
+
+    // ── A sale, then a refund of part of it ───────────────────────────────
+    const saleRes = await api('/rest/v1/rpc/complete_sale', {
+      method: 'POST',
+      token: member.token,
+      body: {
+        p_branch_id: branchId,
+        p_warehouse_id: warehouse,
+        p_register_id: registerId,
+        p_items: [{ variant_id: variantId, qty: 2, unit_price: 1500 }],
+        p_payments: [{ method_id: methodId, amount: 3000 }],
+      },
+    })
+    const saleId = saleRes.body?.sale_id ?? saleRes.body?.id ?? null
+    check(
+      'a sale completes before the refund flow is exercised',
+      saleRes.status === 200 && Boolean(saleId),
+      `HTTP ${saleRes.status}`
+    )
+
+    if (saleId) {
+      const saleItem = (
+        await client.query(
+          'select id, variant_id, unit_cost from public.sale_items where sale_id = $1 limit 1',
+          [saleId]
+        )
+      ).rows[0]
+      const before = Number(
+        (
+          await client.query(
+            'select quantity from public.stock_balances where warehouse_id = $1 and variant_id = $2',
+            [warehouse, saleItem.variant_id]
+          )
+        ).rows[0]?.quantity ?? 0
+      )
+
+      const refundRes = await api('/rest/v1/rpc/refund_sale', {
+        method: 'POST',
+        token: member.token,
+        body: {
+          p_sale_id: saleId,
+          p_items: [{ sale_item_id: saleItem.id, qty: 1 }],
+          p_payments: methodId ? [{ method_id: methodId, amount: 1500 }] : [],
+          p_reason: 'browser audit',
+          p_restock: true,
+        },
+      })
+      const after = Number(
+        (
+          await client.query(
+            'select quantity from public.stock_balances where warehouse_id = $1 and variant_id = $2',
+            [warehouse, saleItem.variant_id]
+          )
+        ).rows[0]?.quantity ?? 0
+      )
+      // The ledger row cites the *return*, not the sale — `apply_stock_movement`
+      // is called with reference_type 'return' — so the return is looked up
+      // first and matched by id. Asserting `reference_id = saleId` would have
+      // passed vacuously against any row that happened to match.
+      const returnRow = (
+        await client.query('select id from public.sale_returns where sale_id = $1 limit 1', [saleId])
+      ).rows[0]
+      const ledger = await client.query(
+        `select reference_type, reference_id from public.stock_movements
+           where variant_id = $1 and warehouse_id = $2 and type = 'RETURN_IN'
+             and reference_id = $3 limit 1`,
+        [saleItem.variant_id, warehouse, returnRow?.id ?? null]
+      )
+      check(
+        'a refund from the live sale restocks exactly what came back',
+        refundRes.status === 200 && after === before + 1,
+        `HTTP ${refundRes.status} ${before} → ${after}`
+      )
+      check(
+        'the restock writes a RETURN_IN ledger row citing the return it came from',
+        ledger.rowCount === 1 && ledger.rows[0]?.reference_type === 'return',
+        `${ledger.rowCount} row(s), reference_type=${ledger.rows[0]?.reference_type}`
+      )
+    }
+
+    // ── The screens themselves ────────────────────────────────────────────
+    const screens = [
+      { name: 'suppliers', hash: '#/suppliers', shot: '11-suppliers.png', expect: /Audit Wholesale/ , forbid: /could not be loaded/i },
+      { name: 'purchases', hash: '#/purchases', shot: '12-purchases.png', expect: /PO-|part received/i, forbid: /could not be loaded/i },
+      { name: 'expenses', hash: '#/expenses', shot: '13-expenses.png', expect: /Spent today/, forbid: /could not be loaded/i },
+      { name: 'sales list', hash: '#/sales', shot: '14-sales.png', expect: /INV-/, forbid: /could not be loaded/i },
+      { name: 'register', hash: '#/register', shot: '15-register.png', expect: /Drawer open|Drawer closed/, forbid: /could not be loaded/i },
+      { name: 'audit trail', hash: '#/audit', shot: '16-audit.png', expect: /Audit trail/, forbid: /could not be loaded/i },
+    ]
+
+    for (const screen of screens) {
+      await page.evaluate((r) => {
+        window.location.hash = r
+      }, screen.hash)
+      await new Promise((r) => setTimeout(r, 2500))
+      const a = await auditLayout(page, `phase 4 ${screen.name}`)
+      report.audits.push(a)
+      reportAudit(a)
+      await page.screenshot({ path: join(OUT, screen.shot), fullPage: true })
+
+      const text = await page.evaluate(
+        () => document.querySelector('#app-outlet')?.textContent ?? ''
+      )
+      check(
+        `${screen.name}: renders its data, not an empty or error state`,
+        screen.expect.test(text) && !screen.forbid.test(text),
+        text.replace(/\s+/g, ' ').slice(0, 110)
+      )
+    }
+
+    // The acceptance criterion is about the trail, so it is asserted in the
+    // rendered screen: actor, before and after, on the row itself.
+    const auditText = await page.evaluate(
+      () => document.querySelector('#app-outlet')?.textContent ?? ''
+    )
+    check(
+      'the audit screen names the actor who made each change',
+      Boolean(member.email) && auditText.includes(member.email),
+      `${member.email ?? 'no email on the member record'} ${
+        member.email && auditText.includes(member.email) ? 'found' : 'missing'
+      }`
+    )
+
+    // The first button in the outlet is not necessarily a trail row (View
+    // report's footer has one too), so the row is identified by what it says:
+    // an action badge, which only a trail entry carries.
+    const openedEntry = await page.evaluate(() => {
+      const outlet = document.querySelector('#app-outlet')
+      const all = [...(outlet?.querySelectorAll('button') ?? [])]
+      // The badge and the entity name are separate inline elements, so the
+      // row's text reads "createExpenses…" with no boundary between the words.
+      // Anchoring on the start of the row is therefore the reliable test.
+      const rows = all.filter((button) => /^(create|update|delete)/i.test((button.textContent || '').trim()))
+      const row = rows[0]
+      if (row) row.click()
+      return {
+        found: rows.length,
+        first: row ? (row.textContent || '').slice(0, 60) : '',
+        buttons: all.length,
+        texts: all.slice(0, 6).map((b) => (b.textContent || '').trim().slice(0, 44)).join(' ¦ '),
+        html: (outlet?.innerHTML ?? '').replace(/\s+/g, ' ').slice(-260),
+      }
+    })
+    check(
+      'the audit list renders clickable entries',
+      openedEntry.found > 0,
+      `${openedEntry.found} row(s) of ${openedEntry.buttons} buttons — first: "${openedEntry.first}"`
+    )
+    if (openedEntry.found > 0) {
+      await new Promise((r) => setTimeout(r, 900))
+      const dialogText = await page.evaluate(() => {
+        const dialog = document.querySelector('[role="dialog"]')
+        return dialog ? dialog.textContent ?? '' : ''
+      })
+      check(
+        'opening an audit entry shows the actor, the before and the after',
+        /Actor/.test(dialogText) && /Before/.test(dialogText) && /After/.test(dialogText),
+        dialogText ? dialogText.replace(/\s+/g, ' ').slice(0, 140) : 'no dialog opened'
+      )
+      await page.screenshot({ path: join(OUT, '17-audit-entry.png') })
+      const dialogAudit = await auditLayout(page, 'phase 4 audit entry')
+      report.audits.push(dialogAudit)
+      reportAudit(dialogAudit)
+      await page.keyboard.press('Escape')
+    }
   }
 
   // Persist the raw audit for the record.

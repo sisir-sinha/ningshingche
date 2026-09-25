@@ -137,6 +137,9 @@ export interface SaleRepository {
 
   /** Newest first, this branch only. */
   list(query: PageRequest & { branchId: string; status?: string[] }): Promise<Page<SaleRow>>
+  /** The sales list for a shop, across branches, for the Sales screen. */
+  listAll(query: PageRequest & { status?: string; search?: string; from?: string; to?: string }): Promise<Page<SalesListRow>>
+  detail(id: string): Promise<SaleDetail | null>
   get(id: string): Promise<SaleRow | null>
   held(branchId: string): Promise<SaleRow[]>
   byCustomer(customerId: string, query?: PageRequest): Promise<Page<SaleRow>>
@@ -157,6 +160,10 @@ export interface RegisterRepository {
   close(sessionId: string, closingCash: Minor, note?: string): Promise<void>
   /** `direction` is 1 for cash in and -1 for cash out, as the RPC expects. */
   cashMovement(sessionId: string, amount: Minor, direction: 1 | -1, note?: string): Promise<void>
+  /** Recent sessions for the register screen's history. */
+  sessions(branchId: string, limit?: number): Promise<RegisterSessionSummary[]>
+  /** The closing report: expected vs counted, and where the money came from. */
+  report(sessionId: string): Promise<RegisterReport>
 }
 
 /**
@@ -329,6 +336,311 @@ export interface StockRepository {
   setReorderPoint(productId: string, reorderPoint: Milli): Promise<void>
 }
 
+// ── Purchasing and suppliers (Phase 4) ────────────────────────────────────
+
+/**
+ * A supplier, with the balance the shop owes them.
+ *
+ * `balance` is positive when the shop owes money and negative when the
+ * supplier holds an advance — the same sign convention `receive_purchase` and
+ * `apply_payment` maintain in the database.
+ */
+export interface SupplierRow {
+  id: string
+  name: string
+  phone: string | null
+  email: string | null
+  address: string | null
+  note: string | null
+  balance: Minor
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SupplierDraft {
+  name: string
+  phone?: string | null
+  email?: string | null
+  address?: string | null
+  note?: string | null
+}
+
+export interface PurchaseRow {
+  id: string
+  invoiceNo: string
+  referenceNo: string | null
+  status: 'DRAFT' | 'ORDERED' | 'PARTIALLY_RECEIVED' | 'RECEIVED' | 'CANCELLED'
+  supplierId: string | null
+  supplierName: string | null
+  warehouseId: string
+  warehouseName: string | null
+  subtotal: Minor
+  taxTotal: Minor
+  total: Minor
+  paidTotal: Minor
+  /** What is still owed on this order. */
+  outstanding: Minor
+  note: string | null
+  expectedAt: string | null
+  createdAt: string
+  receivedAt: string | null
+}
+
+export interface PurchaseItemRow {
+  id: string
+  variantId: string
+  productName: string
+  variantName: string | null
+  quantity: Milli
+  receivedQty: Milli
+  /** quantity − received_qty: what is still to come. */
+  outstanding: Milli
+  unitCost: Minor
+  lineTotal: Minor
+}
+
+export interface PurchasePaymentRow {
+  id: string
+  amount: Minor
+  methodId: string
+  methodName: string | null
+  reference: string | null
+  paidAt: string
+}
+
+export interface PurchaseDetail {
+  purchase: PurchaseRow
+  items: PurchaseItemRow[]
+  payments: PurchasePaymentRow[]
+}
+
+export interface PurchaseDraftLine {
+  variantId: string
+  qty: Milli
+  unitCost: Minor
+  taxRate?: number
+}
+
+export interface PurchaseRepository {
+  list(query: PageRequest & { status?: string; supplierId?: string; search?: string }): Promise<Page<PurchaseRow>>
+  get(id: string): Promise<PurchaseDetail | null>
+  /** Creates when `id` is absent. Returns the purchase id. */
+  save(input: {
+    id?: string
+    warehouseId: string
+    supplierId: string | null
+    lines: PurchaseDraftLine[]
+    status: 'DRAFT' | 'ORDERED'
+    referenceNo?: string | null
+    note?: string | null
+    expectedAt?: string | null
+  }): Promise<string>
+  receive(
+    id: string,
+    lines: { purchaseItemId: string; qty: Milli; unitCost?: Minor }[],
+    payments: { methodId: string; amount: Minor; reference?: string }[]
+  ): Promise<{ status: string; receivedValue: Minor; paid: Minor }>
+  cancel(id: string, reason?: string | null): Promise<{ released: Minor }>
+  pay(input: {
+    supplierId: string
+    amount: Minor
+    methodId: string
+    purchaseId?: string | null
+    reference?: string | null
+  }): Promise<{ supplierBalance: Minor }>
+}
+
+export interface SupplierRepository {
+  list(query: PageRequest & { search?: string }): Promise<Page<SupplierRow>>
+  get(id: string): Promise<SupplierRow | null>
+  create(draft: SupplierDraft): Promise<SupplierRow>
+  update(id: string, draft: Partial<SupplierDraft>): Promise<SupplierRow>
+  /** What we bought from them, newest first — the supplier's history. */
+  purchases(supplierId: string, query?: PageRequest): Promise<Page<PurchaseRow>>
+}
+
+// ── Expenses (Phase 4) ────────────────────────────────────────────────────
+
+export interface ExpenseRow {
+  id: string
+  expenseDate: string
+  amount: Minor
+  categoryId: string | null
+  categoryName: string | null
+  methodId: string | null
+  methodName: string | null
+  isCash: boolean
+  description: string | null
+  attachmentUrl: string | null
+  sessionId: string | null
+  createdAt: string
+}
+
+export interface ExpenseCategoryRow {
+  id: string
+  name: string
+  isSystem: boolean
+}
+
+export interface ExpenseRepository {
+  list(query: PageRequest & { from?: string; to?: string; categoryId?: string; search?: string }): Promise<Page<ExpenseRow>>
+  /** Today's total, for the header. */
+  totalForDay(date: string): Promise<Minor>
+  create(input: {
+    branchId: string
+    amount: Minor
+    categoryId?: string | null
+    methodId?: string | null
+    description?: string | null
+    sessionId?: string | null
+    expenseDate?: string
+  }): Promise<string>
+  update(id: string, patch: { amount?: Minor; categoryId?: string | null; description?: string | null }): Promise<void>
+  /** Soft delete: `deleted_at`, so the register's history stays reconcilable. */
+  remove(id: string): Promise<void>
+  categories(): Promise<ExpenseCategoryRow[]>
+  createCategory(name: string): Promise<ExpenseCategoryRow>
+  removeCategory(id: string): Promise<void>
+}
+
+// ── Returns (Phase 4, spec §18) ───────────────────────────────────────────
+
+export interface SaleReturnRow {
+  id: string
+  returnNo: string
+  createdAt: string
+  reason: string | null
+  restock: boolean
+  refundTotal: Minor
+  items: { saleItemId: string; quantity: Milli; refundAmount: Minor; productName: string }[]
+}
+
+export interface RefundResult {
+  returnId: string
+  refundTotal: Minor
+  saleStatus: string
+  /** Present on a store-credit refund. */
+  storeCredit?: Minor
+}
+
+export interface SalesListRow {
+  id: string
+  invoiceNo: string
+  status: string
+  customerId: string | null
+  customerName: string | null
+  branchName: string | null
+  total: Minor
+  paidTotal: Minor
+  createdAt: string
+  completedAt: string | null
+}
+
+export interface SaleDetail {
+  sale: SalesListRow
+  items: {
+    id: string
+    productName: string
+    variantName: string | null
+    quantity: Milli
+    returnedQty: Milli
+    unitPrice: Minor
+    lineTotal: Minor
+  }[]
+  payments: { id: string; methodName: string | null; amount: Minor; receivedAt: string }[]
+  returns: SaleReturnRow[]
+}
+
+export interface ReturnsRepository {
+  /** Refund to the original payment methods. */
+  refund(input: {
+    saleId: string
+    lines: { saleItemId: string; qty: Milli }[]
+    payments: { methodId: string; amount: Minor; reference?: string }[]
+    reason?: string | null
+    restock?: boolean
+  }): Promise<RefundResult>
+  /** Refund to the customer's store credit instead of cash. */
+  refundToCredit(input: {
+    saleId: string
+    lines: { saleItemId: string; qty: Milli }[]
+    reason?: string | null
+    restock?: boolean
+  }): Promise<RefundResult>
+}
+
+// ── Register reporting (Phase 4) ──────────────────────────────────────────
+
+/**
+ * A session as the register screen lists it, with the day's totals already
+ * aggregated. Computed by the `register_session_summary` view so the list and
+ * the closing report cannot disagree about what a session took.
+ */
+export interface RegisterSessionSummary {
+  id: string
+  registerId: string
+  registerName: string | null
+  branchId: string
+  openedAt: string
+  closedAt: string | null
+  isOpen: boolean
+  openingCash: Minor
+  closingCash: Minor | null
+  variance: Minor | null
+  salesTotal: Minor
+  saleCount: number
+  refundTotal: Minor
+  expenseTotal: Minor
+}
+
+export interface RegisterReport {
+  sessionId: string
+  isOpen: boolean
+  openedAt: string
+  closedAt: string | null
+  openingCash: Minor
+  cashIn: Minor
+  cashOut: Minor
+  salesCash: Minor
+  refundCash: Minor
+  expenseCash: Minor
+  expectedCash: Minor
+  closingCash: Minor | null
+  variance: Minor | null
+  saleCount: number
+  salesTotal: Minor
+  refundTotal: Minor
+  expenseTotal: Minor
+  byMethod: { methodId: string; method: string; isCash: boolean; amount: Minor; count: number }[]
+}
+
+// ── Audit trail (Phase 4, spec §31) ───────────────────────────────────────
+
+export interface AuditEntry {
+  id: string
+  createdAt: string
+  action: 'create' | 'update' | 'delete'
+  entityType: string
+  entityId: string | null
+  actorId: string | null
+  actorEmail: string | null
+  /** The row as it was; null for a create. */
+  before: Record<string, unknown> | null
+  /** The row as it became; null for a delete. */
+  after: Record<string, unknown> | null
+}
+
+export interface AuditRepository {
+  list(query: PageRequest & {
+    entityType?: string
+    actorId?: string
+    action?: string
+    entityId?: string
+    search?: string
+  }): Promise<Page<AuditEntry>>
+  entityTypes(): Promise<string[]>
+}
+
 export interface Repositories {
   readonly catalog: CatalogRepository
   readonly products: ProductRepository
@@ -337,6 +649,11 @@ export interface Repositories {
   readonly registers: RegisterRepository
   readonly organization: OrganizationRepository
   readonly stock: StockRepository
+  readonly suppliers: SupplierRepository
+  readonly purchases: PurchaseRepository
+  readonly expenses: ExpenseRepository
+  readonly returns: ReturnsRepository
+  readonly audit: AuditRepository
 }
 
 /** Re-exported so features can build payloads without importing the domain. */

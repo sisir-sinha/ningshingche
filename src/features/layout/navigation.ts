@@ -61,6 +61,7 @@ export const CORE_NAV: NavItem[] = [
     // being frozen at whatever it was when the sidebar was built.
     badge: () => lowStockCount(),
   },
+  { id: 'suppliers', label: 'Suppliers', icon: 'handshake', section: 'inventory', route: '/suppliers', permission: 'suppliers.view', order: 25 },
   { id: 'purchases', label: 'Purchases', icon: 'local_shipping', section: 'inventory', route: '/purchases', permission: 'purchases.view', order: 30 },
   { id: 'expenses', label: 'Expenses', icon: 'payments', section: 'inventory', route: '/expenses', permission: 'expenses.view', order: 40 },
   { id: 'reports', label: 'Reports', icon: 'assessment', section: 'insights', route: '/reports', permission: 'reports.view', order: 10 },
@@ -69,6 +70,7 @@ export const CORE_NAV: NavItem[] = [
   { id: 'users', label: 'Staff', icon: 'manage_accounts', section: 'admin', route: '/users', permission: 'users.view', order: 20 },
   { id: 'roles', label: 'Roles', icon: 'admin_panel_settings', section: 'admin', route: '/roles', permission: 'roles.manage', order: 30 },
   { id: 'plugins', label: 'Plugins', icon: 'extension', section: 'admin', route: '/plugins', permission: 'plugins.view', order: 40 },
+  { id: 'audit', label: 'Audit trail', icon: 'history', section: 'admin', route: '/audit', permission: 'audit.view', order: 45 },
   { id: 'settings', label: 'Settings', icon: 'settings', section: 'admin', route: '/settings', permission: 'settings.view', order: 50 },
 ]
 

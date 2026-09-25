@@ -1215,6 +1215,407 @@ if (seeded.length !== 0) {
   await db.query(`select set_config('request.jwt.claim.sub', null, false)`)
 }
 
+// ── Phase 4 — business management ────────────────────────────────────────
+//
+// The acceptance criteria are about records being *exact*: a partial receipt
+// must leave the order in PARTIALLY_RECEIVED with the outstanding quantity
+// correct, a refund must restock exactly what it refunded and cite the sale
+// item it came from, over-refunding must be refused by the database, and every
+// audited action must carry actor, before and after. So each check below reads
+// the rows back rather than trusting the function's return value.
+if (seeded.length !== 0) {
+  const s = seeded[0]
+  await db.query(`select set_config('request.jwt.claim.sub', '${s.owner}', false)`)
+
+  // A supplier and a product that only these checks touch.
+  await db.exec(`
+    INSERT INTO public.suppliers (id, organization_id, name, phone)
+    VALUES ('00000000-0000-0000-0000-00000000f001', '${s.org}', 'Karim Wholesale', '01700000000')
+    ON CONFLICT (id) DO NOTHING;
+
+    INSERT INTO public.products (id, organization_id, name, selling_price, cost_price, track_stock)
+    VALUES ('00000000-0000-0000-0000-00000000f002', '${s.org}', 'PO Widget', 300, 200, true)
+    ON CONFLICT (id) DO NOTHING;
+
+    INSERT INTO public.product_variants (id, organization_id, product_id, is_default)
+    VALUES ('00000000-0000-0000-0000-00000000f003', '${s.org}',
+            '00000000-0000-0000-0000-00000000f002', true)
+    ON CONFLICT (id) DO NOTHING;
+
+    INSERT INTO public.customers (id, organization_id, name, phone)
+    VALUES ('00000000-0000-0000-0000-00000000f004', '${s.org}', 'Nadia Begum', '01800000000')
+    ON CONFLICT (id) DO NOTHING;
+  `)
+
+  const supplierBefore = await q(`select balance from public.suppliers where id = '00000000-0000-0000-0000-00000000f001'`)
+  const openingBalance = Number(supplierBefore[0].balance)
+
+  // ── Purchase order: created ORDERED, so it is a commitment ──────────────
+  const poId = await q(`
+    select public.save_purchase(
+      '${s.warehouse}',
+      jsonb_build_array(jsonb_build_object(
+        'variant_id', '00000000-0000-0000-0000-00000000f003', 'qty', 20, 'unit_cost', 210)),
+      '00000000-0000-0000-0000-00000000f001', null, 'ORDERED', 'SUP-INV-77', 'weekly order', null) as id`)
+  const po = await q(`select status, subtotal, total, paid_total, invoice_no
+                        from public.purchases where id = '${poId[0].id}'`)
+  check(
+    'a purchase order is created in ORDERED with its own PO number',
+    po[0].status === 'ORDERED' && po[0].invoice_no.startsWith('PO-'),
+    `${po[0].invoice_no} ${po[0].status}`
+  )
+  check(
+    'the order total is 20 × 210',
+    Number(po[0].total) === 4200,
+    String(po[0].total)
+  )
+
+  const supplierAfterOrder = await q(`select balance from public.suppliers where id = '00000000-0000-0000-0000-00000000f001'`)
+  check(
+    'ordering moves the supplier balance by exactly the order total',
+    Number(supplierAfterOrder[0].balance) === openingBalance + 4200,
+    `${openingBalance} → ${supplierAfterOrder[0].balance}`
+  )
+
+  // ── Partial receipt ────────────────────────────────────────────────────
+  const poItem = await q(`select id, quantity, received_qty from public.purchase_items
+                           where purchase_id = '${poId[0].id}'`)
+  await q(`
+    select public.receive_purchase(
+      '${poId[0].id}',
+      jsonb_build_array(jsonb_build_object('purchase_item_id', '${poItem[0].id}', 'qty', 8)),
+      '[]'::jsonb) as r`)
+  const afterPartial = await q(`select p.status, i.quantity, i.received_qty
+                                  from public.purchases p
+                                  join public.purchase_items i on i.purchase_id = p.id
+                                 where p.id = '${poId[0].id}'`)
+  check(
+    'a partial receipt leaves the order PARTIALLY_RECEIVED',
+    afterPartial[0].status === 'PARTIALLY_RECEIVED' && Number(afterPartial[0].received_qty) === 8,
+    `${afterPartial[0].status} received=${afterPartial[0].received_qty}`
+  )
+  check(
+    'the outstanding quantity after a partial receipt is 12 of 20',
+    Number(afterPartial[0].quantity) - Number(afterPartial[0].received_qty) === 12,
+    `${afterPartial[0].received_qty} of ${afterPartial[0].quantity}`
+  )
+
+  // ── Receiving more than was ordered is refused ──────────────────────────
+  let overReceipt = null
+  try {
+    await q(`select public.receive_purchase('${poId[0].id}',
+               jsonb_build_array(jsonb_build_object('purchase_item_id', '${poItem[0].id}', 'qty', 13)),
+               '[]'::jsonb)`)
+  } catch (error) {
+    overReceipt = String(error.message ?? error)
+  }
+  check('receiving more than was ordered is refused', /over_receipt/.test(String(overReceipt)), String(overReceipt).slice(0, 50))
+
+  // ── Completing the receipt ─────────────────────────────────────────────
+  await q(`select public.receive_purchase('${poId[0].id}',
+             jsonb_build_array(jsonb_build_object('purchase_item_id', '${poItem[0].id}', 'qty', 12)),
+             '[]'::jsonb)`)
+  const afterFull = await q(`select status from public.purchases where id = '${poId[0].id}'`)
+  check('receiving the remainder closes the order as RECEIVED', afterFull[0].status === 'RECEIVED', String(afterFull[0].status))
+
+  const poStock = await q(`select quantity, avg_unit_cost from public.stock_balances
+                            where warehouse_id = '${s.warehouse}'
+                              and variant_id = '00000000-0000-0000-0000-00000000f003'`)
+  check(
+    'the received stock landed with the ordered cost',
+    Number(poStock[0].quantity) === 20 && Number(poStock[0].avg_unit_cost) === 210,
+    `qty=${poStock[0].quantity} avg=${poStock[0].avg_unit_cost}`
+  )
+
+  // A received order is a record of what happened, not a plan.
+  let editReceived = null
+  try {
+    await q(`select public.save_purchase('${s.warehouse}',
+               jsonb_build_array(jsonb_build_object('variant_id', '00000000-0000-0000-0000-00000000f003', 'qty', 5, 'unit_cost', 210)),
+               '00000000-0000-0000-0000-00000000f001', '${poId[0].id}', 'ORDERED', null, null, null)`)
+  } catch (error) {
+    editReceived = String(error.message ?? error)
+  }
+  check('an order with received stock cannot be edited', /purchase_already_received/.test(String(editReceived)), String(editReceived).slice(0, 50))
+
+  // ── Paying the supplier ────────────────────────────────────────────────
+  const payment = await q(`
+    select public.apply_payment('00000000-0000-0000-0000-00000000f001', 2000,
+             '${s.cash}', '${poId[0].id}', 'BANK-1', null) as r`)
+  check(
+    'a supplier payment records against the order and lowers the balance',
+    Number(payment[0].r.supplier_balance) === openingBalance + 4200 - 2000 &&
+      Number(payment[0].r.amount) === 2000,
+    `balance=${payment[0].r.supplier_balance}`
+  )
+  const poPaid = await q(`select paid_total from public.purchases where id = '${poId[0].id}'`)
+  check('the payment shows on the order as paid', Number(poPaid[0].paid_total) === 2000, String(poPaid[0].paid_total))
+
+  let overPayment = null
+  try {
+    await q(`select public.apply_payment('00000000-0000-0000-0000-00000000f001', 99999,
+               '${s.cash}', '${poId[0].id}', null, null)`)
+  } catch (error) {
+    overPayment = String(error.message ?? error)
+  }
+  check('paying more than an order outstanding is refused', /over_payment/.test(String(overPayment)), String(overPayment).slice(0, 60))
+
+  // ── Refund: restock exactly, and cite the sale item ────────────────────
+  const sale = await q(`select id from public.sales
+                         where organization_id = '${s.org}' and status in ('COMPLETED','PARTIALLY_PAID')
+                         order by created_at limit 1`)
+  const saleItem = await q(`select id, variant_id, quantity, unit_cost
+                              from public.sale_items where sale_id = '${sale[0].id}' limit 1`)
+  const stockBeforeRefund = await q(`select quantity from public.stock_balances
+                                      where warehouse_id = '${s.warehouse}'
+                                        and variant_id = '${saleItem[0].variant_id}'`)
+
+  const refund = await q(`
+    select public.refund_sale('${sale[0].id}',
+      jsonb_build_array(jsonb_build_object('sale_item_id', '${saleItem[0].id}', 'qty', 1)),
+      jsonb_build_array(jsonb_build_object('method_id', '${s.cash}', 'amount', 250)),
+      'customer changed their mind', true) as r`)
+
+  const stockAfterRefund = await q(`select quantity from public.stock_balances
+                                     where warehouse_id = '${s.warehouse}'
+                                       and variant_id = '${saleItem[0].variant_id}'`)
+  check(
+    'a refund restocks exactly the refunded quantity',
+    Number(stockAfterRefund[0].quantity) === Number(stockBeforeRefund[0].quantity) + 1,
+    `${stockBeforeRefund[0].quantity} → ${stockAfterRefund[0].quantity}`
+  )
+
+  const returnMove = await q(`select type, quantity, reference_type, reference_id
+                               from public.stock_movements
+                               where reference_type = 'return'
+                                 and reference_id = '${refund[0].r.return_id}'`)
+  check(
+    'the restock is a RETURN_IN ledger row citing the return',
+    returnMove.length === 1 && returnMove[0].type === 'RETURN_IN' && Number(returnMove[0].quantity) === 1,
+    returnMove.map((r) => `${r.type}×${r.quantity}`).join(', ')
+  )
+
+  const returnNo = await q(`select return_no, refund_total from public.sale_returns
+                             where id = '${refund[0].r.return_id}'`)
+  check(
+    'the return is numbered and totals what was refunded',
+    /^RET-\d{4}-\d{6}$/.test(returnNo[0].return_no) && Number(returnNo[0].refund_total) === 250,
+    `${returnNo[0].return_no} ${returnNo[0].refund_total}`
+  )
+
+  // ── Over-refund refused by the database ────────────────────────────────
+  let overRefund = null
+  try {
+    await q(`select public.refund_sale('${sale[0].id}',
+               jsonb_build_array(jsonb_build_object('sale_item_id', '${saleItem[0].id}', 'qty', 99)),
+               '[]'::jsonb, null, true)`)
+  } catch (error) {
+    overRefund = String(error.message ?? error)
+  }
+  check(
+    'refunding more than was sold is refused by the database, not the UI',
+    /over_refund/.test(String(overRefund)),
+    String(overRefund).slice(0, 60)
+  )
+
+  // ── Store credit ───────────────────────────────────────────────────────
+  let creditNoCustomer = null
+  try {
+    await q(`select public.refund_sale_to_credit('${sale[0].id}',
+               jsonb_build_array(jsonb_build_object('sale_item_id', '${saleItem[0].id}', 'qty', 1)),
+               'no customer', true)`)
+  } catch (error) {
+    creditNoCustomer = String(error.message ?? error)
+  }
+  check(
+    'store credit refuses a sale with no customer to hold it',
+    /sale_has_no_customer/.test(String(creditNoCustomer)),
+    String(creditNoCustomer).slice(0, 50)
+  )
+
+  // A sale that does have a customer.
+  const creditSale = await q(`
+    select public.complete_sale(
+      '${s.branch}',
+      jsonb_build_array(jsonb_build_object(
+        'variant_id', '00000000-0000-0000-0000-00000000f003', 'qty', 2)),
+      jsonb_build_array(jsonb_build_object('method_id', '${s.cash}', 'amount', 600)),
+      '${s.register}', '00000000-0000-0000-0000-00000000f004', '${s.warehouse}',
+      null, null, null) as r`)
+  const creditItem = await q(`select id from public.sale_items where sale_id = '${creditSale[0].r.sale_id}' limit 1`)
+  const creditResult = await q(`
+    select public.refund_sale_to_credit('${creditSale[0].r.sale_id}',
+      jsonb_build_array(jsonb_build_object('sale_item_id', '${creditItem[0].id}', 'qty', 1)),
+      'kept as credit', true) as r`)
+  const creditBalance = await q(`select store_credit from public.customers where id = '00000000-0000-0000-0000-00000000f004'`)
+  check(
+    'a refund to store credit lands on the customer and restocks the item',
+    Number(creditResult[0].r.refund_total) === 300 &&
+      Number(creditBalance[0].store_credit) === 300,
+    `refund=${creditResult[0].r.refund_total} credit=${creditBalance[0].store_credit}`
+  )
+
+  // ── Register session reporting ─────────────────────────────────────────
+  const openSession = await q(`select id from public.register_sessions
+                                where organization_id = '${s.org}' and closed_at is null
+                                order by opened_at desc limit 1`)
+  const report = await q(`select public.register_session_report('${openSession[0].id}') as r`)
+  const r = report[0].r
+  check(
+    'the register report breaks the drawer down by payment method',
+    Array.isArray(r.by_method) && r.by_method.length > 0 && r.by_method.every((m) => 'amount' in m && 'count' in m),
+    `${r.by_method?.length ?? 0} methods, sales=${r.sale_count}`
+  )
+  check(
+    'the register report expected cash is opening + in − out + sales − refunds − expenses',
+    Number(r.expected_cash) ===
+      Number(r.opening_cash) + Number(r.cash_in) - Number(r.cash_out) +
+      Number(r.sales_cash) - Number(r.refund_cash) - Number(r.expense_cash),
+    String(r.expected_cash)
+  )
+
+  // ── Expenses through the RPC the screen calls ──────────────────────────
+  //
+  // The register report above is internally consistent, which is why it was
+  // green while `record_expense` answered every call with SQLSTATE 42703: the
+  // old checks built their own expense rows and never executed the function a
+  // shopkeeper actually calls. This one does.
+  const expenseSession = await q(`select id, expense_cash from public.register_sessions
+                                   where organization_id = '${s.org}' and closed_at is null
+                                   order by opened_at desc limit 1`)
+  const expenseId = await q(`
+    select public.record_expense(
+      '${s.branch}', 150, null, '${s.cash}', 'tea for the staff',
+      '${expenseSession[0].id}', current_date) as id`)
+  const expenseRow = await q(`select amount, session_id from public.expenses
+                               where id = '${expenseId[0].id}'`)
+  const drawerAfterExpense = await q(`select expense_cash from public.register_sessions
+                                       where id = '${expenseSession[0].id}'`)
+  check(
+    'recording an expense through the RPC writes the row and moves the drawer',
+    Number(expenseRow[0]?.amount) === 150 &&
+      expenseRow[0]?.session_id === expenseSession[0].id &&
+      Number(drawerAfterExpense[0].expense_cash) ===
+        Number(expenseSession[0].expense_cash) + 150,
+    `amount=${expenseRow[0]?.amount} drawer ${expenseSession[0].expense_cash} → ${drawerAfterExpense[0].expense_cash}`
+  )
+
+  let closedSessionRefused = 'no error'
+  try {
+    await q(`select public.record_expense(
+      '${s.branch}', 10, null, '${s.cash}', 'into a closed drawer',
+      '00000000-0000-0000-0000-00000000dead', current_date)`)
+  } catch (error) {
+    closedSessionRefused = error.message ?? String(error)
+  }
+  check(
+    'an expense cannot be attached to a session that is not open',
+    closedSessionRefused.includes('session_not_open'),
+    closedSessionRefused.split('\n')[0]
+  )
+
+  // ── The audit trail ────────────────────────────────────────────────────
+  //
+  // The criterion is "actor, before and after". Price is the change a
+  // shopkeeper most wants attributed, so that is what this edits.
+  await q(`update public.products set selling_price = 275
+           where id = '00000000-0000-0000-0000-00000000f002'`)
+  const audit = await q(`
+    select action, entity_type, actor_id, before, after
+      from public.audit_trail
+     where entity_id = '00000000-0000-0000-0000-00000000f002'
+       and action = 'update'
+     order by id desc limit 1`)
+  check(
+    'a price change writes an audit row with the actor, the before and the after',
+    audit.length === 1 &&
+      audit[0].actor_id === s.owner &&
+      Number(audit[0].before.selling_price) === 300 &&
+      Number(audit[0].after.selling_price) === 275,
+    audit.length
+      ? `${audit[0].before?.selling_price} → ${audit[0].after?.selling_price} by ${audit[0].actor_id === s.owner ? 'the owner' : 'unknown'}`
+      : 'no audit row'
+  )
+  check(
+    'the audit trail names the actor by email, not just an id',
+    (await q(`select actor_email from public.audit_trail
+               where entity_id = '00000000-0000-0000-0000-00000000f002' limit 1`))[0]?.actor_email !== undefined,
+    String((await q(`select actor_email from public.audit_trail
+                      where entity_id = '00000000-0000-0000-0000-00000000f002' limit 1`))[0]?.actor_email)
+  )
+
+  const auditCount = (await q(`select count(*)::int as n from public.audit_logs
+                                where organization_id = '${s.org}'`))[0].n
+  await q(`update public.products set selling_price = 275
+           where id = '00000000-0000-0000-0000-00000000f002'`)
+  const auditCountAfter = (await q(`select count(*)::int as n from public.audit_logs
+                                     where organization_id = '${s.org}'`))[0].n
+  // The live failure this file now guards against: `audit_trail` joined
+  // `auth.users`, and with `security_invoker = on` that made the *caller*
+  // need SELECT on `auth.users` — which `authenticated` must never have. The
+  // owner could read it (owners can read everything), so the validator was
+  // blind to it until it looked at privileges rather than rows.
+  const emailHelper = await q(`
+    select p.prosecdef::text as secdef,
+           has_function_privilege('authenticated', p.oid, 'EXECUTE')::text as callable
+      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'app' and p.proname = 'actor_email'`)
+  check(
+    'the actor email is resolved by a SECURITY DEFINER helper the client may call',
+    emailHelper[0]?.secdef === 'true' && emailHelper[0]?.callable === 'true',
+    `secdef=${emailHelper[0]?.secdef} authenticated=${emailHelper[0]?.callable}`
+  )
+
+  const viewDef = await q(`select pg_get_viewdef('public.audit_trail', true) as d`)
+  check(
+    'the audit view no longer reaches into auth.users under invoker rights',
+    !/auth\.users/.test(viewDef[0]?.d ?? ''),
+    (viewDef[0]?.d ?? '').slice(0, 80)
+  )
+
+  const viewGrants = await q(`
+    select has_table_privilege('authenticated', 'public.audit_trail', 'SELECT')::text as view_ok,
+           has_table_privilege('authenticated', 'public.audit_logs', 'SELECT')::text as table_ok,
+           has_table_privilege('authenticated', 'public.register_session_summary', 'SELECT')::text as summary_ok`)
+  check(
+    'audit_trail, audit_logs and register_session_summary are all readable by authenticated',
+    viewGrants[0]?.view_ok === 'true' && viewGrants[0]?.table_ok === 'true' && viewGrants[0]?.summary_ok === 'true',
+    `view=${viewGrants[0]?.view_ok} table=${viewGrants[0]?.table_ok} summary=${viewGrants[0]?.summary_ok}`
+  )
+
+  check(
+    'a save that changes nothing writes no audit row',
+    auditCount === auditCountAfter,
+    `${auditCount} → ${auditCountAfter}`
+  )
+
+  check(
+    'ordering, receiving and refunding are all on the trail',
+    (await q(`select count(distinct entity_type)::int as n from public.audit_logs
+               where organization_id = '${s.org}'
+                 and entity_type in ('purchases', 'customers', 'products')`))[0].n === 3,
+    'purchases, customers, products'
+  )
+
+  // ── Cancelling an order releases only what is still owed ───────────────
+  const cancelPo = await q(`
+    select public.save_purchase('${s.warehouse}',
+      jsonb_build_array(jsonb_build_object('variant_id', '00000000-0000-0000-0000-00000000f003',
+                                           'qty', 4, 'unit_cost', 200)),
+      '00000000-0000-0000-0000-00000000f001', null, 'ORDERED', null, null, null) as id`)
+  const balanceAfterSecondOrder = await q(`select balance from public.suppliers where id = '00000000-0000-0000-0000-00000000f001'`)
+  const cancelled = await q(`select public.cancel_purchase('${cancelPo[0].id}', 'supplier out of stock') as r`)
+  const balanceAfterCancel = await q(`select balance from public.suppliers where id = '00000000-0000-0000-0000-00000000f001'`)
+  check(
+    'cancelling an unpaid order releases exactly its total',
+    Number(cancelled[0].r.released) === 800 &&
+      Number(balanceAfterCancel[0].balance) === Number(balanceAfterSecondOrder[0].balance) - 800,
+    `${balanceAfterSecondOrder[0].balance} → ${balanceAfterCancel[0].balance}`
+  )
+
+  await db.query(`select set_config('request.jwt.claim.sub', null, false)`)
+}
+
 // ── Every permission key the client names must exist (023-era guard) ─────
 //
 // The catalogue is the contract between the database and the UI. Two nav
@@ -1256,6 +1657,59 @@ check(
   'every permission key referenced in src/ exists in the catalogue',
   unknownKeys.length === 0,
   unknownKeys.length ? unknownKeys.join(', ') : `${referenced.size} keys checked`
+)
+
+// ── Source scan: a name used but never declared ──────────────────────────
+//
+// `record_expense` (014) referenced `v_session_id` without declaring it. That
+// is not a syntax error — PL/pgSQL resolves identifiers when the statement
+// runs — so the function compiled, was granted to `authenticated`, shipped in
+// migration 018, and failed on every call with SQLSTATE 42703. Nothing caught
+// it because nothing executed it.
+//
+// The same class of mistake is cheap to detect statically, so it is: in every
+// function body in supabase/migrations, each `v_*` name that is read must be
+// declared in that body (in a DECLARE block or as a FOR loop variable).
+const migrationDir = join(root, 'supabase/migrations')
+const migrationFiles = readdirSync(migrationDir).filter((file) => file.endsWith('.sql'))
+const undeclaredVars = []
+let functionsScanned = 0
+
+// Only the *last* definition of each function is live — a migration that
+// replaces a broken function is the fix, not a second offence. So bodies are
+// collected in file order and the earlier ones are discarded.
+const finalBodies = new Map()
+
+for (const file of migrationFiles) {
+  const text = readFileSync(join(migrationDir, file), 'utf8')
+  const fnRe = /create (?:or replace )?function\s+([\w.]+)\s*\([\s\S]*?\)\s*returns[\s\S]*?\$fn\$/g
+  for (const match of text.matchAll(fnRe)) {
+    const bodyStart = (match.index ?? 0) + match[0].length
+    const bodyEnd = text.indexOf('$fn$', bodyStart)
+    if (bodyEnd < 0) continue
+    finalBodies.set(match[1], { file, body: text.slice(bodyStart, bodyEnd) })
+  }
+}
+
+for (const [name, { file, body }] of finalBodies) {
+  functionsScanned += 1
+  const declared = new Set()
+  for (const line of body.match(/^\s{2}(v_\w+)\s+[^\n]*?(?:;|=|:)/gm) ?? []) {
+    declared.add(line.trim().split(/\s+/)[0])
+  }
+  for (const loop of body.match(/\bfor\s+(v_\w+)\s+in\b/g) ?? []) {
+    declared.add(loop.match(/for\s+(v_\w+)/)?.[1])
+  }
+
+  for (const ref of new Set(body.match(/\bv_\w+\b/g) ?? [])) {
+    if (!declared.has(ref)) undeclaredVars.push(`${file} ${name}: ${ref}`)
+  }
+}
+
+check(
+  'every live function reads only v_ variables it declares',
+  undeclaredVars.length === 0,
+  undeclaredVars.length ? undeclaredVars.join(', ') : `${functionsScanned} function bodies`
 )
 
 const failed = checks.filter((c) => !c.pass)

@@ -167,29 +167,67 @@ screen and belongs with the Purchases/receiving work in Phase 4.
 
 ---
 
-## Phase 4 — Business management
+## Phase 4 — Business management — ✅ complete 2026-09-25
 
 ```
-  □ Migration 010: purchases
-  □ Purchase orders → receive (full/partial) → supplier balance
-  □ RPC: receive_purchase, apply_payment
-  □ Suppliers: list, create, purchase history, balance      §20
-  □ Expenses: categories (custom), attachments, register effect  §24
-  □ RPC: record_expense
-  □ Returns: full, partial, item-level, quantity-level      §18
-  □ RPC: refund_sale (restocks, reverses ledger)
-  □ Refund to original method / store credit
-  □ Register session reporting
-  □ Audit log viewer                                        §31
+  ✅ Migration 010: purchases                               (already existed)
+  ✅ Purchase orders → receive (full/partial) → supplier balance
+  ✅ RPC: receive_purchase (013) · save_purchase, apply_payment (025)
+  ✅ Suppliers: list, create, purchase history, balance      §20
+  ✅ Expenses: categories (custom), register effect          §24
+  ✅ RPC: record_expense (fixed in 027 — it had never run)
+  ✅ Returns: full, partial, item-level, quantity-level      §18
+  ✅ RPC: refund_sale (013) — restocks, writes the ledger row
+  ✅ Refund to original method / store credit (refund_sale_to_credit, 025)
+  ✅ Register session reporting (register_session_report, 025)
+  ✅ Audit log viewer with actor, before and after           §31
+  ✅ Sales, customers and register screens — the Phase 2 residue
 ```
 
-**Acceptance:**
-- A partial receipt leaves a PO in `PARTIALLY_RECEIVED` with correct
-  outstanding quantities.
+Migration 025 supplied what was missing: creating a purchase order, paying a
+supplier, refunding to store credit, reporting a register session, and —
+closing a gap open since 011 — a writer for `audit_logs`, which until then was
+filled only by provisioning. `app.record_audit()` is attached to eighteen
+tables by a loop, so "who changed this price?" now has an answer that no code
+path can forget to write.
+
+**Acceptance — verified by `npm run validate:migrations` (112 checks), the
+browser audit (138 checks at 390px) and the live project:**
+
+- A partial receipt leaves a PO in `PARTIALLY_RECEIVED` with the right
+  outstanding quantity — `PO-2026-000001`, 8 of 20 received, 12 outstanding,
+  asserted in Postgres, over PostgREST as the signed-in owner, and on the
+  screen. Over-receipt is refused; a received order is no longer editable.
 - A refund restocks exactly the refunded quantity and writes a `RETURN_IN`
-  ledger row referencing the original sale item.
-- Refunding more than was sold is rejected by the database, not the UI.
-- Every audited action shows actor, before and after.
+  ledger row citing the return it came from (`reference_type = 'return'`),
+  verified against a live sale: 16 → 17 units and one ledger row.
+- Refunding more than was sold is rejected by the database, not the UI:
+  `over_refund` is raised by `refund_sale`, and `over_payment` by
+  `apply_payment` (`over_receipt` likewise).
+- Every audited action shows actor, before and after — a price change reads
+  `300 → 275` attributed to the owner, and the entry dialog shows Actor,
+  Before and After side by side.
+
+**Three faults the deployed app found that reading the code did not:**
+
+1. `record_expense` (014) referenced an undeclared `v_session_id`. PL/pgSQL
+   resolves names at execution, so it compiled, was granted, shipped, and
+   failed every call with SQLSTATE 42703 — which is *all* of §24. Fixed in
+   027; the validator now executes the RPC, and a static scan asserts that
+   every live function reads only the `v_*` names it declares.
+2. `audit_trail` (025) joined `auth.users` under `security_invoker = on`, so
+   the *caller* needed SELECT on `auth.users` — which `authenticated` must
+   never have. A signed-in owner was told "You do not have permission to do
+   that." Fixed in 026 with a `SECURITY DEFINER` helper, plus explicit grants
+   and a privilege check in the validator (it had been testing as the owner,
+   so privileges never bound).
+3. The audit trigger fought a shop's teardown: cascading deletes fired it
+   after the organization row was gone, aborting the delete with a foreign-key
+   violation. Fixed in 027 — the trail cannot outlive the shop.
+
+**Also fixed from the browser audit:** the modal close button measured 26×40
+at phone width (a flex row compressed a 32px box), and the "Load more" and
+row-level delete controls were under the 40px tap floor.
 
 ---
 

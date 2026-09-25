@@ -77,7 +77,16 @@ export function modal(options: ModalOptions): Modal {
           subtitle ? h('p', { class: 'text-xs text-content-muted mt-0.5', text: subtitle }) : null
         )
       ),
-      dismissible ? iconButton('close', 'Close', { variant: 'ghost', size: 'sm', onClick: close }) : null
+      // Default size, not `sm`: a 32px close button is under the 40px tap
+      // floor on a phone, and the modal's close is the one control a user
+      // reaches for when a dialog is in the way. The mobile audit caught it
+      // the moment a dialog was opened at 390px.
+      // `shrink-0` matters as much as the size: in a flex row a 40px box
+      // compresses to 26px when the title is long, which is how this measured
+      // 26×40 at 390px even after the size was raised.
+      dismissible
+        ? iconButton('close', 'Close', { variant: 'ghost', class: 'shrink-0', onClick: close })
+        : null
     ),
     h('div', { class: 'flex-1 overflow-y-auto' }, body),
     footer ? h('div', { class: 'flex items-center justify-end gap-2 border-t border-border p-4' }, ...footer) : null

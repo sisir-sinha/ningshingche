@@ -303,7 +303,7 @@ export function stockView(options: StockViewOptions = {}): HTMLElement {
           text: `${rows.length} line${rows.length === 1 ? '' : 's'}${cursor ? ' · more available' : ''}`,
         }),
         cursor
-          ? button('Load more', { variant: 'outline', size: 'sm', onClick: () => void loadMore() })
+          ? button('Load more', { variant: 'outline', onClick: () => void loadMore() })
           : null
       )
     )
