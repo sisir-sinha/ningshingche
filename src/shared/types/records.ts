@@ -221,6 +221,15 @@ export interface CompletedSale {
   total: string
   paid: string
   change_due: string
+  /**
+   * Set only by the offline layer (docs/10 Phase 8): the sale is in the queue,
+   * the server has not seen it, and the totals above are the till's own
+   * arithmetic rather than the stored ones. A screen that prints a receipt must
+   * read this before trusting the numbers.
+   */
+  queued?: boolean
+  /** The queue's reference, present exactly when `queued` is. */
+  client_ref?: string | null
 }
 
 /** What `public.resume_sale` returns (migration 021). */

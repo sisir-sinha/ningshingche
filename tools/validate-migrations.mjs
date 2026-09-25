@@ -2970,6 +2970,121 @@ if (seeded.length !== 0) {
   await db.exec(`select set_config('request.jwt.claim.sub', '', false)`)
 }
 
+// ── Phase 8 — an offline sale may be sent twice, and must sell once ───────
+//
+// The queue on the device cannot know whether a call landed before the
+// connection died, so it sends the sale again when the network returns (044).
+// The only way that is safe is for the server to recognise the second attempt
+// as the same sale — which is what `client_ref` is for. Two sends, one sale,
+// one stock movement, one invoice number: that is the assertion.
+//
+// The second half matters just as much: a *different* reference must still
+// create a second sale. A guarantee that deduplicated everything would make
+// the second customer's identical basket disappear.
+if (seeded.length !== 0) {
+  const s = seeded[0]
+  const offlineProduct = '00000000-0000-0000-0000-00000000c901'
+  const offlineVariant = '00000000-0000-0000-0000-00000000c902'
+  const ref = 'offline-probe-1'
+  const otherRef = 'offline-probe-2'
+
+  await db.exec(`select set_config('request.jwt.claim.sub', '${s.owner}', false)`)
+
+  await db.exec(`
+    INSERT INTO public.products (id, organization_id, name, selling_price, cost_price, track_stock)
+    VALUES ('${offlineProduct}', '${s.org}', 'Offline Widget', 400, 150, true)
+    ON CONFLICT (id) DO NOTHING;
+    INSERT INTO public.product_variants (id, organization_id, product_id, is_default)
+    VALUES ('${offlineVariant}', '${s.org}', '${offlineProduct}', true)
+    ON CONFLICT (id) DO NOTHING;
+  `)
+  await q(`select public.apply_stock_movement(
+             '${s.warehouse}', '${offlineVariant}', 'PURCHASE', 20, 150, 'test', null, null)`)
+
+  const openSession = await q(
+    `select id from public.register_sessions
+      where register_id = '${s.register}' and closed_at is null limit 1`
+  )
+  if (openSession.length === 0) {
+    await q(`select public.open_register('${s.register}', 1000, null)`)
+  }
+
+  const sell = async (clientRef) => {
+    const rows = await q(`
+      select public.complete_sale(
+        '${s.branch}',
+        jsonb_build_array(jsonb_build_object('variant_id', '${offlineVariant}', 'qty', 2)),
+        jsonb_build_array(jsonb_build_object('method_id', '${s.cash}', 'amount', 800)),
+        '${s.register}', null, null, null, null, null, null, '${clientRef}') as r`)
+    return rows[0].r
+  }
+
+  const stockOf = async () => {
+    const rows = await q(`
+      select quantity::numeric as qty from public.stock_balances
+       where warehouse_id = '${s.warehouse}' and variant_id = '${offlineVariant}'`)
+    return Number(rows[0]?.qty ?? -1)
+  }
+
+  const stockBefore = await stockOf()
+  const first = await sell(ref)
+  const stockAfterFirst = await stockOf()
+  const replay = await sell(ref)
+  const stockAfterReplay = await stockOf()
+
+  check(
+    'a queued sale sent twice becomes one sale, with the receipt of the first',
+    replay.sale_id === first.sale_id &&
+      replay.invoice_no === first.invoice_no &&
+      replay.total === first.total,
+    `${first.invoice_no} → ${replay.invoice_no}`
+  )
+
+  check(
+    'the replay does not move stock a second time',
+    stockBefore - stockAfterFirst === 2 && stockAfterReplay === stockAfterFirst,
+    `${stockBefore} → ${stockAfterFirst} → ${stockAfterReplay}`
+  )
+
+  const refCounts = await q(`
+    select count(*)::int as sales,
+           (select count(*)::int from public.stock_movements m
+             where m.reference_id = '${first.sale_id}') as movements
+      from public.sales where organization_id = '${s.org}' and client_ref = '${ref}'`)
+  check(
+    'and leaves one row, one movement and one invoice behind',
+    refCounts[0].sales === 1 && refCounts[0].movements === 1,
+    JSON.stringify(refCounts[0])
+  )
+
+  const second = await sell(otherRef)
+  check(
+    'a different reference is a different sale — the guarantee is per attempt, not per basket',
+    second.sale_id !== first.sale_id && (await stockOf()) < stockAfterReplay,
+    `stock ${stockAfterReplay} → ${await stockOf()}`
+  )
+
+  // The reference is the shop's own, so a replay must not work across shops.
+  // (A cashier *may* sell — that is the design, checked above — so the outsider
+  // here is the owner of a different organization, presenting this shop's
+  // branch.) 044's own assertion covers the other direction: the replay branch
+  // is positioned after `require_permission` in the deployed function.
+  await db.exec(`select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', false)`)
+  let refused = null
+  try {
+    await sell(ref)
+  } catch (error) {
+    refused = String(error.message ?? error)
+  }
+  check(
+    'another shop cannot replay into this one by presenting its branch',
+    refused !== null && /forbidden|permission_denied/.test(refused),
+    refused ?? 'the call succeeded'
+  )
+
+  await db.exec(`select set_config('request.jwt.claim.sub', '', false)`)
+}
+
 // ── Every permission key the client names must exist (023-era guard) ─────
 //
 // The catalogue is the contract between the database and the UI. Two nav

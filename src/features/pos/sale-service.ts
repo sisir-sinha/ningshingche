@@ -31,6 +31,8 @@ export interface CompleteSaleInput {
   cart: Cart
   payments: PaymentEntry[]
   floor: SalesFloor
+  /** The shop's currency, for the slip the till prints when it is offline. */
+  currency: string
   /** Cancels the held row this cart came from, in the same transaction. */
   heldSaleId?: string | null
 }
@@ -52,7 +54,7 @@ export class SaleService {
    * stored, and the receipt is printed from that, never from the cart.
    */
   async complete(input: CompleteSaleInput): Promise<CompletedSale> {
-    const { cart, payments, floor } = input
+    const { cart, payments, floor, currency } = input
     const totals = computeTotals(cart)
     if (totals.oversold.length > 0) {
       // The database would refuse this too; failing here saves a round trip and
@@ -71,6 +73,10 @@ export class SaleService {
       ...(cart.discountValue > 0 ? { discountValue: cart.discountValue } : {}),
       ...(cart.note ? { note: cart.note } : {}),
       heldSaleId: input.heldSaleId ?? null,
+      // The till's copy of what it just sold. Only the offline layer reads it,
+      // and only when the sale could not be sent: the wire payload has no
+      // product names or prices, because pricing belongs to the server.
+      local: { cart, currency, sessionId: floor.sessionId },
     })
 
     // The outbox is the authority and will deliver `sale.completed` over

@@ -653,6 +653,10 @@ function createSales(client: SupabaseClient): SaleRepository {
       }
       if (input.note) args.p_note = input.note
       if (input.heldSaleId) args.p_held_sale_id = input.heldSaleId
+      // The offline queue's identity for this sale (migration 044). Sending it
+      // is what makes a resend after an unclear outcome return the sale that
+      // was already written rather than creating a second one.
+      if (input.clientRef) args.p_client_ref = input.clientRef
 
       const { data, error } = await client.rpc('complete_sale', args)
       if (error) throw error

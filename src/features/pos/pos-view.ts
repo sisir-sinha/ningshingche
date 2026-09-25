@@ -480,11 +480,22 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
               cart: cart.state.cart,
               payments,
               floor: floor!,
+              currency,
               heldSaleId: cart.state.heldSaleId,
             })
             const heldId = cart.state.heldSaleId
             cart.clear()
-            toastSuccess(`Sale ${result.invoice_no} · ${formatMoney(minorFromString(result.total), { currency })}`)
+            if (result.queued) {
+              // The money is real and the goods have gone; what is missing is
+              // the invoice number. Saying "saved offline" is what stops the
+              // cashier taking the sale a second time.
+              toastWarning(
+                `Saved on this device · ${formatMoney(minorFromString(result.total), { currency })}. ` +
+                  'It will sync when the connection returns.'
+              )
+            } else {
+              toastSuccess(`Sale ${result.invoice_no} · ${formatMoney(minorFromString(result.total), { currency })}`)
+            }
             const sale = await repos.sales.get(result.sale_id)
             if (sale) openReceipt(sale, currency, 'Mekholi', printableNotes(registry, seen.values()))
             if (heldId) void refreshHeld()

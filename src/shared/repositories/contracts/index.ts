@@ -130,6 +130,37 @@ export interface SaleRepository {
     note?: string
     /** Cancels the held row this cart came from, atomically (migration 021). */
     heldSaleId?: string | null
+    /**
+     * The device's identity for this sale (migration 044). Supplied by the
+     * offline queue so a resend after an unclear outcome is recognised by the
+     * server as the sale it already wrote, rather than becoming a second one.
+     * Online callers omit it and the server generates nothing — the column
+     * stays NULL, which is what keeps the unique index small.
+     */
+    clientRef?: string | null
+    /**
+     * The till's own account of the sale: the cart, and the currency it was
+     * priced in.
+     *
+     * Used only when the sale ends up queued. The wire payload above holds what
+     * the *server* needs to price the sale (variant, quantity, discount); it
+     * does not hold the product names, unit prices or tax rates a printed slip
+     * needs, because the server owns all three. So the offline layer is handed
+     * a copy of the cart it may print from — the same arithmetic that drew the
+     * total on screen a second earlier (`computeTotals`) and nothing more. The
+     * server-side implementation ignores this field entirely: it has the row.
+     */
+    local?:
+      | {
+          cart: Cart
+          currency: string
+          /**
+           * The open register session, for the printed slip only. The server
+           * resolves the session itself when it stores the sale.
+           */
+          sessionId?: string | null
+        }
+      | null
   }): Promise<CompletedSale>
 
   hold(input: {

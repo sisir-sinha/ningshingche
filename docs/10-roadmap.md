@@ -462,16 +462,28 @@ Industry bundles (each ≈ a profile row + fields + navigation)
 Not in your §50, but §42 and §43 imply it.
 
 ```
-  □ IndexedDbDataSource implementing the repository contracts
-  □ Write queue: RPC calls serialised, replayed on reconnect
-  □ Conflict policy: server wins for stock, client wins for draft sales
-  □ Background sync indicator + manual retry
+  ✅ IndexedDbDataSource implementing the repository contracts
+     `src/shared/repositories/offline/` — catalog cache, outbox, drafts,
+     IndexedDB store with a memory fallback. Wired in `src/app/offline.ts`;
+     features still see only the contracts.
+  ✅ Write queue: RPC calls serialised, replayed on reconnect
+     `WriteQueue` + `SyncEngine`. Server half is migration 044: a client
+     reference makes a resend return the sale it already wrote.
+  ✅ Conflict policy: server wins for stock, client wins for draft sales
+     Written down in doc 12 §3 rather than discovered.
+  ✅ Background sync indicator + manual retry
+     `features/layout/sync-indicator.ts`, with the queue panel behind it.
   □ OpenAPI/typed contract generated for the RPC surface
   □ Android reference: login + POS against the same RPCs
 ```
 
 **Acceptance:** the POS completes sales with the network disabled, queues
 them, and replays without duplicates or negative stock on reconnect.
+
+Proven by `tools/e2e-http.mjs` §9c against the live project (a replayed sale
+returns the stored one; stock moves once; a foreign shop's replay is refused)
+and by `tools/validate-migrations.mjs` against a real Postgres. Design and
+guarantees: doc 12.
 
 ---
 

@@ -527,6 +527,126 @@ try {
     `sale_items rows=${raceSales.rows[0].n}`
   )
 
+  // ── 9c. Phase 8: a replayed offline sale becomes one sale ───────────────
+  //
+  // The till mints `p_client_ref` before its first attempt and keeps it in the
+  // queue, so a request that timed out after the server had already committed
+  // is resent with the same reference. The server must answer with the sale it
+  // already wrote — same id, same invoice number, stock moved once. This is the
+  // half of "offline sales replay without duplicates or negative stock" that
+  // cannot be tested in the browser, so it is tested here, over real HTTP,
+  // through the same RPC the app calls.
+  const offlineProduct = await api('/rest/v1/products?select=id', {
+    method: 'POST',
+    token,
+    body: {
+      organization_id: orgId,
+      name: 'E2E offline widget',
+      selling_price: '40.00',
+      cost_price: '25.0000',
+      track_stock: true,
+      is_active: true,
+      metadata: {},
+    },
+  })
+  const offlineVariantRes = await api('/rest/v1/product_variants?select=id', {
+    method: 'POST',
+    token,
+    body: { organization_id: orgId, product_id: offlineProduct.body?.[0]?.id, is_default: true },
+  })
+  const offlineVariant = offlineVariantRes.body?.[0]?.id
+
+  const seeded = 10
+  await client.query(
+    `insert into public.stock_balances
+       (organization_id, warehouse_id, variant_id, product_id, quantity, avg_unit_cost)
+     values ($1, $2, $3, $4, $5, 25)
+     on conflict (warehouse_id, variant_id)
+     do update set quantity = $5`,
+    [orgId, warehouse, offlineVariant, offlineProduct.body?.[0]?.id, seeded]
+  )
+
+  const offlineRef = `e2e-offline-${Date.now()}`
+  const offlineBody = {
+    p_branch_id: branch,
+    p_items: [{ variant_id: offlineVariant, qty: 2 }],
+    p_payments: [{ method_id: cash, amount: 80 }],
+    p_register_id: register,
+    p_warehouse_id: warehouse,
+    p_client_ref: offlineRef,
+  }
+
+  const firstSend = await api('/rest/v1/rpc/complete_sale', {
+    method: 'POST',
+    token,
+    body: offlineBody,
+  })
+  const replaySend = await api('/rest/v1/rpc/complete_sale', {
+    method: 'POST',
+    token,
+    body: offlineBody,
+  })
+
+  check(
+    'the offline sale is accepted when the reference is sent with it',
+    firstSend.status === 200 && Boolean(firstSend.body?.sale_id),
+    `HTTP ${firstSend.status} ${String(firstSend.body?.invoice_no ?? '')}`
+  )
+  check(
+    'a replayed offline sale returns the sale already stored, not a second one',
+    replaySend.status === 200 &&
+      replaySend.body?.sale_id === firstSend.body?.sale_id &&
+      replaySend.body?.invoice_no === firstSend.body?.invoice_no,
+    `first=${firstSend.body?.invoice_no ?? 'n/a'} replay=${replaySend.body?.invoice_no ?? 'n/a'}`
+  )
+
+  const offlineRows = await api(
+    `/rest/v1/sales?select=id&client_ref=eq.${offlineRef}`,
+    { token }
+  )
+  check(
+    'the shop holds exactly one sale for that reference',
+    Array.isArray(offlineRows.body) && offlineRows.body.length === 1,
+    `rows=${Array.isArray(offlineRows.body) ? offlineRows.body.length : 'n/a'}`
+  )
+
+  const afterReplay = (
+    await client.query(
+      'select quantity from public.stock_balances where warehouse_id=$1 and variant_id=$2',
+      [warehouse, offlineVariant]
+    )
+  ).rows[0]
+  check(
+    'the replay moved stock once, not twice',
+    Number(afterReplay?.quantity) === seeded - 2,
+    `${seeded} → ${afterReplay?.quantity ?? 'n/a'}`
+  )
+
+  const offlineMovements = await client.query(
+    `select count(*)::int as n from public.stock_movements
+      where reference_id = $1`,
+    [firstSend.body?.sale_id ?? null]
+  )
+  check(
+    'and wrote one movement for it',
+    offlineMovements.rows[0].n === 1,
+    `movements=${offlineMovements.rows[0].n}`
+  )
+
+  // A cross-tenant replay must not be able to claim a reference in this shop:
+  // the reference is only unique *within* an organization, so the guard has to
+  // be the tenancy check, not the index.
+  const foreignReplay = await api('/rest/v1/rpc/complete_sale', {
+    method: 'POST',
+    token: intruder.token,
+    body: { ...offlineBody, p_branch_id: branch },
+  })
+  check(
+    'another shop cannot replay a reference into this one',
+    foreignReplay.status >= 400,
+    `HTTP ${foreignReplay.status}`
+  )
+
   // ── 10. Cross-tenant isolation ──────────────────────────────────────────
   //
   // The second shopkeeper is an owner of their own shop, so they hold the

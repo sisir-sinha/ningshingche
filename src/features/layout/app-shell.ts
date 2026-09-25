@@ -9,6 +9,7 @@
 
 import { h, mount } from '../../components/ui/h'
 import { iconButton } from '../../components/ui/button'
+import { syncIndicator } from './sync-indicator'
 import { sidebar, markActive } from './sidebar'
 import { CommandPalette } from './command-palette'
 import type { PluginRegistry } from '../../shared/registry/plugin-registry'
@@ -205,7 +206,7 @@ export function appShell(options: AppShellOptions): AppShell {
         h(
           'div',
           { class: 'flex items-center gap-1' },
-          onlineIndicator(),
+          syncIndicator(),
           headerActions(() =>
             bus.emit('ui.toast', {
               type: 'ui.toast',
@@ -252,33 +253,6 @@ function currentPath(): string {
   const raw = window.location.hash.replace(/^#/, '')
   const path = raw.split('?')[0]
   return path === '' ? '/' : (path ?? '/')
-}
-
-function onlineIndicator(): HTMLElement {
-  const dot = h('span', {
-    class: 'h-2 w-2 rounded-full bg-success',
-    'aria-hidden': 'true',
-  })
-  const label = h('span', { class: 'text-xs text-content-muted', text: 'Online' })
-
-  const wrap = h(
-    'div',
-    { class: 'hidden items-center gap-1.5 rounded-full border border-border px-2 py-1 sm:flex', title: 'Connection status' },
-    dot,
-    label
-  )
-
-  const update = (): void => {
-    const online = navigator.onLine
-    dot.className = `h-2 w-2 rounded-full ${online ? 'bg-success' : 'bg-danger'}`
-    label.textContent = online ? 'Online' : 'Offline'
-  }
-
-  window.addEventListener('online', update)
-  window.addEventListener('offline', update)
-  update()
-
-  return wrap
 }
 
 function headerActions(onHelp: () => void): HTMLElement {

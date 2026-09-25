@@ -20,6 +20,8 @@
 | 08 | [Plugin Matrix](./08-plugin-matrix.md) | Industry adaptation. **Partially blocked on `shop_categories.json`.** |
 | 09 | [Risks & Decisions](./09-risks-and-decisions.md) | 16 architectural problems and the chosen solutions. |
 | 10 | [Roadmap](./10-roadmap.md) | Phased delivery plan. |
+| 11 | [Plugin SDK](./11-plugin-sdk.md) | Writing and shipping a plugin, end to end. |
+| 12 | [Offline & Android readiness](./12-offline-android.md) | Exactly-once sales off the network, the cache's three-valued fallback, what Phase 8 still owes. |
 
 ---
 

@@ -20,17 +20,17 @@ import { appShell, type AppShell } from './features/layout/app-shell'
 import { loginView, notConfiguredView } from './features/auth/login-view'
 import { dashboardView } from './features/dashboard/dashboard-view'
 import { pluginRegistry, declareShippedPlugins, syncPlugins } from './app/plugins'
-import { salesFloor } from './app/state/sales-floor'
 import { eventBus } from './shared/bus'
 import { mountToasts, toastError } from './components/feedback/toast'
 import { installShortcuts } from './features/layout/command-palette'
 import { bootstrapSession, signOut, needsOnboarding } from './app/platform/auth'
-import { refreshSalesFloor, watchOrganization } from './app/state/sales-floor'
+import { refreshSalesFloor, salesFloor, salesFloorStore, watchOrganization } from './app/state/sales-floor'
 import { watchStockAlerts, watchVisibility } from './app/state/stock-alerts'
 import { CORE_NAV } from './features/layout/navigation'
 import { placeholderView } from './features/layout/placeholder-view'
 import { pluginAdminRoutes } from './features/plugins'
-import { resetRepositories } from './app/data'
+import { installRepositories, resetRepositories } from './app/data'
+import { startOffline, offlineRuntime } from './app/offline'
 import { posRoutes } from './features/pos'
 import { productRoutes } from './features/products'
 import { stockRoutes } from './features/stock'
@@ -78,6 +78,8 @@ let shell: AppShell | null = null
 let unwatchOrganization: () => void = () => {}
 let unwatchStockAlerts: () => void = () => {}
 let unwatchVisibility: () => void = () => {}
+/** Re-warms the catalogue whenever the till's warehouse changes. */
+let unwatchFloorWarm: () => void = () => {}
 
 const uninstallShortcuts = installShortcuts(registry, [
   { combo: 'ctrl+k', handler: () => shell?.palette.open() },
@@ -284,6 +286,35 @@ function enterApp(): void {
   unwatchVisibility()
   unwatchVisibility = watchVisibility()
 
+  // Offline last, because it wraps the repositories every screen above will
+  // use, and first-to-be-visible because the queue must exist before the first
+  // sale is taken. Started, not awaited: a till that has to wait for IndexedDB
+  // before it can show the login screen is a till with a new way to be slow.
+  void startOffline()
+    .then(async (runtime) => {
+      installRepositories(runtime.repositories)
+      // The catalogue is what makes an offline till usable, so it is fetched
+      // in the background rather than on demand: by the time the connection
+      // drops, the shop's products are already here. Re-warmed whenever the
+      // floor resolves differently, because the warehouse decides which
+      // balances the grid shows.
+      const warmFor = (warehouseId: string | null): void => {
+        if (!warehouseId) return
+        void runtime.warm(warehouseId).catch(() => undefined)
+      }
+      warmFor(salesFloor()?.warehouseId ?? null)
+      unwatchFloorWarm = salesFloorStore.select(
+        (state) => state.floor?.warehouseId ?? null,
+        warmFor
+      )
+      void refreshSalesFloor()
+    })
+    .catch((error: unknown) => {
+      // The app works without the offline layer — it is an enhancement, and a
+      // browser that refuses storage must not cost the shop its till.
+      console.warn('[mekholi] offline layer unavailable:', error)
+    })
+
   shell = appShell({
     registry,
     bus: eventBus,
@@ -299,6 +330,9 @@ function enterApp(): void {
 
 async function leaveApp(): Promise<void> {
   router.stop()
+  unwatchFloorWarm()
+  unwatchFloorWarm = () => {}
+  await offlineRuntime()?.stop()
   shell?.el.remove()
   shell = null
   unwatchOrganization()
