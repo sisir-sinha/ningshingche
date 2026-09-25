@@ -257,6 +257,7 @@ function toSellable(row: PosCatalogRow): SellableProduct {
     unitLabel: row.unit_label,
     decimalQuantity: row.decimal_quantity,
     categoryName: row.category_name,
+    metadata: row.metadata ?? {},
   }
 }
 

@@ -66,6 +66,27 @@ export interface ProductField {
    *              itself through the API it registers.
    */
   storage: 'metadata' | 'table'
+  /**
+   * Show this value on the POS product tile — where a cashier deciding what to
+   * ring up can act on it. Only meaningful for `storage: 'metadata'`, since
+   * that is the value the catalogue carries to the till.
+   */
+  showInPOS?: boolean
+  /**
+   * Print this value under the line on the receipt (spec §32) — the batch
+   * number a pharmacy needs on the slip, the warranty code a repair shop
+   * quotes. The POS passes what it knows at the till; if the product was not
+   * scanned in this session the line simply prints without it.
+   */
+  printable?: boolean
+  /**
+   * Include this value as a column in product CSV import/export (spec §14).
+   *
+   * Declared now, read by the CSV screen when it lands: the flag is part of a
+   * plugin's contract with the core, and a plugin author should not have to
+   * guess whether their field can travel.
+   */
+  importable?: boolean
   /** Return an error string to block save, or null to accept. */
   validate?: (value: unknown, product: ProductDraft) => string | null
   /** Hide the field unless the product already warrants it. */

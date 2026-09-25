@@ -21,6 +21,12 @@ import type { SaleRow } from '../../shared/types/records'
 export interface ReceiptLine {
   name: string
   variant: string | null
+  /**
+   * Plugin-printed values for this line (`printable` product fields, spec §32):
+   * a batch number, an expiry date, a warranty code. Empty when no plugin asked
+   * for one, which is every shop with no plugins installed.
+   */
+  notes: string[]
   /** Already carries the unit symbol, e.g. `1.5 kg` or `3 ea`. */
   quantity: string
   unitPrice: string
@@ -52,7 +58,12 @@ export interface ReceiptData {
  * total: the numbers on the paper are the numbers Postgres stored, so a
  * reprint months later matches the original.
  */
-export function buildReceipt(sale: SaleRow, shopName: string): ReceiptData {
+export function buildReceipt(
+  sale: SaleRow,
+  shopName: string,
+  /** Printed per line, keyed by variant id — what the till knew at the time. */
+  notes: ReadonlyMap<string, readonly string[]> = new Map()
+): ReceiptData {
   const money = (value: string | null | undefined): string =>
     formatMoney(minor(Math.round(Number(value ?? 0) * 100) as Minor), {
       currency: sale.currency,
@@ -81,6 +92,7 @@ export function buildReceipt(sale: SaleRow, shopName: string): ReceiptData {
       }),
       unitPrice: money(item.unit_price),
       lineTotal: money(item.line_total),
+      notes: [...(notes.get(item.variant_id) ?? [])],
     })),
     subtotal: money(sale.subtotal),
     discount: money(sale.discount_total),
@@ -147,8 +159,13 @@ const RECEIPT_CSS = `
  * printing produces the receipt alone rather than the POS screen with a
  * receipt floating over it.
  */
-export function openReceipt(sale: SaleRow, currency: string, shopName = 'Mekholi'): { close: () => void } {
-  const data = buildReceipt(sale, shopName)
+export function openReceipt(
+  sale: SaleRow,
+  currency: string,
+  shopName = 'Mekholi',
+  notes: ReadonlyMap<string, readonly string[]> = new Map()
+): { close: () => void } {
+  const data = buildReceipt(sale, shopName, notes)
   void currency
 
   const overlay = h('div', {
@@ -215,6 +232,10 @@ export function renderReceipt(data: ReceiptData): HTMLElement {
           h('tr', {},
             h('td', { class: 'muted', text: `  ${line.quantity} × ${line.unitPrice}` }),
             h('td', { class: 'num', text: line.lineTotal })
+          ),
+          // What a plugin asked to print for this line, under it, small.
+          ...line.notes.map((note) =>
+            h('tr', {}, h('td', { colspan: '2', class: 'muted', text: `  ${note}` }))
           ),
         ])
       )

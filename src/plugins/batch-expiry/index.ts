@@ -88,6 +88,10 @@ export const batchExpiryPlugin: Plugin = {
       section: 'advanced',
       storage: 'metadata',
       placeholder: 'e.g. BT-2026-0142',
+      // A batch number is what a supplier asks for when stock comes back, so it
+      // belongs on the slip — and on the till, where the cashier can read it.
+      printable: true,
+      showInPOS: true,
     }
 
     const expiryField: ProductField = {
@@ -104,6 +108,11 @@ export const batchExpiryPlugin: Plugin = {
         const days = daysUntil(value)
         return days === null ? '—' : describeExpiry(days).label
       },
+      // The expiry is the one field a grocery or pharmacy till must act on, so
+      // it shows there and prints on the receipt.
+      showInPOS: true,
+      printable: true,
+      importable: true,
     }
 
     api.registerProductField(batchField)

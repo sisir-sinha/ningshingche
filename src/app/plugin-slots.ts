@@ -34,6 +34,7 @@ import type {
   DashboardWidgetDefinition,
   PanelContext,
   PanelDefinition,
+  ProductField,
   TabDefinition,
 } from '../shared/registry/plugin-types'
 
@@ -73,8 +74,22 @@ export function watchPluginSlots(host: HTMLElement, redraw: () => void): void {
   })
 }
 
+/** Slots the signed-in user is allowed to see (docs/07 §4). */
 function visible<T extends { permission?: string }>(items: readonly T[]): T[] {
   return items.filter((item) => can(item.permission))
+}
+
+/**
+ * `ProductField` has no `permission`: a field's edit rights are the plugin's
+ * `*.adjust`-style permission, enforced where the value is written, not where
+ * the tile is drawn. So fields are filtered by the ones that asked to be shown.
+ */
+function printableFields(registry: PluginRegistry): ProductField[] {
+  return registry.productFields.items.filter((field) => field.printable === true)
+}
+
+function posFields(registry: PluginRegistry): ProductField[] {
+  return registry.productFields.items.filter((field) => field.showInPOS === true)
 }
 
 // ── Dashboard widgets ─────────────────────────────────────────────────────
@@ -245,6 +260,53 @@ export function pluginSaleTabsHost(registry: PluginRegistry, context: PanelConte
   void draw()
   watchPluginSlots(host, () => void draw())
   return host
+}
+
+/**
+ * The plugin values a receipt should print under each line (spec §32).
+ *
+ * `printable` fields are read from the product metadata the till already has,
+ * so a pharmacy's batch number appears on the slip without the sale being
+ * stored with plugin columns — the plugin declares the field, the core prints
+ * it, and nothing about the sale's schema changes.
+ *
+ * Keyed by variant id, because that is what a sale line carries.
+ */
+export function printableNotes(
+  registry: PluginRegistry,
+  products: Iterable<{ variantId: string; metadata: Record<string, unknown> }>
+): Map<string, string[]> {
+  const fields = printableFields(registry)
+  const notes = new Map<string, string[]>()
+
+  if (fields.length === 0) return notes
+
+  for (const product of products) {
+    const lines: string[] = []
+    for (const field of fields) {
+      const value = product.metadata[field.key]
+      if (value === null || value === undefined || value === '') continue
+      lines.push(`${field.label}: ${field.format ? field.format(value) : String(value)}`)
+    }
+    if (lines.length > 0) notes.set(product.variantId, lines)
+  }
+
+  return notes
+}
+
+/** The plugin values shown on a POS tile, in the order the plugin declared them. */
+export function posFieldValues(
+  registry: PluginRegistry,
+  metadata: Record<string, unknown>
+): Array<{ key: string; label: string; text: string }> {
+  const fields = posFields(registry)
+  const out: Array<{ key: string; label: string; text: string }> = []
+  for (const field of fields) {
+    const value = metadata[field.key]
+    if (value === null || value === undefined || value === '') continue
+    out.push({ key: field.key, label: field.label, text: field.format ? field.format(value) : String(value) })
+  }
+  return out
 }
 
 // ── Product-form sections ─────────────────────────────────────────────────

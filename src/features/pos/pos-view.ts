@@ -36,7 +36,7 @@ import { openReceipt } from './receipt'
 import { refreshSalesFloor, salesFloor, salesFloorStore } from '../../app/state/sales-floor'
 import { activeOrganization } from '../../app/state/session'
 import { getRepositories } from '../../app/data'
-import { pluginPanelsHost } from '../../app/plugin-slots'
+import { pluginPanelsHost, posFieldValues, printableNotes } from '../../app/plugin-slots'
 import type { PluginRegistry } from '../../shared/registry/plugin-registry'
 import type { EventBus } from '../../shared/bus/event-bus'
 import type { SalesFloor, SellableProduct } from '../../shared/repositories/contracts'
@@ -146,6 +146,10 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
 
   let results: SellableProduct[] = []
   let highlighted = 0
+  // What the till has looked at this session, by variant: the receipt prints
+  // plugin fields (`printable`) from here, because a sale line carries the
+  // variant and nothing else about the product.
+  const seen = new Map<string, SellableProduct>()
   let searchTimer: ReturnType<typeof setTimeout> | undefined
 
   const grid = h('div', {
@@ -240,6 +244,7 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
   }
 
   function productTile(product: SellableProduct, index: number): HTMLElement {
+    seen.set(product.variantId, product)
     const out =
       product.trackStock &&
       !product.allowNegative &&
@@ -267,6 +272,11 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
       product.variantName
         ? h('p', { class: 'text-xs text-content-muted mt-0.5', text: product.variantName })
         : null,
+      // Plugin-registered fields the plugin asked to show here (spec §14) —
+      // a batch number or an expiry the cashier can act on before ringing up.
+      ...posFieldValues(registry, product.metadata).map((entry) =>
+        h('p', { class: 'text-[11px] text-content-subtle mt-0.5', text: entry.text })
+      ),
       h('div', { class: 'mt-1.5 flex items-center justify-between gap-1' },
         h('span', {
           class: 'text-sm font-semibold text-content tabular-nums',
@@ -476,7 +486,7 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
             cart.clear()
             toastSuccess(`Sale ${result.invoice_no} · ${formatMoney(minorFromString(result.total), { currency })}`)
             const sale = await repos.sales.get(result.sale_id)
-            if (sale) openReceipt(sale, currency)
+            if (sale) openReceipt(sale, currency, 'Mekholi', printableNotes(registry, seen.values()))
             if (heldId) void refreshHeld()
             searchField.focus()
           } catch (error) {

@@ -62,6 +62,12 @@ export interface SellableProduct {
   unitLabel: string | null
   decimalQuantity: boolean
   categoryName: string | null
+  /**
+   * `products.metadata`, carried to the till so plugin-registered fields
+   * (`showInPOS`, `printable`) have something to render. Free: the catalogue
+   * view already selects the column.
+   */
+  metadata: Record<string, unknown>
 }
 
 export interface ProductQuery extends PageRequest {

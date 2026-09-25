@@ -338,33 +338,82 @@ Also caught by the audit: the period chips and paging controls were under the
 
 ---
 
-## Phase 6 — Plugin system hardening
+## Phase 6 — Plugin system hardening — ✅ complete 2026-09-25
 
 The registry exists from Phase 1; this phase makes it production-grade.
 
 ```
-  □ plugins, plugin_migrations tables
-  □ Edge Function: plugin-enable (migrations + permissions)
-  □ Settings → Plugins: list, enable, disable, configure, error states
-  □ Settings schema rendering from manifests                §36
-  □ Plugin permissions namespacing enforcement              doc 07 §3
-  □ Wildcard impact preview before enabling                 doc 07 §4
-  □ Product field extensions end to end (basic/advanced promotion)
-  □ Custom form sections, POS panels, sale tabs
-  □ Plugin dashboard widgets
-  □ Plugin lifecycle tests: enable → disable → enable (no leaks)
-  □ Plugin SDK documentation + an example plugin repo README
+  ✅ plugins, plugin_packages, plugin_migrations, plugin_data tables
+  ✅ plugin_enable in the database, SECURITY DEFINER — not an Edge Function
+     (031's header argues the change; §8's shape, §7's guarantees)
+  ✅ Settings → Plugins: list, enable, disable, configure, error states
+  ✅ Settings schema rendered from manifests                 §36
+  ✅ Plugin permissions namespacing enforcement               doc 07 §3
+  ✅ Wildcard impact preview before enabling                  doc 07 §4
+  ✅ Product field extensions end to end: showInPOS, printable, importable
+  ✅ Custom form sections, POS panels, sale tabs
+  ✅ Plugin dashboard widgets
+  ✅ Plugin lifecycle tests: enable → disable → enable (no leaks)
+  ✅ Plugin SDK documentation (docs/11) + example plugin README
 ```
+
+**The database is the boundary.** `plugin_enable` takes the plugin key and the
+version the *client* is about to load, and refuses a mismatch — a bundle older
+or newer than the SQL on this server never half-deploys. It applies the
+package's migrations in ordinal order, transactionally: a plugin that fails
+mid-install leaves nothing behind, which is asserted rather than assumed. Every
+table the package created must be named `plg_<id>_*`, carry `organization_id`,
+have RLS on and have at least one policy — checked against a before/after diff
+of the catalogue, so the rule does not depend on the plugin choosing a name the
+guard expected. An applied migration's checksum is compared on every later
+enable, so a changed file is a `plugin_migration_changed` error rather than a
+silent skip. Permissions are upserted into the catalogue namespaced to the
+plugin; disabling keeps them, keeps the tables, and keeps the data.
+
+**Nothing is hard-coded per plugin on the client either.** `SHIPPED_PLUGINS` in
+`src/app/plugins.ts` is the only core file a new plugin touches; the Plugins
+screen is built from `plugin_catalog()` and each manifest's `settingsSchema`;
+the dashboard widgets, POS panels, sale tabs and product-form sections are drawn
+by `src/app/plugin-slots.ts` from whatever is registered. Each slot checks its
+permission, badges the plugin that contributed it, and turns a throwing plugin
+into one readable line instead of a broken screen.
+
+**Three bugs this phase found by asking for proof, not by reading code:** the
+schema guard only inspected tables whose names it already expected (038); a
+second copy of `plugin_enable` had been created in the private `app` schema
+while the public one kept the old guard (040); and the client loaded plugins
+through the admin-only `plugin_catalog` call, so a cashier could not load their
+shop's plugins at all — found by searching the deployed bundle for the RPC it
+should have been calling (037, and a rule in the validator so it cannot come
+back).
 
 **Acceptance:**
 - The example plugin (Loyalty, minimal) is installed, enabled, used and
-  disabled with no core file changes.
-- Disabling a plugin mid-session leaves the POS functional.
+  disabled with no core file changes. ✅ `src/app/plugins.test.ts` loads the
+  shipped pair through the real modules; the Plugins screen adds no per-plugin
+  code.
+- Disabling a plugin mid-session leaves the POS functional. ✅ Slots re-read the
+  registry on `plugin.changed` and each host renders what is registered *now*.
 - A plugin whose `activate` throws is quarantined and reported; the app runs.
+  ✅ Registry tests, per-slot fallbacks, and the Plugins screen's per-plugin
+  error state with one retry.
 - A plugin declaring `coreApiVersion: '^99.0.0'` is refused with a readable
-  message.
+  message. ✅ `resolvePlugins` reports `incompatible`; the route placeholder and
+  the Plugins screen both say so in words.
 - **The §51 test:** a reviewer cannot find any path from `plugins/` into
-  `features/` internals — enforced by lint, not by promise.
+  `features/` internals — enforced by lint, not by promise. ✅
+  `tools/check-boundaries.mjs` resolves every import and runs nine rule cases
+  first, including the four that must be refused.
+
+**Evidence:** `npm run check` — typecheck, eslint, boundaries, 254 tests in 21
+files, 40 migrations applied with 160/160 behavioural checks in real Postgres,
+production build. The 160 include the plugin host end to end: packaged
+permissions namespaced, a plugin table tenant-safe by construction,
+`plugin_data` unreachable except through its RPCs, functions callable only
+inside their own namespace and only while enabled, tampered migrations refused,
+dependency disable refused, disable keeping everything, and a cashier loading
+the shop's plugins while every admin call is refused. CI and Deploy green on
+`1e3b6a9`; the deployed bundle carries the Plugins screen and `plugin_state`.
 
 ---
 
