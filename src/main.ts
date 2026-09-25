@@ -40,6 +40,8 @@ import { purchaseRoutes } from './features/purchases'
 import { expenseRoutes } from './features/expenses'
 import { registerRoutes } from './features/register'
 import { auditRoutes } from './features/audit'
+import { analyticsRoutes } from './features/analytics'
+import { reportRoutes } from './features/reports'
 import { onboardingRoutes } from './features/onboarding'
 import { sessionStore, can } from './app/state/session'
 import { translateError } from './app/platform/errors'
@@ -117,6 +119,8 @@ const routes: Route[] = [
   ...expenseRoutes(),
   ...registerRoutes(),
   ...auditRoutes(),
+  ...analyticsRoutes(),
+  ...reportRoutes(),
   {
     path: '/forbidden',
     title: 'Not permitted',

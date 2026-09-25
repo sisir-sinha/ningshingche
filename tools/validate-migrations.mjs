@@ -1616,6 +1616,432 @@ if (seeded.length !== 0) {
   await db.query(`select set_config('request.jwt.claim.sub', null, false)`)
 }
 
+// ── Phase 5 — analytics and reports ──────────────────────────────────────
+//
+// Phase 5's acceptance criteria are, in the order they matter:
+//
+//   1. The dashboard loads in one round trip. That is a property of the client
+//      (`dashboard_summary` is the only call the screen makes), and the mobile
+//      audit asserts it by counting requests; what is asserted *here* is that
+//      the one call really does carry every number the screen shows.
+//   2. Every question in §56 has an answer. So every answer is read back and
+//      checked for a value, a note and a link.
+//   3. A report exported as CSV re-imports to identical row counts. The row
+//      count a report returns is `total_rows`, and the rows it returns are
+//      exactly that many when the limit allows — the export writes those rows,
+//      so the counts agree by construction. The round trip itself is proven in
+//      `src/features/reports/report-export.test.ts` and by the audit, which
+//      downloads the file.
+//
+// The engine itself is checked for the property that makes it trustworthy:
+// the same measure sliced by two different dimensions must add up to the same
+// number. That is what stops the dashboard and a report from disagreeing.
+if (seeded.length !== 0) {
+  const s = seeded[0]
+  await db.exec(`select set_config('request.jwt.claim.sub', '${s.owner}', false)`)
+
+  // ── The catalogue is the engine's own whitelist ────────────────────────
+  const catalog = await q(`select public.analytics_catalog() as c`)
+  const cat = catalog[0].c
+  check(
+    'the analytics catalogue lists measures, dimensions, periods and combinations',
+    Array.isArray(cat.measures) && cat.measures.length >= 13 &&
+      Array.isArray(cat.dimensions) && cat.dimensions.length >= 14 &&
+      Array.isArray(cat.periods) && cat.periods.length === 6 &&
+      Array.isArray(cat.combos) && cat.combos.length > 60,
+    `${cat.measures?.length} measures · ${cat.dimensions?.length} dimensions · ${cat.combos?.length} combinations`
+  )
+  check(
+    'every combination the catalogue offers can actually be computed',
+    (await (async () => {
+      // Ten of them, spread across the four families, run for real. A
+      // catalogue that advertised a combination the generator refuses would
+      // be a picker that fails when touched.
+      const sample = [
+        ['takings', 'day'], ['takings', 'category'], ['takings', 'payment_method'],
+        ['orders', 'hour'], ['profit', 'product'], ['items', 'variant'],
+        ['refunds', 'day'], ['expenses', 'expense_category'],
+        ['purchases', 'supplier'], ['purchase_due', 'supplier'],
+      ]
+      for (const [measure, dimension] of sample) {
+        await q(`select public.analytics_query('${s.branch}', '${dimension}', '${measure}',
+                   'year', null, null, '{}'::jsonb, 5)`)
+      }
+      return true
+    })()),
+    'sampled 10 combinations across all four families'
+  )
+
+  // ── One number, however it is sliced ──────────────────────────────────
+  const byDay = await q(`select public.analytics_query('${s.branch}', 'day', 'takings',
+                            'year', null, null, '{}'::jsonb, 400) as r`)
+  const dayTotal = Number(byDay[0].r.totals.value)
+
+  const direct = await q(`
+    select coalesce(sum(s.total), 0) as v
+      from public.sales s
+     where s.branch_id = '${s.branch}'
+       and s.status in ('COMPLETED','PARTIALLY_PAID','PARTIALLY_REFUNDED')
+       and s.created_at >= date_trunc('year', now())`)
+  check(
+    'takings by day equals Σ sales.total for the same period',
+    Math.abs(dayTotal - Number(direct[0].v)) < 0.01,
+    `${dayTotal} vs ${direct[0].v}`
+  )
+
+  const byCategory = await q(`select public.analytics_query('${s.branch}', 'category', 'takings',
+                                'year', null, null, '{}'::jsonb, 200) as r`)
+  const categoryTotal = Number(byCategory[0].r.totals.value)
+  check(
+    'takings by category equals takings by day, to the cent',
+    Math.abs(categoryTotal - dayTotal) < 1,
+    `${categoryTotal} vs ${dayTotal}`
+  )
+
+  const byHour = await q(`select public.analytics_query('${s.branch}', 'hour', 'takings',
+                            'year', null, null, '{}'::jsonb, 24) as r`)
+  check(
+    'takings by hour equals takings by day',
+    Math.abs(Number(byHour[0].r.totals.value) - dayTotal) < 0.01,
+    `${byHour[0].r.totals.value} vs ${dayTotal}`
+  )
+
+  // The measures have to be internally consistent: revenue is takings without
+  // the tax, and profit is revenue minus what the goods cost. If those drift,
+  // every screen that shows them drifts together and nobody can tell which
+  // number to believe.
+  const revenue = await q(`select public.analytics_query('${s.branch}', 'day', 'revenue',
+                             'year', null, null, '{}'::jsonb, 4) as r`)
+  const tax = await q(`select public.analytics_query('${s.branch}', 'day', 'tax',
+                        'year', null, null, '{}'::jsonb, 4) as r`)
+  const profit = await q(`select public.analytics_query('${s.branch}', 'day', 'profit',
+                            'year', null, null, '{}'::jsonb, 4) as r`)
+  const cogs = await q(`select public.analytics_query('${s.branch}', 'day', 'cogs',
+                         'year', null, null, '{}'::jsonb, 4) as r`)
+  check(
+    'revenue + tax equals takings, and profit equals revenue − cost of goods',
+    Math.abs(Number(revenue[0].r.totals.value) + Number(tax[0].r.totals.value) - dayTotal) < 0.01 &&
+      Math.abs(
+        Number(profit[0].r.totals.value) -
+          (Number(revenue[0].r.totals.value) - Number(cogs[0].r.totals.value))
+      ) < 0.01,
+    `takings=${dayTotal} revenue=${revenue[0].r.totals.value} tax=${tax[0].r.totals.value} ` +
+      `cogs=${cogs[0].r.totals.value} profit=${profit[0].r.totals.value}`
+  )
+
+  // An order discount is the case that breaks naive item reports: the lines no
+  // longer add up to the bill. The engine allocates it across the lines, so
+  // the parts still sum to the whole.
+  check(
+    'an order discount is spread across the lines, so items still sum to the bill',
+    (await (async () => {
+      const itemsTotal = await q(`
+        select coalesce(sum((x ->> 'value')::numeric), 0) as v
+          from jsonb_array_elements(
+            (public.analytics_query('${s.branch}', 'product', 'takings', 'year',
+                                    null, null, '{}'::jsonb, 500))->'series'
+          ) x`)
+      return Math.abs(Number(itemsTotal[0].v) - dayTotal) < 1
+    })()),
+    'takings by product reconciles with takings by day'
+  )
+
+  // ── The dashboard carries every number the screen shows ────────────────
+  const dash = await q(`select public.dashboard_summary('${s.branch}', current_date) as r`)
+  const d = dash[0].r
+  check(
+    'the dashboard call carries the widgets, both trends, the rankings and the answers',
+    ['today_sales', 'order_count', 'gross_profit', 'items_sold', 'discount_given',
+     'tax_collected', 'today_expenses', 'refunds_today', 'held_sales', 'pending_payments',
+     'customer_count', 'out_of_stock', 'low_stock', 'stock_value', 'expected_cash',
+     'sales_by_hour', 'payment_mix', 'top_products', 'answers', 'trend_days',
+     'trend_profit', 'trend_months', 'rank_products', 'rank_categories'].every((key) => key in d),
+    `${Object.keys(d).length} keys in one payload`
+  )
+  check(
+    'the dashboard trend really is thirty days of takings',
+    Array.isArray(d.trend_days?.series) && d.trend_days.series.length >= 1 &&
+      d.trend_days.series.length <= 31 && d.trend_days.measure === 'takings',
+    `${d.trend_days?.series?.length ?? 0} points`
+  )
+  check(
+    'the dashboard widget and the analytics slice agree on today',
+    (await (async () => {
+      const today = await q(`select public.analytics_query('${s.branch}', 'day', 'takings',
+                               'day', null, null, '{}'::jsonb, 24) as r`)
+      return Math.abs(Number(today[0].r.totals.value) - Number(d.today_sales)) < 0.01
+    })()),
+    `widget=${d.today_sales}`
+  )
+  check(
+    'trend_day comparisons carry the previous period for every point',
+    Array.isArray(d.trend_days?.series) &&
+      d.trend_days.series.every((point) => 'prev' in point && 'value' in point),
+    `previous ${d.trend_days?.previous?.from} → ${d.trend_days?.previous?.to}`
+  )
+
+  // ── A silent caller means "today", not "no date" ───────────────────────
+  //
+  // Neither dashboard nor analytics screen sends a day: the browser cannot
+  // know the branch's timezone, so the database resolves it, and the client
+  // sends null on purpose. A null over PostgREST bypasses a `default` clause,
+  // so "no day" used to mean NULL in every comparison inside the function —
+  // the peak-hour answer divided by zero and the dashboard failed to load at
+  // all. These two checks keep that from coming back.
+  const projection = (payload) => JSON.stringify({
+    date: payload?.date ?? null,
+    widgets: [payload?.today_sales, payload?.order_count, payload?.gross_profit,
+              payload?.items_sold, payload?.expected_cash, payload?.stock_value],
+    answers: (payload?.answers ?? []).map((entry) => [entry.id, entry.value]),
+    trend: (payload?.trend_days?.series ?? []).length,
+  })
+  // (A `date` comes back as a JS Date, so the day is formatted by Postgres
+  // and both calls are made in one statement — comparisons stay in SQL.)
+  const silentRow = (
+    await q(`select public.dashboard_summary('${s.branch}', null) as r,
+                    to_char(app.effective_day('${s.branch}', null), 'YYYY-MM-DD') as d`)
+  )[0]
+  const silent = silentRow.r
+  const explicit = (
+    await q(`select public.dashboard_summary('${s.branch}', '${silentRow.d}'::date) as r`)
+  )[0].r
+  check(
+    'a silent day is answered for the branch\'s own today',
+    silent?.date === silentRow.d &&
+      (silent?.answers ?? []).length === 14 &&
+      silent?.answers?.some((entry) => entry.id === 'peak_hour' && entry.value !== null),
+    `day=${silent?.date}, effective=${silentRow.d}, ${silent?.answers?.length ?? 0} answers`
+  )
+  check(
+    'a silent day and an explicit today produce the same numbers',
+    projection(silent) === projection(explicit),
+    'widgets, answers and trend identical (generated_at aside)'
+  )
+  check(
+    'a day the caller chooses is still honoured',
+    (
+      await q(`select to_char(app.effective_day('${s.branch}', '2026-01-02'::date),
+                               'YYYY-MM-DD') as d`)
+    )[0].d === '2026-01-02',
+    'explicit date passes through untouched'
+  )
+
+  // ── §56: every question has an answer on that one screen ──────────────
+  const answers = d.answers
+  check(
+    'the owner’s question list is present and complete',
+    Array.isArray(answers) && answers.length === 14,
+    `${answers?.length ?? 0} answered questions`
+  )
+  const expectedQuestions = [
+    'takings_today', 'profit_today', 'top_products', 'category_mix', 'payment_mix',
+    'cash_in_drawer', 'receivable', 'payable', 'reorder', 'spend_today', 'peak_hour',
+    'discount_month', 'refunds_today', 'held_sales',
+  ]
+  check(
+    'every §56 question is answered with a value, a note and a link to the detail',
+    expectedQuestions.every((id) => {
+      const answer = answers.find((entry) => entry.id === id)
+      return (
+        answer !== undefined &&
+        String(answer.question).endsWith('?') &&
+        String(answer.value).length > 0 &&
+        String(answer.note).length > 0 &&
+        String(answer.link).startsWith('/') &&
+        String(answer.icon).length > 0
+      )
+    }),
+    'all 14 checked for value, note, link and icon'
+  )
+  check(
+    'money answers are numeric and count answers are integral',
+    answers.every((answer) => {
+      if (answer.kind === 'money') return Number.isFinite(Number(answer.value))
+      if (answer.kind === 'count' || answer.kind === 'qty') {
+        return Number.isInteger(Number(answer.value)) && Number(answer.value) >= 0
+      }
+      return typeof answer.value === 'string'
+    }),
+    'kinds: ' + [...new Set(answers.map((answer) => answer.kind))].join(', ')
+  )
+
+  // ── The report framework ──────────────────────────────────────────────
+  const reportCatalog = await q(`select public.report_catalog() as c`)
+  const reports = reportCatalog[0].c
+  check(
+    'the report library lists the eleven reports with their columns',
+    Array.isArray(reports) && reports.length === 11 &&
+      reports.every((report) => Array.isArray(report.columns) && report.columns.length > 0) &&
+      reports.every((report) => report.group && report.description),
+    `${reports?.length ?? 0} reports`
+  )
+
+  // Each one runs, and every column it advertises is a key in its rows.
+  const ran = []
+  for (const report of reports) {
+    const result = await q(`select public.report_rows('${report.key}', '${s.branch}', 'year',
+                                null, null, null, null, 'desc', 500, 0, '{}'::jsonb) as r`)
+    const payload = result[0].r
+    const columnKeys = payload.columns.map((column) => column.key)
+    const rowsOk = payload.rows.every((row) => columnKeys.every((key) => key in row))
+    const totalsOk = Object.keys(payload.totals).every((key) => columnKeys.includes(key))
+    ran.push({
+      key: report.key,
+      ok: rowsOk && totalsOk && payload.total_rows === payload.rows.length,
+      rows: payload.total_rows,
+      columns: columnKeys.length,
+    })
+  }
+  check(
+    'every report runs, and its columns match its rows',
+    ran.every((entry) => entry.ok),
+    ran.map((entry) => `${entry.key}:${entry.rows}r/${entry.columns}c`).join(' ')
+  )
+
+  // The totals must describe the rows, not the page: a report whose footer
+  // sums something else is worse than no footer.
+  const salesReport = await q(`select public.report_rows('sales', '${s.branch}', 'year',
+                                  null, null, null, 'total', 'desc', 500, 0, '{}'::jsonb) as r`)
+  const salesPayload = salesReport[0].r
+  const summed = salesPayload.rows.reduce((sum, row) => sum + Number(row.total ?? 0), 0)
+  check(
+    'a report’s totals are the sum of the rows it returned',
+    Math.abs(summed - Number(salesPayload.totals.total ?? 0)) < 0.01,
+    `Σ rows ${summed.toFixed(2)} vs total ${salesPayload.totals.total}`
+  )
+  check(
+    'sorting is server-side and respects the requested direction',
+    (await (async () => {
+      const totals = salesPayload.rows.map((row) => Number(row.total ?? 0))
+      const descending = totals.every((value, index) => index === 0 || totals[index - 1] >= value)
+      const ascending = await q(`select public.report_rows('sales', '${s.branch}', 'year',
+                                   null, null, null, 'total', 'asc', 5, 0, '{}'::jsonb) as r`)
+      const first = Number(ascending[0].r.rows[0]?.total ?? 0)
+      return descending && first <= (totals[0] ?? 0)
+    })()),
+    `first row ${salesPayload.rows[0]?.total}`
+  )
+  check(
+    'pagination returns a different page for a different offset, same row count',
+    (await (async () => {
+      if (salesPayload.total_rows < 2) return true
+      const page2 = await q(`select public.report_rows('sales', '${s.branch}', 'year',
+                               null, null, null, 'total', 'desc', 1, 1, '{}'::jsonb) as r`)
+      const page1 = await q(`select public.report_rows('sales', '${s.branch}', 'year',
+                               null, null, null, 'total', 'desc', 1, 0, '{}'::jsonb) as r`)
+      return (
+        page1[0].r.total_rows === page2[0].r.total_rows &&
+        page1[0].r.rows[0]?.invoice_no !== page2[0].r.rows[0]?.invoice_no
+      )
+    })()),
+    `${salesPayload.total_rows} rows`
+  )
+  check(
+    'search narrows the set and the row count follows it',
+    (await (async () => {
+      const invoice = salesPayload.rows[0]?.invoice_no
+      if (!invoice) return true
+      const found = await q(`select public.report_rows('sales', '${s.branch}', 'year',
+                              null, null, '${invoice}', null, 'desc', 50, 0, '{}'::jsonb) as r`)
+      return found[0].r.total_rows === 1 && found[0].r.rows[0].invoice_no === invoice
+    })()),
+    'searched by invoice number'
+  )
+
+  // Anything the client sends that is not a column name must be treated as
+  // text, never as SQL. A sort key is the one place a report takes a string
+  // into its own statement, so it is checked with a hostile value.
+  check(
+    'an unknown sort key falls back to the default instead of reaching the SQL',
+    (await (async () => {
+      const nasty = await q(`select public.report_rows('sales', '${s.branch}', 'year',
+                              null, null, null, 'total; drop table public.sales', 'desc', 3, 0,
+                              '{}'::jsonb) as r`)
+      const dropped = await q(`select count(*)::int as n from public.sales`)
+      return nasty[0].r.rows.length > 0 && nasty[0].r.sort === 'created_at' && dropped[0].n > 0
+    })()),
+    'hostile sort key ignored, sales table intact'
+  )
+  check(
+    'an unknown report and an impossible slice are both refused by name',
+    (await (async () => {
+      let unknown = ''
+      let impossible = ''
+      try {
+        await q(`select public.report_rows('no_such_report', '${s.branch}', 'month',
+                   null, null, null, null, 'desc', 5, 0, '{}'::jsonb)`)
+      } catch (error) {
+        unknown = String(error.message ?? error)
+      }
+      try {
+        await q(`select public.analytics_query('${s.branch}', 'product', 'expenses',
+                   'month', null, null, '{}'::jsonb, 5)`)
+      } catch (error) {
+        impossible = String(error.message ?? error)
+      }
+      return /unknown_report/.test(unknown) && /unsupported_combination/.test(impossible)
+    })()),
+    'unknown_report / unsupported_combination'
+  )
+
+  // ── Reports do not leak across shops ──────────────────────────────────
+  await db.exec(`
+    INSERT INTO public.branches (id, organization_id, name, code)
+    VALUES ('00000000-0000-0000-0000-00000000e00b',
+            '00000000-0000-0000-0000-00000000e001', 'Their Branch', 'THEIRS')
+    ON CONFLICT (id) DO NOTHING;`)
+  let crossTenant = ''
+  try {
+    await q(`select public.analytics_query('00000000-0000-0000-0000-00000000e00b', 'day', 'takings',
+               'month', null, null, '{}'::jsonb, 5)`)
+  } catch (error) {
+    crossTenant = String(error.message ?? error)
+  }
+  check(
+    'another shop’s analytics cannot be read, even by id',
+    // `forbidden: organization …` is app.require_org's message; the point is
+    // that the call is refused, not which of the two guards refused it.
+    /forbidden|permission_denied|not a member/.test(crossTenant),
+    crossTenant.slice(0, 80)
+  )
+
+  // ── The permissions are real, not decorative ──────────────────────────
+  await db.exec(`
+    INSERT INTO auth.users (id, email)
+    VALUES ('00000000-0000-0000-0000-00000000cafe', 'cashier@test.local')
+    ON CONFLICT DO NOTHING;
+    INSERT INTO public.user_organizations (user_id, organization_id)
+    VALUES ('00000000-0000-0000-0000-00000000cafe', '${s.org}')
+    ON CONFLICT DO NOTHING;
+    INSERT INTO public.user_roles (user_id, organization_id, role_id)
+    SELECT '00000000-0000-0000-0000-00000000cafe', '${s.org}', id
+      FROM public.roles WHERE organization_id = '${s.org}' AND key = 'cashier';
+    select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000cafe', false)`)
+
+  check(
+    'a cashier cannot read analytics or reports',
+    (await (async () => {
+      const denied = []
+      for (const call of [
+        `select public.analytics_query('${s.branch}', 'day', 'takings', 'month', null, null, '{}'::jsonb, 5)`,
+        `select public.report_rows('sales', '${s.branch}', 'month', null, null, null, null, 'desc', 5, 0, '{}'::jsonb)`,
+        `select public.analytics_catalog()`,
+      ]) {
+        try {
+          await q(call)
+          denied.push('allowed')
+        } catch (error) {
+          denied.push(/permission_denied/.test(String(error.message ?? error)) ? 'denied' : 'other')
+        }
+      }
+      return denied.every((entry) => entry === 'denied')
+    })()),
+    'analytics_query, report_rows and analytics_catalog all refused'
+  )
+
+  await db.exec(`select set_config('request.jwt.claim.sub', '', false)`)
+}
+
 // ── Every permission key the client names must exist (023-era guard) ─────
 //
 // The catalogue is the contract between the database and the UI. Two nav

@@ -1,47 +1,69 @@
 /**
- * Dashboard — Phase 1 status view.
+ * Dashboard (spec §21, §56, docs/09 #10).
  *
- * Deliberately not a sales dashboard yet: there are no sales until Phase 2.
- * What it does show is the platform working — which plugins loaded, which
- * product fields they contributed, and what the signed-in role can reach.
- * That is the Phase 1 deliverable, and it is the evidence the plugin
- * architecture holds.
+ * The first screen of the day, and the one the whole round-trip rule exists
+ * for: **one call** — `dashboard_summary` — returns the eight widgets, the
+ * trend lines, the rankings and the answers to the owner's morning questions.
+ * Eight widgets as eight queries would be eight scans of `sales` and eight
+ * chances to render a shop that never existed, with today's takings from one
+ * moment and the drawer count from another.
+ *
+ * The order on the page is the order an owner asks in:
+ *
+ *   1. Did we take money today?        the widgets
+ *   2. Is it going up or down?         the charts
+ *   3. What should I do about it?      the answer cards, each linking to the
+ *                                      screen that acts on it
+ *
+ * The Phase 1 platform vitals are still here, folded into a disclosure at the
+ * bottom. They are evidence about the build, not about the shop, so they
+ * belong behind a click (docs/03 §7, progressive disclosure).
  */
 
 import { h, icon, mount } from '../../components/ui/h'
-import { card, cardHeader, badge, stat, emptyState } from '../../components/ui/card'
-import { button } from '../../components/ui/button'
+import { button, iconButton } from '../../components/ui/button'
+import { badge, emptyState, skeleton, stat } from '../../components/ui/card'
+import { barChart, donutChart, lineChart, sparkline, chartCard } from '../../components/ui/chart'
+import { answersPanel, answerText } from '../analytics'
 import { getRepositories } from '../../app/data'
-import { stockAlertStore, refreshStockAlerts } from '../../app/state/stock-alerts'
-import { formatMoney } from '../../shared/domain/money'
+import { activeOrganization, sessionStore } from '../../app/state/session'
+import { salesFloor } from '../../app/state/sales-floor'
+import { formatMoney, minor, type Minor } from '../../shared/domain/money'
+import { translateError } from '../../app/platform/errors'
+import type { DashboardSummary } from '../../shared/repositories/contracts'
 import type { PluginRegistry } from '../../shared/registry/plugin-registry'
-import { sessionStore, activeOrganization } from '../../app/state/session'
-import { eventBus } from '../../shared/bus'
 
 export interface DashboardOptions {
   onNavigate?: (path: string) => void
 }
 
 export function dashboardView(registry: PluginRegistry, options: DashboardOptions = {}): HTMLElement {
+  const repos = getRepositories()
   const session = sessionStore.state
   const org = activeOrganization()
   const onNavigate = options.onNavigate
+  const currency = org?.currency ?? 'BDT'
 
-  return h(
+  let summary: DashboardSummary | null = null
+  let loading = false
+  let requestId = 0
+
+  const widgetsSlot = h('div', { class: 'grid gap-3 sm:grid-cols-2 xl:grid-cols-4' })
+  const chartsSlot = h('div', { class: 'grid gap-3 lg:grid-cols-2' })
+  const answersSlot = h('div', null)
+  const refreshButton = iconButton('refresh', 'Refresh the dashboard', { onClick: () => void load() })
+
+  const root = h(
     'div',
-    { class: 'mx-auto max-w-6xl space-y-4 p-4 lg:p-6' },
-
+    { class: 'mx-auto max-w-7xl space-y-4 p-4 lg:p-6' },
     // Greeting
     h(
       'div',
       { class: 'flex flex-wrap items-end justify-between gap-3' },
       h(
         'div',
-        null,
-        h('h2', {
-          class: 'text-xl font-semibold text-content',
-          text: org ? org.name : 'Your shop',
-        }),
+        { class: 'min-w-0' },
+        h('h2', { class: 'text-xl font-semibold text-content', text: org ? org.name : 'Your shop' }),
         h('p', {
           class: 'mt-0.5 text-sm text-content-muted',
           text: `Signed in as ${session.email ?? '—'} · ${session.organizations.length} shop(s)`,
@@ -49,24 +71,322 @@ export function dashboardView(registry: PluginRegistry, options: DashboardOption
       ),
       h(
         'div',
-        { class: 'flex items-center gap-2' },
-        session.organizations.flatMap((o) => o.role_names).map((role) =>
+        { class: 'flex shrink-0 items-center gap-2' },
+        ...session.organizations.flatMap((entry) => entry.role_names).map((role) =>
           badge(role, { tone: 'primary', iconName: 'shield' })
-        )
+        ),
+        refreshButton
       )
     ),
+    widgetsSlot,
+    chartsSlot,
+    answersSlot,
+    platformStatus(registry, session.permissions.length)
+  )
 
-    // Inventory at a glance. The value comes from `stock_summary`, which
-    // computes Σ(quantity × avg_unit_cost) the same way the stock screen does —
-    // the Phase 3 acceptance test asserts the two are equal exactly, so neither
-    // may grow its own arithmetic.
-    stockCard(onNavigate),
+  function money(value: Minor): string {
+    return formatMoney(value, { currency })
+  }
 
-    // Platform vitals
+  function renderLoading(): void {
+    mount(
+      widgetsSlot,
+      ...Array.from({ length: 8 }, () => h('div', { class: 'rounded-lg border border-border bg-surface p-4' }, skeleton('h-4 w-24'), skeleton('mt-3 h-7 w-32')))
+    )
+    mount(
+      chartsSlot,
+      ...Array.from({ length: 4 }, () => h('div', { class: 'rounded-lg border border-border bg-surface p-4' }, skeleton('h-4 w-32'), skeleton('mt-3 h-32 w-full')))
+    )
+    mount(answersSlot, null)
+  }
+
+  function renderSummary(): void {
+    if (!summary) return
+    const data = summary
+
+    const days = data.trendDays.series
+    const today = days[days.length - 1]
+    const yesterday = days[days.length - 2]
+    const takingsTrend = days.map((point) => point.value)
+    const profitTrend = data.trendProfit.series.map((point) => point.value)
+    const deltaVsYesterday =
+      today && yesterday && yesterday.value > 0
+        ? ((today.value - yesterday.value) / yesterday.value) * 100
+        : null
+
+    const margin = data.takings > 0 ? (data.grossProfit / data.takings) * 100 : 0
+    const avgBill = data.orders > 0 ? data.takings / data.orders : 0
+
+    // ── The eight widgets ──────────────────────────────────────────────
+    mount(
+      widgetsSlot,
+      widgetCard({
+        label: 'Takings today',
+        value: money(data.takings),
+        iconName: 'payments',
+        hint: `${data.orders} bill(s) · average ${money(minor(Math.round(avgBill)))}`,
+        delta: deltaVsYesterday,
+        spark: takingsTrend.slice(-14),
+      }),
+      widgetCard({
+        label: 'Profit today',
+        value: money(data.grossProfit),
+        iconName: 'trending_up',
+        hint: `margin ${margin.toFixed(1)}% · after cost of goods`,
+        delta: profitDelta(data),
+        spark: profitTrend.slice(-14),
+      }),
+      widgetCard({
+        label: 'Cash in the drawer',
+        value: money(data.expectedCash),
+        iconName: 'point_of_sale',
+        hint: 'expected, from every open register session',
+        onOpen: () => onNavigate?.('/register'),
+      }),
+      widgetCard({
+        label: 'Expenses today',
+        value: money(data.expenses),
+        iconName: 'receipt_long',
+        hint: `refunds today ${money(data.refunds)}`,
+        onOpen: () => onNavigate?.('/expenses'),
+      }),
+      widgetCard({
+        label: 'Stock on hand',
+        value: money(data.stockValue),
+        iconName: 'warehouse',
+        hint: `${data.lowStock} low · ${data.outOfStock} out of stock`,
+        onOpen: () => onNavigate?.('/stock'),
+      }),
+      widgetCard({
+        label: 'Who owes us',
+        value: answerValue(data, 'receivable', money),
+        iconName: 'account_balance_wallet',
+        hint: answerNote(data, 'receivable') ?? `${data.pendingPayments > 0 ? `${money(data.pendingPayments)} unpaid on bills` : 'no unpaid bills'}`,
+        onOpen: () => onNavigate?.('/reports?report=customer&type=owing'),
+      }),
+      widgetCard({
+        label: 'What we owe suppliers',
+        value: answerValue(data, 'payable', money),
+        iconName: 'local_shipping',
+        hint: answerNote(data, 'payable') ?? 'supplier balances',
+        onOpen: () => onNavigate?.('/reports?report=supplier&type=owing'),
+      }),
+      widgetCard({
+        label: 'Needs reordering',
+        value: answerValue(data, 'reorder', money),
+        iconName: 'inventory_2',
+        hint: answerNote(data, 'reorder') ?? `${data.lowStock} item(s) at or below their reorder point`,
+        onOpen: () => onNavigate?.('/reports?report=low_stock'),
+      })
+    )
+
+    // ── The charts ─────────────────────────────────────────────────────
+    mount(
+      chartsSlot,
+      chartCard({
+        title: 'Takings, last 30 days',
+        subtitle: `Today ${money(data.takings)} against yesterday`,
+        actions: button('Analyse', { variant: 'ghost', icon: 'monitoring', onClick: () => onNavigate?.('/analytics?measure=takings&dimension=day&period=month') }),
+        body: lineChart(
+          days.map((point) => ({ label: point.label, value: point.value, compare: point.prev })),
+          { money: true, currency, ariaLabel: 'Takings per day for the last thirty days' }
+        ),
+      }),
+      chartCard({
+        title: 'Profit, last 30 days',
+        subtitle: 'Revenue minus the cost of what was sold',
+        actions: button('Analyse', { variant: 'ghost', icon: 'monitoring', onClick: () => onNavigate?.('/analytics?measure=profit&dimension=day&period=month') }),
+        body: lineChart(
+          data.trendProfit.series.map((point) => ({ label: point.label, value: point.value })),
+          { money: true, currency, ariaLabel: 'Profit per day for the last thirty days' }
+        ),
+      }),
+      chartCard({
+        title: 'How customers paid today',
+        subtitle: 'Split bills count once per method, so the shares are of the money received',
+        actions: button('Analyse', { variant: 'ghost', icon: 'monitoring', onClick: () => onNavigate?.('/analytics?measure=takings&dimension=payment_method&period=day') }),
+        body: donutChart(
+          data.paymentMix.map((entry) => ({ label: entry.method, value: entry.total })),
+          { currency, ariaLabel: 'Payment mix today', emptyMessage: 'No payments taken yet today' }
+        ),
+      }),
+      chartCard({
+        title: 'Busiest hours today',
+        subtitle: 'When to have the second till open',
+        actions: button('Analyse', { variant: 'ghost', icon: 'monitoring', onClick: () => onNavigate?.('/analytics?measure=takings&dimension=hour&period=day') }),
+        body: barChart(
+          data.salesByHour.map((entry) => ({ label: String(entry.hour).padStart(2, '0'), value: entry.total })),
+          { money: true, currency, height: 150, ariaLabel: 'Takings by hour today', emptyMessage: 'No sales yet today' }
+        ),
+      }),
+      chartCard({
+        title: 'Best sellers this month',
+        subtitle: 'By takings, with what each earned',
+        actions: button('Report', { variant: 'ghost', icon: 'assessment', onClick: () => onNavigate?.('/reports?report=product_performance') }),
+        body: barChart(
+          data.rankProducts.series.slice(0, 6).map((point) => ({ label: point.label, value: point.value })),
+          { money: true, currency, height: 180, ariaLabel: 'Top products by takings this month', emptyMessage: 'Nothing sold yet this month' }
+        ),
+      }),
+      chartCard({
+        title: 'Where the money comes from',
+        subtitle: 'Takings by category this month',
+        actions: button('Analyse', { variant: 'ghost', icon: 'monitoring', onClick: () => onNavigate?.('/analytics?measure=takings&dimension=category') }),
+        body: donutChart(
+          data.rankCategories.series.slice(0, 6).map((point) => ({ label: point.label, value: point.value })),
+          { currency, ariaLabel: 'Takings by category this month', emptyMessage: 'No category sales yet' }
+        ),
+      }),
+      chartCard({
+        title: 'This year, month by month',
+        subtitle: 'Takings per month',
+        actions: button('Analyse', { variant: 'ghost', icon: 'monitoring', onClick: () => onNavigate?.('/analytics?measure=takings&dimension=month&period=year') }),
+        body: barChart(
+          data.trendMonths.series.map((point) => ({ label: point.label, value: point.value })),
+          { money: true, currency, height: 150, ariaLabel: 'Takings by month this year', emptyMessage: 'No sales yet this year' }
+        ),
+      })
+    )
+
+    // ── The answers ────────────────────────────────────────────────────
+    mount(answersSlot, answersPanel(data.answers, currency))
+  }
+
+  function profitDelta(data: DashboardSummary): number | null {
+    const series = data.trendProfit.series
+    const todayProfit = series[series.length - 1]
+    const yesterdayProfit = series[series.length - 2]
+    if (!todayProfit || !yesterdayProfit || yesterdayProfit.value === 0) return null
+    return ((todayProfit.value - yesterdayProfit.value) / Math.abs(yesterdayProfit.value)) * 100
+  }
+
+  async function load(): Promise<void> {
+    if (loading) return
+    const branchId = salesFloor()?.branchId ?? null
+    loading = true
+    const ticket = ++requestId
+    renderLoading()
+    try {
+      if (!branchId) throw new Error('No branch is available for this user')
+      const next = await repos.analytics.dashboard({ branchId })
+      // A slower first request must not overwrite a newer one.
+      if (ticket !== requestId) return
+      summary = next
+      renderSummary()
+    } catch (error) {
+      if (ticket !== requestId) return
+      summary = null
+      mount(
+        answersSlot,
+        emptyState('The dashboard could not be loaded', {
+          description: translateError(error).message,
+          iconName: 'error',
+          action: button('Try again', { variant: 'primary', icon: 'refresh', onClick: () => void load() }),
+        })
+      )
+      mount(widgetsSlot, null)
+      mount(chartsSlot, null)
+    } finally {
+      loading = false
+    }
+  }
+
+  void load()
+  return root
+}
+
+/** A widget tile: one number, its context, and its recent shape. */
+function widgetCard(options: {
+  label: string
+  value: string
+  iconName: string
+  hint: string
+  delta?: number | null
+  spark?: readonly number[]
+  onOpen?: () => void
+}): HTMLElement {
+  const tile = h(
+    'div',
+    {
+      class:
+        'rounded-lg border border-border bg-surface p-4 ' +
+        (options.onOpen ? 'cursor-pointer transition-colors hover:border-primary/40' : ''),
+    },
     h(
       'div',
-      { class: 'grid grid-cols-2 gap-3 lg:grid-cols-4' },
-      stat('Plugins loaded', String(registry.list().filter((p) => p.status === 'loaded').length), {
+      { class: 'flex items-start justify-between gap-2' },
+      h('p', { class: 'text-xs font-medium text-content-muted', text: options.label }),
+      icon(options.iconName, 'text-content-subtle text-lg shrink-0')
+    ),
+    h(
+      'div',
+      { class: 'mt-1 flex items-end justify-between gap-2' },
+      h('p', {
+        class: 'text-2xl font-semibold tabular-nums tracking-tight text-content',
+        text: options.value,
+      }),
+      options.spark && options.spark.length > 1 ? sparkline(options.spark, { class: 'w-20 shrink-0 text-primary' }) : null
+    ),
+    h(
+      'div',
+      { class: 'mt-1 flex items-center gap-2' },
+      options.delta === null || options.delta === undefined
+        ? null
+        : badge(`${options.delta >= 0 ? '+' : ''}${options.delta.toFixed(1)}%`, {
+            tone: options.delta >= 0 ? 'success' : 'danger',
+          }),
+      h('p', { class: 'text-xs text-content-subtle', text: options.hint })
+    )
+  )
+  if (options.onOpen) {
+    const open = options.onOpen
+    tile.addEventListener('click', () => open())
+    tile.tabIndex = 0
+    tile.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') open()
+    })
+  }
+  return tile
+}
+
+/** An answer's value, formatted for a widget. */
+function answerValue(
+  summary: DashboardSummary,
+  id: string,
+  money: (value: Minor) => string
+): string {
+  const answer = summary.answers.find((entry) => entry.id === id)
+  if (!answer) return '—'
+  return answer.kind === 'money' && answer.amount !== null
+    ? money(answer.amount)
+    : answerText(answer, summary.currency)
+}
+
+function answerNote(summary: DashboardSummary, id: string): string | null {
+  return summary.answers.find((entry) => entry.id === id)?.note ?? null
+}
+
+/**
+ * The Phase 1 vitals, kept but demoted.
+ *
+ * They answer "is the plugin architecture holding?" — a developer's question,
+ * not a shopkeeper's — so they live behind a disclosure rather than competing
+ * with the day's takings for attention.
+ */
+function platformStatus(registry: PluginRegistry, permissionCount: number): HTMLElement {
+  const loaded = registry.list().filter((plugin) => plugin.status === 'loaded').length
+  return h(
+    'details',
+    { class: 'rounded-lg border border-border bg-surface p-4' },
+    h(
+      'summary',
+      { class: 'cursor-pointer text-sm font-medium text-content' },
+      'Platform status'
+    ),
+    h(
+      'div',
+      { class: 'mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4' },
+      stat('Plugins loaded', String(loaded), {
         iconName: 'extension',
         hint: `${registry.list().length} declared`,
       }),
@@ -74,315 +394,13 @@ export function dashboardView(registry: PluginRegistry, options: DashboardOption
         iconName: 'view_agenda',
         hint: 'all contributed by plugins',
       }),
-      stat('Permissions held', String(session.permissions.length), {
+      stat('Permissions held', String(permissionCount), {
         iconName: 'verified_user',
         hint: 'granted by your role',
       }),
       stat('Plugin nav items', String(registry.nav.items.length), {
         iconName: 'explore',
         hint: 'added to the sidebar with no feature edits',
-      })
-    ),
-
-    h(
-      'div',
-      { class: 'grid gap-4 lg:grid-cols-2' },
-      pluginsCard(registry),
-      productFieldsCard(registry)
-    ),
-
-    permissionsCard(),
-
-    h('div', null, nextStepsCard())
-  )
-}
-
-/**
- * Stock value and the two counts worth acting on.
- *
- * The counts come from the shared alert store — the same number the sidebar
- * badge shows, so the two can never disagree — while the value is fetched here
- * because only this card displays money. `stock_summary` computes it as
- * Σ(quantity × avg_unit_cost), the same expression the stock screen uses; the
- * Phase 3 acceptance test asserts those two are equal exactly, so neither may
- * grow its own arithmetic.
- */
-function stockCard(onNavigate?: (path: string) => void): HTMLElement {
-  const currency = activeOrganization()?.currency ?? 'BDT'
-
-  const valueSlot = h('p', {
-    class: 'mt-1 text-2xl font-semibold tabular-nums text-content',
-    text: '—',
-  })
-  const countsSlot = h('div', { class: 'mt-3 flex flex-wrap gap-2' })
-  const noteSlot = h('p', { class: 'mt-2 text-xs text-content-subtle' })
-
-  let stockValue: number | null = null
-  let failure: string | null = null
-
-  const render = (): void => {
-    const { lowStock, outOfStock } = stockAlertStore.state
-
-    valueSlot.textContent = stockValue === null ? '—' : formatMoney(stockValue as never, { currency })
-
-    mount(
-      countsSlot,
-      badge(`${lowStock} low`, {
-        tone: lowStock > 0 ? 'warning' : 'neutral',
-        iconName: 'trending_down',
-      }),
-      badge(`${outOfStock} out`, {
-        tone: outOfStock > 0 ? 'danger' : 'neutral',
-        iconName: 'production_quantity_limits',
-      })
-    )
-
-    mount(
-      noteSlot,
-      h('span', {
-        text: failure
-          ? failure
-          : lowStock > 0 || outOfStock > 0
-            ? 'Tap to see what needs reordering'
-            : 'Everything is above its reorder point',
-      })
-    )
-  }
-
-  const unsubscribe = stockAlertStore.subscribe(render)
-  const load = async (): Promise<void> => {
-    try {
-      const summary = await getRepositories().stock.summary()
-      stockValue = summary.stockValue
-      failure = null
-    } catch (error) {
-      failure = error instanceof Error ? error.message : 'Stock value is unavailable right now.'
-    }
-    // The view may have been replaced while this was in flight; writing into a
-    // detached node would leak the subscription.
-    if (!valueSlot.isConnected) {
-      unsubscribe()
-      return
-    }
-    render()
-  }
-
-  render()
-  void refreshStockAlerts().then(load)
-
-  if (onNavigate) {
-    const go = (): void => onNavigate('/stock')
-    countsSlot.addEventListener('click', go)
-    countsSlot.classList.add('cursor-pointer')
-    valueSlot.classList.add('cursor-pointer')
-    valueSlot.addEventListener('click', go)
-  }
-
-  return card(
-    cardHeader('Stock', { subtitle: 'What is on the shelves, and what it cost', iconName: 'warehouse' }),
-    // The label is not decoration: "৳ 11,641.50" on its own does not say
-    // whether it is what the stock cost, what it would sell for, or today's
-    // take. The Phase 3 acceptance test reads this figure off the screen, so
-    // it also has to be unambiguous to a human reading it.
-    h('p', { class: 'text-xs font-medium text-content-muted', text: 'Stock value' }),
-    valueSlot,
-    countsSlot,
-    noteSlot
-  )
-}
-
-function pluginsCard(registry: PluginRegistry): HTMLElement {
-  const registrations = registry.list()
-
-  const rows = registrations.map((registration) => {
-    const { plugin, status, error } = registration
-    const tone = status === 'loaded' ? 'success' : status === 'error' ? 'danger' : 'neutral'
-
-    return h(
-      'div',
-      { class: 'flex items-start gap-3 rounded-md border border-border p-3' },
-      h(
-        'span',
-        {
-          class:
-            'flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-surface-muted text-content-muted',
-        },
-        icon(plugin.icon ?? 'extension', 'text-lg')
-      ),
-      h(
-        'div',
-        { class: 'min-w-0 flex-1' },
-        h(
-          'div',
-          { class: 'flex items-center gap-2' },
-          h('p', { class: 'text-sm font-medium text-content', text: plugin.name }),
-          badge(plugin.version, { tone: 'neutral' })
-        ),
-        h('p', { class: 'mt-0.5 text-xs text-content-muted', text: plugin.description ?? '' }),
-        h('p', { class: 'mt-1 font-mono text-[10px] text-content-subtle', text: plugin.id }),
-        error ? h('p', { class: 'mt-1 text-xs text-danger', text: error }) : null
-      ),
-      badge(status, { tone: tone === 'neutral' ? 'neutral' : tone, iconName: status === 'loaded' ? 'check' : 'info' })
-    )
-  })
-
-  return card(
-    cardHeader('Plugins', {
-      subtitle: 'Declared in code, loaded at boot',
-      iconName: 'extension',
-      actions: button('Reload', {
-        size: 'md',
-        variant: 'ghost',
-        onClick: () => window.location.reload(),
-      }),
-    }),
-    rows.length > 0
-      ? h('div', { class: 'space-y-2' }, ...rows)
-      : emptyState('No plugins declared', {
-          description: 'Plugins live in src/plugins/. Phase 6 adds the loader.',
-          iconName: 'extension_off',
-        })
-  )
-}
-
-function productFieldsCard(registry: PluginRegistry): HTMLElement {
-  const fields = registry.productFields.items
-
-  return card(
-    cardHeader('Plugin product fields', {
-      subtitle: 'The core product form renders these without knowing them',
-      iconName: 'view_agenda',
-    }),
-    fields.length === 0
-      ? emptyState('No plugin fields yet', { iconName: 'view_agenda' })
-      : h(
-          'div',
-          { class: 'overflow-x-auto' },
-          h(
-            'table',
-            { class: 'w-full text-sm' },
-            h(
-              'thead',
-              null,
-              h(
-                'tr',
-                { class: 'border-b border-border text-left text-xs text-content-subtle' },
-                h('th', { class: 'py-2 pr-3 font-medium', text: 'Field' }),
-                h('th', { class: 'py-2 pr-3 font-medium', text: 'Type' }),
-                h('th', { class: 'py-2 pr-3 font-medium', text: 'Section' }),
-                h('th', { class: 'py-2 pr-3 font-medium', text: 'Storage' }),
-                h('th', { class: 'py-2 font-medium', text: 'From' })
-              )
-            ),
-            h(
-              'tbody',
-              null,
-              ...fields.map((field) =>
-                h(
-                  'tr',
-                  { class: 'border-b border-border/50 last:border-0' },
-                  h('td', { class: 'py-2 pr-3 text-content', text: field.label }),
-                  h('td', { class: 'py-2 pr-3 font-mono text-xs text-content-muted', text: field.type }),
-                  h('td', { class: 'py-2 pr-3 text-content-muted', text: field.section ?? 'basic' }),
-                  h('td', { class: 'py-2 pr-3 text-content-muted', text: field.storage }),
-                  h(
-                    'td',
-                    { class: 'py-2' },
-                    badge(field.source ?? 'core', { tone: 'primary' })
-                  )
-                )
-              )
-            )
-          )
-        )
-  )
-}
-
-function permissionsCard(): HTMLElement {
-  const permissions = [...sessionStore.state.permissions].sort()
-
-  if (permissions.length === 0) {
-    return card(
-      cardHeader('Permissions', { iconName: 'verified_user' }),
-      emptyState('No permissions loaded', {
-        description: 'Sign in to load your role permissions from the server.',
-        iconName: 'lock',
-      })
-    )
-  }
-
-  // Group by resource so a long list stays readable.
-  const grouped = new Map<string, string[]>()
-  for (const key of permissions) {
-    const resource = key.split('.')[0] ?? 'other'
-    const action = key.split('.')[1] ?? key
-    const bucket = grouped.get(resource)
-    if (bucket) {
-      bucket.push(action)
-    } else {
-      grouped.set(resource, [action])
-    }
-  }
-
-  return card(
-    cardHeader('What your role can do', {
-      subtitle: `${permissions.length} permissions, expanded server-side from your role`,
-      iconName: 'verified_user',
-    }),
-    h(
-      'div',
-      { class: 'grid gap-2 sm:grid-cols-2 lg:grid-cols-3' },
-      ...[...grouped.entries()].map(([resource, actions]) =>
-        h(
-          'div',
-          { class: 'rounded-md border border-border p-2.5' },
-          h('p', { class: 'text-xs font-semibold text-content capitalize', text: resource }),
-          h('p', { class: 'mt-1 text-xs text-content-muted', text: actions.join(' · ') })
-        )
-      )
-    )
-  )
-}
-
-function nextStepsCard(): HTMLElement {
-  const steps = [
-    { phase: 'Phase 2', label: 'Core POS', detail: 'Take a real sale end to end' },
-    { phase: 'Phase 3', label: 'Inventory', detail: 'Stock in/out, transfers, ledger' },
-    { phase: 'Phase 4', label: 'Business management', detail: 'Purchases, expenses, returns' },
-    { phase: 'Phase 5', label: 'Analytics', detail: 'Dashboard, reports, insights' },
-  ]
-
-  return card(
-    cardHeader('Roadmap', { subtitle: 'Where this is going', iconName: 'route' }),
-    h(
-      'div',
-      { class: 'space-y-2' },
-      ...steps.map((step) =>
-        h(
-          'div',
-          { class: 'flex items-center gap-3 rounded-md bg-surface-muted p-2.5' },
-          badge(step.phase, { tone: 'neutral' }),
-          h(
-            'div',
-            { class: 'min-w-0 flex-1' },
-            h('p', { class: 'text-sm font-medium text-content', text: step.label }),
-            h('p', { class: 'text-xs text-content-muted', text: step.detail })
-          ),
-          icon('arrow_forward', 'text-content-subtle text-base')
-        )
-      )
-    ),
-    h('div', { class: 'mt-3' },
-      button('Test the event bus', {
-        size: 'md',
-        variant: 'outline',
-        icon: 'bolt',
-        onClick: () => {
-          eventBus.emit('ui.toast', {
-            type: 'ui.toast',
-            data: { message: 'EventBus → toast works.', tone: 'success' },
-          })
-        },
       })
     )
   )

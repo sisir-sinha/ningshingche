@@ -641,6 +641,249 @@ export interface AuditRepository {
   entityTypes(): Promise<string[]>
 }
 
+// ── Analytics (Phase 5, spec §21, §22, §56) ───────────────────────────────
+
+/**
+ * The measures and dimensions the server can actually answer.
+ *
+ * Fetched from `analytics_catalog()` rather than written here: the supported
+ * (measure × dimension) pairs come from the same matrix the SQL generator
+ * uses, so a picker cannot offer a combination that would fail, and a new
+ * measure becomes selectable without a client change.
+ */
+export interface AnalyticsMeasure {
+  id: string
+  label: string
+  /** Money measures are branded minor units once converted; counts are not. */
+  money: boolean
+  unit: string
+  description: string
+}
+
+export interface AnalyticsDimension {
+  id: string
+  label: string
+  group: string
+  /** `time` dimensions read left-to-right; `entity` dimensions are rankings. */
+  kind: 'time' | 'entity'
+}
+
+export interface AnalyticsCombo {
+  measure: string
+  dimension: string
+}
+
+export interface AnalyticsCatalog {
+  measures: AnalyticsMeasure[]
+  dimensions: AnalyticsDimension[]
+  periods: { id: string; label: string }[]
+  combos: AnalyticsCombo[]
+}
+
+/**
+ * One point of a slice: this period's value, and the comparison period's.
+ *
+ * When the slice's measure is money, every field here is branded **minor
+ * units** (poisha), not taka — so a chart labels 12,400.00 by reading the
+ * integer, and no screen ever multiplies by 100 on its own. `money` on the
+ * slice says which of the two it is.
+ */
+export interface AnalyticsPoint {
+  key: string
+  label: string
+  value: number
+  secondary: number
+  prev: number
+  prevSecondary: number
+}
+
+export interface AnalyticsTotals {
+  value: number
+  secondary: number
+  prev: number | null
+  prevSecondary: number | null
+  /** Percentage change against the comparison period; null when it cannot be computed. */
+  deltaPct: number | null
+}
+
+/**
+ * The answer to one question — "Takings by category, this month" — with the
+ * comparison period attached. The screen, the chart and the CSV all read this
+ * one shape, which is what makes the chart and the table agree by construction.
+ */
+export interface AnalyticsSlice {
+  dimension: string
+  measure: string
+  period: string
+  /** True when `value` is money, so the caller formats rather than guesses. */
+  money: boolean
+  label: string
+  timezone: string
+  currency: string
+  from: string
+  to: string
+  previousFrom: string
+  previousTo: string
+  series: AnalyticsPoint[]
+  totals: AnalyticsTotals | null
+  answers: BiAnswer[]
+}
+
+/** One question of the owner's morning list (spec §56), with its answer. */
+export interface BiAnswer {
+  id: string
+  question: string
+  kind: 'money' | 'count' | 'qty' | 'text'
+  /** The answer as the server wrote it. Kept for `text` answers and for logs. */
+  value: string
+  /** Money answers in minor units, ready for `formatMoney`. */
+  amount: Minor | null
+  /** Count answers as a number, ready for a formatter. */
+  count: number | null
+  note: string
+  /** Deep link to the screen that shows the detail. */
+  link: string
+  icon: string
+}
+
+/**
+ * Everything the dashboard shows, from one call (docs/09 #10).
+ *
+ * Eight widgets, two trend lines, two rankings and the answer list — one
+ * request, one transaction, so no two parts of the screen can describe
+ * different moments in the same shop.
+ */
+export interface DashboardSummary {
+  date: string
+  timezone: string
+  currency: string
+  takings: Minor
+  orders: number
+  grossProfit: Minor
+  itemsSold: number
+  discountGiven: Minor
+  taxCollected: Minor
+  expenses: Minor
+  refunds: Minor
+  heldSales: number
+  pendingPayments: Minor
+  customerCount: number
+  outOfStock: number
+  lowStock: number
+  stockValue: Minor
+  expectedCash: Minor
+  salesByHour: { hour: number; total: Minor }[]
+  paymentMix: { method: string; total: Minor }[]
+  topProducts: { name: string; qty: number; revenue: Minor }[]
+  answers: BiAnswer[]
+  /** Thirty days of takings, one point per day. */
+  trendDays: AnalyticsSlice
+  /** Thirty days of profit, the same days. */
+  trendProfit: AnalyticsSlice
+  /** This year by month. */
+  trendMonths: AnalyticsSlice
+  rankProducts: AnalyticsSlice
+  rankCategories: AnalyticsSlice
+  generatedAt: string
+}
+
+export interface AnalyticsQuery {
+  branchId: string
+  dimension: string
+  measure: string
+  period?: string
+  from?: string
+  to?: string
+  limit?: number
+  filters?: Record<string, string>
+}
+
+export interface AnalyticsRepository {
+  /** Measures, dimensions, periods and the supported combinations. */
+  catalog(): Promise<AnalyticsCatalog>
+  /** Every widget, chart and answer, in one round trip. */
+  dashboard(query: { branchId: string; day?: string }): Promise<DashboardSummary>
+  /** One dimension of one measure over one period. */
+  slice(query: AnalyticsQuery): Promise<AnalyticsSlice>
+  /** The §56 question list on its own. */
+  answers(query: { branchId: string; day?: string }): Promise<BiAnswer[]>
+}
+
+// ── Reports (Phase 5, spec §23) ───────────────────────────────────────────
+
+export type ReportColumnType = 'text' | 'money' | 'qty' | 'int' | 'percent' | 'date' | 'status'
+
+/** A report column as the server declares it — the table and CSV headers. */
+export interface ReportColumn {
+  key: string
+  label: string
+  type: ReportColumnType
+  align?: 'left' | 'right'
+}
+
+/**
+ * One cell. Money columns hold **minor units** so the table, the printout and
+ * the CSV all format the same integer rather than a float that has already
+ * been rounded once.
+ */
+export type ReportCell = string | number | null
+
+/** One row, keyed by column key. Unknown columns are absent. */
+export type ReportRow = Record<string, ReportCell>
+
+export interface ReportSummary {
+  key: string
+  title: string
+  group: string
+  description: string
+  columns: ReportColumn[]
+}
+
+/**
+ * A report run: the page of rows, the columns to render them with, and the
+ * totals of the whole filtered set — not of the page. `totalRows` is that same
+ * filtered set's size, so "1–25 of 431" is one fact rather than two queries
+ * that can disagree.
+ */
+export interface ReportResult extends ReportSummary {
+  rows: ReportRow[]
+  /** Column key → total. Money columns are in minor units. */
+  totals: Record<string, number>
+  totalRows: number
+  offset: number
+  limit: number
+  sort: string
+  dir: 'asc' | 'desc'
+  search: string | null
+  period: string
+  label: string
+  from: string
+  to: string
+  currency: string
+  generatedAt: string
+}
+
+export interface ReportQuery {
+  branchId: string
+  report: string
+  period?: string
+  from?: string
+  to?: string
+  search?: string
+  sort?: string
+  dir?: 'asc' | 'desc'
+  limit?: number
+  offset?: number
+  filters?: Record<string, string>
+}
+
+export interface ReportRepository {
+  /** The report library, with the columns each report returns. */
+  catalog(): Promise<ReportSummary[]>
+  /** Filter, search, sort, paginate — computed server-side. */
+  run(query: ReportQuery): Promise<ReportResult>
+}
+
 export interface Repositories {
   readonly catalog: CatalogRepository
   readonly products: ProductRepository
@@ -654,6 +897,8 @@ export interface Repositories {
   readonly expenses: ExpenseRepository
   readonly returns: ReturnsRepository
   readonly audit: AuditRepository
+  readonly analytics: AnalyticsRepository
+  readonly reports: ReportRepository
 }
 
 /** Re-exported so features can build payloads without importing the domain. */

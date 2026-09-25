@@ -22,7 +22,7 @@
  * before believing a release is fine on a phone.
  */
 
-import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { readFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Client } from 'pg'
@@ -312,6 +312,45 @@ function reportAudit(a, shots = {}) {
     a.smallTapCount === 0 ? '' : `${a.smallTapCount} small, e.g. ${a.smallTapSample.map((s) => `${s.el} ${s.w}x${s.h} "${s.text}"`).join(' | ')}`
   )
   if (shots.file) console.log(`         screenshot: ${shots.file}`)
+}
+
+/**
+ * Rows in a CSV file, minus the header — counting the way the app's own parser
+ * does, so a field containing a comma or a newline does not add a phantom row.
+ *
+ * The acceptance criterion for Phase 5 is "a report exported to CSV
+ * re-imports to identical row counts", and this is the re-import.
+ */
+function countCsvRows(text) {
+  const source = text.startsWith('\uFEFF') ? text.slice(1) : text
+  let rows = 0
+  let quoted = false
+  let field = ''
+  let sawField = false
+
+  for (let i = 0; i < source.length; i += 1) {
+    const char = source[i]
+    if (quoted) {
+      if (char === '"') {
+        if (source[i + 1] === '"') i += 1
+        else quoted = false
+      }
+      continue
+    }
+    if (char === '"') quoted = true
+    else if (char === ',') field = ''
+    else if (char === '\n') {
+      rows += 1
+      field = ''
+      sawField = false
+    } else if (char !== '\r') {
+      field += char
+      sawField = true
+    }
+  }
+  if (sawField || field.length > 0) rows += 1
+  // The header is not a data row.
+  return Math.max(0, rows - 1)
 }
 
 // ── Run ───────────────────────────────────────────────────────────────────
@@ -714,7 +753,10 @@ try {
       const card = cards.find((el) => (el.textContent || '').includes('Stock'))
       return card ? (card.textContent || '') : ''
     })
-    const dashValue = amountAfter(dashRendered, 'Stock value')
+    // The Phase 5 dashboard names this tile "Stock on hand"; the older one
+    // said "Stock value". Both are read so the check survives the rename.
+    const dashValue =
+      amountAfter(dashRendered, 'Stock value') || amountAfter(dashRendered, 'Stock on hand')
     check(
       'dashboard: stock value equals the same Σ the stock screen shows',
       Math.abs(dashValue - expectedValue) < 0.01,
@@ -1023,6 +1065,256 @@ try {
     }
   }
 
+    // ── Phase 5: the dashboard, analytics and reports ─────────────────────
+    //
+    // The acceptance criteria for this phase are about the *network* and the
+    // *file*, so they are asserted there rather than on the screen:
+    //
+    //   "the dashboard loads in one round trip" — every request the page makes
+    //   while the dashboard renders is recorded, and the payload has to be one
+    //   `dashboard_summary` call with no per-widget follow-ups.
+    //
+    //   "a report exported to CSV re-imports to identical row counts" — the
+    //   CSV button is really clicked, the file is really downloaded, and the
+    //   rows in it are counted against the row count the report itself
+    //   reported.
+    console.log('\n── phase 5: dashboard, analytics, reports ──')
+
+    const downloadDir = join(OUT, 'downloads')
+    mkdirSync(downloadDir, { recursive: true })
+
+    const requests = []
+    page.on('request', (request) => requests.push(request.url()))
+
+    /** Requests the page made while `run` was executing. */
+    async function during(run) {
+      const mark = requests.length
+      await run()
+      return requests.slice(mark)
+    }
+
+    // Start somewhere else, so the dashboard's own requests are the only ones
+    // in the window — an ambient badge refresh is not the dashboard's doing.
+    await page.evaluate(() => {
+      window.location.hash = '#/customers'
+    })
+    await new Promise((r) => setTimeout(r, 2000))
+
+    const dashboardRequests = await during(async () => {
+      await page.evaluate(() => {
+        window.location.hash = '#/'
+      })
+      await new Promise((r) => setTimeout(r, 7000))
+    })
+
+    const rpcCalls = dashboardRequests.filter((url) => url.includes('/rest/v1/rpc/'))
+    const summaryCalls = rpcCalls.filter((url) => url.includes('dashboard_summary'))
+    const followUps = rpcCalls.filter((url) =>
+      /analytics_query|report_rows|bi_answers|stock_summary/.test(url)
+    )
+    check(
+      'the dashboard loads in one round trip',
+      summaryCalls.length === 1 && followUps.length === 0,
+      `${summaryCalls.length}× dashboard_summary, ${followUps.length} follow-up call(s), rg=${rpcCalls.length}`
+    )
+    check(
+      'no per-widget queries were fired behind it',
+      rpcCalls.filter((url) => /dashboard_summary/.test(url)).length === 1 &&
+        rpcCalls.length === 1,
+      rpcCalls.map((url) => url.split('/rpc/')[1]?.slice(0, 24)).join(', ') || 'none'
+    )
+
+    const dashboardText = await page.evaluate(
+      () => document.querySelector('#app-outlet')?.textContent ?? ''
+    )
+    const dashboardShots = await page.evaluate(() => ({
+      widgets: ['Takings today', 'Profit today', 'Cash in the drawer', 'Expenses today',
+                'Stock on hand', 'Who owes us', 'What we owe suppliers', 'Needs reordering']
+        .filter((label) => document.body.textContent?.includes(label)).length,
+      questions: (document.body.textContent?.match(/\?/g) ?? []).length,
+      charts: document.querySelectorAll('#app-outlet svg').length,
+      answerLinks: [
+        ...document.querySelectorAll('#app-outlet a[href^="#/"]'),
+      ].length,
+    }))
+    check(
+      'the eight widgets all render from that one payload',
+      dashboardShots.widgets === 8,
+      `${dashboardShots.widgets}/8 tiles`
+    )
+    check(
+      'the charts render as SVG, drawn from the same payload',
+      dashboardShots.charts >= 4,
+      `${dashboardShots.charts} chart(s)`
+    )
+    check(
+      'every §56 question has a visible answer that links to its detail',
+      dashboardShots.answerLinks >= 14 && dashboardText.includes('How much did we take today?'),
+      `${dashboardShots.answerLinks} answer links, ${dashboardShots.questions} question marks on screen`
+    )
+    const dashboardAudit = await auditLayout(page, 'phase 5 dashboard')
+    report.audits.push(dashboardAudit)
+    reportAudit(dashboardAudit)
+    await page.screenshot({ path: join(OUT, '18-dashboard.png'), fullPage: true })
+
+    // ── Analytics: the framework, driven from the screen ──────────────────
+    const analyticsRequests = await during(async () => {
+      await page.evaluate(() => {
+        window.location.hash = '#/analytics?measure=takings&dimension=category&period=month'
+      })
+      await new Promise((r) => setTimeout(r, 6000))
+    })
+    const analyticsText = await page.evaluate(
+      () => document.querySelector('#app-outlet')?.textContent ?? ''
+    )
+    check(
+      'the analytics screen asks the engine for the slice it shows',
+      analyticsRequests.some((url) => url.includes('analytics_query')) &&
+        analyticsRequests.some((url) => url.includes('analytics_catalog')),
+      `${analyticsRequests.filter((url) => url.includes('/rpc/')).length} RPC call(s)`
+    )
+    check(
+      'the analytics slice renders a chart and a table, not an error',
+      /Takings/.test(analyticsText) &&
+        !/could not be|not permitted/i.test(analyticsText) &&
+        (await page.evaluate(() => document.querySelectorAll('#app-outlet svg').length)) >= 1,
+      analyticsText.replace(/\s+/g, ' ').slice(0, 110)
+    )
+
+    // Changing the measure must re-run the engine — that is the framework
+    // being exercised, rather than a screen with hard-coded numbers.
+    const measureChanged = await during(async () => {
+      await page.evaluate(() => {
+        const select = document.querySelector('#app-outlet select')
+        if (!select) return
+        select.value = 'profit'
+        select.dispatchEvent(new Event('change', { bubbles: true }))
+      })
+      await new Promise((r) => setTimeout(r, 5000))
+    })
+    const afterMeasure = await page.evaluate(
+      () => document.querySelector('#app-outlet')?.textContent ?? ''
+    )
+    check(
+      'choosing another measure re-queries the engine for that measure',
+      measureChanged.some((url) => url.includes('analytics_query')) &&
+        /Profit/.test(afterMeasure),
+      `${measureChanged.filter((url) => url.includes('analytics_query')).length} analytics_query call(s)`
+    )
+    const analyticsAudit = await auditLayout(page, 'phase 5 analytics')
+    report.audits.push(analyticsAudit)
+    reportAudit(analyticsAudit)
+    await page.screenshot({ path: join(OUT, '19-analytics.png'), fullPage: true })
+
+    // ── Reports: filter, sort, and a real CSV download ────────────────────
+    const reportsRequests = await during(async () => {
+      await page.evaluate(() => {
+        window.location.hash = '#/reports?report=sales&period=month'
+      })
+      await new Promise((r) => setTimeout(r, 6000))
+    })
+    check(
+      'the reports screen runs the report on the server',
+      reportsRequests.some((url) => url.includes('report_catalog')) &&
+        reportsRequests.some((url) => url.includes('report_rows')),
+      `${reportsRequests.filter((url) => url.includes('/rpc/')).length} RPC call(s)`
+    )
+
+    // The row count the report itself reported — "1–25 of 431" — is the
+    // number the downloaded file has to match.
+    const reportedRows = await page.evaluate(() => {
+      const text = document.querySelector('#app-outlet')?.textContent ?? ''
+      const match = text.match(/of\s+([\d,]+)/)
+      return match ? Number(match[1].replace(/,/g, '')) : -1
+    })
+    const tableRows = await page.evaluate(
+      () => document.querySelectorAll('#app-outlet table tbody tr').length
+    )
+    const totalsShown = await page.evaluate(
+      () => /Total:/.test(document.querySelector('#app-outlet')?.textContent ?? '')
+    )
+    check(
+      'the report renders rows and the totals of the whole filtered set',
+      tableRows > 0 && reportedRows > 0 && totalsShown,
+      `${tableRows} row(s) on screen of ${reportedRows}, totals chip ${totalsShown ? 'present' : 'missing'}`
+    )
+
+    // Sorting is a server round trip, so the order is reproducible for a
+    // second reader (and for the printed copy).
+    const sortedRequests = await during(async () => {
+      await page.evaluate(() => {
+        const headers = [...document.querySelectorAll('#app-outlet th')]
+        const total = headers.find((th) => /Total/.test(th.textContent || ''))
+        total?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      })
+      await new Promise((r) => setTimeout(r, 4000))
+    })
+    check(
+      'clicking a column header re-sorts on the server',
+      sortedRequests.some((url) => url.includes('report_rows')),
+      `${sortedRequests.filter((url) => url.includes('report_rows')).length} report call(s)`
+    )
+
+    // The CSV download: the file is written to disk and counted.
+    const cdp = await page.createCDPSession()
+    await cdp.send('Browser.setDownloadBehavior', {
+      behavior: 'allow',
+      downloadPath: downloadDir,
+      eventsEnabled: true,
+    })
+    await page.evaluate(() => {
+      const buttons = [...document.querySelectorAll('#app-outlet button')]
+      // The button's text includes its icon ligature ("downloadCSV"), so the
+      // label is matched by its tail rather than by equality.
+      const csv = buttons.find((button) => {
+        const text = (button.textContent || '').trim()
+        return text.endsWith('CSV') && !text.includes('PDF')
+      })
+      csv?.click()
+    })
+
+    /** Wait for a completed .csv download; Chrome writes .crdownload first. */
+    async function waitForCsv(timeoutMs = 20000) {
+      const started = Date.now()
+      while (Date.now() - started < timeoutMs) {
+        const files = readdirSync(downloadDir).filter((name) => name.endsWith('.csv'))
+        if (files.length > 0) {
+          const file = join(downloadDir, files[files.length - 1])
+          const text = readFileSync(file, 'utf8')
+          if (text.trim().length > 0) return { file, text, name: files[files.length - 1] }
+        }
+        await new Promise((r) => setTimeout(r, 500))
+      }
+      return null
+    }
+
+    const downloaded = await waitForCsv()
+    check(
+      'clicking CSV really downloads the report as a file',
+      downloaded !== null,
+      downloaded ? downloaded.name : 'no file appeared in the download directory'
+    )
+
+    if (downloaded) {
+      const parsedRows = countCsvRows(downloaded.text)
+      check(
+        'the exported CSV re-imports to the row count the report reported',
+        parsedRows === reportedRows,
+        `${parsedRows} row(s) in the file vs ${reportedRows} reported by the report`
+      )
+      const header = downloaded.text.replace(/^\uFEFF/, '').split(/\r?\n/)[0] ?? ''
+      check(
+        'the file carries the columns the screen showed, in the same order',
+        header.startsWith('Invoice,') && header.includes('Total') && header.includes('Profit'),
+        header.slice(0, 90)
+      )
+    }
+
+    const reportsAudit = await auditLayout(page, 'phase 5 reports')
+    report.audits.push(reportsAudit)
+    reportAudit(reportsAudit)
+    await page.screenshot({ path: join(OUT, '20-reports.png'), fullPage: true })
+
   // Persist the raw audit for the record.
   report.finishedAt = new Date().toISOString()
   report.passCount = checks.filter((c) => c.pass).length
@@ -1036,6 +1328,12 @@ try {
   writeFileSync(join(OUT, 'audit.json'), JSON.stringify(report, null, 2))
 } finally {
   if (browser) await browser.close()
-  await cleanup()
+  // AUDIT_KEEP=1 leaves the shop behind so a failure can be inspected with
+  // SQL afterwards. Normal runs still delete everything they created.
+  if (process.env.AUDIT_KEEP === '1') {
+    console.log(`  (AUDIT_KEEP=1 — shops kept: ${members.map((m) => m.email).join(', ')})`)
+  } else {
+    await cleanup()
+  }
   await client.end()
 }

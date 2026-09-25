@@ -57,6 +57,21 @@ import type {
   SellableProduct,
   SalesFloor,
   StockMovementRow,
+  AnalyticsCatalog,
+  AnalyticsPoint,
+  AnalyticsRepository,
+  AnalyticsSlice,
+  AnalyticsTotals,
+  BiAnswer,
+  DashboardSummary,
+  AnalyticsQuery,
+  ReportColumn,
+  ReportColumnType,
+  ReportQuery,
+  ReportRepository,
+  ReportResult,
+  ReportRow,
+  ReportSummary,
   StockOperationResult,
   StockRepository,
   StockRow,
@@ -2240,6 +2255,395 @@ function createAudit(client: SupabaseClient): AuditRepository {
   }
 }
 
+// ── Analytics and reporting (Phase 5) ─────────────────────────────────────
+//
+// Both RPCs return one jsonb document; the conversion below turns it into the
+// contract types. Two rules it keeps:
+//
+//   * money arrives as minor units. The server sends `numeric`, which crosses
+//     PostgREST as a string, so every money field is converted here and never
+//     by a screen.
+//   * a slice knows whether its own measure is money (`money`), because the
+//     repository cannot: "Takings by day" and "Orders by day" are the same
+//     shape with different units, and guessing from the numbers is how a
+//     count ends up rendered as ৳0.42.
+
+interface RawPoint {
+  key?: unknown
+  label?: unknown
+  value?: unknown
+  secondary?: unknown
+  prev?: unknown
+  prev_secondary?: unknown
+}
+
+interface RawSlice {
+  dimension?: unknown
+  measure?: unknown
+  period?: unknown
+  label?: unknown
+  timezone?: unknown
+  currency?: unknown
+  from?: unknown
+  to?: unknown
+  previous?: { from?: unknown; to?: unknown } | null
+  series?: unknown
+  totals?: Record<string, unknown> | null
+  answers?: unknown
+}
+
+function str(value: unknown, fallback = ''): string {
+  return typeof value === 'string' ? value : value === null || value === undefined ? fallback : String(value)
+}
+
+function num(value: unknown, fallback = 0): number {
+  if (value === null || value === undefined || value === '') return fallback
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function toPoints(raw: unknown, money: boolean): AnalyticsPoint[] {
+  if (!Array.isArray(raw)) return []
+  return raw.map((entry) => {
+    const point = (entry ?? {}) as RawPoint
+    // Money stays in minor units end to end: the RPC sends `numeric`, this
+    // converts once, and nothing downstream ever multiplies by 100 again.
+    const scale = (value: unknown): number =>
+      money ? (toMinor(value as string) as number) : num(value)
+    return {
+      key: str(point.key),
+      label: str(point.label),
+      value: scale(point.value),
+      secondary: scale(point.secondary),
+      prev: scale(point.prev),
+      prevSecondary: scale(point.prev_secondary),
+    }
+  })
+}
+
+function toAnswers(raw: unknown): BiAnswer[] {
+  if (!Array.isArray(raw)) return []
+  return raw.map((entry) => {
+    const item = (entry ?? {}) as Record<string, unknown>
+    const kind = str(item.kind, 'text')
+    const resolved = (kind === 'money' || kind === 'count' || kind === 'qty' ? kind : 'text') as BiAnswer['kind']
+    const raw = str(item.value)
+    return {
+      id: str(item.id),
+      question: str(item.question),
+      kind: resolved,
+      value: raw,
+      // Parsed here, once: a screen that did `Number(answer.value)` would be
+      // re-deriving money in the UI layer.
+      amount: resolved === 'money' && raw !== '' ? toMinor(raw) : null,
+      count: resolved === 'count' || resolved === 'qty' ? num(raw) : null,
+      note: str(item.note),
+      link: str(item.link),
+      icon: str(item.icon, 'insights'),
+    }
+  })
+}
+
+function toSlice(raw: RawSlice, money: boolean): AnalyticsSlice {
+  const totals = raw.totals ?? null
+  const scale = (value: unknown): number =>
+    value === null || value === undefined ? 0 : money ? (toMinor(value as string) as number) : num(value)
+
+  const analyticsTotals: AnalyticsTotals | null = totals
+    ? {
+        value: scale(totals.value),
+        secondary: scale(totals.secondary),
+        prev: totals.prev === null || totals.prev === undefined ? null : scale(totals.prev),
+        prevSecondary:
+          totals.prev_secondary === null || totals.prev_secondary === undefined
+            ? null
+            : scale(totals.prev_secondary),
+        deltaPct: totals.delta_pct === null || totals.delta_pct === undefined ? null : num(totals.delta_pct),
+      }
+    : null
+
+  return {
+    dimension: str(raw.dimension),
+    measure: str(raw.measure),
+    period: str(raw.period),
+    money,
+    label: str(raw.label),
+    timezone: str(raw.timezone, 'UTC'),
+    currency: str(raw.currency, 'BDT'),
+    from: str(raw.from),
+    to: str(raw.to),
+    previousFrom: str(raw.previous?.from),
+    previousTo: str(raw.previous?.to),
+    series: toPoints(raw.series, money),
+    totals: analyticsTotals,
+    answers: toAnswers(raw.answers),
+  }
+}
+
+/** Which measures are money, from the catalogue the server owns. */
+function moneyMeasures(catalog: AnalyticsCatalog): Set<string> {
+  return new Set(catalog.measures.filter((measure) => measure.money).map((measure) => measure.id))
+}
+
+function createAnalytics(client: SupabaseClient): AnalyticsRepository {
+  /** Cached for the session: the catalogue is part of the schema, not the data. */
+  let catalogCache: AnalyticsCatalog | null = null
+
+  async function catalog(): Promise<AnalyticsCatalog> {
+    if (catalogCache) return catalogCache
+    const data = unwrap(await client.rpc('analytics_catalog'))
+    const raw = (data ?? {}) as Record<string, unknown>
+    const parsed: AnalyticsCatalog = {
+      measures: Array.isArray(raw.measures)
+        ? raw.measures.map((entry) => {
+            const measure = (entry ?? {}) as Record<string, unknown>
+            return {
+              id: str(measure.id),
+              label: str(measure.label),
+              money: measure.money === true,
+              unit: str(measure.unit, 'money'),
+              description: str(measure.description),
+            }
+          })
+        : [],
+      dimensions: Array.isArray(raw.dimensions)
+        ? raw.dimensions.map((entry) => {
+            const dimension = (entry ?? {}) as Record<string, unknown>
+            return {
+              id: str(dimension.id),
+              label: str(dimension.label),
+              group: str(dimension.group, 'Other'),
+              kind: str(dimension.kind, 'entity') === 'time' ? ('time' as const) : ('entity' as const),
+            }
+          })
+        : [],
+      periods: Array.isArray(raw.periods)
+        ? raw.periods.map((entry) => {
+            const period = (entry ?? {}) as Record<string, unknown>
+            return { id: str(period.id), label: str(period.label) }
+          })
+        : [],
+      combos: Array.isArray(raw.combos)
+        ? raw.combos.map((entry) => {
+            const combo = (entry ?? {}) as Record<string, unknown>
+            return { measure: str(combo.measure), dimension: str(combo.dimension) }
+          })
+        : [],
+    }
+    catalogCache = parsed
+    return parsed
+  }
+
+  return {
+    catalog,
+
+    async dashboard({ branchId, day }): Promise<DashboardSummary> {
+      const data = unwrap(
+        await client.rpc('dashboard_summary', { p_branch_id: branchId, p_day: day ?? null })
+      )
+      const raw = (data ?? {}) as Record<string, unknown>
+      // No catalogue call here: the trend and ranking slots this function
+      // reads are always money measures, and asking the server what it had
+      // already told us would turn the dashboard's one round trip into two.
+      // (The analytics screen still reads the catalogue, where the pickers
+      // genuinely need it.)
+
+      const salesByHour = Array.isArray(raw.sales_by_hour)
+        ? raw.sales_by_hour.map((entry) => {
+            const row = (entry ?? {}) as Record<string, unknown>
+            return { hour: num(row.hour), total: toMinor(row.total as string) }
+          })
+        : []
+      const paymentMix = Array.isArray(raw.payment_mix)
+        ? raw.payment_mix.map((entry) => {
+            const row = (entry ?? {}) as Record<string, unknown>
+            return { method: str(row.method), total: toMinor(row.total as string) }
+          })
+        : []
+      const topProducts = Array.isArray(raw.top_products)
+        ? raw.top_products.map((entry) => {
+            const row = (entry ?? {}) as Record<string, unknown>
+            return { name: str(row.name), qty: num(row.qty), revenue: toMinor(row.revenue as string) }
+          })
+        : []
+
+      const daySlice = toSlice((raw.trend_days ?? {}) as RawSlice, true)
+      const profitSlice = toSlice((raw.trend_profit ?? {}) as RawSlice, true)
+
+      return {
+        date: str(raw.date),
+        timezone: str(raw.timezone, 'UTC'),
+        currency: str(raw.currency, 'BDT'),
+        takings: toMinor(raw.today_sales as string),
+        orders: num(raw.order_count),
+        grossProfit: toMinor(raw.gross_profit as string),
+        itemsSold: num(raw.items_sold),
+        discountGiven: toMinor(raw.discount_given as string),
+        taxCollected: toMinor(raw.tax_collected as string),
+        expenses: toMinor(raw.today_expenses as string),
+        refunds: toMinor(raw.refunds_today as string),
+        heldSales: num(raw.held_sales),
+        pendingPayments: toMinor(raw.pending_payments as string),
+        customerCount: num(raw.customer_count),
+        outOfStock: num(raw.out_of_stock),
+        lowStock: num(raw.low_stock),
+        stockValue: toMinor(raw.stock_value as string),
+        expectedCash: toMinor(raw.expected_cash as string),
+        salesByHour,
+        paymentMix,
+        topProducts,
+        answers: toAnswers(raw.answers),
+        trendDays: daySlice,
+        trendProfit: profitSlice,
+        trendMonths: toSlice((raw.trend_months ?? {}) as RawSlice, true),
+        rankProducts: toSlice((raw.rank_products ?? {}) as RawSlice, true),
+        rankCategories: toSlice((raw.rank_categories ?? {}) as RawSlice, true),
+        generatedAt: str(raw.generated_at),
+      }
+    },
+
+    async slice(query: AnalyticsQuery): Promise<AnalyticsSlice> {
+      const catalogValue = await catalog()
+      const money = moneyMeasures(catalogValue)
+      const data = unwrap(
+        await client.rpc('analytics_query', {
+          p_branch_id: query.branchId,
+          p_dimension: query.dimension,
+          p_measure: query.measure,
+          p_period: query.period ?? 'month',
+          p_from: dateOrNull(query.from),
+          p_to: dateOrNull(query.to),
+          p_filters: query.filters ?? {},
+          p_limit: query.limit ?? 200,
+        })
+      )
+      return toSlice((data ?? {}) as RawSlice, money.has(query.measure))
+    },
+
+    async answers({ branchId, day }: { branchId: string; day?: string }): Promise<BiAnswer[]> {
+      const data = unwrap(
+        await client.rpc('bi_answers', { p_branch_id: branchId, p_day: day ?? null })
+      )
+      return toAnswers(data)
+    },
+  }
+}
+
+/**
+ * `''` and whitespace are not dates. PostgREST parses the argument before the
+ * function sees it, so an empty string is a 400 rather than a NULL — the
+ * boundary is where that has to be decided.
+ */
+function dateOrNull(value?: string): string | null {
+  const trimmed = value?.trim()
+  return trimmed ? trimmed : null
+}
+
+function createReports(client: SupabaseClient): ReportRepository {
+  return {
+    async catalog(): Promise<ReportSummary[]> {
+      const data = unwrap(await client.rpc('report_catalog'))
+      if (!Array.isArray(data)) return []
+      return data.map((entry) => {
+        const report = (entry ?? {}) as Record<string, unknown>
+        return {
+          key: str(report.key),
+          title: str(report.title),
+          group: str(report.group, 'Other'),
+          description: str(report.description),
+          columns: toColumns(report.columns),
+        }
+      })
+    },
+
+    async run(query: ReportQuery): Promise<ReportResult> {
+      const data = unwrap(
+        await client.rpc('report_rows', {
+          p_report: query.report,
+          p_branch_id: query.branchId,
+          p_period: query.period ?? 'month',
+          p_from: dateOrNull(query.from),
+          p_to: dateOrNull(query.to),
+          p_search: query.search ?? null,
+          p_sort: query.sort ?? null,
+          p_dir: query.dir ?? 'desc',
+          p_limit: query.limit ?? 25,
+          p_offset: query.offset ?? 0,
+          p_filters: query.filters ?? {},
+        })
+      )
+      const raw = (data ?? {}) as Record<string, unknown>
+      const columns = toColumns(raw.columns)
+      const moneyKeys = new Set(
+        columns.filter((column) => column.type === 'money').map((column) => column.key)
+      )
+
+      const rows: ReportRow[] = Array.isArray(raw.rows)
+        ? raw.rows.map((entry) => {
+            const row = (entry ?? {}) as Record<string, unknown>
+            const converted: ReportRow = {}
+            for (const column of columns) {
+              const value = row[column.key]
+              if (value === undefined) continue
+              if (value === null) {
+                converted[column.key] = null
+              } else if (column.type === 'money') {
+                converted[column.key] = toMinor(value as string)
+              } else if (column.type === 'qty' || column.type === 'int' || column.type === 'percent') {
+                converted[column.key] = num(value)
+              } else {
+                converted[column.key] = str(value)
+              }
+            }
+            return converted
+          })
+        : []
+
+      const totalsRaw = (raw.totals ?? {}) as Record<string, unknown>
+      const totals: Record<string, number> = {}
+      for (const [key, value] of Object.entries(totalsRaw)) {
+        totals[key] = moneyKeys.has(key) ? (toMinor(value as string) as number) : num(value)
+      }
+
+      return {
+        key: str(raw.key, query.report),
+        title: str(raw.title),
+        group: str(raw.group, 'Other'),
+        description: str(raw.description),
+        columns,
+        rows,
+        totals,
+        totalRows: num(raw.total_rows),
+        offset: num(raw.offset),
+        limit: num(raw.limit, 25),
+        sort: str(raw.sort),
+        dir: str(raw.dir, 'desc') === 'asc' ? 'asc' : 'desc',
+        search: raw.search === null || raw.search === undefined ? null : str(raw.search),
+        period: str(raw.period, 'month'),
+        label: str(raw.label),
+        from: str(raw.from),
+        to: str(raw.to),
+        currency: str(raw.currency, 'BDT'),
+        generatedAt: str(raw.generated_at),
+      }
+    },
+  }
+}
+
+function toColumns(raw: unknown): ReportColumn[] {
+  if (!Array.isArray(raw)) return []
+  const types: ReportColumnType[] = ['text', 'money', 'qty', 'int', 'percent', 'date', 'status']
+  return raw.map((entry) => {
+    const column = (entry ?? {}) as Record<string, unknown>
+    const type = str(column.type, 'text') as ReportColumnType
+    const resolved = types.includes(type) ? type : 'text'
+    const align = str(column.align) === 'right' ? ('right' as const) : ('left' as const)
+    return align === 'right'
+      ? { key: str(column.key), label: str(column.label), type: resolved, align }
+      : { key: str(column.key), label: str(column.label), type: resolved }
+  })
+}
+
 // ── Composition ───────────────────────────────────────────────────────────
 
 /**
@@ -2266,6 +2670,8 @@ export function createSupabaseRepositories(
     expenses: createExpenses(client, organizationId),
     returns: createReturns(client),
     audit: createAudit(client),
+    analytics: createAnalytics(client),
+    reports: createReports(client),
   }
 }
 

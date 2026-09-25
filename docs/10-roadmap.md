@@ -240,26 +240,101 @@ first green CI run in the project's history is `0316cb1`.
 
 ---
 
-## Phase 5 — Analytics
+## Phase 5 — Analytics — ✅ complete 2026-09-25
 
 ```
-  □ Migration 016: reporting views + dashboard_summary
-  □ Dashboard: 8 default widgets, single aggregate call     §21, doc 09 #10
-  □ Charts: sales today/week/month, profit trend, top
-    products, top categories, payment mix, stock value
-  □ Analytics framework: dimensions × measures × filters    §22
-  □ Report framework: filter, search, sort, paginate        §23
-  □ Export: CSV, print, PDF
-  □ Reports: sales, profit, inventory, product performance,
-    customer, supplier, expense, payment, cashier
-  □ BI questions from §56 answerable from the dashboard
+  ✅ Migration 016: reporting views + dashboard_summary
+  ✅ Dashboard: 8 default widgets, single aggregate call     §21, doc 09 #10
+  ✅ Charts: sales today/week/month, profit trend, top
+     products, top categories, payment mix, stock value
+  ✅ Analytics framework: dimensions × measures × filters    §22
+  ✅ Report framework: filter, search, sort, paginate        §23
+  ✅ Export: CSV, print, PDF
+  ✅ Reports: sales, profit, inventory, product performance,
+     customer, supplier, expense, payment, cashier, plus
+     reorder list and stock movements
+  ✅ BI questions from §56 answerable from the dashboard
 ```
 
-**Acceptance:**
-- Dashboard loads in one round trip — verified in the network tab.
-- Every question in §56 has a visible answer without leaving the dashboard
-  or analytics screens.
-- A report exported to CSV re-imports to identical row counts.
+**One engine, not eight screens of SQL.** 028 is the phase's core: a
+`measure × dimension` matrix over a handful of families (sales, refunds,
+expenses, purchases), compiled to SQL by `app.analytics_sql` and run by
+`app.analytics_run`, which returns one period's series *and* the previous
+period's point-for-point comparison. The dashboard (`public.dashboard_summary`)
+keeps its single call and its eight widgets — 016's body now lives in
+`app.dashboard_widgets` — and the same call also carries thirty days of takings
+and profit, twelve months, the top products and categories, and the answers.
+The Android client that arrives in Phase 8 calls these same functions; nothing
+in the analytics layer is written twice.
+
+Every slice reconciles: Σ by category = Σ by hour = Σ by day = Σ of
+`sales.total`, and an order-level discount is spread across its lines in
+proportion to line totals so item reports still sum to the bill (≤ 1 paisa per
+sale). Money crosses the wire as minor units, always.
+
+**The screens.** `/analytics` is the framework's face — the pickers are built
+from `analytics_catalog()`, so an unsupported combination is never offered.
+`/reports` runs one of eleven reports server-side: server-side sort (with a
+whitelist, so a hostile sort key falls back rather than reaching SQL), search,
+paging, totals for the whole filtered set, and CSV / print / PDF export from
+the same rows the screen shows.
+
+**§56 — the questions.** The specification's §56 list is not in this repo; the
+questions are derived from the phase's own scope ("BI questions answerable from
+the dashboard") and answered by `app.bi_answers_internal` in one payload. Each
+answer carries a value, a plain-language note, and a link to the screen where
+it can be acted on:
+
+| Question | Answer key | Detail |
+|---|---|---|
+| How much did we take today? | `takings_today` | `/sales` |
+| Are we in profit today? | `profit_today` | `/reports?report=profit` |
+| What are the best sellers this month? | `top_products` | `/reports?report=product_performance` |
+| What sells by category this month? | `category_mix` | `/analytics?dimension=category&measure=takings` |
+| How are customers paying today? | `payment_mix` | `/analytics?dimension=payment_method&measure=takings` |
+| How much cash is in the drawer? | `cash_in_drawer` | `/register` |
+| Who owes us money? | `receivable` | `/customers` |
+| What do we owe suppliers? | `payable` | `/suppliers` |
+| What needs reordering? | `reorder` | `/reports?report=low_stock` |
+| What did we spend today? | `spend_today` | `/expenses` |
+| When is the shop busiest? | `peak_hour` | `/analytics?dimension=hour&measure=takings&period=day` |
+| How much did we discount this month? | `discount_month` | `/reports?report=sales` |
+| What did we refund today? | `refunds_today` | `/sales` |
+| Anything parked? | `held_sales` | `/sales?status=HELD` |
+
+**Acceptance — all three criteria verified in a real browser at phone size
+(`tools/mobile-audit.mjs`, 164 checks, 0 failures):**
+
+- The dashboard loads in **one round trip**: the audit records every request
+  the page makes while the dashboard renders and asserts exactly one
+  `dashboard_summary` call with no per-widget follow-ups.
+- Every §56 question is **visible without leaving the dashboard**: fourteen
+  answer cards render with their values, notes and links, drawn from the same
+  payload.
+- A report exported to **CSV re-imports to identical row counts**: the audit
+  clicks CSV for real, waits for the download, parses the file with the same
+  quote-aware counter the app uses, and compares the data rows with the count
+  the report itself reported — plus the columns match the screen, in order.
+
+**Three bugs only a real phone found** (all fixed in this phase, all now
+guarded by checks):
+
+1. `default current_date` never runs when a caller passes `NULL`, and the
+   screens pass NULL on purpose (the browser cannot know the branch's
+   timezone). Every day-scoped statement inside the dashboard compared against
+   NULL, and the peak-hour answer divided by zero: the dashboard did not load
+   at all. 030 resolves the day once, in `app.effective_day`.
+2. A blank custom date was sent as `''`, which PostgREST rejects before the
+   function runs — the reports screen showed nothing. The views now omit blank
+   dates and the repository normalises at the boundary.
+3. Both new screens rendered their skeleton *after* the data arrived — the
+   loading flag was cleared in `finally`, too late for the render — so a
+   finished report stayed a skeleton. Reported, not silently wrong: the audit
+   failed on an empty table, which is exactly what it is for.
+
+Also caught by the audit: the period chips and paging controls were under the
+40px tap floor, and the exported-toast's close button was 20×30. All raised to
+40px.
 
 ---
 

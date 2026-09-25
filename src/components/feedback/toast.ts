@@ -65,7 +65,8 @@ export function toast(message: string, options: ToastOptions = {}): () => void {
   const dismiss = h('button', {
     type: 'button',
     class:
-      'shrink-0 rounded p-0.5 text-content-subtle hover:text-content ' +
+      // A 40px hit area: the close affordance is thumb-operated on a phone.
+      'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded text-content-subtle hover:text-content ' +
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
     'aria-label': 'Dismiss',
     onclick: close,
