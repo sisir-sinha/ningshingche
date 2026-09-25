@@ -36,15 +36,23 @@ import { openReceipt } from './receipt'
 import { refreshSalesFloor, salesFloor, salesFloorStore } from '../../app/state/sales-floor'
 import { activeOrganization } from '../../app/state/session'
 import { getRepositories } from '../../app/data'
-import { panelLines, pluginPanelsHost, posFieldValues, printableNotes } from '../../app/plugin-slots'
+import {
+  panelLines,
+  pluginPanelsHost,
+  posFieldValues,
+  printableNotes,
+  resolveScan,
+} from '../../app/plugin-slots'
 import type { PluginRegistry } from '../../shared/registry/plugin-registry'
 import type { EventBus } from '../../shared/bus/event-bus'
 import type { SalesFloor, SellableProduct } from '../../shared/repositories/contracts'
+import type { ScanMatch } from '../../shared/registry/plugin-types'
 import type { SaleRow } from '../../shared/types/records'
 import {
   formatMoney,
   formatQty,
   milli,
+  minor,
   minorToNumber,
   parseMilli,
   type Milli,
@@ -200,6 +208,38 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
         searchField.value = ''
         return
       }
+
+      // The shop's barcodes did not know this code. An add-on might: a scale
+      // label carries a PLU inside it, a prepaid card carries its own number.
+      // The plugin decodes, and the *core* looks the result up in the same
+      // barcode table — so an add-on can never ring up something the shop does
+      // not sell (docs/11 §Scan resolvers).
+      const recognised = await resolveScan(registry, trimmed, {
+        organizationId: organization?.organization_id ?? '',
+        branchId: floor!.branchId,
+        warehouseId: floor!.warehouseId,
+        currency,
+      })
+      if (recognised) {
+        const product = await repos.catalog.findByBarcode(
+          recognised.match.lookupCode,
+          floor!.warehouseId
+        )
+        if (product) {
+          addToCart(product, recognised.match)
+          toastSuccess(recognised.match.note ?? `${recognised.label} · ${recognised.match.lookupCode}`)
+          searchField.value = ''
+          void runSearch('')
+          searchField.focus()
+          return
+        }
+        // The plugin understood the code and the shop cannot sell it: say so
+        // plainly rather than showing an empty search result.
+        statusLine.textContent =
+          `${recognised.label} read that as ${recognised.match.lookupCode}, ` +
+          'but no product in this shop carries that code.'
+        return
+      }
     }
 
     try {
@@ -225,9 +265,24 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
     searchField.focus()
   }
 
-  function addToCart(product: SellableProduct): void {
+  /**
+   * Adds a product to the cart. `scan` is present when the line came from a code
+   * an add-on recognised: it carries the weighed quantity and, when the label
+   * printed the price, the price to charge — the price the shop's own scale told
+   * the customer it would be.
+   */
+  function addToCart(product: SellableProduct, scan?: ScanMatch): void {
     const step: Milli = product.decimalQuantity ? milli(250) : milli(1000)
-    cart.add(toCartLine(product), step)
+    const line =
+      scan && scan.unitPriceMinor !== undefined
+        ? { ...toCartLine(product), unitPrice: minor(scan.unitPriceMinor) }
+        : toCartLine(product)
+    if (scan && scan.quantity !== undefined) {
+      // A weighed line starts at the weight on the label, not at the step.
+      cart.add(line, milli(Math.round(scan.quantity * 1000)))
+      return
+    }
+    cart.add(line, step)
   }
 
   function renderResults(): void {

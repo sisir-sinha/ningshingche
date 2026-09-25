@@ -33,6 +33,7 @@ import type {
   ProductField,
   ReportDefinition,
   RouteDefinition,
+  ScanResolverDefinition,
   SettingsSectionDefinition,
   ShippedPlugin,
   ShortcutDefinition,
@@ -195,6 +196,7 @@ export class PluginRegistry {
   readonly settingsSections = new Registry<SettingsSectionDefinition>()
   readonly shortcuts = new Registry<ShortcutDefinition>()
   readonly widgets = new Registry<DashboardWidgetDefinition>()
+  readonly scanResolvers = new Registry<ScanResolverDefinition>()
   readonly posPanels = new Registry<PanelDefinition>()
   readonly saleTabs = new Registry<TabDefinition>()
   readonly formSections = new Registry<FormSectionDefinition>()
@@ -380,6 +382,7 @@ export class PluginRegistry {
       this.settingsSections,
       this.shortcuts,
       this.widgets,
+      this.scanResolvers,
       this.posPanels,
       this.saleTabs,
       this.formSections,
@@ -417,6 +420,8 @@ export class PluginRegistry {
         this.shortcuts.add({ ...shortcut, source: pluginId }, pluginId),
       registerDashboardWidget: (widget) =>
         this.widgets.add({ ...widget, source: pluginId }, pluginId),
+      registerScanResolver: (resolver) =>
+        this.scanResolvers.add({ ...resolver, source: pluginId }, pluginId),
       registerPOSPanel: (panel) => this.posPanels.add({ ...panel, source: pluginId }, pluginId),
       registerSaleTab: (tab) => this.saleTabs.add({ ...tab, source: pluginId }, pluginId),
       registerFormSection: (section) =>

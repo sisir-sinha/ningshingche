@@ -317,6 +317,55 @@ export interface FormSectionDefinition {
 }
 
 /**
+ * A code the till scanned that the shop's own barcodes did not match.
+ *
+ * The till resolves a scan in three steps, and this is the middle one: the
+ * shop's barcode table first (authoritative, and offline-cached), then the
+ * plugins, then an ordinary search. A plugin in the middle is how a scale label
+ * printed by the shop's own weighing machine — `2212340007504`, which is not a
+ * product barcode and never will be — becomes a sale.
+ *
+ * A resolver **decodes and nothing else**: it answers with a code the core can
+ * look up, not with a product. A plugin cannot invent a product the shop does
+ * not sell, cannot price something the catalogue does not price, and needs no
+ * access to the catalogue to be useful. `Gift Cards` turns a card number into
+ * its own code, a weighing scale turns a label into its PLU.
+ */
+export interface ScanContext {
+  organizationId: string
+  branchId: string | null
+  warehouseId: string
+  currency: string
+}
+
+/** What a resolver decided a code means. */
+export interface ScanMatch {
+  /** The code the core should look up — usually a PLU. */
+  lookupCode: string
+  /** Sale units: `2.35` for a 2.350 kg label. Defaults to one. */
+  quantity?: number
+  /** Minor units per unit, when the label itself carried the price. */
+  unitPriceMinor?: number
+  /** One line for the cashier, e.g. `Scale label · 2.350 kg`. */
+  note?: string
+}
+
+export interface ScanResolverDefinition {
+  id: string
+  /** Shown to the cashier when the code is recognised but cannot be sold. */
+  label: string
+  permission?: string
+  /**
+   * `null` means “not mine”. A resolver is asked on every scan that misses the
+   * barcode table, so it must answer quickly and must not guess: a wrong answer
+   * rings up the wrong product, which is worse than no answer at all.
+   */
+  resolve: (code: string, context: ScanContext) => ScanMatch | null | Promise<ScanMatch | null>
+  /** Set by the host. Never author this. */
+  source?: string
+}
+
+/**
  * One line of the till's cart, as a plugin may see it.
  *
  * A plugin that decorates a sale needs to know what is *on* the sale. Without
@@ -420,6 +469,7 @@ export interface PluginAPI {
   registerSettingsSection(section: SettingsSectionDefinition): void
   registerShortcut(shortcut: ShortcutDefinition): void
   registerDashboardWidget(widget: DashboardWidgetDefinition): void
+  registerScanResolver(resolver: ScanResolverDefinition): void
   registerPOSPanel(panel: PanelDefinition): void
   registerSaleTab(tab: TabDefinition): void
   registerFormSection(section: FormSectionDefinition): void

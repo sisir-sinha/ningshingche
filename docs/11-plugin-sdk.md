@@ -189,6 +189,48 @@ const myPlugin: Plugin = {
 export default myPlugin
 ```
 
+### Scan resolvers
+
+The till resolves a scanned code in three steps, in this order: **the shop's own
+barcode table** (authoritative, and cached for offline), **your resolver**, then
+an ordinary search. Your resolver is asked only about codes step one did not
+recognise, so an add-on can never shadow a real barcode — and it hands back a
+*code*, never a product, so an add-on can never ring up something the shop does
+not sell. The core does the lookup, the pricing and the arithmetic.
+
+```ts
+api.registerScanResolver({
+  id: 'weight-scale.scan',
+  label: 'Weighing scale',
+  permission: 'weight-scale.sell',     // a cashier without it is never asked
+  // Decode only. Ask yourself “is this mine?” and answer `null` when it is not —
+  // you are asked about every code the shop's barcodes did not know.
+  resolve: (code) => {
+    const label = parseScaleLabel(code)
+    if (!label) return null
+    return {
+      lookupCode: label.plu,      // looked up in the shop's barcode table
+      quantity: label.kg,         // in sale units: the line starts at this weight
+      unitPriceMinor: label.price, // only if the label itself printed a price
+      note: `Scale label · ${label.kg.toFixed(3)} kg`,  // spoken to the cashier
+    }
+  },
+})
+```
+
+Why a resolver cannot just return a product: prices, tax, stock and the receipt
+are decided by the server from an identifier, and the offline till adds lines
+from its cached catalogue. A plugin that returned a product object would be
+selling at a price the shop never agreed to, and it would do it differently on
+every device. The decode-only rule keeps one pricing path — the same one every
+other line in the cart uses.
+
+The first resolver that claims the code wins, in load order. A resolver that
+throws is logged and skipped: a sale must not fail because an add-on misbehaved.
+And a decode the host cannot trust — an empty `lookupCode`, a `quantity` that is
+not a positive finite number, a `unitPriceMinor` that is not a whole, non-negative
+number of minor units — is dropped rather than guessed at.
+
 ### Reports
 
 A report is **data, not a screen**: `run(context)` returns columns and rows, and

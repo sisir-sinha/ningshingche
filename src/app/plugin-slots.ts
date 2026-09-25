@@ -34,6 +34,8 @@ import type { ReportResult, ReportRow } from '../shared/repositories/contracts'
 import type { PluginRegistry } from '../shared/registry/plugin-registry'
 import type {
   FormSectionDefinition,
+  ScanContext,
+  ScanMatch,
   ReportDefinition,
   ReportRunContext,
   DashboardWidgetDefinition,
@@ -551,4 +553,80 @@ export async function runPluginReport(
     currency: result?.currency ?? options.currency,
     generatedAt: new Date().toISOString(),
   }
+}
+
+// ── Scan resolvers ────────────────────────────────────────────────────────
+
+/** A code a plugin recognised, with the plugin that recognised it. */
+export interface ResolvedScan {
+  source: string
+  /** The plugin's own label, for the sentence a cashier reads. */
+  label: string
+  match: ScanMatch
+}
+
+/**
+ * Ask the plugins what a scanned code means — the middle step of the till's
+ * three-step resolution (barcode table, plugins, search).
+ *
+ * The order matters in both directions. A plugin is only asked about a code the
+ * shop's **own barcodes did not match**, so a plugin can never shadow a real
+ * barcode; and a plugin only ever hands back a *code*, so a plugin can never
+ * invent a product the shop does not sell. What a plugin adds is the ability to
+ * read a code the core has never seen — a scale label, a prepaid card.
+ *
+ * The first readable resolver that claims the code wins, in registry order
+ * (load order, so a shop's arrangement is stable). A resolver that throws is
+ * logged and skipped: the till must not lose a sale because an add-on
+ * misbehaved.
+ */
+export async function resolveScan(
+  registry: PluginRegistry,
+  code: string,
+  context: ScanContext
+): Promise<ResolvedScan | null> {
+  const trimmed = code.trim()
+  if (trimmed === '') return null
+
+  for (const resolver of visible(registry.scanResolvers.items)) {
+    let match: ScanMatch | null
+    try {
+      match = await resolver.resolve(trimmed, context)
+    } catch (error) {
+      console.error(`[plugin-host] "${resolver.source ?? '?'}" could not read a scan`, error)
+      continue
+    }
+    const clean = containScanMatch(match)
+    if (clean) return { source: resolver.source ?? 'plugin', label: resolver.label, match: clean }
+  }
+  return null
+}
+
+/**
+ * A match the cart can be trusted with, or null.
+ *
+ * Same rule as every other slot: the host contains what a third party might get
+ * wrong. A lookup code that is not a non-empty string, a quantity that is not a
+ * positive finite number and a price that is not a non-negative whole number of
+ * minor units are all dropped — a line that cannot be added is better than a
+ * line added wrongly.
+ */
+export function containScanMatch(match: ScanMatch | null | undefined): ScanMatch | null {
+  if (!match) return null
+  const lookupCode = typeof match.lookupCode === 'string' ? match.lookupCode.trim() : ''
+  if (lookupCode === '') return null
+
+  const clean: ScanMatch = { lookupCode }
+  if (typeof match.quantity === 'number' && Number.isFinite(match.quantity) && match.quantity > 0) {
+    clean.quantity = match.quantity
+  }
+  if (
+    typeof match.unitPriceMinor === 'number' &&
+    Number.isInteger(match.unitPriceMinor) &&
+    match.unitPriceMinor >= 0
+  ) {
+    clean.unitPriceMinor = match.unitPriceMinor
+  }
+  if (typeof match.note === 'string' && match.note.trim() !== '') clean.note = match.note.trim()
+  return clean
 }

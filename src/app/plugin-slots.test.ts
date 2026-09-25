@@ -14,18 +14,20 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { PluginRegistry } from '../shared/registry/plugin-registry'
 import { EventBus } from '../shared/bus'
 import {
+  containScanMatch,
   isPluginReportKey,
   panelLines,
   pluginReportKey,
   pluginReports,
   posFieldValues,
   printableNotes,
+  resolveScan,
   runPluginReport,
 } from './plugin-slots'
 import { EMPTY_SESSION, sessionStore } from './state/session'
 import { milli, minor } from '../shared/domain/money'
 import type { CartLine } from '../shared/domain/cart'
-import type { Plugin, PanelLine } from '../shared/registry/plugin-types'
+import type { Plugin, PanelLine, ScanContext } from '../shared/registry/plugin-types'
 
 function registryWith(plugin: Plugin): PluginRegistry {
   const bus = new EventBus()
@@ -419,5 +421,156 @@ describe('running one', () => {
     await expect(runPluginReport(report, context, { currency: 'BDT' })).rejects.toThrow(
       'the batch table is not there'
     )
+  })
+})
+
+// ── Scan resolvers ────────────────────────────────────────────────────────
+// The middle step of the till's three-step scan resolution: barcode table,
+// plugins, search. A plugin here is what turns a scale label — a code the shop
+// will never have in its barcode table — into a sale.
+
+const SCAN_CONTEXT: ScanContext = {
+  organizationId: 'org-1',
+  branchId: 'b-1',
+  warehouseId: 'w-1',
+  currency: 'BDT',
+}
+
+/** A plugin whose resolver answers for codes starting with `22`. */
+function resolverPlugin(
+  id: string,
+  resolve: Plugin['register'] extends never ? never : (code: string, context: ScanContext) => unknown,
+  options: { permission?: string; label?: string } = {}
+): Plugin {
+  return {
+    id,
+    name: id,
+    version: '1.0.0',
+    register: (api) => {
+      api.registerScanResolver({
+        id: `${id}.scan`,
+        label: options.label ?? 'Weighing scale',
+        ...(options.permission ? { permission: options.permission } : {}),
+        resolve: (code, context) => resolve(code, context) as never,
+      })
+    },
+  }
+}
+
+describe('scan resolvers', () => {
+  it('gives the first plugin that claims a code the answer, and nobody else', async () => {
+    const asked: string[] = []
+    const first = new PluginRegistry(new EventBus(), {
+      settings: () => ({ get: <T,>(_k: string, fallback: T): T => fallback, all: () => ({}), set: async () => undefined }),
+      data: () => ({ get: async <T,>(_k: string, fallback: T): Promise<T> => fallback, set: async () => undefined, remove: async () => false, keys: async () => [] }),
+      db: () => ({ products: async () => [], rpc: async <T,>(): Promise<T> => null as T }),
+    })
+    first.declare({
+      manifest: { id: 'a', name: 'A', version: '1.0.0', coreApiVersion: '^1.0.0', description: '', category: 'optional' },
+      load: async () =>
+        resolverPlugin('a', (code) => {
+          asked.push(`a:${code}`)
+          return { lookupCode: '12340', quantity: 2.35 }
+        }),
+    })
+    first.declare({
+      manifest: { id: 'b', name: 'B', version: '1.0.0', coreApiVersion: '^1.0.0', description: '', category: 'optional' },
+      load: async () =>
+        resolverPlugin('b', (code) => {
+          asked.push(`b:${code}`)
+          return { lookupCode: '99999' }
+        }),
+    })
+    await first.sync(['a', 'b'])
+
+    const hit = await resolveScan(first, '2212340007504', SCAN_CONTEXT)
+    expect(hit?.source).toBe('a')
+    expect(hit?.label).toBe('Weighing scale')
+    expect(hit?.match).toEqual({ lookupCode: '12340', quantity: 2.35 })
+    // The second plugin is never asked: a code has one meaning.
+    expect(asked).toEqual(['a:2212340007504'])
+  })
+
+  it('passes over a plugin that says no, and over one that throws', async () => {
+    const busy = new PluginRegistry(new EventBus(), {
+      settings: () => ({ get: <T,>(_k: string, fallback: T): T => fallback, all: () => ({}), set: async () => undefined }),
+      data: () => ({ get: async <T,>(_k: string, fallback: T): Promise<T> => fallback, set: async () => undefined, remove: async () => false, keys: async () => [] }),
+      db: () => ({ products: async () => [], rpc: async <T,>(): Promise<T> => null as T }),
+    })
+    busy.declare({
+      manifest: { id: 'boom', name: 'Boom', version: '1.0.0', coreApiVersion: '^1.0.0', description: '', category: 'optional' },
+      load: async () =>
+        resolverPlugin('boom', () => {
+          throw new Error('the scale table is not there')
+        }),
+    })
+    busy.declare({
+      manifest: { id: 'quiet', name: 'Quiet', version: '1.0.0', coreApiVersion: '^1.0.0', description: '', category: 'optional' },
+      load: async () => resolverPlugin('quiet', () => null),
+    })
+    busy.declare({
+      manifest: { id: 'later', name: 'Later', version: '1.0.0', coreApiVersion: '^1.0.0', description: '', category: 'optional' },
+      load: async () => resolverPlugin('later', () => ({ lookupCode: '40404' })),
+    })
+    await busy.sync(['boom', 'quiet', 'later'])
+
+    // A misbehaving add-on costs the shop a decoration, not a sale.
+    const hit = await resolveScan(busy, '2212340007504', SCAN_CONTEXT)
+    expect(hit?.source).toBe('later')
+    expect(hit?.match.lookupCode).toBe('40404')
+  })
+
+  it('never asks a plugin whose permission the cashier does not hold', async () => {
+    const refused = new PluginRegistry(new EventBus(), {
+      settings: () => ({ get: <T,>(_k: string, fallback: T): T => fallback, all: () => ({}), set: async () => undefined }),
+      data: () => ({ get: async <T,>(_k: string, fallback: T): Promise<T> => fallback, set: async () => undefined, remove: async () => false, keys: async () => [] }),
+      db: () => ({ products: async () => [], rpc: async <T,>(): Promise<T> => null as T }),
+    })
+    let asked = 0
+    refused.declare({
+      manifest: { id: 'gated', name: 'Gated', version: '1.0.0', coreApiVersion: '^1.0.0', description: '', category: 'optional' },
+      load: async () =>
+        resolverPlugin(
+          'gated',
+          () => {
+            asked += 1
+            return { lookupCode: '1' }
+          },
+          { permission: 'weight-scale.view' }
+        ),
+    })
+    await refused.sync(['gated'])
+
+    sessionStore.reset({ ...EMPTY_SESSION, permissions: ['sales.create'] })
+    expect(await resolveScan(refused, '2212340007504', SCAN_CONTEXT)).toBeNull()
+    expect(asked).toBe(0)
+
+    sessionStore.reset({ ...EMPTY_SESSION, permissions: ['weight-scale.view', 'sales.create'] })
+    expect((await resolveScan(refused, '2212340007504', SCAN_CONTEXT))?.match.lookupCode).toBe('1')
+    expect(asked).toBe(1)
+  })
+
+  it('contains what a plugin hands back before the cart sees it', () => {
+    // A lookup code is the one thing that cannot be defaulted.
+    expect(containScanMatch(null)).toBeNull()
+    expect(containScanMatch({ lookupCode: '   ' })).toBeNull()
+    expect(containScanMatch({ lookupCode: ' 12340 ' })).toEqual({ lookupCode: '12340' })
+
+    // A line that cannot be added is better than a line added wrongly.
+    expect(containScanMatch({ lookupCode: '1', quantity: 0 })).toEqual({ lookupCode: '1' })
+    expect(containScanMatch({ lookupCode: '1', quantity: -2 })).toEqual({ lookupCode: '1' })
+    expect(containScanMatch({ lookupCode: '1', quantity: Number.NaN })).toEqual({ lookupCode: '1' })
+    expect(containScanMatch({ lookupCode: '1', unitPriceMinor: 12.5 })).toEqual({ lookupCode: '1' })
+    expect(containScanMatch({ lookupCode: '1', unitPriceMinor: -1 })).toEqual({ lookupCode: '1' })
+    expect(containScanMatch({ lookupCode: '1', note: '   ' })).toEqual({ lookupCode: '1' })
+
+    expect(
+      containScanMatch({ lookupCode: ' 12340 ', quantity: 2.35, unitPriceMinor: 12000, note: ' 2.350 kg ' })
+    ).toEqual({ lookupCode: '12340', quantity: 2.35, unitPriceMinor: 12000, note: '2.350 kg' })
+  })
+
+  it('reads nothing into an empty scan', async () => {
+    await registry.sync(['demo'])
+    expect(await resolveScan(registry, '   ', SCAN_CONTEXT)).toBeNull()
   })
 })
