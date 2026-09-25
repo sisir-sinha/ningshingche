@@ -23,6 +23,14 @@
  *     the receipt it already wrote. A retry that minted a new reference would
  *     be a second sale.
  *
+ *   · **A queued sale belongs to a shop.** The queue lives on the device, but
+ *     the sale belongs to the organization that took it. A shared till whose
+ *     next user signs in to a different shop must neither send that sale nor be
+ *     shown its slip, so every write records its organization and every read
+ *     and every drain is scoped to one. This is why the queue is *not* cleared
+ *     on sign-out: throwing a customer's paid-for sale away to tidy up a
+ *     session is the one thing a shop would never forgive.
+ *
  * `classify` decides which of the two a failure is, and it is injected rather
  * than guessed here, because "was that the network or the shop's rule?" is a
  * question about the transport, not about the queue.
@@ -47,6 +55,13 @@ export interface QueuedWrite<TPayload = unknown> {
   status: QueuedStatus
   /** Why the last attempt failed, in the words the cashier will read. */
   lastError: string | null
+  /**
+   * The shop this sale belongs to.
+   *
+   * Required, not optional: a write with no organization is a write nobody can
+   * be trusted to send, and the queue refuses to hold one.
+   */
+  organizationId: string
   /**
    * Anything the caller wants kept with the write but never sent.
    *
@@ -80,6 +95,17 @@ export interface QueueOptions {
   now?: () => number
   /** Injected so a test can pin the reference without stubbing the world. */
   newRef?: () => string
+  /** The shop the current session belongs to, or null before sign-in. */
+  organizationId?: () => string | null
+}
+
+export interface EnqueueOptions {
+  /** Supply a reference that was minted before the first attempt. */
+  ref?: string
+  /** Kept with the write, never sent. The till's receipt, so far. */
+  meta?: unknown
+  /** The shop taking the sale. Defaults to the session's organization. */
+  organizationId?: string
 }
 
 const OUTBOX = 'outbox' as const
@@ -95,11 +121,18 @@ export class WriteQueue {
   readonly #store: OfflineStore
   readonly #now: () => number
   readonly #newRef: () => string
+  readonly #organization: () => string | null
 
   constructor(store: OfflineStore, options: QueueOptions = {}) {
     this.#store = store
     this.#now = options.now ?? (() => Date.now())
     this.#newRef = options.newRef ?? defaultRef
+    this.#organization = options.organizationId ?? (() => null)
+  }
+
+  /** The shop the current session belongs to, or null before sign-in. */
+  organizationId(): string | null {
+    return this.#organization()
   }
 
   /**
@@ -113,20 +146,28 @@ export class WriteQueue {
   async enqueue<TPayload>(
     kind: QueuedKind,
     payload: TPayload,
-    ref?: string,
-    meta?: unknown
+    options: EnqueueOptions = {}
   ): Promise<QueuedWrite<TPayload>> {
+    const organizationId = options.organizationId ?? this.#organization()
+    if (!organizationId) {
+      // Better to fail here, loudly, than to write a sale into a queue that
+      // cannot say whose it is: nobody would be allowed to send it, and the
+      // shop would find out at closing time.
+      throw new Error('A sale cannot be queued without a signed-in shop.')
+    }
+    const ref = options.ref ?? this.#newRef()
     const write: QueuedWrite<TPayload> = {
-      id: ref ?? this.#newRef(),
+      id: ref,
       kind,
-      ref: ref ?? this.#newRef(),
+      ref,
       payload,
-      ...(meta !== undefined ? { meta } : {}),
+      ...(options.meta !== undefined ? { meta: options.meta } : {}),
       createdAt: this.#now(),
       attempts: 0,
       lastAttemptAt: null,
       status: 'pending',
       lastError: null,
+      organizationId,
     }
     // `id` and `ref` must agree: the whole safety story is "the same reference,
     // every time". A caller that supplies one supplies both.
@@ -135,30 +176,50 @@ export class WriteQueue {
     return write
   }
 
-  /** One write by its reference, or null. Used to read a queued receipt back. */
+  /**
+   * One write by its reference, or null.
+   *
+   * Unscoped on purpose: it is how `sales.get` looks up a receipt, and the
+   * caller decides whether the writer of that receipt is allowed to see it
+   * (docs/12 §5) — a queue that hid a write would make "this is another shop's
+   * sale" indistinguishable from "there is nothing here".
+   */
   async find(id: string): Promise<QueuedWrite | null> {
     const entry = await this.#store.get<QueuedWrite>(OUTBOX, id)
     return entry?.value ?? null
   }
 
-  /** Everything waiting, oldest first. Failed writes are included. */
-  async list(): Promise<QueuedWrite[]> {
+  /**
+   * Everything waiting, oldest first. Failed writes are included.
+   *
+   * Pass an organization to see only that shop's sales — which is what the
+   * screens do. Called with nothing, it returns the whole device's queue, for
+   * the one caller that has to know: the check that no sale was stranded.
+   */
+  async list(organizationId?: string | null): Promise<QueuedWrite[]> {
     const entries = await this.#store.all<QueuedWrite>(OUTBOX)
-    return entries
+    const all = entries
       .map((entry) => entry.value)
       .sort((a, b) => a.createdAt - b.createdAt || a.ref.localeCompare(b.ref))
+    return organizationId ? all.filter((write) => write.organizationId === organizationId) : all
   }
 
-  async pending(): Promise<QueuedWrite[]> {
-    return (await this.list()).filter((write) => write.status === 'pending')
+  /** Sales queued by a *different* shop on this device. Nothing may send them. */
+  async foreign(organizationId: string | null): Promise<QueuedWrite[]> {
+    const all = await this.list()
+    return organizationId ? all.filter((write) => write.organizationId !== organizationId) : all
   }
 
-  async failures(): Promise<QueuedWrite[]> {
-    return (await this.list()).filter((write) => write.status === 'failed')
+  async pending(organizationId?: string | null): Promise<QueuedWrite[]> {
+    return (await this.list(organizationId)).filter((write) => write.status === 'pending')
   }
 
-  async size(): Promise<number> {
-    return (await this.list()).length
+  async failures(organizationId?: string | null): Promise<QueuedWrite[]> {
+    return (await this.list(organizationId)).filter((write) => write.status === 'failed')
+  }
+
+  async size(organizationId?: string | null): Promise<number> {
+    return (await this.list(organizationId)).length
   }
 
   /**
@@ -168,8 +229,14 @@ export class WriteQueue {
    * decides what that means for the write. A successful send removes the write:
    * the server now owns that sale, and keeping a copy would invite replaying it.
    */
-  async drain(send: (write: QueuedWrite) => Promise<SendOutcome>): Promise<DrainResult> {
-    const all = await this.list()
+  async drain(
+    send: (write: QueuedWrite) => Promise<SendOutcome>,
+    options: { organizationId?: string | null } = {}
+  ): Promise<DrainResult> {
+    // Scoped to one shop. Another shop's sales are skipped, not failed: they
+    // are not this session's to send, and they are not in any way wrong.
+    const organizationId = options.organizationId ?? this.#organization()
+    const all = await this.list(organizationId)
     let sent = 0
     let failed = 0
     let stopped = false
@@ -221,13 +288,16 @@ export class WriteQueue {
       failed += 1
     }
 
-    return { sent, failed, stopped, remaining: await this.size() }
+    return { sent, failed, stopped, remaining: await this.size(organizationId) }
   }
 
   /** Put a failed write back in the pending line, by hand. */
   async retry(id: string): Promise<boolean> {
     const entry = await this.#store.get<QueuedWrite>(OUTBOX, id)
     if (!entry) return false
+    // Only the shop that owns the sale may decide to send it again.
+    const organizationId = this.#organization()
+    if (organizationId && entry.value.organizationId !== organizationId) return false
     await this.#store.put(
       OUTBOX,
       id,
@@ -247,6 +317,8 @@ export class WriteQueue {
   async discard(id: string): Promise<QueuedWrite | null> {
     const entry = await this.#store.get<QueuedWrite>(OUTBOX, id)
     if (!entry) return null
+    const organizationId = this.#organization()
+    if (organizationId && entry.value.organizationId !== organizationId) return null
     await this.#store.remove(OUTBOX, id)
     return entry.value
   }

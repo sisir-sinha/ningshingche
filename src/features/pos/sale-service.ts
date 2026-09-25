@@ -33,6 +33,17 @@ export interface CompleteSaleInput {
   floor: SalesFloor
   /** The shop's currency, for the slip the till prints when it is offline. */
   currency: string
+  /**
+   * The shop this sale belongs to, for the event this method publishes. The
+   * floor knows the branch and the warehouse but not the tenant, and a local
+   * event carrying an empty organization id is one a handler cannot trust —
+   * which is how a queued sale came to look like a completed one.
+   *
+   * `null` means the session had no active organization, which the POS gate
+   * prevents; if it happens anyway the sale still completes and no domain event
+   * is invented for a shop that was not named.
+   */
+  organizationId: string | null
   /** Cancels the held row this cart came from, in the same transaction. */
   heldSaleId?: string | null
 }
@@ -79,12 +90,37 @@ export class SaleService {
       local: { cart, currency, sessionId: floor.sessionId },
     })
 
-    // The outbox is the authority and will deliver `sale.completed` over
-    // Realtime. This local emit exists so the dashboard and the register panel
-    // update immediately rather than a beat later; handlers dedupe on event id.
+    // What happened is one of two different things, and saying the wrong one is
+    // how a shop ends up counting a sale it does not have:
+    //
+    //   · stored — the server took it. The outbox row (and so the authority's
+    //     `sale.completed`) already exists, and this local echo exists only so
+    //     the screen updates now rather than a beat later. The envelope id is
+    //     fabricated, which is why handlers dedupe on `data.sale_id` (see
+    //     shared/bus/events.ts).
+    //   · queued — nothing has been stored. The invoice number is the till's
+    //     own guess and the server may still refuse it, so this is *not*
+    //     `sale.completed`; it is a local event that says a slip is waiting.
+    if (result.queued) {
+      this.#bus.emit('sale.queued', {
+        type: 'sale.queued',
+        data: {
+          sale_id: result.sale_id,
+          invoice_no: result.invoice_no,
+          branch_id: floor.branchId,
+          customer_id: cart.customerId,
+          total: result.total,
+          client_ref: result.client_ref ?? '',
+        },
+      })
+      return result
+    }
+
+    if (!input.organizationId) return result
+
     this.#bus.emit('sale.completed', {
       id: `local-${result.sale_id}`,
-      organization_id: '',
+      organization_id: input.organizationId,
       aggregate: 'sale',
       type: 'sale.completed',
       data: {

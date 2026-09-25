@@ -1017,6 +1017,9 @@ check(
 // row they produced.
 if (seeded.length !== 0) {
   const s = seeded[0]
+  // The shop's own today, as the app's calls resolve it — see the note on
+  // `TODAY` further down (migration 030: `app.effective_day`).
+  const TODAY = (await q(`select app.effective_day('${s.branch}', null)::text as d`))[0].d
 
   // The checks above end with the JWT claim cleared or switched to another
   // user; the stock operations all call app.require_org, so re-establish the
@@ -1216,7 +1219,7 @@ if (seeded.length !== 0) {
   const summary = await q(`select public.stock_summary('${s.org}') as r`)
   const direct = await q(`select coalesce(sum(quantity * avg_unit_cost), 0) as v
                             from public.stock_balances where organization_id = '${s.org}'`)
-  const dashboard = await q(`select public.dashboard_summary('${s.branch}', current_date) as r`)
+  const dashboard = await q(`select public.dashboard_summary('${s.branch}', '${TODAY}'::date) as r`)
   check(
     'stock_summary equals Σ(quantity × avg_unit_cost) exactly',
     Number(summary[0].r.stock_value) === Number(direct[0].v),
@@ -1280,6 +1283,8 @@ if (seeded.length !== 0) {
 if (seeded.length !== 0) {
   const s = seeded[0]
   await db.query(`select set_config('request.jwt.claim.sub', '${s.owner}', false)`)
+  // The shop's own today — see the note on `TODAY` below (migration 030).
+  const TODAY = (await q(`select app.effective_day('${s.branch}', null)::text as d`))[0].d
 
   // A supplier and a product that only these checks touch.
   await db.exec(`
@@ -1540,7 +1545,7 @@ if (seeded.length !== 0) {
   const expenseId = await q(`
     select public.record_expense(
       '${s.branch}', 150, null, '${s.cash}', 'tea for the staff',
-      '${expenseSession[0].id}', current_date) as id`)
+      '${expenseSession[0].id}', '${TODAY}'::date) as id`)
   const expenseRow = await q(`select amount, session_id from public.expenses
                                where id = '${expenseId[0].id}'`)
   const drawerAfterExpense = await q(`select expense_cash from public.register_sessions
@@ -1558,7 +1563,7 @@ if (seeded.length !== 0) {
   try {
     await q(`select public.record_expense(
       '${s.branch}', 10, null, '${s.cash}', 'into a closed drawer',
-      '00000000-0000-0000-0000-00000000dead', current_date)`)
+      '00000000-0000-0000-0000-00000000dead', '${TODAY}'::date)`)
   } catch (error) {
     closedSessionRefused = error.message ?? String(error)
   }
@@ -1694,6 +1699,18 @@ if (seeded.length !== 0) {
   const s = seeded[0]
   await db.exec(`select set_config('request.jwt.claim.sub', '${s.owner}', false)`)
 
+  /**
+   * The shop's own today — not the server's.
+   *
+   * `current_date` is the *server's* date, and a shop in Dhaka is already on
+   * tomorrow's when the UTC clock still says today; `app.effective_day`
+   * (migration 030) is the resolution the app's calls do internally, and the
+   * reason a dashboard and an analytics screen can agree without either of them
+   * knowing a timezone. A check that used `current_date` passed all morning and
+   * failed every evening — which is exactly how this one was found.
+   */
+  const TODAY = (await q(`select app.effective_day('${s.branch}', null)::text as d`))[0].d
+
   // ── The catalogue is the engine's own whitelist ────────────────────────
   const catalog = await q(`select public.analytics_catalog() as c`)
   const cat = catalog[0].c
@@ -1801,7 +1818,7 @@ if (seeded.length !== 0) {
   )
 
   // ── The dashboard carries every number the screen shows ────────────────
-  const dash = await q(`select public.dashboard_summary('${s.branch}', current_date) as r`)
+  const dash = await q(`select public.dashboard_summary('${s.branch}', '${TODAY}'::date) as r`)
   const d = dash[0].r
   check(
     'the dashboard call carries the widgets, both trends, the rankings and the answers',

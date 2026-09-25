@@ -25,7 +25,9 @@ import type { WriteQueue } from './queue'
 export interface SyncStatus {
   /** The browser's opinion, which is why it is labelled as such. */
   online: boolean
+  /** This shop's sales, waiting. */
   pending: number
+  /** This shop's sales the server refused. */
   failed: number
   syncing: boolean
   /** Epoch ms of the last successful drain, or null if none has happened. */
@@ -33,6 +35,15 @@ export interface SyncStatus {
   lastError: string | null
   /** False when the store could not survive a reload (private mode). */
   persistent: boolean
+  /**
+   * Sales queued on this device by a **different** shop.
+   *
+   * Not an error and not this session's to send: a shared till that changed
+   * hands must not lose the morning's sales, and it must not pretend they are
+   * gone either. The indicator says they are waiting for their own shop so
+   * nobody has to guess whether they were lost.
+   */
+  foreign: number
 }
 
 /** The last attempt's outcome, per write — what the failure list shows. */
@@ -63,6 +74,11 @@ export interface SyncEngineOptions {
   setTimer?: (fn: () => void, ms: number) => number
   clearTimer?: (handle: number) => void
   persistent?: boolean
+  /**
+   * Which shop this engine may act for. Defaults to the queue's own answer, so
+   * the two cannot disagree about whose sales these are.
+   */
+  organizationId?: () => string | null
 }
 
 export class SyncEngine {
@@ -84,7 +100,12 @@ export class SyncEngine {
       lastSyncedAt: null,
       lastError: null,
       persistent: options.persistent ?? true,
+      foreign: 0,
     }
+  }
+
+  #organization(): string | null {
+    return this.#options.organizationId?.() ?? this.#options.queue.organizationId()
   }
 
   get status(): SyncStatus {
@@ -115,17 +136,19 @@ export class SyncEngine {
 
   /** Recompute the counts from the queue, and publish. */
   async refresh(): Promise<SyncStatus> {
-    const [pending, failed] = await Promise.all([
-      this.#options.queue.pending(),
-      this.#options.queue.failures(),
+    const organizationId = this.#organization()
+    const [pending, failed, foreign] = await Promise.all([
+      this.#options.queue.pending(organizationId),
+      this.#options.queue.failures(organizationId),
+      this.#options.queue.foreign(organizationId),
     ])
-    this.#publish({ pending: pending.length, failed: failed.length })
+    this.#publish({ pending: pending.length, failed: failed.length, foreign: foreign.length })
     return this.#status
   }
 
   /** The failed writes, for the panel that lets a shopkeeper resolve them. */
   async failures(): Promise<SyncFailure[]> {
-    const writes = await this.#options.queue.failures()
+    const writes = await this.#options.queue.failures(this.#organization())
     return writes.map((write) => ({
       ref: write.ref,
       kind: write.kind,
@@ -142,7 +165,9 @@ export class SyncEngine {
     this.#draining = (async () => {
       this.#publish({ syncing: true })
       try {
-        const result = await this.#options.queue.drain(this.#options.send)
+        const result = await this.#options.queue.drain(this.#options.send, {
+          organizationId: this.#organization(),
+        })
         if (result.sent > 0 && !result.stopped) {
           this.#publish({ lastSyncedAt: this.#now(), lastError: null })
         }
@@ -175,6 +200,16 @@ export class SyncEngine {
   /** Tell the engine something was just queued — try now if it can. */
   notifyQueued(): void {
     if (this.#status.online) void this.drain()
+  }
+
+  /**
+   * Sales left on this device by another shop.
+   *
+   * There is nothing to do about them from here, and that is the point: they
+   * wait for their own session, with their own permissions and their own token.
+   */
+  async stranded(): Promise<QueuedWrite[]> {
+    return this.#options.queue.foreign(this.#organization())
   }
 
   #publish(patch: Partial<SyncStatus>): void {

@@ -514,6 +514,19 @@ guarantees: doc 12.
 
 ---
 
+## A note on days and time zones
+
+`app.effective_day` exists because a shop's day is the shop's, not the server's:
+a branch in Dhaka is already on tomorrow's date while the UTC clock still says
+today (doc 09 §3). Two assertions in `tools/validate-migrations.mjs` compared
+against the *server's* `current_date` and had therefore been passing all morning
+and failing every evening, unnoticed because CI runs in the same window as the
+person who wrote them. They now resolve the branch's day the way the app's own
+calls do, and the check that found this is the one that reads the dashboard's
+trend.
+
+---
+
 ## Effort indication
 
 Rough, assuming one experienced full-stack developer:

@@ -92,12 +92,36 @@ small enough to state completely:
 - **`offline`** — keep the write, record the attempt, stop the drain
 - **`refused`** — mark it `failed` with the server's own words, keep going
 - **success** — delete it; the server owns that sale now
+- **a write belongs to a shop** — every write records its organization, and
+  every read, every drain, and both human actions are scoped to one. A queue
+  that held a sale with no owner would be a sale nobody may send
 - nothing is deleted except by success, `retry` or an explicit `discard`
 
 `SyncEngine` publishes status to the shell, re-arms exactly **one** timer
 (a `setInterval` racing a slow upload is how a queue sends the same sale
 twice), and exposes `retry`/`discard` for the panel a shopkeeper resolves
 failures from.
+
+### Sign-out keeps the queue
+
+A till is shared. When the shift ends — or the session expires, or somebody
+signs in to a *different* shop — the catalogue goes (the next cashier must not
+be shown the previous shop's products) and the queue **stays**. Those sales are
+money customers already paid: throwing them away to tidy up a session is the one
+thing a shop would never forgive.
+
+What keeps that safe is the tenancy on each write:
+
+| on a shared till | what happens |
+|---|---|
+| the morning's sales, still queued | untouched, and not sent under the next session's token |
+| `sales.get` for one of them | falls through to the server, which answers with whatever RLS allows — a 404 for a stranger, the row for a colleague |
+| the queue panel | says how many belong to another shop, and that they will be sent when that shop signs in again |
+| the sync indicator | counts them separately: `1 for another shop`, never as this shop's backlog |
+
+The alternative — discarding on sign-out — was what the first version did, and
+`offline.test.ts` now asserts the opposite: another shop's session sends only
+its own sale, and the earlier one is still waiting for its own.
 
 ## 6. What the shop sees
 
@@ -126,6 +150,9 @@ nothing else.
 | cache fallback, three-valued answers, offline paging | same file |
 | drafts resume with quantities in the server's own notation | same file |
 | one live timer, no re-arm after sign-out | same file |
+| a sale queued by one shop is not sent by another, and its slip is not served to one | same file |
+| a queued sale is announced as `sale.queued`, never as `sale.completed` | `src/features/pos/sale-service.test.ts` |
+| one sale credits loyalty once, though the echo and the Realtime row carry different ids | `src/plugins/loyalty-lite/loyalty-lite.test.ts` |
 | the Kotlin core's own rules: queue order, offline stop, refusal parking, retry, discard, duplicate reference = success, single-flight drain, one live timer | `npm run test:android` — 32 checks against the built jar |
 | the Android client against the live project: sign-in, catalogue, sale, resend, offline queue, restart, refusal, retry | `npm run e2e:android` — 29 checks, one JVM per command |
 | both clients speak the generated contract | `npm run check:clients` (offline, in `npm run check`) |

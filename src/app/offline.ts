@@ -8,11 +8,16 @@
  * what makes the offline story additive rather than a second app.
  *
  * Lifecycle: `startOffline` runs after the session resolves (it needs the
- * organization to know which shop's catalogue to warm) and before the shell
- * mounts, so the first screen the cashier sees is already the offline-capable
- * one. `stopOffline` runs on sign-out, and forgets the cached catalogue with
- * it — a shared till must not keep the previous shop's products, or for that
- * matter its queued sales.
+ * organization to know which shop's catalogue to warm, and which shop's sales
+ * the queue may send) and before the shell mounts, so the first screen the
+ * cashier sees is already the offline-capable one.
+ *
+ * `stopOffline` runs on sign-out and forgets the **catalogue** — a shared till
+ * must not show the next cashier the previous shop's products. It does *not*
+ * forget the queue. Throwing away a sale the customer has already paid for, to
+ * tidy up a session, is the one thing a shop would never forgive; those sales
+ * stay on the device, owned by the shop that took them, and are sent when that
+ * shop's session comes back (docs/12 §5).
  */
 
 import { getSupabase } from './platform/supabase'
@@ -40,8 +45,10 @@ export interface OfflineRuntime {
   repositories: Repositories
   /** Pull the catalogue in for this warehouse. */
   warm(warehouseId: string): Promise<{ rows: number; complete: boolean }>
-  /** Everything queued but not yet accepted by the server. */
+  /** This shop's sales queued but not yet accepted by the server. */
   pending(): Promise<number>
+  /** Sales left on this device by another shop, which only that shop may send. */
+  stranded(): Promise<number>
   /** What the shop has to resolve by hand. */
   failures(): Promise<SyncFailureView[]>
   retry(ref: string): Promise<void>
@@ -92,9 +99,12 @@ export async function startOffline(options: {
 
   const raw = createSupabaseRepositories(client, () => sessionStore.state.activeOrganizationId)
 
+  const organizationId = (): string | null => sessionStore.state.activeOrganizationId
+
   const offline: OfflineRepositories = createOfflineRepositories(raw, {
     store: opened.store,
     persistent: opened.persistent,
+    organizationId,
     ...(options.now ? { now: options.now } : {}),
   })
 
@@ -108,6 +118,7 @@ export async function startOffline(options: {
       defaultClassify,
       describeFailure
     ),
+    organizationId,
     onStatus: (status: SyncStatus) => publish(status),
     persistent: opened.persistent,
     ...(options.setTimer ? { setTimer: options.setTimer } : {}),
@@ -121,7 +132,8 @@ export async function startOffline(options: {
     engine,
     repositories: offline.repositories,
     warm: (warehouseId) => offline.warm(warehouseId),
-    pending: async () => (await offline.queue.pending()).length,
+    pending: async () => (await offline.queue.pending(organizationId())).length,
+    stranded: () => engine.stranded().then((writes) => writes.length),
     failures: () => engine.failures(),
     async retry(ref) {
       await engine.retry(ref)
@@ -134,11 +146,11 @@ export async function startOffline(options: {
     },
     async stop() {
       engine.stop()
-      // Queued sales go with the session: they belong to a shop and a user,
-      // and the next person at this till is neither.
-      await offline.queue.list().then(async (writes) => {
-        for (const write of writes) await offline.queue.discard(write.ref)
-      })
+      // The catalogue goes: it is the previous shop's, and the next cashier
+      // must not see it. The queue stays. A queued sale is money a customer
+      // already paid, and no amount of tidiness is worth losing one — it is
+      // scoped to the shop that took it, so nothing here can send it under
+      // somebody else's session, and that shop's own session sends it later.
       await offline.cache.clear()
       runtime = null
     },
@@ -157,5 +169,6 @@ function publish(status: SyncStatus): void {
     lastSyncedAt: status.lastSyncedAt,
     lastError: status.lastError,
     persistent: status.persistent,
+    foreign: status.foreign,
   })
 }

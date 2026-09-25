@@ -56,6 +56,11 @@ function refused(code: string, message: string): Error & { code: string } {
   return error
 }
 
+/** A queue on `store`, acting for `org` — the way the app builds one. */
+function queueFor(store: OfflineStore, org: string | null = ORG): WriteQueue {
+  return new WriteQueue(store, { now: time.now, organizationId: () => org })
+}
+
 function product(overrides: Partial<SellableProduct> & { variantId: string }): SellableProduct {
   return {
     productId: `p-${overrides.variantId}`,
@@ -77,6 +82,16 @@ function product(overrides: Partial<SellableProduct> & { variantId: string }): S
     ...overrides,
   }
 }
+
+/**
+ * The shops in these tests.
+ *
+ * Two of them, because the queue's tenancy is the part worth asserting: a
+ * shared till changes hands, and the sales the morning's cashier took must be
+ * sent by that shop's session and shown to nobody else.
+ */
+const ORG = 'org-mekholi'
+const OTHER_ORG = 'org-other'
 
 const SOAP = product({ variantId: 'v-soap', name: 'Soap', sku: 'SKU-SOAP' })
 const RICE = product({ variantId: 'v-rice', name: 'Rice', sku: 'SKU-RICE', price: 25000 as Minor })
@@ -210,7 +225,7 @@ beforeEach(() => {
 
 describe('the write queue', () => {
   it('mints the reference once, so the receipt and the resend agree', async () => {
-    const queue = new WriteQueue(store, { now: time.now })
+    const queue = queueFor(store)
     const write = await queue.enqueue('sale.complete', { a: 1 })
 
     expect(write.ref).toBeTruthy()
@@ -221,7 +236,7 @@ describe('the write queue', () => {
   })
 
   it('sends oldest first, one at a time', async () => {
-    const queue = new WriteQueue(store, { now: time.now })
+    const queue = queueFor(store)
     const first = await queue.enqueue('sale.complete', { n: 1 })
     time.advance(1000)
     const second = await queue.enqueue('sale.complete', { n: 2 })
@@ -245,7 +260,7 @@ describe('the write queue', () => {
   })
 
   it('keeps a write the network refused, and stops rather than burning through the queue', async () => {
-    const queue = new WriteQueue(store, { now: time.now })
+    const queue = queueFor(store)
     const write = await queue.enqueue('sale.complete', { n: 1 })
     const attempted: string[] = []
 
@@ -264,7 +279,7 @@ describe('the write queue', () => {
   })
 
   it('stops at the first offline write instead of reordering the ones behind it', async () => {
-    const queue = new WriteQueue(store, { now: time.now })
+    const queue = queueFor(store)
     const first = await queue.enqueue('sale.complete', { n: 1 })
     time.advance(1000)
     const second = await queue.enqueue('sale.complete', { n: 2 })
@@ -284,7 +299,7 @@ describe('the write queue', () => {
   })
 
   it('marks a refused write failed, and carries on with the rest', async () => {
-    const queue = new WriteQueue(store, { now: time.now })
+    const queue = queueFor(store)
     const refusedWrite = await queue.enqueue('sale.complete', { n: 1 })
     time.advance(1000)
     const fine = await queue.enqueue('sale.complete', { n: 2 })
@@ -313,7 +328,7 @@ describe('the write queue', () => {
   })
 
   it('skips a failed write on the next drain, until a person retries it', async () => {
-    const queue = new WriteQueue(store, { now: time.now })
+    const queue = queueFor(store)
     const write = await queue.enqueue('sale.complete', { n: 1 })
     await queue.drain(async () => ({ ok: false, failure: 'refused', message: 'no' }))
 
@@ -335,7 +350,7 @@ describe('the write queue', () => {
   })
 
   it('hands a discarded write back, so the caller can say what was thrown away', async () => {
-    const queue = new WriteQueue(store, { now: time.now })
+    const queue = queueFor(store)
     const write = await queue.enqueue('sale.complete', { n: 1 })
 
     const removed = await queue.discard(write.ref)
@@ -344,9 +359,53 @@ describe('the write queue', () => {
     expect(await queue.size()).toBe(0)
   })
 
+  it('will not hold a sale that belongs to no shop', async () => {
+    // Better a loud failure at the till than a write nobody is allowed to send:
+    // a sale with no organization would sit in the queue forever, and the shop
+    // would find out at closing time.
+    const queue = queueFor(store, null)
+    await expect(queue.enqueue('sale.complete', { n: 1 })).rejects.toThrow(/signed-in shop/)
+  })
+
+  it('keeps one shop’s sales out of another’s way', async () => {
+    const queue = queueFor(store)
+    await queue.enqueue('sale.complete', { n: 1 }, { organizationId: ORG })
+    await queue.enqueue('sale.complete', { n: 2 }, { organizationId: OTHER_ORG })
+
+    // Each shop sees its own…
+    expect((await queue.pending(ORG)).map((w) => w.payload)).toEqual([{ n: 1 }])
+    expect((await queue.pending(OTHER_ORG)).map((w) => w.payload)).toEqual([{ n: 2 }])
+
+    // …and the drain of one never touches the other's sale.
+    const sent: unknown[] = []
+    const result = await queue.drain(
+      async (write) => {
+        sent.push(write.payload)
+        return { ok: true }
+      },
+      { organizationId: ORG }
+    )
+
+    expect(sent).toEqual([{ n: 1 }])
+    expect(result).toEqual({ sent: 1, failed: 0, stopped: false, remaining: 0 })
+    expect((await queue.pending(OTHER_ORG)).map((w) => w.payload)).toEqual([{ n: 2 }])
+    // And the device still knows about it: it is waiting, not lost.
+    expect((await queue.foreign(ORG)).map((w) => w.payload)).toEqual([{ n: 2 }])
+  })
+
+  it('lets only the owning shop retry or discard a queued sale', async () => {
+    const queue = queueFor(store)
+    const write = await queue.enqueue('sale.complete', { n: 1 }, { organizationId: OTHER_ORG })
+
+    // The other shop's session cannot throw away or re-send what it cannot see.
+    expect(await queue.discard(write.ref)).toBeNull()
+    expect(await queue.retry(write.ref)).toBe(false)
+    expect(await queue.size()).toBe(1)
+  })
+
   it('reads a queued write back by reference — the receipt the till kept', async () => {
-    const queue = new WriteQueue(store, { now: time.now })
-    const write = await queue.enqueue('sale.complete', { n: 1 }, undefined, { row: { id: 'r' } })
+    const queue = queueFor(store)
+    const write = await queue.enqueue('sale.complete', { n: 1 }, { meta: { row: { id: 'r' } } })
 
     expect((await queue.find(write.ref))?.meta).toEqual({ row: { id: 'r' } })
     expect(await queue.find('nope')).toBeNull()
@@ -373,6 +432,7 @@ describe('the write queue', () => {
       lastAttemptAt: 0,
       status: 'pending',
       lastError: null,
+      organizationId: ORG,
     } satisfies QueuedWrite)
 
     expect(outcome.ok).toBe(true)
@@ -607,7 +667,7 @@ describe('the offline repositories', () => {
           },
         },
       }),
-      { store, now: time.now }
+      { store, now: time.now, organizationId: () => ORG }
     )
 
     const cart = cartWith(SOAP, 1000)
@@ -636,6 +696,72 @@ describe('the offline repositories', () => {
     expect(row?.items?.[0]?.product_name).toBe('Soap')
   })
 
+  it('does not serve a queued slip to a cashier of another shop', async () => {
+    // The till is shared and the session changed. The slip is somebody's sale
+    // with somebody's customer on it, so this session asks the server instead —
+    // which answers with whatever RLS allows it, not with this receipt.
+    const offline = createOfflineRepositories(
+      fakeRepositories({
+        sales: {
+          complete: async () => {
+            throw network()
+          },
+          get: async () => null,
+        },
+      }),
+      { store, now: time.now, organizationId: () => ORG }
+    )
+
+    const cart = cartWith(SOAP, 1000)
+    const sale = await offline.repositories.sales.complete({
+      branchId: 'b-1',
+      registerId: null,
+      warehouseId: 'w-1',
+      customerId: 'c-1',
+      items: [{ variant_id: 'v-soap', qty: 1000 }],
+      payments: [],
+      local: { cart, currency: 'BDT' },
+    })
+    expect(sale.queued).toBe(true)
+    expect((await offline.repositories.sales.get(sale.sale_id))?.total).toBe('100.00')
+
+    // The cashier signs out and another shop signs in. Same device, same store —
+    // the queue survives, because the sale it holds is money that was taken.
+    const otherShop = createOfflineRepositories(
+      fakeRepositories({
+        sales: { complete: async () => COMPLETED, get: async () => null },
+      }),
+      { store, now: time.now, organizationId: () => OTHER_ORG }
+    )
+
+    // The queue still holds the morning's sale…
+    expect(await otherShop.queue.find(sale.sale_id)).not.toBeNull()
+    // …and this session is not served its slip.
+    expect(await otherShop.repositories.sales.get(sale.sale_id)).toBeNull()
+
+    // Its own sale is queued separately, and its engine sends only that one.
+    await otherShop.queue.enqueue('sale.complete', { n: 2 })
+    const sent: unknown[] = []
+    const engine = new SyncEngine({
+      queue: otherShop.queue,
+      connectivity: { isOnline: () => true, onChange: () => () => {} },
+      send: async (write) => {
+        sent.push(write.payload)
+        return { ok: true }
+      },
+      now: time.now,
+    })
+
+    const status = await engine.refresh()
+    expect(status.pending).toBe(1)
+    expect(status.foreign).toBe(1)
+    expect((await engine.drain()).sent).toBe(1)
+    expect(sent).toEqual([{ n: 2 }])
+    // The morning's sale is untouched, and still waiting for its own shop.
+    expect(await otherShop.queue.size(ORG)).toBe(1)
+    expect(await otherShop.queue.pending(ORG)).toHaveLength(1)
+  })
+
   it('hands back the server’s row once the queue has delivered it', async () => {
     let online = false
     const sent: unknown[] = []
@@ -650,7 +776,7 @@ describe('the offline repositories', () => {
           get: async () => serverRow(),
         },
       }),
-      { store, now: time.now }
+      { store, now: time.now, organizationId: () => ORG }
     )
 
     const cart = cartWith(SOAP, 1000)
@@ -706,7 +832,7 @@ describe('the offline repositories', () => {
           },
         },
       }),
-      { store, now: time.now }
+      { store, now: time.now, organizationId: () => ORG }
     )
 
     await offline.repositories.sales.complete({
@@ -735,7 +861,7 @@ describe('the offline repositories', () => {
           },
         },
       }),
-      { store, now: time.now }
+      { store, now: time.now, organizationId: () => ORG }
     )
 
     await expect(
@@ -765,7 +891,7 @@ describe('the offline repositories', () => {
           },
         },
       }),
-      { store, now: time.now }
+      { store, now: time.now, organizationId: () => ORG }
     )
 
     const id = await offline.repositories.sales.hold({
@@ -805,7 +931,7 @@ describe('the sync engine', () => {
 
   it('publishes what the till is holding, and drains when the connection returns', async () => {
     const net = connectivity(false)
-    const queue = new WriteQueue(store, { now: time.now })
+    const queue = queueFor(store)
     await queue.enqueue('sale.complete', { n: 1 })
     await queue.enqueue('sale.complete', { n: 2 })
 
@@ -835,7 +961,7 @@ describe('the sync engine', () => {
 
   it('keeps trying on a timer while something is waiting, without piling up timers', async () => {
     const net = connectivity(true)
-    const queue = new WriteQueue(store, { now: time.now })
+    const queue = queueFor(store)
     await queue.enqueue('sale.complete', { n: 1 })
 
     let sends = 0
@@ -891,7 +1017,7 @@ describe('the sync engine', () => {
   })
 
   it('lets a person retry a refused sale by hand', async () => {
-    const queue = new WriteQueue(store, { now: time.now })
+    const queue = queueFor(store)
     const write = await queue.enqueue('sale.complete', { n: 1 })
     await queue.drain(async () => ({ ok: false, failure: 'refused', message: 'insufficient stock' }))
 

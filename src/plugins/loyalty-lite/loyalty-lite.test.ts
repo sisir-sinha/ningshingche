@@ -96,15 +96,28 @@ function makeRegistry(): PluginRegistry {
   })
 }
 
-function saleEvent(id: string, total: number, customerId: string | null): void {
+/**
+ * One delivery of one sale.
+ *
+ * `envelopeId` and `saleId` are separate on purpose. In the running app the two
+ * deliveries of a sale carry *different* envelope ids — the client's echo
+ * fabricates one, and the Realtime delivery carries the outbox row's — so the
+ * thing a handler can rely on is the sale, not the delivery.
+ */
+function saleEvent(
+  envelopeId: string,
+  total: number,
+  customerId: string | null,
+  saleId = `s-${envelopeId}`
+): void {
   bus.emit('sale.completed', {
-    id,
+    id: envelopeId,
     organization_id: ORG,
     aggregate: 'sale',
     type: 'sale.completed',
     data: {
-      sale_id: `s-${id}`,
-      invoice_no: `INV-${id}`,
+      sale_id: saleId,
+      invoice_no: `INV-${saleId}`,
       branch_id: 'b1',
       customer_id: customerId,
       // Postgres returns `numeric` as text and the outbox passes it through
@@ -188,18 +201,33 @@ describe('auto-award', () => {
     expect(rpc).toHaveLength(0)
   })
 
-  it('credits a customer once per event, even though the event arrives twice', async () => {
+  it('credits a customer once per sale, even though the sale arrives twice', async () => {
     settings.set(AUTO_AWARD_KEY, true)
     settings.set(POINTS_PER_CURRENCY_KEY, 2)
 
     saleEvent('e2', 100, 'cust-1')
-    saleEvent('e2', 100, 'cust-1') // the Realtime replay
+    saleEvent('e2', 100, 'cust-1') // the Realtime replay of the same row
     await new Promise((resolve) => setTimeout(resolve, 0))
 
     expect(rpc).toHaveLength(1)
     expect(rpc[0]?.fn).toBe('award')
     expect(rpc[0]?.args).toEqual({ customer_id: 'cust-1', points: 200 })
-    expect(data.get('recent_sale_events')).toEqual(['e2'])
+    expect(data.get('recent_sale_events')).toEqual(['s-e2'])
+  })
+
+  it('credits once when the two deliveries carry different envelope ids', async () => {
+    settings.set(AUTO_AWARD_KEY, true)
+
+    // The client's own echo when the sale is taken…
+    saleEvent('local-9f31', 100, 'cust-7', 'sale-9f31')
+    // …and the authority's, over Realtime, carrying the outbox row's id. The
+    // ids differ, so a guard keyed on `event.id` — which this plugin used to
+    // have — credited the customer twice for every sale in the shop.
+    saleEvent('8b2c-row', 100, 'cust-7', 'sale-9f31')
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(rpc).toHaveLength(1)
+    expect(data.get('recent_sale_events')).toEqual(['sale-9f31'])
   })
 
   it('ignores a walk-in sale, which has no customer to credit', async () => {
@@ -220,13 +248,14 @@ describe('auto-award', () => {
     expect(rpc).toHaveLength(0)
     expect(data.has('recent_sale_events')).toBe(false)
 
-    // The retry — the Realtime delivery that arrives a moment later — lands.
+    // The retry — the Realtime delivery that arrives a moment later, with the
+    // row's own envelope id — lands.
     failNextRpc = false
-    saleEvent('e4', 100, 'cust-9')
+    saleEvent('e4-row', 100, 'cust-9', 's-e4')
     await new Promise((resolve) => setTimeout(resolve, 0))
 
     expect(rpc).toHaveLength(1)
-    expect(data.get('recent_sale_events')).toEqual(['e4'])
+    expect(data.get('recent_sale_events')).toEqual(['s-e4'])
   })
 
   it('ignores a replay of an older event after a newer one', async () => {
@@ -242,7 +271,7 @@ describe('auto-award', () => {
     await new Promise((resolve) => setTimeout(resolve, 0))
 
     expect(rpc).toHaveLength(2)
-    expect(data.get('recent_sale_events')).toEqual(['e6', 'e5'])
+    expect(data.get('recent_sale_events')).toEqual(['s-e6', 's-e5'])
   })
 })
 

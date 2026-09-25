@@ -78,6 +78,14 @@ export interface OfflineRepositories {
 
 export interface OfflineOptions {
   store: OfflineStore
+  /**
+   * The shop the session belongs to.
+   *
+   * A queued sale is the shop's, not the device's: this is what stops the next
+   * cashier to sign in — possibly to a different shop — from sending a sale
+   * they cannot see, or reading a slip they have no business reading.
+   */
+  organizationId?: () => string | null
   queue?: WriteQueue
   cache?: CatalogCacheOptions
   now?: () => number
@@ -96,7 +104,11 @@ export function createOfflineRepositories(next: Repositories, options: OfflineOp
     new WriteQueue(options.store, {
       now,
       ...(options.newRef ? { newRef: options.newRef } : {}),
+      ...(options.organizationId ? { organizationId: options.organizationId } : {}),
     })
+  // One source for "which shop is this": the queue already knows, because it
+  // refuses to hold a write without one.
+  const currentOrganization = (): string | null => queue.organizationId()
 
   const sales: SaleRepository = {
     ...next.sales,
@@ -132,7 +144,10 @@ export function createOfflineRepositories(next: Repositories, options: OfflineOp
             })
           : null
 
-        const write = await queue.enqueue('sale.complete', payload, ref, row ? { row } : undefined)
+        const write = await queue.enqueue('sale.complete', payload, {
+          ref,
+          ...(row ? { meta: { row } } : {}),
+        })
         return {
           sale_id: write.ref,
           invoice_no: row?.invoice_no ?? OFFLINE_LABEL,
@@ -193,7 +208,12 @@ export function createOfflineRepositories(next: Repositories, options: OfflineOp
      */
     async get(id) {
       const write = await queue.find(id)
-      const row = write ? receiptOf(write) : null
+      // A slip kept for a queued sale is served only to the shop that took it.
+      // To anybody else this is a sale they may not read, so the question goes
+      // to the server, which has RLS and answers with whatever they are allowed
+      // — a 404 for a stranger, the row for a colleague of the same shop.
+      const mine = write !== null && write.organizationId === currentOrganization()
+      const row = mine ? receiptOf(write) : null
       if (row) return row
 
       return next.sales.get(id)

@@ -167,41 +167,46 @@ export const loyaltyLitePlugin: Plugin = {
     })
 
     // ── Auto-award, off by default ───────────────────────────────────────
-    // Idempotent on the event id: the same sale arrives once locally and again
-    // over Realtime (doc 02 §3), and a shop must not be charged twice.
+    // One sale, one award. The same fact arrives twice — the client's echo when
+    // the sale is taken, and the outbox row over Realtime — and the guard is
+    // keyed on the **sale**, not on the delivery, because those two deliveries
+    // carry different envelope ids: the client cannot know the outbox row's id
+    // before the row exists (shared/bus/events.ts). Keying on `event.id` would
+    // have credited the customer twice for every sale in the shop.
     //
     // Two guards, because each covers a different failure:
-    //   * `inFlight` covers the concurrent case — both deliveries of one event
+    //   * `inFlight` covers the concurrent case — both deliveries of one sale
     //     arrive before either has written anything down;
-    //   * the recent-id ring in `api.data` covers the replay case — a
+    //   * the recent-sale ring in `api.data` covers the replay case — a
     //     delivery that arrives after a reload, when no memory survived.
-    // The ring is a ring and not a single id: a replay of an *older* event
-    // after a newer one would slip past a one-slot memory.
+    // The ring is a ring and not a single id: a replay of an *older* sale after
+    // a newer one would slip past a one-slot memory.
     const inFlight = new Set<string>()
     const RECENT_LIMIT = 50
 
     api.events.on('sale.completed', (event) => {
       if (!api.settings.get<boolean>(AUTO_AWARD_KEY, false)) return
+      const saleId = event.data.sale_id
       const customerId = event.data.customer_id
       // Domain events carry `numeric` as text, exactly as Postgres returned it
       // (doc 02 §3) — parse it here rather than assuming a number.
       const total = Number(event.data.total)
-      if (!customerId || !Number.isFinite(total)) return
+      if (!saleId || !customerId || !Number.isFinite(total)) return
       const points = pointsFor(total, api.settings.get<number>(POINTS_PER_CURRENCY_KEY, 1))
       if (points <= 0) return
-      if (inFlight.has(event.id)) return
-      inFlight.add(event.id)
+      if (inFlight.has(saleId)) return
+      inFlight.add(saleId)
 
       void (async () => {
         try {
           const recent = await api.data.get<string[]>('recent_sale_events', [])
-          if (recent.includes(event.id)) return
+          if (recent.includes(saleId)) return
 
           await api.db.rpc('award', { customer_id: customerId, points })
-          await api.data.set('recent_sale_events', [event.id, ...recent].slice(0, RECENT_LIMIT))
+          await api.data.set('recent_sale_events', [saleId, ...recent].slice(0, RECENT_LIMIT))
         } catch (error: unknown) {
           // Nothing is written down, so a later delivery can retry the award.
-          inFlight.delete(event.id)
+          inFlight.delete(saleId)
           api.log.warn('auto-award failed', error instanceof Error ? error.message : error)
         }
       })()

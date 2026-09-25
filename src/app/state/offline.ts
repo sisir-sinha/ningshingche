@@ -21,6 +21,8 @@ export interface OfflineUiStatus {
   lastError: string | null
   /** False when storage could not survive a reload (private mode). */
   persistent: boolean
+  /** Sales queued on this device by another shop. Only that shop may send them. */
+  foreign: number
 }
 
 export const offlineStatus = new Store<OfflineUiStatus>({
@@ -31,4 +33,5 @@ export const offlineStatus = new Store<OfflineUiStatus>({
   lastSyncedAt: null,
   lastError: null,
   persistent: true,
+  foreign: 0,
 })

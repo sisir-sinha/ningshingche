@@ -12,6 +12,11 @@
  * send is in flight, and how many the server refused. The refused ones open a
  * panel, because "3 sales refused" is not something a shopkeeper can act on
  * without seeing which ones and why.
+ *
+ * It also reports sales the device is holding for **another** shop. A shared
+ * till changes hands, and those sales are not lost — they wait for their own
+ * shop's session. Saying so is the difference between "the morning's sales are
+ * still here" and a shopkeeper wondering whether to write them down again.
  */
 
 import { badge } from '../../components/ui/card'
@@ -58,6 +63,9 @@ export function syncIndicator(): HTMLElement {
     } else if (!status.online) {
       tone = 'bg-danger'
       text = 'Offline'
+    } else if (status.foreign > 0) {
+      tone = 'bg-warning'
+      text = `${status.foreign} for another shop`
     } else if (!status.persistent) {
       // The one state worth shouting about: the queue does not survive a
       // reload, so closing the tab loses whatever is in it.
@@ -69,12 +77,15 @@ export function syncIndicator(): HTMLElement {
     label.textContent = text
     chip.setAttribute(
       'aria-label',
-      `${text}. ${status.pending} waiting to sync, ${status.failed} refused. ${
-        status.online ? 'Connected' : 'No connection'
-      }.`
+      `${text}. ${status.pending} waiting to sync, ${status.failed} refused${
+        status.foreign > 0 ? `, ${status.foreign} waiting for another shop` : ''
+      }. ${status.online ? 'Connected' : 'No connection'}.`
     )
     // Only worth a click when there is something behind it.
-    chip.classList.toggle('cursor-default', status.pending === 0 && status.failed === 0)
+    chip.classList.toggle(
+      'cursor-default',
+      status.pending === 0 && status.failed === 0 && status.foreign === 0
+    )
   }
 
   render(offlineStatus.state)
@@ -101,11 +112,12 @@ export async function openQueue(): Promise<void> {
 
   const failures = await runtime.failures()
   const pending = await runtime.pending()
+  const stranded = await runtime.stranded()
 
   const dialog = modal({
     title: 'Sales waiting to sync',
     subtitle:
-      pending === 0 && failures.length === 0
+      pending === 0 && failures.length === 0 && stranded === 0
         ? 'Everything the till has taken has reached the server.'
         : `${pending} waiting · ${failures.length} refused. Refused sales are kept until somebody decides.`,
     iconName: 'cloud_sync',
@@ -113,6 +125,28 @@ export async function openQueue(): Promise<void> {
   })
 
   const list = h('div', { class: 'space-y-3' })
+
+  if (stranded > 0) {
+    // Not this session's to send, and not lost. The distinction matters: the
+    // one thing a cashier does with a sale they think is missing is take it
+    // again, which is how a shop ends up with two.
+    list.appendChild(
+      h(
+        'div',
+        { class: 'rounded-md border border-warning/40 bg-warning/5 p-3' },
+        h('p', {
+          class: 'text-sm text-content',
+          text: `${stranded} sale(s) belong to another shop signed in on this device`,
+        }),
+        h('p', {
+          class: 'mt-0.5 text-xs text-content-muted',
+          text:
+            'They are kept, and will be sent when somebody signs in to that shop again. ' +
+            'Nobody else can send them — and they are not a mistake to fix by hand.',
+        })
+      )
+    )
+  }
 
   if (pending > 0) {
     list.appendChild(

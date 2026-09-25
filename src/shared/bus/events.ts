@@ -10,8 +10,20 @@
  *
  *   Local events   — client-only. Nothing in the database knows about them.
  *
- * Handlers must be idempotent on `event.id`: the same domain event routinely
- * arrives twice, once locally and once over Realtime.
+ * The same domain event routinely arrives **twice**: once as a client-side echo
+ * (the screen that made the change updates immediately) and once over Realtime,
+ * carrying the outbox row the trigger wrote. Those two deliveries do **not**
+ * share an envelope id — the client cannot know the row id before the row
+ * exists, so its echo carries a fabricated one.
+ *
+ * So the rule for anything with a lasting effect is:
+ *
+ *   · dedupe on the **aggregate's own id**, `event.data.<aggregate>_id`, which
+ *     is the same in both deliveries and is what the effect is *about*;
+ *   · never on `event.id`, which is only stable for deliveries of the same row.
+ *
+ * `id` is still the key to use when you are holding the row itself (a Realtime
+ * replay of a row you already handled), and for logging.
  */
 
 /** Every domain event carries this envelope. */
@@ -124,6 +136,28 @@ export interface LocalEventMap {
   'ui.palette.open': LocalEvent<'ui.palette.open', { query?: string }>
   /** The active organization or the caller's permissions changed. */
   'session.changed': LocalEvent<'session.changed', { organization_id: string }>
+  /**
+   * A sale was taken and kept on this device because the shop's server could
+   * not be reached (docs/12 §5).
+   *
+   * Deliberately **not** `sale.completed`. That event means "this shop has this
+   * sale": it is what the ledger, the reports and any plugin crediting the
+   * customer react to, and a queued sale is not that yet — the server may
+   * refuse it, and the invoice number on the slip is the till's own guess. The
+   * authority's `sale.completed` arrives over Realtime when the queue drains.
+   */
+  'sale.queued': LocalEvent<
+    'sale.queued',
+    {
+      sale_id: string
+      invoice_no: string
+      branch_id: string
+      customer_id: string | null
+      total: string
+      /** The device's reference, which stays the same across every attempt. */
+      client_ref: string
+    }
+  >
 }
 
 export type MekholiEvents = DomainEventMap & LocalEventMap

@@ -481,6 +481,7 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
               payments,
               floor: floor!,
               currency,
+              organizationId: organization?.organization_id ?? '',
               heldSaleId: cart.state.heldSaleId,
             })
             const heldId = cart.state.heldSaleId
