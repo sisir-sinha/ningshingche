@@ -13,8 +13,10 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { PluginRegistry } from '../shared/registry/plugin-registry'
 import { EventBus } from '../shared/bus'
-import { posFieldValues, printableNotes } from './plugin-slots'
-import type { Plugin } from '../shared/registry/plugin-types'
+import { panelLines, posFieldValues, printableNotes } from './plugin-slots'
+import { milli, minor } from '../shared/domain/money'
+import type { CartLine } from '../shared/domain/cart'
+import type { Plugin, PanelLine } from '../shared/registry/plugin-types'
 
 function registryWith(plugin: Plugin): PluginRegistry {
   const bus = new EventBus()
@@ -126,5 +128,82 @@ describe('receipt notes', () => {
     await registry.sync([])
     const notes = printableNotes(registry, [{ variantId: 'v1', metadata: { 'demo.batch': 'BT-14' } }])
     expect([...notes.keys()]).toEqual([])
+  })
+})
+
+// ── The cart a plugin is shown ────────────────────────────────────────────
+//
+// A POS panel that decorates the sale in front of the cashier has to know what
+// is on it. The projection is the contract: what a plugin sees, and — just as
+// importantly — what it does not.
+
+function cartLine(overrides: Partial<CartLine> = {}): CartLine {
+  return {
+    lineId: 'line-1',
+    variantId: 'v1',
+    productId: 'p1',
+    name: 'Soap',
+    variantName: null,
+    sku: 'SOAP-1',
+    unitLabel: null,
+    unitPrice: minor(12000),
+    unitCost: 800000,
+    taxRatePercent: 0,
+    taxInclusive: false,
+    trackStock: true,
+    allowNegative: false,
+    availableQty: milli(5000),
+    decimalQuantity: false,
+    quantity: milli(2000),
+    discountType: null,
+    discountValue: 0,
+    ...overrides,
+  }
+}
+
+describe('the cart a plugin is shown', () => {
+  it('gives a plugin plain numbers, and the product’s own metadata', () => {
+    const lines = panelLines([cartLine()], () => ({
+      metadata: { serial_tracked: true, batch_number: 'BT-14' },
+    }))
+
+    expect(lines).toEqual<PanelLine[]>([
+      {
+        variantId: 'v1',
+        productId: 'p1',
+        name: 'Soap',
+        variantName: null,
+        sku: 'SOAP-1',
+        quantity: 2,
+        unitPrice: 120,
+        metadata: { serial_tracked: true, batch_number: 'BT-14' },
+      },
+    ])
+  })
+
+  it('keeps a weighed line honest: 1.25 kg arrives as 1.25', () => {
+    const lines = panelLines([cartLine({ quantity: milli(1250) })], () => ({ metadata: {} }))
+    expect(lines[0]?.quantity).toBe(1.25)
+  })
+
+  it('falls back to no metadata for a variant the till has not seen', () => {
+    // A plugin reads `metadata.serial_tracked`; an empty object means "not
+    // tracked", and a plugin must never read it as "tracked by default".
+    const lines = panelLines([cartLine()], () => undefined)
+    expect(lines[0]?.metadata).toEqual({})
+  })
+
+  it('hands over nothing a plugin could write back', () => {
+    const [line] = panelLines([cartLine()], () => ({ metadata: {} }))
+    expect(Object.keys(line ?? {}).sort()).toEqual([
+      'metadata',
+      'name',
+      'productId',
+      'quantity',
+      'sku',
+      'unitPrice',
+      'variantId',
+      'variantName',
+    ])
   })
 })

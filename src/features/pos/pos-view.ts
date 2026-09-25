@@ -36,7 +36,7 @@ import { openReceipt } from './receipt'
 import { refreshSalesFloor, salesFloor, salesFloorStore } from '../../app/state/sales-floor'
 import { activeOrganization } from '../../app/state/session'
 import { getRepositories } from '../../app/data'
-import { pluginPanelsHost, posFieldValues, printableNotes } from '../../app/plugin-slots'
+import { panelLines, pluginPanelsHost, posFieldValues, printableNotes } from '../../app/plugin-slots'
 import type { PluginRegistry } from '../../shared/registry/plugin-registry'
 import type { EventBus } from '../../shared/bus/event-bus'
 import type { SalesFloor, SellableProduct } from '../../shared/repositories/contracts'
@@ -345,6 +345,10 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
         currency,
         total: minorToNumber(totals.total),
         customerId: state.cart.customerId,
+        // What is in the cart, for a plugin that decorates *this* sale — a
+        // serial to attach to a line, a promotion that applies to what is
+        // being bought (spec §51).
+        lines: panelLines(state.cart.lines, (variantId) => seen.get(variantId)),
       })
     )
 

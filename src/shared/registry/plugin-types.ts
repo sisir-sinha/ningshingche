@@ -244,6 +244,31 @@ export interface FormSectionDefinition {
 }
 
 /**
+ * One line of the till's cart, as a plugin may see it.
+ *
+ * A plugin that decorates a sale needs to know what is *on* the sale. Without
+ * this a serial-number panel can offer a box to scan into and no way to say
+ * which line the unit belongs to, and a promotions panel cannot see what the
+ * customer is actually buying — both would have to guess from the total.
+ *
+ * Deliberately a projection and not the cart itself: no line ids, no
+ * discounts, no tax breakdown, nothing a plugin could mutate. Quantity and
+ * price are plain numbers, because a plugin has no business knowing about
+ * milli-units, and `metadata` is the product's own — which is where a plugin's
+ * registered product fields live.
+ */
+export interface PanelLine {
+  variantId: string
+  productId: string
+  name: string
+  variantName: string | null
+  sku: string | null
+  quantity: number
+  unitPrice: number
+  metadata: Record<string, unknown>
+}
+
+/**
  * What a slot's `render` receives. The ids are the ones the host is showing;
  * nothing here can read the database, which is what keeps a plugin's panel a
  * description of the sale rather than a second implementation of it.
@@ -256,6 +281,14 @@ export interface PanelContext {
   saleId?: string
   customerId?: string | null
   total?: number
+  /**
+   * The cart, on the POS panel. Absent on slots that are not the till.
+   *
+   * A plugin's POS panel is re-drawn whenever the cart changes, so this is
+   * always the cart in front of the cashier — and a plugin that keeps state
+   * across those redraws keeps it in its own closure, not in the DOM.
+   */
+  lines?: readonly PanelLine[]
   /** Present on the product form. */
   productId?: string
 }

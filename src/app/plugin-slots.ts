@@ -26,14 +26,17 @@
 import { h, icon, mount } from '../components/ui/h'
 import { badge } from '../components/ui/card'
 import { eventBus } from '../shared/bus'
+import { milliToNumber, minorToNumber } from '../shared/domain/money'
 import { pluginRegistry } from './plugins'
 import { can } from './state/session'
+import type { CartLine } from '../shared/domain/cart'
 import type { PluginRegistry } from '../shared/registry/plugin-registry'
 import type {
   FormSectionDefinition,
   DashboardWidgetDefinition,
   PanelContext,
   PanelDefinition,
+  PanelLine,
   ProductField,
   TabDefinition,
 } from '../shared/registry/plugin-types'
@@ -147,6 +150,33 @@ export function pluginWidgetsHost(registry: PluginRegistry): HTMLElement {
   void draw()
   watchPluginSlots(host, () => void draw())
   return host
+}
+
+// ── The cart, as a plugin may see it ──────────────────────────────────────
+
+/**
+ * Projects the cart into the SDK's `PanelLine` vocabulary (docs/11 §5).
+ *
+ * The catalogue callback is how a line picks up `products.metadata`: a cart
+ * line carries the variant and the price, and the product's own fields — a
+ * batch number, "this unit needs a serial" — live on the catalogue row the
+ * till already read. A variant the till has not seen falls back to no
+ * metadata, which a plugin must treat as "not tracked" rather than "no".
+ */
+export function panelLines(
+  lines: readonly CartLine[],
+  catalogue: (variantId: string) => { metadata: Record<string, unknown> } | undefined
+): PanelLine[] {
+  return lines.map((line) => ({
+    variantId: line.variantId,
+    productId: line.productId,
+    name: line.name,
+    variantName: line.variantName ?? null,
+    sku: line.sku ?? null,
+    quantity: milliToNumber(line.quantity),
+    unitPrice: minorToNumber(line.unitPrice),
+    metadata: catalogue(line.variantId)?.metadata ?? {},
+  }))
 }
 
 // ── POS panels ────────────────────────────────────────────────────────────
