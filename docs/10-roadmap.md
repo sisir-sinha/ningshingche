@@ -471,6 +471,24 @@ commit) and 4 (no file under `src/features/` was modified by any of them — the
 reports seam above is the *host* being fixed so that a plugin can have a report
 at all).
 
+The fifth plugin, `weight-scale`, forced the last host seam of the phase: the
+till resolved every scanned code through the shop's own barcode table and
+nothing else, so a scale label — a code that will never be a row in that table —
+could not ring anything up at all. `6c2de09` adds **scan resolvers** (the till
+asks the shop's barcodes first, then plugins, then falls through to search; a
+resolver decodes and returns a code, never a product).
+
+That seam exposed a **core gap worth naming here**: a line's price cannot be
+overridden at the till. `complete_sale` prices every line from the catalogue
+(`coalesce(variant.price_override, product.selling_price)`) and never reads a
+price from its payload, so a price-embedded scale label can be *read* but not
+*charged*. `weight-scale` therefore reports the label's price to the cashier and
+warns when the shelf has moved on, and the till keeps showing the number its
+receipt will carry. Honouring a per-line price is a universal POS capability
+(not a plugin's job — §51): it needs a `sales.price_override` permission, a
+`complete_sale` that accepts a per-line `unit_price` when the user holds it, and
+a price field on the cart line. Deferred deliberately; on the ledger below.
+
 `warranty` is the first plugin that needed **no new seam**. It uses the product
 field the taxonomy already promotes (`warranty_months` — promoted today for
 electronics, mobile, computer and appliance shops), the till's cart

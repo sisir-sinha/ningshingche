@@ -204,31 +204,37 @@ describe('a scan the barcode table does not know', () => {
     expect(searched).not.toContain('2212340007504')
   })
 
-  it('charges what the label printed when the scale printed a price', async () => {
+  it('warns when the label’s price is not the shop’s, and charges the shop’s', async () => {
     barcodeHits['12341'] = { ...RICE, sku: '12341' }
-    // A price-embedded label: 1.5 kg at ৳90.00 — the price the shop's own scale
-    // showed the customer, which is not the catalogue price of ৳95.00.
+    // A price-embedded label, printed before the shelf price moved: it says
+    // ৳90.00 a kilo, and the shop charges ৳95.00 today.
     resolveImpl = () => ({ lookupCode: '12341', quantity: 1.5, unitPriceMinor: 9000 })
     const view = await build()
 
     await scan(view, '2212341014250')
 
     expect(quantities(view)).toContain('1.5')
-    // 1.5 × ৳90.00. ৳95.00 would be 142.50 — the label wins.
-    expect(textOf(view)).toContain('135.00')
-    expect(textOf(view)).not.toContain('142.50')
+    // 1.5 × ৳95.00 — the shop's price, because `complete_sale` prices the
+    // receipt from the catalogue and the screen must not promise otherwise.
+    expect(textOf(view)).toContain('142.50')
+    // …and the cashier is told, in both numbers, that the shelf moved.
+    const warned = textOf(document.body)
+    expect(warned).toContain('90.00')
+    expect(warned).toContain('95.00')
+    expect(warned).toContain('Charging the shop’s price')
   })
 
-  it('ignores a price a plugin made up, and charges the shop’s own', async () => {
+  it('ignores a price a plugin made up', async () => {
     barcodeHits['12341'] = { ...RICE, sku: '12341' }
     resolveImpl = () => ({ lookupCode: '12341', quantity: 1, unitPriceMinor: -50000 })
     const view = await build()
 
     await scan(view, '2212341014250')
 
-    // A negative price is not a line: the host dropped it, so the catalogue's
-    // ৳95.00 stands.
+    // A negative price is not a price: the host dropped it before the cart saw
+    // it, so there is nothing to warn about and the catalogue's ৳95.00 stands.
     expect(textOf(view)).toContain('95.00')
+    expect(textOf(document.body)).not.toContain('Charging the shop’s price')
   })
 
   it('says what the plugin understood when the shop cannot sell that code', async () => {

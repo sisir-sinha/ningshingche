@@ -267,22 +267,38 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
 
   /**
    * Adds a product to the cart. `scan` is present when the line came from a code
-   * an add-on recognised: it carries the weighed quantity and, when the label
-   * printed the price, the price to charge — the price the shop's own scale told
-   * the customer it would be.
+   * an add-on recognised: it carries the weight that was on the label, so a
+   * weighed line starts at 1.250 kg rather than at the till's own step.
+   *
+   * A price the label printed is *shown*, never charged. Every line is priced by
+   * `complete_sale` from the catalogue, so a till whose screen disagreed with its
+   * receipt would be worse than one that never read the label at all — a label
+   * that disagrees becomes a warning the cashier can act on instead.
    */
   function addToCart(product: SellableProduct, scan?: ScanMatch): void {
     const step: Milli = product.decimalQuantity ? milli(250) : milli(1000)
-    const line =
-      scan && scan.unitPriceMinor !== undefined
-        ? { ...toCartLine(product), unitPrice: minor(scan.unitPriceMinor) }
-        : toCartLine(product)
+    const line = toCartLine(product)
+    if (scan) warnIfLabelPriceDiffers(product, scan)
     if (scan && scan.quantity !== undefined) {
-      // A weighed line starts at the weight on the label, not at the step.
       cart.add(line, milli(Math.round(scan.quantity * 1000)))
       return
     }
     cart.add(line, step)
+  }
+
+  /**
+   * A stale shelf price is the one thing a scale label cannot tell us by itself:
+   * the label was printed days ago, the shop changed the price yesterday, and the
+   * customer is looking at the label. Say both numbers; the cashier deals with the
+   * shelf, and the receipt still carries the shop's own price.
+   */
+  function warnIfLabelPriceDiffers(product: SellableProduct, scan: ScanMatch): void {
+    if (scan.unitPriceMinor === undefined || scan.unitPriceMinor === product.price) return
+    toastWarning(
+      `${scan.note ?? 'That label'} says ${formatMoney(minor(scan.unitPriceMinor), { currency })}, ` +
+        `but this shop charges ${formatMoney(product.price, { currency })}. ` +
+        'Charging the shop’s price.'
+    )
   }
 
   function renderResults(): void {

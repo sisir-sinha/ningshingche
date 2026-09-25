@@ -211,7 +211,10 @@ api.registerScanResolver({
     return {
       lookupCode: label.plu,      // looked up in the shop's barcode table
       quantity: label.kg,         // in sale units: the line starts at this weight
-      unitPriceMinor: label.price, // only if the label itself printed a price
+      // Only if the label itself printed a price. The till *shows* it and warns
+      // when it disagrees with the shelf price; it never charges it, because
+      // `complete_sale` prices every line from the catalogue.
+      unitPriceMinor: label.price,
       note: `Scale label · ${label.kg.toFixed(3)} kg`,  // spoken to the cashier
     }
   },
@@ -223,7 +226,9 @@ are decided by the server from an identifier, and the offline till adds lines
 from its cached catalogue. A plugin that returned a product object would be
 selling at a price the shop never agreed to, and it would do it differently on
 every device. The decode-only rule keeps one pricing path — the same one every
-other line in the cart uses.
+other line in the cart uses. A price the label carried is the one thing a
+resolver may report but not decide: the till prints both numbers, and the
+cashier can see that the shelf price moved after the label was printed.
 
 The first resolver that claims the code wins, in load order. A resolver that
 throws is logged and skipped: a sale must not fail because an add-on misbehaved.
