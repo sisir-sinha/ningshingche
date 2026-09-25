@@ -1,6 +1,6 @@
 # The plugins this bundle ships
 
-Five plugins live here. Between them they use every part of the SDK, which is
+Six plugins live here. Between them they use every part of the SDK, which is
 why they are also its worked example — `docs/11-plugin-sdk.md` is the guide, and
 these are what it looks like when someone follows it.
 
@@ -11,6 +11,7 @@ these are what it looks like when someone follows it.
 | [`loyalty-lite`](loyalty-lite/) | Points per taka spent, a balance on the sale, and who has earned what | 2 permissions, nav + screen, dashboard widget, POS panel, sale tab, an event listener that awards points automatically |
 | [`serial-numbers`](serial-numbers/) | The unit, not the product: which handset left on which invoice, and which one came back | 2 permissions, nav + screen (badge), dashboard widget, POS panel, sale tab, product-form section, 2 reports, `sale.completed` and `sale.refunded` listeners |
 | [`warranty`](warranty/) | The promise a sale makes: which unit, until when, to whom — and what honouring the promises cost | 2 permissions, nav + screen (badge), dashboard widget, POS panel, sale tab, product-form section, one product field the taxonomy promotes, 2 reports, a `sale.completed` listener that writes the promises |
+| [`weight-scale`](weight-scale/) | The shop's own scale labels: the till reads 1.250 kg off a barcode the catalogue has never heard of, and the shop sees which items its scale cannot ring up at all | 2 permissions, nav + screen, dashboard widget, 2 reports, one **scan resolver** — and no table and no product field: the price, the unit and the code all stay the catalogue's |
 
 None of them imports another, and none imports anything from `src/features/` —
 `tools/check-boundaries.mjs` fails the build if that changes. Loyalty needs
@@ -53,13 +54,24 @@ implementation that drifts from the first.
    register, the search and the claims queue, and `helpers.ts` mirrors the
    server's claim ladder so the buttons only ever offer a move the server will
    accept.
+8. `weight-scale/helpers.ts` + `weight-scale/index.ts` — the plugin that holds
+   *no state of its own*: a scanner hands it digits, `helpers.ts` cuts the shop's
+   own layout out of them and the resolver answers with a barcode the core
+   already knows. Its layouts are a setting, not a table, because the till must
+   read one on every scan without a round trip; its screen exists so a
+   shopkeeper can test a label by typing it and watch the answer before the
+   queue finds out. The reports are the server's: one entry point
+   (`weight_scale_report`) with two types, and the codes report names every item
+   the scale cannot sell, worst first — the PLU-shaped code on a piece-sold item
+   ahead of everything else, because that is the one charging the wrong money.
 
 ## Testing a plugin
 
 A plugin is tested through the public `PluginAPI`, never by reaching into the
 host: see `batch-expiry/batch-expiry.test.ts`,
 `loyalty-lite/loyalty-lite.test.ts`,
-`serial-numbers/serial-numbers.test.ts` and `warranty/warranty.test.ts`. They build a `PluginRegistry` with a
+`serial-numbers/serial-numbers.test.ts`, `warranty/warranty.test.ts` and
+`weight-scale/weight-scale.test.ts`. They build a `PluginRegistry` with a
 fake host, enable the plugin, and assert on what the plugin registered and on
 the calls it made — which is also the check that the plugin's files do not
 depend on anything the SDK does not promise.

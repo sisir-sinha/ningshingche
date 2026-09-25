@@ -463,13 +463,15 @@ Industry bundles (each ≈ a profile row + fields + navigation)
 | 2 | `batch-expiry` | `b06dc66`, `d844021` | `batch-expiry.test.ts`; product fields shown on the till and printed on the receipt |
 | 3 | `serial-numbers` | `bef3526` | `serial-numbers.test.ts` (43 tests); `tools/validate-migrations.mjs` §Phase 7 — 13 checks against a real Postgres — and a live run against the project, both of which leave the shop untouched |
 | 4 | `warranty` | `603d780` | `warranty.test.ts` (50 tests); migration 049 applied live and a 27-check probe against the project (rolled back); validator 214/214 |
+| 5 | `weight-scale` | `a9bce25` (seam `6c2de09`) | `weight-scale.test.ts` (38 tests); migration 050 applied live and a 24-check probe against the project (rolled back); validator 214/214; no file under `src/features/` touched |
 
-All four now meet the acceptance bullets: 1 (wizard defaults — the taxonomy
+All five now meet the acceptance bullets: 1 (wizard defaults — the taxonomy
 recommends them and the shop type is what the wizard writes), 2 (promoted
 fields, `c3b9f20`), 3 (a report in the core reports screen, `a15cf1c` + this
 commit) and 4 (no file under `src/features/` was modified by any of them — the
 reports seam above is the *host* being fixed so that a plugin can have a report
-at all).
+at all; `weight-scale` is the first plugin to prove bullet 4 by *not needing*
+anything from the host beyond the seam the previous plugin already forced).
 
 The fifth plugin, `weight-scale`, forced the last host seam of the phase: the
 till resolved every scanned code through the shop's own barcode table and
@@ -477,6 +479,30 @@ nothing else, so a scale label — a code that will never be a row in that table
 could not ring anything up at all. `6c2de09` adds **scan resolvers** (the till
 asks the shop's barcodes first, then plugins, then falls through to search; a
 resolver decodes and returns a code, never a product).
+
+`weight-scale` is, so far, the plugin that adds the least: one resolver, one
+screen, one tile, two reports — and **no table, no product field, no event
+listener, no till panel**. Everything it needs already exists in the catalogue
+(the code in `product_barcodes`, the price in `price_override`/
+`selling_price`, the unit in `product_units.is_decimal`), so a
+`plg_weight_scale_*` copy would have been a second answer to a question the
+core already answers (§51). What it *did* add is a shape, and it is the
+cheapest way for the next twelve plugins to look:
+
+- **Settings are the right home for data the till reads on every scan.** The
+  label layouts live in `plugins.config.formats`, not in a table, because a
+  scan is answered in the resolver's own turn; a layout row would buy nothing
+  and cost a round trip. The screen writes them, the resolver reads them, and
+  the server reads the same key when it builds a report — so the layout a
+  report was made from is the layout the till is using.
+- **A test box is worth more than a form.** A layout is four numbers, and the
+  only way to find out whether they are right is to type a label the shop's own
+  scale printed and watch which product comes back. That is the first thing the
+  screen shows.
+- **A worklist, not a validation error.** The codes report ranks every item the
+  scale cannot sell — a PLU-shaped code on a product sold by the piece comes
+  first, because that one charges the wrong money — then what has no code at
+  all. A shopkeeper can fix the top row and come back.
 
 That seam exposed a **core gap worth naming here**: a line's price cannot be
 overridden at the till. `complete_sale` prices every line from the catalogue
@@ -488,6 +514,12 @@ receipt will carry. Honouring a per-line price is a universal POS capability
 (not a plugin's job — §51): it needs a `sales.price_override` permission, a
 `complete_sale` that accepts a per-line `unit_price` when the user holds it, and
 a price field on the cart line. Deferred deliberately; on the ledger below.
+
+`weight-scale` is also the first plugin to be *entirely* client-side in what it
+decides and entirely server-side in what it counts: the decode is the plugin's
+(it has to be — it stands between the scanner and a cart line), while both
+reports are SQL, so a shop that scans ten thousand kilos a month still gets one
+row per product.
 
 `warranty` is the first plugin that needed **no new seam**. It uses the product
 field the taxonomy already promotes (`warranty_months` — promoted today for
