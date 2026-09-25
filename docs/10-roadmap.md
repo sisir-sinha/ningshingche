@@ -461,7 +461,13 @@ Industry bundles (each ≈ a profile row + fields + navigation)
 |---|---|---|---|
 | 1 | `variants` | `bd0482a` | `variants.test.ts`; the package migration is applied by the validator, which drives `plugin_rpc` end to end |
 | 2 | `batch-expiry` | `b06dc66`, `d844021` | `batch-expiry.test.ts`; product fields shown on the till and printed on the receipt |
-| 3 | `serial-numbers` | `bef3526` | `serial-numbers.test.ts` (38 tests); `tools/validate-migrations.mjs` §Phase 7 — 13 checks against a real Postgres — and a live run against the project, both of which leave the shop untouched |
+| 3 | `serial-numbers` | `bef3526` | `serial-numbers.test.ts` (43 tests); `tools/validate-migrations.mjs` §Phase 7 — 13 checks against a real Postgres — and a live run against the project, both of which leave the shop untouched |
+
+All three now meet the acceptance bullets: 1 (wizard defaults — the taxonomy
+recommends them and the shop type is what the wizard writes), 2 (promoted
+fields, `c3b9f20`), 3 (a report in the core reports screen, this commit) and 4
+(no file under `src/features/` was modified by any of them — the reports seam
+above is the *host* being fixed so that a plugin can have a report at all).
 
 `serial-numbers` is the first plugin whose subject is an *individual unit*
 rather than a product, and it is the reason the SDK grew one thing:
@@ -486,6 +492,43 @@ once, for every plugin that decorates a sale — which is the rule above, applie
   but a unit's own number is attached to the sale minutes later, and the core's
   receipt is drawn from the sale snapshot. The plugin prints its own sheet from
   the sale tab in the meantime; the receipt seam is the next host job.
+
+**And the hole that closed because of the acceptance bullet.** Bullet 3 — “at
+least one industry-specific report works” — was unmet by every shipped plugin,
+and for a reason no test could see: `registerReport` put a definition into a
+registry that *nothing read*. A plugin could describe a report and no shopkeeper
+could ever open it.
+
+The fix is a seam, not a screen (`87655c4`… this commit):
+
+- a plugin report returns **rows**, not an element (`ReportDefinition.run`), so
+  the core reports screen lists it in its own library, pages it with its own
+  pagination and exports it with its own CSV/print/PDF path — the same code
+  path the eleven built-ins take. An element would have been shorter for the
+  plugin and would have made the export buttons above it a lie;
+- the host completes what the plugin should not have to own (title, label,
+  currency, timestamp, “1–25 of 431”) and contains what a third party might get
+  wrong (rows clipped to the page, unknown cells dropped, non-scalar cells made
+  text);
+- a report declares which core filters make sense for it (`filters.window` /
+  `filters.search`), so a count of what is on the shelf today is not handed a
+  period control that does nothing.
+
+Two plugins now use it: **Batch & Expiry** (“Expiring stock”, where the window
+control means a *horizon* — 7, 30, 90 days — because that is the question an
+expiry report answers) and **Serial Numbers** (“Serial numbers” and “Serial
+stock aging”).
+
+Fixing it also exposed a second, older bug in the same family. `plugin_products`
+— the one read projection a plugin gets — had been reading `p.price`, a column
+`products` has not had for months, so **every plugin that reads products was
+silently drawing an empty shop** (Batch & Expiry's watch list and dashboard tile
+included; they catch the failure and show nothing). Migration **048** repairs it
+and hands money over in minor units. It was invisible to `npm run check` because
+a plpgsql body is parsed when it *runs*: the offline validator built the
+function, never called it, and passed. The validator now calls it, and the
+three new checks fail if the projection ever points at a column that is not
+there.
 
 ---
 

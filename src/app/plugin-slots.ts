@@ -30,9 +30,12 @@ import { milliToNumber, minorToNumber } from '../shared/domain/money'
 import { pluginRegistry } from './plugins'
 import { can } from './state/session'
 import type { CartLine } from '../shared/domain/cart'
+import type { ReportResult, ReportRow } from '../shared/repositories/contracts'
 import type { PluginRegistry } from '../shared/registry/plugin-registry'
 import type {
   FormSectionDefinition,
+  ReportDefinition,
+  ReportRunContext,
   DashboardWidgetDefinition,
   PanelContext,
   PanelDefinition,
@@ -392,4 +395,160 @@ export function pluginFormSectionsHost(
   void draw()
   watchPluginSlots(host, () => void draw())
   return host
+}
+
+// ── Reports ───────────────────────────────────────────────────────────────
+
+/**
+ * The reports a plugin contributes, as the *reports screen* sees them
+ * (spec §23, §31).
+ *
+ * Until this existed, `registerReport` put a definition into a registry nobody
+ * read: a plugin could describe a report and no shopkeeper could ever open it.
+ * The gap stayed invisible because none of the shipped plugins registered one,
+ * and it was found by asking “which acceptance bullet does this serve?” and
+ * watching a registered report go nowhere.
+ *
+ * A plugin report is described, not drawn (see `ReportDefinition`), so the
+ * reports screen lists it beside the eleven built-ins, runs it, pages it and
+ * exports it through the same code path — and the shopkeeper cannot tell where
+ * one ends and the next begins. That parity is the point: a second rendering
+ * path would drift from the first within two releases.
+ *
+ * The key is namespaced (`plugin.<source>.<id>`), so it can never collide with a
+ * server catalogue key and a link to a plugin report (`#/reports?report=…`) is
+ * a stable URL rather than a position in a list.
+ */
+export interface PluginReport {
+  key: string
+  id: string
+  source: string
+  label: string
+  group: string
+  description: string
+  icon: string
+  filters: { window: boolean; search: boolean }
+  run: ReportDefinition['run']
+}
+
+export const PLUGIN_REPORT_PREFIX = 'plugin.'
+
+export function pluginReportKey(source: string, id: string): string {
+  return `${PLUGIN_REPORT_PREFIX}${source}.${id}`
+}
+
+export function isPluginReportKey(key: string): boolean {
+  return key.startsWith(PLUGIN_REPORT_PREFIX)
+}
+
+/**
+ * Registered reports the signed-in user may open, in registry order — which is
+ * the order plugins were loaded, so a shop sees its reports in a stable order
+ * rather than one that changes with the alphabet.
+ */
+export function pluginReports(registry: PluginRegistry): PluginReport[] {
+  return visible<ReportDefinition>(registry.reports.items).map((definition) => {
+    const source = definition.source ?? 'plugin'
+    const name = registry.get(source)?.manifest.name ?? source
+    return {
+      key: pluginReportKey(source, definition.id),
+      id: definition.id,
+      source,
+      label: definition.label,
+      group: definition.group ?? name,
+      description: definition.description ?? '',
+      icon: definition.icon,
+      filters: {
+        window: definition.filters?.window ?? true,
+        search: definition.filters?.search ?? false,
+      },
+      run: definition.run,
+    }
+  })
+}
+
+/**
+ * A plugin's rows, dressed as the `ReportResult` the table and the exporters
+ * already take.
+ *
+ * Two jobs, both the host's rather than the plugin's:
+ *
+ *   **Completion.** The plugin answers with columns, rows and (optionally)
+ *   totals; the title, label, currency, timestamp and paging facts are filled
+ *   in here, so eleven plugin reports cannot disagree about what “1–25 of 431”
+ *   means.
+ *
+ *   **Containment.** A plugin is somebody else's code. Rows are clipped to the
+ *   page the host asked for, cells whose column is not in `columns` are dropped
+ *   (a stray key would otherwise reach the CSV), and a cell that is an object
+ *   or an array becomes text rather than `[object Object]` in a shopkeeper's
+ *   spreadsheet. A plugin that returns nonsense produces a slightly empty
+ *   report, not a broken screen.
+ */
+export async function runPluginReport(
+  report: PluginReport,
+  context: ReportRunContext,
+  options: { currency: string; periodLabel?: string }
+): Promise<ReportResult> {
+  const result = await report.run(context)
+  const columns = (Array.isArray(result?.columns) ? result.columns : []).slice()
+  const keys = new Set(columns.map((column) => column.key))
+  const rows = (Array.isArray(result?.rows) ? result.rows : []).slice(0, context.limit)
+
+  const clean: ReportRow[] = rows.map((row) => {
+    const cells: ReportRow = {}
+    for (const [key, value] of Object.entries(row ?? {})) {
+      if (!keys.has(key)) continue
+      cells[key] =
+        value === null || typeof value === 'string' || typeof value === 'number'
+          ? value
+          : String(value)
+    }
+    return cells
+  })
+
+  const totals: Record<string, number> = {}
+  for (const [key, value] of Object.entries(result?.totals ?? {})) {
+    if (keys.has(key) && typeof value === 'number' && Number.isFinite(value)) {
+      totals[key] = value
+    }
+  }
+
+  return {
+    key: report.key,
+    title: report.label,
+    group: report.group,
+    description: report.description,
+    columns,
+    rows: clean,
+    totals,
+    // A plugin that returned everything it has does not have to count: the
+    // host knows how many rows it was handed — the *unclipped* number, because
+    // “1–2 of 3” is the truth when a report has three rows and the page holds
+    // two.
+    totalRows:
+      typeof result?.totalRows === 'number' ? result.totalRows : (result?.rows?.length ?? 0),
+    offset: context.offset,
+    limit: context.limit,
+    // A plugin report is not sorted by the host: sorting is the plugin's to do,
+    // because its data may not even be in this browser. Its headers are labels,
+    // not buttons, rather than buttons that do nothing.
+    sort: '',
+    dir: 'desc',
+    search: context.search || null,
+    period: context.period,
+    // The subtitle reads the way a built-in's does — the window, then any small
+    // print the plugin added. A report that ignores the window says so by
+    // declaring `filters.window: false`, and then nothing here claims a period.
+    label: [
+      report.filters.window ? options.periodLabel ?? context.period : 'All rows',
+      result?.note,
+    ]
+      .filter(Boolean)
+      .join(' · '),
+    from: context.from ?? '',
+    to: context.to ?? '',
+    currency: result?.currency ?? options.currency,
+    generatedAt: new Date().toISOString(),
+  }
 }

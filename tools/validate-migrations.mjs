@@ -755,6 +755,32 @@ check(
   !ownerOrg.permissions.includes('*'),
   ownerOrg.permissions.includes('*') ? 'leaked *' : 'expanded'
 )
+
+// The plugin read bridge (034, repaired in 048). Asserted here because its
+// failure mode is silence: a body naming a column that no longer exists raises
+// only when it *runs*, and every plugin that reads products catches the error
+// and draws an empty shop — which is what Batch & Expiry's watch list did for
+// a week without anyone noticing.
+const bridge = await q(
+  `select public.plugin_products('${ownerOrg.organization_id}') as payload`
+)
+const bridged = Array.isArray(bridge[0]?.payload) ? bridge[0].payload : []
+const widget = bridged.find((product) => product.name === 'E2E Widget')
+check(
+  'plugin_products answers, and carries this shop’s products',
+  bridged.length > 0 && Boolean(widget),
+  `${bridged.length} product(s)`
+)
+check(
+  'plugin_products hands money over in minor units',
+  widget?.price === 25000,
+  String(widget?.price)
+)
+check(
+  'plugin_products still carries the metadata a plugin field lives in',
+  widget?.metadata !== null && typeof widget?.metadata === 'object',
+  JSON.stringify(widget?.metadata)
+)
 // The shop's business type is what the client uses to decide what a shopkeeper
 // meets first — a pharmacy's expiry date, a mobile shop's serial tracking
 // (047, docs/08 §2). It has to travel with the session, because the taxonomy

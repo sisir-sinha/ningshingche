@@ -10,6 +10,9 @@
  */
 
 import type { EventBus } from '../bus/event-bus'
+// Type-only, and only the two shapes a report is made of — those types already
+// exist because the eleven built-in reports return them.
+import type { ReportColumn, ReportRow } from '../repositories/contracts'
 
 // ── Nav ───────────────────────────────────────────────────────────────────
 
@@ -133,14 +136,84 @@ export interface PermissionDefinition {
   source?: string
 }
 
+/**
+ * A report a plugin contributes to the *core* reports screen (spec §23, §31).
+ *
+ * A plugin does not draw its report. It returns the rows, and the host draws
+ * them with the same table, the same totals chips, the same paging and the same
+ * CSV/print/PDF exporters as the eleven built-in reports — so a shopkeeper
+ * cannot tell which reports shipped with the app and which one arrived with an
+ * add-on, and an export can never disagree with the screen it came from.
+ *
+ * That is a deliberate choice against `render: () => HTMLElement`: an element
+ * would have been three lines shorter for a plugin and would have made the
+ * export buttons above it useless, because they read a `ReportResult` rather
+ * than a DOM node. A plugin that needs something other than a table owns a
+ * screen instead — `registerRoute` is right there.
+ */
 export interface ReportDefinition {
   id: string
   label: string
+  /** Material Symbols Rounded ligature name. */
   icon: string
   permission?: string
-  render: () => HTMLElement | Promise<HTMLElement>
+  /**
+   * Library group, e.g. “Pharmacy”. Defaults to the plugin's own name, so a
+   * one-report plugin has no decision to make here.
+   */
+  group?: string
+  /** One line under the title — what the rows are, in the shopkeeper's words. */
+  description?: string
+  /**
+   * Which core filters to show above the table. A windowed report that cannot
+   * be searched should not be handed a search box that does nothing.
+   * Defaults: `{ window: true, search: false }`.
+   */
+  filters?: { window?: boolean; search?: boolean }
+  /** The rows for the filters the host passed in. */
+  run: (context: ReportRunContext) => PluginReportResult | Promise<PluginReportResult>
   /** Set by the host. Never author this. */
   source?: string
+}
+
+/** What the host knows when it asks a plugin for a report. */
+export interface ReportRunContext {
+  /** `day` | `week` | `month` | `quarter` | `year` | `custom`. */
+  period: string
+  /** ISO dates, only when the shopkeeper picked a custom range. */
+  from: string | null
+  to: string | null
+  /** What the shopkeeper typed in the search box, when the host shows one. */
+  search: string
+  /** The branch the till is on, when there is one. */
+  branchId: string | null
+  /** The page being drawn. A plugin may page on the server or return all rows. */
+  limit: number
+  offset: number
+}
+
+/**
+ * What a plugin hands back. Deliberately smaller than the `ReportResult` the
+ * host renders: the title, the label, the currency, the timestamp and the
+ * paging facts are the host's business, because eleven reports must not each
+ * decide what “1–25 of 431” means.
+ *
+ * Money is **minor units** in `rows` and `totals`, like every other report — a
+ * float that has already been rounded once prints wrong.
+ */
+export interface PluginReportResult {
+  columns: ReportColumn[]
+  rows: ReportRow[]
+  totals?: Record<string, number>
+  /**
+   * How many rows the filters match in total. Omit it when you returned them
+   * all and the host will say so itself.
+   */
+  totalRows?: number
+  /** Defaults to the shop's currency. */
+  currency?: string
+  /** Small print under the table — a window, a caveat, what is still missing. */
+  note?: string
 }
 
 export interface SettingsSectionDefinition {

@@ -2,8 +2,9 @@
 
 import type { Route } from '../../app/router/router'
 import { reportsView } from './reports-view'
+import type { PluginRegistry } from '../../shared/registry/plugin-registry'
 
-export function reportRoutes(): Route[] {
+export function reportRoutes(registry: PluginRegistry): Route[] {
   return [
     {
       path: '/reports',
@@ -11,6 +12,7 @@ export function reportRoutes(): Route[] {
       permission: 'reports.view',
       render: (context) =>
         reportsView({
+          registry,
           initialReport: context.query.get('report') ?? undefined,
           initialPeriod: context.query.get('period') ?? undefined,
           initialSearch: context.query.get('search') ?? undefined,

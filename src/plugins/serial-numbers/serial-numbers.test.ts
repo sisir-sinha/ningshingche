@@ -46,6 +46,7 @@ import {
   type Overview,
   type PendingScan,
   type SaleInfo,
+  type SerialRow,
 } from './helpers'
 
 const ORG = '11111111-1111-1111-1111-111111111111'
@@ -72,7 +73,13 @@ function makeDb(): PluginDb {
     rpc: async <T,>(fn: string, args: Record<string, unknown> = {}): Promise<T> => {
       calls.push({ fn, args })
       if (refuse) throw new Error(refuse)
-      return (answers[fn] ?? null) as T
+      const answer = answers[fn]
+      // A canned value, or a function when the answer depends on the page
+      // being asked for (which is how the paging loop is exercised).
+      if (typeof answer === 'function') {
+        return (answer as (args: Record<string, unknown>) => unknown)(args) as T
+      }
+      return (answer ?? null) as T
     },
   }
 }
@@ -130,6 +137,178 @@ function cartLine(overrides: Partial<PanelLine> = {}): PanelLine[] {
     },
   ]
 }
+
+// ── The reports ───────────────────────────────────────────────────────────
+// Both are read through the registry and run through the same `run(context)`
+// the core reports screen calls. The mapping is what is pinned here: a report
+// that shows `IN_STOCK` instead of “In stock”, or that quietly loses the
+// second page of an export, is a report a shopkeeper cannot use.
+
+function serialRow(index: number, over: Partial<SerialRow> = {}): SerialRow {
+  return {
+    id: `s${index}`,
+    serial: `IMEI-${String(index).padStart(5, '0')}`,
+    status: 'IN_STOCK',
+    source: 'MANUAL',
+    note: null,
+    product_id: 'p1',
+    product_name: 'Phone X',
+    variant_id: 'v1',
+    variant_name: '128GB',
+    sku: 'PH-128',
+    warehouse: 'Shop Floor',
+    sale_id: null,
+    invoice_no: null,
+    customer: null,
+    received_at: '2026-09-01T09:00:00.000Z',
+    sold_at: null,
+    returned_at: null,
+    released_at: null,
+    ...over,
+  }
+}
+
+describe('the reports', () => {
+  const report = (id: string) => registry.reports.items.find((entry) => entry.id === id)
+
+  it('registers two, under Stock, both gated on seeing serials', async () => {
+    await registry.sync(['serial-numbers'])
+
+    expect(registry.reports.items.map((entry) => entry.id)).toEqual(['units', 'aging'])
+    for (const entry of registry.reports.items) {
+      expect(entry.group).toBe('Stock')
+      expect(entry.permission).toBe(SERIALS_VIEW)
+    }
+    expect(report('units')?.filters).toEqual({ window: false, search: true })
+    expect(report('aging')?.filters).toEqual({ window: false })
+  })
+
+  it('pages the pool until the export is satisfied, then stops', async () => {
+    await registry.sync(['serial-numbers'])
+    const all = Array.from({ length: 450 }, (_, index) => serialRow(index))
+    answers['list'] = (args: Record<string, unknown>) => {
+      const limit = Number(args.limit ?? 50)
+      const offset = Number(args.offset ?? 0)
+      return { rows: all.slice(offset, offset + limit), total: all.length, limit, offset }
+    }
+
+    const result = await report('units')!.run({
+      period: 'month',
+      from: null,
+      to: null,
+      search: '',
+      branchId: 'b1',
+      limit: 250,
+      offset: 0,
+    })
+
+    // 250 requested, pages of 200: two calls, and the row count the host uses
+    // for “1–250 of 450” is the server's, not the page's.
+    const listCalls = calls.filter((call) => call.fn === 'list')
+    expect(listCalls).toHaveLength(2)
+    expect(listCalls[0]?.args).toMatchObject({ status: 'ALL', limit: 200, offset: 0 })
+    expect(listCalls[1]?.args).toMatchObject({ limit: 50, offset: 200 })
+    expect(result.rows).toHaveLength(250)
+    expect(result.totalRows).toBe(450)
+    expect(result.note).toBe('250 of 450 in stock')
+  })
+
+  it('reads as a report, not as a schema', async () => {
+    await registry.sync(['serial-numbers'])
+    answers['list'] = {
+      rows: [
+        serialRow(1),
+        serialRow(2, {
+          status: 'SOLD',
+          invoice_no: 'INV-2026-000031',
+          customer: 'Rahima',
+          sold_at: '2026-09-20T11:30:00.000Z',
+        }),
+      ],
+      total: 2,
+      limit: 50,
+      offset: 0,
+    }
+
+    const result = await report('units')!.run({
+      period: 'month',
+      from: null,
+      to: null,
+      search: 'rahima',
+      branchId: null,
+      limit: 50,
+      offset: 0,
+    })
+
+    expect(result.rows[0]).toMatchObject({ status: 'In stock', invoice: '—', customer: '—' })
+    expect(result.rows[1]).toMatchObject({
+      status: 'Sold',
+      invoice: 'INV-2026-000031',
+      customer: 'Rahima',
+    })
+    // The shopkeeper's search reaches the server, not just the visible page.
+    expect(calls.filter((call) => call.fn === 'list')[0]?.args.search).toBe('rahima')
+  })
+
+  it('reports how long the shelf stock has been waiting, and what is missing', async () => {
+    await registry.sync(['serial-numbers'])
+    answers['report'] = {
+      window: { days: 30, from: '2026-08-27T00:00:00.000Z', to: '2026-09-26T00:00:00.000Z' },
+      totals: { sold: 12, returned: 1, in_stock: 40, internal: 6, total: 53 },
+      aging: [
+        { bucket: '0-30 days', count: 22 },
+        { bucket: '31-90 days', count: 12 },
+        { bucket: 'over 180 days', count: 6 },
+      ],
+      by_product: [],
+      pending_sales: 2,
+      pending_units: 3,
+    }
+
+    const result = await report('aging')!.run({
+      period: 'month',
+      from: null,
+      to: null,
+      search: '',
+      branchId: null,
+      limit: 25,
+      offset: 0,
+    })
+
+    expect(result.rows).toEqual([
+      { bucket: '0-30 days', units: 22 },
+      { bucket: '31-90 days', units: 12 },
+      { bucket: 'over 180 days', units: 6 },
+    ])
+    expect(result.totals).toEqual({ units: 40 })
+    expect(result.note).toContain('6 of 53 numbered by the shop')
+    expect(result.note).toContain('3 unit(s) on 2 sale(s) still need a number')
+  })
+
+  it('says nothing about missing numbers when there are none', async () => {
+    await registry.sync(['serial-numbers'])
+    answers['report'] = {
+      window: { days: 30, from: '', to: '' },
+      totals: { sold: 1, returned: 0, in_stock: 2, internal: 0, total: 3 },
+      aging: [{ bucket: '0-30 days', count: 2 }],
+      by_product: [],
+      pending_sales: 0,
+      pending_units: 0,
+    }
+
+    const result = await report('aging')!.run({
+      period: 'month',
+      from: null,
+      to: null,
+      search: '',
+      branchId: null,
+      limit: 25,
+      offset: 0,
+    })
+
+    expect(result.note).toBe('0 of 3 numbered by the shop')
+  })
+})
 
 // ── Manifest ──────────────────────────────────────────────────────────────
 

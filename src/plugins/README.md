@@ -7,15 +7,21 @@ these are what it looks like when someone follows it.
 | Plugin | What it adds | Plugin surface |
 | --- | --- | --- |
 | [`variants`](variants/) | Options and the combinations built from them — Colour: Red, Blue × Size: S, M, L — with per-variant price, cost, SKU and stock | 2 permissions, nav + screen, dashboard widget, product-form section, a generator and an options screen the plugin owns |
-| [`batch-expiry`](batch-expiry/) | Batch numbers and expiry dates on products, with a screen listing what is about to expire | 2 product fields (shown on the till and printed on receipts), 1 permission, nav + screen, dashboard widget, product-form section |
+| [`batch-expiry`](batch-expiry/) | Batch numbers and expiry dates on products, with a screen listing what is about to expire | 2 product fields (shown on the till and printed on receipts), 1 permission, nav + screen, dashboard widget, product-form section, a report in the core Reports screen |
 | [`loyalty-lite`](loyalty-lite/) | Points per taka spent, a balance on the sale, and who has earned what | 2 permissions, nav + screen, dashboard widget, POS panel, sale tab, an event listener that awards points automatically |
-| [`serial-numbers`](serial-numbers/) | The unit, not the product: which handset left on which invoice, and which one came back | 2 permissions, nav + screen (badge), dashboard widget, POS panel, sale tab, product-form section, `sale.completed` and `sale.refunded` listeners |
+| [`serial-numbers`](serial-numbers/) | The unit, not the product: which handset left on which invoice, and which one came back | 2 permissions, nav + screen (badge), dashboard widget, POS panel, sale tab, product-form section, 2 reports, `sale.completed` and `sale.refunded` listeners |
 
 None of them imports another, and none imports anything from `src/features/` —
 `tools/check-boundaries.mjs` fails the build if that changes. Loyalty needs
 batch-expiry? It says so in `dependencies`, and the host loads the dependency
 first. That is the whole point: **adding a plugin never means editing a feature**
 (spec §51).
+
+Reports are the clearest example of that rule. `registerReport` takes rows, not
+an element, and the core Reports screen renders and exports them through the
+same path as its own eleven — so a pharmacy's “Expiring stock” is a worksheet a
+shopkeeper can sort, print and export, and no plugin carries a second table
+implementation that drifts from the first.
 
 ## Reading order
 

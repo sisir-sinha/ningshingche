@@ -37,6 +37,7 @@ import type {
   Plugin,
   PluginAPI,
   PluginPageModule,
+  PluginReportResult,
   ProductDraft,
 } from '../../shared/registry/plugin-types'
 import { captureCard } from './capture'
@@ -44,11 +45,15 @@ import {
   missingLabel,
   reasonLabel,
   lineForScan,
+  statusLabel,
   tillSummary,
   trackedLines,
   type CaptureResult,
   type Overview,
   type PendingScan,
+  type SerialPage,
+  type SerialReport,
+  type SerialRow,
   type SyncResult,
 } from './helpers'
 import {
@@ -165,6 +170,38 @@ export const serialNumbersPlugin: Plugin = {
       size: 'sm',
       permission: SERIALS_VIEW,
       render: () => summaryTile(api),
+    })
+
+    // ── Two reports in the core reports screen ──────────────────────────
+    // The plugin's own screen is for working: registering units, fixing a sale
+    // that left without a number. A report is for reading — and for exporting
+    // and printing, which is what an insurance list, a stock audit or a
+    // handover actually needs. Both come from data the plugin already has; no
+    // new server work, because a report is a *view* of the pool, not a second
+    // copy of it (spec §51).
+    api.registerReport({
+      id: 'units',
+      label: 'Serial numbers',
+      icon: 'qr_code_scanner',
+      group: 'Stock',
+      permission: SERIALS_VIEW,
+      description: 'Every unit the shop has numbered, with the invoice it left on.',
+      // A list of what is on the shelf now: no period control, because "the
+      // units we hold" is not a window, and a search box, because looking up
+      // one IMEI is the reason a shopkeeper opens it.
+      filters: { window: false, search: true },
+      run: (context) => unitReport(api, context),
+    })
+
+    api.registerReport({
+      id: 'aging',
+      label: 'Serial stock aging',
+      icon: 'hourglass_bottom',
+      group: 'Stock',
+      permission: SERIALS_VIEW,
+      description: 'How long the numbered units on the shelf have been waiting.',
+      filters: { window: false },
+      run: () => agingReport(api),
     })
 
     // ── The till: scan while the customer is still at the counter ───────
@@ -490,6 +527,85 @@ async function productSection(api: PluginAPI, productId: string | undefined): Pr
     )
   } catch {
     return h('p', { class: 'text-xs text-content-subtle' }, 'Unit numbers could not be read.')
+  }
+}
+
+// ── The reports ───────────────────────────────────────────────────────────
+// Both read data the plugin already keeps; neither writes anything. The page
+// size is the server's own cap (200), and the ceiling is what an export is
+// allowed to cost — a shop with 40,000 numbered units gets a file, not a hang.
+
+const LIST_PAGE = 200
+const REPORT_CEILING = 5_000
+
+async function unitReport(
+  api: PluginAPI,
+  context: { search: string; limit: number; offset: number }
+): Promise<PluginReportResult> {
+  const want = Math.max(1, Math.min(context.limit, REPORT_CEILING))
+  const rows: SerialRow[] = []
+  let total = 0
+
+  // `list` pages 200 at a time; an export asks for far more rows than one
+  // page, so pages are read until the request is satisfied or the server runs
+  // out — a short page is the end, which is also how an empty shop terminates.
+  for (let offset = context.offset; rows.length < want; offset += LIST_PAGE) {
+    const take = Math.min(LIST_PAGE, want - rows.length)
+    const page = await api.db.rpc<SerialPage>('list', {
+      status: 'ALL',
+      search: context.search,
+      limit: take,
+      offset,
+    })
+    total = page.total
+    rows.push(...page.rows)
+    if (page.rows.length < take) break
+  }
+
+  const inStock = rows.filter((row) => row.status === 'IN_STOCK').length
+  return {
+    columns: [
+      { key: 'serial', label: 'Serial', type: 'text' },
+      { key: 'product', label: 'Product', type: 'text' },
+      { key: 'variant', label: 'Variant', type: 'text' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'received', label: 'Added', type: 'date' },
+      { key: 'sold', label: 'Sold', type: 'date' },
+      { key: 'invoice', label: 'Invoice', type: 'text' },
+      { key: 'customer', label: 'Customer', type: 'text' },
+    ],
+    rows: rows.map((row) => ({
+      serial: row.serial,
+      product: row.product_name ?? '—',
+      variant: row.variant_name ?? 'Default',
+      // The label, not the code: a report is read, and `IN_STOCK` is a
+      // variable name.
+      status: statusLabel(row.status),
+      received: row.received_at,
+      sold: row.sold_at,
+      invoice: row.invoice_no ?? '—',
+      customer: row.customer ?? '—',
+    })),
+    totalRows: total,
+    note: `${inStock} of ${total} in stock`,
+  }
+}
+
+async function agingReport(api: PluginAPI): Promise<PluginReportResult> {
+  const report = await api.db.rpc<SerialReport>('report', { days: 30 })
+  const waiting =
+    report.pending_units > 0
+      ? ` · ${report.pending_units} unit(s) on ${report.pending_sales} sale(s) still need a number`
+      : ''
+
+  return {
+    columns: [
+      { key: 'bucket', label: 'Time on the shelf', type: 'text' },
+      { key: 'units', label: 'Units', type: 'int', align: 'right' },
+    ],
+    rows: report.aging.map((bucket) => ({ bucket: bucket.bucket, units: bucket.count })),
+    totals: { units: report.totals.in_stock },
+    note: `${report.totals.internal} of ${report.totals.total} numbered by the shop${waiting}`,
   }
 }
 

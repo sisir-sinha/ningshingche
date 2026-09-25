@@ -163,6 +163,65 @@ export const batchExpiryPlugin: Plugin = {
       render: () => expiringTile(api),
     })
 
+    // ── A report in the core reports screen ─────────────────────────────
+    // The Expiry Watch screen answers "what is about to expire, right now".
+    // This is the same data with a window the shopkeeper picks, in the library
+    // every other report lives in, paged and exportable like the built-ins —
+    // which is what a shop actually wants the day before a stock audit.
+    api.registerReport({
+      id: 'expiring',
+      label: 'Expiring stock',
+      icon: 'event_busy',
+      group: 'Stock',
+      permission: 'inventory.view',
+      description:
+        'Products whose batch expiry falls inside the period you pick — the oldest first.',
+      filters: { window: true, search: true },
+      run: async (context) => {
+        const horizon = horizonDays(context, warningDaysFor(api))
+        const products = await loadProducts(api.db)
+        const needle = context.search.trim().toLowerCase()
+        const rows = expiringSoon(products, horizon).filter((entry) => {
+          if (needle === '') return true
+          const batch = entry.product.metadata[BATCH_KEY]
+          return [entry.product.name, entry.product.sku ?? '', typeof batch === 'string' ? batch : '']
+            .join(' ')
+            .toLowerCase()
+            .includes(needle)
+        })
+
+        const expired = rows.filter((entry) => entry.days < 0).length
+        return {
+          columns: [
+            { key: 'product', label: 'Product', type: 'text' },
+            { key: 'sku', label: 'SKU', type: 'text' },
+            { key: 'batch', label: 'Batch', type: 'text' },
+            { key: 'expires', label: 'Expires', type: 'date' },
+            { key: 'days', label: 'Days left', type: 'int', align: 'right' },
+            { key: 'price', label: 'Price', type: 'money', align: 'right' },
+          ],
+          rows: rows.map((entry) => {
+            const batch = entry.product.metadata[BATCH_KEY]
+            const expiry = entry.product.metadata[EXPIRY_KEY]
+            return {
+              product: entry.product.name,
+              sku: entry.product.sku ?? '—',
+              batch: typeof batch === 'string' && batch !== '' ? batch : '—',
+              expires: typeof expiry === 'string' ? expiry.slice(0, 10) : null,
+              days: entry.days,
+              price: entry.product.price,
+            }
+          }),
+          // The window is a horizon, not a period of trade: "inside 90 days"
+          // is what the shopkeeper picked, and saying it back is the small
+          // print that makes the number mean something.
+          note:
+            `${rows.length} product(s) inside ${horizon} day(s)` +
+            (expired > 0 ? ` · ${expired} already expired` : ''),
+        }
+      },
+    })
+
     // ── A section inside the product form ───────────────────────────────
     // The fields above cover the common case; this shows what a plugin does
     // when it needs more than a field.
@@ -186,6 +245,41 @@ export const batchExpiryPlugin: Plugin = {
       permission: `${api.pluginId}.adjust`,
     })
   },
+}
+
+/**
+ * The period the shopkeeper picked, as a horizon in days.
+ *
+ * A window control on an *expiry* report cannot mean "trade in August" — the
+ * question is always "how far ahead should I be looking". So the same six
+ * buttons answer that instead, and a custom range becomes the distance to the
+ * far end of it.
+ */
+export function horizonDays(
+  context: { period: string; from: string | null; to: string | null },
+  fallback: number
+): number {
+  const fixed: Record<string, number> = {
+    day: 1,
+    week: 7,
+    month: 30,
+    quarter: 90,
+    year: 365,
+  }
+  if (context.period === 'custom') {
+    const from = context.from ? Date.parse(context.from) : NaN
+    const to = context.to ? Date.parse(context.to) : NaN
+    if (Number.isNaN(from) || Number.isNaN(to)) return fallback
+    return Math.max(1, Math.min(730, Math.round((to - from) / MS_PER_DAY) || 1))
+  }
+  return fixed[context.period] ?? fallback
+}
+
+/** The report's horizon when the report is not windowed: the plugin's own setting. */
+function warningDaysFor(api: {
+  settings: { get<T>(key: string, fallback: T): T }
+}): number {
+  return api.settings.get<number>('warning_days', DEFAULT_WARNING_DAYS) || DEFAULT_WARNING_DAYS
 }
 
 async function loadProducts(db: PluginDb): Promise<ProductSnapshot[]> {

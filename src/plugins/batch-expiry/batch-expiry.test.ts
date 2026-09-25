@@ -18,7 +18,7 @@ import type {
   ProductDraft,
   ProductSnapshot,
 } from '../../shared/registry/plugin-types'
-import batchExpiryPlugin, { daysUntil, describeExpiry, expiringSoon } from './index'
+import batchExpiryPlugin, { daysUntil, describeExpiry, expiringSoon, horizonDays } from './index'
 import { BATCH_KEY, EXPIRY_KEY, batchExpiryManifest } from './manifest'
 
 const DAY = 86_400_000
@@ -27,6 +27,8 @@ const NOW = Date.parse('2026-09-25T09:00:00Z')
 let bus: EventBus
 let registry: PluginRegistry
 let rpcCalls: Array<{ fn: string; args: Record<string, unknown> | undefined }>
+/** What the fake `db.products()` hands back; each test sets its own. */
+let productList: ProductSnapshot[]
 
 function fakeData(): PluginDataStore {
   const bag = new Map<string, unknown>()
@@ -61,8 +63,11 @@ beforeEach(async () => {
   bus = new EventBus()
   bus.onError = () => undefined
   rpcCalls = []
+  productList = []
   const db: PluginDb = {
-    products: async () => [],
+    // `loadProducts` catches a failure, so the report's own tests can point
+    // this at a fixture without a second registry.
+    products: async () => productList,
     rpc: async <T,>(fn: string, args?: Record<string, unknown>): Promise<T> => {
       rpcCalls.push({ fn, args })
       return null as T
@@ -200,6 +205,122 @@ describe('the dashboard widget', () => {
     const el = await failing.widgets.items[0]?.render()
 
     expect(el?.textContent).toContain('Expiring soon')
+  })
+})
+
+describe('the Expiring stock report', () => {
+  const report = () => registry.reports.items[0]
+  const context = (
+    over: Partial<{ period: string; from: string | null; to: string | null; search: string }> = {}
+  ) => ({
+    period: 'month',
+    from: null,
+    to: null,
+    search: '',
+    branchId: 'b1',
+    limit: 25,
+    offset: 0,
+    ...over,
+  })
+
+  it('registers itself under Stock, windowed and searchable', () => {
+    expect(registry.reports.items.map((entry) => entry.id)).toEqual(['expiring'])
+    expect(report()?.label).toBe('Expiring stock')
+    expect(report()?.group).toBe('Stock')
+    expect(report()?.permission).toBe('inventory.view')
+    expect(report()?.filters).toEqual({ window: true, search: true })
+  })
+
+  it('turns the window control into a horizon, because that is the question', () => {
+    expect(horizonDays({ period: 'day', from: null, to: null }, 30)).toBe(1)
+    expect(horizonDays({ period: 'week', from: null, to: null }, 30)).toBe(7)
+    expect(horizonDays({ period: 'quarter', from: null, to: null }, 30)).toBe(90)
+    expect(horizonDays({ period: 'year', from: null, to: null }, 30)).toBe(365)
+    // A custom range becomes the distance to its far end, clamped.
+    expect(
+      horizonDays({ period: 'custom', from: '2026-09-01', to: '2026-09-21' }, 30)
+    ).toBe(20)
+    expect(
+      horizonDays({ period: 'custom', from: '2026-09-21', to: '2026-09-01' }, 30)
+    ).toBe(1)
+    // No range at all falls back to the plugin's own warning setting.
+    expect(horizonDays({ period: 'custom', from: null, to: null }, 45)).toBe(45)
+    expect(horizonDays({ period: 'nonsense', from: null, to: null }, 45)).toBe(45)
+  })
+
+  it('lists what falls inside the horizon, with days left and the shelf price', async () => {
+    productList = products([
+      { name: 'Paracetamol 500mg', batch: 'B-9', expiry: new Date(NOW + 3 * DAY).toISOString() },
+      { name: 'Amoxicillin 500mg', batch: 'B-11', expiry: new Date(NOW + 20 * DAY).toISOString() },
+      { name: 'Bandage', expiry: new Date(NOW + 400 * DAY).toISOString() },
+      { name: 'No expiry recorded' },
+    ])
+
+    const result = await report()!.run(context({ period: 'week' }))
+
+    expect(result.rows.map((row) => row.product)).toEqual(['Paracetamol 500mg'])
+    expect(result.rows[0]?.days).toBe(3)
+    expect(result.rows[0]?.batch).toBe('B-9')
+    expect(result.columns.map((column) => column.key)).toEqual([
+      'product',
+      'sku',
+      'batch',
+      'expires',
+      'days',
+      'price',
+    ])
+    expect(result.note).toBe('1 product(s) inside 7 day(s)')
+    // A money column, in minor units, like every other report.
+    expect(result.rows[0]?.price).toBe(100)
+  })
+
+  it('counts what has already expired in its small print', async () => {
+    productList = products([
+      { name: 'Gone off', expiry: new Date(NOW - 4 * DAY).toISOString() },
+      { name: 'Still fine', expiry: new Date(NOW + 10 * DAY).toISOString() },
+    ])
+
+    const result = await report()!.run(context())
+
+    expect(result.note).toBe('2 product(s) inside 30 day(s) · 1 already expired')
+    expect(result.rows.map((row) => row.days)).toEqual([-4, 10])
+  })
+
+  it('searches names, SKUs and batch numbers', async () => {
+    productList = products([
+      { name: 'Paracetamol 500mg', batch: 'B-9', expiry: new Date(NOW + 3 * DAY).toISOString() },
+      { name: 'Amoxicillin 500mg', batch: 'B-11', expiry: new Date(NOW + 4 * DAY).toISOString() },
+    ])
+
+    const byName = await report()!.run(context({ search: 'amoxi' }))
+    expect(byName.rows.map((row) => row.product)).toEqual(['Amoxicillin 500mg'])
+
+    const byBatch = await report()!.run(context({ search: 'b-9' }))
+    expect(byBatch.rows.map((row) => row.batch)).toEqual(['B-9'])
+  })
+
+  it('returns an empty report rather than throwing when products cannot be read', async () => {
+    const failing = new PluginRegistry(bus, {
+      settings: () => ({
+        get: <T,>(_key: string, fallback: T): T => fallback,
+        all: () => ({}),
+        set: async () => undefined,
+      }),
+      data: () => fakeData(),
+      db: () => ({
+        products: async () => {
+          throw new Error('offline')
+        },
+        rpc: async <T,>(): Promise<T> => null as T,
+      }),
+    })
+    failing.declare({ manifest: batchExpiryManifest, load: async () => batchExpiryPlugin })
+    await failing.sync(['batch-expiry'])
+
+    const result = await failing.reports.items[0]!.run(context())
+
+    expect(result.rows).toEqual([])
+    expect(result.note).toContain('0 product(s)')
   })
 })
 

@@ -151,9 +151,24 @@ const myPlugin: Plugin = {
       render: async (context: PanelContext) => h('p', { class: 'text-xs' }, `Cart total: ${context.total ?? 0}`),
     })
 
-    // React to the shop happening. Events are delivered at-least-once, so make
-    // your handler idempotent on `event.id` — the same sale arrives once
-    // locally and again over Realtime.
+    // A report in the Reports screen. You return rows; the core renders them
+    // with the same table, paging and CSV/print/PDF path it uses for its own
+    // eleven reports, so nothing here has to know how a report looks.
+    api.registerReport({
+      id: 'active',
+      label: 'Warranties running',
+      icon: 'verified_user',
+      group: 'People',            // a group from the core library, or your own
+      permission: 'warranty.manage',
+      description: 'What is still covered, and how long is left.',
+      filters: { window: true, search: true },
+      run: (context) => activeWarranties(api, context),
+    })
+
+    // React to the shop happening. Events are delivered at-least-once: the same
+    // sale arrives once from this browser's own till and again over Realtime,
+    // with two different `event.id`s — so a lasting effect must be deduped on
+    // the thing that happened (`event.data.sale_id`), never on the envelope.
     api.events.on('sale.completed', (event) => {
       if (!api.settings.get<boolean>('auto_register', false)) return
       // event.data carries numbers as text, exactly as Postgres returned them.
@@ -173,6 +188,58 @@ const myPlugin: Plugin = {
 
 export default myPlugin
 ```
+
+### Reports
+
+A report is **data, not a screen**: `run(context)` returns columns and rows, and
+the host draws them in the Reports feature — the same library, the same table,
+the same totals chips, the same pagination and the same CSV / Print / PDF
+buttons as the built-ins. That is why `render` is not an option here: an element
+would have been shorter for you and would have made the export buttons above it
+useless, because they read a result rather than a DOM node. If you need
+something that is not a table, you own a screen — `registerRoute` is right
+there.
+
+```ts
+async function activeWarranties(api: PluginAPI, context: ReportRunContext): Promise<PluginReportResult> {
+  const data = await api.db.rpc<{ rows: Row[] }>('active', {
+    period: context.period,          // 'day' | 'week' | 'month' | 'quarter' | 'year' | 'custom'
+    from: context.from, to: context.to,   // ISO dates, only for a custom range
+    search: context.search,          // only if you declared filters.search
+    limit: context.limit, offset: context.offset,
+  })
+
+  return {
+    columns: [
+      { key: 'customer', label: 'Customer', type: 'text' },
+      { key: 'expires', label: 'Ends', type: 'date' },
+      { key: 'value', label: 'Value', type: 'money', align: 'right' },
+    ],
+    rows: data.rows.map((row) => ({
+      customer: row.customer,
+      expires: row.expires_at,
+      value: row.value_minor,        // money is MINOR UNITS, always
+    })),
+    totals: { value: data.rows.reduce((sum, row) => sum + row.value_minor, 0) },
+    totalRows: data.total,           // omit it and the host counts what you returned
+    note: `${data.expired} already expired`,
+  }
+}
+```
+
+What the host fills in for you: the title, the label (“This month · 2 expired”),
+the currency (say `currency` in your result if it differs from the shop's), the
+timestamp, and the paging facts. What it will not let you do: break the screen.
+Rows are clipped to the page it asked for, cells whose column is not in
+`columns` are dropped before they reach a CSV, and a cell that is an object or
+an array becomes text rather than `[object Object]` in a shopkeeper's
+spreadsheet. A report that throws shows one readable line; the other reports
+still open.
+
+Declare the filters you actually use (`filters.window`, `filters.search`, both
+optional — default `{ window: true, search: false }`): a control that does
+nothing is worse than no control, because it is a promise. A report that cannot
+be windowed shows “All rows” instead of the period you picked.
 
 ---
 

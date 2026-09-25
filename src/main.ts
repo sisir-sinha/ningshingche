@@ -121,7 +121,7 @@ const routes: Route[] = [
   ...registerRoutes(),
   ...auditRoutes(),
   ...analyticsRoutes(),
-  ...reportRoutes(),
+  ...reportRoutes(registry),
   ...pluginAdminRoutes(),
   // Plugin screens own `/plugins/<id>…`. One route pair rather than one per
   // plugin: routes are added by the plugin's own `register`, which runs only
