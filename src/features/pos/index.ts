@@ -10,9 +10,12 @@
 import type { Route } from '../../app/router/router'
 import { posView } from './pos-view'
 import type { EventBus } from '../../shared/bus/event-bus'
+import type { PluginRegistry } from '../../shared/registry/plugin-registry'
 
 export interface PosRoutesOptions {
   bus: EventBus
+  /** The host, so panels registered by enabled plugins are drawn in the cart. */
+  registry: PluginRegistry
 }
 
 export function posRoutes(options: PosRoutesOptions): Route[] {
@@ -21,7 +24,7 @@ export function posRoutes(options: PosRoutesOptions): Route[] {
       path: '/pos',
       title: 'Point of Sale',
       permission: 'sales.create',
-      render: () => posView({ bus: options.bus }),
+      render: () => posView({ bus: options.bus, registry: options.registry }),
     },
   ]
 }

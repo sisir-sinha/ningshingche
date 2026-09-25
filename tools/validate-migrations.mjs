@@ -10,7 +10,7 @@
 //
 //   node tools/validate-migrations.mjs
 
-import { readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { PGlite } from '@electric-sql/pglite'
@@ -2086,6 +2086,78 @@ if (seeded.length !== 0) {
   const packagedPermissions = await q(
     `select plugin_key, key from public.plugin_package_permissions order by plugin_key, key`
   )
+
+  // ── The bundle and the server agree ────────────────────────────────────
+  //
+  // A plugin's manifest lives in TypeScript and its SQL lives in the database,
+  // and nothing stops the two drifting: a version bumped on one side, a
+  // permission renamed in the other. A shop would then enable "1.0.0" and load
+  // a bundle that calls a function the server never created. So the two halves
+  // are compared key by key, read out of the source rather than trusted.
+  const manifestDir = join(root, 'src', 'plugins')
+  const manifestKeys = []
+  for (const entry of readdirSync(manifestDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue
+    const file = join(manifestDir, entry.name, 'manifest.ts')
+    if (!existsSync(file)) continue
+
+    const text = readFileSync(file, 'utf8')
+    // The manifest's own id: `id:` on the manifest object. Deliberately
+    // anchored to the start of a line so it cannot pick up a permission key.
+    const idMatch = /^\s*(?:id|key):\s*'([^']+)'/m.exec(text)
+    const key = idMatch?.[1] ?? entry.name
+    const version = /\bversion:\s*'([^']+)'/.exec(text)?.[1] ?? ''
+
+    // The permission list, from `permissions: [` up to its closing bracket.
+    const start = text.indexOf('permissions: [')
+    const permissions = []
+    if (start !== -1) {
+      let depth = 0
+      let end = start
+      for (let i = text.indexOf('[', start); i < text.length; i += 1) {
+        if (text[i] === '[') depth += 1
+        else if (text[i] === ']') {
+          depth -= 1
+          if (depth === 0) {
+            end = i
+            break
+          }
+        }
+      }
+      const body = text.slice(start, end)
+      for (const match of body.matchAll(/\bkey:\s*'([^']+)'/g)) permissions.push(match[1])
+    }
+
+    manifestKeys.push({ key, version, permissions: permissions.sort() })
+  }
+
+  const packagesByKey = new Map(packages.map((row) => [row.plugin_key, row]))
+  const drift = []
+  for (const manifest of manifestKeys) {
+    const pack = packagesByKey.get(manifest.key)
+    if (!pack) {
+      drift.push(`${manifest.key}: no package on the server`)
+      continue
+    }
+    if (pack.version !== manifest.version) {
+      drift.push(`${manifest.key}: bundle ${manifest.version} vs server ${pack.version}`)
+    }
+    const packaged = packagedPermissions
+      .filter((row) => row.plugin_key === manifest.key)
+      .map((row) => row.key)
+      .sort()
+    if (packaged.join(',') !== manifest.permissions.join(',')) {
+      drift.push(
+        `${manifest.key}: permissions [${manifest.permissions.join(', ')}] vs package [${packaged.join(', ')}]`
+      )
+    }
+  }
+  check(
+    'every plugin bundle matches the package the server ships: key, version and permissions',
+    manifestKeys.length >= 2 && drift.length === 0,
+    drift.length ? drift.join(' · ') : `${manifestKeys.length} manifests compared`
+  )
+
   check(
     'every packaged permission is namespaced to the plugin that ships it',
     packagedPermissions.length >= 3 &&

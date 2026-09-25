@@ -25,6 +25,7 @@ import { modal } from '../../components/feedback/modal'
 import { toastError, toastSuccess } from '../../components/feedback/toast'
 import { confirm } from '../../components/feedback/modal'
 import { getRepositories } from '../../app/data'
+import { pluginFormSectionsHost } from '../../app/plugin-slots'
 import { bindDrafts, clearDraft, restoreDraft } from '../../app/state/drafts'
 import { translateError } from '../../app/platform/errors'
 import { activeOrganization } from '../../app/state/session'
@@ -307,6 +308,7 @@ interface FormOptions {
 function openProductForm(options: FormOptions): void {
   const { product, registry, onSaved } = options
   const repos = getRepositories()
+  const currency = activeOrganization()?.currency ?? 'BDT'
   const draftKey = `products.form.${product?.id ?? 'new'}`
 
   let categories: Category[] = []
@@ -506,6 +508,12 @@ function openProductForm(options: FormOptions): void {
         field('Cost price', costInput, { hint: 'Used for profit and stock value' })
       ),
       ...basicPluginFields.map(renderPluginField),
+      pluginFormSectionsHost(registry, {
+        organizationId: activeOrganization()?.organization_id ?? '',
+        branchId: null,
+        currency,
+        ...(product?.id ? { productId: product.id } : {}),
+      }),
       field('Description', descriptionInput),
 
       advancedToggle,
@@ -527,7 +535,17 @@ function openProductForm(options: FormOptions): void {
       allowNegativeBox,
       activeBox
     ),
-    ...advancedPluginFields.map(renderPluginField)
+    ...advancedPluginFields.map(renderPluginField),
+    pluginFormSectionsHost(
+      registry,
+      {
+        organizationId: activeOrganization()?.organization_id ?? '',
+        branchId: null,
+        currency,
+        ...(product?.id ? { productId: product.id } : {}),
+      },
+      'advanced'
+    )
   )
 
   // Bind after every field exists, including the plugin-rendered ones.

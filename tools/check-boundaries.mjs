@@ -119,6 +119,12 @@ function violation(source, target) {
         'the PluginAPI instead (spec §51)'
       )
     }
+    if (targetLayer === 'components') {
+      // The UI kit is the one thing a plugin may draw with: it is
+      // business-ignorant, so a plugin using it still cannot reach the shop's
+      // business logic.
+      return null
+    }
     if (targetLayer === 'app') {
       return 'a plugin may not import the app layer — use the PluginAPI'
     }

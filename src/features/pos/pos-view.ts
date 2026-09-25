@@ -36,6 +36,8 @@ import { openReceipt } from './receipt'
 import { refreshSalesFloor, salesFloor, salesFloorStore } from '../../app/state/sales-floor'
 import { activeOrganization } from '../../app/state/session'
 import { getRepositories } from '../../app/data'
+import { pluginPanelsHost } from '../../app/plugin-slots'
+import type { PluginRegistry } from '../../shared/registry/plugin-registry'
 import type { EventBus } from '../../shared/bus/event-bus'
 import type { SalesFloor, SellableProduct } from '../../shared/repositories/contracts'
 import type { SaleRow } from '../../shared/types/records'
@@ -43,6 +45,7 @@ import {
   formatMoney,
   formatQty,
   milli,
+  minorToNumber,
   parseMilli,
   type Milli,
   type Minor,
@@ -51,6 +54,8 @@ import { translateError } from '../../app/platform/errors'
 
 export interface PosViewOptions {
   bus: EventBus
+  /** The plugin host: its panels are drawn beside the cart. */
+  registry: PluginRegistry
   onNavigate?: (path: string) => void
 }
 
@@ -127,7 +132,7 @@ function posGate(options: PosViewOptions): HTMLElement {
 }
 
 function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
-  const { bus } = options
+  const { bus, registry } = options
   const organization = activeOrganization()
   const currency = organization?.currency ?? 'BDT'
 
@@ -283,6 +288,9 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
 
   const lineList = h('div', { class: 'flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-1' })
   const totalsBox = h('div', { class: 'border-t border-border px-3 py-2 space-y-1' })
+  // Plugin panels sit between the totals and the pay button: the money is core,
+  // and whatever a plugin adds about *this* sale belongs beside it.
+  const panelsSlot = h('div', { class: 'px-3 pb-1' })
   const heldBadge = badge('0', { tone: 'warning', iconName: 'pause_circle' })
 
   function renderCart(): void {
@@ -315,6 +323,21 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
     payButton.disabled = state.cart.lines.length === 0 || state.busy
     holdButton.disabled = state.cart.lines.length === 0 || state.busy
     clearButton.disabled = state.cart.lines.length === 0 || state.busy
+
+    // Panels are re-drawn with the cart because they are about the sale in
+    // front of the cashier: a loyalty panel showing the previous total would be
+    // worse than no panel at all.
+    mount(
+      panelsSlot,
+      pluginPanelsHost(registry, {
+        organizationId: organization?.organization_id ?? '',
+        branchId: floor.branchId,
+        currency,
+        total: minorToNumber(totals.total),
+        customerId: state.cart.customerId,
+      })
+    )
+
     void refreshHeld()
   }
 
@@ -588,6 +611,7 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
       busyIndicator,
       lineList,
       totalsBox,
+      panelsSlot,
       h('div', { class: 'p-3 space-y-2 border-t border-border' },
         payButton,
         h('div', { class: 'flex gap-2' }, holdButton, clearButton)

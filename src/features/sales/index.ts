@@ -6,15 +6,21 @@
  */
 
 import type { Route } from '../../app/router/router'
+import type { PluginRegistry } from '../../shared/registry/plugin-registry'
 import { salesView } from './sales-view'
 
-export function salesRoutes(): Route[] {
+export interface SalesRoutesOptions {
+  /** The plugin host, for tabs that decorate a sale. */
+  registry: PluginRegistry
+}
+
+export function salesRoutes(options: SalesRoutesOptions): Route[] {
   return [
     {
       path: '/sales',
       title: 'Sales',
       permission: 'sales.view',
-      render: () => salesView(),
+      render: () => salesView({ registry: options.registry }),
     },
   ]
 }

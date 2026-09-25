@@ -26,12 +26,17 @@ import { modal } from '../../components/feedback/modal'
 import { toastError, toastSuccess } from '../../components/feedback/toast'
 import { getRepositories } from '../../app/data'
 import { activeOrganization, can } from '../../app/state/session'
+import { salesFloor } from '../../app/state/sales-floor'
+import { pluginSaleTabsHost } from '../../app/plugin-slots'
+import type { PluginRegistry } from '../../shared/registry/plugin-registry'
 import { formatMoney, formatQty, milliToNumber, minorToNumber, type Milli, type Minor } from '../../shared/domain/money'
 import { translateError } from '../../app/platform/errors'
 import type { SaleDetail, SalesListRow } from '../../shared/repositories/contracts'
 import type { PaymentMethod } from '../../shared/types/records'
 
 export interface SalesViewOptions {
+  /** The plugin host: tabs registered by enabled plugins appear on a sale. */
+  registry: PluginRegistry
   onNavigate?: (path: string) => void
 }
 
@@ -45,7 +50,8 @@ const STATUS_TONES: Record<string, 'success' | 'warning' | 'danger' | 'neutral'>
   DRAFT: 'neutral',
 }
 
-export function salesView(options: SalesViewOptions = {}): HTMLElement {
+export function salesView(options: SalesViewOptions): HTMLElement {
+  const { registry } = options
   const repos = getRepositories()
   const currency = activeOrganization()?.currency ?? 'BDT'
 
@@ -346,7 +352,17 @@ export function salesView(options: SalesViewOptions = {}): HTMLElement {
                 h('p', { class: 'mt-1 text-sm text-content-subtle', text: 'Nothing has been returned on this sale.' })
               )
         )
-      )
+      ),
+      // Plugin tabs last: they decorate a finished sale, and a shop with no
+      // plugins sees exactly the screen it saw before any were installed.
+      pluginSaleTabsHost(registry, {
+        organizationId: activeOrganization()?.organization_id ?? '',
+        branchId: salesFloor()?.branchId ?? null,
+        currency,
+        saleId: sale.id,
+        customerId: sale.customerId,
+        total: minorToNumber(sale.total),
+      })
     )
   }
 

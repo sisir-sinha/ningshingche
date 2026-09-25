@@ -50,6 +50,30 @@ function settingsFor(pluginId: string): PluginSettings {
   }
 }
 
+/**
+ * The key index for one plugin's data.
+ *
+ * `plugin_data` is a key/value table with no listing RPC — a plugin reads the
+ * keys it knows about. `keys()` still has to answer honestly, so the set of
+ * keys this plugin has written is itself kept in the plugin's own namespace,
+ * under a reserved name. It is hidden from the answer, so a plugin never sees
+ * the bookkeeping.
+ */
+const DATA_INDEX_KEY = '__keys'
+
+async function dataKeys(pluginId: string): Promise<string[]> {
+  try {
+    const raw = await getRepositories().plugins.dataGet(organization(), pluginId, DATA_INDEX_KEY)
+    return Array.isArray(raw) ? raw.filter((key): key is string => typeof key === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+async function writeDataKeys(pluginId: string, keys: string[]): Promise<void> {
+  await getRepositories().plugins.dataSet(organization(), pluginId, DATA_INDEX_KEY, keys)
+}
+
 function dataFor(pluginId: string): PluginDataStore {
   return {
     get: async <T,>(key: string, fallback: T): Promise<T> => {
@@ -63,9 +87,17 @@ function dataFor(pluginId: string): PluginDataStore {
     },
     set: async (key, value) => {
       await getRepositories().plugins.dataSet(organization(), pluginId, key, value)
+      if (key === DATA_INDEX_KEY) return
+      const keys = await dataKeys(pluginId)
+      if (!keys.includes(key)) await writeDataKeys(pluginId, [...keys, key])
     },
-    remove: async (key) => getRepositories().plugins.dataDelete(organization(), pluginId, key),
-    keys: async () => Object.keys(configs.get(`${pluginId}:data`) ?? {}),
+    remove: async (key) => {
+      const removed = await getRepositories().plugins.dataDelete(organization(), pluginId, key)
+      const keys = await dataKeys(pluginId)
+      if (keys.includes(key)) await writeDataKeys(pluginId, keys.filter((entry) => entry !== key))
+      return removed
+    },
+    keys: async () => (await dataKeys(pluginId)).filter((key) => key !== DATA_INDEX_KEY),
   }
 }
 

@@ -28,6 +28,7 @@ import { answersPanel, answerText } from '../analytics'
 import { getRepositories } from '../../app/data'
 import { activeOrganization, sessionStore } from '../../app/state/session'
 import { salesFloor } from '../../app/state/sales-floor'
+import { pluginWidgetsHost } from '../../app/plugin-slots'
 import { formatMoney, minor, type Minor } from '../../shared/domain/money'
 import { translateError } from '../../app/platform/errors'
 import type { DashboardSummary } from '../../shared/repositories/contracts'
@@ -51,6 +52,8 @@ export function dashboardView(registry: PluginRegistry, options: DashboardOption
   const widgetsSlot = h('div', { class: 'grid gap-3 sm:grid-cols-2 xl:grid-cols-4' })
   const chartsSlot = h('div', { class: 'grid gap-3 lg:grid-cols-2' })
   const answersSlot = h('div', null)
+  // Plugin widgets, below everything the shop itself reports (docs/03 §7).
+  const pluginsSlot = pluginWidgetsHost(registry)
   const refreshButton = iconButton('refresh', 'Refresh the dashboard', { onClick: () => void load() })
 
   const root = h(
@@ -81,6 +84,7 @@ export function dashboardView(registry: PluginRegistry, options: DashboardOption
     widgetsSlot,
     chartsSlot,
     answersSlot,
+    pluginsSlot,
     platformStatus(registry, session.permissions.length)
   )
 

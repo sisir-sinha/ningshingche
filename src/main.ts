@@ -29,6 +29,7 @@ import { refreshSalesFloor, watchOrganization } from './app/state/sales-floor'
 import { watchStockAlerts, watchVisibility } from './app/state/stock-alerts'
 import { CORE_NAV } from './features/layout/navigation'
 import { placeholderView } from './features/layout/placeholder-view'
+import { pluginAdminRoutes } from './features/plugins'
 import { resetRepositories } from './app/data'
 import { posRoutes } from './features/pos'
 import { productRoutes } from './features/products'
@@ -107,10 +108,10 @@ const routes: Route[] = [
     permission: 'dashboard.view',
     render: () => dashboardView(registry, { onNavigate: (path) => router.navigate(path) }),
   },
-  ...posRoutes({ bus: eventBus }),
+  ...posRoutes({ bus: eventBus, registry }),
   ...productRoutes(registry),
   ...stockRoutes({ onNavigate: (path) => router.navigate(path) }),
-  ...salesRoutes(),
+  ...salesRoutes({ registry }),
   ...customerRoutes({ onNavigate: (path) => router.navigate(path) }),
   ...supplierRoutes({ onNavigate: (path) => router.navigate(path) }),
   ...purchaseRoutes(),
@@ -119,6 +120,7 @@ const routes: Route[] = [
   ...auditRoutes(),
   ...analyticsRoutes(),
   ...reportRoutes(),
+  ...pluginAdminRoutes(),
   // Plugin screens own `/plugins/<id>…`. One route pair rather than one per
   // plugin: routes are added by the plugin's own `register`, which runs only
   // when the shop has it enabled, so the table cannot be built ahead of time.

@@ -17,6 +17,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { posView } from './pos-view'
 import { salesFloorStore } from '../../app/state/sales-floor'
 import { EventBus } from '../../shared/bus'
+import { PluginRegistry } from '../../shared/registry/plugin-registry'
 
 const FLOOR = {
   branchId: 'b-1',
@@ -31,7 +32,26 @@ const FLOOR = {
 function build(): HTMLElement {
   const bus = new EventBus()
   bus.onError = () => undefined
-  return posView({ bus })
+  // The plugin host, empty: these cases are about the gate, and a registry with
+  // nothing enabled draws nothing.
+  const registry = new PluginRegistry(bus, {
+    settings: () => ({
+      get: <T,>(_key: string, fallback: T): T => fallback,
+      all: () => ({}),
+      set: async () => undefined,
+    }),
+    data: () => ({
+      get: async <T,>(_key: string, fallback: T): Promise<T> => fallback,
+      set: async () => undefined,
+      remove: async () => false,
+      keys: async () => [],
+    }),
+    db: () => ({
+      products: async () => [],
+      rpc: async <T,>(): Promise<T> => null as T,
+    }),
+  })
+  return posView({ bus, registry })
 }
 
 beforeEach(() => {
