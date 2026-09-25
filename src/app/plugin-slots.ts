@@ -25,6 +25,7 @@
 
 import { h, icon, mount } from '../components/ui/h'
 import { badge } from '../components/ui/card'
+import { button } from '../components/ui/button'
 import { eventBus } from '../shared/bus'
 import { milliToNumber, minorToNumber } from '../shared/domain/money'
 import { pluginRegistry } from './plugins'
@@ -34,6 +35,10 @@ import type { ReportResult, ReportRow } from '../shared/repositories/contracts'
 import type { PluginRegistry } from '../shared/registry/plugin-registry'
 import type {
   FormSectionDefinition,
+  SaleAdjustmentContext,
+  SaleAdjustmentDefinition,
+  SaleAdjustmentQuote,
+  SaleAdjustmentRelease,
   ScanContext,
   ScanMatch,
   ReportDefinition,
@@ -230,6 +235,150 @@ export function pluginPanelsHost(registry: PluginRegistry, context: PanelContext
   void draw()
   watchPluginSlots(host, () => void draw())
   return host
+}
+
+// ── Sale adjustments: money off, contributed by a plugin ──────────────────
+
+/** An adjustment the cashier has put on the sale in front of them. */
+export interface AppliedAdjustment {
+  id: string
+  source: string
+  /** The plugin's own quote, frozen when it was applied. */
+  quote: SaleAdjustmentQuote
+}
+
+export interface SaleAdjustmentsHostOptions {
+  /** What is on the sale right now, owned by the till. */
+  applied: readonly AppliedAdjustment[]
+  onApply: (adjustment: SaleAdjustmentDefinition, quote: SaleAdjustmentQuote) => void
+  onRemove: (
+    adjustment: SaleAdjustmentDefinition,
+    quote: SaleAdjustmentQuote,
+    reason: SaleAdjustmentRelease
+  ) => void
+}
+
+/**
+ * The strip of “money off” a plugin can put on the sale (docs/11 §Sale
+ * adjustments).
+ *
+ * The host does the three things a plugin must not be trusted with: it asks
+ * every plugin what it can take off *this* cart, it decides what reaches the
+ * sale (the till sums the applied quotes into the one order discount the sale
+ * carries), and it re-asks on every cart change so an adjustment the cart has
+ * outgrown is withdrawn rather than quietly honoured.
+ *
+ * A quote that is already applied is never re-priced here — only invalidated.
+ * Re-pricing it would spend the customer's balance twice; withdrawing it is a
+ * visible act with a reason the plugin is told.
+ */
+export function saleAdjustmentsHost(
+  registry: PluginRegistry,
+  context: SaleAdjustmentContext,
+  options: SaleAdjustmentsHostOptions
+): HTMLElement {
+  const host = h('div', { class: 'space-y-1' })
+
+  async function draw(): Promise<void> {
+    const definitions = visible<SaleAdjustmentDefinition>(registry.saleAdjustments.items)
+    if (definitions.length === 0) {
+      mount(host, null)
+      return
+    }
+
+    const rows: Array<HTMLElement | null> = []
+    for (const definition of definitions) {
+      const applied = options.applied.find((entry) => entry.id === definition.id)
+
+      // What this plugin can offer on the cart as it is *now*. Cheap by
+      // contract: a plugin that spends money here would spend it twice.
+      let quote: SaleAdjustmentQuote | null = null
+      try {
+        quote = containSaleAdjustmentQuote(await definition.quote(context))
+      } catch (error) {
+        console.error(`[plugin-host] "${definition.source ?? '?'}" could not quote an adjustment`, error)
+        rows.push(failed(definition.source, 'a discount', error))
+        continue
+      }
+
+      if (applied) {
+        // Withdrawn when the plugin no longer offers it at all (the customer
+        // was removed, the balance went) or when it is worth more than the sale
+        // it sits on — the sale would silently clamp it, and the customer would
+        // have paid points for money the shop did not give.
+        if (!quote || applied.quote.amountMinor > context.totalMinor) {
+          options.onRemove(definition, applied.quote, 'invalid')
+          continue
+        }
+        rows.push(adjustmentRow(definition, applied.quote, options, true))
+        continue
+      }
+
+      if (quote) rows.push(adjustmentRow(definition, quote, options, false))
+    }
+
+    mount(host, ...rows.filter((row): row is HTMLElement => row !== null))
+  }
+
+  void draw()
+  watchPluginSlots(host, () => void draw())
+  return host
+}
+
+function adjustmentRow(
+  definition: SaleAdjustmentDefinition,
+  quote: SaleAdjustmentQuote,
+  options: SaleAdjustmentsHostOptions,
+  applied: boolean
+): HTMLElement {
+  return h(
+    'div',
+    {
+      class:
+        'flex items-center justify-between gap-2 rounded-lg border border-border ' +
+        (applied ? 'bg-surface-muted px-2 py-1.5' : 'bg-surface px-2 py-1.5'),
+    },
+    h(
+      'div',
+      { class: 'min-w-0' },
+      h('p', { class: 'truncate text-xs font-medium text-content', text: quote.label }),
+      quote.note
+        ? h('p', { class: 'truncate text-[11px] text-content-muted', text: quote.note })
+        : null
+    ),
+    applied
+      ? button('Remove', {
+          size: 'sm',
+          variant: 'ghost',
+          icon: 'undo',
+          onClick: () => options.onRemove(definition, quote, 'removed'),
+        })
+      : button('Apply', {
+          size: 'sm',
+          variant: 'secondary',
+          icon: 'sell',
+          onClick: () => options.onApply(definition, quote),
+        })
+  )
+}
+
+/**
+ * Containers for a plugin's quote, the same way `containScanMatch` contains a
+ * scan: a plugin may describe a discount, and only the host decides what a
+ * discount is. Anything that is not a whole number of minor units, or not
+ * positive, is not a discount.
+ */
+export function containSaleAdjustmentQuote(
+  quote: SaleAdjustmentQuote | null | undefined
+): SaleAdjustmentQuote | null {
+  if (!quote) return null
+  if (!Number.isInteger(quote.amountMinor) || quote.amountMinor <= 0) return null
+  if (typeof quote.label !== 'string' || quote.label.trim() === '') return null
+
+  const clean: SaleAdjustmentQuote = { amountMinor: quote.amountMinor, label: quote.label.trim() }
+  if (typeof quote.note === 'string' && quote.note.trim() !== '') clean.note = quote.note.trim()
+  if (typeof quote.token === 'string' && quote.token.trim() !== '') clean.token = quote.token.trim()
+  return clean
 }
 
 // ── Sale tabs ─────────────────────────────────────────────────────────────

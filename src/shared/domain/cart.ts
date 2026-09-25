@@ -98,6 +98,16 @@ export interface LineTotals {
 export interface CartTotals {
   lines: LineTotals[]
   subtotal: Minor
+  /**
+   * The sale as the goods price it, before the order-level discount — the
+   * number a plugin quoting money off must reason about.
+   *
+   * It is deliberately not `total`: the order discount is a slot a plugin
+   * writes to, so a plugin that quoted against `total` would quote a smaller
+   * amount every time its own discount was applied, and would have no way to
+   * notice that a cart had shrunk out from under a discount it already gave.
+   */
+  beforeOrderDiscount: Minor
   /** Line discounts plus the order-level discount. */
   discount: Minor
   tax: Minor
@@ -305,6 +315,7 @@ export function computeTotals(cart: Cart): CartTotals {
   return {
     lines,
     subtotal: subtotal as Minor,
+    beforeOrderDiscount: Math.max(lineSum, 0) as Minor,
     discount: Math.min(lineDiscount + orderDiscount, subtotal) as Minor,
     tax: tax as Minor,
     // Sum of line totals, minus only the order-level discount — never

@@ -305,6 +305,111 @@ export interface TabDefinition {
   source?: string
 }
 
+/**
+ * Money off the till's sale, contributed by a plugin.
+ *
+ * The till has always known how to *take* a discount — `complete_sale` has
+ * priced `p_discount_type`/`p_discount_value` since migration 012, and the cart
+ * domain has modelled both a line and an order discount since the beginning —
+ * but nothing the shopkeeper could press put one there, so a plugin that had
+ * earned the customer a discount (loyalty points, a promotion, a coupon) could
+ * describe it and not give it. This is the seam that closes that: a plugin is
+ * asked what it can take off *this* cart, and the host puts it on the sale.
+ *
+ * Two rules make it safe to hand a plugin the money:
+ *
+ *  · **The quote is a description, not a decision.** The host owns the amount
+ *    that reaches the sale: it clamps to the cart, sums every applied
+ *    adjustment into the one order discount the sale carries, and prints
+ *    `Discount` in the totals where the cashier already looks. A plugin cannot
+ *    charge a price, only ask for money off a sale the core has already priced.
+ *  · **A quote, once applied, is frozen.** The cashier's cart changes constantly
+ *    (a line added, the customer swapped), and a re-quote that silently changed
+ *    the amount would be a second debit against the customer's balance. The
+ *    host re-quotes only to check the adjustment is still valid; if it is not,
+ *    it releases it, and the plugin is told why.
+ */
+export interface SaleAdjustmentContext {
+  organizationId: string
+  branchId: string | null
+  currency: string
+  customerId: string | null
+  /**
+   * The cart total in **minor units**, the basis any adjustment reduces.
+   *
+   * Deliberately the total *before* any adjustment — what the customer owes if
+   * nothing is taken off. A plugin quoting `min(balance, total)` against a
+   * total its own discount had already reduced would quote a smaller and
+   * smaller amount the longer the cashier looked at it.
+   */
+  totalMinor: number
+  /** What is on the sale, for an adjustment that depends on what is in it. */
+  lines?: readonly PanelLine[]
+}
+
+/** What a plugin can take off the sale in front of the cashier. */
+export interface SaleAdjustmentQuote {
+  /** Minor units. The host clamps this to the cart; it can never go negative. */
+  amountMinor: number
+  /** The button the cashier presses, e.g. `Redeem 500 points`. */
+  label: string
+  /** One line under the button, e.g. `500 points · ৳50.00 off`. */
+  note?: string
+  /**
+   * The plugin's own handle for this quote — a redemption id, a coupon code.
+   * Opaque to the host, returned verbatim on release and settlement so the
+   * plugin can match the money it gave to the sale that took it.
+   */
+  token?: string
+}
+
+/** Why an applied adjustment came off the sale. */
+export type SaleAdjustmentRelease = 'removed' | 'invalid' | 'cleared'
+
+/** The sale an applied adjustment ended up in. */
+export interface SaleAdjustmentSettlement {
+  saleId: string
+  invoiceNo: string
+  /**
+   * False when the till could not reach the server and the sale is waiting in
+   * the outbox. The discount is in the shop's hands either way; what is missing
+   * is the invoice number to settle against.
+   */
+  stored: boolean
+}
+
+export interface SaleAdjustmentDefinition {
+  id: string
+  /** The panel heading, e.g. `Loyalty`. */
+  label: string
+  permission?: string
+  /**
+   * What this plugin can take off the cart right now, or `null` for “nothing,
+   * here”. Called on every cart change, so it must be cheap and must not write:
+   * a quote that spends money is a quote that can spend it twice.
+   */
+  quote: (
+    context: SaleAdjustmentContext
+  ) => SaleAdjustmentQuote | null | Promise<SaleAdjustmentQuote | null>
+  /** Called once, when the cashier applies the quote. This is where money moves. */
+  onApplied?: (
+    quote: SaleAdjustmentQuote,
+    context: SaleAdjustmentContext
+  ) => void | Promise<void>
+  /** The cashier took it off, or the cart moved out from under it. */
+  onReleased?: (
+    quote: SaleAdjustmentQuote,
+    reason: SaleAdjustmentRelease
+  ) => void | Promise<void>
+  /** The sale this adjustment was applied to has been taken. */
+  onSettled?: (
+    quote: SaleAdjustmentQuote,
+    settlement: SaleAdjustmentSettlement
+  ) => void | Promise<void>
+  /** Set by the host. Never author this. */
+  source?: string
+}
+
 export interface FormSectionDefinition {
   id: string
   label: string
@@ -470,6 +575,7 @@ export interface PluginAPI {
   registerShortcut(shortcut: ShortcutDefinition): void
   registerDashboardWidget(widget: DashboardWidgetDefinition): void
   registerScanResolver(resolver: ScanResolverDefinition): void
+  registerSaleAdjustment(adjustment: SaleAdjustmentDefinition): void
   registerPOSPanel(panel: PanelDefinition): void
   registerSaleTab(tab: TabDefinition): void
   registerFormSection(section: FormSectionDefinition): void

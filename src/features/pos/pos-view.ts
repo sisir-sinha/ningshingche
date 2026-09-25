@@ -42,11 +42,20 @@ import {
   posFieldValues,
   printableNotes,
   resolveScan,
+  saleAdjustmentsHost,
+  type AppliedAdjustment,
 } from '../../app/plugin-slots'
 import type { PluginRegistry } from '../../shared/registry/plugin-registry'
 import type { EventBus } from '../../shared/bus/event-bus'
 import type { SalesFloor, SellableProduct } from '../../shared/repositories/contracts'
-import type { ScanMatch } from '../../shared/registry/plugin-types'
+import type {
+  PanelContext as PluginPanelContext,
+  SaleAdjustmentContext,
+  SaleAdjustmentDefinition,
+  SaleAdjustmentQuote,
+  SaleAdjustmentRelease,
+  ScanMatch,
+} from '../../shared/registry/plugin-types'
 import type { SaleRow } from '../../shared/types/records'
 import {
   formatMoney,
@@ -368,6 +377,11 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
   // ── Right: cart ─────────────────────────────────────────────────────────
 
   const lineList = h('div', { class: 'flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-1' })
+  // Money a plugin has taken off this sale, and the strip the cashier applies it
+  // from. The till owns this list, not the plugin: the *sum* is what reaches
+  // `complete_sale`, and a plugin that lost track of its own quote can be told.
+  let appliedAdjustments: AppliedAdjustment[] = []
+  const adjustmentsSlot = h('div', { class: 'px-3' })
   const totalsBox = h('div', { class: 'border-t border-border px-3 py-2 space-y-1' })
   // Plugin panels sit between the totals and the pay button: the money is core,
   // and whatever a plugin adds about *this* sale belongs beside it.
@@ -401,6 +415,22 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
       )
     )
 
+    // The strip of what a plugin can take off *this* cart. Drawn with the
+    // totals because it changes them, and re-drawn on every cart change so an
+    // adjustment the cart has outgrown is withdrawn rather than honoured.
+    if (registry.saleAdjustments.items.length > 0) {
+      mount(
+        adjustmentsSlot,
+        saleAdjustmentsHost(registry, adjustmentContext(), {
+          applied: appliedAdjustments,
+          onApply: applyAdjustment,
+          onRemove: removeAdjustment,
+        })
+      )
+    } else {
+      mount(adjustmentsSlot, null)
+    }
+
     payButton.disabled = state.cart.lines.length === 0 || state.busy
     holdButton.disabled = state.cart.lines.length === 0 || state.busy
     clearButton.disabled = state.cart.lines.length === 0 || state.busy
@@ -408,22 +438,30 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
     // Panels are re-drawn with the cart because they are about the sale in
     // front of the cashier: a loyalty panel showing the previous total would be
     // worse than no panel at all.
-    mount(
-      panelsSlot,
-      pluginPanelsHost(registry, {
-        organizationId: organization?.organization_id ?? '',
-        branchId: floor.branchId,
-        currency,
-        total: minorToNumber(totals.total),
-        customerId: state.cart.customerId,
-        // What is in the cart, for a plugin that decorates *this* sale — a
-        // serial to attach to a line, a promotion that applies to what is
-        // being bought (spec §51).
-        lines: panelLines(state.cart.lines, (variantId) => seen.get(variantId)),
-      })
-    )
+    mount(panelsSlot, pluginPanelsHost(registry, cartContext()))
 
     void refreshHeld()
+  }
+
+  /**
+   * The cart as every plugin slot sees it (docs/11 §Slots).
+   *
+   * `total` is the cart total *including* any adjustment already applied, which
+   * is what a plugin quoting a further discount has to reason about — and the
+   * reason the strip is re-drawn on every cart change.
+   */
+  function cartContext(): PluginPanelContext {
+    return {
+      organizationId: organization?.organization_id ?? '',
+      branchId: floor.branchId,
+      currency,
+      total: minorToNumber(cart.state.totals.total),
+      customerId: cart.state.cart.customerId,
+      // What is in the cart, for a plugin that decorates *this* sale — a
+      // serial to attach to a line, a promotion that applies to what is being
+      // bought (spec §51).
+      lines: panelLines(cart.state.cart.lines, (variantId) => seen.get(variantId)),
+    }
   }
 
   function totalRow(label: string, amount: Minor, extraClass = ''): HTMLElement {
@@ -521,6 +559,139 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
     onClick: () => void clearCart(),
   })
 
+  // ── Sale adjustments (money off, from a plugin) ─────────────────────────
+
+  /**
+   * The one order discount the sale carries is the sum of what is applied.
+   *
+   * `complete_sale` has taken a `FLAT` order discount since migration 012 and
+   * the cart domain has modelled it since the first commit; what was missing
+   * was anything a shopkeeper could press. Several plugins can contribute — a
+   * loyalty redemption, later a promotion — and the sale stores one number, so
+   * the host sums them here and each plugin keeps its own share in its own
+   * ledger.
+   */
+  function syncOrderDiscount(): void {
+    const sum = appliedAdjustments.reduce((total, entry) => total + entry.quote.amountMinor, 0)
+    if (sum > 0) cart.setOrderDiscount('FLAT', sum)
+    else if (cart.state.cart.discountValue !== 0 || cart.state.cart.discountType !== null) {
+      // A discount the till cannot explain is not kept: after a reload the
+      // plugin's quote is gone, and honouring an amount nothing remembers
+      // would take money off every sale the cashier rings up.
+      cart.setOrderDiscount(null, 0)
+    }
+  }
+
+  /**
+   * What every adjustment is quoted against: the sale before the order-level
+   * discount, applied or not.
+   *
+   * Not the cart total — that already has the discount in it, so a plugin
+   * quoting `min(balance, total)` would watch its own offer shrink every time
+   * the strip re-drew. And an emptied cart reads as ৳0 here, which is what
+   * withdraws a redemption priced for a sale that no longer exists.
+   */
+  function adjustmentContext(): SaleAdjustmentContext {
+    const context = cartContext()
+    return {
+      organizationId: organization?.organization_id ?? '',
+      branchId: floor!.branchId,
+      currency,
+      customerId: context.customerId ?? null,
+      totalMinor: cart.state.totals.beforeOrderDiscount,
+      ...(context.lines ? { lines: context.lines } : {}),
+    }
+  }
+
+  function applyAdjustment(
+    adjustment: SaleAdjustmentDefinition,
+    quote: SaleAdjustmentQuote
+  ): void {
+    void (async () => {
+      appliedAdjustments = [
+        ...appliedAdjustments.filter((entry) => entry.id !== adjustment.id),
+        { id: adjustment.id, source: adjustment.source ?? 'plugin', quote },
+      ]
+      try {
+        // Money moves *here*, and only if the plugin could record it. An
+        // offline till that cannot debit the customer's points must not give
+        // away the shop's money — the cashier is told and can try again.
+        await adjustment.onApplied?.(quote, adjustmentContext())
+      } catch (error) {
+        appliedAdjustments = appliedAdjustments.filter((entry) => entry.id !== adjustment.id)
+        syncOrderDiscount()
+        toastError(
+          error instanceof Error
+            ? `${adjustment.label}: ${error.message}`
+            : `${adjustment.label} could not be applied.`
+        )
+        return
+      }
+      syncOrderDiscount()
+    })()
+  }
+
+  function removeAdjustment(
+    adjustment: SaleAdjustmentDefinition,
+    quote: SaleAdjustmentQuote,
+    reason: SaleAdjustmentRelease
+  ): void {
+    const had = appliedAdjustments.some((entry) => entry.id === adjustment.id)
+    appliedAdjustments = appliedAdjustments.filter((entry) => entry.id !== adjustment.id)
+    syncOrderDiscount()
+    if (!had) return
+    void (async () => {
+      try {
+        await adjustment.onReleased?.(quote, reason)
+      } catch (error) {
+        // The discount is off the sale either way; what is lost is the
+        // plugin's own bookkeeping, which it must reconcile itself.
+        toastWarning(
+          error instanceof Error
+            ? `${adjustment.label}: ${error.message}`
+            : `${adjustment.label} could not withdraw that cleanly.`
+        )
+      }
+    })()
+  }
+
+  /** Everything off the sale — a held cart, a cleared one, or a finished sale. */
+  function releaseAll(reason: SaleAdjustmentRelease): void {
+    const entries = appliedAdjustments
+    appliedAdjustments = []
+    syncOrderDiscount()
+    for (const entry of entries) {
+      const adjustment = registry.saleAdjustments.items.find((item) => item.id === entry.id)
+      if (!adjustment) continue
+      void Promise.resolve(adjustment.onReleased?.(entry.quote, reason)).catch((error: unknown) => {
+        console.error(`[plugin-host] "${entry.source}" could not release an adjustment`, error)
+      })
+    }
+  }
+
+  /** Told to every plugin whose money was in the sale that just completed. */
+  function settleAdjustments(settlement: {
+    saleId: string
+    invoiceNo: string
+    stored: boolean
+  }): void {
+    const entries = appliedAdjustments
+    appliedAdjustments = []
+    if (cart.state.cart.discountValue !== 0 || cart.state.cart.discountType !== null) {
+      cart.setOrderDiscount(null, 0)
+    }
+    for (const entry of entries) {
+      const adjustment = registry.saleAdjustments.items.find((item) => item.id === entry.id)
+      if (!adjustment) continue
+      void Promise.resolve(adjustment.onSettled?.(entry.quote, settlement)).catch(
+        (error: unknown) => {
+          toastWarning(`${entry.source} could not record the discount on ${settlement.invoiceNo}.`)
+          console.error(`[plugin-host] "${entry.source}" could not settle an adjustment`, error)
+        }
+      )
+    }
+  }
+
   function openPayment(): void {
     const state = cart.state
     const problem = state.totals.oversold.length > 0
@@ -560,6 +731,14 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
               heldSaleId: cart.state.heldSaleId,
             })
             const heldId = cart.state.heldSaleId
+            // Told before the cart goes: every plugin whose money was in this
+            // sale learns which sale took it — and, offline, that the invoice
+            // number is not final yet.
+            settleAdjustments({
+              saleId: result.sale_id,
+              invoiceNo: result.invoice_no,
+              stored: !result.queued,
+            })
             cart.clear()
             if (result.queued) {
               // The money is real and the goods have gone; what is missing is
@@ -591,6 +770,10 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
   async function holdCart(): Promise<void> {
     cart.setBusy(true)
     try {
+      // A parked sale is not this sale. The redemption goes back to the
+      // customer and the cashier applies it again when the sale resumes —
+      // otherwise a held cart would carry a discount no screen can undo.
+      releaseAll('cleared')
       await sales.hold(cart.state.cart, floor!)
       cart.clear()
       toastSuccess('Sale held — resume it from the Held list.')
@@ -610,6 +793,7 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
       iconName: 'delete_sweep',
     })
     if (ok) {
+      releaseAll('cleared')
       cart.clear()
       searchField.focus()
     }
@@ -657,6 +841,10 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
     try {
       const resumed = await sales.resume(saleId, floor!.warehouseId)
       cart.replace(resumed.cart, saleId)
+      // A held sale was parked without its adjustments (see `holdCart`), so
+      // anything on it now is a discount this till cannot explain.
+      releaseAll('cleared')
+      syncOrderDiscount()
       toastSuccess('Held sale resumed.')
       searchField.focus()
     } catch (error) {
@@ -707,6 +895,9 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
       ),
       busyIndicator,
       lineList,
+      // Money off sits directly above the totals it changes, and above the
+      // plugin panels that describe the sale.
+      adjustmentsSlot,
       totalsBox,
       panelsSlot,
       h('div', { class: 'p-3 space-y-2 border-t border-border' },
@@ -723,6 +914,10 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
   // Initial load. The grid is populated before the first paint of results so
   // the cashier sees something immediately rather than an empty pane.
   void runSearch('')
+  // A discount restored from a draft has no plugin quote behind it any more —
+  // the redemption died with the tab. Dropping it here is what stops an
+  // unexplained amount coming off every sale until someone notices.
+  syncOrderDiscount()
   renderCart()
   busyIndicator.append(spinner('h-3 w-3'), h('span', { text: 'Working…' }))
   cart.store.select(

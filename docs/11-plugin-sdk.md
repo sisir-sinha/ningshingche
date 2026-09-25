@@ -236,6 +236,64 @@ And a decode the host cannot trust — an empty `lookupCode`, a `quantity` that 
 not a positive finite number, a `unitPriceMinor` that is not a whole, non-negative
 number of minor units — is dropped rather than guessed at.
 
+### Sale adjustments
+
+A plugin that has *earned* a customer money off can take it off the sale:
+
+```ts
+api.registerSaleAdjustment({
+  id: 'loyalty.redeem',
+  label: 'Loyalty',
+  permission: 'loyalty.redeem',        // a cashier without it is never asked
+  // Asked on every cart change. Cheap, and it must not write: you are being
+  // asked about a sale that has not happened.
+  quote: (context) => {
+    if (!context.customerId) return null
+    const points = pointsFor(context.totalMinor)      // minor units, always
+    if (points < MIN_REDEEM) return null
+    return {
+      amountMinor: moneyFor(points),                  // whole minor units
+      label: `Redeem ${points} points`,
+      note: `${points} points · ${format(moneyFor(points))} off`,
+      token: `${context.customerId}:${points}`,        // yours; returned to you
+    }
+  },
+  // The cashier pressed it. *This* is where money moves — debit the points,
+  // server-side, before the single paisa comes off the sale.
+  onApplied: (quote, context) => api.db.rpc('redeem', { … }),
+  // Taken off by hand, or the cart moved out from under it.
+  onReleased: (quote, reason) => api.db.rpc('release', { token: quote.token, reason }),
+  // The sale it was applied to exists. Settle against it.
+  onSettled: (quote, sale) => api.db.rpc('settle', { token: quote.token, sale_id: sale.saleId }),
+})
+```
+
+Four things the host does for you, and they are the reason this is safe to hand a
+plugin:
+
+- **The amount is the host's.** The till sums every applied adjustment into the
+  one order-level discount a sale carries (`complete_sale` has priced
+  `p_discount_type`/`p_discount_value` since migration 012), clamps it so a sale
+  can never go negative, and prints `Discount` in the totals where the cashier
+  already looks. You describe money off a sale the core has priced; you never
+  price anything.
+- **`context.totalMinor` is the sale *before* any adjustment.** Quote against it
+  and your quote is stable — quoting against the cart's total would shrink your
+  offer every time your own discount was applied.
+- **A quote, once applied, is frozen.** Re-pricing an applied quote would spend
+  the customer's balance twice. The host re-asks only to check the adjustment is
+  still valid: it is withdrawn — with a `reason` — when you no longer quote
+  anything, or when the sale has shrunk below what you already gave away.
+- **`onApplied` runs before the money moves.** If your call fails (an offline
+  till that cannot reach the server), the discount does *not* go on the sale and
+  the cashier is told. The shop's money and the customer's points move together
+  or not at all.
+
+`onSettled` gives you the invoice number, and says `stored: false` when the sale
+is queued in the offline outbox — the discount is real either way, but the
+invoice number is the till's own guess until the queue drains, and a plugin that
+settles on a guess will settle twice.
+
 ### Reports
 
 A report is **data, not a screen**: `run(context)` returns columns and rows, and

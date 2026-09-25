@@ -14,6 +14,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { PluginRegistry } from '../shared/registry/plugin-registry'
 import { EventBus } from '../shared/bus'
 import {
+  containSaleAdjustmentQuote,
   containScanMatch,
   isPluginReportKey,
   panelLines,
@@ -26,8 +27,15 @@ import {
 } from './plugin-slots'
 import { EMPTY_SESSION, sessionStore } from './state/session'
 import { milli, minor } from '../shared/domain/money'
+import { saleAdjustmentsHost } from './plugin-slots'
 import type { CartLine } from '../shared/domain/cart'
-import type { Plugin, PanelLine, ScanContext } from '../shared/registry/plugin-types'
+import type {
+  Plugin,
+  PanelLine,
+  SaleAdjustmentContext,
+  SaleAdjustmentDefinition,
+  ScanContext,
+} from '../shared/registry/plugin-types'
 
 function registryWith(plugin: Plugin): PluginRegistry {
   const bus = new EventBus()
@@ -572,5 +580,204 @@ describe('scan resolvers', () => {
   it('reads nothing into an empty scan', async () => {
     await registry.sync(['demo'])
     expect(await resolveScan(registry, '   ', SCAN_CONTEXT)).toBeNull()
+  })
+})
+
+describe('sale adjustments', () => {
+  const context: SaleAdjustmentContext = {
+    organizationId: 'org-1',
+    branchId: 'b-1',
+    currency: 'BDT',
+    customerId: 'c-1',
+    totalMinor: 20000,
+  }
+
+  /** The loaded module's id must be the declared manifest's id — hence the id. */
+  function adjustmentPlugin(
+    id: string,
+    definition: Partial<SaleAdjustmentDefinition> & Pick<SaleAdjustmentDefinition, 'quote'>
+  ): Plugin {
+    return {
+      id,
+      name: 'Adjust',
+      version: '1.0.0',
+      register: (api) => {
+        api.registerSaleAdjustment({
+          id: 'adjust.redeem',
+          label: 'Loyalty',
+          ...definition,
+        })
+      },
+    }
+  }
+
+  const settle = async (rounds = 6): Promise<void> => {
+    for (let i = 0; i < rounds; i += 1) await new Promise((resolve) => setTimeout(resolve, 0))
+  }
+
+  it('contains what a plugin calls money before the sale sees it', () => {
+    // Money is whole minor units. Anything else is not a discount.
+    expect(containSaleAdjustmentQuote(null)).toBeNull()
+    expect(containSaleAdjustmentQuote({ amountMinor: 0, label: 'Free' })).toBeNull()
+    expect(containSaleAdjustmentQuote({ amountMinor: -5000, label: 'Refund' })).toBeNull()
+    expect(containSaleAdjustmentQuote({ amountMinor: 12.5, label: 'Paisa' })).toBeNull()
+    expect(containSaleAdjustmentQuote({ amountMinor: 5000, label: '   ' })).toBeNull()
+    // …and a NaN cannot be smuggled through a comparison.
+    expect(containSaleAdjustmentQuote({ amountMinor: Number.NaN, label: 'x' })).toBeNull()
+
+    expect(containSaleAdjustmentQuote({ amountMinor: 5000, label: ' 500 points ', note: ' ', token: ' rd-1 ' })).toEqual({
+      amountMinor: 5000,
+      label: '500 points',
+      token: 'rd-1',
+    })
+  })
+
+  it('asks the plugin, then hands the cashier what it said', async () => {
+    const asked: SaleAdjustmentContext[] = []
+    const registry = registryWith(
+      adjustmentPlugin('demo', {
+        quote: (seen) => {
+          asked.push(seen)
+          return { amountMinor: 5000, label: 'Redeem 500 points', note: '500 points · ৳50.00 off' }
+        },
+      })
+    )
+    await registry.sync(['demo'])
+
+    const applied: string[] = []
+    const host = saleAdjustmentsHost(registry, context, {
+      applied: [],
+      onApply: (_definition, quote) => applied.push(quote.token ?? quote.label),
+      onRemove: () => undefined,
+    })
+    document.body.append(host)
+    await settle()
+
+    expect(asked).toEqual([context])
+    expect(host.textContent).toContain('Redeem 500 points')
+    expect(host.textContent).toContain('500 points · ৳50.00 off')
+    host.querySelector('button')?.click()
+    expect(applied).toEqual(['Redeem 500 points'])
+  })
+
+  it('withdraws what it already gave when the sale shrinks under it', async () => {
+    // The redemption was for the whole cart; the cart is now worth ৳50.
+    const registry = registryWith(
+      adjustmentPlugin('demo', {
+        quote: () => ({ amountMinor: 20000, label: 'Redeem 2000 points', token: 'rd' }),
+      })
+    )
+    await registry.sync(['demo'])
+
+    const released: string[] = []
+    const host = saleAdjustmentsHost(registry, { ...context, totalMinor: 5000 }, {
+      applied: [
+        {
+          id: 'adjust.redeem',
+          source: 'adjust',
+          quote: { amountMinor: 20000, label: 'Redeem 2000 points', token: 'rd' },
+        },
+      ],
+      onApply: () => undefined,
+      onRemove: (_definition, _quote, reason) => released.push(reason),
+    })
+    document.body.append(host)
+    await settle()
+
+    expect(released).toEqual(['invalid'])
+    // Nothing to press: the offer is gone with the sale it was quoted for.
+    expect(host.textContent).not.toContain('Remove')
+  })
+
+  it('does not re-price an applied adjustment, and does not hide one either', async () => {
+    // The plugin now offers less — but the customer was already charged for the
+    // ৳50 they were promised. Withdrawing it is the cashier's call, not the
+    // plugin's, so the applied row stays and the plugin is told nothing.
+    const registry = registryWith(
+      adjustmentPlugin('demo', {
+        quote: () => ({ amountMinor: 1000, label: 'Redeem 100 points' }),
+      })
+    )
+    await registry.sync(['demo'])
+
+    const released: string[] = []
+    const host = saleAdjustmentsHost(registry, context, {
+      applied: [
+        { id: 'adjust.redeem', source: 'adjust', quote: { amountMinor: 5000, label: 'Redeem 500 points' } },
+      ],
+      onApply: () => undefined,
+      onRemove: () => released.push('released'),
+    })
+    document.body.append(host)
+    await settle()
+
+    expect(released).toEqual([])
+    expect(host.textContent).toContain('Redeem 500 points')
+    expect(host.textContent).toContain('Remove')
+  })
+
+  it('costs the shop a decoration, not a sale, when a plugin throws while quoting', async () => {
+    const broken = new PluginRegistry(new EventBus(), {
+      settings: () => ({ get: <T,>(_k: string, fallback: T): T => fallback, all: () => ({}), set: async () => undefined }),
+      data: () => ({ get: async <T,>(_k: string, fallback: T): Promise<T> => fallback, set: async () => undefined, remove: async () => false, keys: async () => [] }),
+      db: () => ({ products: async () => [], rpc: async <T,>(): Promise<T> => null as T }),
+    })
+    broken.declare({
+      manifest: { id: 'boom', name: 'Boom', version: '1.0.0', coreApiVersion: '^1.0.0', description: '', category: 'optional' },
+      load: async () =>
+        adjustmentPlugin('boom', {
+          quote: () => {
+            throw new Error('the points table is not there')
+          },
+        }),
+    })
+    broken.declare({
+      manifest: { id: 'fine', name: 'Fine', version: '1.0.0', coreApiVersion: '^1.0.0', description: '', category: 'optional' },
+      load: async () =>
+        adjustmentPlugin('fine', {
+          id: 'fine.redeem',
+          quote: () => ({ amountMinor: 2500, label: 'Redeem 250 points' }),
+        }),
+    })
+    await broken.sync(['boom', 'fine'])
+
+    const host = saleAdjustmentsHost(broken, context, {
+      applied: [],
+      onApply: () => undefined,
+      onRemove: () => undefined,
+    })
+    document.body.append(host)
+    await settle()
+
+    // The shopkeeper is told which add-on is unwell, and the one beside it
+    // still works.
+    expect(host.textContent).toContain('could not')
+    expect(host.textContent).toContain('Redeem 250 points')
+  })
+
+  it('never asks a plugin whose permission the cashier does not hold', async () => {
+    let asked = 0
+    const registry = registryWith(
+      adjustmentPlugin('demo', {
+        permission: 'loyalty.redeem',
+        quote: () => {
+          asked += 1
+          return { amountMinor: 5000, label: 'Redeem 500 points' }
+        },
+      })
+    )
+    await registry.sync(['demo'])
+
+    sessionStore.reset({ ...EMPTY_SESSION, permissions: ['sales.create'] })
+    const host = saleAdjustmentsHost(registry, context, {
+      applied: [],
+      onApply: () => undefined,
+      onRemove: () => undefined,
+    })
+    document.body.append(host)
+    await settle()
+
+    expect(asked).toBe(0)
+    expect(host.textContent).toBe('')
   })
 })
