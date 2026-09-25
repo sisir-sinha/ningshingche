@@ -19,8 +19,8 @@ import { Router, type Route } from './app/router/router'
 import { appShell, type AppShell } from './features/layout/app-shell'
 import { loginView, notConfiguredView } from './features/auth/login-view'
 import { dashboardView } from './features/dashboard/dashboard-view'
-import { PluginRegistry } from './shared/registry/plugin-registry'
-import { batchExpiryPlugin } from './plugins/batch-expiry'
+import { pluginRegistry, declareShippedPlugins, syncPlugins } from './app/plugins'
+import { salesFloor } from './app/state/sales-floor'
 import { eventBus } from './shared/bus'
 import { mountToasts, toastError } from './components/feedback/toast'
 import { installShortcuts } from './features/layout/command-palette'
@@ -62,12 +62,10 @@ if (!env.isSupabaseConfigured) {
 }
 
 // ── 2. Plugins ────────────────────────────────────────────────────────────
-// Declared here and nowhere else. Adding a plugin means adding one line to
-// this array; the sidebar, the product form and the palette pick it up
-// without any other file changing.
-
-const registry = new PluginRegistry(eventBus)
-registry.declare(batchExpiryPlugin)
+// What this bundle ships is declared in `app/plugins.ts`; what this *shop*
+// runs is decided by the database and synced in `enterApp`. The alias keeps
+// the rest of this file reading as before.
+const registry = pluginRegistry
 
 // ── 3. Toasts and shortcuts ───────────────────────────────────────────────
 
@@ -121,6 +119,19 @@ const routes: Route[] = [
   ...auditRoutes(),
   ...analyticsRoutes(),
   ...reportRoutes(),
+  // Plugin screens own `/plugins/<id>…`. One route pair rather than one per
+  // plugin: routes are added by the plugin's own `register`, which runs only
+  // when the shop has it enabled, so the table cannot be built ahead of time.
+  {
+    path: '/plugins/:pluginId',
+    title: 'Plugin',
+    render: (ctx) => renderPluginRoute(ctx.params.pluginId ?? '', ctx.path, ctx.query),
+  },
+  {
+    path: '/plugins/:pluginId/:rest',
+    title: 'Plugin',
+    render: (ctx) => renderPluginRoute(ctx.params.pluginId ?? '', ctx.path, ctx.query),
+  },
   {
     path: '/forbidden',
     title: 'Not permitted',
@@ -137,6 +148,70 @@ const routes: Route[] = [
   },
   ...onboardingRoutes({ onDone: () => router.navigate('/') }),
 ]
+
+/**
+ * Render whatever plugin screen matches this path.
+ *
+ * `load()` is awaited here rather than at registration, so the page module is
+ * fetched the first time someone opens the screen — and not at all if the
+ * plugin is disabled, in which case this explains why.
+ */
+async function renderPluginRoute(
+  pluginId: string,
+  path: string,
+  query: URLSearchParams
+): Promise<HTMLElement> {
+  const route = registry.routes.items.find((entry) => entry.path === path)
+
+  if (!route) {
+    const registration = registry.list().find((entry) => entry.id === pluginId)
+    return placeholderView({
+      item: {
+        id: pluginId,
+        label: registration?.manifest.name ?? pluginId,
+        icon: registration?.manifest.icon ?? 'extension',
+        permission: 'plugins.view',
+        route: path,
+      },
+      onBack: () => router.navigate('/'),
+      note:
+        registration?.status === 'disabled'
+          ? 'This plugin is switched off for this shop. Turn it on in Settings → Plugins.'
+          : registration?.status === 'blocked'
+            ? `This plugin cannot run: ${registration.error ?? 'a dependency is missing'}.`
+            : registration?.status === 'error'
+              ? `This plugin failed to start: ${registration.error ?? 'unknown error'}.`
+              : 'This plugin does not install a screen at this address.',
+    })
+  }
+
+  if (route.permission && !can(route.permission)) {
+    return h(
+      'div',
+      { class: 'p-6' },
+      emptyState('You do not have access to that plugin screen', {
+        description: 'Ask the shop owner to grant your role the permission.',
+        iconName: 'lock',
+        action: button('Back to dashboard', {
+          variant: 'primary',
+          onClick: () => router.navigate('/'),
+        }),
+      })
+    )
+  }
+
+  shell?.setTitle(route.title)
+  const module = await route.load()
+  return module.render({
+    params: {},
+    query,
+    organizationId: sessionStore.state.activeOrganizationId ?? '',
+    branchId: salesFloor()?.branchId ?? null,
+    currency: sessionStore.state.organizations.find(
+      (org) => org.organization_id === sessionStore.state.activeOrganizationId
+    )?.currency ?? 'BDT',
+  })
+}
 
 const router = new Router({
   container: outlet,
@@ -190,6 +265,12 @@ function enterApp(): void {
   unwatchOrganization = watchOrganization()
   void refreshSalesFloor()
 
+  // Plugins are per shop: enabling is a decision this organization made, and
+  // it is read after the session resolves the organization. Loading them here
+  // rather than at boot is also what keeps a disabled plugin's code out of the
+  // browser entirely.
+  void syncPlugins()
+
   // The low-stock badge is ambient: it must be right without the stock screen
   // being open, and on a device that never writes stock of its own — hence the
   // Realtime subscription rather than a refresh-on-my-own-changes.
@@ -221,6 +302,9 @@ async function leaveApp(): Promise<void> {
   unwatchOrganization()
   unwatchStockAlerts()
   unwatchVisibility()
+  // The next user may be in a different shop with a different plugin set;
+  // leaving them loaded would show one shop's screens to another's staff.
+  registry.disposeAll()
   resetRepositories()
   await signOut()
   root.replaceChildren(loginView({ onAuthenticated: enterApp }))
@@ -229,14 +313,11 @@ async function leaveApp(): Promise<void> {
 // ── 6. Boot ───────────────────────────────────────────────────────────────
 
 async function boot(): Promise<void> {
-  const results = await registry.loadAll()
-  for (const registration of results) {
-    if (registration.status !== 'loaded') {
-      console.warn(
-        `[mekholi] plugin "${registration.plugin.id}" is ${registration.status}`,
-        registration.error ?? ''
-      )
-    }
+  // Plugins are resolved once the shop is known — enabling is per shop, and
+  // the "which plugins?" question has no answer before sign-in. `boot` only
+  // declares what this bundle ships (above) and reports malformed manifests.
+  for (const problem of declareShippedPlugins()) {
+    console.error(`[mekholi] plugin manifest rejected — ${problem}`)
   }
 
   try {
@@ -276,7 +357,7 @@ void boot()
 declare global {
   interface Window {
     mekholi?: {
-      registry: PluginRegistry
+      registry: typeof pluginRegistry
       bus: typeof eventBus
       session: typeof sessionStore
       env: typeof env

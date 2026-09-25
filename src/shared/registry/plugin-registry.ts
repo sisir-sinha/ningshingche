@@ -14,20 +14,42 @@
  */
 
 import type { EventBus } from '../bus/event-bus'
+import { resolvePlugins, validateManifest, type Resolution } from './plugin-manifest'
 import type {
+  DashboardWidgetDefinition,
   EntityDefinition,
+  FormSectionDefinition,
   Logger,
   NavItem,
+  PanelDefinition,
   PermissionDefinition,
-  Plugin,
   PluginAPI,
+  PluginDataStore,
+  PluginDb,
+  PluginManifest,
   PluginRegistration,
+  PluginSettings,
   PluginStorage,
   ProductField,
   ReportDefinition,
+  RouteDefinition,
   SettingsSectionDefinition,
+  ShippedPlugin,
   ShortcutDefinition,
+  TabDefinition,
 } from './plugin-types'
+
+/**
+ * What the host lends a plugin beyond the event bus: its settings (backed by
+ * `plugins.config`) and its org-scoped data (backed by `plugin_data`). The
+ * registry does not know about Supabase — `main.ts` wires these — which is why
+ * the registry stays testable without a network.
+ */
+export interface PluginHostServices {
+  settings: (pluginId: string) => PluginSettings
+  data: (pluginId: string) => PluginDataStore
+  db: (pluginId: string) => PluginDb
+}
 
 // ── Storage ───────────────────────────────────────────────────────────────
 
@@ -86,7 +108,7 @@ export class LocalPluginStorage implements PluginStorage {
   }
 }
 
-class MemoryStorage implements Storage {
+export class MemoryStorage implements Storage {
   #map = new Map<string, string>()
   get length(): number {
     return this.#map.size
@@ -159,8 +181,11 @@ class Registry<T> {
 // ── The host ──────────────────────────────────────────────────────────────
 
 export class PluginRegistry {
+  readonly #shipped = new Map<string, ShippedPlugin>()
   readonly #registrations = new Map<string, PluginRegistration>()
-  readonly #declared: Plugin[] = []
+  readonly #disposers = new Map<string, () => void>()
+  #resolution: Resolution | null = null
+  #enabled: readonly string[] = []
 
   readonly nav = new Registry<NavItem>()
   readonly productFields = new Registry<ProductField>()
@@ -169,73 +194,148 @@ export class PluginRegistry {
   readonly reports = new Registry<ReportDefinition>()
   readonly settingsSections = new Registry<SettingsSectionDefinition>()
   readonly shortcuts = new Registry<ShortcutDefinition>()
+  readonly widgets = new Registry<DashboardWidgetDefinition>()
+  readonly posPanels = new Registry<PanelDefinition>()
+  readonly saleTabs = new Registry<TabDefinition>()
+  readonly formSections = new Registry<FormSectionDefinition>()
+  readonly routes = new Registry<RouteDefinition>()
 
-  #disposed = new Map<string, () => void>()
+  constructor(
+    private readonly events: EventBus,
+    private readonly host: PluginHostServices = defaultHostServices()
+  ) {}
 
-  constructor(private readonly events: EventBus) {}
-
-  /** Declare a plugin. Nothing runs until `loadAll`. */
-  declare(plugin: Plugin): void {
-    if (this.#registrations.has(plugin.id)) {
-      throw new Error(`plugin "${plugin.id}" declared twice`)
-    }
-    this.#registrations.set(plugin.id, { plugin, status: 'declared' })
-    this.#declared.push(plugin)
+  /** Declare what this bundle ships. Manifests are validated immediately. */
+  declare(shipped: ShippedPlugin): void {
+    const id = shipped.manifest.id
+    if (this.#shipped.has(id)) throw new Error(`plugin "${id}" declared twice`)
+    validateManifest(shipped.manifest)
+    this.#shipped.set(id, shipped)
+    this.#registrations.set(id, { id, manifest: shipped.manifest, status: 'disabled' })
   }
 
   /**
-   * Load every declared plugin in dependency order.
-   * Returns the registrations so the caller can surface failures.
+   * Make the loaded set match `enabledKeys`: load what should be running,
+   * unload what should not. Called at boot and again whenever a shop enables
+   * or disables a plugin — which is what keeps the POS working mid-session
+   * rather than needing a reload (docs/05 §6).
    */
-  async loadAll(): Promise<readonly PluginRegistration[]> {
-    const order = this.#sort()
+  async sync(enabledKeys: readonly string[]): Promise<readonly PluginRegistration[]> {
+    const resolution = resolvePlugins([...this.#shipped.values()], enabledKeys)
+    this.#resolution = resolution
+    this.#enabled = [...enabledKeys]
 
-    for (const plugin of order) {
-      const registration = this.#registrations.get(plugin.id)
-      if (!registration) continue
+    const wanted = new Set(resolution.order.map((manifest) => manifest.id))
+    for (const id of [...this.#disposers.keys()]) {
+      if (!wanted.has(id)) this.unload(id)
+    }
 
-      const missing = (plugin.dependencies ?? []).filter((d) => {
-        const dep = this.#registrations.get(d)
-        return !dep || dep.status !== 'loaded'
-      })
+    const blocked = new Map<string, string>()
+    for (const entry of resolution.incompatible) {
+      blocked.set(
+        entry.plugin,
+        `needs core plugin API ${entry.required}; this app implements ${entry.core}`
+      )
+    }
+    for (const entry of resolution.missing) {
+      blocked.set(entry.plugin, `requires "${entry.dependency}", which is not installed`)
+    }
+    for (const cycle of resolution.cycles) {
+      for (const id of cycle) blocked.set(id, `dependency cycle: ${cycle.join(' → ')}`)
+    }
 
-      if (missing.length > 0) {
-        registration.status = 'skipped'
-        registration.error = `missing or failed dependency: ${missing.join(', ')}`
-        this.#announce(plugin.id, false, registration.error)
+    for (const registration of this.#registrations.values()) {
+      if (registration.status === 'loaded') continue
+      const reason = blocked.get(registration.id)
+      if (reason !== undefined) {
+        registration.status = 'blocked'
+        registration.error = reason
         continue
       }
-
-      const api = this.#apiFor(plugin.id)
-      try {
-        await plugin.register(api)
-        registration.status = 'loaded'
-        registration.loadedAt = new Date().toISOString()
-        this.#disposed.set(plugin.id, () => plugin.dispose?.())
-        this.#announce(plugin.id, true)
-      } catch (error) {
-        registration.status = 'error'
-        registration.error = error instanceof Error ? error.message : String(error)
-        // Undo anything this plugin registered before it threw.
-        this.#removeOwnedBy(plugin.id)
-        console.error(`[plugin-host] "${plugin.id}" failed to load`, error)
-        this.#announce(plugin.id, false, registration.error)
+      if (!wanted.has(registration.id)) {
+        registration.status = 'disabled'
+        delete registration.error
       }
     }
 
-    return [...this.#registrations.values()]
+    let changed = false
+    for (const manifest of resolution.order) {
+      const registration = this.#registrations.get(manifest.id)
+      const shipped = this.#shipped.get(manifest.id)
+      if (!registration || !shipped || registration.status === 'loaded') continue
+
+      try {
+        const plugin = await shipped.load()
+        if (plugin.id !== manifest.id) {
+          throw new Error(`module loaded for "${manifest.id}" declares id "${plugin.id}"`)
+        }
+        await plugin.register(this.#apiFor(manifest))
+        const dispose = (): void => plugin.dispose?.()
+        this.#disposers.set(manifest.id, dispose)
+        registration.status = 'loaded'
+        registration.loadedAt = new Date().toISOString()
+        delete registration.error
+        changed = true
+        this.#announce(manifest.id, true)
+      } catch (error) {
+        // Quarantine, do not crash: one broken plugin must not take the shop's
+        // POS with it (docs/05 §6, step 9).
+        registration.status = 'error'
+        registration.error = error instanceof Error ? error.message : String(error)
+        this.#removeOwnedBy(manifest.id)
+        console.error(`[plugin-host] "${manifest.id}" failed to load`, error)
+        this.#announce(manifest.id, false, registration.error)
+      }
+    }
+
+    if (changed) {
+      this.events.emit('plugin.changed', {
+        type: 'plugin.changed',
+        data: {
+          loaded: [...this.#disposers.keys()],
+          enabled: this.#enabled,
+        },
+      })
+    }
+
+    return this.list()
+  }
+
+  /** Tear one plugin down: its registrations, then its own disposer. */
+  unload(pluginId: string): number {
+    const dispose = this.#disposers.get(pluginId)
+    if (dispose) {
+      try {
+        dispose()
+      } catch (error) {
+        console.error(`[plugin-host] "${pluginId}" failed to dispose`, error)
+      }
+      this.#disposers.delete(pluginId)
+    }
+
+    const removed = this.#removeOwnedBy(pluginId)
+    const registration = this.#registrations.get(pluginId)
+    if (registration) {
+      registration.status = 'disabled'
+      delete registration.error
+      delete registration.loadedAt
+    }
+    return removed
+  }
+
+  /** What the last `sync` decided, for the Plugins screen's diagnostics. */
+  get resolution(): Resolution | null {
+    return this.#resolution
+  }
+
+  /** Ids currently loaded by this bundle (not the shop's toggles). */
+  get loadedIds(): readonly string[] {
+    return [...this.#disposers.keys()]
   }
 
   /** Tear down every loaded plugin. Called on logout. */
   disposeAll(): void {
-    for (const [id, dispose] of this.#disposed) {
-      try {
-        dispose()
-      } catch (error) {
-        console.error(`[plugin-host] "${id}" failed to dispose`, error)
-      }
-    }
-    this.#disposed.clear()
+    for (const [id] of [...this.#disposers]) this.unload(id)
     this.nav.clear()
     this.productFields.clear()
     this.entities.clear()
@@ -243,11 +343,13 @@ export class PluginRegistry {
     this.reports.clear()
     this.settingsSections.clear()
     this.shortcuts.clear()
-    for (const registration of this.#registrations.values()) {
-      registration.status = 'declared'
-      delete registration.error
-      delete registration.loadedAt
-    }
+    this.widgets.clear()
+    this.posPanels.clear()
+    this.saleTabs.clear()
+    this.formSections.clear()
+    this.routes.clear()
+    this.#resolution = null
+    this.#enabled = []
   }
 
   list(): readonly PluginRegistration[] {
@@ -267,57 +369,40 @@ export class PluginRegistry {
     })
   }
 
-  /**
-   * Kahn's algorithm. Cycles are reported with the ids involved so the error
-   * message is actionable rather than "cycle detected".
-   */
-  #sort(): Plugin[] {
-    const declared = new Set(this.#declared.map((p) => p.id))
-    const ordered: Plugin[] = []
-    const placed = new Set<string>()
-    let remaining = [...this.#declared]
-
-    while (remaining.length > 0) {
-      const ready = remaining.filter((p) =>
-        (p.dependencies ?? []).every((d) => placed.has(d) || !declared.has(d))
-      )
-      if (ready.length === 0) {
-        for (const plugin of remaining) {
-          const registration = this.#registrations.get(plugin.id)
-          if (registration) {
-            registration.status = 'error'
-            registration.error = `dependency cycle among: ${remaining.map((p) => p.id).join(', ')}`
-          }
-        }
-        return ordered
-      }
-      for (const plugin of ready) {
-        ordered.push(plugin)
-        placed.add(plugin.id)
-      }
-      remaining = remaining.filter((p) => !placed.has(p.id))
-    }
-
-    return ordered
+  /** Every registration list this host keeps — the teardown checklist. */
+  #registries(): Array<{ removeOwnedBy: (id: string) => number }> {
+    return [
+      this.nav,
+      this.productFields,
+      this.entities,
+      this.permissions,
+      this.reports,
+      this.settingsSections,
+      this.shortcuts,
+      this.widgets,
+      this.posPanels,
+      this.saleTabs,
+      this.formSections,
+      this.routes,
+    ]
   }
 
-  #removeOwnedBy(pluginId: string): void {
-    this.nav.removeOwnedBy(pluginId)
-    this.productFields.removeOwnedBy(pluginId)
-    this.entities.removeOwnedBy(pluginId)
-    this.permissions.removeOwnedBy(pluginId)
-    this.reports.removeOwnedBy(pluginId)
-    this.settingsSections.removeOwnedBy(pluginId)
-    this.shortcuts.removeOwnedBy(pluginId)
+  #removeOwnedBy(pluginId: string): number {
+    let removed = 0
+    for (const registry of this.#registries()) removed += registry.removeOwnedBy(pluginId)
+    return removed
   }
 
-  #apiFor(pluginId: string): PluginAPI {
+  #apiFor(manifest: PluginManifest): PluginAPI {
+    const pluginId = manifest.id
     const log = makeLogger(pluginId)
     return {
       pluginId,
       events: this.events,
       storage: new LocalPluginStorage(pluginId),
       log,
+      settings: this.host.settings(pluginId),
+      data: this.host.data(pluginId),
 
       registerNav: (item) => this.nav.add({ ...item, source: pluginId }, pluginId),
       registerProductField: (field) =>
@@ -330,6 +415,64 @@ export class PluginRegistry {
         this.settingsSections.add({ ...section, source: pluginId }, pluginId),
       registerShortcut: (shortcut) =>
         this.shortcuts.add({ ...shortcut, source: pluginId }, pluginId),
+      registerDashboardWidget: (widget) =>
+        this.widgets.add({ ...widget, source: pluginId }, pluginId),
+      registerPOSPanel: (panel) => this.posPanels.add({ ...panel, source: pluginId }, pluginId),
+      registerSaleTab: (tab) => this.saleTabs.add({ ...tab, source: pluginId }, pluginId),
+      registerFormSection: (section) =>
+        this.formSections.add({ ...section, source: pluginId }, pluginId),
+      registerRoute: (route) => this.routes.add({ ...route, source: pluginId }, pluginId),
+      db: this.host.db(pluginId),
     }
+  }
+
+}
+
+/**
+ * Used when nothing wires the host — unit tests, and any screen rendered
+ * without a session. Memory-backed, so a plugin always gets an answer.
+ */
+function defaultHostServices(): PluginHostServices {
+  const config = new Map<string, Record<string, unknown>>()
+  const data = new Map<string, Map<string, unknown>>()
+  return {
+    settings: (pluginId) => {
+      let store = config.get(pluginId)
+      if (!store) {
+        store = {}
+        config.set(pluginId, store)
+      }
+      const bag = store
+      return {
+        get: <T,>(key: string, fallback: T): T => (key in bag ? (bag[key] as T) : fallback),
+        all: () => ({ ...bag }),
+        set: async (key, value) => {
+          bag[key] = value
+        },
+      }
+    },
+    data: (pluginId): PluginDataStore => {
+      let bag = data.get(pluginId)
+      if (!bag) {
+        bag = new Map<string, unknown>()
+        data.set(pluginId, bag)
+      }
+      const store = bag
+      return {
+        get: async <T,>(key: string, fallback: T): Promise<T> =>
+          store.has(key) ? (store.get(key) as T) : fallback,
+        set: async (key, value) => {
+          store.set(key, value)
+        },
+        remove: async (key) => store.delete(key),
+        keys: async () => [...store.keys()],
+      }
+    },
+    db: () => ({
+      products: async () => [],
+      rpc: async () => {
+        throw new Error('plugin database access is not wired in this environment')
+      },
+    }),
   }
 }

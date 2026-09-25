@@ -2042,6 +2042,295 @@ if (seeded.length !== 0) {
   await db.exec(`select set_config('request.jwt.claim.sub', '', false)`)
 }
 
+// ── Phase 6 — the plugin host ─────────────────────────────────────────────
+//
+// What a shopkeeper is promised when they flip a plugin on: the plugin's SQL
+// runs once, its tables cannot leak across shops, its permissions land in the
+// catalogue namespaced to it, disabling keeps the data, and a failure rolls
+// the whole thing back rather than leaving a half-installed plugin. Every one
+// of those is a database property, so every one of them is checked here —
+// against the live functions, not against the design document.
+if (seeded.length !== 0) {
+  const s = seeded[0]
+  const owner = s.owner
+  const cashier = '00000000-0000-0000-0000-00000000cafe'
+
+  const asUser = async (id) => {
+    await db.exec(`select set_config('request.jwt.claim.sub', '${id}', false)`)
+  }
+  const fails = async (sql, pattern) => {
+    try {
+      await q(sql)
+      return `no error raised (expected ${pattern})`
+    } catch (error) {
+      const message = String(error.message ?? error)
+      return pattern.test(message) ? null : message
+    }
+  }
+
+  await asUser(owner)
+
+  // ── What the server ships ──────────────────────────────────────────────
+  const packages = await q(
+    `select plugin_key, category, version, core_api_version from public.plugin_packages order by plugin_key`
+  )
+  check(
+    'the server ships its plugins as packages the database knows about',
+    packages.length === 2 &&
+      packages.every((row) => /^\d+\.\d+\.\d+$/.test(row.version)) &&
+      packages.some((row) => row.plugin_key === 'batch-expiry') &&
+      packages.some((row) => row.plugin_key === 'loyalty-lite'),
+    packages.map((row) => `${row.plugin_key}@${row.version}(${row.category})`).join(' ')
+  )
+
+  const packagedPermissions = await q(
+    `select plugin_key, key from public.plugin_package_permissions order by plugin_key, key`
+  )
+  check(
+    'every packaged permission is namespaced to the plugin that ships it',
+    packagedPermissions.length >= 3 &&
+      packagedPermissions.every((row) => row.key.startsWith(`${row.plugin_key}.`)),
+    packagedPermissions.map((row) => row.key).join(', ')
+  )
+
+  const catalog = (await q(`select public.plugin_catalog('${s.org}') as c`))[0].c
+  check(
+    'the plugins screen can list what is available, with pending migrations',
+    Array.isArray(catalog) &&
+      catalog.length === 2 &&
+      catalog.every((entry) => 'enabled' in entry && 'migrations_pending' in entry) &&
+      catalog.find((e) => e.key === 'loyalty-lite')?.migrations_pending >= 1,
+    catalog.map((e) => `${e.key}:off·${e.migrations_pending}pending`).join(' ')
+  )
+
+  const impact = (await q(`select public.plugin_impact('${s.org}', 'loyalty-lite') as i`))[0].i
+  check(
+    'before enabling, the wildcard roles that would gain permissions are named',
+    Array.isArray(impact) && impact.length >= 1 && impact.every((entry) => entry.permissions.length > 0),
+    impact.map((entry) => `${entry.role_key}(${entry.wildcard}→${entry.permissions.length})`).join(' ')
+  )
+
+  // ── Enable ─────────────────────────────────────────────────────────────
+  const enabled = (await q(
+    `select public.plugin_enable('${s.org}', 'loyalty-lite', '1.0.0', '{}'::jsonb) as r`
+  ))[0].r
+  check(
+    'enabling a plugin applies its packaged migrations in one call',
+    enabled.enabled === true && enabled.migrations_applied >= 1,
+    JSON.stringify(enabled)
+  )
+
+  const table = await q(
+    `select c.relname,
+            c.relrowsecurity as rls,
+            (select count(*)::int from information_schema.columns col
+              where col.table_schema = 'public' and col.table_name = c.relname
+                and col.column_name = 'organization_id') as org_col,
+            (select count(*)::int from pg_policies p
+              where p.schemaname = 'public' and p.tablename = c.relname) as policies
+       from pg_class c join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public' and c.relkind = 'r'
+        and c.relname like 'plg_loyalty_lite_%'`
+  )
+  check(
+    'a plugin table is tenant-safe by construction: prefixed, org-scoped, RLS on, policies present',
+    table.length === 1 && table[0].rls === true && table[0].org_col === 1 && table[0].policies >= 1,
+    table.map((row) => `${row.relname} rls=${row.rls} org=${row.org_col} policies=${row.policies}`).join(' ')
+  )
+
+  const granted = await q(
+    `select key, plugin_key from public.permissions where plugin_key is not null order by key`
+  )
+  check(
+    'enabling adds the plugin’s permissions to the catalogue, namespaced to it',
+    granted.length >= 2 && granted.every((row) => row.key.startsWith(`${row.plugin_key}.`)),
+    granted.map((row) => row.key).join(', ')
+  )
+
+  const again = (await q(
+    `select public.plugin_enable('${s.org}', 'loyalty-lite', '1.0.0', '{}'::jsonb) as r`
+  ))[0].r
+  check(
+    'enabling twice applies nothing a second time',
+    again.migrations_applied === 0,
+    `applied=${again.migrations_applied}`
+  )
+
+  // ── The plugin's own data ──────────────────────────────────────────────
+  const stored = (await q(
+    `select public.plugin_data_set('${s.org}', 'loyalty-lite', 'warning_days', '45'::jsonb) as r`
+  ))[0].r
+  const readBack = (await q(
+    `select public.plugin_data_get('${s.org}', 'loyalty-lite', 'warning_days') as r`
+  ))[0].r
+  check(
+    'plugin data round-trips through the RPC that scopes it to the shop',
+    stored.key === 'warning_days' && Number(readBack) === 45,
+    `${JSON.stringify(stored)} → ${JSON.stringify(readBack)}`
+  )
+
+  // The validator connects as the database owner, for whom every table is
+  // readable — so "plugin data is not reachable directly" is a question about
+  // grants, not about what a query happens to return here.
+  const grants = await q(
+    `select g.grantee
+       from information_schema.role_table_grants g
+      where g.table_schema = 'public' and g.table_name = 'plugin_data'
+        and g.grantee in ('anon', 'authenticated', 'service_role')
+      union all
+     select r.rolname as grantee
+       from pg_class c
+       join pg_namespace n on n.oid = c.relnamespace
+       cross join (select unnest(array['anon','authenticated','service_role']) as rolname) r
+      where n.nspname = 'public' and c.relname = 'plugin_data'
+        and has_table_privilege(r.rolname, c.oid, 'select')`
+  )
+  check(
+    'plugin data is not reachable by querying the table directly',
+    grants.length === 0,
+    grants.length ? `granted to ${grants.map((row) => row.grantee).join(', ')}` : 'no table grants for anon/authenticated/service_role'
+  )
+
+  const rpcRefusals = [
+    [await fails(`select public.plugin_rpc('${s.org}', 'loyalty-lite', 'nope', '{}'::jsonb)`, /plugin_rpc_unknown/), 'unknown function'],
+    [await fails(`select public.plugin_rpc('${s.org}', 'loyalty-lite', 'drop_tables', '{}'::jsonb)`, /plugin_rpc_unknown/), 'a core-sounding name'],
+    [await fails(`select public.plugin_rpc('${s.org}', 'batch-expiry', 'award', '{}'::jsonb)`, /plugin_not_enabled/), 'a plugin that is not enabled'],
+  ]
+  check(
+    'a plugin can only reach functions in its own namespace, and only while enabled',
+    rpcRefusals.every(([problem]) => problem === null),
+    rpcRefusals.map(([problem, what]) => (problem ? `${what}: ${problem}` : `${what}: refused`)).join(' · ')
+  )
+
+  // ── Failure rolls back ─────────────────────────────────────────────────
+  await q(
+    `insert into public.plugin_packages (plugin_key, name, category, version, core_api_version)
+     values ('bad-plugin', 'Bad Plugin', 'industry', '1.0.0', '^1.0.0')`
+  )
+  await q(
+    `insert into public.plugin_package_migrations (plugin_key, filename, version, ordinal, checksum, sql)
+     values ('bad-plugin', '001_bad.sql', '1.0.0', 1, md5('create table public.apparently_fine (id uuid)'),
+             'create table public.apparently_fine (id uuid)')`
+  )
+  const violation = await fails(
+    `select public.plugin_enable('${s.org}', 'bad-plugin', '1.0.0', '{}'::jsonb)`,
+    /plugin_schema_violation/
+  )
+  const leftover = await q(
+    `select (select count(*)::int from public.plugins where plugin_key = 'bad-plugin') as installed,
+            (select count(*)::int from pg_class c join pg_namespace n on n.oid = c.relnamespace
+              where n.nspname = 'public' and c.relkind = 'r'
+                and c.relname = 'apparently_fine') as created`
+  )
+  check(
+    'a plugin whose table is not tenant-safe is refused, and nothing it did survives',
+    violation === null && leftover[0].installed === 0 && leftover[0].created === 0,
+    violation ?? `installed=${leftover[0].installed} table_created=${leftover[0].created}`
+  )
+
+  // A changed file for an already-applied migration is a tamper, not a no-op.
+  await db.exec('begin')
+  await q(
+    `update public.plugin_package_migrations set sql = sql || '\n-- tampered'
+      where plugin_key = 'loyalty-lite'`
+  )
+  const tampered = await fails(
+    `select public.plugin_enable('${s.org}', 'loyalty-lite', '1.0.0', '{}'::jsonb)`,
+    /plugin_migration_changed/
+  )
+  await db.exec('rollback')
+  check(
+    'a packaged migration that changed after it was applied is refused',
+    tampered === null,
+    tampered ?? 'refused: plugin_migration_changed'
+  )
+
+  const unknown = await fails(
+    `select public.plugin_enable('${s.org}', 'nope', '1.0.0', '{}'::jsonb)`,
+    /unknown_plugin/
+  )
+  const wrongVersion = await fails(
+    `select public.plugin_enable('${s.org}', 'loyalty-lite', '9.9.9', '{}'::jsonb)`,
+    /plugin_version_mismatch/
+  )
+  check(
+    'an unknown plugin, or a version the server does not ship, is refused by name',
+    unknown === null && wrongVersion === null,
+    unknown ?? wrongVersion ?? 'both refused'
+  )
+
+  // ── Dependency guard ───────────────────────────────────────────────────
+  // loyalty-lite declares a dependency on batch-expiry, so both are switched on
+  // before the guard is asked anything.
+  await q(`select public.plugin_enable('${s.org}', 'batch-expiry', '1.0.0', '{}'::jsonb)`)
+  const blocking = await fails(
+    `select public.plugin_disable('${s.org}', 'batch-expiry')`,
+    /plugin_dependency/
+  )
+  check(
+    'a dependency cannot be switched off while something enabled needs it',
+    blocking === null,
+    blocking ?? 'refused: plugin_dependency'
+  )
+
+  // ── Disable keeps the shop’s data ──────────────────────────────────────
+  const off = (await q(`select public.plugin_disable('${s.org}', 'loyalty-lite') as r`))[0].r
+  const kept = await q(
+    `select (select count(*)::int from public.plugin_migrations
+              where organization_id = '${s.org}' and plugin_key = 'loyalty-lite') as migrations,
+            (select count(*)::int from public.permissions where plugin_key = 'loyalty-lite') as permissions,
+            (select count(*)::int from pg_class c join pg_namespace n on n.oid = c.relnamespace
+              where n.nspname = 'public' and c.relkind = 'r'
+                and c.relname like 'plg_loyalty_lite_%') as tables,
+            (select count(*)::int from public.plugin_data
+              where organization_id = '${s.org}' and plugin_key = 'loyalty-lite') as rows`
+  )
+  check(
+    'disabling keeps the migrations, the grants, the table and the data',
+    off.enabled === false && kept[0].migrations >= 1 && kept[0].permissions >= 2 &&
+      kept[0].tables === 1 && kept[0].rows >= 1,
+    JSON.stringify(kept[0])
+  )
+
+  const reenabled = (await q(
+    `select public.plugin_enable('${s.org}', 'loyalty-lite', '1.0.0', '{}'::jsonb) as r`
+  ))[0].r
+  check(
+    'enable → disable → enable is clean: nothing is applied twice',
+    reenabled.enabled === true && reenabled.migrations_applied === 0,
+    `applied=${reenabled.migrations_applied}`
+  )
+
+  // ── Who may do any of this ─────────────────────────────────────────────
+  await asUser(cashier)
+  const cashierRefusals = [
+    await fails(`select public.plugin_enable('${s.org}', 'batch-expiry', '1.0.0', '{}'::jsonb)`, /permission_denied/),
+    await fails(`select public.plugin_disable('${s.org}', 'batch-expiry')`, /permission_denied/),
+    await fails(`select public.plugin_catalog('${s.org}')`, /permission_denied/),
+    await fails(`select public.plugin_rpc('${s.org}', 'loyalty-lite', 'totals', '{}'::jsonb)`, /permission_denied/),
+  ]
+  check(
+    'a cashier cannot enable, disable, read the catalogue or call a plugin’s admin functions',
+    cashierRefusals.every((problem) => problem === null),
+    cashierRefusals.filter(Boolean).join(' · ') || 'all four refused'
+  )
+
+  const cashierState = (await q(`select public.plugin_state('${s.org}') as r`))[0].r
+  check(
+    'but a cashier can still load the shop’s enabled plugins',
+    Array.isArray(cashierState) && cashierState.some((entry) => entry.key === 'loyalty-lite'),
+    cashierState.map((entry) => entry.key).join(', ')
+  )
+
+  // ── Leave the shop as we found it ──────────────────────────────────────
+  await asUser(owner)
+  await q(`select public.plugin_disable('${s.org}', 'loyalty-lite')`)
+  await q(`select public.plugin_disable('${s.org}', 'batch-expiry')`)
+  await q(`delete from public.plugin_packages where plugin_key = 'bad-plugin'`)
+  await q(`delete from public.plugin_data where organization_id = '${s.org}'`)
+  await db.exec(`select set_config('request.jwt.claim.sub', '', false)`)
+}
+
 // ── Every permission key the client names must exist (023-era guard) ─────
 //
 // The catalogue is the contract between the database and the UI. Two nav
@@ -2074,15 +2363,51 @@ for (const file of srcFiles) {
 
 const catalogueRows = await q('select key from public.permissions')
 const catalogue = new Set(catalogueRows.map((r) => r.key))
-const unknownKeys = [...referenced.entries()]
-  .filter(([key]) => !catalogue.has(key))
-  .map(([key, file]) => `${key} (${file})`)
-  .sort()
+
+// Plugin permissions are a different case from core ones, and the difference
+// is the point of the namespace rule (docs/07 §3): a plugin's keys reach the
+// catalogue only when the shop enables the plugin, so they cannot be seeded.
+// What must hold instead is that the plugin *ships* the key — the package in
+// `plugin_package_migrations`' sibling `plugin_package_permissions` — and that
+// the key is namespaced to the plugin that references it. A plugin mentioning
+// a core key, or a key belonging to another plugin, is exactly the escalation
+// this check exists to catch.
+const packageRows = await q('select plugin_key, key from public.plugin_package_permissions')
+const packaged = new Map()
+for (const row of packageRows) {
+  if (!packaged.has(row.plugin_key)) packaged.set(row.plugin_key, new Set())
+  packaged.get(row.plugin_key).add(row.key)
+}
+
+/** `src/plugins/loyalty-lite/index.ts` → `loyalty-lite`; null for core files. */
+const pluginIdOf = (file) => {
+  const m = /^src\/plugins\/([^/]+)\//.exec(file)
+  return m ? m[1] : null
+}
+
+const unknownKeys = []
+const undeclaredPluginKeys = []
+for (const [key, file] of referenced.entries()) {
+  const pluginId = pluginIdOf(file)
+  if (!pluginId) {
+    if (!catalogue.has(key)) unknownKeys.push(`${key} (${file})`)
+    continue
+  }
+  if (key !== pluginId && !key.startsWith(`${pluginId}.`)) {
+    unknownKeys.push(`${key} (${file}) — not namespaced to ${pluginId}`)
+  } else if (!packaged.get(pluginId)?.has(key)) {
+    undeclaredPluginKeys.push(`${key} (${file}) — not in the ${pluginId} package`)
+  }
+}
+unknownKeys.sort()
+undeclaredPluginKeys.sort()
 
 check(
-  'every permission key referenced in src/ exists in the catalogue',
-  unknownKeys.length === 0,
-  unknownKeys.length ? unknownKeys.join(', ') : `${referenced.size} keys checked`
+  'every permission key referenced in src/ exists in the catalogue, or is shipped by the plugin that uses it',
+  unknownKeys.length === 0 && undeclaredPluginKeys.length === 0,
+  unknownKeys.length || undeclaredPluginKeys.length
+    ? [...unknownKeys, ...undeclaredPluginKeys].join(', ')
+    : `${referenced.size} keys checked (${packaged.size} plugin package(s))`
 )
 
 // ── Source scan: a name used but never declared ──────────────────────────

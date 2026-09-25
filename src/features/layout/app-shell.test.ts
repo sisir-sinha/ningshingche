@@ -14,6 +14,7 @@ import { appShell } from './app-shell'
 import { PluginRegistry } from '../../shared/registry/plugin-registry'
 import { EventBus } from '../../shared/bus'
 import { batchExpiryPlugin } from '../../plugins/batch-expiry'
+import { batchExpiryManifest } from '../../plugins/batch-expiry/manifest'
 import { sessionStore, EMPTY_SESSION } from '../../app/state/session'
 
 let registry: PluginRegistry
@@ -47,8 +48,8 @@ beforeEach(async () => {
   bus = new EventBus()
   bus.onError = () => undefined
   registry = new PluginRegistry(bus)
-  registry.declare(batchExpiryPlugin)
-  await registry.loadAll()
+  registry.declare({ manifest: batchExpiryManifest, load: async () => batchExpiryPlugin })
+  await registry.sync(['batch-expiry'])
   signIn()
 })
 
@@ -174,16 +175,26 @@ describe('app shell', () => {
     expect(el.querySelector('[data-nav-id="late"]')).toBeNull()
 
     registry.declare({
-      id: 'late',
-      name: 'Late',
-      version: '1.0.0',
-      register: (api) => {
-        api.registerNav({ id: 'late', label: 'Late', icon: 'help', section: 'main', route: '/late' })
+      manifest: {
+        id: 'late',
+        name: 'Late',
+        version: '1.0.0',
+        coreApiVersion: '^1.0.0',
+        category: 'optional',
+        description: 'late',
       },
+      load: async () => ({
+        id: 'late',
+        name: 'Late',
+        version: '1.0.0',
+        register: (api) => {
+          api.registerNav({ id: 'late', label: 'Late', icon: 'help', section: 'main', route: '/late' })
+        },
+      }),
     })
-    // `loadAll` publishes `plugin.loaded` on the registry's own bus, which is
+    // `sync` publishes `plugin.loaded` on the registry's own bus, which is
     // now the same instance the shell was given — no singleton involved.
-    await registry.loadAll()
+    await registry.sync(['batch-expiry', 'late'])
 
     expect(el.querySelector('[data-nav-id="late"]')).not.toBeNull()
   })

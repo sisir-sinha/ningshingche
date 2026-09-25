@@ -105,8 +105,17 @@ export interface LocalEventMap {
   /** Emitted once the router is mounted and the first route has rendered. */
   'app.ready': LocalEvent<'app.ready', undefined>
   'app.offline': LocalEvent<'app.offline', { online: boolean }>
-  /** A plugin finished loading, or failed to. */
+  /** A plugin finished loading, or failed to (per plugin, for diagnostics). */
   'plugin.loaded': LocalEvent<'plugin.loaded', { plugin_id: string; ok: boolean; error?: string }>
+  /**
+   * The loaded set changed — enabling or disabling a plugin in Settings
+   * Plugins. Screens that read plugin registrations (sidebar, product form,
+   * POS panels, dashboard) rebuild on this rather than on a page reload.
+   */
+  'plugin.changed': LocalEvent<
+    'plugin.changed',
+    { loaded: readonly string[]; enabled: readonly string[] }
+  >
   'ui.toast': LocalEvent<
     'ui.toast',
     { message: string; tone: 'info' | 'success' | 'warning' | 'error'; timeout?: number }

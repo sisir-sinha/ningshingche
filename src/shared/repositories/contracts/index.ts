@@ -884,6 +884,95 @@ export interface ReportRepository {
   run(query: ReportQuery): Promise<ReportResult>
 }
 
+/** One plugin this server ships, joined with this shop's state (migration 026). */
+export interface PluginCatalogEntry {
+  key: string
+  name: string
+  category: 'core' | 'optional' | 'industry'
+  version: string
+  coreApiVersion: string
+  description: string | null
+  dependencies: string[]
+  conflicts: string[]
+  installed: boolean
+  enabled: boolean
+  status: 'ok' | 'error'
+  lastError: string | null
+  config: Record<string, unknown>
+  enabledAt: string | null
+  permissions: Array<{ key: string; label: string; category: string; description: string | null }>
+  migrationsTotal: number
+  migrationsPending: number
+}
+
+/** A role that would gain a plugin's permissions through a wildcard. */
+export interface PluginImpactRole {
+  roleId: string
+  roleKey: string
+  roleName: string
+  wildcard: string
+  permissions: string[]
+}
+
+export interface PluginEnableResult {
+  key: string
+  version: string
+  enabled: boolean
+  migrationsApplied: number
+  permissions: number
+}
+
+/**
+ * The plugin host's own data surface, as contract methods (docs/05 §4).
+ *
+ * `rpc` is deliberately the only write path a plugin has: the function name is
+ * checked against the plugin's namespace server-side, so a plugin can reach
+ * its own functions and nothing else.
+ */
+export interface PluginRepository {
+  /** Every package this server ships, with this shop's state folded in. */
+  catalog(organizationId: string): Promise<PluginCatalogEntry[]>
+  /** Who would silently gain permissions, before an enable is confirmed. */
+  impact(organizationId: string, pluginKey: string): Promise<PluginImpactRole[]>
+  enable(
+    organizationId: string,
+    pluginKey: string,
+    version: string,
+    config?: Record<string, unknown>
+  ): Promise<PluginEnableResult>
+  disable(organizationId: string, pluginKey: string): Promise<{ key: string; enabled: boolean }>
+  setConfig(
+    organizationId: string,
+    pluginKey: string,
+    config: Record<string, unknown>
+  ): Promise<{ key: string; config: Record<string, unknown> }>
+  /** Org-scoped plugin storage, backed by the RLS-protected table. */
+  dataGet(organizationId: string, pluginKey: string, key: string): Promise<unknown>
+  dataSet(organizationId: string, pluginKey: string, key: string, value: unknown): Promise<void>
+  dataDelete(organizationId: string, pluginKey: string, key: string): Promise<boolean>
+  /** The one read projection a plugin gets over core data. */
+  products(organizationId: string): Promise<ProductSnapshot[]>
+  /** Call one of the plugin's own functions. */
+  rpc<T = unknown>(
+    organizationId: string,
+    pluginKey: string,
+    fn: string,
+    args?: Record<string, unknown>
+  ): Promise<T>
+}
+
+/** Mirrors `public.plugin_products` (migration 029). */
+export interface ProductSnapshot {
+  id: string
+  name: string
+  sku: string | null
+  price: number | null
+  track_stock: boolean
+  is_active: boolean
+  reorder_point: number | null
+  metadata: Record<string, unknown>
+}
+
 export interface Repositories {
   readonly catalog: CatalogRepository
   readonly products: ProductRepository
@@ -899,6 +988,7 @@ export interface Repositories {
   readonly audit: AuditRepository
   readonly analytics: AnalyticsRepository
   readonly reports: ReportRepository
+  readonly plugins: PluginRepository
 }
 
 /** Re-exported so features can build payloads without importing the domain. */

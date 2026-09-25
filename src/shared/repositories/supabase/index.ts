@@ -39,7 +39,11 @@ import type {
   ExpenseRepository,
   ExpenseRow,
   OrganizationRepository,
+  PluginCatalogEntry,
+  PluginImpactRole,
+  PluginRepository,
   ProductRepository,
+  ProductSnapshot,
   PurchaseDetail,
   PurchasePaymentRow,
   PurchaseRepository,
@@ -2653,6 +2657,194 @@ function toColumns(raw: unknown): ReportColumn[] {
  * shops without a reload; reading it lazily means the repositories follow the
  * session instead of pinning the organization they were built with.
  */
+// ── Plugins ───────────────────────────────────────────────────────────────
+//
+// The plugin host's data surface. Every call takes the organization explicitly
+// because plugin state is per shop — the same bundle enables a different set
+// of plugins in each — and the database re-checks membership on every one of
+// them (migration 026).
+
+/** Postgres returns jsonb numbers as strings when they are `numeric`. */
+function jsonNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null
+  const n = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+function toPluginEntry(entry: unknown): PluginCatalogEntry {
+  const row = (entry ?? {}) as Record<string, unknown>
+  const permissions = Array.isArray(row.permissions) ? row.permissions : []
+  return {
+    key: str(row.key),
+    name: str(row.name, str(row.key)),
+    category: (str(row.category, 'optional') as PluginCatalogEntry['category']),
+    version: str(row.version, '0.0.0'),
+    coreApiVersion: str(row.core_api_version, '*'),
+    description: row.description === null || row.description === undefined ? null : str(row.description),
+    dependencies: Array.isArray(row.dependencies) ? row.dependencies.map((d) => str(d)) : [],
+    conflicts: Array.isArray(row.conflicts) ? row.conflicts.map((d) => str(d)) : [],
+    installed: row.installed === true,
+    enabled: row.enabled === true,
+    status: str(row.status, 'ok') === 'error' ? 'error' : 'ok',
+    lastError: row.last_error === null || row.last_error === undefined ? null : str(row.last_error),
+    config: (row.config ?? {}) as Record<string, unknown>,
+    enabledAt: row.enabled_at === null || row.enabled_at === undefined ? null : str(row.enabled_at),
+    permissions: permissions.map((permission) => {
+      const p = (permission ?? {}) as Record<string, unknown>
+      return {
+        key: str(p.key),
+        label: str(p.label, str(p.key)),
+        category: str(p.category, 'other'),
+        description: p.description === null || p.description === undefined ? null : str(p.description),
+      }
+    }),
+    migrationsTotal: num(row.migrations_total),
+    migrationsPending: num(row.migrations_pending),
+  }
+}
+
+function createPlugins(client: SupabaseClient): PluginRepository {
+  return {
+    async catalog(organization: string): Promise<PluginCatalogEntry[]> {
+      const data = unwrap(await client.rpc('plugin_catalog', { p_organization_id: organization }))
+      if (!Array.isArray(data)) return []
+      return data.map(toPluginEntry).sort((a, b) => a.name.localeCompare(b.name))
+    },
+
+    async impact(organization: string, pluginKey: string): Promise<PluginImpactRole[]> {
+      const data = unwrap(
+        await client.rpc('plugin_impact', {
+          p_organization_id: organization,
+          p_plugin_key: pluginKey,
+        })
+      )
+      if (!Array.isArray(data)) return []
+      return data.map((entry) => {
+        const row = (entry ?? {}) as Record<string, unknown>
+        return {
+          roleId: str(row.role_id),
+          roleKey: str(row.role_key),
+          roleName: str(row.role_name, str(row.role_key)),
+          wildcard: str(row.wildcard, '*'),
+          permissions: Array.isArray(row.permissions) ? row.permissions.map((k) => str(k)) : [],
+        }
+      })
+    },
+
+    async enable(organization, pluginKey, version, config) {
+      const data = unwrap(
+        await client.rpc('plugin_enable', {
+          p_organization_id: organization,
+          p_plugin_key: pluginKey,
+          p_version: version,
+          p_config: config ?? {},
+        })
+      )
+      const row = (data ?? {}) as Record<string, unknown>
+      return {
+        key: str(row.plugin_key, pluginKey),
+        version: str(row.version, version),
+        enabled: row.enabled !== false,
+        migrationsApplied: num(row.migrations_applied),
+        permissions: num(row.permissions),
+      }
+    },
+
+    async disable(organization, pluginKey) {
+      const data = unwrap(
+        await client.rpc('plugin_disable', {
+          p_organization_id: organization,
+          p_plugin_key: pluginKey,
+        })
+      )
+      const row = (data ?? {}) as Record<string, unknown>
+      return { key: str(row.plugin_key, pluginKey), enabled: row.enabled === true }
+    },
+
+    async setConfig(organization, pluginKey, config) {
+      const data = unwrap(
+        await client.rpc('plugin_set_config', {
+          p_organization_id: organization,
+          p_plugin_key: pluginKey,
+          p_config: config,
+        })
+      )
+      const row = (data ?? {}) as Record<string, unknown>
+      return {
+        key: str(row.plugin_key, pluginKey),
+        config: (row.config ?? config) as Record<string, unknown>,
+      }
+    },
+
+    async dataGet(organization, pluginKey, key) {
+      return unwrap(
+        await client.rpc('plugin_data_get', {
+          p_organization_id: organization,
+          p_plugin_key: pluginKey,
+          p_key: key,
+        })
+      )
+    },
+
+    async dataSet(organization, pluginKey, key, value) {
+      unwrap(
+        await client.rpc('plugin_data_set', {
+          p_organization_id: organization,
+          p_plugin_key: pluginKey,
+          p_key: key,
+          p_value: value ?? null,
+        })
+      )
+    },
+
+    async dataDelete(organization, pluginKey, key) {
+      return unwrap(
+        await client.rpc('plugin_data_delete', {
+          p_organization_id: organization,
+          p_plugin_key: pluginKey,
+          p_key: key,
+        })
+      ) === true
+    },
+
+    async products(organization: string): Promise<ProductSnapshot[]> {
+      const data = unwrap(
+        await client.rpc('plugin_products', { p_organization_id: organization })
+      )
+      if (!Array.isArray(data)) return []
+      return data.map((entry) => {
+        const row = (entry ?? {}) as Record<string, unknown>
+        return {
+          id: str(row.id),
+          name: str(row.name),
+          sku: row.sku === null || row.sku === undefined ? null : str(row.sku),
+          price: jsonNumber(row.price),
+          track_stock: row.track_stock === true,
+          is_active: row.is_active !== false,
+          reorder_point: jsonNumber(row.reorder_point),
+          metadata: (row.metadata ?? {}) as Record<string, unknown>,
+        }
+      })
+    },
+
+    async rpc<T>(
+      organization: string,
+      pluginKey: string,
+      fn: string,
+      args?: Record<string, unknown>
+    ): Promise<T> {
+      return unwrap(
+        await client.rpc('plugin_rpc', {
+          p_organization_id: organization,
+          p_plugin_key: pluginKey,
+          p_function: fn,
+          p_args: args ?? {},
+        })
+      ) as T
+    },
+  }
+}
+
 export function createSupabaseRepositories(
   client: SupabaseClient,
   organizationId: () => string | null
@@ -2672,6 +2864,7 @@ export function createSupabaseRepositories(
     audit: createAudit(client),
     analytics: createAnalytics(client),
     reports: createReports(client),
+    plugins: createPlugins(client),
   }
 }
 

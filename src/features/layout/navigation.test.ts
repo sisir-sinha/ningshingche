@@ -16,6 +16,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { PluginRegistry } from '../../shared/registry/plugin-registry'
 import { EventBus } from '../../shared/bus/event-bus'
 import { batchExpiryPlugin } from '../../plugins/batch-expiry'
+import { batchExpiryManifest } from '../../plugins/batch-expiry/manifest'
 import { buildNavigation, CORE_NAV } from './navigation'
 import { sidebar } from './sidebar'
 import { sessionStore, EMPTY_SESSION } from '../../app/state/session'
@@ -58,8 +59,8 @@ beforeEach(async () => {
   bus = new EventBus()
   bus.onError = () => undefined
   registry = new PluginRegistry(bus)
-  registry.declare(batchExpiryPlugin)
-  await registry.loadAll()
+  registry.declare({ manifest: batchExpiryManifest, load: async () => batchExpiryPlugin })
+  await registry.sync(['batch-expiry'])
   signInAs(ALL_KEYS)
 })
 
@@ -102,21 +103,31 @@ describe('navigation model', () => {
 
   it('creates a section for an unknown section id rather than dropping the item', () => {
     registry.declare({
-      id: 'lonely',
-      name: 'Lonely',
-      version: '1.0.0',
-      register: (api) => {
-        api.registerNav({
-          id: 'lonely-page',
-          label: 'Lonely Page',
-          icon: 'help',
-          section: 'a-brand-new-section',
-          route: '/lonely',
-        })
+      manifest: {
+        id: 'lonely',
+        name: 'Lonely',
+        version: '1.0.0',
+        coreApiVersion: '^1.0.0',
+        category: 'optional',
+        description: 'lonely',
       },
+      load: async () => ({
+        id: 'lonely',
+        name: 'Lonely',
+        version: '1.0.0',
+        register: (api) => {
+          api.registerNav({
+            id: 'lonely-page',
+            label: 'Lonely Page',
+            icon: 'help',
+            section: 'a-brand-new-section',
+            route: '/lonely',
+          })
+        },
+      }),
     })
 
-    return registry.loadAll().then(() => {
+    return registry.sync(['batch-expiry', 'lonely']).then(() => {
       const groups = buildNavigation(registry)
       const section = groups.find((g) => g.section.id === 'a-brand-new-section')
 
@@ -205,18 +216,28 @@ describe('rendered sidebar', () => {
     // `plugin.loaded` bus event fires. This test pins the half that matters:
     // a rebuild picks up the late plugin without any other change.
     registry.declare({
-      id: 'latecomer',
-      name: 'Latecomer',
-      version: '1.0.0',
-      register: (api) => {
-        api.registerNav({ id: 'late', label: 'Late Page', icon: 'help', section: 'main', route: '/late' })
+      manifest: {
+        id: 'latecomer',
+        name: 'Latecomer',
+        version: '1.0.0',
+        coreApiVersion: '^1.0.0',
+        category: 'optional',
+        description: 'latecomer',
       },
+      load: async () => ({
+        id: 'latecomer',
+        name: 'Latecomer',
+        version: '1.0.0',
+        register: (api) => {
+          api.registerNav({ id: 'late', label: 'Late Page', icon: 'help', section: 'main', route: '/late' })
+        },
+      }),
     })
 
     const el = sidebar({ registry, ...options })
     expect(el.querySelector('[data-nav-id="late"]')).toBeNull()
 
-    await registry.loadAll()
+    await registry.sync(['batch-expiry', 'latecomer'])
 
     const rebuilt = sidebar({ registry, ...options })
     expect(rebuilt.querySelector('[data-nav-id="late"]')).not.toBeNull()

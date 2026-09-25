@@ -156,6 +156,20 @@ export interface PluginStorage {
   keys(): string[]
 }
 
+/**
+ * Org-scoped plugin data (docs/05 §4). Asynchronous because it lives in the
+ * database, not in the browser: the same plugin must see the same values from
+ * an Android client (Phase 8), and per-device localStorage cannot do that.
+ *
+ * `storage` above stays synchronous and per-device; `data` is the shared one.
+ */
+export interface PluginDataStore {
+  get<T>(key: string, fallback: T): Promise<T>
+  set(key: string, value: unknown): Promise<void>
+  remove(key: string): Promise<boolean>
+  keys(): Promise<string[]>
+}
+
 export interface Logger {
   debug(message: string, detail?: unknown): void
   warn(message: string, detail?: unknown): void
@@ -167,11 +181,109 @@ export interface Logger {
  * no router navigation, no access to other plugins. Anything a plugin needs
  * beyond this must be added here explicitly, which keeps the surface reviewable.
  */
+export interface DashboardWidgetDefinition {
+  id: string
+  title: string
+  /** `sm` spans one tile, `wide` two — same scale as the core widgets. */
+  size?: 'sm' | 'wide'
+  permission?: string
+  render: () => HTMLElement | Promise<HTMLElement>
+  /** Set by the host. Never author this. */
+  source?: string
+}
+
+/** Extra UI inside core-owned surfaces (docs/05 §5-§7). */
+export interface PanelDefinition {
+  id: string
+  label: string
+  permission?: string
+  render: (context: PanelContext) => HTMLElement | Promise<HTMLElement>
+  /** Set by the host. Never author this. */
+  source?: string
+}
+
+export interface TabDefinition {
+  id: string
+  label: string
+  permission?: string
+  render: (context: PanelContext) => HTMLElement | Promise<HTMLElement>
+  /** Set by the host. Never author this. */
+  source?: string
+}
+
+export interface FormSectionDefinition {
+  id: string
+  label: string
+  /** `advanced` sections live behind “+ Advanced options”. */
+  section?: 'basic' | 'advanced'
+  permission?: string
+  render: (context: PanelContext) => HTMLElement | Promise<HTMLElement>
+  /** Set by the host. Never author this. */
+  source?: string
+}
+
+/**
+ * What a slot's `render` receives. The ids are the ones the host is showing;
+ * nothing here can read the database, which is what keeps a plugin's panel a
+ * description of the sale rather than a second implementation of it.
+ */
+export interface PanelContext {
+  organizationId: string
+  branchId: string | null
+  currency: string
+  /** Present on sale-scoped slots (sale tab, POS panel with a cart). */
+  saleId?: string
+  customerId?: string | null
+  total?: number
+  /** Present on the product form. */
+  productId?: string
+}
+
+/** A plugin's declarative description — data only, cheap to import. */
+export interface PluginManifest {
+  /** Stable id. Also the permission namespace and the SQL table prefix. */
+  id: string
+  name: string
+  version: string
+  /** Semver range of the core plugin API this plugin requires. */
+  coreApiVersion: string
+  description: string
+  category: 'core' | 'optional' | 'industry'
+  icon?: string
+  author?: string
+  dependencies?: readonly string[]
+  conflicts?: readonly string[]
+  permissions?: readonly PermissionDefinition[]
+  settingsSchema?: readonly SettingField[]
+  /** `persistent` means disabling keeps the shop's data (the default). */
+  dataOwnership?: 'transient' | 'persistent'
+}
+
+export interface SettingField {
+  key: string
+  label: string
+  type: 'text' | 'number' | 'boolean' | 'select'
+  default?: unknown
+  min?: number
+  max?: number
+  step?: number
+  options?: readonly FieldOption[]
+  placeholder?: string
+  helpText?: string
+}
+
 export interface PluginAPI {
   readonly pluginId: string
   readonly events: EventBus
   readonly storage: PluginStorage
   readonly log: Logger
+
+  /** Org-scoped settings, backed by `plugins.config`. */
+  readonly settings: PluginSettings
+  /** Org-scoped data, backed by `plugin_data` (the RLS-protected table). */
+  readonly data: PluginDataStore
+  /** Core reads and the plugin's own RPCs. */
+  readonly db: PluginDb
 
   registerNav(item: NavItem): void
   registerProductField(field: ProductField): void
@@ -180,6 +292,67 @@ export interface PluginAPI {
   registerReport(report: ReportDefinition): void
   registerSettingsSection(section: SettingsSectionDefinition): void
   registerShortcut(shortcut: ShortcutDefinition): void
+  registerDashboardWidget(widget: DashboardWidgetDefinition): void
+  registerPOSPanel(panel: PanelDefinition): void
+  registerSaleTab(tab: TabDefinition): void
+  registerFormSection(section: FormSectionDefinition): void
+  registerRoute(route: RouteDefinition): void
+}
+
+/**
+ * The narrow data surface a plugin gets (docs/05 §4). Reads go through one
+ * projection; writes go through the plugin's own functions by name. A plugin
+ * cannot name a core table or a core RPC here — the host would not forward it.
+ */
+export interface PluginDb {
+  products(): Promise<ProductSnapshot[]>
+  rpc<T = unknown>(fn: string, args?: Record<string, unknown>): Promise<T>
+}
+
+export interface ProductSnapshot {
+  id: string
+  name: string
+  sku: string | null
+  price: number | null
+  track_stock: boolean
+  is_active: boolean
+  reorder_point: number | null
+  metadata: Record<string, unknown>
+}
+
+/** A screen a plugin contributes. Loaded lazily, like everything else. */
+export interface PluginPageContext {
+  params: Record<string, string>
+  query: URLSearchParams
+  organizationId: string
+  branchId: string | null
+  currency: string
+}
+
+export interface PluginPageModule {
+  render: (ctx: PluginPageContext) => HTMLElement | Promise<HTMLElement>
+}
+
+export interface RouteDefinition {
+  path: string
+  title: string
+  permission?: string
+  load: () => Promise<PluginPageModule>
+  /** Set by the host. Never author this. */
+  source?: string
+}
+
+export interface PluginSettings {
+  get<T>(key: string, fallback: T): T
+  all(): Readonly<Record<string, unknown>>
+  set(key: string, value: unknown): Promise<void>
+}
+
+/** A plugin as shipped in this bundle: cheap manifest plus a lazy body. */
+export interface ShippedPlugin {
+  manifest: PluginManifest
+  /** Only called when the plugin is enabled — a disabled plugin costs nothing. */
+  load: () => Promise<Plugin>
 }
 
 export interface Plugin {
@@ -196,10 +369,16 @@ export interface Plugin {
   dispose?(): void
 }
 
-export type PluginStatus = 'declared' | 'loaded' | 'error' | 'skipped'
+export type PluginStatus =
+  | 'disabled'
+  | 'loaded'
+  | 'error'
+  | 'incompatible'
+  | 'blocked'
 
 export interface PluginRegistration {
-  plugin: Plugin
+  id: string
+  manifest: PluginManifest
   status: PluginStatus
   error?: string
   loadedAt?: string

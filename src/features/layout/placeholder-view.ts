@@ -38,10 +38,12 @@ export const COMING_SOON: Record<string, { phase: string; note: string }> = {
 export interface PlaceholderOptions {
   item: NavItem
   onBack?: () => void
+  /** Overrides the roadmap sentence, for a plugin screen that is not loaded. */
+  note?: string
 }
 
 export function placeholderView(options: PlaceholderOptions): HTMLElement {
-  const { item, onBack } = options
+  const { item, onBack, note } = options
   const detail = COMING_SOON[item.route]
 
   return h(
@@ -65,9 +67,10 @@ export function placeholderView(options: PlaceholderOptions): HTMLElement {
       ),
       emptyState(item.label, {
         description:
+          note ??
           (detail?.note ?? 'This screen is declared but not built yet.') +
-          (detail ? ` Arriving in ${detail.phase}.` : ''),
-        iconName: 'construction',
+            (detail ? ` Arriving in ${detail.phase}.` : ''),
+        iconName: note ? 'extension' : 'construction',
       })
     )
   )

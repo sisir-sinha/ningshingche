@@ -42,32 +42,30 @@ describe('application bootstrap', () => {
     expect(root.textContent?.length ?? 0).toBeGreaterThan(0)
   })
 
-  it('loads the declared plugins before the first render', () => {
+  it('declares every plugin this bundle ships', () => {
     const registry = window.mekholi?.registry
     expect(registry).toBeDefined()
 
-    const results = registry?.list() ?? []
-    expect(results).toHaveLength(1)
-    expect(results[0]?.plugin.id).toBe('batch-expiry')
-    expect(results[0]?.status).toBe('loaded')
+    const ids = (registry?.list() ?? []).map((entry) => entry.id).sort()
+    expect(ids).toEqual(['batch-expiry', 'loyalty-lite'])
   })
 
-  it('has the plugin’s product fields registered', () => {
-    const fields = window.mekholi?.registry.productFields.items ?? []
-    const keys = fields.map((f) => f.key)
-
-    expect(keys).toContain('batch_number')
-    expect(keys).toContain('expiry_date')
-    // Attribution: the sidebar and product form need to know who added these.
-    expect(fields.every((f) => f.source === 'batch-expiry')).toBe(true)
+  it('leaves plugins disabled until a shop enables them', () => {
+    // Without Supabase there is no shop and therefore no plugin state: the
+    // app must still come up, with core screens and no plugin surfaces.
+    const registry = window.mekholi?.registry
+    const statuses = (registry?.list() ?? []).map((entry) => entry.status)
+    expect(statuses.every((status) => status === 'disabled')).toBe(true)
   })
 
-  it('has the plugin’s nav item registered', () => {
+  it('keeps plugin product fields out of the form until the plugin is on', () => {
+    const keys = (window.mekholi?.registry.productFields.items ?? []).map((f) => f.key)
+    expect(keys).toHaveLength(0)
+  })
+
+  it('keeps plugin navigation out of the sidebar until the plugin is on', () => {
     const nav = window.mekholi?.registry.nav.items ?? []
-    const item = nav.find((n) => n.id === 'batch-expiry')
-
-    expect(item).toBeDefined()
-    expect(item?.section).toBe('inventory')
+    expect(nav.find((item) => item.id === 'batch-expiry')).toBeUndefined()
   })
 
   it('renders the login screen when there is no session', () => {

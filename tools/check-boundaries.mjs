@@ -198,6 +198,89 @@ function violation(source, target) {
   return null
 }
 
+// ── Self-test ─────────────────────────────────────────────────────────────
+//
+// The rules above are only worth trusting if they actually fire. These cases
+// are the ones spec §51 rests on — a plugin reaching into a feature, a plugin
+// reaching sideways into another plugin, and the two imports that must stay
+// legal — so a future edit that quietly relaxes `violation()` fails here
+// instead of shipping.
+
+const SELF_TESTS = [
+  {
+    what: 'a plugin importing a feature is refused (spec §51)',
+    source: 'plugins/loyalty-lite/index.ts',
+    target: 'features/sales/index.ts',
+    expects: /may not import a feature/,
+  },
+  {
+    what: 'a plugin importing app-layer state is refused',
+    source: 'plugins/loyalty-lite/index.ts',
+    target: 'app/data.ts',
+    expects: /may not import the app layer/,
+  },
+  {
+    what: 'one plugin importing another is refused',
+    source: 'plugins/loyalty-lite/index.ts',
+    target: 'plugins/batch-expiry/index.ts',
+    expects: /imports plugin "batch-expiry"/,
+  },
+  {
+    what: 'a plugin holding a Supabase client is refused',
+    source: 'plugins/loyalty-lite/index.ts',
+    target: '@supabase/supabase-js',
+    expects: /may not hold a Supabase client/,
+  },
+  {
+    what: 'a plugin may use the UI kit and the shared contracts',
+    source: 'plugins/loyalty-lite/index.ts',
+    target: 'components/ui/h.ts',
+    expects: null,
+  },
+  {
+    what: 'a plugin may use the registry contracts it is written against',
+    source: 'plugins/loyalty-lite/index.ts',
+    target: 'shared/registry/plugin-types.ts',
+    expects: null,
+  },
+  {
+    what: 'a feature reaching into another feature’s internals is refused',
+    source: 'features/sales/sales-view.ts',
+    target: 'features/pos/pos-view.ts',
+    expects: /only `features\/pos\/index.ts` is public/,
+  },
+  {
+    what: 'a feature may import another feature’s public surface',
+    source: 'features/sales/sales-view.ts',
+    target: 'features/pos/index.ts',
+    expects: null,
+  },
+  {
+    what: 'the UI kit may not import a feature',
+    source: 'components/ui/card.ts',
+    target: 'features/sales/index.ts',
+    expects: /UI kit may not import features/,
+  },
+]
+
+const selfTestFailures = []
+for (const test of SELF_TESTS) {
+  const problem = violation(test.source, test.target)
+  const ok = test.expects === null ? problem === null : problem !== null && test.expects.test(problem)
+  if (!ok) {
+    selfTestFailures.push(
+      `${test.what}\n      got: ${problem ?? '(no violation)'}`
+    )
+  }
+}
+
+if (selfTestFailures.length) {
+  console.log(`boundary rule self-test: ${selfTestFailures.length} case(s) wrong\n`)
+  for (const failure of selfTestFailures) console.log(`  ${failure}\n`)
+  process.exit(1)
+}
+console.log(`boundary rule self-test: ${SELF_TESTS.length} cases as intended`)
+
 // ── Run ───────────────────────────────────────────────────────────────────
 
 const files = collectFiles(SRC)
