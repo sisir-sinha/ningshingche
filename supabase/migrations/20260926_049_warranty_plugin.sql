@@ -1,6 +1,6 @@
 -- 049 — The Warranty plugin, seeded as a package.
 --
--- Capability plugin #4 of Phase 7 (docs/10): a shop that promises something it sells — a year on a fridge, two years on a handset, the shop's own guarantee on a repair — keeps the promise where the customer can invoke it, and knows what honouring it cost.
+-- every promise the shop makes, on record: which unit, until when, to whom, and what keeping those promises cost.
 --
 -- The SQL below lives in `supabase/plugins/warranty/` as real files, one per
 -- migration, and is read from disk here byte for byte — the same arrangement
@@ -432,6 +432,7 @@ declare
   v_offset  integer := greatest(0, coalesce((p_args ->> 'offset')::int, 0));
   v_warn    integer := greatest(1, coalesce((p_args ->> 'warn_days')::int, 30));
   v_sale    uuid := nullif(p_args ->> 'sale_id', '')::uuid;
+  v_product uuid := nullif(p_args ->> 'product_id', '')::uuid;
   v_ends_fr date := nullif(p_args ->> 'ends_from', '')::date;
   v_ends_to date := nullif(p_args ->> 'ends_to', '')::date;
   v_by_date boolean;
@@ -454,6 +455,7 @@ begin
     left join public.customers c on c.id = w.customer_id
    where w.organization_id = p_org
      and (v_sale is null or w.sale_id = v_sale)
+     and (v_product is null or w.product_id = v_product)
      and (v_ends_fr is null or w.ends_on >= v_ends_fr)
      and (v_ends_to is null or w.ends_on <= v_ends_to)
      and case v_scope
@@ -540,6 +542,7 @@ begin
         left join public.customers c on c.id = w.customer_id
        where w.organization_id = p_org
          and (v_sale is null or w.sale_id = v_sale)
+         and (v_product is null or w.product_id = v_product)
          and (v_ends_fr is null or w.ends_on >= v_ends_fr)
          and (v_ends_to is null or w.ends_on <= v_ends_to)
          and case v_scope
@@ -944,6 +947,10 @@ end
 $fn$;
 
 -- ── The register ──────────────────────────────────────────────────────────
+-- `product_id` is what the product form asks with: "what have I promised about
+-- *this* product" is a question the server answers, not one the browser guesses
+-- by filtering a page of the shop's newest promises — which would undercount
+-- every popular product and say so with a straight face.
 create or replace function public.warranty_list(p_organization_id uuid, p_args jsonb)
 returns jsonb
 language plpgsql
@@ -964,11 +971,12 @@ begin
               (app.warranty_config(v_org) ->> 'warn_days')::int)));
 
   return app.warranty_page(v_org, jsonb_build_object(
-    'scope',     lower(coalesce(nullif(v_args ->> 'status', ''), 'all')),
-    'search',    coalesce(v_args ->> 'search', ''),
-    'limit',     coalesce(v_args ->> 'limit', '50'),
-    'offset',    coalesce(v_args ->> 'offset', '0'),
-    'warn_days', v_warn
+    'scope',      lower(coalesce(nullif(v_args ->> 'status', ''), 'all')),
+    'search',     coalesce(v_args ->> 'search', ''),
+    'product_id', coalesce(v_args ->> 'product_id', ''),
+    'limit',      coalesce(v_args ->> 'limit', '50'),
+    'offset',     coalesce(v_args ->> 'offset', '0'),
+    'warn_days',  v_warn
   ));
 end
 $fn$;

@@ -49,12 +49,13 @@ import {
   missingCoverLabel,
   monthsLabel,
   monthsFromProduct,
+  unitLabel,
   tillSummary,
   type ClaimsReport,
   type ExpiringReport,
   type Overview,
   type RegisterResult,
-  type UnitRow,
+  type UnitPage,
 } from './helpers'
 import {
   AUTO_REGISTER_KEY,
@@ -392,23 +393,23 @@ async function productSection(api: PluginAPI, productId: string | undefined): Pr
     return h(
       'p',
       { class: 'text-xs text-content-muted' },
-      'Set warranty months above, and the promise is written for every unit of this product the shop sells.'
+      'Set the warranty months above, and the promise is written for every unit of this product the shop sells.'
     )
   }
 
   try {
-    // The register, filtered to this product's promises. One page is enough:
-    // the section says "this product has been promised", not "here they all
-    // are" — the screen is where a shop reads the whole register.
-    const page = await api.db.rpc<{ rows: UnitRow[]; total: number }>('list', {
+    // Asked of the server with the product's id: the shop's own newest
+    // promises are not this product's history, and counting them in the
+    // browser would undercount every product a shop sells a lot of.
+    const page = await api.db.rpc<UnitPage>('list', {
       status: 'all',
       search: '',
-      limit: 50,
+      product_id: productId,
+      limit: 5,
       offset: 0,
     })
-    const mine = page.rows.filter((row) => row.product_id === productId)
 
-    if (mine.length === 0) {
+    if (page.total === 0) {
       return h(
         'p',
         { class: 'text-xs text-content-muted' },
@@ -417,16 +418,21 @@ async function productSection(api: PluginAPI, productId: string | undefined): Pr
     }
 
     const warnDays = api.settings.get<number>(WARN_DAYS_KEY, DEFAULT_WARN_DAYS)
-    const latest = mine[0] as UnitRow
+    const latest = page.rows[0]
     return h(
       'div',
-      { class: 'flex flex-wrap items-center gap-2' },
-      badge(`${mine.length} promise(s) on record`, { tone: 'info', iconName: 'verified_user' }),
-      h(
-        'p',
-        { class: 'text-xs text-content-muted' },
-        `Latest: ${coverageLabel(coverageOf(latest, warnDays))} · ${daysLeftLabel(latest.days_left)}`
-      )
+      { class: 'space-y-1' },
+      badge(`${page.total} ${page.total === 1 ? 'promise' : 'promises'} on record`, {
+        tone: 'info',
+        iconName: 'verified_user',
+      }),
+      latest
+        ? h(
+            'p',
+            { class: 'text-xs text-content-muted' },
+            `Latest: ${unitLabel(latest)} · ${coverageLabel(coverageOf(latest, warnDays))} · ${daysLeftLabel(latest.days_left)}`
+          )
+        : null
     )
   } catch {
     return h('p', { class: 'text-xs text-content-subtle' }, 'Warranty history could not be read.')

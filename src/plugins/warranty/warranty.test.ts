@@ -427,6 +427,63 @@ describe('registration', () => {
     expect(registry.posPanels.items[0]?.permission).toBe(WARRANTY_VIEW)
   })
 
+  it('asks the server about one product’s promises, rather than counting a page', async () => {
+    answers.list = {
+      rows: [unitRow(1, { variant_name: '320L' })],
+      total: 3,
+      limit: 5,
+      offset: 0,
+      scope: 'all',
+      today: '2026-09-26',
+    } satisfies UnitPage
+    await registry.sync(['warranty'])
+
+    const host = await registry.formSections.items[0]!.render({
+      organizationId: ORG,
+      branchId: BRANCH,
+      currency: 'BDT',
+      productId: 'p1',
+    })
+    await settle()
+
+    const asked = calls.find((call) => call.fn === 'list')
+    expect(asked?.args.product_id).toBe('p1')
+    expect(textOf(host)).toContain('3 promises on record')
+    expect(textOf(host)).toContain('Latest: Unit 1 · Covered')
+  })
+
+  it('says where a promise comes from when a product has none yet', async () => {
+    answers.list = {
+      rows: [],
+      total: 0,
+      limit: 5,
+      offset: 0,
+      scope: 'all',
+      today: '2026-09-26',
+    } satisfies UnitPage
+    await registry.sync(['warranty'])
+
+    const fresh = await registry.formSections.items[0]!.render({
+      organizationId: ORG,
+      branchId: BRANCH,
+      currency: 'BDT',
+      productId: 'p9',
+    })
+    await settle()
+    expect(textOf(fresh)).toContain('No promise has been written for this product yet')
+
+    // A product that has not been saved yet has no id to ask about.
+    calls = []
+    const unsaved = await registry.formSections.items[0]!.render({
+      organizationId: ORG,
+      branchId: BRANCH,
+      currency: 'BDT',
+    })
+    await settle()
+    expect(calls).toEqual([])
+    expect(textOf(unsaved)).toContain('Set the warranty months above')
+  })
+
   it('needs no other plugin, so it can be switched on alone', async () => {
     await registry.sync(['warranty'])
     expect(registry.get('warranty')?.status).toBe('loaded')
