@@ -27,6 +27,7 @@ import { loyaltyLiteManifest } from '../plugins/loyalty-lite/manifest'
 import { serialNumbersManifest } from '../plugins/serial-numbers/manifest'
 import { variantsManifest } from '../plugins/variants/manifest'
 import { warrantyManifest } from '../plugins/warranty/manifest'
+import { weightScaleManifest } from '../plugins/weight-scale/manifest'
 import { sessionStore } from './state/session'
 import { getRepositories } from './data'
 
@@ -136,6 +137,10 @@ export const SHIPPED_PLUGINS: readonly ShippedPlugin[] = [
   {
     manifest: warrantyManifest,
     load: async () => (await import('../plugins/warranty')).warrantyPlugin,
+  },
+  {
+    manifest: weightScaleManifest,
+    load: async () => (await import('../plugins/weight-scale')).weightScalePlugin,
   },
 ]
 
