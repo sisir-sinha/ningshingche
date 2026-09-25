@@ -229,6 +229,15 @@ browser audit (138 checks at 390px) and the live project:**
 at phone width (a flex row compressed a 32px box), and the "Load more" and
 row-level delete controls were under the 40px tap floor.
 
+**And CI had been red since Phase 2** — for a reason worth writing down: the
+login and POS-gate tests gate on `env.isSupabaseConfigured`, which is true on a
+developer machine only because a gitignored `.env` exists. On a fresh checkout
+it is false, so three tests failed with "expected null not to be null" on every
+run, and a permanently red pipeline stops being read as a signal. Reproduced by
+moving `.env` aside, fixed in `vitest.config.ts` with placeholder values, and
+`npm run check` now passes with no `.env` at all — which is what CI does. The
+first green CI run in the project's history is `0316cb1`.
+
 ---
 
 ## Phase 5 — Analytics
