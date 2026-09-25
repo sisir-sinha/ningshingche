@@ -32,9 +32,10 @@ import { input } from '../../components/ui/input'
 import { CartStore } from './cart-store'
 import { SaleService, toCartLine } from './sale-service'
 import { openPaymentDialog } from './payment-dialog'
+import { openCustomerDialog } from './customer-dialog'
 import { openReceipt } from './receipt'
 import { refreshSalesFloor, salesFloor, salesFloorStore } from '../../app/state/sales-floor'
-import { activeOrganization } from '../../app/state/session'
+import { activeOrganization, can } from '../../app/state/session'
 import { getRepositories } from '../../app/data'
 import {
   panelLines,
@@ -56,7 +57,7 @@ import type {
   SaleAdjustmentRelease,
   ScanMatch,
 } from '../../shared/registry/plugin-types'
-import type { SaleRow } from '../../shared/types/records'
+import type { CustomerRow, SaleRow } from '../../shared/types/records'
 import {
   formatMoney,
   formatQty,
@@ -376,6 +377,17 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
 
   // ── Right: cart ─────────────────────────────────────────────────────────
 
+  /**
+   * Who is buying. The cart has carried a customer id since the first commit
+   * and nothing ever set it, so every sale was a walk-in and no add-on could be
+   * about the person at the counter (spec §19).
+   */
+  let attachedCustomer: CustomerRow | null = null
+
+  const customerLine = h('div', {
+    class: 'flex items-center gap-1 border-b border-border px-3 py-1.5',
+  })
+
   const lineList = h('div', { class: 'flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-1' })
   // Money a plugin has taken off this sale, and the strip the cashier applies it
   // from. The till owns this list, not the plugin: the *sum* is what reaches
@@ -462,6 +474,42 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
       // bought (spec §51).
       lines: panelLines(cart.state.cart.lines, (variantId) => seen.get(variantId)),
     }
+  }
+
+  function renderCustomer(): void {
+    if (!can('customers.view')) {
+      mount(customerLine, null)
+      return
+    }
+    mount(
+      customerLine,
+      button(attachedCustomer?.name ?? 'Walk-in', {
+        size: 'sm',
+        variant: 'ghost',
+        icon: 'person',
+        ariaLabel: 'Customer on this sale',
+        title: attachedCustomer ? 'Change the customer on this sale' : 'Attach a customer',
+        class: 'min-w-0 flex-1 justify-start',
+        onClick: () =>
+          openCustomerDialog({
+            current: attachedCustomer,
+            currency,
+            onPick: (customer) => {
+              attachedCustomer = customer
+              // The till's cart is what the server prices and stores, so this
+              // is the only place the choice needs to land.
+              cart.setCustomer(customer?.id ?? null)
+              renderCustomer()
+            },
+          }),
+      }),
+      attachedCustomer
+        ? h('span', {
+            class: 'text-[11px] text-content-subtle truncate max-w-[45%]',
+            text: attachedCustomer.phone ?? '',
+          })
+        : h('span', { class: 'text-[11px] text-content-subtle', text: 'optional' })
+    )
   }
 
   function totalRow(label: string, amount: Minor, extraClass = ''): HTMLElement {
@@ -841,6 +889,13 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
     try {
       const resumed = await sales.resume(saleId, floor!.warehouseId)
       cart.replace(resumed.cart, saleId)
+      // The held row carries the customer's id; the name is a lookup, and a
+      // failure to fetch it must not lose the sale — the id is what the server
+      // stores and what the receipt is joined from.
+      attachedCustomer = resumed.customerId
+        ? await repos.customers.get(resumed.customerId).catch(() => null)
+        : null
+      renderCustomer()
       // A held sale was parked without its adjustments (see `holdCart`), so
       // anything on it now is a discount this till cannot explain.
       releaseAll('cleared')
@@ -894,6 +949,7 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
         heldBadge
       ),
       busyIndicator,
+      customerLine,
       lineList,
       // Money off sits directly above the totals it changes, and above the
       // plugin panels that describe the sale.
@@ -913,6 +969,7 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
 
   // Initial load. The grid is populated before the first paint of results so
   // the cashier sees something immediately rather than an empty pane.
+  renderCustomer()
   void runSearch('')
   // A discount restored from a draft has no plugin quote behind it any more —
   // the redemption died with the tab. Dropping it here is what stops an
