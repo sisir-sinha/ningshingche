@@ -1,6 +1,6 @@
 # The plugins this bundle ships
 
-Four plugins live here. Between them they use every part of the SDK, which is
+Five plugins live here. Between them they use every part of the SDK, which is
 why they are also its worked example — `docs/11-plugin-sdk.md` is the guide, and
 these are what it looks like when someone follows it.
 
@@ -10,6 +10,7 @@ these are what it looks like when someone follows it.
 | [`batch-expiry`](batch-expiry/) | Batch numbers and expiry dates on products, with a screen listing what is about to expire | 2 product fields (shown on the till and printed on receipts), 1 permission, nav + screen, dashboard widget, product-form section, a report in the core Reports screen |
 | [`loyalty-lite`](loyalty-lite/) | Points per taka spent, a balance on the sale, and who has earned what | 2 permissions, nav + screen, dashboard widget, POS panel, sale tab, an event listener that awards points automatically |
 | [`serial-numbers`](serial-numbers/) | The unit, not the product: which handset left on which invoice, and which one came back | 2 permissions, nav + screen (badge), dashboard widget, POS panel, sale tab, product-form section, 2 reports, `sale.completed` and `sale.refunded` listeners |
+| [`warranty`](warranty/) | The promise a sale makes: which unit, until when, to whom — and what honouring the promises cost | 2 permissions, nav + screen (badge), dashboard widget, POS panel, sale tab, product-form section, one product field the taxonomy promotes, 2 reports, a `sale.completed` listener that writes the promises |
 
 None of them imports another, and none imports anything from `src/features/` —
 `tools/check-boundaries.mjs` fails the build if that changes. Loyalty needs
@@ -43,13 +44,22 @@ implementation that drifts from the first.
    badge that counts what is waiting, and two event listeners. Its
    `helpers.ts` holds the parsing and the arithmetic; `capture.ts` is the card
    the cashier meets; `serials-screen.ts` is the shop's own screen.
+7. `warranty/index.ts` — the plugin whose subject is *time*: a promise starts
+   when a sale completes and ends months later, so its own SQL derives what a
+   promise is now (`days_left`, expiring, expired) instead of storing an expiry
+   that would be wrong every night between midnight and the job. `cover-card.ts`
+   is one component used twice — the sale tab and the work queue — so the two
+   can never disagree about what a sale owes; `warranty-screen.ts` is the
+   register, the search and the claims queue, and `helpers.ts` mirrors the
+   server's claim ladder so the buttons only ever offer a move the server will
+   accept.
 
 ## Testing a plugin
 
 A plugin is tested through the public `PluginAPI`, never by reaching into the
 host: see `batch-expiry/batch-expiry.test.ts`,
-`loyalty-lite/loyalty-lite.test.ts` and
-`serial-numbers/serial-numbers.test.ts`. They build a `PluginRegistry` with a
+`loyalty-lite/loyalty-lite.test.ts`,
+`serial-numbers/serial-numbers.test.ts` and `warranty/warranty.test.ts`. They build a `PluginRegistry` with a
 fake host, enable the plugin, and assert on what the plugin registered and on
 the calls it made — which is also the check that the plugin's files do not
 depend on anything the SDK does not promise.

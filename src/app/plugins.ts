@@ -26,6 +26,7 @@ import { batchExpiryManifest } from '../plugins/batch-expiry/manifest'
 import { loyaltyLiteManifest } from '../plugins/loyalty-lite/manifest'
 import { serialNumbersManifest } from '../plugins/serial-numbers/manifest'
 import { variantsManifest } from '../plugins/variants/manifest'
+import { warrantyManifest } from '../plugins/warranty/manifest'
 import { sessionStore } from './state/session'
 import { getRepositories } from './data'
 
@@ -131,6 +132,10 @@ export const SHIPPED_PLUGINS: readonly ShippedPlugin[] = [
   {
     manifest: variantsManifest,
     load: async () => (await import('../plugins/variants')).variantsPlugin,
+  },
+  {
+    manifest: warrantyManifest,
+    load: async () => (await import('../plugins/warranty')).warrantyPlugin,
   },
 ]
 
