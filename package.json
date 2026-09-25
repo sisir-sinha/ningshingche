@@ -15,6 +15,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check:boundaries": "node tools/check-boundaries.mjs",
+    "check:acl": "node tools/check-db-acl.mjs",
     "db:push": "node tools/db-push.mjs",
     "db:status": "node tools/db-push.mjs --status",
     "db:seed": "node tools/db-push.mjs --seed",

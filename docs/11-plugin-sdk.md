@@ -238,7 +238,15 @@ leak another shop's rows.
 3. `npm run check`. It runs the type checker, the linter, the boundary rules,
    your tests, the migration validator (which replays every migration in a real
    Postgres and then exercises the plugin lifecycle) and a production build.
-4. Switch it on in **Settings → Plugins**. It is switched on for one shop only;
+4. `npm run db:push`, then `npm run check:acl`. The second one talks to the
+   real database, because it asks questions only a real one can answer: can an
+   anonymous caller reach any function, and does every RPC your screen calls
+   hold its own grant to `authenticated`? A missing grant is invisible in the
+   validator's throwaway database, which runs as the owner — and it is the
+   failure a plugin is most likely to bring, since your SQL is the newest code
+   in the system. It also tells you whether the host is still closing the world
+   grant on what plugins create (see below).
+5. Switch it on in **Settings → Plugins**. It is switched on for one shop only;
    the preview that appears first names any role that would silently gain your
    permissions through a wildcard.
 
@@ -253,8 +261,28 @@ Checklist before you call it done:
       loses nothing.
 - [ ] No import reaches into `src/features/`, another plugin, or an app store.
 - [ ] Your screen renders for a role that holds only your permissions.
+- [ ] Your SQL's public RPCs are granted to `authenticated` by name. The host
+      revokes `PUBLIC` and `anon` from every function your file creates, so the
+      only grant you have to write is the one you *want*: `grep -c 'to authenticated' supabase/plugins/<id>/*.sql`
+      should not be zero.
 
 ---
+
+### One thing the host does for you: the world grant
+
+A function in Postgres is born executable by `PUBLIC`, and that cannot be
+undone with default privileges — they are *additive* over the built-in default
+for functions, so `alter default privileges … revoke execute on functions from
+public` removes nothing (measured, three ways, in migration 043's header). A
+plugin that simply forgot to revoke would therefore leave an anonymous-callable
+function in a shop's database, and the next plugin would do it again.
+
+So `app.plugin_apply_migrations` snapshots the functions this project owns
+before it applies one of your files, and closes `PUBLIC` and `anon` on whatever
+appeared. It never touches `authenticated` or `service_role`, so the grant *you*
+write survives. The validator proves it on every run by enabling a deliberately
+careless package (`careless-probe`) that grants nothing at all and checking that
+what it created is unreachable without a session.
 
 ## 5. Why it is built this way
 

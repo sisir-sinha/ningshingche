@@ -24,6 +24,7 @@ import type {
 } from '../shared/registry/plugin-types'
 import { batchExpiryManifest } from '../plugins/batch-expiry/manifest'
 import { loyaltyLiteManifest } from '../plugins/loyalty-lite/manifest'
+import { variantsManifest } from '../plugins/variants/manifest'
 import { sessionStore } from './state/session'
 import { getRepositories } from './data'
 
@@ -121,6 +122,10 @@ export const SHIPPED_PLUGINS: readonly ShippedPlugin[] = [
   {
     manifest: loyaltyLiteManifest,
     load: async () => (await import('../plugins/loyalty-lite')).loyaltyLitePlugin,
+  },
+  {
+    manifest: variantsManifest,
+    load: async () => (await import('../plugins/variants')).variantsPlugin,
   },
 ]
 

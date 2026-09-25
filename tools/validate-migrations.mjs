@@ -843,6 +843,60 @@ for (const name of ['apply_stock_movement', 'next_sequence']) {
   )
 }
 
+// ── The grant nobody writes ───────────────────────────────────────────────
+// Postgres grants EXECUTE on a *new* function to PUBLIC, and — as 043 records
+// after measuring it — `alter default privileges … revoke … from public`
+// cannot take that back, because default privileges are additive over the
+// built-in default for functions. So the protection has to run when the object
+// is created, and the plugin host does it.
+//
+// Two checks, because they catch different edits. This one reads the deployed
+// function and requires an actual `perform` call (not the name in a comment);
+// the lifecycle checks further down are the behavioural half, and the
+// `careless-probe` package there is a plugin that grants nothing at all.
+const hostFn = await q(`
+  select pg_get_functiondef(p.oid) as body
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'app' and p.proname = 'plugin_apply_migrations'`)
+const hostBody = String(hostFn[0]?.body ?? '')
+const hostWired = /^\s*perform\s+app\.plugin_close_world_grants\s*\(/m.test(hostBody)
+check(
+  'the plugin host closes PUBLIC access on what a plugin creates, and really calls it',
+  hostWired,
+  hostBody === ''
+    ? 'app.plugin_apply_migrations is missing'
+    : hostWired
+      ? 'a live perform call, not the name in a comment'
+      : 'no live perform call in the deployed body'
+)
+
+// ── Nothing of ours is reachable without a session ────────────────────────
+// 042's rule, checked from the other side: after every migration has run, the
+// functions this project owns must not be executable by an anonymous caller.
+// Scoped by owner on purpose — an extension's functions belong to a role this
+// project cannot revoke as (see 042), and the live check below it in
+// `tools/check-db-acl.mjs` makes the same distinction.
+const anonOwned = await q(`
+  select p.proname, n.nspname
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname in ('public', 'app')
+     and p.prokind = 'f'
+     and p.proowner = current_user::regrole
+     and has_function_privilege('anon', p.oid, 'EXECUTE')
+   order by n.nspname, p.proname`)
+const anonAllowed = new Set(['in_org', 'has_permission', 'visible_branch_ids'])
+const anonOffenders = anonOwned.filter(
+  (row) => !(row.nspname === 'app' && anonAllowed.has(row.proname))
+)
+check(
+  'no function this project owns is executable by an anonymous caller',
+  anonOffenders.length === 0,
+  anonOffenders.length === 0
+    ? `${anonOwned.length} anon-reachable, all RLS helpers`
+    : anonOffenders.map((row) => `${row.nspname}.${row.proname}`).join(', ')
+)
+
 // ── Client-facing RPC reachability ────────────────────────────────────────
 // Two distinct failure modes, both invisible to PGlite at runtime because it
 // runs as superuser:
@@ -2076,7 +2130,7 @@ if (seeded.length !== 0) {
   )
   check(
     'the server ships its plugins as packages the database knows about',
-    packages.length === 2 &&
+    packages.length >= 2 &&
       packages.every((row) => /^\d+\.\d+\.\d+$/.test(row.version)) &&
       packages.some((row) => row.plugin_key === 'batch-expiry') &&
       packages.some((row) => row.plugin_key === 'loyalty-lite'),
@@ -2131,6 +2185,129 @@ if (seeded.length !== 0) {
     manifestKeys.push({ key, version, permissions: permissions.sort() })
   }
 
+  // ── The plugin files themselves ────────────────────────────────────────
+  //
+  // Two ways a plugin's SQL has gone wrong here, and both survive every other
+  // check because until a shop enables the plugin the file is only ever *text*:
+  //
+  //   1. an unbalanced parenthesis. `create or replace function` then refuses
+  //      at enable time with "mismatched parentheses at or near ;" and a line
+  //      number that means nothing. Counting here names the statement.
+  //   2. a migration that embeds a *stale copy* of the file. The database ships
+  //      what the migration embedded, not what is on disk, so a fix applied
+  //      after the migration was generated silently never lands.
+  const bodiesLength = (set, text) =>
+    [...set].find((b) => b.startsWith(text.slice(0, 60)))?.length ?? 'no'
+
+  // Walks the text *and* every dollar-quoted body inside it: a plpgsql body is
+  // where a missing parenthesis actually hides, and it is the case that cost a
+  // long afternoon — the outer statement counts fine while the function inside
+  // it cannot be compiled.
+  const imbalances = (text, label) => {
+    const problems = []
+    const walk = (chunk, where) => {
+      let depth = 0
+      let lowest = 0
+      let i = 0
+      while (i < chunk.length) {
+        const two = chunk.slice(i, i + 2)
+        if (two === '--') {
+          const nl = chunk.indexOf('\n', i)
+          i = nl === -1 ? chunk.length : nl
+          continue
+        }
+        if (two === '/*') {
+          const close = chunk.indexOf('*/', i + 2)
+          i = close === -1 ? chunk.length : close + 2
+          continue
+        }
+        const dollar = /^\$[A-Za-z_]*\$/.exec(chunk.slice(i))
+        if (dollar) {
+          const tag = dollar[0]
+          const close = chunk.indexOf(tag, i + tag.length)
+          const inner = chunk.slice(i + tag.length, close === -1 ? chunk.length : close)
+          // A quoted string carrying SQL: worth the same walk.
+          if (/\b(declare|begin|select|return)\b/i.test(inner)) walk(inner, `${where}${where.endsWith(')') ? '' : ' › '}${tag}`)
+          i = close === -1 ? chunk.length : close + tag.length
+          continue
+        }
+        if (chunk[i] === "'") {
+          let j = i + 1
+          while (j < chunk.length) {
+            if (chunk[j] === "'") {
+              if (chunk[j + 1] === "'") {
+                j += 2
+                continue
+              }
+              break
+            }
+            j += 1
+          }
+          i = j + 1
+          continue
+        }
+        if (chunk[i] === '(' || chunk[i] === '[') depth += 1
+        if (chunk[i] === ')' || chunk[i] === ']') depth -= 1
+        if (depth < lowest) lowest = depth
+        i += 1
+      }
+      if (depth !== 0 || lowest < 0) problems.push({ where, depth, lowest })
+    }
+    walk(text, label)
+    return problems
+  }
+
+  const pluginSql = []
+  const pluginsDir = join(root, 'supabase', 'plugins')
+  if (existsSync(pluginsDir)) {
+    for (const pack of readdirSync(pluginsDir, { withFileTypes: true }).sort()) {
+      if (!pack.isDirectory()) continue
+      const dir = join(pluginsDir, pack.name)
+      for (const name of readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()) {
+        pluginSql.push({ key: pack.name, name, text: readFileSync(join(dir, name), 'utf8') })
+      }
+    }
+  }
+
+  const unbalanced = []
+  for (const { key, name, text } of pluginSql) {
+    for (const [index, stmt] of splitStatements(text).entries()) {
+      const first = stmt.split('\n').find((l) => l.trim() && !l.trim().startsWith('--'))?.trim().slice(0, 54) ?? ''
+      for (const { where, depth } of imbalances(stmt, `${key}/${name} #${index + 1} (${first})`)) {
+        unbalanced.push(`${where}: ${depth > 0 ? `${depth} unclosed` : depth < 0 ? `${-depth} too many closed` : 'crossed'}`)
+      }
+    }
+  }
+  check(
+    'every statement in every plugin SQL file balances its own parentheses',
+    pluginSql.length >= 2 && unbalanced.length === 0,
+    unbalanced.length ? unbalanced.join(' · ') : `${pluginSql.length} files, every statement balanced`
+  )
+
+  // The copies a migration embeds, read straight out of the migration files.
+  const embeddedBodies = new Set()
+  const embeddedNames = new Set()
+  for (const migration of readdirSync(join(root, 'supabase', 'migrations')).filter((f) => f.endsWith('.sql'))) {
+    const text = readFileSync(join(root, 'supabase', 'migrations', migration), 'utf8')
+    for (const match of text.matchAll(/\$plg_\d+\$([\s\S]*?)\$plg_\d+\$/g)) {
+      embeddedBodies.add(match[1])
+      embeddedNames.add(match[1].slice(0, 60))
+    }
+  }
+  const staleCopies = pluginSql
+    .filter(({ text }) => !embeddedBodies.has(text))
+    .map(({ key, name, text }) => {
+      const near = [...embeddedNames].find((b) => b === text.slice(0, 60))
+      return near
+        ? `${key}/${name}: the embedded copy is not this file (same opening lines, ${bodiesLength(embeddedBodies, text)} chars embedded vs ${text.length} on disk)`
+        : `${key}/${name}: not embedded in any migration`
+    })
+  check(
+    'every plugin SQL file is embedded in a migration byte for byte',
+    pluginSql.length >= 2 && staleCopies.length === 0,
+    staleCopies.length ? staleCopies.join(' · ') : `${pluginSql.length} files in sync with the migrations that ship them`
+  )
+
   const packagesByKey = new Map(packages.map((row) => [row.plugin_key, row]))
   const drift = []
   for (const manifest of manifestKeys) {
@@ -2169,7 +2346,7 @@ if (seeded.length !== 0) {
   check(
     'the plugins screen can list what is available, with pending migrations',
     Array.isArray(catalog) &&
-      catalog.length === 2 &&
+      catalog.length === packages.length &&
       catalog.every((entry) => 'enabled' in entry && 'migrations_pending' in entry) &&
       catalog.find((e) => e.key === 'loyalty-lite')?.migrations_pending >= 1,
     catalog.map((e) => `${e.key}:off·${e.migrations_pending}pending`).join(' ')
@@ -2394,12 +2571,402 @@ if (seeded.length !== 0) {
     cashierState.map((entry) => entry.key).join(', ')
   )
 
+  // ── A careless plugin cannot open the shop to anonymous callers ────────
+  // 043 exists because `alter default privileges` cannot take away the
+  // built-in EXECUTE-to-PUBLIC on a function, so a plugin that simply forgets
+  // to revoke would leave an anonymous-callable function in the database. The
+  // host closes that on every file it applies. This is that claim, tested the
+  // way it will actually happen: a package whose SQL creates a function and
+  // grants nothing, enabled through `plugin_enable`.
+  //
+  // The first assertion matters as much as the second — a probe that was never
+  // reachable in the first place would make the check pass for the wrong
+  // reason.
+  const carelessSql = [
+    'create or replace function public.careless_plugin_rpc() returns integer',
+    'language sql as $careless$ select 42 $careless$;',
+  ].join('\n')
+  await db.query(
+    `insert into public.plugin_packages
+           (plugin_key, name, category, version, core_api_version, description,
+            dependencies, conflicts)
+     values ('careless-probe', 'Careless probe', 'optional', '1.0.0', '^1.0.0',
+             'Test fixture: a plugin that forgets to revoke its own functions.',
+             '{}', '{}')`
+  )
+  // The checksum has to be the md5 of the exact text the host will execute,
+  // which is why the fixture's SQL is passed in rather than written twice.
+  await db.query(
+    `insert into public.plugin_package_migrations
+           (plugin_key, filename, version, ordinal, checksum, sql)
+     values ('careless-probe', '001_careless.sql', '1.0.0', 1, md5($1), $1)`,
+    [carelessSql]
+  )
+
+  await asUser(owner)
+  const carelessEnable = (await q(
+    `select public.plugin_enable('${s.org}', 'careless-probe', '1.0.0', '{}'::jsonb) as r`
+  ))[0].r
+  const carelessGrants = await q(`
+    select has_function_privilege('anon', p.oid, 'EXECUTE')::text          as anon,
+           has_function_privilege('authenticated', p.oid, 'EXECUTE')::text as auth
+      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and p.proname = 'careless_plugin_rpc'`)
+  const carelessRow = carelessGrants[0] ?? { anon: 'missing', auth: 'missing' }
+  check(
+    'a plugin that forgets to revoke still leaves nothing callable by an anonymous caller',
+    carelessEnable.enabled === true &&
+      carelessRow.anon === 'false' && carelessRow.auth === 'false',
+    `enabled=${carelessEnable.enabled} anon=${carelessRow.anon} authenticated=${carelessRow.auth}`
+  )
+
   // ── Leave the shop as we found it ──────────────────────────────────────
   await asUser(owner)
   await q(`select public.plugin_disable('${s.org}', 'loyalty-lite')`)
   await q(`select public.plugin_disable('${s.org}', 'batch-expiry')`)
+  await q(`select public.plugin_disable('${s.org}', 'careless-probe')`)
+  await q(`delete from public.plugin_packages where plugin_key = 'careless-probe'`)
+  await q(`delete from public.plugin_migrations where plugin_key = 'careless-probe'`)
+  await db.exec(`drop function if exists public.careless_plugin_rpc()`)
   await q(`delete from public.plugin_packages where plugin_key = 'bad-plugin'`)
   await q(`delete from public.plugin_data where organization_id = '${s.org}'`)
+  await db.exec(`select set_config('request.jwt.claim.sub', '', false)`)
+}
+
+// ── Phase 7 — the variants capability plugin ──────────────────────────────
+//
+// The first Phase 7 plugin, and the one that tests the architecture's promise
+// in the hardest way: it *builds* variants, so if it has quietly grown its own
+// variant table the whole premise (spec §51) is dead. So the checks below do
+// not stop at "the plugin works" — the last one sells a generated variant
+// through `complete_sale` and reads it back out of `pos_catalog`, which is
+// only possible if the plugin created real core rows.
+if (seeded.length !== 0) {
+  const s = seeded[0]
+  const owner = s.owner
+  const cashier = '00000000-0000-0000-0000-00000000cafe'
+  const product = '00000000-0000-0000-0000-00000000c001'
+
+  const asUser = async (id) => {
+    await db.exec(`select set_config('request.jwt.claim.sub', '${id}', false)`)
+  }
+  const fails = async (sql, pattern) => {
+    try {
+      await q(sql)
+      return `no error raised (expected ${pattern})`
+    } catch (error) {
+      const message = String(error.message ?? error)
+      return pattern.test(message) ? null : message
+    }
+  }
+
+  await asUser(owner)
+
+  const enabled = (await q(
+    `select public.plugin_enable('${s.org}', 'variants', '1.0.0', '{}'::jsonb) as r`
+  ))[0].r
+  check(
+    'the variants plugin installs: both migration files applied in one call',
+    enabled.enabled === true && enabled.migrations_applied === 2,
+    JSON.stringify(enabled)
+  )
+
+  const call = async (fn, args = {}) =>
+    (await q(
+      `select public.plugin_rpc('${s.org}', 'variants', '${fn}', '${JSON.stringify(args)}'::jsonb) as r`
+    ))[0].r
+
+  // ── Options and values ─────────────────────────────────────────────────
+  const sizeType = await call('save_type', { name: 'Size', sort_order: 1 })
+  const colourType = await call('save_type', { name: 'Colour', sort_order: 2 })
+
+  const values = {}
+  for (const [key, typeId, value] of [
+    ['s', sizeType.id, 'S'],
+    ['m', sizeType.id, 'M'],
+    ['l', sizeType.id, 'L'],
+    ['red', colourType.id, 'Red'],
+    ['blue', colourType.id, 'Blue'],
+  ]) {
+    values[key] = (await call('save_value', { option_type_id: typeId, value })).id
+  }
+
+  const catalog = await call('catalog')
+  check(
+    'options and values are listed with what already uses them',
+    catalog.types.length === 2 &&
+      catalog.totals.values === 5 &&
+      catalog.types.every((type) => Array.isArray(type.values) && type.values.length >= 2),
+    `${catalog.totals.types} options · ${catalog.totals.values} values`
+  )
+
+  const axes = [
+    { option_type_id: sizeType.id, value_ids: [values.s, values.m] },
+    { option_type_id: colourType.id, value_ids: [values.red, values.blue] },
+  ]
+
+  // ── The preview, then the build ────────────────────────────────────────
+  const preview = await call('preview', { product_id: product, axes })
+  check(
+    'the preview names every combination before anything is written',
+    preview.total === 4 &&
+      preview.new === 4 &&
+      preview.rows.every((row) => row.exists === false) &&
+      preview.rows.map((row) => row.suffix).join('|') === 'S / Red|S / Blue|M / Red|M / Blue',
+    `${preview.total} combinations · ${preview.rows.map((r) => r.suffix).join(', ')}`
+  )
+
+  const generated = await call('generate', { product_id: product, axes })
+  const made = generated.variants.filter((variant) => variant.name_suffix !== null)
+  check(
+    'generating creates one variant per combination, named from its own values',
+    generated.created === 4 &&
+      made.length === 4 &&
+      made.map((variant) => variant.name_suffix).join('|') === 'M / Blue|M / Red|S / Blue|S / Red',
+    `${generated.created} created: ${made.map((v) => v.name_suffix).join(', ')}`
+  )
+  check(
+    'every generated variant carries its option values, and inherits the product price',
+    made.every((variant) => Object.keys(variant.option_values).length === 2) &&
+      made.every((variant) => variant.price_override === null && variant.price === 25000),
+    `${made.length} variants · price ${made[0]?.price}`
+  )
+
+  const again = await call('generate', { product_id: product, axes })
+  check(
+    'generating the same matrix twice creates nothing the second time',
+    again.created === 0 && again.skipped === 4,
+    `created=${again.created} skipped=${again.skipped}`
+  )
+
+  // Half a matrix is refused *before* a row is written — including the axes
+  // change the refusal arrives with.
+  const partial = await fails(
+    `select public.plugin_rpc('${s.org}', 'variants', 'generate',
+       '{"product_id":"${product}","axes":[
+          {"option_type_id":"${sizeType.id}","value_ids":["${values.s}","${values.m}","${values.l}"]},
+          {"option_type_id":"${colourType.id}","value_ids":["${values.red}","${values.blue}"]}]}'::jsonb)`,
+    /variants_partial_combination/
+  )
+  const afterPartial = await call('axes', { product_id: product })
+  check(
+    'a half-built matrix is refused, and the axes it came with are not left behind',
+    partial === null &&
+      afterPartial.axes.length === 2 &&
+      afterPartial.variants.filter((variant) => variant.name_suffix !== null).length === 4,
+    partial ?? `${afterPartial.axes.length} axes · ${afterPartial.variants.length} variants`
+  )
+
+  // ── Bulk pricing ───────────────────────────────────────────────────────
+  const bulkPercent = await call('bulk', {
+    product_id: product,
+    field: 'price',
+    mode: 'percent',
+    value: 10,
+    only_inherited: true,
+  })
+  const repriced = await call('axes', { product_id: product })
+  const defaultVariant = repriced.variants.find((variant) => variant.name_suffix === null)
+  check(
+    'a bulk percentage re-prices every matrix variant that was inheriting, in one call',
+    bulkPercent.updated === 4 &&
+      repriced.variants
+        .filter((variant) => variant.name_suffix !== null)
+        .every((variant) => variant.price_override === 27500),
+    `${bulkPercent.updated} updated · override ${repriced.variants[1]?.price_override}`
+  )
+  check(
+    'the bulk editor leaves the product’s own price alone',
+    defaultVariant !== undefined && defaultVariant.price_override === null,
+    defaultVariant ? `default variant override ${defaultVariant.price_override}` : 'no default variant'
+  )
+
+  const bulkOverridesOnly = await call('bulk', {
+    product_id: product,
+    field: 'price',
+    mode: 'set',
+    value: 3000,
+    only_inherited: true,
+  })
+  check(
+    '"only the ones still inheriting" is honoured — the second run touches none',
+    bulkOverridesOnly.updated === 0,
+    `updated=${bulkOverridesOnly.updated}`
+  )
+
+  // ── One variant, by hand ───────────────────────────────────────────────
+  const target = repriced.variants.find((variant) => variant.name_suffix === 'S / Red')
+  await call('update', { variant_id: target.variant_id, price_override: 2000, sku: 'E2E-S-RED' })
+  const edited = (await call('axes', { product_id: product })).variants.find(
+    (variant) => variant.variant_id === target.variant_id
+  )
+  check(
+    'a single variant takes an override and a SKU',
+    edited.price_override === 2000 && edited.sku === 'E2E-S-RED' && edited.price === 2000,
+    `override=${edited.price_override} sku=${edited.sku}`
+  )
+
+  await call('update', { variant_id: target.variant_id, price_override: '' })
+  const cleared = (await call('axes', { product_id: product })).variants.find(
+    (variant) => variant.variant_id === target.variant_id
+  )
+  check(
+    'an emptied override clears back to inheriting the product price',
+    cleared.price_override === null && cleared.price === 25000,
+    `override=${cleared.price_override} price=${cleared.price}`
+  )
+
+  // ── Renames travel ─────────────────────────────────────────────────────
+  await call('save_type', { id: sizeType.id, name: 'Size (EU)' })
+  const renamed = await call('axes', { product_id: product })
+  check(
+    'renaming an option rewrites the keys already stamped on its variants',
+    renamed.variants
+      .filter((variant) => variant.name_suffix !== null)
+      .every((variant) => 'Size (EU)' in variant.option_values),
+    Object.keys(renamed.variants[1]?.option_values ?? {}).join(', ')
+  )
+  await call('save_type', { id: sizeType.id, name: 'Size' })
+
+  await call('save_value', { id: values.red, value: 'Red (dark)' })
+  const recoloured = await call('axes', { product_id: product })
+  check(
+    'renaming a value rewrites it on the variants that carry it',
+    recoloured.variants.some((variant) => variant.option_values.Colour === 'Red (dark)'),
+    recoloured.variants
+      .map((variant) => variant.option_values.Colour)
+      .filter(Boolean)
+      .join(', ')
+  )
+  await call('save_value', { id: values.red, value: 'Red' })
+
+  // ── Refusals ───────────────────────────────────────────────────────────
+  const deleteUsedType = await fails(
+    `select public.plugin_rpc('${s.org}', 'variants', 'delete_type', '{"id":"${sizeType.id}"}'::jsonb)`,
+    /variants_option_type_in_use/
+  )
+  const deleteUsedValue = await fails(
+    `select public.plugin_rpc('${s.org}', 'variants', 'delete_value', '{"id":"${values.red}"}'::jsonb)`,
+    /variants_option_value_in_use/
+  )
+  check(
+    'an option or a value that is still in use cannot be deleted out from under a product',
+    deleteUsedType === null && deleteUsedValue === null,
+    deleteUsedType ?? deleteUsedValue ?? 'both refused'
+  )
+
+  await q(
+    `select public.plugin_set_config('${s.org}', 'variants', '{"max_variants": 3}'::jsonb)`
+  )
+  const overLimit = await fails(
+    `select public.plugin_rpc('${s.org}', 'variants', 'preview',
+       '{"product_id":"${product}","axes":[
+          {"option_type_id":"${sizeType.id}","value_ids":["${values.s}","${values.m}","${values.l}"]},
+          {"option_type_id":"${colourType.id}","value_ids":["${values.red}","${values.blue}"]}]}'::jsonb)`,
+    /variants_limit_exceeded/
+  )
+  check(
+    'a matrix bigger than the shop allows is refused, with the number it would have made',
+    overLimit === null,
+    overLimit ?? 'refused: variants_limit_exceeded'
+  )
+  await q(
+    `select public.plugin_set_config('${s.org}', 'variants', '{"max_variants": 200}'::jsonb)`
+  )
+
+  const foreignProduct = await fails(
+    `select public.plugin_rpc('${s.org}', 'variants', 'axes',
+       '{"product_id":"00000000-0000-0000-0000-00000000e001"}'::jsonb)`,
+    /variants_unknown_product/
+  )
+  const foreignValue = await fails(
+    `select public.plugin_rpc('${s.org}', 'variants', 'set_axes',
+       '{"product_id":"${product}","axes":[{"option_type_id":"${sizeType.id}","value_ids":["${values.s}","00000000-0000-0000-0000-0000000000ff"]}]}'::jsonb)`,
+    /variants_unknown_option_value/
+  )
+  check(
+    'another shop’s product, and a value that is not this option’s, are both refused by name',
+    foreignProduct === null && foreignValue === null,
+    foreignProduct ?? foreignValue ?? 'both refused'
+  )
+
+  await asUser(cashier)
+  const cashierRefusals = [
+    await fails(
+      `select public.plugin_rpc('${s.org}', 'variants', 'save_type', '{"name":"Nope"}'::jsonb)`,
+      /permission_denied/
+    ),
+    await fails(`select public.plugin_rpc('${s.org}', 'variants', 'catalog', '{}'::jsonb)`, /permission_denied/),
+  ]
+  check(
+    'a cashier holds neither variants.view nor variants.manage',
+    cashierRefusals.every((problem) => problem === null),
+    cashierRefusals.filter(Boolean).join(' · ') || 'both refused'
+  )
+  await asUser(owner)
+
+  // ── The payoff: a generated variant is a real variant ──────────────────
+  // Nothing in this check knows the plugin exists. It stocks and sells a
+  // generated variant through the core RPCs, because if the plugin had grown
+  // its own hidden variant table, this is where that would show up.
+  await db.exec('begin')
+  let sold = null
+  try {
+    const variantRow = (await call('axes', { product_id: product })).variants.find(
+      (variant) => variant.name_suffix === 'M / Blue'
+    )
+    await q(
+      `select public.apply_stock_movement('${s.warehouse}', '${variantRow.variant_id}',
+        'PURCHASE', 5, 150, 'variants-probe', null, null)`
+    )
+    const sale = (await q(
+      `select public.complete_sale('${s.branch}',
+         jsonb_build_array(jsonb_build_object('variant_id', '${variantRow.variant_id}', 'qty', 2)),
+         jsonb_build_array(jsonb_build_object('method_id', '${s.cash}', 'amount', 550)),
+         '${s.register}', null, null, null, null, null) as r`
+    ))[0].r
+
+    const inCatalog = await q(
+      `select pos.variant_name, pos.price
+         from public.pos_catalog pos
+        where pos.variant_id = '${variantRow.variant_id}'`
+    )
+
+    sold = {
+      status: sale.status,
+      total: Number(sale.total),
+      name: inCatalog[0]?.variant_name,
+      price: Number(inCatalog[0]?.price),
+    }
+  } finally {
+    await db.query('rollback')
+  }
+
+  check(
+    'a generated variant stocks and sells through the core — the plugin added no second way to sell',
+    sold !== null && sold.status === 'COMPLETED' && sold.total === 550 && sold.name === 'M / Blue',
+    sold ? `${sold.status} ${sold.total} · catalogue “${sold.name}”` : 'the sale did not run'
+  )
+
+  // ── Leave the shop as we found it ──────────────────────────────────────
+  await q(`select public.plugin_disable('${s.org}', 'variants')`)
+  await q(`delete from public.product_variants
+            where organization_id = '${s.org}' and product_id = '${product}' and name_suffix is not null`)
+  await q(`delete from public.plg_variants_product_axes where organization_id = '${s.org}'`)
+  await q(`delete from public.product_option_values where organization_id = '${s.org}'`)
+  await q(`delete from public.product_option_types where organization_id = '${s.org}'`)
+
+  const leftovers = await q(
+    `select (select count(*)::int from public.product_option_types t where t.organization_id = '${s.org}') as types,
+            (select count(*)::int from public.product_variants pv
+              where pv.organization_id = '${s.org}' and pv.name_suffix is not null) as variants`
+  )
+  check(
+    'switching the plugin off and clearing its fixtures leaves the shop exactly as it was',
+    leftovers[0].types === 0 && leftovers[0].variants === 0,
+    JSON.stringify(leftovers[0])
+  )
+
   await db.exec(`select set_config('request.jwt.claim.sub', '', false)`)
 }
 
