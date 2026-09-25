@@ -153,18 +153,22 @@ export async function syncPlugins(): Promise<void> {
   }
 
   try {
-    const catalog = await getRepositories().plugins.catalog(organizationId)
-    for (const entry of catalog) configs.set(entry.key, entry.config)
+    // `state`, not `catalog`: loading the app needs only what this shop has
+    // switched on, and a cashier does not hold `plugins.view`. Asking for the
+    // admin list here would have made every plugin screen fail to load for
+    // everyone but an owner.
+    const state = await getRepositories().plugins.state(organizationId)
+    for (const entry of state) configs.set(entry.key, entry.config)
 
     // A plugin the database recorded as failed stays installed but unloaded;
     // the Plugins screen shows the error and offers a retry.
-    const enabled = catalog
+    const enabled = state
       .filter((entry) => entry.enabled && entry.status === 'ok')
       .map((entry) => entry.key)
 
     await pluginRegistry.sync(enabled)
   } catch (error) {
-    console.error('[mekholi] plugin catalogue could not be read', error)
+    console.error('[mekholi] the shop’s plugin state could not be read', error)
   }
 }
 

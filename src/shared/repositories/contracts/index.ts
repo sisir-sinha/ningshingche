@@ -929,9 +929,28 @@ export interface PluginEnableResult {
  * checked against the plugin's namespace server-side, so a plugin can reach
  * its own functions and nothing else.
  */
+export interface PluginStateEntry {
+  key: string
+  version: string
+  enabled: boolean
+  status: 'ok' | 'error'
+  lastError: string | null
+  config: Record<string, unknown>
+}
+
 export interface PluginRepository {
   /** Every package this server ships, with this shop's state folded in. */
   catalog(organizationId: string): Promise<PluginCatalogEntry[]>
+  /**
+   * What this shop has switched on, and nothing else.
+   *
+   * Separate from `catalog` because the two answer different questions to
+   * different people: `catalog` is admin material and needs `plugins.view`,
+   * while *loading the app* only needs to know which plugins are running. A
+   * cashier must be able to load their shop's plugins without the admin
+   * permission, so the app asks this and the Plugins screen asks `catalog`.
+   */
+  state(organizationId: string): Promise<PluginStateEntry[]>
   /** Who would silently gain permissions, before an enable is confirmed. */
   impact(organizationId: string, pluginKey: string): Promise<PluginImpactRole[]>
   enable(

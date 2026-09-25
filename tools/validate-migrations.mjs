@@ -2482,6 +2482,28 @@ check(
     : `${referenced.size} keys checked (${packaged.size} plugin package(s))`
 )
 
+// ── The app must load plugins through the cheap call ─────────────────────
+//
+// `plugin_catalog` requires `plugins.view`; `plugin_state` requires only
+// membership, which is the point — a cashier has to be able to load the shop's
+// plugins. Wiring the app to the admin call looked fine in every test and
+// worked for an owner, and was only found by searching the deployed bundle for
+// the RPC it should have been calling. So it is a rule here rather than a
+// memory: the host syncs through `state`, and `catalog` belongs to the admin
+// screen alone.
+const syncSource = readFileSync(join(root, 'src', 'app', 'plugins.ts'), 'utf8')
+const usesState = /plugins\.state\(/.test(syncSource)
+const usesCatalogInHost = /plugins\.catalog\(/.test(syncSource)
+check(
+  'the app loads the shop’s plugins through plugin_state, not the admin catalogue',
+  usesState && !usesCatalogInHost,
+  usesState
+    ? usesCatalogInHost
+      ? 'src/app/plugins.ts still calls plugins.catalog()'
+      : 'src/app/plugins.ts calls plugins.state()'
+    : 'src/app/plugins.ts does not call plugins.state()'
+)
+
 // ── Source scan: a name used but never declared ──────────────────────────
 //
 // `record_expense` (014) referenced `v_session_id` without declaring it. That

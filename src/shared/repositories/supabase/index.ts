@@ -41,6 +41,7 @@ import type {
   OrganizationRepository,
   PluginCatalogEntry,
   PluginImpactRole,
+  PluginStateEntry,
   PluginRepository,
   ProductRepository,
   ProductSnapshot,
@@ -2703,12 +2704,29 @@ function toPluginEntry(entry: unknown): PluginCatalogEntry {
   }
 }
 
-function createPlugins(client: SupabaseClient): PluginRepository {
+/** Exported for its own test: the mapping from RPC payload to contract. */
+export function createPlugins(client: SupabaseClient): PluginRepository {
   return {
     async catalog(organization: string): Promise<PluginCatalogEntry[]> {
       const data = unwrap(await client.rpc('plugin_catalog', { p_organization_id: organization }))
       if (!Array.isArray(data)) return []
       return data.map(toPluginEntry).sort((a, b) => a.name.localeCompare(b.name))
+    },
+
+    async state(organization: string): Promise<PluginStateEntry[]> {
+      const data = unwrap(await client.rpc('plugin_state', { p_organization_id: organization }))
+      if (!Array.isArray(data)) return []
+      return data.map((entry) => {
+        const row = (entry ?? {}) as Record<string, unknown>
+        return {
+          key: str(row.key),
+          version: str(row.version),
+          enabled: row.enabled === true,
+          status: row.status === 'error' ? 'error' : 'ok',
+          lastError: row.last_error === null || row.last_error === undefined ? null : str(row.last_error),
+          config: (row.config ?? {}) as Record<string, unknown>,
+        }
+      })
     },
 
     async impact(organization: string, pluginKey: string): Promise<PluginImpactRole[]> {
