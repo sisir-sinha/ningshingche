@@ -461,7 +461,7 @@ Industry bundles (each ≈ a profile row + fields + navigation)
 |---|---|---|---|
 | 1 | `variants` | `bd0482a` | `variants.test.ts`; the package migration is applied by the validator, which drives `plugin_rpc` end to end |
 | 2 | `batch-expiry` | `b06dc66`, `d844021` | `batch-expiry.test.ts`; product fields shown on the till and printed on the receipt |
-| 3 | `serial-numbers` | this commit | `serial-numbers.test.ts` (38 tests); `tools/validate-migrations.mjs` §Phase 7 — 13 checks against a real Postgres — and a live run against the project, both of which leave the shop untouched |
+| 3 | `serial-numbers` | `bef3526` | `serial-numbers.test.ts` (38 tests); `tools/validate-migrations.mjs` §Phase 7 — 13 checks against a real Postgres — and a live run against the project, both of which leave the shop untouched |
 
 `serial-numbers` is the first plugin whose subject is an *individual unit*
 rather than a product, and it is the reason the SDK grew one thing:
@@ -472,7 +472,7 @@ once, for every plugin that decorates a sale — which is the rule above, applie
 
 **Two seams this plugin exposed.** One is fixed, one is not:
 
-- ✅ **`promotedProductFields` now has a reader** (this commit). The session
+- ✅ **`promotedProductFields` now has a reader** (`c3b9f20`). The session
   payload carries `shop_type` (migration 047), the taxonomy's promoted keys are
   matched against the registered ones by `splitPluginFields`, and the product
   form draws a promoted field in its basic section. Fixing it also found the
