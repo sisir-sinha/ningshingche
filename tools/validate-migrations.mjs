@@ -3040,6 +3040,27 @@ if (seeded.length !== 0) {
     `${first.invoice_no} → ${replay.invoice_no}`
   )
 
+  // The receipt is what the till prints and what an offline client keeps, so its
+  // money has to arrive in the shape the clients are written for: text. A
+  // numeric column passed straight into `jsonb_build_object` yields a JSON
+  // number, which the Kotlin reference cannot decode into the string fields the
+  // contract promises — `npm run e2e:android` found it, migration 045 fixed it,
+  // and this is the assertion that keeps it fixed.
+  const moneyTypes = await q(`
+    select jsonb_typeof(r -> 'subtotal') as subtotal,
+           jsonb_typeof(r -> 'discount') as discount,
+           jsonb_typeof(r -> 'tax') as tax,
+           jsonb_typeof(r -> 'total') as total,
+           jsonb_typeof(r -> 'paid') as paid,
+           jsonb_typeof(r -> 'change_due') as change_due
+      from (select app.sale_receipt('${first.sale_id}'::uuid) as r) t`)
+  const nonText = Object.entries(moneyTypes[0] ?? {}).filter(([, type]) => type !== 'string')
+  check(
+    'the receipt carries every money field as text, the shape the clients decode',
+    nonText.length === 0,
+    nonText.length ? nonText.map(([field, type]) => `${field}=${type}`).join(', ') : 'all six are strings'
+  )
+
   check(
     'the replay does not move stock a second time',
     stockBefore - stockAfterFirst === 2 && stockAfterReplay === stockAfterFirst,
@@ -3237,6 +3258,139 @@ check(
   'every live function reads only v_ variables it declares',
   undeclaredVars.length === 0,
   undeclaredVars.length ? undeclaredVars.join(', ') : `${functionsScanned} function bodies`
+)
+
+// ── The generated contract still describes these migrations ───────────────
+//
+// `contracts/api-contract.json` is generated from the live database and is what
+// both clients are written against: the TypeScript in the browser and the Kotlin
+// on Android. A migration that renamed a parameter, or added a function without
+// the artifact being regenerated, would leave the clients describing a server
+// that no longer exists — and this is the check that catches it before anything
+// is pushed. Types are compared loosely on purpose (the artifact prints
+// `format_type`, PGlite's catalogue prints `data_type`); the names and which of
+// them may be omitted are what a caller has to get right.
+
+const contractFile = join(root, 'contracts', 'api-contract.json')
+const apiContract = JSON.parse(readFileSync(contractFile, 'utf8'))
+
+/** `p_branch_id uuid, p_items jsonb DEFAULT '[]'` → ['p_branch_id', 'p_items'] */
+function argumentNames(text) {
+  const names = []
+  let depth = 0
+  let current = ''
+  for (const character of text) {
+    if (character === '(') depth += 1
+    if (character === ')') depth -= 1
+    if (character === ',' && depth === 0) {
+      names.push(current)
+      current = ''
+      continue
+    }
+    current += character
+  }
+  if (current.trim()) names.push(current)
+  return names
+    .map((part) => part.trim().split(/\s+/)[0])
+    .filter((name) => /^[a-z_][a-z0-9_]*$/.test(name ?? ''))
+}
+
+const functionRow = async (name) =>
+  (
+    await db.query(
+      `select pg_get_function_arguments(p.oid) as args,
+              p.pronargdefaults as defaults
+         from pg_proc p
+         join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.proname = $1 and p.prokind = 'f'`,
+      [name]
+    )
+  ).rows[0]
+
+const contractMissing = []
+const contractMismatched = []
+for (const [name, entry] of Object.entries(apiContract.rpc)) {
+  const row = await functionRow(name)
+  if (!row) {
+    contractMissing.push(name)
+    continue
+  }
+  const actual = argumentNames(row.args)
+  const expected = entry.params.map((param) => param.name)
+  const actualRequired = actual.length - Number(row.defaults)
+  const expectedRequired = entry.params.filter((param) => param.required).length
+  if (actual.join(',') !== expected.join(',') || actualRequired !== expectedRequired) {
+    contractMismatched.push(
+      `${name}: (${actual.join(', ')}) vs contract (${expected.join(', ')})` +
+        (actualRequired === expectedRequired ? '' : ` [${expectedRequired} required, found ${actualRequired}]`)
+    )
+  }
+}
+
+// And the other direction: a function this project owns that the contract has
+// never heard of is an RPC nobody documented — which is how a client ends up
+// discovering an API by reading error messages.
+const ownedFunctions = await db.query(`
+  select p.proname as name
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public'
+     and p.prokind = 'f'
+     and pg_get_function_result(p.oid) not in ('trigger', 'event_trigger')
+     -- A client RPC is one the authenticated role may execute. The ledger's
+     -- own writer, the sequence helper and every plugin function are callable
+     -- only by their owners, so they are not part of the client surface — and a
+     -- function that *becomes* reachable without the contract being regenerated
+     -- is exactly what this check exists to catch.
+     and has_function_privilege('authenticated', p.oid, 'EXECUTE')
+     and not exists (
+       select 1 from pg_depend d
+        where d.objid = p.oid and d.classid = 'pg_proc'::regclass and d.deptype = 'e'
+     )
+   order by p.proname
+`)
+// A plugin's functions are reached through the host dispatcher
+// (`public.plugin_rpc`), by name, from a plugin's own client code — so they are
+// not part of the client contract and are checked where they are defined,
+// against the plugin SQL in `supabase/plugins/`.
+const pluginFunctionNames = new Set()
+const scanForFunctions = (text) => {
+  for (const match of text.matchAll(/create (?:or replace )?function\s+([\w.]+)/gi)) {
+    pluginFunctionNames.add(match[1].split('.').pop())
+  }
+}
+const pluginDir = join(root, 'supabase/plugins')
+for (const pluginFile of readdirSync(pluginDir, { recursive: true })) {
+  if (!String(pluginFile).endsWith('.sql')) continue
+  scanForFunctions(readFileSync(join(pluginDir, String(pluginFile)), 'utf8'))
+}
+// A plugin's SQL is embedded in a migration inside a $plg$ … $plg$ block until
+// a shop enables it, and applied into `public` when it does.
+for (const migrationFile of migrationFiles) {
+  const text = readFileSync(join(migrationDir, migrationFile), 'utf8')
+  for (const block of text.matchAll(/\$plg\$([\s\S]*?)\$plg\$/g)) scanForFunctions(block[1])
+}
+
+const undocumented = ownedFunctions.rows
+  .map((row) => row.name)
+  .filter((name) => !(name in apiContract.rpc) && !pluginFunctionNames.has(name))
+
+check(
+  'the generated contract describes every function it lists, with the same parameters',
+  contractMissing.length === 0 && contractMismatched.length === 0,
+  contractMissing.length || contractMismatched.length
+    ? [...contractMissing.map((name) => `${name} is missing`), ...contractMismatched]
+        .join('; ')
+        .slice(0, 300)
+    : `${Object.keys(apiContract.rpc).length} RPCs, ${Object.keys(apiContract.relations).length} relations`
+)
+check(
+  'and no RPC has appeared that the contract does not mention',
+  undocumented.length === 0,
+  undocumented.length
+    ? undocumented.join(', ')
+    : `${ownedFunctions.rows.length} public function(s) accounted for ` +
+      `(${pluginFunctionNames.size} plugin function(s) via plugin_rpc)`
 )
 
 const failed = checks.filter((c) => !c.pass)

@@ -121,16 +121,92 @@ nothing else.
 | a reference sent twice is one sale, stock moves once | `tools/validate-migrations.mjs` → real Postgres (PGlite), migration 044 |
 | the same, over real HTTP with a real token | `tools/e2e-http.mjs` §9c → the live project |
 | a cross-tenant replay is refused | both of the above |
+| the receipt carries money as text, so a strict client can decode it | the validator (045), `tools/e2e-http.mjs` §7 |
 | queue order, offline stop, refusal handling, retry/discard | `src/shared/repositories/offline/offline.test.ts` |
 | cache fallback, three-valued answers, offline paging | same file |
 | drafts resume with quantities in the server's own notation | same file |
 | one live timer, no re-arm after sign-out | same file |
+| the Kotlin core's own rules: queue order, offline stop, refusal parking, retry, discard, duplicate reference = success, single-flight drain, one live timer | `npm run test:android` — 32 checks against the built jar |
+| the Android client against the live project: sign-in, catalogue, sale, resend, offline queue, restart, refusal, retry | `npm run e2e:android` — 29 checks, one JVM per command |
+| both clients speak the generated contract | `npm run check:clients` (offline, in `npm run check`) |
 
-## 8. Still open in Phase 8
+## 8. The contract the clients are written against
 
-- **OpenAPI / typed contract for the RPC surface** — PostgREST publishes the
-  schema; a generated, checked-in artifact would let the Android client be
-  written against types rather than docs. Not built yet.
-- **Android reference (login + POS against the same RPCs)** — the readiness is
-  in place (contracts, no service-role key, RLS-mandatory, exactly-once
-  writes), the reference app is not.
+`contracts/api-contract.json` is generated, not written:
+
+```
+npm run contract:pull     # read the live database, rewrite the artifact
+npm run contract:check    # fail if the live surface has drifted from it
+npm run check:clients     # fail if either client names something it lacks
+```
+
+Every RPC with its parameter names, types and whether each may be omitted;
+every relation the clients read with its columns and types. Three guards keep
+it honest, and they catch different mistakes:
+
+- **the migration validator** fails when a migration defines or changes a
+  function the artifact does not describe — so the artifact cannot quietly fall
+  behind the schema in the same commit that changes it
+- **`contract:check`** fails on drift between the artifact and the live database
+- **`check:clients`** fails when the TypeScript or the Kotlin names an RPC
+  parameter or a column that is not there
+
+It is read from the **catalogue** rather than from PostgREST's OpenAPI document
+for two reasons. The `/rest/v1/` OpenAPI endpoint on this project requires a
+secret API key, which build tooling must not hold (§44) — and the catalogue is
+the same truth one step earlier. Reading it that way also proves something the
+OpenAPI document would not: a function appears in the contract only if
+`authenticated` may **execute** it, so an accidental revoke or an accidental
+grant shows up as a contract change instead of as a 403 in a shop.
+
+Plugin functions are excluded by name: they arrive with `plugin_enable` and are
+reached through `public.plugin_rpc`, so they are not client API.
+
+## 9. The Android reference
+
+```
+android/
+  core/  Kotlin/JVM — no Android APIs at all
+    Transport.kt  the network seam; "could not ask" vs "the server said no"
+    Wire.kt       the @Serializable mirror of the contract
+    Api.kt        the RPC surface, typed
+    Outbox.kt     the queue, same rules as the browser's WriteQueue
+    Sync.kt       connectivity, one re-armed timer, single-flight drain
+    cli/Main.kt   pos | offline | sync | retry — the client, runnable
+  app/   Compose shell: LoginScreen, PosScreen, PosViewModel, SQLite outbox
+```
+
+The split is the point. The risk in an Android client is the data layer, and
+the data layer is plain Kotlin, so it compiles and runs anywhere a JDK does:
+
+```
+npm run android:build     # download kotlinc once, build android/core/build/mekholi-core.jar
+npm run test:android      # 32 checks, about a second
+npm run e2e:android       # the CLI against the live project (needs .env, .env.db)
+```
+
+`android/app` is **source-only** here because it needs the Android SDK and an
+emulator, neither of which exists in this environment. It is a thin shell: the
+ViewModel reads `listBranches` → `salesFloor` → `pos_catalog`, calls
+`complete_sale`, and hands the receipts to a Compose screen — all of which the
+core already does, which is why the core is what runs in the harness.
+
+Two rules the Kotlin client inherits and that its tests pin: the reference is
+minted **before** the first attempt, and the outbox never deletes a sale except
+on success, on `retry`, or on an explicit `discard`.
+
+## 10. What is not covered
+
+Stated rather than implied:
+
+- **`android/app` is not compiled by CI.** No Android SDK here. The core it
+  wraps is compiled, tested and executed against the live project on every run.
+- **The IndexedDB adapter has no test of its own.** `offline.test.ts` exercises
+  the layer above it against the in-memory store; `indexeddb-store.ts` is
+  written to the same interface and is used only from `src/app/offline.ts`.
+  A browser-level test (load the built app, cut the connection with CDP, take a
+  sale, restore, watch it land) would close this, and is the obvious next step
+  for the offline story.
+- **No emulator run.** The Kotlin client is executed as a JVM program, not on a
+  device, so nothing here proves Android-specific behaviour (SQLite, the
+  connectivity callback, the UI).

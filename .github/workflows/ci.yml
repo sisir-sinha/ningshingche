@@ -37,6 +37,19 @@ jobs:
       - name: Unit tests
         run: npm run test
 
+      # The generated API contract, against both clients. Offline and instant:
+      # every RPC name and parameter the web client and the Kotlin reference
+      # send has to exist in `contracts/api-contract.json`, so a rename fails
+      # here rather than in a shop.
+      - name: Clients speak the contract
+        run: npm run check:clients
+
+      # The Android reference's core is Kotlin/JVM, so it compiles and runs
+      # here. The compiler is downloaded once into the runner's cache; the
+      # `app` module needs the Android SDK and is not built (see android/README).
+      - name: Android core tests
+        run: npm run test:android
+
       # Applies every migration and seed to a real Postgres (WASM) and runs the
       # structural, behavioral and end-to-end assertions, including a full
       # complete_sale against the seeded organization.

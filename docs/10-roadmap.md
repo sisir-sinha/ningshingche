@@ -473,16 +473,31 @@ Not in your §50, but §42 and §43 imply it.
      Written down in doc 12 §3 rather than discovered.
   ✅ Background sync indicator + manual retry
      `features/layout/sync-indicator.ts`, with the queue panel behind it.
-  □ OpenAPI/typed contract generated for the RPC surface
-  □ Android reference: login + POS against the same RPCs
+  ✅ OpenAPI/typed contract generated for the RPC surface
+     `contracts/api-contract.json`, generated from the live database by
+     `npm run contract:pull` — every RPC with its parameters and which of them
+     may be omitted, every relation the clients read with its columns. Drift
+     fails `npm run contract:check`; a client that names a parameter the
+     contract does not have fails `npm run check:clients`; a migration that
+     changes a signature fails the migration validator. Two clients are written
+     against it, so it is checked by a machine rather than by reading.
+  ✅ Android reference: login + POS against the same RPCs
+     `android/core` is Kotlin/JVM — transport, wire shapes, the catalogue read,
+     the sale RPC, the outbox, the sync engine — and it is *executed*: 
+     `npm run test:android` runs its tests in a second, `npm run e2e:android`
+     drives it against the live project as a separate process per command
+     (offline queue, restart, refusal, retry). `android/app` is the Compose
+     shell around it, source-only because it needs the Android SDK.
 ```
 
 **Acceptance:** the POS completes sales with the network disabled, queues
 them, and replays without duplicates or negative stock on reconnect.
 
 Proven by `tools/e2e-http.mjs` §9c against the live project (a replayed sale
-returns the stored one; stock moves once; a foreign shop's replay is refused)
-and by `tools/validate-migrations.mjs` against a real Postgres. Design and
+returns the stored one; stock moves once; a foreign shop's replay is refused),
+by `tools/android-e2e.mjs` for the Android client (a sale queued in one process
+is sent by the next one; a refusal keeps it; a retry sends it), and by
+`tools/validate-migrations.mjs` against a real Postgres. Design and
 guarantees: doc 12.
 
 ---

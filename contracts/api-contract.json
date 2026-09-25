@@ -1,0 +1,1206 @@
+{
+  "generatedFrom": "live database",
+  "generatedBy": "tools/api-contract.mjs",
+  "migrations": 44,
+  "rpc": {
+    "adjust_stock": {
+      "returns": "numeric",
+      "params": [
+        {
+          "name": "p_warehouse_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_variant_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_quantity",
+          "type": "numeric",
+          "required": true
+        },
+        {
+          "name": "p_reason",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "p_direction",
+          "type": "smallint",
+          "required": false
+        },
+        {
+          "name": "p_note",
+          "type": "text",
+          "required": false
+        }
+      ]
+    },
+    "analytics_catalog": {
+      "returns": "jsonb",
+      "params": []
+    },
+    "analytics_query": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_branch_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_dimension",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "p_measure",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "p_period",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "p_from",
+          "type": "date",
+          "required": false
+        },
+        {
+          "name": "p_to",
+          "type": "date",
+          "required": false
+        },
+        {
+          "name": "p_filters",
+          "type": "jsonb",
+          "required": false
+        },
+        {
+          "name": "p_limit",
+          "type": "integer",
+          "required": false
+        }
+      ]
+    },
+    "apply_payment": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_supplier_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_amount",
+          "type": "numeric",
+          "required": true
+        },
+        {
+          "name": "p_method_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_purchase_id",
+          "type": "uuid",
+          "required": false
+        },
+        {
+          "name": "p_reference",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "p_note",
+          "type": "text",
+          "required": false
+        }
+      ]
+    },
+    "bi_answers": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_branch_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_day",
+          "type": "date",
+          "required": false
+        }
+      ]
+    },
+    "cancel_purchase": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_purchase_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_reason",
+          "type": "text",
+          "required": false
+        }
+      ]
+    },
+    "close_register": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_session_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_closing_cash",
+          "type": "numeric",
+          "required": true
+        },
+        {
+          "name": "p_note",
+          "type": "text",
+          "required": false
+        }
+      ]
+    },
+    "complete_sale": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_branch_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_items",
+          "type": "jsonb",
+          "required": true
+        },
+        {
+          "name": "p_payments",
+          "type": "jsonb",
+          "required": true
+        },
+        {
+          "name": "p_register_id",
+          "type": "uuid",
+          "required": false
+        },
+        {
+          "name": "p_customer_id",
+          "type": "uuid",
+          "required": false
+        },
+        {
+          "name": "p_warehouse_id",
+          "type": "uuid",
+          "required": false
+        },
+        {
+          "name": "p_discount_type",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "p_discount_value",
+          "type": "numeric",
+          "required": false
+        },
+        {
+          "name": "p_note",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "p_held_sale_id",
+          "type": "uuid",
+          "required": false
+        },
+        {
+          "name": "p_client_ref",
+          "type": "text",
+          "required": false
+        }
+      ]
+    },
+    "dashboard_summary": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_branch_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_day",
+          "type": "date",
+          "required": false
+        }
+      ]
+    },
+    "hold_sale": {
+      "returns": "uuid",
+      "params": [
+        {
+          "name": "p_branch_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_items",
+          "type": "jsonb",
+          "required": true
+        },
+        {
+          "name": "p_customer_id",
+          "type": "uuid",
+          "required": false
+        },
+        {
+          "name": "p_note",
+          "type": "text",
+          "required": false
+        }
+      ]
+    },
+    "open_register": {
+      "returns": "uuid",
+      "params": [
+        {
+          "name": "p_register_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_opening_cash",
+          "type": "numeric",
+          "required": false
+        },
+        {
+          "name": "p_note",
+          "type": "text",
+          "required": false
+        }
+      ]
+    },
+    "plugin_catalog": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_organization_id",
+          "type": "uuid",
+          "required": true
+        }
+      ]
+    },
+    "plugin_data_delete": {
+      "returns": "boolean",
+      "params": [
+        {
+          "name": "p_organization_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_plugin_key",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "p_key",
+          "type": "text",
+          "required": true
+        }
+      ]
+    },
+    "plugin_data_get": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_organization_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_plugin_key",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "p_key",
+          "type": "text",
+          "required": true
+        }
+      ]
+    },
+    "plugin_data_set": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_organization_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_plugin_key",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "p_key",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "p_value",
+          "type": "jsonb",
+          "required": true
+        }
+      ]
+    },
+    "plugin_disable": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_organization_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_plugin_key",
+          "type": "text",
+          "required": true
+        }
+      ]
+    },
+    "plugin_enable": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_organization_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_plugin_key",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "p_version",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "p_config",
+          "type": "jsonb",
+          "required": false
+        }
+      ]
+    },
+    "plugin_impact": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_organization_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_plugin_key",
+          "type": "text",
+          "required": true
+        }
+      ]
+    },
+    "plugin_products": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_organization_id",
+          "type": "uuid",
+          "required": true
+        }
+      ]
+    },
+    "plugin_rpc": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_organization_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_plugin_key",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "p_function",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "p_args",
+          "type": "jsonb",
+          "required": false
+        }
+      ]
+    },
+    "plugin_set_config": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_organization_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_plugin_key",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "p_config",
+          "type": "jsonb",
+          "required": true
+        }
+      ]
+    },
+    "plugin_state": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_organization_id",
+          "type": "uuid",
+          "required": true
+        }
+      ]
+    },
+    "provision_organization": {
+      "returns": "uuid",
+      "params": [
+        {
+          "name": "p_owner_user_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_org_name",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "p_slug",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "p_shop_type",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "p_currency",
+          "type": "character",
+          "required": false
+        },
+        {
+          "name": "p_timezone",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "p_branch_name",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "p_categories",
+          "type": "ARRAY",
+          "required": false
+        },
+        {
+          "name": "p_payment_keys",
+          "type": "ARRAY",
+          "required": false
+        }
+      ]
+    },
+    "receive_purchase": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_purchase_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_items",
+          "type": "jsonb",
+          "required": true
+        },
+        {
+          "name": "p_paid",
+          "type": "jsonb",
+          "required": false
+        }
+      ]
+    },
+    "record_expense": {
+      "returns": "uuid",
+      "params": [
+        {
+          "name": "p_branch_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_amount",
+          "type": "numeric",
+          "required": true
+        },
+        {
+          "name": "p_category_id",
+          "type": "uuid",
+          "required": false
+        },
+        {
+          "name": "p_method_id",
+          "type": "uuid",
+          "required": false
+        },
+        {
+          "name": "p_description",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "p_session_id",
+          "type": "uuid",
+          "required": false
+        },
+        {
+          "name": "p_expense_date",
+          "type": "date",
+          "required": false
+        }
+      ]
+    },
+    "refund_sale": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_sale_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_items",
+          "type": "jsonb",
+          "required": true
+        },
+        {
+          "name": "p_payments",
+          "type": "jsonb",
+          "required": true
+        },
+        {
+          "name": "p_reason",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "p_restock",
+          "type": "boolean",
+          "required": false
+        }
+      ]
+    },
+    "refund_sale_to_credit": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_sale_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_items",
+          "type": "jsonb",
+          "required": true
+        },
+        {
+          "name": "p_reason",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "p_restock",
+          "type": "boolean",
+          "required": false
+        }
+      ]
+    },
+    "register_cash_movement": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_session_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_amount",
+          "type": "numeric",
+          "required": true
+        },
+        {
+          "name": "p_direction",
+          "type": "smallint",
+          "required": true
+        },
+        {
+          "name": "p_note",
+          "type": "text",
+          "required": false
+        }
+      ]
+    },
+    "register_session_report": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_session_id",
+          "type": "uuid",
+          "required": true
+        }
+      ]
+    },
+    "report_catalog": {
+      "returns": "jsonb",
+      "params": []
+    },
+    "report_rows": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_report",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "p_branch_id",
+          "type": "uuid",
+          "required": false
+        },
+        {
+          "name": "p_period",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "p_from",
+          "type": "date",
+          "required": false
+        },
+        {
+          "name": "p_to",
+          "type": "date",
+          "required": false
+        },
+        {
+          "name": "p_search",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "p_sort",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "p_dir",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "p_limit",
+          "type": "integer",
+          "required": false
+        },
+        {
+          "name": "p_offset",
+          "type": "integer",
+          "required": false
+        },
+        {
+          "name": "p_filters",
+          "type": "jsonb",
+          "required": false
+        }
+      ]
+    },
+    "resume_sale": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_sale_id",
+          "type": "uuid",
+          "required": true
+        }
+      ]
+    },
+    "save_purchase": {
+      "returns": "uuid",
+      "params": [
+        {
+          "name": "p_warehouse_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_items",
+          "type": "jsonb",
+          "required": true
+        },
+        {
+          "name": "p_supplier_id",
+          "type": "uuid",
+          "required": false
+        },
+        {
+          "name": "p_purchase_id",
+          "type": "uuid",
+          "required": false
+        },
+        {
+          "name": "p_status",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "p_reference_no",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "p_note",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "p_expected_at",
+          "type": "date",
+          "required": false
+        }
+      ]
+    },
+    "session_payload": {
+      "returns": "jsonb",
+      "params": []
+    },
+    "stock_in": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_warehouse_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_items",
+          "type": "jsonb",
+          "required": true
+        },
+        {
+          "name": "p_supplier_id",
+          "type": "uuid",
+          "required": false
+        },
+        {
+          "name": "p_reference",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "p_note",
+          "type": "text",
+          "required": false
+        }
+      ]
+    },
+    "stock_out": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_warehouse_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_items",
+          "type": "jsonb",
+          "required": true
+        },
+        {
+          "name": "p_reason",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "p_note",
+          "type": "text",
+          "required": false
+        }
+      ]
+    },
+    "stock_summary": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_organization_id",
+          "type": "uuid",
+          "required": true
+        }
+      ]
+    },
+    "transfer_stock": {
+      "returns": "uuid",
+      "params": [
+        {
+          "name": "p_from_warehouse_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_to_warehouse_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_items",
+          "type": "jsonb",
+          "required": true
+        },
+        {
+          "name": "p_note",
+          "type": "text",
+          "required": false
+        }
+      ]
+    }
+  },
+  "relations": {
+    "branches": {
+      "columns": {
+        "id": "uuid not null",
+        "organization_id": "uuid not null",
+        "name": "text not null",
+        "code": "text not null",
+        "address": "text",
+        "phone": "text",
+        "email": "text",
+        "timezone": "text",
+        "is_primary": "boolean not null",
+        "deleted_at": "timestamp with time zone",
+        "created_at": "timestamp with time zone not null",
+        "updated_at": "timestamp with time zone not null"
+      }
+    },
+    "customers": {
+      "columns": {
+        "id": "uuid not null",
+        "organization_id": "uuid not null",
+        "name": "text not null",
+        "phone": "text",
+        "email": "text",
+        "address": "text",
+        "date_of_birth": "date",
+        "tax_id": "text",
+        "credit_limit": "numeric(14,2) not null",
+        "balance": "numeric(14,2) not null",
+        "store_credit": "numeric(14,2) not null",
+        "note": "text",
+        "metadata": "jsonb not null",
+        "deleted_at": "timestamp with time zone",
+        "created_at": "timestamp with time zone not null",
+        "updated_at": "timestamp with time zone not null"
+      }
+    },
+    "organizations": {
+      "columns": {
+        "id": "uuid not null",
+        "name": "text not null",
+        "slug": "text not null",
+        "shop_type": "text",
+        "currency": "character(3) not null",
+        "timezone": "text not null",
+        "locale": "text not null",
+        "logo_url": "text",
+        "status": "text not null",
+        "settings": "jsonb not null",
+        "created_at": "timestamp with time zone not null",
+        "updated_at": "timestamp with time zone not null"
+      }
+    },
+    "payment_methods": {
+      "columns": {
+        "id": "uuid not null",
+        "organization_id": "uuid not null",
+        "key": "text not null",
+        "name": "text not null",
+        "type": "text not null",
+        "is_cash": "boolean not null",
+        "is_active": "boolean not null",
+        "sort_order": "integer not null",
+        "icon": "text",
+        "config": "jsonb not null",
+        "deleted_at": "timestamp with time zone",
+        "created_at": "timestamp with time zone not null",
+        "updated_at": "timestamp with time zone not null"
+      }
+    },
+    "plugins": {
+      "columns": {
+        "id": "uuid not null",
+        "organization_id": "uuid not null",
+        "plugin_key": "text not null",
+        "version": "text not null",
+        "enabled": "boolean not null",
+        "config": "jsonb not null",
+        "status": "text not null",
+        "last_error": "text",
+        "enabled_at": "timestamp with time zone",
+        "enabled_by": "uuid",
+        "created_at": "timestamp with time zone not null",
+        "updated_at": "timestamp with time zone not null"
+      }
+    },
+    "pos_catalog": {
+      "columns": {
+        "organization_id": "uuid",
+        "product_id": "uuid",
+        "name": "text",
+        "sku": "text",
+        "description": "text",
+        "image_url": "text",
+        "track_stock": "boolean",
+        "allow_negative": "boolean",
+        "tax_inclusive": "boolean",
+        "category_id": "uuid",
+        "brand_id": "uuid",
+        "reorder_point": "numeric(14,3)",
+        "search_text": "text",
+        "metadata": "jsonb",
+        "variant_id": "uuid",
+        "variant_name": "text",
+        "effective_sku": "text",
+        "price": "numeric(14,2)",
+        "cost": "numeric(14,4)",
+        "is_default": "boolean",
+        "unit_label": "text",
+        "decimal_quantity": "boolean",
+        "tax_rate": "numeric",
+        "category_name": "text",
+        "warehouse_id": "uuid",
+        "available": "numeric"
+      }
+    },
+    "product_barcodes": {
+      "columns": {
+        "id": "uuid not null",
+        "organization_id": "uuid not null",
+        "variant_id": "uuid not null",
+        "code": "text not null",
+        "is_primary": "boolean not null",
+        "created_at": "timestamp with time zone not null"
+      }
+    },
+    "product_categories": {
+      "columns": {
+        "id": "uuid not null",
+        "organization_id": "uuid not null",
+        "parent_id": "uuid",
+        "name": "text not null",
+        "slug": "text not null",
+        "sort_order": "integer not null",
+        "is_active": "boolean not null",
+        "deleted_at": "timestamp with time zone",
+        "created_at": "timestamp with time zone not null",
+        "updated_at": "timestamp with time zone not null"
+      }
+    },
+    "product_variants": {
+      "columns": {
+        "id": "uuid not null",
+        "organization_id": "uuid not null",
+        "product_id": "uuid not null",
+        "is_default": "boolean not null",
+        "sku": "text",
+        "name_suffix": "text",
+        "option_values": "jsonb not null",
+        "price_override": "numeric(14,2)",
+        "cost_override": "numeric(14,4)",
+        "image_url": "text",
+        "is_active": "boolean not null",
+        "deleted_at": "timestamp with time zone",
+        "created_at": "timestamp with time zone not null",
+        "updated_at": "timestamp with time zone not null"
+      }
+    },
+    "products": {
+      "columns": {
+        "id": "uuid not null",
+        "organization_id": "uuid not null",
+        "category_id": "uuid",
+        "brand_id": "uuid",
+        "unit_id": "uuid",
+        "tax_id": "uuid",
+        "name": "text not null",
+        "sku": "text",
+        "description": "text",
+        "selling_price": "numeric(14,2) not null",
+        "cost_price": "numeric(14,4) not null",
+        "wholesale_price": "numeric(14,2)",
+        "tax_inclusive": "boolean not null",
+        "reorder_point": "numeric(14,3) not null",
+        "allow_negative": "boolean not null",
+        "track_stock": "boolean not null",
+        "is_active": "boolean not null",
+        "image_url": "text",
+        "metadata": "jsonb not null",
+        "search_text": "text",
+        "deleted_at": "timestamp with time zone",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone not null",
+        "updated_at": "timestamp with time zone not null"
+      }
+    },
+    "register_sessions": {
+      "columns": {
+        "id": "uuid not null",
+        "organization_id": "uuid not null",
+        "register_id": "uuid not null",
+        "branch_id": "uuid not null",
+        "opened_by": "uuid not null",
+        "closed_by": "uuid",
+        "opened_at": "timestamp with time zone not null",
+        "closed_at": "timestamp with time zone",
+        "opening_cash": "numeric(14,2) not null",
+        "closing_cash": "numeric(14,2)",
+        "expected_cash": "numeric(14,2)",
+        "variance": "numeric(14,2)",
+        "cash_in": "numeric(14,2) not null",
+        "cash_out": "numeric(14,2) not null",
+        "sales_cash": "numeric(14,2) not null",
+        "refund_cash": "numeric(14,2) not null",
+        "expense_cash": "numeric(14,2) not null",
+        "note": "text"
+      }
+    },
+    "registers": {
+      "columns": {
+        "id": "uuid not null",
+        "organization_id": "uuid not null",
+        "branch_id": "uuid not null",
+        "name": "text not null",
+        "code": "text not null",
+        "is_active": "boolean not null",
+        "created_at": "timestamp with time zone not null",
+        "updated_at": "timestamp with time zone not null"
+      }
+    },
+    "sale_items": {
+      "columns": {
+        "id": "uuid not null",
+        "sale_id": "uuid not null",
+        "organization_id": "uuid not null",
+        "variant_id": "uuid not null",
+        "product_id": "uuid not null",
+        "product_name": "text not null",
+        "variant_name": "text",
+        "sku": "text",
+        "unit_label": "text",
+        "quantity": "numeric(14,3) not null",
+        "unit_price": "numeric(14,2) not null",
+        "unit_cost": "numeric(14,4) not null",
+        "discount_type": "text",
+        "discount_value": "numeric(14,4)",
+        "discount_total": "numeric(14,2) not null",
+        "tax_rate": "numeric(6,4) not null",
+        "tax_total": "numeric(14,2) not null",
+        "line_total": "numeric(14,2) not null",
+        "line_cogs": "numeric(14,2) not null",
+        "returned_qty": "numeric(14,3) not null",
+        "note": "text"
+      }
+    },
+    "sales": {
+      "columns": {
+        "id": "uuid not null",
+        "organization_id": "uuid not null",
+        "branch_id": "uuid not null",
+        "register_id": "uuid",
+        "session_id": "uuid",
+        "invoice_no": "text not null",
+        "customer_id": "uuid",
+        "status": "sale_status not null",
+        "currency": "character(3) not null",
+        "subtotal": "numeric(14,2) not null",
+        "discount_total": "numeric(14,2) not null",
+        "discount_type": "text",
+        "discount_value": "numeric(14,4)",
+        "tax_total": "numeric(14,2) not null",
+        "total": "numeric(14,2) not null",
+        "paid_total": "numeric(14,2) not null",
+        "change_due": "numeric(14,2) not null",
+        "cogs": "numeric(14,2) not null",
+        "profit": "numeric(14,2)",
+        "note": "text",
+        "metadata": "jsonb not null",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone not null",
+        "updated_at": "timestamp with time zone not null",
+        "completed_at": "timestamp with time zone",
+        "client_ref": "text"
+      }
+    },
+    "taxes": {
+      "columns": {
+        "id": "uuid not null",
+        "organization_id": "uuid not null",
+        "name": "text not null",
+        "rate": "numeric(6,4) not null",
+        "is_inclusive": "boolean not null",
+        "applies_to": "text not null",
+        "is_active": "boolean not null",
+        "created_at": "timestamp with time zone not null",
+        "updated_at": "timestamp with time zone not null"
+      }
+    },
+    "warehouses": {
+      "columns": {
+        "id": "uuid not null",
+        "organization_id": "uuid not null",
+        "branch_id": "uuid",
+        "name": "text not null",
+        "code": "text not null",
+        "is_retail_floor": "boolean not null",
+        "deleted_at": "timestamp with time zone",
+        "created_at": "timestamp with time zone not null",
+        "updated_at": "timestamp with time zone not null"
+      }
+    }
+  }
+}

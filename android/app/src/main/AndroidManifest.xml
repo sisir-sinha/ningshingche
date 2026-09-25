@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  One permission: the till talks to the shop's Supabase project over HTTPS, and
+  nothing else. No storage permission (the outbox is app-private), no location,
+  no camera — a barcode scanner on Android presents itself as a keyboard, so the
+  search field receives it without any camera code at all.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application
+        android:allowBackup="false"
+        android:label="Mekholi"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Mekholi">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

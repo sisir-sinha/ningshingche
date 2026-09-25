@@ -400,6 +400,15 @@ try {
   )
   check('the invoice number is formatted', /^INV-\d{4}-\d{6}$/.test(sale.invoice_no ?? ''), sale.invoice_no)
 
+  // The receipt's money is text (migration 045). The browser's money helpers
+  // happen to accept a number too, so this is the check that noticed the Kotlin
+  // reference could not decode a receipt at all.
+  check(
+    'the receipt carries its money as text, the shape the clients decode',
+    typeof sale.total === 'string' && typeof sale.tax === 'string',
+    `total=${typeof sale.total} tax=${typeof sale.tax}`
+  )
+
   // ── 8. Read it back the way the sales screen does ───────────────────────
   const stored = await api(
     `/rest/v1/sales?select=invoice_no,total,tax_total,status,items:sale_items(product_name,line_total)` +
