@@ -22,6 +22,7 @@
 | 10 | [Roadmap](./10-roadmap.md) | Phased delivery plan. |
 | 11 | [Plugin SDK](./11-plugin-sdk.md) | Writing and shipping a plugin, end to end. |
 | 12 | [Offline & Android readiness](./12-offline-android.md) | Exactly-once sales off the network, the cache's three-valued fallback, what Phase 8 still owes. |
+| 13 | [Phase audit](./13-phase-audit.md) | Every phase moderated against the repository, and the modification list that came out of it. |
 
 ---
 
