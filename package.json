@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Mekholi \u2014 a universal retail POS platform with a plugin architecture.",
+  "description": "Mekholi — a universal retail POS platform with a plugin architecture.",
   "scripts": {
     "android:build": "node tools/android-build.mjs",
     "build": "tsc --noEmit && vite build",

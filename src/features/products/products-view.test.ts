@@ -48,9 +48,11 @@ const update = vi.fn(async () => product)
 const archive = vi.fn(async () => undefined)
 const duplicate = vi.fn(async () => ({ ...product, id: 'p-2', name: 'Kala Jam (copy)' }))
 
+const quickAddRepo: Record<string, unknown> = {}
+
 vi.mock('../../app/data', () => ({
   getRepositories: () => ({
-    products: { list, onHand, remove, archive, duplicate, update, get: vi.fn(), getWithVariants: vi.fn(), listBarcodes: vi.fn() },
+    products: { list, onHand, remove, archive, duplicate, update, ...quickAddRepo, get: vi.fn(), getWithVariants: vi.fn(), listBarcodes: vi.fn() },
     catalog: { listCategories: vi.fn(async () => []), listBrands: vi.fn(async () => []), listUnits: vi.fn(async () => []), listTaxes: vi.fn(async () => []) },
     stock: { listWarehouses: vi.fn(async () => []), stockIn: vi.fn(), adjust: vi.fn() },
   }),
@@ -301,5 +303,33 @@ describe('products list', () => {
 
     expect(update).not.toHaveBeenCalled()
     expect(root.textContent).toContain('Kala Jam')
+  })
+
+  it('shows the code the shop just got, rather than leaving it a surprise', async () => {
+    // The SKU is assigned by the database (migration 054), so the only place
+    // an owner can learn it at creation time is the confirmation.
+    const created = { ...product, id: 'p-9', name: 'Miniket Rice 5kg', sku: 'MIN-0007' }
+    const create = vi.fn(async () => created)
+    quickAddRepo.create = create
+
+    const root = view()
+    await settle()
+    ;([...root.querySelectorAll('button')].find((b) => b.textContent?.includes('Quick add')) as HTMLButtonElement).click()
+    await settle()
+
+    // Scope to the dialog: the rows behind it each carry a hidden file input.
+    const fields = [...document.querySelectorAll('[role="dialog"] input')].filter(
+      (el) => (el as HTMLInputElement).type !== 'file'
+    ) as HTMLInputElement[]
+    fields[0]!.value = 'Miniket Rice 5kg'
+    fields[1]!.value = '450'
+    const save = [...document.querySelectorAll('[role="dialog"] button')].find((b) =>
+      (b.textContent ?? '').includes('Save')
+    ) as HTMLButtonElement
+    save.click()
+    await settle()
+
+    expect(create).toHaveBeenCalled()
+    expect(document.body.textContent).toContain('MIN-0007')
   })
 })

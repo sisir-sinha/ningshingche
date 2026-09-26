@@ -489,7 +489,7 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
         }
         clearDraft('products.quickAdd')
         dialog.close()
-        toastSuccess(`“${name}” added`)
+        toastSuccess(created.sku ? `“${name}” added · SKU ${created.sku}` : `“${name}” added`)
         await load(true)
       } catch (error) {
         errorSlot.textContent = translateError(error).message
@@ -661,7 +661,7 @@ function openProductForm(options: FormOptions): void {
   let taxes: Tax[] = []
 
   const nameInput = input({ value: product?.name ?? '', autofocus: true })
-  const skuInput = input({ value: product?.sku ?? '', placeholder: 'Auto-generated if blank' })
+  const skuInput = input({ value: product?.sku ?? '', placeholder: 'Leave blank for MIN-0007' })
   const priceInput = input({
     type: 'text',
     inputmode: 'decimal',
@@ -924,7 +924,15 @@ function openProductForm(options: FormOptions): void {
           )
         }
       }
-      toastSuccess(product ? 'Product updated' : 'Product created')
+      // The generated code is worth showing: it is the number the shelf label
+      // and the supplier's order will carry, and the owner did not choose it.
+      toastSuccess(
+        product
+          ? 'Product updated'
+          : saved.sku
+            ? `Product created · SKU ${saved.sku}`
+            : 'Product created'
+      )
       clearDraft(draftKey)
       dialog.close()
       onSaved()
@@ -976,7 +984,9 @@ function openProductForm(options: FormOptions): void {
   )
 
   advancedBody.append(
-    field('SKU', skuInput, { hint: 'Optional internal code; barcodes are managed above' }),
+    field('SKU', skuInput, {
+      hint: 'Left blank, the shop numbers it: three letters of the name and a running number.',
+    }),
     field('Tax', taxSelect),
     field('Reorder point', reorderInput),
     h('div', { class: 'col-span-2 space-y-2 pt-1' },

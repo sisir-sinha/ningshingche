@@ -562,6 +562,49 @@ const PRODUCT_SELECT = [
   'created_at',
 ].join(',')
 
+/**
+ * A SKU for a database that has not run migration 054 yet.
+ *
+ * Deliberately the *fallback*, not the mechanism: numbering belongs next to a
+ * row lock, and this has none — two tablets creating a product in the same
+ * second can land on the same code. It reads the shop's current high-water
+ * mark and probes for a free slot, which is good enough to stop the column
+ * being null on a live shop today, and becomes dead code the moment the
+ * trigger is installed.
+ *
+ * Returns null rather than throwing: a product that saved successfully must
+ * not be reported as failed because its code could not be invented.
+ */
+async function fallbackSku(
+  client: SupabaseClient,
+  organizationId: string,
+  name: string
+): Promise<string | null> {
+  // ASCII letters only. A Bangla name has none, and `-0007` is not a code.
+  const letters = (name ?? '').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase()
+  const prefix = letters.length >= 2 ? letters : 'SKU'
+  try {
+    const { count } = await client
+      .from('products')
+      .select('id', { count: 'exact', head: true })
+    let n = (count ?? 0) + 1
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const candidate = `${prefix}-${String(n).padStart(4, '0')}`
+      const { data } = await client
+        .from('products')
+        .select('id')
+        .eq('organization_id', organizationId)
+        .eq('sku', candidate)
+        .limit(1)
+      if (!data || data.length === 0) return candidate
+      n += 1
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 /** `numeric` goes back as a fixed string, never a float in scientific form. */
 function numeric(value: number, decimals: number): string {
   return value.toFixed(decimals)
@@ -730,6 +773,27 @@ function createProducts(
           is_default: true,
         })
       if (variantError.error) throw variantError.error
+
+      // Migration 054 fills a blank SKU with a locked, per-shop counter. Until
+      // a project has run it the column comes back null, and the form has been
+      // promising "auto-generated if blank" the whole time. This bridges that
+      // gap and then stops firing for good: once the trigger exists, `sku` is
+      // already set by the time the insert returns.
+      if (!product.sku) {
+        const generated = await fallbackSku(client, requireOrg(organizationId), draft.name)
+        if (generated) {
+          const patched = unwrap(
+            await client
+              .from('products')
+              .update({ sku: generated })
+              .eq('id', product.id)
+              .select(PRODUCT_SELECT)
+              .limit(1)
+              .returns<ProductRow[]>()
+          )
+          return patched[0] ?? { ...product, sku: generated }
+        }
+      }
 
       return product
     },

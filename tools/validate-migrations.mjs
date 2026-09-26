@@ -348,6 +348,63 @@ try {
 }
 check('a product cannot have two default variants', dupDefault)
 
+// 6b. A blank SKU is filled in by the database, not left null (054).
+//
+// The form has promised "Auto-generated if blank" since the beginning while
+// nothing generated anything, and Quick add — the dialog most products are
+// created in — has no SKU field at all. These hold the trigger to the three
+// cases that matter: blank gets a code, a typed code is kept, and a Bangla
+// name (no ASCII letters to take a prefix from) still produces a usable one.
+const skuOrg = '00000000-0000-0000-0000-000000000001'
+
+await db.exec(`
+  INSERT INTO public.products (organization_id, name, selling_price, cost_price)
+  VALUES ('${skuOrg}', 'Miniket Rice 5kg', 100, 50)
+`)
+const autoSku = await q(
+  `select sku from public.products where name = 'Miniket Rice 5kg'`
+)
+check(
+  'a product saved without a SKU is given one',
+  /^MIN-\d{4}$/.test(autoSku[0]?.sku ?? ''),
+  String(autoSku[0]?.sku)
+)
+
+await db.exec(`
+  INSERT INTO public.products (organization_id, name, sku, selling_price, cost_price)
+  VALUES ('${skuOrg}', 'Hand coded', '  MY-CODE-1 ', 100, 50)
+`)
+const kept = await q(`select sku from public.products where name = 'Hand coded'`)
+check(
+  'a SKU the shop typed is kept, only trimmed',
+  kept[0]?.sku === 'MY-CODE-1',
+  String(kept[0]?.sku)
+)
+
+await db.exec(`
+  INSERT INTO public.products (organization_id, name, selling_price, cost_price)
+  VALUES ('${skuOrg}', 'উজ্জ্বল চাল', 100, 50)
+`)
+const bangla = await q(`select sku from public.products where name = 'উজ্জ্বল চাল'`)
+check(
+  'a Bangla name still produces a usable code',
+  /^SKU-\d{4}$/.test(bangla[0]?.sku ?? ''),
+  String(bangla[0]?.sku)
+)
+
+await db.exec(`
+  INSERT INTO public.products (organization_id, name, sku, selling_price, cost_price)
+  VALUES ('${skuOrg}', 'Miniket Rice 10kg', '', 100, 50)
+`)
+const second = await q(
+  `select sku from public.products where name = 'Miniket Rice 10kg'`
+)
+check(
+  'an empty string counts as blank, and the number moves on',
+  /^MIN-\d{4}$/.test(second[0]?.sku ?? '') && second[0]?.sku !== autoSku[0]?.sku,
+  `${autoSku[0]?.sku} then ${second[0]?.sku}`
+)
+
 // 7. next_sequence produces gap-free, monotonically increasing values.
 const seqs = []
 for (let i = 0; i < 5; i++) {
