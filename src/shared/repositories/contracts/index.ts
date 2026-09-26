@@ -93,10 +93,19 @@ export interface CatalogRepository {
   findByVariantId(variantId: string, warehouseId: string): Promise<SellableProduct | null>
 
   listCategories(): Promise<Category[]>
+  createCategory(name: string, parentId?: string | null): Promise<Category>
   listBrands(): Promise<Brand[]>
+  createBrand(name: string): Promise<Brand>
   listUnits(): Promise<Unit[]>
   listTaxes(): Promise<Tax[]>
   listPaymentMethods(): Promise<PaymentMethod[]>
+}
+
+export interface ProductBarcode {
+  id: string
+  variantId: string
+  code: string
+  isPrimary: boolean
 }
 
 export interface ProductRepository {
@@ -104,6 +113,8 @@ export interface ProductRepository {
   get(id: string): Promise<ProductRow | null>
   /** Includes variants, so the form can render and re-submit them. */
   getWithVariants(id: string): Promise<{ product: ProductRow; variants: VariantRow[] } | null>
+  listBarcodes(productId: string): Promise<ProductBarcode[]>
+  replaceBarcodes(variantId: string, codes: string[]): Promise<ProductBarcode[]>
   create(draft: ProductDraft): Promise<ProductRow>
   update(id: string, draft: Partial<ProductDraft>): Promise<ProductRow>
   /** Soft delete. Nothing in Mekholi hard-deletes a row a sale can reference. */
