@@ -33,6 +33,8 @@ export function settingsView(): HTMLElement {
   let taxes: Tax[] = []
   let paymentMethods: PaymentMethod[] = []
   let loading = true
+  /** A supporting card failed to load; the page still renders without it. */
+  let sideLoadError: string | null = null
 
   const root = h('div', { class: 'p-3 sm:p-6' })
   const content = h('div', { class: 'mx-auto max-w-5xl space-y-4' })
@@ -41,24 +43,42 @@ export function settingsView(): HTMLElement {
     mount(content, emptyState('Settings could not be loaded', { description: message, iconName: 'error' }))
   }
 
+  /**
+   * Loading order matters here, and it used to be wrong: `render()` ran inside
+   * the `try` while `loading` was still true, and `loading = false` only
+   * followed in `finally` — after the only redraw. The screen drew its spinner
+   * and then had nothing left to draw it again, so Settings sat spinning
+   * forever. The flag is cleared *before* the render now.
+   */
   async function load(): Promise<void> {
     try {
-      ;[settings, taxes, paymentMethods] = await Promise.all([
-        repos.organization.getSettings(),
+      // The shop profile is the screen. Without it there is nothing to show.
+      settings = await repos.organization.getSettings()
+
+      // Taxes and payment methods are supporting cards. A role that may edit
+      // the shop name but not read tax rules should still get the page, so a
+      // failure here costs one card — not the whole screen.
+      const [taxResult, methodResult] = await Promise.allSettled([
         repos.catalog.listAllTaxes(),
         repos.catalog.listAllPaymentMethods(),
       ])
+      taxes = taxResult.status === 'fulfilled' ? taxResult.value : []
+      paymentMethods = methodResult.status === 'fulfilled' ? methodResult.value : []
+      const partial = [taxResult, methodResult].find((result) => result.status === 'rejected')
+      sideLoadError = partial ? translateError(partial.reason).message : null
+
+      loading = false
       render()
     } catch (error) {
-      notice(translateError(error).message)
-    } finally {
       loading = false
+      notice(translateError(error).message)
     }
   }
 
   function render(): void {
     if (loading || !settings) {
-      mount(content, h('div', { class: 'flex justify-center p-12' }, spinner()))
+      // Tagged so a test can tell this spinner from the one inside a control.
+      mount(content, h('div', { class: 'flex justify-center p-12', dataset: { state: 'loading' } }, spinner()))
       return
     }
     const bag = settings.settings as SettingsBag
@@ -174,6 +194,13 @@ export function settingsView(): HTMLElement {
         ),
         settings.slug ? badge(settings.slug, { tone: 'neutral' }) : null
       ),
+      sideLoadError
+        ? h('p', {
+            class: 'rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-content-muted',
+            role: 'status',
+            text: `Some settings could not be loaded: ${sideLoadError}`,
+          })
+        : null,
       businessCard,
       receiptCard,
       taxesCard,
@@ -251,6 +278,9 @@ export function settingsView(): HTMLElement {
   }
 
   mount(root, content)
+  // Draw the loading state immediately, so the first frame is a spinner rather
+  // than an empty page while the profile is fetched.
+  render()
   void load()
   return root
 }
