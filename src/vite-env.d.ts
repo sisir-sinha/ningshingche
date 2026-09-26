@@ -6,6 +6,7 @@ interface ImportMetaEnv {
   readonly VITE_APP_ENV?: string
   readonly VITE_ENABLE_DEMO?: string
   readonly VITE_APP_NAME?: string
+  readonly VITE_IMGBB_API_KEY?: string
 }
 
 interface ImportMeta {
