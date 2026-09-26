@@ -24,6 +24,7 @@ import { eventBus } from './shared/bus'
 import { mountToasts, toastError } from './components/feedback/toast'
 import { installShortcuts } from './features/layout/command-palette'
 import { bootstrapSession, signOut, needsOnboarding } from './app/platform/auth'
+import { consumeAuthCallback } from './app/platform/auth-url'
 import { refreshSalesFloor, salesFloor, salesFloorStore, watchOrganization } from './app/state/sales-floor'
 import { watchStockAlerts, watchVisibility } from './app/state/stock-alerts'
 import { CORE_NAV } from './features/layout/navigation'
@@ -362,6 +363,19 @@ async function boot(): Promise<void> {
     const translated = translateError(error)
     sessionStore.set({ ...sessionStore.state, status: 'error', error: translated.message })
     toastError(translated.message)
+  } finally {
+    // The Supabase client reads the callback URL as it is constructed — an
+    // OAuth session in the fragment, or a PKCE `?code=` — so this has to come
+    // *after* `bootstrapSession()` has let it. Anything still in the URL by
+    // now is a message from the provider, and it must not stay in the address
+    // bar: a fragment holding a live refresh token is a credential in the
+    // user's history and in whatever they copy next (docs/14).
+    //
+    // `finally`, not the happy path: a stale session made `bootstrapSession`
+    // throw and the tokens stayed in the URL, which is worse than the error.
+    // A token left behind is the one failure this whole path exists to stop.
+    const providerError = consumeAuthCallback()
+    if (providerError) toastError(`Sign-in was not completed: ${providerError}`)
   }
 
   if (sessionStore.state.status === 'authenticated' && !env.isSupabaseConfigured) {

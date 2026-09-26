@@ -28,6 +28,13 @@ export function getSupabase(): SupabaseClient | null {
       autoRefreshToken: true,
       detectSessionInUrl: true,
       storageKey: 'mekholi.auth',
+      // PKCE, so an OAuth return carries a single-use `?code=` instead of a
+      // session in the fragment. The default (implicit) puts a live
+      // access *and refresh* token in the address bar, where it lands in
+      // history and in whatever the user pastes next — which is exactly what
+      // happened (docs/14). It is also friendlier to this app's router, which
+      // routes on the fragment: `?code=` never competes with `#/pos`.
+      flowType: 'pkce',
     },
     realtime: {
       params: { eventsPerSecond: 10 },

@@ -10,6 +10,7 @@
  */
 
 import { getSupabase, isConfigured } from './supabase'
+import { buildRedirectUrl } from './auth-url'
 import { translateError } from './errors'
 import { env } from '../env'
 import { sessionStore, EMPTY_SESSION, type OrganizationMembership } from '../state/session'
@@ -239,16 +240,22 @@ export async function signIn(email: string, password: string): Promise<AuthResul
  *
  * The browser navigates away to finish the OAuth round trip, so there is no
  * result to return: `bootstrapSession` picks the session up when Google
- * redirects back. The app's URL must be listed under Supabase →
- * Authentication → URL Configuration → Redirect URLs, or GoTrue sends the
- * user back to the project's site URL instead.
+ * redirects back.
+ *
+ * `redirectTo` is where GoTrue is *told* to send the browser. It only honours
+ * that when the URL is listed under Supabase → Authentication → URL
+ * Configuration → Redirect URLs; when it is not, GoTrue does not fail — it
+ * silently substitutes the project's Site URL. A Site URL still pointing at
+ * `http://localhost:5173` therefore drops a signed-in production user into a
+ * local dev server. If sign-in ever lands on the wrong host again, that
+ * setting is the cause, not this call (docs/14).
  */
 export async function signInWithGoogle(): Promise<void> {
   const supabase = getSupabase()
   if (!supabase) return
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: window.location.origin + window.location.pathname },
+    options: { redirectTo: buildRedirectUrl(window.location.href, import.meta.env.BASE_URL) },
   })
   if (error) {
     console.error('[auth] google sign-in failed', error)
