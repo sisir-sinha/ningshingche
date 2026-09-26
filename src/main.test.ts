@@ -42,6 +42,19 @@ describe('application bootstrap', () => {
     expect(root.textContent?.length ?? 0).toBeGreaterThan(0)
   })
 
+  /**
+   * The band of empty white below the app.
+   *
+   * The shell is exactly one viewport tall and every region inside it scrolls
+   * on its own, so the *document* must never scroll: when it did, the page
+   * grew past the shell and the overshoot rendered as blank space under the
+   * sidebar. Signed out, the lock must be gone again or a login form on a
+   * short phone cannot be reached.
+   */
+  it('does not lock the page while the login screen is showing', () => {
+    expect(document.body.classList.contains('app-locked')).toBe(false)
+  })
+
   it('declares every plugin this bundle ships', () => {
     const registry = window.mekholi?.registry
     expect(registry).toBeDefined()

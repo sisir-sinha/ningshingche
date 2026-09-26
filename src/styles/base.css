@@ -49,6 +49,17 @@
     overflow: clip;
   }
 
+  /* While the shell is mounted, the document does not scroll — the shell is
+     exactly one viewport tall and every region inside it scrolls on its own.
+     Without this, any view that outgrew its frame pushed the *page* instead,
+     and the overshoot showed as a band of empty white below the app with the
+     sidebar and topbar scrolled halfway off. Added by `enterApp`, removed on
+     sign-out so the login screen can still scroll on a short phone. */
+  body.app-locked {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
   /* Material Symbols must not be selectable or they get copied with prices. */
   .material-symbols-rounded {
     user-select: none;

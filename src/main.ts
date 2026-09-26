@@ -338,6 +338,9 @@ function enterApp(): void {
   })
 
   root.replaceChildren(shell.el)
+  // The shell is one viewport tall and scrolls internally; the page must not
+  // scroll behind it (see `body.app-locked` in base.css).
+  document.body.classList.add('app-locked')
   router.start()
   eventBus.emit('app.ready', { type: 'app.ready', data: undefined })
 }
@@ -378,6 +381,9 @@ async function leaveApp(): Promise<void> {
   registry.disposeAll()
   resetRepositories()
   await signOut()
+  // The login screen is a normal page again: short phones must be able to
+  // scroll the form, so the shell's page lock is released with the shell.
+  document.body.classList.remove('app-locked')
   root.replaceChildren(loginView({ onAuthenticated: enterApp }))
 }
 

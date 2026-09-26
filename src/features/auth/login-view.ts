@@ -56,9 +56,13 @@ export function loginView(options: { onAuthenticated: () => void }): HTMLElement
   const { onAuthenticated } = options
   let mode: Mode = 'signin'
 
+  // `min-h-full`, not `min-h-screen`: this renders inside `#app`, which is
+  // already the height of the viewport. `min-h-screen` on top of that is one
+  // viewport *plus* whatever the card needs, which is a second scrollbar and a
+  // strip of empty space under the form.
   const root = h('div', {
     class:
-      'flex min-h-screen items-center justify-center bg-surface-muted p-4',
+      'flex min-h-full items-center justify-center overflow-y-auto bg-surface-muted p-4',
   })
 
   const render = (): void => {
@@ -348,7 +352,7 @@ function footer(switchMode: () => void, prompt: string, linkLabel: string): HTML
 export function notConfiguredView(): HTMLElement {
   return h(
     'div',
-    { class: 'flex min-h-screen items-center justify-center bg-surface-muted p-6' },
+    { class: 'flex min-h-full items-center justify-center overflow-y-auto bg-surface-muted p-6' },
     h(
       'div',
       { class: 'max-w-md rounded-xl border border-border bg-surface p-6 text-center' },
