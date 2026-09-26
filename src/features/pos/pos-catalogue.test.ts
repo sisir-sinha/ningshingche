@@ -129,8 +129,7 @@ const boxes = (view: HTMLElement): HTMLInputElement[] =>
   [...view.querySelectorAll<HTMLInputElement>('tbody input[type=checkbox]')]
 const cartLines = (view: HTMLElement): HTMLElement[] =>
   [...view.querySelectorAll<HTMLElement>('[data-line-id]')]
-const byText = (view: HTMLElement, text: string): HTMLButtonElement | undefined =>
-  [...view.querySelectorAll('button')].find((b) => (b.textContent ?? '').includes(text))
+
 
 beforeEach(() => {
   catalogue = [RICE, OIL]
@@ -149,7 +148,7 @@ describe('the catalogue table', () => {
   it('answers the questions a counter actually asks', async () => {
     const view = await build()
     const headers = [...view.querySelectorAll('thead th')].map((th) => th.textContent)
-    expect(headers).toEqual(['', 'Product', 'SKU', 'Category', 'Price', 'Tax', 'Stock', ''])
+    expect(headers).toEqual(['', 'Product', 'SKU', 'Category', 'Price', 'Tax', 'Stock'])
 
     const first = rows(view)[0]!
     expect(first.textContent).toContain('Miniket Rice 5kg')
@@ -175,7 +174,7 @@ describe('the catalogue table', () => {
 })
 
 describe('ticking rows', () => {
-  it('ticks the row when the cashier taps anywhere on it', async () => {
+  it('puts the product on the sale when the cashier taps anywhere on the row', async () => {
     const view = await build()
     rows(view)[0]!.click()
     await settle()
@@ -183,50 +182,55 @@ describe('ticking rows', () => {
     expect(boxes(view)[0]!.checked).toBe(true)
     expect(rows(view)[0]!.className).toContain('bg-primary/10')
     expect(rows(view)[0]!.getAttribute('aria-selected')).toBe('true')
-    // Ticking is not selling: nothing has reached the sale yet.
-    expect(cartLines(view)).toHaveLength(0)
+    expect(cartLines(view)).toHaveLength(1)
   })
 
-  it('unticks on a second tap', async () => {
+  it('takes it off again on a second tap', async () => {
     const view = await build()
     rows(view)[0]!.click()
     await settle()
     rows(view)[0]!.click()
     await settle()
+
+    expect(cartLines(view)).toHaveLength(0)
     expect(boxes(view)[0]!.checked).toBe(false)
     expect(rows(view)[0]!.className).not.toContain('bg-primary/10')
   })
 
-  it('puts every ticked product on the sale in one go', async () => {
+  it('unticks the row when the line is removed from the sale itself', async () => {
     const view = await build()
     rows(view)[0]!.click()
-    rows(view)[1]!.click()
     await settle()
 
-    expect(byText(view, '2 selected')).toBeUndefined()
-    expect(view.textContent).toContain('2 selected')
-    byText(view, 'Add 2 to sale')!.click()
+    // The tick is a report on the cart, so the cart is allowed to change it.
+    view.querySelector<HTMLButtonElement>('[data-line-id] button[aria-label^="Remove"]')!.click()
     await settle()
 
-    expect(cartLines(view)).toHaveLength(2)
-    // The strip goes away with the selection it was describing.
-    expect(boxes(view).some((box) => box.checked)).toBe(false)
-    expect(byText(view, 'Add 2 to sale')).toBeUndefined()
+    expect(cartLines(view)).toHaveLength(0)
+    expect(boxes(view)[0]!.checked).toBe(false)
   })
 
-  it('ticks and unticks the whole list from the header', async () => {
+  it('tapping the box itself ticks once, not twice', async () => {
     const view = await build()
-    const all = view.querySelector<HTMLInputElement>('thead input[type=checkbox]')!
-    all.checked = true
-    all.dispatchEvent(new Event('change'))
+    boxes(view)[0]!.click()
     await settle()
+    expect(boxes(view)[0]!.checked).toBe(true)
+    expect(cartLines(view)).toHaveLength(1)
+  })
+
+  it('puts the whole list on the sale from the header, and takes it off again', async () => {
+    const view = await build()
+    const all = (): HTMLInputElement => view.querySelector<HTMLInputElement>('thead input[type=checkbox]')!
+    all().checked = true
+    all().dispatchEvent(new Event('change'))
+    await settle()
+    expect(cartLines(view)).toHaveLength(2)
     expect(boxes(view).every((box) => box.checked)).toBe(true)
 
-    const again = view.querySelector<HTMLInputElement>('thead input[type=checkbox]')!
-    again.checked = false
-    again.dispatchEvent(new Event('change'))
+    all().checked = false
+    all().dispatchEvent(new Event('change'))
     await settle()
-    expect(boxes(view).some((box) => box.checked)).toBe(false)
+    expect(cartLines(view)).toHaveLength(0)
   })
 
   it('reports a partial selection as partial', async () => {
@@ -236,44 +240,28 @@ describe('ticking rows', () => {
     expect(view.querySelector<HTMLInputElement>('thead input[type=checkbox]')!.indeterminate).toBe(true)
   })
 
-  it('remembers what was ticked when the cashier searches for something else', async () => {
+  it('keeps the tick on a product that is still on the sale after a new search', async () => {
     const view = await build()
     rows(view)[0]!.click()
     await settle()
 
-    // Rice is ticked; now the cashier goes looking for oil.
-    catalogue = [OIL]
+    catalogue = [OIL, RICE]
     const search = view.querySelector<HTMLInputElement>('input[type=search]')!
-    search.value = 'oil'
+    search.value = 'o'
     search.dispatchEvent(new Event('input', { bubbles: true }))
     // The search field debounces by 150ms before it asks the repository.
     await new Promise((resolve) => setTimeout(resolve, 200))
     await settle()
 
-    rows(view)[0]!.click()
-    await settle()
-    byText(view, 'Add 2 to sale')!.click()
-    await settle()
-
-    // Both, even though rice is no longer on screen.
-    expect(cartLines(view)).toHaveLength(2)
-  })
-
-  it('leaves the one-tap add alone', async () => {
-    const view = await build()
-    const add = rows(view)[0]!.querySelector('button')!
-    add.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    await settle()
-
-    expect(cartLines(view)).toHaveLength(1)
-    // And the row it was tapped on is not left ticked behind the cashier.
+    // Rice has moved to the second row, and is still ticked: the tick follows
+    // the sale, not the position in the list.
+    expect(rows(view)[1]!.textContent).toContain('Miniket Rice 5kg')
+    expect(boxes(view)[1]!.checked).toBe(true)
     expect(boxes(view)[0]!.checked).toBe(false)
   })
 
-  it('tapping the box itself ticks once, not twice', async () => {
+  it('leaves no add button on the row — the tick is the way in', async () => {
     const view = await build()
-    boxes(view)[0]!.click()
-    await settle()
-    expect(boxes(view)[0]!.checked).toBe(true)
+    expect(rows(view)[0]!.querySelectorAll('button')).toHaveLength(0)
   })
 })

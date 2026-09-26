@@ -180,24 +180,21 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
   let searchTimer: ReturnType<typeof setTimeout> | undefined
 
   /**
-   * Which products the cashier has ticked, by variant id.
+   * Nothing is "selected" here in the usual sense.
    *
-   * A counter often rings up several things at once — three items off one
-   * shelf, a customer changing their mind at the end. Ticking them and adding
-   * them in one go is fewer taps than returning to the list between each.
-   * The per-row add button is still there for the single-item case, and a
-   * scan still goes straight onto the sale: selection is an addition to the
-   * till's flow, never a toll on it.
+   * A row is ticked when — and only when — that product is on the current
+   * sale. The tick is a *report* on the cart, not a second list kept beside
+   * it, so the two can never disagree: remove a line from the sale and the
+   * row unticks itself, because it is reading from the same place.
    */
-  const selected = new Set<string>()
+  function lineFor(variantId: string): string | undefined {
+    return cart.state.cart.lines.find((line) => line.variantId === variantId)?.lineId
+  }
 
   // A table, not tiles: at a counter the cashier is answering questions —
   // "which pack size is this", "is that the 5kg", "have we got any left" —
   // and a 150px tile could only ever hold a name and a price.
   const grid = h('div', { class: 'grid' })
-  const selectionBar = h('div', {
-    class: 'shrink-0 border-t border-border bg-primary/5 px-3 py-2',
-  })
 
   const statusLine = h('p', { class: 'px-3 pb-1.5 text-xs text-content-subtle' })
 
@@ -339,7 +336,6 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
   }
 
   function renderResults(): void {
-    renderSelectionBar()
     if (results.length === 0) {
       statusLine.textContent = 'No products match.'
       grid.replaceChildren(
@@ -369,8 +365,7 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
             h('th', { class: `px-3 py-2 font-medium ${POS_AT_XL}`, text: 'Category' }),
             h('th', { class: 'px-3 py-2 font-medium text-right', text: 'Price' }),
             h('th', { class: `px-3 py-2 font-medium text-right ${POS_AT_XL}`, text: 'Tax' }),
-            h('th', { class: 'px-3 py-2 font-medium text-center', text: 'Stock' }),
-            h('th', { class: 'w-12 px-3 py-2' })
+            h('th', { class: 'px-3 py-2 font-medium text-center', text: 'Stock' })
           )
         ),
         h('tbody', {}, ...results.map((product, index) => productRow(product, index)))
@@ -379,99 +374,43 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
   }
 
   /**
-   * Tick-all for what the search just returned — the scope a cashier can see,
-   * never the whole catalogue. Indeterminate when the selection is partial, so
-   * the box reports the truth rather than rounding it to "none".
+   * Tick-all for what the search just returned — the scope the cashier can
+   * see, never the whole catalogue. Indeterminate when only some of the list
+   * is on the sale, so the box reports the truth rather than rounding it.
    */
   function selectAllBox(): HTMLElement {
-    const mine = results.filter((product) => selected.has(product.variantId)).length
+    const on = results.filter((product) => lineFor(product.variantId)).length
     const box = h('input', {
       type: 'checkbox',
       class: 'h-4 w-4 cursor-pointer rounded border-input text-primary focus:ring-2 focus:ring-ring',
-      checked: mine > 0 && mine === results.length,
-      'aria-label': 'Select every product listed',
+      checked: on > 0 && on === results.length,
+      'aria-label': 'Put every product listed on the sale',
     }) as HTMLInputElement
-    box.indeterminate = mine > 0 && mine < results.length
+    box.indeterminate = on > 0 && on < results.length
     box.addEventListener('change', () => {
       for (const product of results) {
-        if (box.checked) selected.add(product.variantId)
-        else selected.delete(product.variantId)
+        const lineId = lineFor(product.variantId)
+        if (box.checked && !lineId) addToCart(product)
+        else if (!box.checked && lineId) cart.remove(lineId)
       }
-      renderResults()
+      searchField.focus()
     })
     return box
   }
 
-  function toggleSelection(product: SellableProduct): void {
-    if (selected.has(product.variantId)) selected.delete(product.variantId)
-    else selected.add(product.variantId)
-    renderResults()
-  }
-
   /**
-   * The strip that turns a selection into a sale.
+   * A tick puts the product on the sale; a second tick takes it off again.
    *
-   * It only exists while something is ticked: an empty bar at the foot of the
-   * catalogue would cost the list a permanent 44px for a button that does
-   * nothing.
+   * Removing is the whole reason the row is a toggle rather than a button: a
+   * cashier who taps the wrong line is standing in front of a customer, and
+   * tapping it again is a shorter apology than hunting for the line in the
+   * cart and finding its bin icon.
    */
-  function renderSelectionBar(): void {
-    if (selected.size === 0) {
-      selectionBar.replaceChildren()
-      selectionBar.classList.add('hidden')
-      return
-    }
-    selectionBar.classList.remove('hidden')
-    const chosen = results.filter((product) => selected.has(product.variantId))
-    // Selection survives a new search, so the count can exceed what is on
-    // screen. Price up only what we can still see the price of.
-    const sum = chosen.reduce((total, product) => total + product.price, 0)
-    selectionBar.replaceChildren(
-      h('div', { class: 'flex items-center gap-2' },
-        h('p', { class: 'min-w-0 flex-1 truncate text-xs text-content-muted' },
-          h('span', {
-            class: 'font-medium text-content',
-            text: `${selected.size} selected`,
-          }),
-          chosen.length > 0
-            ? h('span', { text: ` · ${formatMoney(minor(sum), { currency })}` })
-            : null
-        ),
-        button('Clear', {
-          variant: 'ghost',
-          size: 'sm',
-          onClick: () => {
-            selected.clear()
-            renderResults()
-            searchField.focus()
-          },
-        }),
-        button(`Add ${selected.size} to sale`, {
-          variant: 'primary',
-          size: 'sm',
-          icon: 'add_shopping_cart',
-          onClick: () => addSelected(),
-        })
-      )
-    )
-  }
-
-  /**
-   * Puts every ticked product on the sale.
-   *
-   * Reads from `seen` rather than `results`, so a cashier who ticked rice,
-   * searched for oil and ticked that too gets both — the selection is the
-   * cashier's memory, and a search box should not quietly empty it.
-   */
-  function addSelected(): void {
-    const chosen = [...selected].map((variantId) => seen.get(variantId)).filter(Boolean) as SellableProduct[]
-    for (const product of chosen) addToCart(product)
-    selected.clear()
-    renderResults()
+  function toggleOnSale(product: SellableProduct): void {
+    const lineId = lineFor(product.variantId)
+    if (lineId) cart.remove(lineId)
+    else addToCart(product)
     searchField.focus()
-    if (chosen.length > 0) {
-      toastSuccess(`${chosen.length} product${chosen.length === 1 ? '' : 's'} added to the sale`)
-    }
   }
 
   function productRow(product: SellableProduct, index: number): HTMLElement {
@@ -481,21 +420,21 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
       !product.allowNegative &&
       product.availableQty !== null &&
       product.availableQty <= 0
-    const isSelected = selected.has(product.variantId)
+    const onSale = lineFor(product.variantId) !== undefined
 
     const box = h('input', {
       type: 'checkbox',
       class: 'h-4 w-4 cursor-pointer rounded border-input text-primary focus:ring-2 focus:ring-ring',
-      checked: isSelected,
-      'aria-label': `Select ${product.name}`,
+      checked: onSale,
+      'aria-label': `Put ${product.name} on the sale`,
     }) as HTMLInputElement
     box.addEventListener('click', (event) => event.stopPropagation())
-    box.addEventListener('change', () => toggleSelection(product))
+    box.addEventListener('change', () => toggleOnSale(product))
 
     return h('tr', {
       class: [
         'cursor-pointer border-b border-border transition-colors',
-        isSelected
+        onSale
           ? 'bg-primary/10 hover:bg-primary/15'
           : index === highlighted
             ? 'bg-primary/5'
@@ -503,10 +442,10 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
         out ? 'opacity-70' : '',
       ].filter(Boolean).join(' '),
       'data-variant': product.variantId,
-      'aria-selected': isSelected ? 'true' : 'false',
+      'aria-selected': onSale ? 'true' : 'false',
       // The whole row is the target. A 16px checkbox is a poor thing to ask a
       // thumb to hit across a counter.
-      onClick: () => toggleSelection(product),
+      onClick: () => toggleOnSale(product),
     },
       h('td', { class: 'px-3 py-2' }, box),
       h('td', { class: 'px-3 py-2' },
@@ -567,19 +506,6 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
             })
           : h('span', { class: 'text-xs text-content-subtle', text: '—' })
       ),
-      h('td', { class: 'px-3 py-2' },
-        // The single-item path, unchanged in cost: one tap, straight onto the
-        // sale, no selection involved.
-        iconButton('add_shopping_cart', `Add ${product.name} to the sale`, {
-          size: 'sm',
-          variant: 'ghost',
-          onClick: (event: MouseEvent) => {
-            event.stopPropagation()
-            addToCart(product)
-            searchField.focus()
-          },
-        })
-      )
     )
   }
 
@@ -1237,7 +1163,12 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
     }
   }
 
-  const unsubscribeCart = cart.store.subscribe(() => renderCart())
+  const unsubscribeCart = cart.store.subscribe(() => {
+    renderCart()
+    // The ticks are a view of the cart, so they are redrawn by the cart —
+    // including when a line is removed from the panel on the right.
+    renderResults()
+  })
 
   // ── Layout ──────────────────────────────────────────────────────────────
 
@@ -1250,7 +1181,6 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
       h('div', { class: 'shrink-0 border-b border-border bg-surface px-3 pt-3 pb-2' }, searchField),
       statusLine,
       h('div', { class: 'flex-1 min-h-0 overflow-y-auto' }, grid),
-      selectionBar,
       // The keyboard contract, stated where a new cashier will see it. Hidden
       // on touch-sized screens, where there are no F-keys to press.
       h('p', {
