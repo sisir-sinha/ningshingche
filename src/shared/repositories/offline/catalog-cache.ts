@@ -195,11 +195,13 @@ export function createCatalogCache(
         () => next.listCategories(),
         async () => (await cachedList<Awaited<ReturnType<CatalogRepository['listCategories']>>>('list:categories'))?.value
       ),
+    createCategory: (name, parentId) => next.createCategory(name, parentId),
     listBrands: () =>
       readThrough(
         () => next.listBrands(),
         async () => (await cachedList<Awaited<ReturnType<CatalogRepository['listBrands']>>>('list:brands'))?.value
       ),
+    createBrand: (name) => next.createBrand(name),
     listUnits: () =>
       readThrough(
         () => next.listUnits(),
