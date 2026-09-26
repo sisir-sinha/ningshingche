@@ -43,8 +43,13 @@ export interface AppShell {
 export function appShell(options: AppShellOptions): AppShell {
   const { registry, bus, onNavigate, onSignOut, outlet } = options
 
-  const sidebarHost = h('div', { class: 'h-full' })
-  const drawerHost = h('div', { class: 'h-full' })
+  /**
+   * The two homes of the same sidebar. The host owns the width — 240px docked
+   * beside the content, off-canvas below `lg` — and the aside fills it.
+   */
+  const sidebarHost = h('div', { class: 'hidden h-full w-60 shrink-0 lg:block' })
+  /** Fills the drawer panel, whose width the panel itself decides. */
+  const drawerHost = h('div', { class: 'h-full w-full' })
 
   // ── Mobile drawer ───────────────────────────────────────────────────────
   // A shop counter is often a phone or a tablet in portrait, so the sidebar
@@ -53,6 +58,8 @@ export function appShell(options: AppShellOptions): AppShell {
   // the hamburger darkened the screen and rendered no navigation at all.
   const drawerPanel = h(
     'div',
+    // Slightly wider than the docked rail — thumbs and longer labels — and the
+    // aside inside fills it edge to edge.
     { class: 'flex h-full w-72 max-w-[85vw] flex-col bg-surface shadow-2xl' },
     drawerHost
   )
@@ -173,21 +180,37 @@ export function appShell(options: AppShellOptions): AppShell {
 
   const shell = h(
     'div',
-    { class: 'flex h-screen w-full overflow-hidden bg-surface-muted' },
+    // `app-shell` (base.css) rather than `h-screen`: on a phone 100vh is the
+    // height with the browser toolbar hidden, so the shell overshoots the
+    // visible area, the document scrolls, and the topbar leaves the top of the
+    // screen. The class is 100dvh with a vh fallback.
+    //
+    // No `overflow-hidden` here. It looks harmless and it was, but it silently
+    // disables the topbar's `sticky`: an ancestor with a non-visible overflow
+    // becomes the sticky element's scroll container, so the bar stuck to a box
+    // that was itself scrolling away. Nothing needed the clipping — every
+    // overlay in the app (drawer, palette, modal, receipt) is `fixed`, and
+    // `main` clips its own overflow because it scrolls on one axis.
+    { class: 'app-shell flex w-full bg-surface-muted' },
 
-    // Sidebar — off-canvas below lg
-    h('div', { class: 'hidden lg:block h-full' }, sidebarHost),
+    // Sidebar — off-canvas below lg. The host owns the width; the aside fills
+    // it, so the docked rail and the drawer are the same component at two
+    // widths rather than two widths fighting inside one component.
+    sidebarHost,
 
     h(
       'div',
       { class: 'flex min-w-0 flex-1 flex-col' },
 
-      // Topbar
+      // Topbar — pinned to the top of the shell. The bar is a sibling of the
+      // scrolling outlet, so it does not move when a view scrolls; `sticky`
+      // makes that guarantee explicit for any future scroll container, and the
+      // layer sits above page content but below the drawer (z-80) and toasts.
       h(
         'header',
         {
           class:
-            'flex h-14 shrink-0 items-center gap-3 border-b border-border bg-surface px-4',
+            'sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-surface px-4',
         },
         iconButton('menu', 'Open navigation', {
           variant: 'ghost',

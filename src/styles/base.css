@@ -31,6 +31,18 @@
     @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-surface;
   }
 
+  /* The shell is one viewport tall and never longer than the screen.
+     `h-screen` is 100vh, and on a phone 100vh is the *tallest* the viewport
+     ever gets — the height with the address bar hidden. While the bar is
+     showing, the shell is taller than the visible area, so the document
+     itself scrolls and takes the topbar off the top with it: the header looks
+     like it was never pinned. dvh follows the viewport that is actually
+     visible. The plain vh first is the fallback for engines without dvh. */
+  .app-shell {
+    height: 100vh;
+    height: 100dvh;
+  }
+
   /* Material Symbols must not be selectable or they get copied with prices. */
   .material-symbols-rounded {
     user-select: none;
@@ -50,5 +62,26 @@
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+
+  /* A scrollbar that is readable but quiet. The default one on Windows is a
+     17px opaque strip, which on the sidebar's grey reads as empty space on
+     its right-hand edge and shortens every active item by 17px. Hiding it
+     outright (`.no-scrollbar` above) would take away the affordance that the
+     navigation continues below the fold, so this keeps a thin one instead. */
+  .scrollbar-slim {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--color-border)) transparent;
+  }
+  .scrollbar-slim::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-slim::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-slim::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--color-border));
+    border-radius: 9999px;
   }
 }

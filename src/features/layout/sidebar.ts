@@ -30,7 +30,10 @@ export function sidebar(options: SidebarOptions): HTMLElement {
   const collapsedSections = new Set<string>(readCollapsed())
 
   const nav = h('nav', {
-    class: 'flex-1 overflow-y-auto px-2 py-3 space-y-4',
+    // The nav is the sidebar's scroll container, so it is the thing that owns
+    // a scrollbar. `scrollbar-slim` keeps the affordance while stopping the
+    // platform's default width from eating the right-hand edge of the rail.
+    class: 'flex-1 overflow-y-auto px-2 py-3 space-y-4 scrollbar-slim',
     'aria-label': 'Main navigation',
   })
 
@@ -100,8 +103,13 @@ export function sidebar(options: SidebarOptions): HTMLElement {
   return h(
     'aside',
     {
+      // `w-full`, not `w-60`: the width belongs to the host, which is two
+      // different things — 240px docked beside the content, up to 288px inside
+      // the mobile drawer. When the aside carried its own `w-60`, the drawer's
+      // extra 48px showed as a strip of the panel's white background down the
+      // right-hand side of the navigation.
       class:
-        'flex h-full w-60 shrink-0 flex-col border-r border-border bg-surface-muted',
+        'flex h-full w-full shrink-0 flex-col border-r border-border bg-surface-muted',
       'aria-label': 'Sidebar',
     },
     // Shop identity

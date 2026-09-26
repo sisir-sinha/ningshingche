@@ -484,7 +484,10 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
     mount(
       customerLine,
       button(attachedCustomer?.name ?? 'Walk-in', {
-        size: 'sm',
+        // `md` (40px), not `sm` (32px): this spans the width of the cart panel
+        // and is the only way to put a customer on the sale, so it is a
+        // thumb target on a phone rather than a dense secondary control.
+        size: 'md',
         variant: 'ghost',
         icon: 'person',
         ariaLabel: 'Customer on this sale',

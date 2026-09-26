@@ -208,6 +208,51 @@ describe('app shell', () => {
     expect(el.textContent).toContain('Counter 1')
   })
 
+  /**
+   * Layout facts, not behaviour — but each one is a bug that shipped.
+   *
+   * `h-screen` is 100vh, which on a phone is the height with the browser
+   * toolbar hidden: the shell overshoots the visible area, the document
+   * scrolls, and the topbar slides off the top of the screen. The fix is
+   * `.app-shell` (100dvh, vh fallback) in base.css.
+   */
+  it('sizes the shell to the viewport that is visible, not to h-screen', () => {
+    const { el } = build()
+
+    expect(el.classList.contains('app-shell')).toBe(true)
+    expect(el.classList.contains('h-screen')).toBe(false)
+  })
+
+  it('pins the topbar to the top of the shell', () => {
+    const { el } = build()
+    const header = el.querySelector('header')
+
+    expect(header).not.toBeNull()
+    expect(header!.classList.contains('sticky')).toBe(true)
+    expect(header!.classList.contains('top-0')).toBe(true)
+  })
+
+  /**
+   * The docked rail is 240px and the drawer panel is 288px. When the aside
+   * carried its own `w-60`, the drawer's extra 48px was a white strip down the
+   * right of the navigation. The host owns the width; the aside fills it.
+   */
+  it('makes the sidebar fill whichever host it is in', () => {
+    const { el } = build()
+    const asides = [...el.querySelectorAll<HTMLElement>('aside')]
+
+    expect(asides.length).toBeGreaterThan(0)
+    for (const aside of asides) {
+      expect(aside.classList.contains('w-full')).toBe(true)
+      expect(aside.classList.contains('w-60')).toBe(false)
+    }
+
+    // The docked host is the one that decides 240px.
+    const docked = asides[0]!.parentElement
+    expect(docked!.classList.contains('w-60')).toBe(true)
+    expect(docked!.classList.contains('lg:block')).toBe(true)
+  })
+
   it('renders without an organization (onboarding state)', () => {
     sessionStore.reset({ ...EMPTY_SESSION, status: 'authenticated', userId: 'u', email: 'a@b.c' })
 

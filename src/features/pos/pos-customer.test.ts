@@ -246,6 +246,11 @@ function hasButton(root: ParentNode, text: string): boolean {
 
 function customerButton(view: HTMLElement): HTMLButtonElement {
   const found = view.querySelector<HTMLButtonElement>('button[aria-label="Customer on this sale"]')
+  // It is the only way to attach a customer, and it spans the cart panel, so
+  // it is a thumb target on a phone: `md` (40px), never `sm` (32px). The
+  // phone audit fails any control under 40px.
+  expect(found?.classList.contains('h-10')).toBe(true)
+  expect(found?.classList.contains('h-8')).toBe(false)
   if (!found) throw new Error('the till has no customer control')
   return found
 }
