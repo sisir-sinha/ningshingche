@@ -44,12 +44,13 @@ const product = {
 const list = vi.fn(async () => ({ items: [product], nextCursor: null }))
 const onHand = vi.fn(async () => ({ 'p-1': milli(12000) }))
 const remove = vi.fn(async () => undefined)
+const update = vi.fn(async () => product)
 const archive = vi.fn(async () => undefined)
 const duplicate = vi.fn(async () => ({ ...product, id: 'p-2', name: 'Kala Jam (copy)' }))
 
 vi.mock('../../app/data', () => ({
   getRepositories: () => ({
-    products: { list, onHand, remove, archive, duplicate, get: vi.fn(), getWithVariants: vi.fn(), listBarcodes: vi.fn() },
+    products: { list, onHand, remove, archive, duplicate, update, get: vi.fn(), getWithVariants: vi.fn(), listBarcodes: vi.fn() },
     catalog: { listCategories: vi.fn(async () => []), listBrands: vi.fn(async () => []), listUnits: vi.fn(async () => []), listTaxes: vi.fn(async () => []) },
     stock: { listWarehouses: vi.fn(async () => []), stockIn: vi.fn(), adjust: vi.fn() },
   }),
@@ -64,9 +65,12 @@ vi.mock('../../app/state/sales-floor', () => ({
   salesFloor: () => ({ warehouseId: 'w-1' }),
 }))
 
+const uploadImage = vi.fn(async () => ({ url: 'https://i.ibb.co/new/photo.jpg', thumbUrl: null }))
+let uploadsOn = true
+
 vi.mock('../../app/images', () => ({
-  imageUploadsEnabled: () => false,
-  uploadImage: vi.fn(),
+  imageUploadsEnabled: () => uploadsOn,
+  uploadImage: (...args: unknown[]) => uploadImage(...(args as [])),
   validateImageFile: () => null,
 }))
 
@@ -105,7 +109,9 @@ function action(name: string): HTMLButtonElement {
 describe('products list', () => {
   beforeEach(() => {
     document.body.replaceChildren()
-    for (const mock of [list, onHand, remove, archive, duplicate]) mock.mockClear()
+    uploadsOn = true
+    for (const mock of [list, onHand, remove, archive, duplicate, update, uploadImage]) mock.mockClear()
+    uploadImage.mockResolvedValue({ url: 'https://i.ibb.co/new/photo.jpg', thumbUrl: null })
     onHand.mockResolvedValue({ 'p-1': milli(12000) })
     remove.mockResolvedValue(undefined)
   })
@@ -221,11 +227,12 @@ describe('products list', () => {
     expect(img.getAttribute('alt')).toBe('')
   })
 
-  it('falls back to a placeholder when a product has no photo', async () => {
+  it('invites a photo when a product has none', async () => {
     const root = view()
     await settle()
     expect(root.querySelector('tbody img')).toBeNull()
-    expect(root.querySelector('tbody .material-symbols-rounded')?.textContent).toBe('inventory_2')
+    // Not a generic box: the glyph says what is missing and what to do.
+    expect(root.querySelector('tbody .material-symbols-rounded')?.textContent).toBe('add_photo_alternate')
   })
 
   it('replaces a dead image link with the placeholder', async () => {
@@ -240,6 +247,59 @@ describe('products list', () => {
     img.dispatchEvent(new Event('error'))
 
     expect(root.querySelector('tbody img')).toBeNull()
-    expect(root.querySelector('tbody .material-symbols-rounded')?.textContent).toBe('inventory_2')
+    // A rotted link is a different problem from never having had a photo.
+    expect(root.querySelector('tbody .material-symbols-rounded')?.textContent).toBe('broken_image')
+  })
+
+  it('turns the empty square into a one-tap photo upload', async () => {
+    const root = view()
+    await settle()
+
+    const trigger = root.querySelector('[aria-label="Add photo for Kala Jam"]') as HTMLButtonElement
+    expect(trigger).not.toBeNull()
+
+    const file = root.querySelector('input[type="file"]') as HTMLInputElement
+    Object.defineProperty(file, 'files', {
+      value: [new File(['x'], 'jam.jpg', { type: 'image/jpeg' })],
+    })
+    file.dispatchEvent(new Event('change'))
+    await settle()
+
+    expect(uploadImage).toHaveBeenCalled()
+    // The link is stored on the product, and the row redraws with it.
+    expect(update).toHaveBeenCalledWith('p-1', { image_url: 'https://i.ibb.co/new/photo.jpg' })
+    expect((root.querySelector('tbody img') as HTMLImageElement).src).toBe('https://i.ibb.co/new/photo.jpg')
+  })
+
+  it('offers to replace a photo that is already there', async () => {
+    list.mockResolvedValueOnce({
+      items: [{ ...product, image_url: 'https://i.ibb.co/abc/old.jpg' }],
+      nextCursor: null,
+    })
+    const root = view()
+    await settle()
+    expect(root.querySelector('[aria-label="Change photo for Kala Jam"]')).not.toBeNull()
+  })
+
+  it('leaves the square inert when uploads are switched off', async () => {
+    uploadsOn = false
+    const root = view()
+    await settle()
+    expect(root.querySelector('[aria-label="Add photo for Kala Jam"]')).toBeNull()
+    expect(root.querySelector('input[type="file"]')).toBeNull()
+  })
+
+  it('says so when the upload fails, and keeps the row', async () => {
+    uploadImage.mockRejectedValueOnce(new Error('ImgBB refused the file'))
+    const root = view()
+    await settle()
+
+    const file = root.querySelector('input[type="file"]') as HTMLInputElement
+    Object.defineProperty(file, 'files', { value: [new File(['x'], 'jam.jpg', { type: 'image/jpeg' })] })
+    file.dispatchEvent(new Event('change'))
+    await settle()
+
+    expect(update).not.toHaveBeenCalled()
+    expect(root.textContent).toContain('Kala Jam')
   })
 })

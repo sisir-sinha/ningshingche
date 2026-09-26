@@ -37,7 +37,7 @@ import { imagePicker } from '../../components/ui/image-upload'
 import { pluginFormSectionsHost } from '../../app/plugin-slots'
 import { bindDrafts, clearDraft, restoreDraft } from '../../app/state/drafts'
 import { translateError } from '../../app/platform/errors'
-import { activeOrganization } from '../../app/state/session'
+import { activeOrganization, can } from '../../app/state/session'
 import { salesFloor } from '../../app/state/sales-floor'
 import { activePromotedFields, activeShopType } from '../../app/shop-profile'
 import { splitPluginFields } from '../../shared/types/shop-profile'
@@ -190,38 +190,100 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
   }
 
   /**
-   * The photo, at the head of the row.
+   * The photo, at the head of the row — and the fastest way to add one.
    *
-   * A shopkeeper scanning this list recognises a packet before they read its
-   * name — which is the whole reason the shop bothered to upload photos.
+   * The thumbnail shipped read-only and every row showed the placeholder,
+   * because nothing in the shop had a photo: products get added through
+   * Quick add, which never asked for one, and nobody opens a full form again
+   * just to attach a picture. A column of identical grey boxes is not a
+   * feature. So the box is a button: pick a file, it uploads and the row
+   * redraws. One tap, from the screen you are already on.
    *
    * Three details earn their keep. The box is a fixed `h-10 w-10` square so
    * every row is the same height whatever shape the file is, and the image
-   * is `object-cover` so a wide label is cropped rather than letterboxed.
+   * is `object-cover` so a wide label crops rather than letterboxes.
    * `loading="lazy"` keeps a 200-row catalogue from fetching 200 images on a
    * shop's phone connection. And an `error` handler swaps a dead ImgBB link
    * for the placeholder: a broken-image glyph in every row is worse than no
-   * picture at all, and links do rot.
+   * picture, and links do rot.
    */
   function productThumb(product: ProductRow): HTMLElement {
     const box = 'h-10 w-10 shrink-0 aspect-square rounded-md border border-border object-cover bg-surface-muted'
+
     const placeholder = (): HTMLElement =>
-      h('div', {
-        class: `${box} grid place-items-center text-content-subtle`,
+      h('div', { class: `${box} grid place-items-center text-content-subtle`, 'aria-hidden': 'true' },
+        icon(product.image_url ? 'broken_image' : 'add_photo_alternate', 'text-lg'))
+
+    const face = (): HTMLElement => {
+      if (!product.image_url) return placeholder()
+      const img = h('img', {
+        src: product.image_url,
+        alt: '',
+        loading: 'lazy',
+        decoding: 'async',
+        class: box,
+      }) as HTMLImageElement
+      img.addEventListener('error', () => img.replaceWith(placeholder()), { once: true })
+      return img
+    }
+
+    // No uploader configured: the picture is still shown, it just cannot be
+    // changed from here.
+    if (!imageUploadsEnabled() || !can('products.edit')) return face()
+
+    const file = h('input', { type: 'file', accept: 'image/*', class: 'sr-only' }) as HTMLInputElement
+    const slot = h('span', { class: 'relative block' }, face())
+    const trigger = h('button', {
+      type: 'button',
+      class:
+        'group relative block rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+      'aria-label': `${product.image_url ? 'Change' : 'Add'} photo for ${product.name}`,
+      title: `${product.image_url ? 'Change' : 'Add'} photo`,
+      onClick: () => file.click(),
+    }, slot,
+      // A hint that only appears on hover, so the list stays quiet.
+      h('span', {
+        class:
+          'pointer-events-none absolute inset-0 hidden place-items-center rounded-md bg-content/55 ' +
+          'text-surface group-hover:grid',
         'aria-hidden': 'true',
-      }, icon('inventory_2', 'text-lg'))
+      }, icon('photo_camera', 'text-base'))
+    )
 
-    if (!product.image_url) return placeholder()
+    file.addEventListener('change', () => {
+      const chosen = file.files?.[0]
+      file.value = ''
+      if (chosen) void attachPhoto(product, chosen, slot)
+    })
 
-    const img = h('img', {
-      src: product.image_url,
-      alt: '',
-      loading: 'lazy',
-      decoding: 'async',
-      class: box,
-    }) as HTMLImageElement
-    img.addEventListener('error', () => img.replaceWith(placeholder()), { once: true })
-    return img
+    return h('span', { class: 'inline-flex' }, trigger, file)
+  }
+
+  /**
+   * Upload, then store the link. The row shows a spinner in the square
+   * meanwhile, because on a shop connection this takes seconds and a button
+   * that looks inert gets pressed again.
+   */
+  async function attachPhoto(product: ProductRow, file: File, slot: HTMLElement): Promise<void> {
+    const problem = validateImageFile(file)
+    if (problem) {
+      toastError(problem)
+      return
+    }
+    const busy = h('span', { class: 'grid h-10 w-10 place-items-center rounded-md border border-border bg-surface-muted' }, spinner('h-4 w-4'))
+    slot.replaceChildren(busy)
+    try {
+      const uploaded = await uploadImage(file, { name: product.name })
+      await repos.products.update(product.id, { image_url: uploaded.url })
+      // Patch the row in place rather than refetching the page: a reload
+      // would lose the scroll position in a long catalogue.
+      rows = rows.map((row) => (row.id === product.id ? { ...row, image_url: uploaded.url } : row))
+      toastSuccess(`Photo added to “${product.name}”`)
+      render()
+    } catch (error) {
+      toastError(translateError(error).message)
+      render()
+    }
   }
 
   /**
@@ -346,11 +408,30 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
     const nameInput = input({ placeholder: 'e.g. Miniket Rice 5kg', autofocus: true })
     const priceInput = input({ type: 'text', inputmode: 'decimal', placeholder: '0.00' })
     const stockInput = input({ type: 'text', inputmode: 'decimal', placeholder: '0' })
+    // A photo taken here is why the list has pictures at all: this is the
+    // dialog a shop actually uses, and it never asked for one. Optional, and
+    // the bytes only leave the phone when Save is pressed.
+    const photo = imagePicker({
+      label: 'Product photo',
+      previewClass: 'h-14 w-14',
+      validate: (file) => validateImageFile(file),
+      ...(imageUploadsEnabled()
+        ? {
+            upload: async (file, onProgress) => {
+              const uploaded = await uploadImage(file, {
+                name: nameInput.value.trim() || file.name,
+                onProgress,
+              })
+              return { url: uploaded.url, thumbUrl: uploaded.thumbUrl }
+            },
+          }
+        : { disabledHint: 'Set VITE_IMGBB_API_KEY to add photos.' }),
+    })
     const errorSlot = h('p', { class: 'text-sm text-danger mt-2 hidden' })
 
     const dialog = modal({
       title: 'Quick add product',
-      subtitle: 'Three fields. Everything else can wait.',
+      subtitle: 'A name and a price is enough. A photo helps at the counter.',
       iconName: 'bolt',
       size: 'sm',
       footer: [
@@ -384,8 +465,10 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
         return
       }
       try {
+        const imageUrl = await photo.commit()
         const created = await repos.products.create({
           name,
+          image_url: imageUrl,
           selling_price: minorToNumber(price),
           cost_price: 0,
           tax_inclusive: false,
@@ -419,7 +502,8 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
         field('Name', nameInput, { required: true }),
         h('div', { class: 'grid grid-cols-2 gap-3' },
           field('Selling price', priceInput, { required: true }),
-          field('Opening stock', stockInput, { hint: 'Saved as a stock-in at zero cost' })
+          field('Opening stock', stockInput, { hint: 'Saved as a stock-in at zero cost' }),
+          field('Photo', photo.root, { hint: 'Optional — it shows in the list and on the POS tile' })
         ),
         errorSlot
       )
