@@ -138,6 +138,16 @@ export const en = {
   'settings.showLogo': 'Show the shop logo on receipts',
   'settings.autoPrint': 'Print receipts automatically after a sale',
 
+  'settings.appearance': 'Appearance',
+  'settings.theme': 'Theme',
+  'settings.themeHint': 'Applies to this device only.',
+  'theme.system': 'Match device',
+  'theme.light': 'Light',
+  'theme.dark': 'Dark',
+  'theme.toggleToDark': 'Switch to dark theme',
+  'theme.toggleToLight': 'Switch to light theme',
+
+  'settings.timezoneHint': 'Decides which day a sale is counted in.',
   'settings.taxes': 'Taxes',
   'settings.noTaxes': 'No tax rules',
   'settings.noTaxesHint': 'Products will be tax-free until you add a rule.',
@@ -254,6 +264,16 @@ export const bn: Partial<Record<StringKey, string>> = {
   'settings.showLogo': 'রসিদে দোকানের লোগো দেখান',
   'settings.autoPrint': 'বিক্রয়ের পর রসিদ নিজে থেকেই প্রিন্ট করুন',
 
+  'settings.appearance': 'চেহারা',
+  'settings.theme': 'থিম',
+  'settings.themeHint': 'শুধু এই ডিভাইসে প্রযোজ্য।',
+  'theme.system': 'ডিভাইস অনুযায়ী',
+  'theme.light': 'উজ্জ্বল',
+  'theme.dark': 'অন্ধকার',
+  'theme.toggleToDark': 'অন্ধকার থিমে যান',
+  'theme.toggleToLight': 'উজ্জ্বল থিমে যান',
+
+  'settings.timezoneHint': 'কোন দিনের বিক্রয় হিসেবে গণনা হবে তা ঠিক করে।',
   'settings.taxes': 'কর',
   'settings.noTaxes': 'কোনো কর নিয়ম নেই',
   'settings.noTaxesHint': 'নিয়ম যোগ না করা পর্যন্ত পণ্যে কোনো কর বসবে না।',

@@ -51,6 +51,7 @@ import { userRoutes } from './features/users'
 import { roleRoutes } from './features/roles'
 import { sessionStore, can } from './app/state/session'
 import { applyToDocument as applyLocaleToDocument, onLocaleChange } from './shared/i18n'
+import { initTheme } from './shared/theme'
 import { translateError } from './app/platform/errors'
 import { h } from './components/ui/h'
 import { button } from './components/ui/button'
@@ -59,6 +60,10 @@ import { emptyState } from './components/ui/card'
 // `<html lang>` before the first paint, so Bangla picks the right font from
 // the very first frame rather than after the shell redraws.
 applyLocaleToDocument()
+// Light or dark, before the first paint of the shell: the stored preference
+// (or the OS setting) has to be on <html> while the first screen is built,
+// or the app flashes white and then corrects itself.
+initTheme()
 
 const mountPoint = document.getElementById('app')
 if (!mountPoint) throw new Error('#app mount point missing from index.html')

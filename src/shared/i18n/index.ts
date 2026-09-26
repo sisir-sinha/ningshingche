@@ -95,6 +95,27 @@ export function setLocale(next: Locale | string | null | undefined, options: { s
   return true
 }
 
+/** Has this device made an explicit language choice? */
+export function hasStoredLocale(): boolean {
+  return readStored() !== null
+}
+
+/**
+ * Apply the shop's saved language — but never over a choice made here.
+ *
+ * Settings reloads the shop profile on every render, and it used to call
+ * `setLocale(settings.locale)` unconditionally. Picking বাংলা therefore
+ * switched the language, which redrew the shell, which re-ran the load,
+ * which set the language straight back to whatever the database still said.
+ * The select flicked back to the old value and the language looked
+ * un-switchable. The shop default now only fills a device that has not
+ * chosen for itself.
+ */
+export function applyShopLocale(value: string | null | undefined): boolean {
+  if (hasStoredLocale()) return false
+  return setLocale(value)
+}
+
 /** Subscribe to language changes. Returns the unsubscribe. */
 export function onLocaleChange(listener: Listener): () => void {
   listeners.add(listener)
@@ -335,6 +356,13 @@ export function translateTree(root: ParentNode | null | undefined = globalThis.d
 export function resetI18nForTests(): void {
   listeners.clear()
   current = DEFAULT_LOCALE
+  try {
+    // The stored choice has to go too, or `applyShopLocale` in the next test
+    // sees a device that has already made up its mind.
+    globalThis.localStorage?.removeItem(STORAGE_KEY)
+  } catch {
+    /* ignore */
+  }
   missing.clear()
   pluralRules.clear()
 }

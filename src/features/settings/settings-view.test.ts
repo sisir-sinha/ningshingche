@@ -16,6 +16,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { settingsView } from './settings-view'
 import { locale, resetI18nForTests, t } from '../../shared/i18n'
+import { resetThemeForTests, theme } from '../../shared/theme'
 
 const settingsRow = {
   id: 'org-1',
@@ -62,7 +63,9 @@ const settle = async (): Promise<void> => {
 
 describe('settingsView', () => {
   beforeEach(() => {
+    localStorage.clear()
     resetI18nForTests()
+    resetThemeForTests()
     getSettings.mockClear()
     listAllTaxes.mockClear().mockResolvedValue([
       { id: 't-1', name: 'VAT', rate: 15, is_inclusive: false, is_active: true },
@@ -113,7 +116,7 @@ describe('settingsView', () => {
     const root = settingsView()
     await settle()
 
-    const select = root.querySelector('select') as HTMLSelectElement
+    const select = root.querySelector('select[data-field="locale"]') as HTMLSelectElement
     expect(select.value).toBe('en')
     select.value = 'bn'
     select.dispatchEvent(new Event('change'))
@@ -129,6 +132,83 @@ describe('settingsView', () => {
     settingsView()
     await settle()
     expect(locale()).toBe('bn')
+  })
+
+  it('keeps the language the user just picked, instead of reloading the old one', async () => {
+    // The bug: every render re-read the shop row and re-applied its locale,
+    // so choosing বাংলা switched the language, redrew the screen, and the
+    // redraw put English straight back. The select flicked and nothing
+    // changed.
+    getSettings.mockResolvedValue({ ...settingsRow, locale: 'en' })
+    const root = settingsView()
+    await settle()
+
+    const select = root.querySelector('select[data-field="locale"]') as HTMLSelectElement
+    select.value = 'bn'
+    select.dispatchEvent(new Event('change'))
+    expect(locale()).toBe('bn')
+
+    // A second screen mounts (the shell redraws on a language change) and
+    // loads the shop profile again, which still says `en`.
+    const second = settingsView()
+    await settle()
+    expect(locale()).toBe('bn')
+    expect((second.querySelector('select[data-field="locale"]') as HTMLSelectElement).value).toBe('bn')
+  })
+
+  it('offers currencies and time zones as lists, not spelling tests', async () => {
+    const root = settingsView()
+    await settle()
+
+    const currency = root.querySelector('select[data-field="currency"]') as HTMLSelectElement
+    expect(currency).not.toBeNull()
+    expect(currency.value).toBe('BDT')
+    expect(currency.options.length).toBeGreaterThan(50)
+    expect([...currency.options].some((option) => option.value === 'USD')).toBe(true)
+    expect([...currency.options].find((option) => option.value === 'BDT')?.text).toContain('৳')
+
+    const timezone = root.querySelector('select[data-field="timezone"]') as HTMLSelectElement
+    expect(timezone.value).toBe('Asia/Dhaka')
+    expect(timezone.options.length).toBeGreaterThan(20)
+    expect([...timezone.options].find((option) => option.value === 'Asia/Dhaka')?.text).toContain('UTC+06:00')
+  })
+
+  it('keeps a saved value that this build has never heard of', async () => {
+    getSettings.mockResolvedValueOnce({ ...settingsRow, currency: 'ZZZ', timezone: 'Mars/Olympus' })
+    const root = settingsView()
+    await settle()
+    expect((root.querySelector('select[data-field="currency"]') as HTMLSelectElement).value).toBe('ZZZ')
+    expect((root.querySelector('select[data-field="timezone"]') as HTMLSelectElement).value).toBe('Mars/Olympus')
+  })
+
+  it('does not lecture the shopkeeper about where the logo is stored', async () => {
+    const root = settingsView()
+    await settle()
+    expect(root.textContent).not.toContain('ImgBB')
+  })
+
+  it('keeps the logo preview square', async () => {
+    const root = settingsView()
+    await settle()
+    const box = root.querySelector('.aspect-square')
+    expect(box).not.toBeNull()
+    expect(box?.className).toContain('h-20')
+    expect(box?.className).toContain('w-20')
+  })
+
+  it('switches the theme from the appearance card', async () => {
+    const root = settingsView()
+    await settle()
+
+    expect(root.textContent).toContain('Appearance')
+    const themeSelect = root.querySelector('select[data-field="theme"]') as HTMLSelectElement
+    expect(themeSelect.value).toBe('system')
+    expect([...themeSelect.options].map((option) => option.value)).toEqual(['system', 'light', 'dark'])
+
+    themeSelect.value = 'dark'
+    themeSelect.dispatchEvent(new Event('change'))
+    expect(theme()).toBe('dark')
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
   })
 
   it('says so when the shop profile itself cannot be read', async () => {

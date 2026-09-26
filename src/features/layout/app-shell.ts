@@ -7,6 +7,8 @@
  * to this file.
  */
 
+import { t } from '../../shared/i18n'
+import { onThemeChange, resolvedTheme, toggleTheme } from '../../shared/theme'
 import { h, mount } from '../../components/ui/h'
 import { iconButton } from '../../components/ui/button'
 import { syncIndicator } from './sync-indicator'
@@ -116,6 +118,14 @@ export function appShell(options: AppShellOptions): AppShell {
         group: 'Actions',
         keywords: 'sign out logout exit',
         run: onSignOut,
+      },
+      {
+        id: 'app:theme',
+        label: 'Toggle light / dark theme',
+        icon: 'dark_mode',
+        group: 'Actions',
+        keywords: 'theme dark light night mode appearance',
+        run: () => void toggleTheme(),
       },
       {
         id: 'app:refresh',
@@ -292,10 +302,43 @@ function headerActions(onHelp: () => void): HTMLElement {
   if (can('register.open')) {
     actions.appendChild(iconButton('point_of_sale', 'Open register', { variant: 'ghost' }))
   }
+  actions.appendChild(themeButton())
   actions.appendChild(
     iconButton('help', 'Help', { variant: 'ghost', onClick: onHelp })
   )
   return actions
+}
+
+/**
+ * The light/dark switch.
+ *
+ * `darkMode: 'class'` and a full `.dark` palette have been in the build all
+ * along with nothing to write the class — the dark theme shipped unreachable.
+ * The button shows the theme you would get by pressing it (a sun while you
+ * are in the dark), which is the convention every OS uses, and relabels
+ * itself so a screen reader hears the action rather than the state.
+ */
+function themeButton(): HTMLElement {
+  const paint = (el: HTMLElement): void => {
+    const dark = resolvedTheme() === 'dark'
+    const label = dark ? t('theme.toggleToLight') : t('theme.toggleToDark')
+    el.setAttribute('aria-label', label)
+    el.setAttribute('title', label)
+    el.dataset.theme = dark ? 'dark' : 'light'
+    const glyph = el.querySelector('.material-symbols-rounded')
+    if (glyph) glyph.textContent = dark ? 'light_mode' : 'dark_mode'
+  }
+
+  const el = iconButton(resolvedTheme() === 'dark' ? 'light_mode' : 'dark_mode', 'Theme', {
+    variant: 'ghost',
+    onClick: () => toggleTheme(),
+  })
+  el.dataset.action = 'toggle-theme'
+  paint(el)
+  // The OS can flip underneath us while the app is open, and Settings has a
+  // three-way control of its own; either way this button must agree.
+  onThemeChange(() => paint(el))
+  return el
 }
 
 function buildOrgSwitcher(): HTMLElement {

@@ -39,7 +39,8 @@ export interface ImagePickerOptions {
   disabledHint?: string
   /** Fires when the stored URL changes — a new upload, or a removal. */
   onChange?: (url: string | null) => void
-  /** Square preview size in Tailwind units. Default `h-20 w-20`. */
+  /** Square preview size in Tailwind units. Default `h-20 w-20`. The box
+   * is `aspect-square` regardless, and the image is cropped to fill it. */
   previewClass?: string
 }
 
@@ -77,13 +78,16 @@ export function imagePicker(options: ImagePickerOptions = {}): ImagePicker {
 
   const previewImage = h('img', {
     alt: options.label ?? 'Image preview',
-    class: `${previewClass} rounded-md object-cover border border-border bg-surface-muted`,
+    // `aspect-square` alongside the size classes: a tall logo must be
+    // cropped into the same box a wide one gets, or the row it sits in
+    // changes height the moment a file is chosen.
+    class: `${previewClass} aspect-square shrink-0 rounded-md object-cover border border-border bg-surface-muted`,
   }) as HTMLImageElement
 
   const placeholder = h(
     'div',
     {
-      class: `${previewClass} grid place-items-center rounded-md border border-dashed border-border bg-surface-muted text-content-subtle`,
+      class: `${previewClass} aspect-square shrink-0 grid place-items-center rounded-md border border-dashed border-border bg-surface-muted text-content-subtle`,
     },
     icon('add_photo_alternate', 'text-2xl')
   )

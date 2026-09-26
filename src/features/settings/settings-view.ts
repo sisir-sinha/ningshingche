@@ -17,7 +17,10 @@ import { getRepositories } from '../../app/data'
 import { can } from '../../app/state/session'
 import { imageUploadsEnabled, uploadImage, validateImageFile } from '../../app/images'
 import { translateError } from '../../app/platform/errors'
-import { asLocale, locale as activeLocale, setLocale, t, LOCALE_NAMES } from '../../shared/i18n'
+import { applyShopLocale, locale as activeLocale, setLocale, t, LOCALE_NAMES } from '../../shared/i18n'
+import { currencyOptions } from '../../shared/domain/currencies'
+import { deviceTimeZone, timeZoneOptions } from '../../shared/domain/timezones'
+import { setTheme, theme as activeTheme, THEMES, type Theme } from '../../shared/theme'
 import type { PaymentMethod, Tax } from '../../shared/types/records'
 
 interface SettingsBag {
@@ -55,9 +58,10 @@ export function settingsView(): HTMLElement {
     try {
       // The shop profile is the screen. Without it there is nothing to show.
       settings = await repos.organization.getSettings()
-      // The shop's saved language wins on a device that has not chosen one —
-      // and re-asserts itself after a sign-in on a borrowed tablet.
-      setLocale(settings.locale)
+      // The shop's saved language seeds a device that has not chosen one. It
+      // must not *override* a choice made here: this load runs again on every
+      // redraw, and a redraw is exactly what switching the language causes.
+      applyShopLocale(settings.locale)
 
       // Taxes and payment methods are supporting cards. A role that may edit
       // the shop name but not read tax rules should still get the page, so a
@@ -87,13 +91,24 @@ export function settingsView(): HTMLElement {
     }
     const bag = settings.settings as SettingsBag
     const name = input({ value: settings.name })
-    const currency = input({ value: settings.currency, maxlength: 3 })
-    const timezone = input({ value: settings.timezone, placeholder: 'Asia/Dhaka' })
+    // Currency and time zone are chosen, not typed. Both are codes the
+    // database validates and neither is memorable: a free-text box turned
+    // every save into a spelling test.
+    const currency = select({
+      value: settings.currency,
+      options: currencyOptions(settings.currency),
+    })
+    const timezone = select({
+      value: settings.timezone || deviceTimeZone(),
+      options: timeZoneOptions(settings.timezone),
+    })
     // The select reflects what the app is *speaking* right now, not only what
     // the database last stored: a language chosen on this device is applied
     // immediately, and the save then makes it the shop's default.
     const localeSelect = select({
-      value: asLocale(settings.locale) ?? activeLocale(),
+      // The language in force on this device, not the one the row remembers:
+      // the select must show what the user is looking at.
+      value: activeLocale(),
       options: [
         { value: 'en', label: LOCALE_NAMES.en },
         { value: 'bn', label: LOCALE_NAMES.bn },
@@ -115,7 +130,9 @@ export function settingsView(): HTMLElement {
     const logo = imagePicker({
       value: settings.logoUrl,
       label: `${shopName} logo`,
-      previewClass: 'h-16 w-16',
+      // Square, and cropped to square: a logo box that changes shape with
+      // whatever file was picked makes the whole card jump on upload.
+      previewClass: 'h-20 w-20',
       validate: (file) => validateImageFile(file),
       ...(imageUploadsEnabled()
         ? {
@@ -126,6 +143,13 @@ export function settingsView(): HTMLElement {
           }
         : { disabledHint: 'Set VITE_IMGBB_API_KEY to upload a logo.' }),
     })
+    // Named for the tests and for anyone inspecting the page: with five
+    // controls on one card, "the first select" is not an identity.
+    name.dataset.field = 'name'
+    currency.dataset.field = 'currency'
+    timezone.dataset.field = 'timezone'
+    localeSelect.dataset.field = 'locale'
+
     const saveButton = button(t('settings.save'), { variant: 'primary', icon: 'save', disabled: !can('settings.business') })
 
     saveButton.addEventListener('click', () => {
@@ -162,13 +186,34 @@ export function settingsView(): HTMLElement {
       h('div', { class: 'grid gap-4 sm:grid-cols-2' },
         field(t('settings.shopName'), name, { required: true }),
         field(t('settings.currency'), currency, { required: true, hint: t('settings.currencyHint') }),
-        field(t('settings.timezone'), timezone, { required: true }),
+        field(t('settings.timezone'), timezone, { required: true, hint: t('settings.timezoneHint') }),
         field(t('settings.language'), localeSelect, { required: true, hint: t('settings.languageHint') })
       ),
-      field(t('settings.shopLogo'), logo.root, {
-        hint: imageUploadsEnabled() ? t('settings.shopLogoHint') : t('settings.shopLogoDisabled'),
-      }),
+      // No hint when uploads work: where the bytes are stored is Mekholi's
+      // business, not the shopkeeper's, and the sentence was longer than the
+      // control it explained. The disabled case still says why nothing
+      // happens when you click.
+      field(t('settings.shopLogo'), logo.root,
+        imageUploadsEnabled() ? {} : { hint: t('settings.shopLogoDisabled') }
+      ),
       h('div', { class: 'mt-4 flex justify-end' }, saveButton)
+    )
+
+    // ── Appearance ───────────────────────────────────────────────────────
+    // A device preference, not a shop one: the counter tablet under a shop
+    // light and the owner's phone in bed want different answers, and they
+    // share a row in the database. Nothing here is saved to the server.
+    const themeSelect = select({
+      value: activeTheme(),
+      options: THEMES.map((name) => ({ value: name, label: t(`theme.${name}`) })),
+      onChange: (value) => setTheme(value as Theme),
+    })
+    themeSelect.dataset.field = 'theme'
+    const appearanceCard = card(
+      t('settings.appearance'),
+      h('div', { class: 'grid gap-4 sm:grid-cols-2' },
+        field(t('settings.theme'), themeSelect, { hint: t('settings.themeHint') })
+      )
     )
 
     const receiptCard = card(
@@ -213,6 +258,7 @@ export function settingsView(): HTMLElement {
           })
         : null,
       businessCard,
+      appearanceCard,
       receiptCard,
       taxesCard,
       paymentCard

@@ -16,6 +16,7 @@ import { EventBus } from '../../shared/bus'
 import { batchExpiryPlugin } from '../../plugins/batch-expiry'
 import { batchExpiryManifest } from '../../plugins/batch-expiry/manifest'
 import { sessionStore, EMPTY_SESSION } from '../../app/state/session'
+import { resetThemeForTests, theme } from '../../shared/theme'
 
 let registry: PluginRegistry
 let bus: EventBus
@@ -56,6 +57,8 @@ beforeEach(async () => {
 
 afterEach(() => {
   document.body.replaceChildren()
+  localStorage.clear()
+  resetThemeForTests()
 })
 
 function build(): {
@@ -280,5 +283,32 @@ describe('app shell', () => {
 
     expect(el.textContent).toContain('Mekholi')
     expect(el.querySelector('[data-nav-id]')).toBeNull()
+  })
+})
+
+describe('the theme switch', () => {
+  it('is in the topbar, where a shopkeeper can find it', () => {
+    const shell = appShell({
+      registry,
+      bus,
+      onNavigate: () => {},
+      onSignOut: () => {},
+      outlet: document.createElement('div'),
+    })
+    const button = shell.el.querySelector('[data-action="toggle-theme"]') as HTMLElement
+
+    expect(button).not.toBeNull()
+    // It advertises the state you get by pressing it, not the one you are in.
+    expect(button.getAttribute('aria-label')).toBe('Switch to dark theme')
+    expect(button.querySelector('.material-symbols-rounded')?.textContent).toBe('dark_mode')
+
+    button.click()
+    expect(theme()).toBe('dark')
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+    expect(button.getAttribute('aria-label')).toBe('Switch to light theme')
+    expect(button.querySelector('.material-symbols-rounded')?.textContent).toBe('light_mode')
+
+    button.click()
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
   })
 })
