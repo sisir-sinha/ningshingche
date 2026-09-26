@@ -19,6 +19,8 @@ export interface AppEnv {
    */
   readonly enableDemo: boolean
   readonly appName: string
+  /** Public ImgBB key used only when a user explicitly uploads a product image. */
+  readonly imgbbApiKey: string
   /** True when Supabase is configured; false puts the app in setup mode. */
   readonly isSupabaseConfigured: boolean
 }
@@ -39,6 +41,7 @@ export const env: AppEnv = {
   environment,
   enableDemo: read('VITE_ENABLE_DEMO') === 'true',
   appName: read('VITE_APP_NAME') || 'Mekholi',
+  imgbbApiKey: read('VITE_IMGBB_API_KEY'),
   isSupabaseConfigured:
     read('VITE_SUPABASE_URL').length > 0 && read('VITE_SUPABASE_ANON_KEY').length > 0,
 }
