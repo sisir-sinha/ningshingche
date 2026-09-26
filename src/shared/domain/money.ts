@@ -65,7 +65,7 @@ export const ZERO_MINOR: Minor = ZERO
  */
 export function parseMinor(input: string | number | null | undefined): Minor | null {
   if (input === null || input === undefined || input === '') return null
-  const text = typeof input === 'number' ? String(input) : input
+  const text = westernDigits(typeof input === 'number' ? String(input) : input)
   const cleaned = text.replace(/[^0-9.-]/g, '')
   if (cleaned === '' || cleaned === '-' || cleaned === '.') return null
   const value = Number.parseFloat(cleaned)
@@ -85,7 +85,7 @@ export function parseMilli(
   options: { decimal?: boolean } = {}
 ): Milli | null {
   if (input === null || input === undefined || input === '') return null
-  const text = typeof input === 'number' ? String(input) : input
+  const text = westernDigits(typeof input === 'number' ? String(input) : input)
   const cleaned = text.replace(/[^0-9.-]/g, '')
   if (cleaned === '' || cleaned === '-' || cleaned === '.') return null
   const value = Number.parseFloat(cleaned)
@@ -120,6 +120,36 @@ export interface MoneyFormatOptions {
   locale?: string
   /** Omit the currency symbol, e.g. inside a column already headed "৳". */
   symbol?: boolean
+  /**
+   * Force Western digits. Machine-bound output (CSV, JSON, an `<input value>`
+   * that will be parsed back) must stay `1250.00` even when the shop is
+   * reading Bangla, or the round trip loses the number.
+   */
+  digits?: 'locale' | 'latin'
+}
+
+/**
+ * Which locale money formats in when the caller does not say.
+ *
+ * Domain code must stay pure — it cannot import the i18n module and read a
+ * mutable "current language" out of it. So the direction is inverted: the
+ * i18n layer *pushes* a provider in here at startup, and `formatMoney` asks
+ * it. Untouched (in a test, in a worker) the answer is `en-BD`, exactly as
+ * before.
+ */
+let localeProvider: () => string = () => 'en-BD'
+
+export function setMoneyLocaleProvider(provider: () => string): void {
+  localeProvider = provider
+}
+
+/** Test hook: back to the hard-coded default. */
+export function resetMoneyLocaleProvider(): void {
+  localeProvider = () => 'en-BD'
+}
+
+export function moneyLocale(): string {
+  return localeProvider()
 }
 
 /**
@@ -132,22 +162,23 @@ export interface MoneyFormatOptions {
  * stays correct for other currencies.
  */
 export function formatMoney(value: Minor, options: MoneyFormatOptions = {}): string {
-  const { currency = 'BDT', locale = 'en-BD', symbol = true } = options
+  const { currency = 'BDT', locale = localeProvider(), symbol = true, digits = 'locale' } = options
   const sign = value < 0 ? '-' : ''
   const abs = Math.abs(value)
   const whole = Math.trunc(abs / 100)
   const frac = String(abs % 100).padStart(2, '0')
   const grouped = groupIndian(whole)
   const prefix = symbol ? `${currencySymbol(currency, locale)}${NON_BREAKING_THIN_SPACE}` : ''
-  return `${sign}${prefix}${grouped}.${frac}`
+  const body = digits === 'latin' ? `${grouped}.${frac}` : localizeDigits(`${grouped}.${frac}`, locale)
+  return `${sign}${prefix}${body}`
 }
 
 /** Format a quantity: whole units collapse (`3`), decimals stay (`1.250 kg`). */
 export function formatQty(
   value: Milli,
-  options: { decimal?: boolean; unitLabel?: string | undefined } = {}
+  options: { decimal?: boolean; unitLabel?: string | undefined; digits?: 'locale' | 'latin'; locale?: string } = {}
 ): string {
-  const { decimal = false, unitLabel } = options
+  const { decimal = false, unitLabel, digits = 'latin', locale = localeProvider() } = options
   const abs = Math.abs(value)
   const sign = value < 0 ? '-' : ''
   let body: string
@@ -158,7 +189,72 @@ export function formatQty(
   } else {
     body = String(roundHalfAway(abs / 1000))
   }
-  return unitLabel ? `${sign}${body}${NON_BREAKING_THIN_SPACE}${unitLabel}` : `${sign}${body}`
+  const shown = digits === 'latin' ? body : localizeDigits(body, locale)
+  return unitLabel ? `${sign}${shown}${NON_BREAKING_THIN_SPACE}${unitLabel}` : `${sign}${shown}`
+}
+
+/**
+ * Rewrite `0-9` in the locale's own numerals: `1,250.00` → `১,২৫০.০০`.
+ *
+ * Grouping is done by hand above (lakh/crore), so `Intl.NumberFormat` is used
+ * only as a *digit table*: format 0…9 once per locale and cache the mapping.
+ * A locale whose numbering system is already Western costs one lookup and
+ * returns the string untouched.
+ */
+export function localizeDigits(text: string, locale: string): string {
+  const table = digitTable(locale)
+  if (!table) return text
+  return text.replace(/[0-9]/g, (d) => table[Number(d)] ?? d)
+}
+
+/**
+ * The inverse of `localizeDigits`: any decimal numeral becomes `0-9`.
+ *
+ * A shopkeeper with a Bangla keyboard types `১২৫` into the price field, and
+ * `Number.parseFloat` has never heard of `১`. Every Unicode decimal digit
+ * sits at a fixed offset from its block's zero, so one table of zeros covers
+ * Bengali, Devanagari, Arabic-Indic and the rest without a per-glyph map.
+ */
+export function westernDigits(text: string): string {
+  // eslint-disable-next-line no-control-regex
+  if (!/[^\u0000-\u007f]/.test(text)) return text
+  let out = ''
+  for (const char of text) {
+    const code = char.codePointAt(0) ?? 0
+    const zero = DIGIT_ZEROS.find((base) => code >= base && code <= base + 9)
+    out += zero === undefined ? char : String(code - zero)
+  }
+  return out
+}
+
+/** Code point of zero in the numeral blocks a Bangladeshi shop might meet. */
+const DIGIT_ZEROS = [
+  0x0660, // Arabic-Indic
+  0x06f0, // Extended Arabic-Indic (Persian/Urdu)
+  0x0966, // Devanagari
+  0x09e6, // Bengali
+  0x0a66, // Gurmukhi
+  0x0be6, // Tamil
+  0x0e50, // Thai
+  0xff10, // Fullwidth
+]
+
+const digitTables = new Map<string, readonly string[] | null>()
+
+function digitTable(locale: string): readonly string[] | null {
+  const cached = digitTables.get(locale)
+  if (cached !== undefined) return cached
+  let table: readonly string[] | null = null
+  try {
+    const format = new Intl.NumberFormat(locale, { useGrouping: false })
+    const rendered = Array.from({ length: 10 }, (_, d) => format.format(d))
+    // Only worth a mapping when the locale actually renders other numerals.
+    table = rendered.some((glyph, d) => glyph !== String(d)) ? rendered : null
+  } catch {
+    table = null
+  }
+  digitTables.set(locale, table)
+  return table
 }
 
 /** Bangladeshi / Indian digit grouping: `1234567` → `12,34,567`. */

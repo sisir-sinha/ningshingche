@@ -23,6 +23,7 @@
  * stale price in the browser cannot reach the customer's receipt.
  */
 
+import { t } from '../../shared/i18n'
 import { h, icon, mount } from '../../components/ui/h'
 import { button, iconButton, spinner } from '../../components/ui/button'
 import { badge, emptyState } from '../../components/ui/card'
@@ -477,7 +478,7 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
     }
 
     const count = state.cart.lines.length
-    lineCountBadge.textContent = `${count} ${count === 1 ? 'item' : 'items'}`
+    lineCountBadge.textContent = t('common.itemCount', { count })
     lineCountBadge.classList.toggle('hidden', count === 0)
 
     payButton.disabled = state.cart.lines.length === 0 || state.busy

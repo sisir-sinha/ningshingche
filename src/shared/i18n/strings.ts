@@ -28,7 +28,37 @@ export const LOCALE_TAGS: Record<Locale, string> = {
 
 export type StringKey = keyof typeof en
 
+/**
+ * The *base* of a plural family: `common.itemCount`, given that
+ * `common.itemCount.other` is in the catalogue. Derived rather than written
+ * by hand, so `t('common.itemCount', { count })` type-checks only while the
+ * family really exists — delete the `.other` member and every call site
+ * turns red.
+ */
+export type PluralKey = StringKey extends infer Key
+  ? Key extends `${infer Base}.other`
+    ? Base
+    : never
+  : never
+
 export const en = {
+  // ── Plural families ────────────────────────────────────────────────────
+  //
+  // A key ending in a CLDR category (`.one`, `.other`) is not looked up
+  // directly: `t('common.itemCount', { count })` picks the member through
+  // `Intl.PluralRules`. Bangla needs one form where English needs two, which
+  // is exactly why the choice is not `count === 1` in the view.
+  'common.itemCount.one': '{count} item',
+  'common.itemCount.other': '{count} items',
+  'common.productCount.one': '{count} product',
+  'common.productCount.other': '{count} products',
+  'common.saleCount.one': '{count} sale',
+  'common.saleCount.other': '{count} sales',
+  'common.dayCount.one': '{count} day',
+  'common.dayCount.other': '{count} days',
+  'common.lowStockCount.one': '{count} item is running low',
+  'common.lowStockCount.other': '{count} items are running low',
+
   // ── Navigation ─────────────────────────────────────────────────────────
   'nav.dashboard': 'Dashboard',
   'nav.pos': 'Point of Sale',
@@ -132,6 +162,19 @@ export const en = {
 } as const
 
 export const bn: Partial<Record<StringKey, string>> = {
+  // Bangla has a single plural form: the number carries the plurality, and
+  // "৩টি পণ্যগুলি" is what a machine writes, not a shopkeeper.
+  'common.itemCount.one': '{count}টি পণ্য',
+  'common.itemCount.other': '{count}টি পণ্য',
+  'common.productCount.one': '{count}টি পণ্য',
+  'common.productCount.other': '{count}টি পণ্য',
+  'common.saleCount.one': '{count}টি বিক্রয়',
+  'common.saleCount.other': '{count}টি বিক্রয়',
+  'common.dayCount.one': '{count} দিন',
+  'common.dayCount.other': '{count} দিন',
+  'common.lowStockCount.one': '{count}টি পণ্যের স্টক কমে গেছে',
+  'common.lowStockCount.other': '{count}টি পণ্যের স্টক কমে গেছে',
+
   // ── Navigation ─────────────────────────────────────────────────────────
   'nav.dashboard': 'ড্যাশবোর্ড',
   'nav.pos': 'বিক্রয় কাউন্টার',
