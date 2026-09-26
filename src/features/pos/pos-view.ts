@@ -23,7 +23,7 @@
  * stale price in the browser cannot reach the customer's receipt.
  */
 
-import { h, mount } from '../../components/ui/h'
+import { h, icon, mount } from '../../components/ui/h'
 import { button, iconButton, spinner } from '../../components/ui/button'
 import { badge, emptyState } from '../../components/ui/card'
 import { toastError, toastSuccess, toastWarning } from '../../components/feedback/toast'
@@ -158,7 +158,7 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
   const sales = new SaleService(repos, bus)
   const cart = new CartStore(floor.branchId)
 
-  const root = h('div', { class: 'flex h-full min-h-0' })
+  const root = h('div', { class: 'flex h-full min-h-0 flex-col lg:flex-row' })
 
   // ── Left: catalogue ─────────────────────────────────────────────────────
 
@@ -170,14 +170,19 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
   const seen = new Map<string, SellableProduct>()
   let searchTimer: ReturnType<typeof setTimeout> | undefined
 
+  // `auto-fill` rather than fixed column counts: the catalogue pane is a
+  // different width on a phone, a counter tablet and a desktop, and a tile
+  // narrower than ~150px cannot hold a product name and a price.
   const grid = h('div', {
-    class: 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 p-3',
+    class: 'grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2 p-3 content-start',
   })
 
-  const statusLine = h('p', { class: 'px-3 pb-1 text-xs text-content-subtle' })
+  const statusLine = h('p', { class: 'px-3 pb-1.5 text-xs text-content-subtle' })
 
   const searchField = input({
     type: 'search',
+    leadingIcon: 'barcode_scanner',
+    class: 'h-12 text-base',
     placeholder: 'Scan a barcode or type a product name — then Enter',
     autofocus: true,
     autocomplete: 'off',
@@ -315,8 +320,14 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
     if (results.length === 0) {
       statusLine.textContent = 'No products match.'
       grid.replaceChildren(
-        h('div', { class: 'col-span-full py-10 text-center text-sm text-content-subtle' },
-          'Nothing found. Add the product first, or check the spelling.')
+        h('div', { class: 'col-span-full px-3 py-12 text-center' },
+          icon('search_off', 'text-4xl text-content-subtle'),
+          h('p', { class: 'mt-2 text-sm font-medium text-content', text: 'Nothing found' }),
+          h('p', {
+            class: 'mt-0.5 text-xs text-content-subtle',
+            text: 'Check the spelling, or add the product first.',
+          })
+        )
       )
       return
     }
@@ -337,12 +348,12 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
       {
         type: 'button',
         class: [
-          'text-left rounded-lg border p-2.5 transition-colors min-h-[76px]',
+          'flex min-h-[84px] flex-col rounded-lg border p-2.5 text-left transition-colors',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           index === highlighted
             ? 'border-primary bg-primary/5 ring-1 ring-primary'
-            : 'border-border bg-surface hover:bg-surface-muted',
-          out ? 'opacity-60' : '',
+            : 'border-border bg-surface hover:border-ring/50 hover:bg-surface-muted',
+          out ? 'opacity-70' : '',
         ].filter(Boolean).join(' '),
         onClick: () => {
           addToCart(product)
@@ -358,14 +369,20 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
       ...posFieldValues(registry, product.metadata).map((entry) =>
         h('p', { class: 'text-[11px] text-content-subtle mt-0.5', text: entry.text })
       ),
-      h('div', { class: 'mt-1.5 flex items-center justify-between gap-1' },
+      // Price and stock sit on the tile's floor, so tiles line up no matter how
+      // many lines the name took.
+      h('div', { class: 'mt-auto flex items-end justify-between gap-1 pt-1.5' },
         h('span', {
-          class: 'text-sm font-semibold text-content tabular-nums',
+          class: 'min-w-0 truncate text-sm font-semibold tabular-nums text-content',
           text: formatMoney(product.price, { currency }),
         }),
         product.trackStock
           ? h('span', {
-              class: `text-[11px] tabular-nums ${out ? 'text-danger' : 'text-content-subtle'}`,
+              // A stock figure a cashier can read at arm's length: a quiet chip
+              // when there is stock, a loud one when there is none.
+              class: `shrink-0 rounded px-1.5 py-0.5 text-[11px] tabular-nums ${
+                out ? 'bg-danger/10 font-medium text-danger' : 'bg-surface-muted text-content-subtle'
+              }`,
               text: formatQty(product.availableQty ?? milli(0), {
                 decimal: product.decimalQuantity,
               }),
@@ -388,24 +405,40 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
     class: 'flex items-center gap-1 border-b border-border px-3 py-1.5',
   })
 
-  const lineList = h('div', { class: 'flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-1' })
+  // `overflow-x-hidden` is deliberate: a container with `overflow-y-auto`
+  // computes `overflow-x: auto`, so one too-wide child used to hand the whole
+  // cart a horizontal scrollbar. Nothing in a cart is ever meant to be read
+  // sideways.
+  const lineList = h('div', {
+    class: 'flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2.5 py-2 space-y-1.5',
+  })
   // Money a plugin has taken off this sale, and the strip the cashier applies it
   // from. The till owns this list, not the plugin: the *sum* is what reaches
   // `complete_sale`, and a plugin that lost track of its own quote can be told.
   let appliedAdjustments: AppliedAdjustment[] = []
   const adjustmentsSlot = h('div', { class: 'px-3' })
-  const totalsBox = h('div', { class: 'border-t border-border px-3 py-2 space-y-1' })
+  const totalsBox = h('div', { class: 'border-t border-border px-3 py-2.5 space-y-1.5' })
   // Plugin panels sit between the totals and the pay button: the money is core,
   // and whatever a plugin adds about *this* sale belongs beside it.
   const panelsSlot = h('div', { class: 'px-3 pb-1' })
   const heldBadge = badge('0', { tone: 'warning', iconName: 'pause_circle' })
+  /** How many lines are on the sale, beside the panel title. */
+  const lineCountBadge = badge('0', { tone: 'neutral' })
 
   function renderCart(): void {
     const state = cart.state
     if (state.cart.lines.length === 0) {
       lineList.replaceChildren(
-        h('div', { class: 'py-12 text-center text-sm text-content-subtle' },
-          'Scan or search to start a sale.')
+        h('div', { class: 'flex h-full flex-col items-center justify-center px-4 py-10 text-center' },
+          h('span', {
+            class: 'grid h-12 w-12 place-items-center rounded-full bg-surface-muted text-content-subtle',
+          }, icon('shopping_cart', 'text-2xl')),
+          h('p', { class: 'mt-3 text-sm font-medium text-content', text: 'Scan or search to start a sale.' }),
+          h('p', {
+            class: 'mt-1 text-xs text-content-subtle',
+            text: 'Enter adds the highlighted product · F2 opens payment',
+          })
+        )
       )
     } else {
       lineList.replaceChildren(...state.cart.lines.map((line) => cartLine(line.lineId)))
@@ -418,10 +451,10 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
         ? [totalRow('Discount', (0 - totals.discount) as Minor, 'text-success')]
         : []),
       ...(totals.tax > 0 ? [totalRow('Tax', totals.tax)] : []),
-      h('div', { class: 'flex items-baseline justify-between pt-1.5 border-t border-border' },
+      h('div', { class: 'flex items-baseline justify-between gap-2 pt-2 border-t border-border' },
         h('span', { class: 'text-sm font-medium text-content', text: 'Total' }),
         h('span', {
-          class: 'text-2xl font-semibold text-content tabular-nums tracking-tight',
+          class: 'min-w-0 truncate text-2xl font-semibold text-content tabular-nums tracking-tight',
           text: formatMoney(totals.total, { currency }),
         })
       )
@@ -442,6 +475,10 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
     } else {
       mount(adjustmentsSlot, null)
     }
+
+    const count = state.cart.lines.length
+    lineCountBadge.textContent = `${count} ${count === 1 ? 'item' : 'items'}`
+    lineCountBadge.classList.toggle('hidden', count === 0)
 
     payButton.disabled = state.cart.lines.length === 0 || state.busy
     holdButton.disabled = state.cart.lines.length === 0 || state.busy
@@ -516,12 +553,28 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
   }
 
   function totalRow(label: string, amount: Minor, extraClass = ''): HTMLElement {
-    return h('div', { class: 'flex items-baseline justify-between' },
-      h('span', { class: 'text-xs text-content-muted', text: label }),
+    return h('div', { class: 'flex items-baseline justify-between gap-2' },
+      h('span', { class: 'min-w-0 truncate text-xs text-content-muted', text: label }),
       h('span', { class: `text-sm text-content tabular-nums ${extraClass}`.trim(), text: formatMoney(amount, { currency }) })
     )
   }
 
+  /**
+   * One line in the cart.
+   *
+   * ── Why this is two rows, not three columns ──────────────────────────────
+   * It used to be `[name | stepper | total+delete]` in a single row, each
+   * column sized by its content. At 360px the stepper and the total claimed
+   * roughly 260px between them and the name was left with about 40 — so
+   * "Only 0 in stock" wrapped one word per line, the line total was clipped by
+   * the panel edge, and the list grew a horizontal scrollbar (an `overflow-y`
+   * container computes `overflow-x: auto`, so any overflowing child shows one).
+   *
+   * Now the row that must never wrap — name and money — owns the full width,
+   * and the controls sit underneath where they can be thumb-sized. Everything
+   * that can overflow is `min-w-0` + `truncate`; nothing is wider than the
+   * panel, so there is nothing left to scroll sideways.
+   */
   function cartLine(lineId: string): HTMLElement {
     const state = cart.state
     const line = state.cart.lines.find((l) => l.lineId === lineId)
@@ -534,55 +587,79 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
       type: 'text',
       inputmode: 'decimal',
       value: formatQty(line.quantity, { decimal: line.decimalQuantity }),
-      class: 'h-8 w-16 text-center text-sm tabular-nums',
+      // Sits inside the stepper group, so it drops the control's own border
+      // and rounding rather than drawing a second box inside a box.
+      class: 'h-9 w-14 min-w-0 rounded-none border-0 bg-transparent px-1 text-center text-sm tabular-nums focus:ring-0',
       onEnter: (value) => {
         const parsed = parseMilli(value, { decimal: line.decimalQuantity })
         if (parsed !== null && parsed > 0) cart.setQuantity(lineId, parsed)
         else renderCart()
       },
     })
+    qtyInput.setAttribute('aria-label', `Quantity of ${line.name}`)
+
+    const stepper = h('div',
+      {
+        class:
+          'flex items-center rounded-md border border-border bg-surface shrink-0 ' +
+          'focus-within:border-ring focus-within:ring-2 focus-within:ring-ring',
+      },
+      iconButton('remove', 'Decrease', {
+        size: 'sm',
+        variant: 'ghost',
+        onClick: () => cart.increment(lineId, (0 - step) as Milli),
+      }),
+      qtyInput,
+      iconButton('add', 'Increase', {
+        size: 'sm',
+        variant: 'ghost',
+        onClick: () => cart.increment(lineId, step),
+      })
+    )
 
     return h(
       'div',
       {
-        class: `flex items-start gap-2 rounded-md border p-2 ${
-          oversold ? 'border-danger bg-danger/5' : 'border-border'
+        class: `group rounded-lg border px-2.5 py-2 transition-colors ${
+          oversold ? 'border-danger bg-danger/5' : 'border-border bg-surface hover:border-ring/40'
         }`.trim(),
+        dataset: { lineId },
       },
-      h('div', { class: 'flex-1 min-w-0' },
-        h('p', { class: 'text-sm text-content leading-tight truncate', text: line.name }),
-        line.variantName
-          ? h('p', { class: 'text-xs text-content-muted', text: line.variantName })
-          : null,
-        oversold
-          ? h('p', {
-              class: 'text-[11px] text-danger mt-0.5',
-              text: `Only ${formatQty(line.availableQty ?? milli(0), { decimal: line.decimalQuantity })} in stock`,
-            })
-          : null,
-        h('p', { class: 'text-xs text-content-subtle tabular-nums mt-0.5', text: formatMoney(line.unitPrice, { currency }) })
-      ),
-      h('div', { class: 'flex items-center gap-1 shrink-0' },
-        iconButton('remove', 'Decrease', {
-          size: 'sm',
-          variant: 'ghost',
-          onClick: () => cart.increment(lineId, (0 - step) as Milli),
+      // Row 1 — what it is, and what it costs. Never wraps, never clipped.
+      h('div', { class: 'flex items-start gap-2' },
+        h('div', { class: 'min-w-0 flex-1' },
+          h('p', { class: 'truncate text-sm font-medium leading-tight text-content', title: line.name, text: line.name }),
+          line.variantName
+            ? h('p', { class: 'truncate text-xs text-content-muted', text: line.variantName })
+            : null
+        ),
+        h('p', {
+          class: 'shrink-0 text-sm font-semibold tabular-nums text-content',
+          text: formatMoney(totals?.total ?? (0 as Minor), { currency }),
         }),
-        qtyInput,
-        iconButton('add', 'Increase', {
+        iconButton('close', 'Remove line', {
           size: 'sm',
           variant: 'ghost',
-          onClick: () => cart.increment(lineId, step),
-        })
-      ),
-      h('div', { class: 'text-right shrink-0' },
-        h('p', { class: 'text-sm font-medium text-content tabular-nums', text: formatMoney(totals?.total ?? (0 as Minor), { currency }) }),
-        iconButton('delete', 'Remove line', {
-          size: 'sm',
-          variant: 'ghost',
+          class: 'shrink-0 -mr-1.5 -mt-1 text-content-subtle hover:text-danger',
           onClick: () => cart.remove(lineId),
         })
-      )
+      ),
+      // Row 2 — the controls, and the unit price they multiply.
+      h('div', { class: 'mt-1.5 flex items-center justify-between gap-2' },
+        h('p', {
+          class: 'min-w-0 truncate text-xs tabular-nums text-content-subtle',
+          text: `${formatMoney(line.unitPrice, { currency })} ×`,
+        }),
+        stepper
+      ),
+      // Row 3 — only when the shop cannot cover it. A full-width strip, so the
+      // sentence reads as a sentence.
+      oversold
+        ? h('p', {
+            class: 'mt-1.5 flex items-center gap-1 rounded bg-danger/10 px-1.5 py-1 text-[11px] font-medium text-danger',
+            text: `Only ${formatQty(line.availableQty ?? milli(0), { decimal: line.decimalQuantity })} in stock`,
+          })
+        : null
     )
   }
 
@@ -855,15 +932,51 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
       const held = await repos.sales.held(floor!.branchId)
       heldBadge.querySelector('span:last-child')!.textContent = String(held.length)
       heldBadge.classList.toggle('hidden', held.length === 0)
-      heldList.replaceChildren(
-        ...held.map((sale) => heldRow(sale))
-      )
+      heldCount.textContent = String(held.length)
+      // Nothing held, nothing shown: an empty drawer is one more thing to read
+      // on a screen that is mostly read at a glance.
+      heldSection.classList.toggle('hidden', held.length === 0)
+      if (held.length === 0) {
+        heldList.classList.add('hidden')
+        heldToggle.setAttribute('aria-expanded', 'false')
+        heldChevron.textContent = 'expand_more'
+      }
+      heldList.replaceChildren(...held.map((sale) => heldRow(sale)))
     } catch {
       // A failed badge refresh is not worth interrupting a sale for.
     }
   }
 
-  const heldList = h('div', { class: 'space-y-1' })
+  const heldList = h('div', { class: 'space-y-1 px-3 pb-3 max-h-48 overflow-y-auto' })
+
+  /**
+   * Held sales are a drawer, not a permanent block.
+   *
+   * They used to sit open at the bottom of the panel under a bare "Held sales"
+   * label, stealing height from the cart and reading as a stray fragment when
+   * there was nothing to show. Now the section hides itself entirely when the
+   * count is zero, and opens on demand.
+   */
+  const heldToggle = h('button', {
+    type: 'button',
+    class:
+      'flex w-full items-center gap-2 border-t border-border px-3 py-2 text-xs font-medium ' +
+      'text-content-muted hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 ' +
+      'focus-visible:ring-ring',
+    'aria-expanded': 'false',
+  }) as HTMLButtonElement
+  const heldChevron = icon('expand_more', 'text-base transition-transform')
+  const heldCount = h('span', { class: 'ml-auto tabular-nums', text: '0' })
+  heldToggle.append(icon('pause_circle', 'text-base'), h('span', { text: 'Held sales' }), heldCount, heldChevron)
+
+  const heldSection = h('div', { class: 'hidden' }, heldToggle, heldList)
+  heldList.classList.add('hidden')
+
+  heldToggle.addEventListener('click', () => {
+    const open = heldList.classList.toggle('hidden') === false
+    heldToggle.setAttribute('aria-expanded', String(open))
+    heldChevron.textContent = open ? 'expand_less' : 'expand_more'
+  })
 
   function heldRow(sale: SaleRow): HTMLElement {
     const heldFor = Math.max(0, Math.round((Date.now() - new Date(sale.created_at).getTime()) / 60000))
@@ -937,19 +1050,32 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
   const busyIndicator = h('div', { class: 'hidden items-center gap-2 px-3 py-1 text-xs text-content-muted' })
 
   root.append(
-    h('section', { class: 'flex-1 min-w-0 flex flex-col border-r border-border' },
-      h('div', { class: 'p-3 pb-2' }, searchField),
+    h('section', { class: 'flex min-h-0 min-w-0 flex-1 flex-col' },
+      // The search field is the till's front door and stays put while the grid
+      // scrolls under it.
+      h('div', { class: 'sticky top-0 z-10 bg-surface/95 px-3 pt-3 pb-2 backdrop-blur' }, searchField),
       statusLine,
       h('div', { class: 'flex-1 min-h-0 overflow-y-auto' }, grid),
+      // The keyboard contract, stated where a new cashier will see it. Hidden
+      // on touch-sized screens, where there are no F-keys to press.
       h('p', {
-        class: 'px-3 py-1.5 text-[11px] text-content-subtle border-t border-border',
+        class: 'hidden border-t border-border px-3 py-1.5 text-[11px] text-content-subtle sm:block',
         text: 'Enter add · ↑↓ choose · F2 pay · F4 hold · F8 clear',
       })
     ),
-    h('aside', { class: 'w-[360px] shrink-0 flex flex-col bg-surface' },
-      h('div', { class: 'flex items-center justify-between gap-2 px-3 py-2 border-b border-border' },
+    // The cart is a fixed rail beside the catalogue on a desktop, and the
+    // lower half of the screen on a phone — a counter is as often a phone in
+    // portrait as it is a widescreen till, and a 360px rail squeezed into a
+    // 390px viewport is neither.
+    h('aside', {
+      class:
+        'flex min-h-0 w-full shrink-0 flex-col border-t border-border bg-surface ' +
+        'lg:h-full lg:w-[380px] lg:border-l lg:border-t-0 xl:w-[420px]',
+    },
+      h('div', { class: 'flex items-center gap-2 border-b border-border px-3 py-2' },
         h('p', { class: 'text-sm font-semibold text-content', text: 'Current sale' }),
-        heldBadge
+        lineCountBadge,
+        h('div', { class: 'ml-auto' }, heldBadge)
       ),
       busyIndicator,
       customerLine,
@@ -959,14 +1085,11 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
       adjustmentsSlot,
       totalsBox,
       panelsSlot,
-      h('div', { class: 'p-3 space-y-2 border-t border-border' },
+      h('div', { class: 'border-t border-border p-3 space-y-2' },
         payButton,
-        h('div', { class: 'flex gap-2' }, holdButton, clearButton)
+        h('div', { class: 'grid grid-cols-2 gap-2' }, holdButton, clearButton)
       ),
-      h('div', { class: 'px-3 pb-3 max-h-40 overflow-y-auto' },
-        h('p', { class: 'text-xs font-medium text-content-muted mb-1.5', text: 'Held sales' }),
-        heldList
-      )
+      heldSection
     )
   )
 

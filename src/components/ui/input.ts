@@ -60,6 +60,7 @@ export function input(options: InputOptions = {}): HTMLInputElement {
     onInput,
     onChange,
     onEnter,
+    class: extraClass = '',
   } = options
 
   const el = h('input', {
@@ -78,12 +79,19 @@ export function input(options: InputOptions = {}): HTMLInputElement {
     ...(options.autofocus === true ? { autofocus: true } : {}),
     readonly,
     disabled,
-    class:
+    // `class` is appended, not ignored. It used to be accepted by the type and
+    // dropped by the implementation, so `input({ class: 'h-8 w-16' })` — the
+    // POS quantity box, among others — silently rendered as a full-width
+    // 44px control and blew the cart layout apart. Later classes win in
+    // Tailwind's output order, so a caller can still override the defaults.
+    class: (
       'w-full h-11 rounded-md border border-input bg-surface px-3 text-base text-content ' +
       'sm:text-sm ' +
       'placeholder:text-content-subtle ' +
       'focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring ' +
-      'disabled:opacity-60 disabled:bg-surface-muted',
+      'disabled:opacity-60 disabled:bg-surface-muted ' +
+      extraClass
+    ).trim(),
   })
 
   if (onInput) el.addEventListener('input', () => onInput(el.value, el))
