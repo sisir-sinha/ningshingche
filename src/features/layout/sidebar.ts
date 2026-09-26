@@ -7,7 +7,9 @@
  */
 
 import { h, icon } from '../../components/ui/h'
-import { buildNavigation } from './navigation'
+import { buildNavigation, navLabel, sectionLabel } from './navigation'
+import type { NavItem } from '../../shared/registry/plugin-types'
+import { t } from '../../shared/i18n'
 import type { PluginRegistry } from '../../shared/registry/plugin-registry'
 
 export interface SidebarOptions {
@@ -34,7 +36,7 @@ export function sidebar(options: SidebarOptions): HTMLElement {
     // a scrollbar. `scrollbar-slim` keeps the affordance while stopping the
     // platform's default width from eating the right-hand edge of the rail.
     class: 'flex-1 overflow-y-auto px-2 py-3 space-y-4 scrollbar-slim',
-    'aria-label': 'Main navigation',
+    'aria-label': t('shell.mainNavigation'),
   })
 
   const groups = buildNavigation(registry)
@@ -61,7 +63,7 @@ export function sidebar(options: SidebarOptions): HTMLElement {
         'aria-expanded': String(!collapsed),
         'aria-controls': listId,
       },
-      h('span', { text: group.section.label }),
+      h('span', { text: sectionLabel(group.section) }),
       icon(collapsed ? 'chevron_right' : 'expand_more', 'text-sm transition-transform')
     )
 
@@ -95,7 +97,7 @@ export function sidebar(options: SidebarOptions): HTMLElement {
     nav.appendChild(
       h(
         'p',
-        { class: 'px-2 py-4 text-xs text-content-subtle', text: 'No features available for your role.' }
+        { class: 'px-2 py-4 text-xs text-content-subtle', text: t('shell.noFeatures') }
       )
     )
   }
@@ -110,7 +112,7 @@ export function sidebar(options: SidebarOptions): HTMLElement {
       // right-hand side of the navigation.
       class:
         'flex h-full w-full shrink-0 flex-col border-r border-border bg-surface-muted',
-      'aria-label': 'Sidebar',
+      'aria-label': t('shell.sidebar'),
     },
     // Shop identity
     h(
@@ -149,7 +151,7 @@ export function sidebar(options: SidebarOptions): HTMLElement {
           onclick: onOpenPalette,
         },
         icon('search', 'text-base'),
-        h('span', { class: 'flex-1 text-left', text: 'Search…' }),
+        h('span', { class: 'flex-1 text-left', text: t('shell.search') }),
         h('kbd', {
           // Hidden on touch-sized screens: a keyboard shortcut hint is noise
           // on a phone, and it steals width from the search label.
@@ -178,14 +180,14 @@ export function sidebar(options: SidebarOptions): HTMLElement {
           onclick: onSignOut,
         },
         icon('logout', 'text-lg'),
-        h('span', { text: 'Sign out' })
+        h('span', { text: t('shell.signOut') })
       )
     )
   )
 }
 
 function navItem(
-  item: { id: string; label: string; icon: string; route: string; badge?: () => number | string | null },
+  item: NavItem,
   onNavigate: (path: string) => void
 ): HTMLLIElement {
   const link = h(
@@ -199,7 +201,7 @@ function navItem(
       dataset: { navId: item.id },
     },
     icon(item.icon, 'text-lg shrink-0'),
-    h('span', { class: 'flex-1 truncate', text: item.label })
+    h('span', { class: 'flex-1 truncate', text: navLabel(item) })
   )
 
   link.addEventListener('click', (event) => {

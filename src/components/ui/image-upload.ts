@@ -18,6 +18,7 @@
 
 import { h, icon } from './h'
 import { spinner } from './button'
+import { t } from '../../shared/i18n'
 
 /** What the injected uploader must return: at minimum, a URL to store. */
 export interface ImagePickerUploadResult {
@@ -98,7 +99,7 @@ export function imagePicker(options: ImagePickerOptions = {}): ImagePicker {
       disabled: !canUpload,
     },
     icon('upload', 'text-lg'),
-    h('span', { text: 'Choose image' })
+    h('span', { text: t('common.chooseImage') })
   ) as HTMLButtonElement
 
   const removeButton = h(
@@ -108,7 +109,7 @@ export function imagePicker(options: ImagePickerOptions = {}): ImagePicker {
       class: 'inline-flex h-10 items-center gap-1.5 rounded-md px-2.5 text-sm text-danger hover:bg-danger/10 hidden',
     },
     icon('delete', 'text-lg'),
-    h('span', { text: 'Remove' })
+    h('span', { text: t('common.remove') })
   ) as HTMLButtonElement
 
   const fileName = h('p', { class: 'text-xs text-content-subtle truncate' })
@@ -120,7 +121,7 @@ export function imagePicker(options: ImagePickerOptions = {}): ImagePicker {
 
   const progressBar = h('div', { class: 'h-1.5 rounded-full bg-primary transition-all', style: { width: '0%' } })
   const progressTrack = h('div', { class: 'h-1.5 w-full rounded-full bg-surface-muted hidden' }, progressBar)
-  const busyLabel = h('span', { class: 'inline-flex items-center gap-1.5 text-xs text-content-muted hidden' }, spinner('h-3 w-3'), h('span', { text: 'Uploading…' }))
+  const busyLabel = h('span', { class: 'inline-flex items-center gap-1.5 text-xs text-content-muted hidden' }, spinner('h-3 w-3'), h('span', { text: t('common.uploading') }))
 
   const dropZone = h(
     'div',

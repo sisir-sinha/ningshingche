@@ -12,6 +12,7 @@ import type { NavItem } from '../../shared/registry/plugin-types'
 import type { PluginRegistry } from '../../shared/registry/plugin-registry'
 import { can } from '../../app/state/session'
 import { lowStockCount } from '../../app/state/stock-alerts'
+import { t, type StringKey } from '../../shared/i18n'
 
 /**
  * Sidebar sections, in display order. A plugin that names an unknown section
@@ -31,6 +32,56 @@ export const NAV_SECTIONS: NavSection[] = [
   { id: 'insights', label: 'Insights', collapsedByDefault: true },
   { id: 'admin', label: 'Administration', collapsedByDefault: true },
 ]
+
+/**
+ * Translations for the core items, keyed by nav id.
+ *
+ * The `label` fields above stay English because they are also the route
+ * titles, the command-palette text and what `tools/` reads. Translation is
+ * applied at render time instead, and only to ids we ship — a plugin's label
+ * is the plugin's own business and passes through untouched, which is the
+ * same rule the rest of the nav follows (spec §51).
+ */
+const NAV_LABEL_KEYS: Record<string, StringKey> = {
+  dashboard: 'nav.dashboard',
+  pos: 'nav.pos',
+  sales: 'nav.sales',
+  customers: 'nav.customers',
+  products: 'nav.products',
+  catalogue: 'nav.catalogue',
+  stock: 'nav.stock',
+  suppliers: 'nav.suppliers',
+  purchases: 'nav.purchases',
+  expenses: 'nav.expenses',
+  reports: 'nav.reports',
+  analytics: 'nav.analytics',
+  register: 'nav.register',
+  users: 'nav.users',
+  roles: 'nav.roles',
+  plugins: 'nav.plugins',
+  audit: 'nav.audit',
+  settings: 'nav.settings',
+}
+
+const SECTION_LABEL_KEYS: Record<string, StringKey> = {
+  main: 'nav.section.main',
+  selling: 'nav.section.selling',
+  inventory: 'nav.section.inventory',
+  insights: 'nav.section.insights',
+  admin: 'nav.section.admin',
+}
+
+/** The label to draw for an item, in the active language. */
+export function navLabel(item: NavItem): string {
+  const key = NAV_LABEL_KEYS[item.id]
+  return key ? t(key) : item.label
+}
+
+/** The label to draw for a section, in the active language. */
+export function sectionLabel(section: NavSection): string {
+  const key = SECTION_LABEL_KEYS[section.id]
+  return key ? t(key) : section.label
+}
 
 /**
  * The core navigation. Every entry is gated by a permission key that exists
@@ -108,7 +159,9 @@ export function buildNavigation(registry: PluginRegistry): NavGroup[] {
   for (const section of sections) {
     const items = visible
       .filter((item) => (item.section ?? 'main') === section.id)
-      .sort((a, b) => (a.order ?? 100) - (b.order ?? 100) || a.label.localeCompare(b.label))
+      // Sorted by the label the shop actually reads, so a Bangla sidebar is
+      // in Bangla alphabetical order rather than in English order.
+      .sort((a, b) => (a.order ?? 100) - (b.order ?? 100) || navLabel(a).localeCompare(navLabel(b)))
     if (items.length > 0) groups.push({ section, items })
   }
 

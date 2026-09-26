@@ -15,6 +15,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { settingsView } from './settings-view'
+import { locale, resetI18nForTests, t } from '../../shared/i18n'
 
 const settingsRow = {
   id: 'org-1',
@@ -61,6 +62,7 @@ const settle = async (): Promise<void> => {
 
 describe('settingsView', () => {
   beforeEach(() => {
+    resetI18nForTests()
     getSettings.mockClear()
     listAllTaxes.mockClear().mockResolvedValue([
       { id: 't-1', name: 'VAT', rate: 15, is_inclusive: false, is_active: true },
@@ -105,6 +107,28 @@ describe('settingsView', () => {
     expect(root.textContent).toContain('Some settings could not be loaded')
     // The payment card survived its sibling's failure.
     expect(root.textContent).toContain('Cash')
+  })
+
+  it('switches the app language the moment the select changes', async () => {
+    const root = settingsView()
+    await settle()
+
+    const select = root.querySelector('select') as HTMLSelectElement
+    expect(select.value).toBe('en')
+    select.value = 'bn'
+    select.dispatchEvent(new Event('change'))
+
+    expect(locale()).toBe('bn')
+    expect(document.documentElement.lang).toBe('bn')
+    // The shell redraws from `t()`, so the next render is Bangla.
+    expect(t('settings.title')).toBe('সেটিংস')
+  })
+
+  it('adopts the language the shop saved, without being asked', async () => {
+    getSettings.mockResolvedValueOnce({ ...settingsRow, locale: 'bn' })
+    settingsView()
+    await settle()
+    expect(locale()).toBe('bn')
   })
 
   it('says so when the shop profile itself cannot be read', async () => {

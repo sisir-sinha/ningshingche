@@ -25,6 +25,7 @@
 | 13 | [Phase audit](./13-phase-audit.md) | Every phase moderated against the repository, and the modification list that came out of it. |
 | 14 | [Deployment URLs](./14-deployment-urls.md) | OAuth returns, the Site URL fallback that sent production sign-in to localhost, and why a session never stays in the address bar. |
 | 15 | [Image uploads](./15-image-uploads.md) | Why product photos live on ImgBB, why that key is public on purpose, and the rules the uploader enforces before a byte leaves the device. |
+| 16 | [Language](./16-localisation.md) | The translation layer behind the English/বাংলা select, why switching is a redraw rather than a reload, and what is translated so far. |
 
 ---
 

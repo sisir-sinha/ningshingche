@@ -17,6 +17,7 @@ import { getRepositories } from '../../app/data'
 import { can } from '../../app/state/session'
 import { imageUploadsEnabled, uploadImage, validateImageFile } from '../../app/images'
 import { translateError } from '../../app/platform/errors'
+import { asLocale, locale as activeLocale, setLocale, t, LOCALE_NAMES } from '../../shared/i18n'
 import type { PaymentMethod, Tax } from '../../shared/types/records'
 
 interface SettingsBag {
@@ -40,7 +41,7 @@ export function settingsView(): HTMLElement {
   const content = h('div', { class: 'mx-auto max-w-5xl space-y-4' })
 
   function notice(message: string): void {
-    mount(content, emptyState('Settings could not be loaded', { description: message, iconName: 'error' }))
+    mount(content, emptyState(t('settings.loadFailed'), { description: message, iconName: 'error' }))
   }
 
   /**
@@ -54,6 +55,9 @@ export function settingsView(): HTMLElement {
     try {
       // The shop profile is the screen. Without it there is nothing to show.
       settings = await repos.organization.getSettings()
+      // The shop's saved language wins on a device that has not chosen one —
+      // and re-asserts itself after a sign-in on a borrowed tablet.
+      setLocale(settings.locale)
 
       // Taxes and payment methods are supporting cards. A role that may edit
       // the shop name but not read tax rules should still get the page, so a
@@ -85,17 +89,25 @@ export function settingsView(): HTMLElement {
     const name = input({ value: settings.name })
     const currency = input({ value: settings.currency, maxlength: 3 })
     const timezone = input({ value: settings.timezone, placeholder: 'Asia/Dhaka' })
-    const locale = select({
-      value: settings.locale,
+    // The select reflects what the app is *speaking* right now, not only what
+    // the database last stored: a language chosen on this device is applied
+    // immediately, and the save then makes it the shop's default.
+    const localeSelect = select({
+      value: asLocale(settings.locale) ?? activeLocale(),
       options: [
-        { value: 'en', label: 'English' },
-        { value: 'bn', label: 'বাংলা' },
+        { value: 'en', label: LOCALE_NAMES.en },
+        { value: 'bn', label: LOCALE_NAMES.bn },
       ],
     })
-    const footer = textarea({ value: typeof bag.receiptFooter === 'string' ? bag.receiptFooter : '', rows: 2, placeholder: 'Thank you for shopping with us.' })
-    const deviceName = input({ value: typeof bag.deviceName === 'string' ? bag.deviceName : '', placeholder: 'Front counter' })
-    const showLogo = checkbox({ label: 'Show the shop logo on receipts', checked: bag.receiptShowLogo !== false })
-    const autoPrint = checkbox({ label: 'Print receipts automatically after a sale', checked: bag.autoPrintReceipt === true })
+    // Applied on change, before any save. Waiting for a round trip to see your
+    // own language is what made this control feel broken.
+    localeSelect.addEventListener('change', () => {
+      setLocale(localeSelect.value)
+    })
+    const footer = textarea({ value: typeof bag.receiptFooter === 'string' ? bag.receiptFooter : '', rows: 2, placeholder: t('settings.receiptFooterPlaceholder') })
+    const deviceName = input({ value: typeof bag.deviceName === 'string' ? bag.deviceName : '', placeholder: t('settings.deviceNamePlaceholder') })
+    const showLogo = checkbox({ label: t('settings.showLogo'), checked: bag.receiptShowLogo !== false })
+    const autoPrint = checkbox({ label: t('settings.autoPrint'), checked: bag.autoPrintReceipt === true })
     // The logo is uploaded to ImgBB and stored as a URL, the same way product
     // photos are. Receipts and the sidebar read `logoUrl`, so one upload here
     // changes both without a second place to keep the file.
@@ -114,7 +126,7 @@ export function settingsView(): HTMLElement {
           }
         : { disabledHint: 'Set VITE_IMGBB_API_KEY to upload a logo.' }),
     })
-    const saveButton = button('Save settings', { variant: 'primary', icon: 'save', disabled: !can('settings.business') })
+    const saveButton = button(t('settings.save'), { variant: 'primary', icon: 'save', disabled: !can('settings.business') })
 
     saveButton.addEventListener('click', () => {
       void (async () => {
@@ -126,7 +138,7 @@ export function settingsView(): HTMLElement {
             logoUrl,
             currency: currency.value.trim().toUpperCase(),
             timezone: timezone.value.trim(),
-            locale: locale.value,
+            locale: localeSelect.value,
             settings: {
               ...bag,
               receiptFooter: footer.value.trim(),
@@ -135,7 +147,8 @@ export function settingsView(): HTMLElement {
               autoPrintReceipt: Boolean(autoPrint.querySelector('input')?.checked),
             },
           })
-          toastSuccess('Settings saved')
+          setLocale(localeSelect.value)
+          toastSuccess(t('settings.saved'))
           render()
         } catch (error) {
           toastError(translateError(error).message)
@@ -145,52 +158,50 @@ export function settingsView(): HTMLElement {
     })
 
     const businessCard = card(
-      'Shop details',
+      t('settings.shopDetails'),
       h('div', { class: 'grid gap-4 sm:grid-cols-2' },
-        field('Shop name', name, { required: true }),
-        field('Currency', currency, { required: true, hint: 'ISO 4217 code, for example BDT' }),
-        field('Timezone', timezone, { required: true }),
-        field('Language', locale, { required: true })
+        field(t('settings.shopName'), name, { required: true }),
+        field(t('settings.currency'), currency, { required: true, hint: t('settings.currencyHint') }),
+        field(t('settings.timezone'), timezone, { required: true }),
+        field(t('settings.language'), localeSelect, { required: true, hint: t('settings.languageHint') })
       ),
-      field('Shop logo', logo.root, {
-        hint: imageUploadsEnabled()
-          ? 'Shown on receipts when the option below is on. Hosted on ImgBB; only the link is stored.'
-          : 'Set VITE_IMGBB_API_KEY to upload a logo.',
+      field(t('settings.shopLogo'), logo.root, {
+        hint: imageUploadsEnabled() ? t('settings.shopLogoHint') : t('settings.shopLogoDisabled'),
       }),
       h('div', { class: 'mt-4 flex justify-end' }, saveButton)
     )
 
     const receiptCard = card(
-      'Receipt and device',
+      t('settings.receiptDevice'),
       h('div', { class: 'grid gap-4 sm:grid-cols-2' },
-        field('Receipt footer', footer, { hint: 'Printed below the payment summary.' }),
-        field('Device name', deviceName, { hint: 'Helps identify this counter in audit entries.' })
+        field(t('settings.receiptFooter'), footer, { hint: t('settings.receiptFooterHint') }),
+        field(t('settings.deviceName'), deviceName, { hint: t('settings.deviceNameHint') })
       ),
       h('div', { class: 'mt-4 flex flex-col gap-3' }, showLogo, autoPrint)
     )
 
     const taxesCard = card(
-      'Taxes',
+      t('settings.taxes'),
       h('div', { class: 'space-y-2' },
         ...taxes.map((tax) => taxRow(tax)),
-        taxes.length === 0 ? emptyState('No tax rules', { description: 'Products will be tax-free until you add a rule.', iconName: 'percent' }) : null
+        taxes.length === 0 ? emptyState(t('settings.noTaxes'), { description: t('settings.noTaxesHint'), iconName: 'percent' }) : null
       ),
-      can('settings.create') ? h('div', { class: 'mt-4 flex justify-end' }, button('Add tax rule', { variant: 'outline', icon: 'add', onClick: () => openTaxForm(null) })) : null
+      can('settings.create') ? h('div', { class: 'mt-4 flex justify-end' }, button(t('settings.addTax'), { variant: 'outline', icon: 'add', onClick: () => openTaxForm(null) })) : null
     )
 
     const paymentCard = card(
-      'Payment methods',
+      t('settings.paymentMethods'),
       h('div', { class: 'space-y-2' },
         ...paymentMethods.map((method) => paymentRow(method)),
-        paymentMethods.length === 0 ? emptyState('No payment methods', { description: 'Add a method through provisioning or the database before taking payments.', iconName: 'payments' }) : null
+        paymentMethods.length === 0 ? emptyState(t('settings.noPaymentMethods'), { description: t('settings.noPaymentMethodsHint'), iconName: 'payments' }) : null
       )
     )
 
     mount(content,
       h('div', { class: 'flex flex-wrap items-end justify-between gap-3' },
         h('div', {},
-          h('h1', { class: 'text-lg font-semibold text-content', text: 'Settings' }),
-          h('p', { class: 'mt-1 text-sm text-content-muted', text: 'Shop details, taxes, receipts and device preferences.' })
+          h('h1', { class: 'text-lg font-semibold text-content', text: t('settings.title') }),
+          h('p', { class: 'mt-1 text-sm text-content-muted', text: t('settings.subtitle') })
         ),
         settings.slug ? badge(settings.slug, { tone: 'neutral' }) : null
       ),
@@ -198,7 +209,7 @@ export function settingsView(): HTMLElement {
         ? h('p', {
             class: 'rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-content-muted',
             role: 'status',
-            text: `Some settings could not be loaded: ${sideLoadError}`,
+            text: t('settings.partialFailure', { message: sideLoadError }),
           })
         : null,
       businessCard,
@@ -209,18 +220,18 @@ export function settingsView(): HTMLElement {
   }
 
   function taxRow(tax: Tax): HTMLElement {
-    const active = badge(tax.is_active ? 'Active' : 'Off', { tone: tax.is_active ? 'success' : 'neutral' })
+    const active = badge(tax.is_active ? t('common.active') : t('common.off'), { tone: tax.is_active ? 'success' : 'neutral' })
     return h('div', { class: 'flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3' },
       h('div', {},
         h('p', { class: 'font-medium text-content', text: tax.name }),
-        h('p', { class: 'text-sm text-content-muted', text: `${tax.rate}% · ${tax.is_inclusive ? 'tax included' : 'added at checkout'}` })
+        h('p', { class: 'text-sm text-content-muted', text: `${tax.rate}% · ${tax.is_inclusive ? t('settings.taxIncluded') : t('settings.taxAdded_checkout')}` })
       ),
-      h('div', { class: 'flex items-center gap-2' }, active, can('settings.edit') ? button('Edit', { variant: 'ghost', onClick: () => openTaxForm(tax) }) : null)
+      h('div', { class: 'flex items-center gap-2' }, active, can('settings.edit') ? button(t('common.edit'), { variant: 'ghost', onClick: () => openTaxForm(tax) }) : null)
     )
   }
 
   function paymentRow(method: PaymentMethod): HTMLElement {
-    const toggle = checkbox({ label: method.is_active ? 'Active' : 'Off', checked: method.is_active })
+    const toggle = checkbox({ label: method.is_active ? t('common.active') : t('common.off'), checked: method.is_active })
     const control = toggle.querySelector('input') as HTMLInputElement | null
     control?.addEventListener('change', () => {
       void repos.catalog.updatePaymentMethod(method.id, { is_active: control.checked }).then((updated) => {
@@ -234,26 +245,26 @@ export function settingsView(): HTMLElement {
     return h('div', { class: 'flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3' },
       h('div', {},
         h('p', { class: 'font-medium text-content', text: method.name }),
-        h('p', { class: 'text-sm text-content-muted', text: `${method.type}${method.is_cash ? ' · cash drawer' : ''}` })
+        h('p', { class: 'text-sm text-content-muted', text: `${method.type}${method.is_cash ? ` · ${t('settings.cashDrawer')}` : ''}` })
       ),
-      can('settings.edit') ? toggle : badge('Read only', { tone: 'neutral' })
+      can('settings.edit') ? toggle : badge(t('common.readOnly'), { tone: 'neutral' })
     )
   }
 
   function openTaxForm(existing: Tax | null): void {
     const name = input({ value: existing?.name ?? '', autofocus: true, placeholder: 'VAT' })
     const rate = input({ type: 'text', inputmode: 'decimal', value: existing?.rate ?? '0', placeholder: '0' })
-    const inclusive = checkbox({ label: 'Price already includes this tax', checked: existing?.is_inclusive === true })
-    const active = checkbox({ label: 'Use this tax for new sales', checked: existing?.is_active !== false })
+    const inclusive = checkbox({ label: t('settings.taxInclusive'), checked: existing?.is_inclusive === true })
+    const active = checkbox({ label: t('settings.taxActive'), checked: existing?.is_active !== false })
     const error = h('p', { class: 'hidden text-sm text-danger', role: 'alert' })
-    const save = button(existing ? 'Save tax rule' : 'Add tax rule', { variant: 'primary', fullWidth: true, size: 'lg' })
-    const dialog = modal({ title: existing ? 'Edit tax rule' : 'Add tax rule', iconName: 'percent', size: 'sm', footer: [h('div', { class: 'w-full' }, save)] })
-    dialog.body.replaceChildren(h('div', { class: 'space-y-4' }, field('Name', name, { required: true }), field('Rate (%)', rate, { required: true }), inclusive, active, error))
+    const save = button(existing ? t('settings.saveTax') : t('settings.addTax'), { variant: 'primary', fullWidth: true, size: 'lg' })
+    const dialog = modal({ title: existing ? t('settings.editTax') : t('settings.addTax'), iconName: 'percent', size: 'sm', footer: [h('div', { class: 'w-full' }, save)] })
+    dialog.body.replaceChildren(h('div', { class: 'space-y-4' }, field(t('settings.taxName'), name, { required: true }), field(t('settings.taxRate'), rate, { required: true }), inclusive, active, error))
     save.addEventListener('click', () => {
       void (async () => {
         const value = Number(rate.value)
         if (!name.value.trim() || !Number.isFinite(value) || value < 0 || value > 100) {
-          error.textContent = 'Enter a name and a rate between 0 and 100.'
+          error.textContent = t('settings.taxInvalid')
           error.classList.remove('hidden')
           return
         }
@@ -267,7 +278,7 @@ export function settingsView(): HTMLElement {
           taxes = existing ? taxes.map((tax) => tax.id === updated.id ? updated : tax) : [...taxes, updated]
           dialog.close()
           render()
-          toastSuccess(existing ? 'Tax rule updated' : 'Tax rule added')
+          toastSuccess(existing ? t('settings.taxUpdated') : t('settings.taxAdded'))
         } catch (err) {
           error.textContent = translateError(err).message
           error.classList.remove('hidden')

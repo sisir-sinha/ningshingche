@@ -50,10 +50,15 @@ import { settingsRoutes } from './features/settings'
 import { userRoutes } from './features/users'
 import { roleRoutes } from './features/roles'
 import { sessionStore, can } from './app/state/session'
+import { applyToDocument as applyLocaleToDocument, onLocaleChange } from './shared/i18n'
 import { translateError } from './app/platform/errors'
 import { h } from './components/ui/h'
 import { button } from './components/ui/button'
 import { emptyState } from './components/ui/card'
+
+// `<html lang>` before the first paint, so Bangla picks the right font from
+// the very first frame rather than after the shell redraws.
+applyLocaleToDocument()
 
 const mountPoint = document.getElementById('app')
 if (!mountPoint) throw new Error('#app mount point missing from index.html')
@@ -336,6 +341,27 @@ function enterApp(): void {
   router.start()
   eventBus.emit('app.ready', { type: 'app.ready', data: undefined })
 }
+
+/**
+ * Language is applied live.
+ *
+ * Every label is built at render time from `t()`, so a language change is a
+ * redraw, not a reload: the shell is rebuilt (sidebar, section headers, the
+ * palette) and the router re-renders the current screen in place. Nobody has
+ * to sign out, and nothing in the address bar changes.
+ */
+onLocaleChange(() => {
+  if (!shell) return
+  shell = appShell({
+    registry,
+    bus: eventBus,
+    onNavigate: (path) => router.navigate(path),
+    onSignOut: () => void leaveApp(),
+    outlet,
+  })
+  root.replaceChildren(shell.el)
+  router.refresh()
+})
 
 async function leaveApp(): Promise<void> {
   router.stop()
