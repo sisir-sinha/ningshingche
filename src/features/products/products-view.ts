@@ -41,10 +41,26 @@ import { activeOrganization, can } from '../../app/state/session'
 import { salesFloor } from '../../app/state/sales-floor'
 import { activePromotedFields, activeShopType } from '../../app/shop-profile'
 import { splitPluginFields } from '../../shared/types/shop-profile'
+import { formatDate } from '../../shared/i18n'
 import type { PluginRegistry } from '../../shared/registry/plugin-registry'
 import type { ProductField } from '../../shared/registry/plugin-types'
 import type { Brand, Category, ProductRow, Tax, Unit } from '../../shared/types/records'
 import { formatMoney, formatQty, milli, milliToNumber, minor, minorToNumber, parseMilli, parseMinor, type Milli, type Minor } from '../../shared/domain/money'
+
+/**
+ * Column visibility, named once.
+ *
+ * A phone shows the essentials — picture, name, price, stock, actions — and
+ * every extra column appears as the screen earns it. Written as constants
+ * because a header cell and its body cell must agree: they are two elements
+ * in two functions, and a mismatch is a table that shifts by one column at
+ * exactly one width.
+ */
+const UNTIL_SM = 'sm:hidden'
+const AT_SM = 'hidden sm:table-cell'
+const AT_LG = 'hidden lg:table-cell'
+const AT_XL = 'hidden xl:table-cell'
+const AT_2XL = 'hidden 2xl:table-cell'
 
 export interface ProductsViewOptions {
   registry: PluginRegistry
@@ -61,9 +77,40 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
   let loading = false
   /** Stock on hand per product id, filled one page at a time. */
   let onHand: Record<string, Milli> = {}
+  /**
+   * Id → name for the columns a wide screen can afford. The product row
+   * stores `category_id`, not "Rice", and a table of UUIDs helps nobody.
+   * Fetched once per mount, not per page.
+   */
+  let categoryNames: Record<string, string> = {}
+  let brandNames: Record<string, string> = {}
+  let unitNames: Record<string, string> = {}
 
   const tableBody = h('tbody')
   const listBox = h('div', { class: 'flex-1 min-h-0 overflow-y-auto' })
+
+  /**
+   * The lookups behind Category, Brand and Unit.
+   *
+   * Deliberately best-effort: a role that may read products but not the
+   * catalogue tables still gets the list, just with blank cells where the
+   * names would be.
+   */
+  async function loadLookups(): Promise<void> {
+    try {
+      const [categories, brands, units] = await Promise.all([
+        repos.catalog.listCategories(),
+        repos.catalog.listBrands(),
+        repos.catalog.listUnits(),
+      ])
+      categoryNames = Object.fromEntries(categories.map((item) => [item.id, item.name]))
+      brandNames = Object.fromEntries(brands.map((item) => [item.id, item.name]))
+      unitNames = Object.fromEntries(units.map((item) => [item.id, item.symbol || item.name]))
+      if (rows.length > 0) render()
+    } catch {
+      /* names are a nicety; the list is the screen */
+    }
+  }
 
   async function load(reset: boolean): Promise<void> {
     if (loading) return
@@ -125,10 +172,15 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
           h('thead', { class: 'text-left text-xs text-content-muted border-b border-border' },
             h('tr', {},
               h('th', { class: 'px-3 py-2 font-medium', text: 'Product' }),
-              h('th', { class: 'px-3 py-2 font-medium', text: 'SKU' }),
+              h('th', { class: `px-3 py-2 font-medium ${AT_SM}`, text: 'SKU' }),
+              h('th', { class: `px-3 py-2 font-medium ${AT_LG}`, text: 'Category' }),
+              h('th', { class: `px-3 py-2 font-medium ${AT_XL}`, text: 'Brand' }),
               h('th', { class: 'px-3 py-2 font-medium text-right', text: 'Price' }),
-              h('th', { class: 'px-3 py-2 font-medium text-right', text: 'Cost' }),
+              h('th', { class: `px-3 py-2 font-medium text-right ${AT_LG}`, text: 'Cost' }),
+              h('th', { class: `px-3 py-2 font-medium text-right ${AT_XL}`, text: 'Margin' }),
               h('th', { class: 'px-3 py-2 font-medium text-center', text: 'Stock' }),
+              h('th', { class: `px-3 py-2 font-medium ${AT_LG}`, text: 'Status' }),
+              h('th', { class: `px-3 py-2 font-medium ${AT_2XL}`, text: 'Added' }),
               h('th', { class: 'px-3 py-2 w-24' })
             )
           ),
@@ -150,22 +202,48 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
 
   function productRow(product: ProductRow): HTMLElement {
     const price = minor(Math.round(Number(product.selling_price) * 100) as Minor)
+    const cost = minor(Math.round(Number(product.cost_price) * 100) as Minor)
+    const unit = product.unit_id ? unitNames[product.unit_id] : undefined
     return h('tr', { class: 'border-b border-border hover:bg-surface-muted' },
       h('td', { class: 'px-3 py-2' },
         h('div', { class: 'flex items-center gap-3' },
           productThumb(product),
-          h('button', {
-            type: 'button',
-            class: 'text-left font-medium text-content hover:underline',
-            text: product.name,
-            onClick: () => openForm(product.id),
-          })
+          h('div', { class: 'min-w-0' },
+            h('button', {
+              type: 'button',
+              class: 'block max-w-[22ch] truncate text-left font-medium text-content hover:underline sm:max-w-none',
+              text: product.name,
+              title: product.name,
+              onClick: () => openForm(product.id),
+            }),
+            // Narrow screens drop the SKU column, so it rides under the name
+            // rather than disappearing: it is what a shopkeeper reads out on
+            // the phone to a supplier.
+            h('span', {
+              class: `block font-mono text-[11px] text-content-subtle ${UNTIL_SM}`,
+              text: product.sku ?? '',
+            })
+          )
         )
       ),
-      h('td', { class: 'px-3 py-2 text-content-muted font-mono text-xs', text: product.sku ?? '—' }),
-      h('td', { class: 'px-3 py-2 text-right tabular-nums text-content', text: formatMoney(price, { currency }) }),
-      h('td', { class: 'px-3 py-2 text-right tabular-nums text-content-muted', text: Number(product.cost_price).toFixed(2) }),
+      h('td', { class: `px-3 py-2 font-mono text-xs text-content-muted ${AT_SM}`, text: product.sku ?? '—' }),
+      h('td', { class: `px-3 py-2 text-content-muted ${AT_LG}`, text: (product.category_id && categoryNames[product.category_id]) || '—' }),
+      h('td', { class: `px-3 py-2 text-content-muted ${AT_XL}`, text: (product.brand_id && brandNames[product.brand_id]) || '—' }),
+      h('td', { class: 'px-3 py-2 text-right tabular-nums text-content' },
+        h('span', { class: 'font-medium', text: formatMoney(price, { currency }) }),
+        // Per-unit pricing is the difference between ৳450 and ৳450 a kilo.
+        unit ? h('span', { class: 'text-xs text-content-subtle', text: ` /${unit}` }) : null,
+        product.tax_inclusive ? h('span', { class: `block text-[11px] text-content-subtle ${AT_LG}`, text: 'tax incl.' }) : null
+      ),
+      h('td', { class: `px-3 py-2 text-right tabular-nums text-content-muted ${AT_LG}`, text: formatMoney(cost, { currency, symbol: false }) }),
+      h('td', { class: `px-3 py-2 text-right tabular-nums ${AT_XL}` }, marginCell(price, cost)),
       h('td', { class: 'px-3 py-2 text-center' }, stockCell(product)),
+      h('td', { class: `px-3 py-2 ${AT_LG}` },
+        product.is_active
+          ? badge('Active', { tone: 'success' })
+          : badge('Inactive', { tone: 'neutral' })
+      ),
+      h('td', { class: `px-3 py-2 whitespace-nowrap text-xs text-content-subtle ${AT_2XL}`, text: formatDate(product.created_at, { dateStyle: 'medium' }) }),
       h('td', { class: 'px-3 py-2' },
         h('div', { class: 'flex justify-end gap-1' },
           iconButton('edit', `Edit ${product.name}`, {
@@ -187,6 +265,21 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
         )
       )
     )
+  }
+
+  /**
+   * Margin, as a percentage of the selling price.
+   *
+   * The table already carried price and cost and left the subtraction to the
+   * owner. This is the number they were doing in their head, tinted so a
+   * line that loses money is visible while scrolling — which is the only
+   * reason it is worth a column rather than a report.
+   */
+  function marginCell(price: Minor, cost: Minor): HTMLElement {
+    if (price <= 0 || cost <= 0) return h('span', { class: 'text-content-subtle', text: '—' })
+    const percent = ((price - cost) / price) * 100
+    const tone = percent < 0 ? 'text-danger' : percent < 10 ? 'text-warning' : 'text-content-muted'
+    return h('span', { class: tone, text: `${percent.toFixed(percent < 10 ? 1 : 0)}%` })
   }
 
   /**
@@ -402,6 +495,7 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
   )
 
   void load(true)
+  void loadLookups()
   return root
 
   function openQuickAdd(): void {

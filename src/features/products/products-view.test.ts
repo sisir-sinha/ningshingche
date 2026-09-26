@@ -25,9 +25,9 @@ const product = {
   name: 'Kala Jam',
   sku: 'KJ-1',
   description: null,
-  category_id: null,
-  brand_id: null,
-  unit_id: null,
+  category_id: null as string | null,
+  brand_id: null as string | null,
+  unit_id: null as string | null,
   tax_id: null,
   selling_price: '450.00',
   cost_price: '300.00',
@@ -53,7 +53,12 @@ const quickAddRepo: Record<string, unknown> = {}
 vi.mock('../../app/data', () => ({
   getRepositories: () => ({
     products: { list, onHand, remove, archive, duplicate, update, ...quickAddRepo, get: vi.fn(), getWithVariants: vi.fn(), listBarcodes: vi.fn() },
-    catalog: { listCategories: vi.fn(async () => []), listBrands: vi.fn(async () => []), listUnits: vi.fn(async () => []), listTaxes: vi.fn(async () => []) },
+    catalog: {
+      listCategories: vi.fn(async () => [{ id: 'c-1', name: 'Sweets' }]),
+      listBrands: vi.fn(async () => [{ id: 'b-1', name: 'Ghoshal' }]),
+      listUnits: vi.fn(async () => [{ id: 'u-1', name: 'Kilogram', symbol: 'kg' }]),
+      listTaxes: vi.fn(async () => []),
+    },
     stock: { listWarehouses: vi.fn(async () => []), stockIn: vi.fn(), adjust: vi.fn() },
   }),
 }))
@@ -331,5 +336,51 @@ describe('products list', () => {
 
     expect(create).toHaveBeenCalled()
     expect(document.body.textContent).toContain('MIN-0007')
+  })
+
+  it('spends a wide screen on facts, not whitespace', async () => {
+    list.mockResolvedValueOnce({
+      items: [{ ...product, category_id: 'c-1', brand_id: 'b-1', unit_id: 'u-1' }],
+      nextCursor: null,
+    })
+    const root = view()
+    await settle()
+
+    const headers = [...root.querySelectorAll('th')].map((th) => th.textContent)
+    expect(headers).toEqual([
+      'Product', 'SKU', 'Category', 'Brand', 'Price', 'Cost', 'Margin', 'Stock', 'Status', 'Added', '',
+    ])
+
+    // The ids in the row are shown as the words they stand for.
+    expect(root.textContent).toContain('Sweets')
+    expect(root.textContent).toContain('Ghoshal')
+    // Price carries its unit: ৳450 and ৳450 a kilo are different offers.
+    expect(root.textContent).toContain('/kg')
+  })
+
+  it('does the arithmetic the owner was doing in their head', async () => {
+    // 450 selling, 300 cost → a third of the price is margin.
+    const root = view()
+    await settle()
+    expect(root.textContent).toContain('33%')
+  })
+
+  it('keeps every column and its header in step', async () => {
+    const root = view()
+    await settle()
+    const headers = [...root.querySelectorAll('thead th')]
+    const cells = [...root.querySelectorAll('tbody tr:first-child td')]
+    expect(cells.length).toBe(headers.length)
+    // A header that hides at a width must hide its column at the same width.
+    const breakpoint = (el: Element): string =>
+      (el.className.match(/(?:hidden )?(?:sm|lg|xl|2xl):(?:table-cell|hidden)/) ?? [''])[0]
+    expect(cells.map(breakpoint)).toEqual(headers.map(breakpoint))
+  })
+
+  it('still shows the SKU on a phone, under the name', async () => {
+    const root = view()
+    await settle()
+    const inline = root.querySelector('tbody .sm\\:hidden')
+    expect(inline?.textContent).toBe('KJ-1')
   })
 })
