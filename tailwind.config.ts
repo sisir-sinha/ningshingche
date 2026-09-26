@@ -16,26 +16,47 @@ export default {
       colors: {
         primary: {
           DEFAULT: 'hsl(var(--color-primary) / <alpha-value>)',
+          // The darker partner for hover and press. A real colour, not
+          // `/90` translucency, which picked up whatever was behind it.
+          strong: 'hsl(var(--color-primary-strong) / <alpha-value>)',
+          soft: 'hsl(var(--color-primary-soft) / <alpha-value>)',
           foreground: 'hsl(var(--color-primary-foreground) / <alpha-value>)',
         },
         secondary: {
           DEFAULT: 'hsl(var(--color-secondary) / <alpha-value>)',
+          strong: 'hsl(var(--color-secondary-strong) / <alpha-value>)',
           foreground: 'hsl(var(--color-secondary-foreground) / <alpha-value>)',
         },
         success: {
           DEFAULT: 'hsl(var(--color-success) / <alpha-value>)',
+          // The darker partner for hover and press. A real colour, not
+          // `/90` translucency, which picked up whatever was behind it.
+          strong: 'hsl(var(--color-success-strong) / <alpha-value>)',
+          soft: 'hsl(var(--color-success-soft) / <alpha-value>)',
           foreground: 'hsl(var(--color-success-foreground) / <alpha-value>)',
         },
         warning: {
           DEFAULT: 'hsl(var(--color-warning) / <alpha-value>)',
+          // The darker partner for hover and press. A real colour, not
+          // `/90` translucency, which picked up whatever was behind it.
+          strong: 'hsl(var(--color-warning-strong) / <alpha-value>)',
+          soft: 'hsl(var(--color-warning-soft) / <alpha-value>)',
           foreground: 'hsl(var(--color-warning-foreground) / <alpha-value>)',
         },
         danger: {
           DEFAULT: 'hsl(var(--color-danger) / <alpha-value>)',
+          // The darker partner for hover and press. A real colour, not
+          // `/90` translucency, which picked up whatever was behind it.
+          strong: 'hsl(var(--color-danger-strong) / <alpha-value>)',
+          soft: 'hsl(var(--color-danger-soft) / <alpha-value>)',
           foreground: 'hsl(var(--color-danger-foreground) / <alpha-value>)',
         },
         info: {
           DEFAULT: 'hsl(var(--color-info) / <alpha-value>)',
+          // The darker partner for hover and press. A real colour, not
+          // `/90` translucency, which picked up whatever was behind it.
+          strong: 'hsl(var(--color-info-strong) / <alpha-value>)',
+          soft: 'hsl(var(--color-info-soft) / <alpha-value>)',
           foreground: 'hsl(var(--color-info-foreground) / <alpha-value>)',
         },
         surface: {

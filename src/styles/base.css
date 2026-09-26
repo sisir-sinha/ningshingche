@@ -41,6 +41,12 @@
   .app-shell {
     height: 100vh;
     height: 100dvh;
+    /* `clip`, not `hidden`. Both stop a tall screen from pushing the document
+       past the viewport — which is what put a strip of empty space under the
+       app — but `hidden` would make this a scroll container and break the
+       topbar's `sticky`. `clip` does not scroll, so the header stays pinned
+       and nothing inside can extend the page. */
+    overflow: clip;
   }
 
   /* Material Symbols must not be selectable or they get copied with prices. */

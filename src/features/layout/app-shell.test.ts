@@ -223,6 +223,26 @@ describe('app shell', () => {
     expect(el.classList.contains('h-screen')).toBe(false)
   })
 
+  /**
+   * The blank strip under the app.
+   *
+   * A flex child's `min-height` is `auto`, i.e. its own content height, so the
+   * content column refused to shrink below whatever the current screen wanted.
+   * The column grew past the shell's 100dvh, the body scrolled, and the
+   * overshoot showed as empty space below the page. `min-h-0` on the column
+   * and on the outlet is what makes `overflow-y-auto` engage instead.
+   */
+  it('lets the content column shrink, so a tall screen scrolls inside the frame', () => {
+    const { el } = build()
+    const main = el.querySelector('main#app-outlet')
+    const column = main?.parentElement
+
+    expect(main?.classList.contains('min-h-0')).toBe(true)
+    expect(main?.classList.contains('overflow-y-auto')).toBe(true)
+    expect(column?.classList.contains('min-h-0')).toBe(true)
+    expect(column?.classList.contains('flex-col')).toBe(true)
+  })
+
   it('pins the topbar to the top of the shell', () => {
     const { el } = build()
     const header = el.querySelector('header')

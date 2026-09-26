@@ -10,24 +10,45 @@
 :root {
   color-scheme: light;
 
-  /* Brand */
-  --color-primary: 172 66% 28%;
+  /* Brand
+     ──────
+     Indigo, not the old muddy teal. Two reasons it is a pair of values and
+     not one: a solid button needs a *darker* hover, and `bg-primary/90` —
+     what the old variants used — is translucency, so a hovered button took
+     on whatever was behind it and looked washed out over a grey panel.
+     `-strong` is a real colour; `-soft` is the tint used for active
+     navigation and selected tiles. */
+  --color-primary: 234 72% 54%;
+  --color-primary-strong: 234 66% 44%;
+  --color-primary-soft: 234 76% 96%;
   --color-primary-foreground: 0 0% 100%;
 
-  --color-secondary: 220 14% 96%;
-  --color-secondary-foreground: 222 47% 11%;
+  --color-secondary: 220 16% 95%;
+  --color-secondary-strong: 220 14% 90%;
+  --color-secondary-foreground: 222 44% 16%;
 
-  /* Feedback */
-  --color-success: 152 69% 31%;
+  /* Feedback — each with the darker press/hover partner. Green means money
+     received, red means destructive, and neither is the brand colour: a Pay
+     button that is the same colour as every other button is a Pay button a
+     cashier has to read before pressing. */
+  --color-success: 158 68% 32%;
+  --color-success-strong: 158 72% 25%;
+  --color-success-soft: 158 60% 95%;
   --color-success-foreground: 0 0% 100%;
 
-  --color-warning: 36 92% 44%;
-  --color-warning-foreground: 0 0% 100%;
+  --color-warning: 33 92% 46%;
+  --color-warning-strong: 29 88% 38%;
+  --color-warning-soft: 40 95% 95%;
+  --color-warning-foreground: 26 90% 14%;
 
   --color-danger: 0 72% 48%;
+  --color-danger-strong: 0 72% 39%;
+  --color-danger-soft: 0 86% 96%;
   --color-danger-foreground: 0 0% 100%;
 
-  --color-info: 210 100% 42%;
+  --color-info: 210 92% 45%;
+  --color-info-strong: 212 88% 37%;
+  --color-info-soft: 208 100% 96%;
   --color-info-foreground: 0 0% 100%;
 
   /* Surfaces */
@@ -36,14 +57,15 @@
   --color-surface-raised: 0 0% 100%;
 
   /* Lines and controls */
-  --color-border: 220 13% 90%;
-  --color-input: 220 13% 88%;
-  --color-ring: 172 66% 28%;
+  --color-border: 220 14% 89%;
+  --color-input: 220 14% 85%;
+  --color-ring: 234 72% 54%;
 
-  /* Text */
+  /* Text — the muted and subtle steps were too light to read on a counter
+     screen in daylight. Both are darkened to clear 4.5:1 on white. */
   --color-content: 222 47% 11%;
-  --color-content-muted: 215 16% 44%;
-  --color-content-subtle: 215 16% 62%;
+  --color-content-muted: 215 19% 38%;
+  --color-content-subtle: 215 16% 52%;
 
   /* Elevation */
   --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.06);
@@ -60,22 +82,33 @@
 .dark {
   color-scheme: dark;
 
-  --color-primary: 172 60% 44%;
+  --color-primary: 234 84% 68%;
+  --color-primary-strong: 234 80% 60%;
+  --color-primary-soft: 234 40% 20%;
   --color-primary-foreground: 222 47% 8%;
 
   --color-secondary: 217 33% 20%;
+  --color-secondary-strong: 217 33% 26%;
   --color-secondary-foreground: 210 40% 96%;
 
-  --color-success: 152 58% 44%;
+  --color-success: 158 58% 46%;
+  --color-success-strong: 158 58% 38%;
+  --color-success-soft: 158 40% 18%;
   --color-success-foreground: 222 47% 8%;
 
-  --color-warning: 38 92% 52%;
+  --color-warning: 38 92% 56%;
+  --color-warning-strong: 33 88% 48%;
+  --color-warning-soft: 36 40% 18%;
   --color-warning-foreground: 222 47% 8%;
 
-  --color-danger: 0 72% 56%;
+  --color-danger: 0 76% 60%;
+  --color-danger-strong: 0 72% 51%;
+  --color-danger-soft: 0 40% 20%;
   --color-danger-foreground: 0 0% 100%;
 
-  --color-info: 210 100% 56%;
+  --color-info: 210 96% 62%;
+  --color-info-strong: 210 92% 52%;
+  --color-info-soft: 210 40% 20%;
   --color-info-foreground: 222 47% 8%;
 
   --color-surface: 222 47% 8%;
@@ -83,8 +116,8 @@
   --color-surface-raised: 217 33% 16%;
 
   --color-border: 217 33% 22%;
-  --color-input: 217 33% 26%;
-  --color-ring: 172 60% 44%;
+  --color-input: 217 33% 28%;
+  --color-ring: 234 84% 68%;
 
   --color-content: 210 40% 96%;
   --color-content-muted: 215 20% 68%;

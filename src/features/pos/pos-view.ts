@@ -665,8 +665,10 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
 
   // ── Actions ─────────────────────────────────────────────────────────────
 
+  // Green, not brand: the one button on this screen that takes money is the
+  // one button that must never be confused with the others.
   const payButton = button('Pay', {
-    variant: 'primary',
+    variant: 'success',
     size: 'xl',
     icon: 'payments',
     fullWidth: true,
@@ -681,9 +683,10 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
   })
 
   const clearButton = button('Clear', {
-    variant: 'ghost',
+    variant: 'outline',
     size: 'lg',
     icon: 'delete_sweep',
+    class: 'text-danger hover:border-danger/50 hover:bg-danger-soft hover:text-danger',
     onClick: () => void clearCart(),
   })
 
@@ -1050,10 +1053,10 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
   const busyIndicator = h('div', { class: 'hidden items-center gap-2 px-3 py-1 text-xs text-content-muted' })
 
   root.append(
-    h('section', { class: 'flex min-h-0 min-w-0 flex-1 flex-col' },
+    h('section', { class: 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden' },
       // The search field is the till's front door and stays put while the grid
       // scrolls under it.
-      h('div', { class: 'sticky top-0 z-10 bg-surface/95 px-3 pt-3 pb-2 backdrop-blur' }, searchField),
+      h('div', { class: 'shrink-0 border-b border-border bg-surface px-3 pt-3 pb-2' }, searchField),
       statusLine,
       h('div', { class: 'flex-1 min-h-0 overflow-y-auto' }, grid),
       // The keyboard contract, stated where a new cashier will see it. Hidden
@@ -1069,7 +1072,7 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
     // 390px viewport is neither.
     h('aside', {
       class:
-        'flex min-h-0 w-full shrink-0 flex-col border-t border-border bg-surface ' +
+        'flex min-h-0 w-full shrink-0 flex-col overflow-hidden border-t border-border bg-surface ' +
         'lg:h-full lg:w-[380px] lg:border-l lg:border-t-0 xl:w-[420px]',
     },
       h('div', { class: 'flex items-center gap-2 border-b border-border px-3 py-2' },

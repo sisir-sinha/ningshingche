@@ -195,8 +195,8 @@ function navItem(
     {
       href: item.route,
       class:
-        'group flex min-h-[44px] items-center gap-2.5 rounded-md px-2.5 py-2 text-sm ' +
-        'text-content-muted hover:bg-surface hover:text-content ' +
+        'group flex min-h-[44px] items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm ' +
+        'text-content-muted hover:bg-secondary hover:text-content ' +
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
       dataset: { navId: item.id },
     },
@@ -227,7 +227,7 @@ function navItem(
 /** Mark the item matching the current path. Called by the shell on navigate. */
 export function markActive(sidebarEl: HTMLElement, path: string): void {
   for (const el of sidebarEl.querySelectorAll<HTMLElement>('[data-nav-id]')) {
-    el.classList.remove('bg-surface', 'text-content', 'font-medium')
+    el.classList.remove('bg-primary-soft', 'text-primary', 'font-semibold', 'shadow-sm')
     el.removeAttribute('aria-current')
   }
 
@@ -249,7 +249,10 @@ export function markActive(sidebarEl: HTMLElement, path: string): void {
   }
 
   if (best) {
-    best.classList.add('bg-surface', 'text-content', 'font-medium')
+    // The current page was marked with a white pill on a grey rail — almost
+    // invisible, and identical to hover. A brand tint with a bolder label is
+    // the only state on this screen that has to be readable at a glance.
+    best.classList.add('bg-primary-soft', 'text-primary', 'font-semibold', 'shadow-sm')
     best.setAttribute('aria-current', 'page')
   }
 }

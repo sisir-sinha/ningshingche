@@ -11,20 +11,39 @@ import { h, icon } from './h'
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success' | 'outline'
 export type ButtonSize = 'sm' | 'md' | 'lg' | 'xl'
 
+/**
+ * Variants.
+ *
+ * Every solid variant hovers to its own darker `-strong` token rather than to
+ * `/90` of itself. That was the flaw in the old set: `bg-primary/90` is the
+ * same colour at 90% opacity, so a hovered button blended with whatever panel
+ * it sat on — grey over grey on the POS, washed out on white elsewhere — and
+ * the label's contrast moved with it.
+ *
+ * The press state is a colour change too, not only a transform: on a
+ * touchscreen the 2% scale is invisible under a thumb.
+ */
 const VARIANTS: Record<ButtonVariant, string> = {
-  primary: 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm',
-  secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/90',
-  success: 'bg-success text-success-foreground hover:bg-success/90 shadow-sm',
-  danger: 'bg-danger text-danger-foreground hover:bg-danger/90 shadow-sm',
-  outline: 'border border-border bg-surface text-content hover:bg-surface-muted',
-  ghost: 'text-content-muted hover:bg-surface-muted hover:text-content',
+  primary:
+    'bg-primary text-primary-foreground shadow-sm hover:bg-primary-strong active:bg-primary-strong',
+  secondary:
+    'bg-secondary text-secondary-foreground hover:bg-secondary-strong active:bg-secondary-strong',
+  success:
+    'bg-success text-success-foreground shadow-sm hover:bg-success-strong active:bg-success-strong',
+  danger:
+    'bg-danger text-danger-foreground shadow-sm hover:bg-danger-strong active:bg-danger-strong',
+  outline:
+    'border border-border bg-surface text-content hover:border-ring/60 hover:bg-surface-muted active:bg-secondary-strong',
+  ghost: 'text-content-muted hover:bg-secondary hover:text-content active:bg-secondary-strong',
 }
 
 const SIZES: Record<ButtonSize, string> = {
-  sm: 'h-8 px-2.5 text-xs gap-1',
-  md: 'h-10 px-3.5 text-sm gap-1.5',
-  lg: 'h-12 px-5 text-base gap-2',
-  xl: 'h-16 px-6 text-lg gap-2.5',
+  sm: 'h-8 px-2.5 text-xs gap-1 rounded-md',
+  md: 'h-10 px-4 text-sm gap-1.5 rounded-md',
+  lg: 'h-12 px-5 text-[0.9375rem] gap-2 rounded-lg',
+  // The Pay button. Big enough to hit without looking, and set in a size a
+  // cashier reads from standing height.
+  xl: 'h-16 px-6 text-lg gap-2.5 rounded-lg tracking-tight',
 }
 
 /**
@@ -72,10 +91,12 @@ export function button(label: string, options: ButtonOptions = {}): HTMLButtonEl
     title,
     'aria-label': ariaLabel,
     class: [
-      'inline-flex items-center justify-center rounded-md font-medium',
-      'transition-colors duration-100 select-none',
-      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-surface',
-      'disabled:opacity-50 disabled:pointer-events-none',
+      // `font-semibold`, not `medium`: at 13–15px on a lit counter screen the
+      // old weight read as disabled text next to the panels around it.
+      'inline-flex items-center justify-center font-semibold leading-none',
+      'transition-colors duration-100 select-none whitespace-nowrap',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
+      'disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none disabled:pointer-events-none',
       'active:scale-[0.98]',
       VARIANTS[variant],
       SIZES[size],
@@ -113,10 +134,12 @@ export function iconButton(
 ): HTMLButtonElement {
   const { size = 'md', class: extraClass = '', ...rest } = options
   const dimension = size === 'sm' ? 'h-8 w-8' : size === 'lg' ? 'h-12 w-12' : 'h-10 w-10'
+  // Icon buttons are circles at every size: a square 32px ghost button next to
+  // text reads as a broken input, a round one reads as an action.
   const el = button('', {
     ...rest,
     size: size ?? 'md',
-    class: `${dimension} !px-0 ${extraClass}`.trim(),
+    class: `${dimension} !rounded-full !px-0 ${extraClass}`.trim(),
     ariaLabel: label,
     title: label,
   })

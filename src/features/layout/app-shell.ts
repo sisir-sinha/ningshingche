@@ -201,7 +201,13 @@ export function appShell(options: AppShellOptions): AppShell {
 
     h(
       'div',
-      { class: 'flex min-w-0 flex-1 flex-col' },
+      // `min-h-0` is the whole fix for the blank strip under the app. A flex
+      // child's `min-height` defaults to `auto`, i.e. its content height, so
+      // this column refused to shrink below whatever the current screen
+      // wanted. The column then grew past the shell's 100dvh, the body
+      // scrolled, and the overshoot showed as empty space below the page —
+      // every screen, most visibly the POS, whose right rail is tall.
+      { class: 'flex min-h-0 min-w-0 flex-1 flex-col' },
 
       // Topbar — pinned to the top of the shell. The bar is a sibling of the
       // scrolling outlet, so it does not move when a view scrolls; `sticky`
@@ -241,7 +247,10 @@ export function appShell(options: AppShellOptions): AppShell {
       ),
 
       // Router outlet
-      h('main', { class: 'flex-1 overflow-y-auto', id: 'app-outlet' }, outlet)
+      // Same reason: without `min-h-0` the outlet's own height wins over
+      // `flex-1` and `overflow-y-auto` never engages, so a tall view pushes
+      // the document instead of scrolling inside the frame.
+      h('main', { class: 'min-h-0 flex-1 overflow-y-auto', id: 'app-outlet' }, outlet)
     ),
 
     drawer
