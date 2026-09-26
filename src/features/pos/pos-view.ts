@@ -150,6 +150,14 @@ function posGate(options: PosViewOptions): HTMLElement {
   return root
 }
 
+/**
+ * Catalogue columns, revealed as the till's screen can afford them. A counter
+ * is as often a phone in portrait as it is a widescreen till.
+ */
+const POS_UNTIL_SM = 'sm:hidden'
+const POS_AT_SM = 'hidden sm:table-cell'
+const POS_AT_XL = 'hidden xl:table-cell'
+
 function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
   const { bus, registry } = options
   const organization = activeOrganization()
@@ -171,11 +179,24 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
   const seen = new Map<string, SellableProduct>()
   let searchTimer: ReturnType<typeof setTimeout> | undefined
 
-  // `auto-fill` rather than fixed column counts: the catalogue pane is a
-  // different width on a phone, a counter tablet and a desktop, and a tile
-  // narrower than ~150px cannot hold a product name and a price.
-  const grid = h('div', {
-    class: 'grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2 p-3 content-start',
+  /**
+   * Which products the cashier has ticked, by variant id.
+   *
+   * A counter often rings up several things at once — three items off one
+   * shelf, a customer changing their mind at the end. Ticking them and adding
+   * them in one go is fewer taps than returning to the list between each.
+   * The per-row add button is still there for the single-item case, and a
+   * scan still goes straight onto the sale: selection is an addition to the
+   * till's flow, never a toll on it.
+   */
+  const selected = new Set<string>()
+
+  // A table, not tiles: at a counter the cashier is answering questions —
+  // "which pack size is this", "is that the 5kg", "have we got any left" —
+  // and a 150px tile could only ever hold a name and a price.
+  const grid = h('div', { class: 'grid' })
+  const selectionBar = h('div', {
+    class: 'shrink-0 border-t border-border bg-primary/5 px-3 py-2',
   })
 
   const statusLine = h('p', { class: 'px-3 pb-1.5 text-xs text-content-subtle' })
@@ -318,10 +339,11 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
   }
 
   function renderResults(): void {
+    renderSelectionBar()
     if (results.length === 0) {
       statusLine.textContent = 'No products match.'
       grid.replaceChildren(
-        h('div', { class: 'col-span-full px-3 py-12 text-center' },
+        h('div', { class: 'px-3 py-12 text-center' },
           icon('search_off', 'text-4xl text-content-subtle'),
           h('p', { class: 'mt-2 text-sm font-medium text-content', text: 'Nothing found' }),
           h('p', {
@@ -333,62 +355,230 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
       return
     }
     statusLine.textContent = `${results.length} product${results.length === 1 ? '' : 's'}`
-    grid.replaceChildren(...results.map((product, index) => productTile(product, index)))
+    grid.replaceChildren(
+      h('table', { class: 'w-full text-sm' },
+        h('thead', {
+          // Sticky: the cashier scrolls a long catalogue and the column
+          // meanings have to stay on screen with it.
+          class: 'sticky top-0 z-10 bg-surface text-left text-xs text-content-muted shadow-[0_1px_0_0_var(--color-border)]',
+        },
+          h('tr', {},
+            h('th', { class: 'w-10 px-3 py-2' }, selectAllBox()),
+            h('th', { class: 'px-3 py-2 font-medium', text: 'Product' }),
+            h('th', { class: `px-3 py-2 font-medium ${POS_AT_SM}`, text: 'SKU' }),
+            h('th', { class: `px-3 py-2 font-medium ${POS_AT_XL}`, text: 'Category' }),
+            h('th', { class: 'px-3 py-2 font-medium text-right', text: 'Price' }),
+            h('th', { class: `px-3 py-2 font-medium text-right ${POS_AT_XL}`, text: 'Tax' }),
+            h('th', { class: 'px-3 py-2 font-medium text-center', text: 'Stock' }),
+            h('th', { class: 'w-12 px-3 py-2' })
+          )
+        ),
+        h('tbody', {}, ...results.map((product, index) => productRow(product, index)))
+      )
+    )
   }
 
-  function productTile(product: SellableProduct, index: number): HTMLElement {
+  /**
+   * Tick-all for what the search just returned — the scope a cashier can see,
+   * never the whole catalogue. Indeterminate when the selection is partial, so
+   * the box reports the truth rather than rounding it to "none".
+   */
+  function selectAllBox(): HTMLElement {
+    const mine = results.filter((product) => selected.has(product.variantId)).length
+    const box = h('input', {
+      type: 'checkbox',
+      class: 'h-4 w-4 cursor-pointer rounded border-input text-primary focus:ring-2 focus:ring-ring',
+      checked: mine > 0 && mine === results.length,
+      'aria-label': 'Select every product listed',
+    }) as HTMLInputElement
+    box.indeterminate = mine > 0 && mine < results.length
+    box.addEventListener('change', () => {
+      for (const product of results) {
+        if (box.checked) selected.add(product.variantId)
+        else selected.delete(product.variantId)
+      }
+      renderResults()
+    })
+    return box
+  }
+
+  function toggleSelection(product: SellableProduct): void {
+    if (selected.has(product.variantId)) selected.delete(product.variantId)
+    else selected.add(product.variantId)
+    renderResults()
+  }
+
+  /**
+   * The strip that turns a selection into a sale.
+   *
+   * It only exists while something is ticked: an empty bar at the foot of the
+   * catalogue would cost the list a permanent 44px for a button that does
+   * nothing.
+   */
+  function renderSelectionBar(): void {
+    if (selected.size === 0) {
+      selectionBar.replaceChildren()
+      selectionBar.classList.add('hidden')
+      return
+    }
+    selectionBar.classList.remove('hidden')
+    const chosen = results.filter((product) => selected.has(product.variantId))
+    // Selection survives a new search, so the count can exceed what is on
+    // screen. Price up only what we can still see the price of.
+    const sum = chosen.reduce((total, product) => total + product.price, 0)
+    selectionBar.replaceChildren(
+      h('div', { class: 'flex items-center gap-2' },
+        h('p', { class: 'min-w-0 flex-1 truncate text-xs text-content-muted' },
+          h('span', {
+            class: 'font-medium text-content',
+            text: `${selected.size} selected`,
+          }),
+          chosen.length > 0
+            ? h('span', { text: ` · ${formatMoney(minor(sum), { currency })}` })
+            : null
+        ),
+        button('Clear', {
+          variant: 'ghost',
+          size: 'sm',
+          onClick: () => {
+            selected.clear()
+            renderResults()
+            searchField.focus()
+          },
+        }),
+        button(`Add ${selected.size} to sale`, {
+          variant: 'primary',
+          size: 'sm',
+          icon: 'add_shopping_cart',
+          onClick: () => addSelected(),
+        })
+      )
+    )
+  }
+
+  /**
+   * Puts every ticked product on the sale.
+   *
+   * Reads from `seen` rather than `results`, so a cashier who ticked rice,
+   * searched for oil and ticked that too gets both — the selection is the
+   * cashier's memory, and a search box should not quietly empty it.
+   */
+  function addSelected(): void {
+    const chosen = [...selected].map((variantId) => seen.get(variantId)).filter(Boolean) as SellableProduct[]
+    for (const product of chosen) addToCart(product)
+    selected.clear()
+    renderResults()
+    searchField.focus()
+    if (chosen.length > 0) {
+      toastSuccess(`${chosen.length} product${chosen.length === 1 ? '' : 's'} added to the sale`)
+    }
+  }
+
+  function productRow(product: SellableProduct, index: number): HTMLElement {
     seen.set(product.variantId, product)
     const out =
       product.trackStock &&
       !product.allowNegative &&
       product.availableQty !== null &&
       product.availableQty <= 0
+    const isSelected = selected.has(product.variantId)
 
-    return h(
-      'button',
-      {
-        type: 'button',
-        class: [
-          'flex min-h-[84px] flex-col rounded-lg border p-2.5 text-left transition-colors',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-          index === highlighted
-            ? 'border-primary bg-primary/5 ring-1 ring-primary'
-            : 'border-border bg-surface hover:border-ring/50 hover:bg-surface-muted',
-          out ? 'opacity-70' : '',
-        ].filter(Boolean).join(' '),
-        onClick: () => {
-          addToCart(product)
-          searchField.focus()
-        },
-      },
-      h('p', { class: 'text-sm font-medium text-content leading-tight line-clamp-2', text: product.name }),
-      product.variantName
-        ? h('p', { class: 'text-xs text-content-muted mt-0.5', text: product.variantName })
-        : null,
-      // Plugin-registered fields the plugin asked to show here (spec §14) —
-      // a batch number or an expiry the cashier can act on before ringing up.
-      ...posFieldValues(registry, product.metadata).map((entry) =>
-        h('p', { class: 'text-[11px] text-content-subtle mt-0.5', text: entry.text })
+    const box = h('input', {
+      type: 'checkbox',
+      class: 'h-4 w-4 cursor-pointer rounded border-input text-primary focus:ring-2 focus:ring-ring',
+      checked: isSelected,
+      'aria-label': `Select ${product.name}`,
+    }) as HTMLInputElement
+    box.addEventListener('click', (event) => event.stopPropagation())
+    box.addEventListener('change', () => toggleSelection(product))
+
+    return h('tr', {
+      class: [
+        'cursor-pointer border-b border-border transition-colors',
+        isSelected
+          ? 'bg-primary/10 hover:bg-primary/15'
+          : index === highlighted
+            ? 'bg-primary/5'
+            : 'hover:bg-surface-muted',
+        out ? 'opacity-70' : '',
+      ].filter(Boolean).join(' '),
+      'data-variant': product.variantId,
+      'aria-selected': isSelected ? 'true' : 'false',
+      // The whole row is the target. A 16px checkbox is a poor thing to ask a
+      // thumb to hit across a counter.
+      onClick: () => toggleSelection(product),
+    },
+      h('td', { class: 'px-3 py-2' }, box),
+      h('td', { class: 'px-3 py-2' },
+        h('div', { class: 'flex items-center gap-2.5' },
+          product.imageUrl
+            ? h('img', {
+                src: product.imageUrl,
+                alt: '',
+                loading: 'lazy',
+                class: 'h-9 w-9 shrink-0 rounded-md border border-border object-cover aspect-square',
+              })
+            : h('div', {
+                class: 'grid h-9 w-9 shrink-0 place-items-center rounded-md border border-border bg-surface-muted text-content-subtle',
+              }, icon('inventory_2', 'text-base')),
+          h('div', { class: 'min-w-0' },
+            h('p', { class: 'truncate font-medium leading-tight text-content', text: product.name, title: product.name }),
+            product.variantName
+              ? h('p', { class: 'text-xs text-content-muted', text: product.variantName })
+              : null,
+            // Narrow tills drop the SKU column; it belongs with the name there.
+            h('p', {
+              class: `font-mono text-[11px] text-content-subtle ${POS_UNTIL_SM}`,
+              text: product.sku ?? '',
+            }),
+            // Plugin-registered fields (spec §14) — a batch or an expiry the
+            // cashier can act on before ringing up.
+            ...posFieldValues(registry, product.metadata).map((entry) =>
+              h('p', { class: 'text-[11px] text-content-subtle', text: entry.text })
+            )
+          )
+        )
       ),
-      // Price and stock sit on the tile's floor, so tiles line up no matter how
-      // many lines the name took.
-      h('div', { class: 'mt-auto flex items-end justify-between gap-1 pt-1.5' },
+      h('td', { class: `px-3 py-2 font-mono text-xs text-content-muted ${POS_AT_SM}`, text: product.sku ?? '—' }),
+      h('td', { class: `px-3 py-2 text-content-muted ${POS_AT_XL}`, text: product.categoryName ?? '—' }),
+      h('td', { class: 'px-3 py-2 text-right' },
         h('span', {
-          class: 'min-w-0 truncate text-sm font-semibold tabular-nums text-content',
+          class: 'font-semibold tabular-nums text-content',
           text: formatMoney(product.price, { currency }),
         }),
+        product.unitLabel
+          ? h('span', { class: 'text-xs text-content-subtle', text: ` /${product.unitLabel}` })
+          : null
+      ),
+      h('td', { class: `px-3 py-2 text-right text-xs tabular-nums text-content-subtle ${POS_AT_XL}`,
+        text: product.taxRatePercent > 0
+          ? `${product.taxRatePercent}%${product.taxInclusive ? ' incl.' : ''}`
+          : '—',
+      }),
+      h('td', { class: 'px-3 py-2 text-center' },
         product.trackStock
           ? h('span', {
-              // A stock figure a cashier can read at arm's length: a quiet chip
-              // when there is stock, a loud one when there is none.
-              class: `shrink-0 rounded px-1.5 py-0.5 text-[11px] tabular-nums ${
+              // A stock figure a cashier can read at arm's length: quiet when
+              // there is stock, loud when there is none.
+              class: `inline-block rounded px-1.5 py-0.5 text-[11px] tabular-nums ${
                 out ? 'bg-danger/10 font-medium text-danger' : 'bg-surface-muted text-content-subtle'
               }`,
-              text: formatQty(product.availableQty ?? milli(0), {
-                decimal: product.decimalQuantity,
-              }),
+              text: formatQty(product.availableQty ?? milli(0), { decimal: product.decimalQuantity }),
             })
-          : null
+          : h('span', { class: 'text-xs text-content-subtle', text: '—' })
+      ),
+      h('td', { class: 'px-3 py-2' },
+        // The single-item path, unchanged in cost: one tap, straight onto the
+        // sale, no selection involved.
+        iconButton('add_shopping_cart', `Add ${product.name} to the sale`, {
+          size: 'sm',
+          variant: 'ghost',
+          onClick: (event: MouseEvent) => {
+            event.stopPropagation()
+            addToCart(product)
+            searchField.focus()
+          },
+        })
       )
     )
   }
@@ -1060,6 +1250,7 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
       h('div', { class: 'shrink-0 border-b border-border bg-surface px-3 pt-3 pb-2' }, searchField),
       statusLine,
       h('div', { class: 'flex-1 min-h-0 overflow-y-auto' }, grid),
+      selectionBar,
       // The keyboard contract, stated where a new cashier will see it. Hidden
       // on touch-sized screens, where there are no F-keys to press.
       h('p', {

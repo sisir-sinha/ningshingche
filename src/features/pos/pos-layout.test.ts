@@ -111,10 +111,9 @@ const settle = async (): Promise<void> => {
   for (let i = 0; i < 8; i += 1) await new Promise((resolve) => setTimeout(resolve, 0))
 }
 
-/** Taps the first product tile, the way a cashier does on a touch screen. */
+/** Taps the first row's add button, the way a cashier does on a touch screen. */
 async function addProduct(view: HTMLElement): Promise<void> {
-  const tile = view.querySelector<HTMLButtonElement>('.grid button')
-  tile?.click()
+  view.querySelector<HTMLButtonElement>('[data-variant] button')?.click()
   await settle()
 }
 
