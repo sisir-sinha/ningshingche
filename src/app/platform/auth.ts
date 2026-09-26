@@ -15,6 +15,16 @@ import { translateError } from './errors'
 import { env } from '../env'
 import { sessionStore, EMPTY_SESSION, type OrganizationMembership } from '../state/session'
 import { eventBus } from '../../shared/bus'
+import taxonomy from '../../../data/shop_categories.json'
+
+interface ShopTypeTaxonomy {
+  id: string
+  recommends?: { categories?: string[] }
+}
+
+const SHOP_TYPES = (taxonomy as { categories: { children?: ShopTypeTaxonomy[] }[] }).categories.flatMap(
+  (group) => group.children ?? []
+)
 
 export type AuthResult = { ok: true } | { ok: false; error: string; retryable: boolean }
 
@@ -286,11 +296,13 @@ export async function provisionShop(input: ProvisionInput): Promise<AuthResult> 
     } = await supabase.auth.getUser()
     if (!user) return { ok: false, error: 'You are not signed in.', retryable: false }
 
+    const defaults = SHOP_TYPES.find((type) => type.id === input.shopType)?.recommends?.categories ?? []
     const { error } = await supabase.rpc('provision_organization', {
       p_owner_user_id: user.id,
       p_org_name: input.shopName.trim(),
       p_slug: slugify(input.shopName),
       p_shop_type: input.shopType,
+      p_categories: defaults,
     })
     if (error) return fail(error)
 
