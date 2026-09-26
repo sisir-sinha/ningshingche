@@ -32,16 +32,18 @@ import { modal } from '../../components/feedback/modal'
 import { toastError, toastSuccess } from '../../components/feedback/toast'
 import { confirm } from '../../components/feedback/modal'
 import { getRepositories } from '../../app/data'
+import { env } from '../../app/env'
 import { pluginFormSectionsHost } from '../../app/plugin-slots'
 import { bindDrafts, clearDraft, restoreDraft } from '../../app/state/drafts'
 import { translateError } from '../../app/platform/errors'
 import { activeOrganization } from '../../app/state/session'
-import { activePromotedFields } from '../../app/shop-profile'
+import { salesFloor } from '../../app/state/sales-floor'
+import { activePromotedFields, activeShopType } from '../../app/shop-profile'
 import { splitPluginFields } from '../../shared/types/shop-profile'
 import type { PluginRegistry } from '../../shared/registry/plugin-registry'
 import type { ProductField } from '../../shared/registry/plugin-types'
 import type { Brand, Category, ProductRow, Tax, Unit } from '../../shared/types/records'
-import { formatMoney, minor, type Minor } from '../../shared/domain/money'
+import { formatMoney, milliToNumber, minor, minorToNumber, parseMilli, parseMinor, type Minor } from '../../shared/domain/money'
 
 export interface ProductsViewOptions {
   registry: PluginRegistry
@@ -247,21 +249,27 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
     async function save(): Promise<void> {
       errorSlot.classList.add('hidden')
       const name = nameInput.value.trim()
-      const price = Number(priceInput.value.replace(/[^0-9.]/g, ''))
+      const price = parseMinor(priceInput.value)
+      const openingStock = parseMilli(stockInput.value, { decimal: true })
       if (!name) {
         errorSlot.textContent = 'A product needs a name.'
         errorSlot.classList.remove('hidden')
         return
       }
-      if (!Number.isFinite(price) || price < 0) {
-        errorSlot.textContent = 'Enter a selling price.'
+      if (price === null || price < 0) {
+        errorSlot.textContent = 'Enter a valid selling price.'
+        errorSlot.classList.remove('hidden')
+        return
+      }
+      if (stockInput.value.trim() && (openingStock === null || openingStock < 0)) {
+        errorSlot.textContent = 'Enter a valid opening stock quantity.'
         errorSlot.classList.remove('hidden')
         return
       }
       try {
-        await repos.products.create({
+        const created = await repos.products.create({
           name,
-          selling_price: price,
+          selling_price: minorToNumber(price),
           cost_price: 0,
           tax_inclusive: false,
           reorder_point: 0,
@@ -270,6 +278,15 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
           is_active: true,
           metadata: {},
         })
+        if (openingStock && openingStock > 0) {
+          const detail = await repos.products.getWithVariants(created.id)
+          const variant = detail?.variants.find((entry) => entry.is_default) ?? detail?.variants[0]
+          const warehouseId = salesFloor()?.warehouseId ?? (await repos.stock.listWarehouses())[0]?.id
+          if (!variant || !warehouseId) throw new Error('The product was created, but no stock location is available.')
+          await repos.stock.stockIn(warehouseId, [{ variantId: variant.id, qty: openingStock }], {
+            note: 'Opening stock',
+          })
+        }
         clearDraft('products.quickAdd')
         dialog.close()
         toastSuccess(`“${name}” added`)
@@ -304,6 +321,142 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
       })
     }
   }
+}
+
+// ── Product form helpers ──────────────────────────────────────────────────
+
+interface ComboItem {
+  id: string
+  name: string
+}
+
+interface ProductComboboxOptions {
+  placeholder: string
+  onCreate: (name: string) => Promise<ComboItem>
+}
+
+interface ProductCombobox {
+  root: HTMLElement
+  setItems(items: readonly ComboItem[]): void
+  setValue(id: string | null): void
+  value(): string | null
+}
+
+/** A searchable catalogue selector that can create a missing item inline. */
+function productCombobox(options: ProductComboboxOptions): ProductCombobox {
+  let items: ComboItem[] = []
+  let selectedId: string | null = null
+  let creating = false
+  const search = input({
+    type: 'search',
+    placeholder: options.placeholder,
+    autocomplete: 'off',
+  })
+  const list = h('div', {
+    class: 'absolute z-20 mt-1 hidden max-h-56 w-full overflow-y-auto rounded-md border border-border bg-surface shadow-lg',
+  })
+
+  function close(): void {
+    list.classList.add('hidden')
+  }
+
+  function draw(): void {
+    const needle = search.value.trim().toLowerCase()
+    const matches = items.filter((item) => item.name.toLowerCase().includes(needle)).slice(0, 30)
+    const exact = items.some((item) => item.name.toLowerCase() === needle)
+    const actions: HTMLElement[] = matches.map((item) =>
+      h('button', {
+        type: 'button',
+        class: 'block min-h-11 w-full border-b border-border px-3 py-2 text-left text-sm text-content hover:bg-surface-muted',
+        text: item.name,
+        onclick: () => {
+          selectedId = item.id
+          search.value = item.name
+          close()
+        },
+      })
+    )
+    if (needle && !exact) {
+      actions.push(
+        h('button', {
+          type: 'button',
+          class: 'block min-h-11 w-full px-3 py-2 text-left text-sm font-medium text-primary hover:bg-surface-muted disabled:opacity-60',
+          text: creating ? 'Adding…' : `+ Add “${search.value.trim()}”`,
+          disabled: creating,
+          onclick: () => void createCurrent(),
+        })
+      )
+    }
+    list.replaceChildren(
+      ...(actions.length > 0
+        ? actions
+        : [h('p', { class: 'px-3 py-3 text-sm text-content-muted', text: 'No matches.' })])
+    )
+    list.classList.remove('hidden')
+  }
+
+  async function createCurrent(): Promise<void> {
+    const name = search.value.trim()
+    if (!name || creating) return
+    creating = true
+    draw()
+    try {
+      const created = await options.onCreate(name)
+      items = [...items, created].sort((a, b) => a.name.localeCompare(b.name))
+      selectedId = created.id
+      search.value = created.name
+      close()
+    } finally {
+      creating = false
+    }
+  }
+
+  search.addEventListener('input', draw)
+  search.addEventListener('focus', draw)
+  search.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') close()
+    if (event.key === 'Enter' && search.value.trim() && !list.classList.contains('hidden')) {
+      event.preventDefault()
+      const first = list.querySelector('button')
+      if (first) (first as HTMLButtonElement).click()
+    }
+  })
+
+  const root = h('div', { class: 'relative' }, search, list)
+  return {
+    root,
+    setItems(next) {
+      items = [...next].sort((a, b) => a.name.localeCompare(b.name))
+    },
+    setValue(id) {
+      selectedId = id
+      search.value = items.find((item) => item.id === id)?.name ?? ''
+    },
+    value: () => selectedId,
+  }
+}
+
+async function uploadProductImage(file: File): Promise<string> {
+  if (!env.imgbbApiKey) {
+    throw new Error('Image uploads are not configured. Set VITE_IMGBB_API_KEY first.')
+  }
+  if (!file.type.startsWith('image/')) throw new Error('Choose an image file.')
+  if (file.size > 10 * 1024 * 1024) throw new Error('Images must be 10 MB or smaller.')
+  const body = new FormData()
+  body.append('image', file)
+  const response = await fetch(`https://api.imgbb.com/1/upload?key=${encodeURIComponent(env.imgbbApiKey)}`, {
+    method: 'POST',
+    body,
+  })
+  const result = (await response.json()) as { success?: boolean; data?: { url?: string }; error?: { message?: string } }
+  if (!response.ok || result.success !== true || !result.data?.url) {
+    throw new Error(result.error?.message ?? 'The image upload failed.')
+  }
+  return result.data.url
+}
+
+function barcodeValues(value: string): string[] {
+  return [...new Set(value.split(/[\\n,]+/).map((code) => code.trim()).filter(Boolean))]
 }
 
 // ── Full form ─────────────────────────────────────────────────────────────
@@ -344,10 +497,48 @@ function openProductForm(options: FormOptions): void {
   const activeBox = checkbox({ label: 'Active (sellable)', checked: product?.is_active ?? true })
   const reorderInput = input({ type: 'text', inputmode: 'decimal', value: product?.reorder_point ?? '0' })
 
-  const categorySelect = select({ options: [], placeholder: 'No category' })
-  const brandSelect = select({ options: [], placeholder: 'No brand' })
+  const categoryCombo = productCombobox({
+    placeholder: 'Search or add a category…',
+    onCreate: async (name) => repos.catalog.createCategory(name),
+  })
+  const brandCombo = productCombobox({
+    placeholder: 'Search or add a brand…',
+    onCreate: async (name) => repos.catalog.createBrand(name),
+  })
   const unitSelect = select({ options: [], placeholder: 'Each' })
   const taxSelect = select({ options: [], placeholder: 'No tax' })
+  const barcodeInput = textarea({
+    value: '',
+    rows: 2,
+    placeholder: 'One barcode per line or separated by commas',
+  })
+  const imageFileInput = h('input', {
+    type: 'file',
+    accept: 'image/png,image/jpeg,image/webp,image/gif',
+    class: 'block w-full text-sm text-content-muted file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-white',
+  }) as HTMLInputElement
+  const imagePreview = h('div', { class: 'empty:hidden' })
+  const openingStockInput = input({ type: 'text', inputmode: 'decimal', placeholder: '0' })
+  imageFileInput.addEventListener('change', () => {
+    const file = imageFileInput.files?.[0]
+    if (!file) return
+    imagePreview.replaceChildren(
+      h('img', {
+        src: URL.createObjectURL(file),
+        alt: 'Product preview',
+        class: 'mt-2 h-20 w-20 rounded-md object-cover',
+      })
+    )
+  })
+  if (product?.image_url) {
+    imagePreview.replaceChildren(
+      h('img', {
+        src: product.image_url,
+        alt: product.name,
+        class: 'mt-2 h-20 w-20 rounded-md object-cover',
+      })
+    )
+  }
 
   const errorSlot = h('p', { class: 'text-sm text-danger mt-2 hidden' })
   const saveButton = button(product ? 'Save changes' : 'Create product', {
@@ -442,8 +633,24 @@ function openProductForm(options: FormOptions): void {
   async function save(): Promise<void> {
     errorSlot.classList.add('hidden')
     const name = nameInput.value.trim()
+    const sellingPrice = parseMinor(priceInput.value)
+    const costPrice = parseMinor(costInput.value || '0')
+    const reorderPoint = parseMilli(reorderInput.value || '0', { decimal: true })
+    const openingStock = parseMilli(openingStockInput.value || '0', { decimal: true })
+    const trackStock = trackStockBox.querySelector('input')?.checked ?? true
+    const imageFile = imageFileInput.files?.[0]
     if (!name) {
       errorSlot.textContent = 'A product needs a name.'
+      errorSlot.classList.remove('hidden')
+      return
+    }
+    if (sellingPrice === null || sellingPrice < 0) {
+      errorSlot.textContent = 'Enter a valid selling price.'
+      errorSlot.classList.remove('hidden')
+      return
+    }
+    if (costPrice === null || reorderPoint === null || openingStock === null || openingStock < 0) {
+      errorSlot.textContent = 'Check the cost, reorder point and stock quantities.'
       errorSlot.classList.remove('hidden')
       return
     }
@@ -465,9 +672,9 @@ function openProductForm(options: FormOptions): void {
       draftMetadata[definition.key] = raw
       const problem = definition.validate?.(raw, {
         name,
-        price: Number(priceInput.value) || null,
-        cost_price: Number(costInput.value) || null,
-        track_stock: true,
+        price: minorToNumber(sellingPrice),
+        cost_price: minorToNumber(costPrice),
+        track_stock: trackStock,
         metadata: draftMetadata,
       })
       if (problem) {
@@ -477,33 +684,46 @@ function openProductForm(options: FormOptions): void {
       }
     }
 
-    const payload = {
-      name,
-      sku: skuInput.value.trim() || null,
-      description: descriptionInput.value.trim() || null,
-      category_id: categorySelect.value || null,
-      brand_id: brandSelect.value || null,
-      unit_id: unitSelect.value || null,
-      tax_id: taxSelect.value || null,
-      selling_price: Number(priceInput.value.replace(/[^0-9.]/g, '')) || 0,
-      cost_price: Number(costInput.value.replace(/[^0-9.]/g, '')) || 0,
-      tax_inclusive: taxInclusiveBox.querySelector('input')?.checked ?? false,
-      reorder_point: Number(reorderInput.value.replace(/[^0-9.]/g, '')) || 0,
-      track_stock: trackStockBox.querySelector('input')?.checked ?? true,
-      allow_negative: allowNegativeBox.querySelector('input')?.checked ?? false,
-      is_active: activeBox.querySelector('input')?.checked ?? true,
-      metadata: { ...(product?.metadata ?? {}), ...draftMetadata },
-    }
-
     saveButton.disabled = true
     try {
-      if (product) {
-        await repos.products.update(product.id, payload)
-        toastSuccess('Product updated')
-      } else {
-        await repos.products.create(payload)
-        toastSuccess('Product created')
+      const imageUrl = imageFile ? await uploadProductImage(imageFile) : product?.image_url ?? null
+      const payload = {
+        name,
+        sku: skuInput.value.trim() || null,
+        description: descriptionInput.value.trim() || null,
+        category_id: categoryCombo.value(),
+        brand_id: brandCombo.value(),
+        unit_id: unitSelect.value || null,
+        tax_id: taxSelect.value || null,
+        selling_price: minorToNumber(sellingPrice),
+        cost_price: minorToNumber(costPrice),
+        tax_inclusive: taxInclusiveBox.querySelector('input')?.checked ?? false,
+        reorder_point: milliToNumber(reorderPoint),
+        track_stock: trackStock,
+        allow_negative: allowNegativeBox.querySelector('input')?.checked ?? false,
+        is_active: activeBox.querySelector('input')?.checked ?? true,
+        image_url: imageUrl,
+        metadata: { ...(product?.metadata ?? {}), ...draftMetadata },
       }
+
+      const saved = product
+        ? await repos.products.update(product.id, payload)
+        : await repos.products.create(payload)
+      const detail = await repos.products.getWithVariants(saved.id)
+      const defaultVariant = detail?.variants.find((entry) => entry.is_default) ?? detail?.variants[0]
+      if (!defaultVariant) throw new Error('The product was saved without a default variant.')
+
+      await repos.products.replaceBarcodes(defaultVariant.id, barcodeValues(barcodeInput.value))
+      if (trackStock && openingStock > 0) {
+        const warehouseId = salesFloor()?.warehouseId ?? (await repos.stock.listWarehouses())[0]?.id
+        if (!warehouseId) throw new Error('The product was saved, but no stock location is available.')
+        await repos.stock.stockIn(
+          warehouseId,
+          [{ variantId: defaultVariant.id, qty: openingStock, unitCost: costPrice }],
+          { note: product ? 'Additional stock from product form' : 'Opening stock' }
+        )
+      }
+      toastSuccess(product ? 'Product updated' : 'Product created')
       clearDraft(draftKey)
       dialog.close()
       onSaved()
@@ -521,6 +741,20 @@ function openProductForm(options: FormOptions): void {
         field('Selling price', priceInput, { required: true }),
         field('Cost price', costInput, { hint: 'Used for profit and stock value' })
       ),
+      h('div', { class: 'grid grid-cols-2 gap-3' },
+        field('Category', categoryCombo.root, { required: true }),
+        field('Unit', unitSelect, { required: true })
+      ),
+      field('Brand', brandCombo.root, { hint: 'Optional · add a brand without leaving the form' }),
+      field('Opening stock', openingStockInput, {
+        hint: 'Adds stock to the current stock location at the cost above.',
+      }),
+      field('Barcode(s)', barcodeInput, {
+        hint: 'The first code becomes primary. Variant barcodes can be managed in Variants.',
+      }),
+      field('Product image', h('div', { class: 'space-y-1' }, imageFileInput, imagePreview), {
+        hint: env.imgbbApiKey ? 'Uploaded securely to ImgBB.' : 'Set VITE_IMGBB_API_KEY to enable uploads.',
+      }),
       ...basicPluginFields.map(renderPluginField),
       pluginFormSectionsHost(registry, {
         organizationId: activeOrganization()?.organization_id ?? '',
@@ -537,10 +771,7 @@ function openProductForm(options: FormOptions): void {
   )
 
   advancedBody.append(
-    field('SKU', skuInput, { hint: 'Leave blank to keep the current code' }),
-    field('Category', categorySelect),
-    field('Brand', brandSelect),
-    field('Unit', unitSelect),
+    field('SKU', skuInput, { hint: 'Optional internal code; barcodes are managed above' }),
     field('Tax', taxSelect),
     field('Reorder point', reorderInput),
     h('div', { class: 'col-span-2 space-y-2 pt-1' },
@@ -569,20 +800,37 @@ function openProductForm(options: FormOptions): void {
     const busy = spinner('h-4 w-4')
     advancedBody.prepend(busy)
     try {
-      const [c, b, u, t] = await Promise.all([
+      let [c, b, u, t, barcodes] = await Promise.all([
         repos.catalog.listCategories(),
         repos.catalog.listBrands(),
         repos.catalog.listUnits(),
         repos.catalog.listTaxes(),
+        product ? repos.products.listBarcodes(product.id) : Promise.resolve([]),
       ])
+      if (c.length === 0) {
+        const defaults = activeShopType()?.recommendations.categories ?? []
+        const seeded = await Promise.all(
+          defaults.map(async (name) => {
+            try {
+              return await repos.catalog.createCategory(name)
+            } catch {
+              return null
+            }
+          })
+        )
+        c = seeded.filter((item): item is Category => item !== null)
+      }
       categories = c
       brands = b
       units = u
       taxes = t
-      fill(categorySelect, categories.map((x) => ({ value: x.id, label: x.name })), product?.category_id ?? null)
-      fill(brandSelect, brands.map((x) => ({ value: x.id, label: x.name })), product?.brand_id ?? null)
+      categoryCombo.setItems(categories)
+      brandCombo.setItems(brands)
+      categoryCombo.setValue(product?.category_id ?? null)
+      brandCombo.setValue(product?.brand_id ?? null)
       fill(unitSelect, units.map((x) => ({ value: x.id, label: `${x.name} (${x.symbol})` })), product?.unit_id ?? null)
       fill(taxSelect, taxes.map((x) => ({ value: x.id, label: `${x.name} (${x.rate}%)` })), product?.tax_id ?? null)
+      barcodeInput.value = barcodes.map((barcode) => barcode.code).join('\\n')
       restoreDraft(dialog.body, draftKey)
     } catch (error) {
       toastError(translateError(error).message)
