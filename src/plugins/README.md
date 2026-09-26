@@ -1,6 +1,6 @@
 # The plugins this bundle ships
 
-Six plugins live here. Between them they use every part of the SDK, which is
+Seven plugins live here. Between them they use every part of the SDK, which is
 why they are also its worked example — `docs/11-plugin-sdk.md` is the guide, and
 these are what it looks like when someone follows it.
 
@@ -12,6 +12,13 @@ these are what it looks like when someone follows it.
 | [`serial-numbers`](serial-numbers/) | The unit, not the product: which handset left on which invoice, and which one came back | 2 permissions, nav + screen (badge), dashboard widget, POS panel, sale tab, product-form section, 2 reports, `sale.completed` and `sale.refunded` listeners |
 | [`warranty`](warranty/) | The promise a sale makes: which unit, until when, to whom — and what honouring the promises cost | 2 permissions, nav + screen (badge), dashboard widget, POS panel, sale tab, product-form section, one product field the taxonomy promotes, 2 reports, a `sale.completed` listener that writes the promises |
 | [`weight-scale`](weight-scale/) | The shop's own scale labels: the till reads 1.250 kg off a barcode the catalogue has never heard of, and the shop sees which items its scale cannot ring up at all | 2 permissions, nav + screen, dashboard widget, 2 reports, one **scan resolver** — and no table and no product field: the price, the unit and the code all stay the catalogue's |
+| [`loyalty`](loyalty/) | The points a shop owes its regulars: what a sale earns, the tier it buys, and money off the next sale — with every point traced to the invoice that earned or spent it | 3 permissions, nav + register screen, dashboard widget, till panel, sale tab, 2 reports, a **sale adjustment** that takes money off the till's sale, and its own ledger; the earning rule is settings, and the tier is derived rather than stored |
+
+`loyalty` and `loyalty-lite` are deliberately both here. The first is the plugin
+a shop enables; the second is the *smallest complete plugin in the bundle* — one
+table, three functions, one screen — and it is the one the SDK doc reads from
+when somebody wants the shape without the policy. They share a subject and
+nothing else: no code, no tables, no permissions.
 
 None of them imports another, and none imports anything from `src/features/` —
 `tools/check-boundaries.mjs` fails the build if that changes. Loyalty needs
@@ -64,14 +71,26 @@ implementation that drifts from the first.
    (`weight_scale_report`) with two types, and the codes report names every item
    the scale cannot sell, worst first — the PLU-shaped code on a piece-sold item
    ahead of everything else, because that is the one charging the wrong money.
+9. `loyalty/helpers.ts` + `loyalty/index.ts` + `loyalty/loyalty-screen.ts` — the
+   plugin that hands money back. `helpers.ts` is the *till's* arithmetic
+   (`pointsFor`, `moneyFor`, `redeemOffer`, `tierFor`), written in integers so it
+   can be the same number as `app.loyalty_points_for` in SQL — the two are
+   compared against each other by the live probe, because a till that promises
+   eighteen points and a ledger that records seventeen is a support call nobody
+   can win. `index.ts` registers the sale adjustment (money off, debited before
+   the discount lands), the till panel, the sale tab, the register and two
+   reports; the screen answers the three questions a shopkeeper actually opens
+   it for — who my regulars are, what happened to one customer's points, and the
+   corrections that need a reason. There is no listener that awards points:
+   `app.loyalty_sync` walks the shop's own sales.
 
 ## Testing a plugin
 
 A plugin is tested through the public `PluginAPI`, never by reaching into the
 host: see `batch-expiry/batch-expiry.test.ts`,
 `loyalty-lite/loyalty-lite.test.ts`,
-`serial-numbers/serial-numbers.test.ts`, `warranty/warranty.test.ts` and
-`weight-scale/weight-scale.test.ts`. They build a `PluginRegistry` with a
+`serial-numbers/serial-numbers.test.ts`, `warranty/warranty.test.ts`,
+`weight-scale/weight-scale.test.ts` and `loyalty/loyalty.test.ts`. They build a `PluginRegistry` with a
 fake host, enable the plugin, and assert on what the plugin registered and on
 the calls it made — which is also the check that the plugin's files do not
 depend on anything the SDK does not promise.

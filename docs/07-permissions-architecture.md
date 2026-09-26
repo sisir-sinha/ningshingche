@@ -72,7 +72,7 @@ Plugin examples:
 pharmacy.medicines.view      pharmacy.medicines.edit
 pharmacy.prescription.record pharmacy.controlled.override
 repair.orders.create         repair.orders.assign       repair.orders.complete
-loyalty.points.adjust        loyalty.tiers.manage
+loyalty.view                 loyalty.redeem             loyalty.manage
 wholesale.pricelists.manage
 production.recipes.manage    production.runs.create
 accounting.journal.post

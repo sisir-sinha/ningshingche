@@ -49,6 +49,7 @@ describe('application bootstrap', () => {
     const ids = (registry?.list() ?? []).map((entry) => entry.id).sort()
     expect(ids).toEqual([
       'batch-expiry',
+      'loyalty',
       'loyalty-lite',
       'serial-numbers',
       'variants',

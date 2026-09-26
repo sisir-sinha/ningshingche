@@ -23,6 +23,7 @@ import type {
   ShippedPlugin,
 } from '../shared/registry/plugin-types'
 import { batchExpiryManifest } from '../plugins/batch-expiry/manifest'
+import { loyaltyManifest } from '../plugins/loyalty/manifest'
 import { loyaltyLiteManifest } from '../plugins/loyalty-lite/manifest'
 import { serialNumbersManifest } from '../plugins/serial-numbers/manifest'
 import { variantsManifest } from '../plugins/variants/manifest'
@@ -121,6 +122,10 @@ export const SHIPPED_PLUGINS: readonly ShippedPlugin[] = [
   {
     manifest: batchExpiryManifest,
     load: async () => (await import('../plugins/batch-expiry')).batchExpiryPlugin,
+  },
+  {
+    manifest: loyaltyManifest,
+    load: async () => (await import('../plugins/loyalty')).loyaltyPlugin,
   },
   {
     manifest: loyaltyLiteManifest,

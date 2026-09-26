@@ -464,8 +464,9 @@ Industry bundles (each ≈ a profile row + fields + navigation)
 | 3 | `serial-numbers` | `bef3526` | `serial-numbers.test.ts` (43 tests); `tools/validate-migrations.mjs` §Phase 7 — 13 checks against a real Postgres — and a live run against the project, both of which leave the shop untouched |
 | 4 | `warranty` | `603d780` | `warranty.test.ts` (50 tests); migration 049 applied live and a 27-check probe against the project (rolled back); validator 214/214 |
 | 5 | `weight-scale` | `a9bce25` (seam `6c2de09`) | `weight-scale.test.ts` (38 tests); migration 050 applied live and a 24-check probe against the project (rolled back); validator 214/214; no file under `src/features/` touched |
+| 6 | `loyalty` | this commit (seams `04f8e74` + `f156079`) | `loyalty.test.ts` (42 tests); migration 051 applied live and a 35-check probe against the project (rolled back), including the arithmetic compared against the till's own formula; validator 214/214; no file under `src/features/` touched |
 
-All five now meet the acceptance bullets: 1 (wizard defaults — the taxonomy
+All six now meet the acceptance bullets: 1 (wizard defaults — the taxonomy
 recommends them and the shop type is what the wizard writes), 2 (promoted
 fields, `c3b9f20`), 3 (a report in the core reports screen, `a15cf1c` + this
 commit) and 4 (no file under `src/features/` was modified by any of them — the
@@ -473,7 +474,80 @@ reports seam above is the *host* being fixed so that a plugin can have a report
 at all; `weight-scale` is the first plugin to prove bullet 4 by *not needing*
 anything from the host beyond the seam the previous plugin already forced).
 
-The fifth plugin, `weight-scale`, forced the last host seam of the phase: the
+### `loyalty` — the first plugin that spends money
+
+Every plugin before it *records* something about a sale. This one hands money
+back, and that is a different kind of promise: the shop has told a customer that
+its points are worth something, so the plugin's job is to make the promise
+countable and to make it impossible to pay twice.
+
+It needed two seams, both of them host work, both committed before the plugin:
+
+- ✅ **The till could ring a sale but not say who was buying** (`f156079`). The
+  cart has carried a customer since migration 009 and `complete_sale` has
+  accepted one just as long, but no screen could attach one — so "spend per
+  customer" was answerable in SQL and refused by the UI. The customer control is
+  a *core* capability (a shop without loyalty still wants to know who bought
+  what) and lands above the cart.
+- ✅ **A plugin could not put money off a sale** (`04f8e74`). The domain had the
+  half it needed — `CartStore` has priced an order discount since the beginning
+  and `complete_sale` has taken `p_discount_type`/`p_discount_value` since
+  migration 012 — but no plugin could reach it, and the till had no way to
+  *explain* a discount it had applied. **Sale adjustments** are that seam: one
+  order discount summed from the applied adjustments, applied only when the
+  plugin's own `onApplied` succeeds, withdrawn with a reason when it stops
+  being valid, and settled against the invoice when the sale exists.
+
+What `loyalty` adds to the shape of a plugin:
+
+- **Earning is derived, never pushed.** There is no listener that awards points
+  when `sale.completed` fires. `app.loyalty_sync` walks the shop's own `sales`
+  from a watermark and writes one EARN row per sale, guarded by a partial unique
+  index on `(organization_id, sale_id)` — so a till that dies between the sale
+  and the award loses nothing, a sale that was queued offline earns when it
+  reaches the server, and any loyalty screen the shopkeeper opens catches the
+  shop up. The walk re-reads a five-minute overlap and keys on when a sale was
+  *recorded*, which is what makes an offline sale replayed an hour later still
+  earn (a plain `completed_at > watermark` filter would have stepped over it for
+  ever).
+- **The rule is settings, and it travels on the row.** How many points a taka
+  earns, what a point is worth and the tier ladder live in `plugins.config`, not
+  in table rows; each ledger row copies the rate *and the tier bonus* it was
+  written with, so a rule change next month does not re-price this month's
+  returns — the probe proves that by changing the rule and reversing an old sale.
+- **The tier is read, not stored.** It is a function of `lifetime_points`, which
+  never falls. Storing it would need a nightly job and would be wrong for anyone
+  who looked in between.
+- **A redemption is a reservation.** The till debits the points against a token
+  before the money comes off the sale (idempotent per token, so a retried call
+  cannot double-spend), settles the token against the invoice, and — when the
+  customer changes their mind or the sale never happens — releases it, with the
+  reason recorded. A reservation that never found an invoice is a worklist on
+  the screen, not a silent spend.
+- **Its own audit.** `loyalty_overview` returns `drift`: the accounts whose
+  cached balance is not the sum of their own ledger. It is zero by construction
+  and it is on the dashboard tile when it is not — a plugin that says "trust my
+  cache" without a way to check it is asking the shop to take its word.
+
+Two things it deliberately does **not** do:
+
+- **Expiry.** Points that expire need a policy (which earn did this redemption
+  consume?) and a screen behind it. Every earn row is kept, so it can arrive
+  later without a data migration; a half-built expiry that silently burns points
+  is a support call with no answer.
+- **Redemption offline.** A till that cannot reach the server cannot debit the
+  points, and `onApplied` failing is what stops the discount going on the sale.
+  The rule is the same one the seam enforces: *the shop does not give away money
+  it cannot record.* The customer is still a member offline; the points are
+  still theirs; the till simply says so rather than guessing.
+
+The example plugin `loyalty-lite` stays: it is the smallest complete plugin in
+the bundle (one table, three functions, ~70 lines of screen) and the SDK doc
+points at it when a reader wants to see the shape without the policy. `loyalty`
+is what a shop turns on.
+
+The fifth plugin, `weight-scale`, forced a host seam of its own (the sale
+adjustments the sixth needed came later): the
 till resolved every scanned code through the shop's own barcode table and
 nothing else, so a scale label — a code that will never be a row in that table —
 could not ring anything up at all. `6c2de09` adds **scan resolvers** (the till

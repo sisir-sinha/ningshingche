@@ -995,9 +995,13 @@ CREATE TABLE suppliers (
 );
 ```
 
-Loyalty gets its own tables via the loyalty plugin — `customers.metadata`
-holds the cached points total for display, while
-`plg_loyalty_accounts` / `plg_loyalty_transactions` hold the truth.
+Loyalty gets its own tables via the loyalty plugin, and the shipped plugin
+(`supabase/plugins/loyalty/001_tables.sql`) is the record of what they are: an
+append-only `plg_loyalty_ledger` is the truth — one row per movement, each EARN
+naming the sale it came from — and `plg_loyalty_accounts` holds the sum of those
+rows as a cache, in the same transaction, with `loyalty_overview` reporting the
+accounts that disagree with their own ledger as `drift`. `customers.metadata` is
+not part of it: a second cache in the core would be a second answer.
 
 ---
 
