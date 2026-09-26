@@ -24,7 +24,7 @@
  * nothing is duplicated and no plugin learns which shop it is in.
  */
 
-import { h } from '../../components/ui/h'
+import { h, icon } from '../../components/ui/h'
 import { button, iconButton, spinner } from '../../components/ui/button'
 import { input, select, checkbox, field, searchInput, textarea } from '../../components/ui/input'
 import { badge, emptyState, panel } from '../../components/ui/card'
@@ -152,12 +152,15 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
     const price = minor(Math.round(Number(product.selling_price) * 100) as Minor)
     return h('tr', { class: 'border-b border-border hover:bg-surface-muted' },
       h('td', { class: 'px-3 py-2' },
-        h('button', {
-          type: 'button',
-          class: 'text-left font-medium text-content hover:underline',
-          text: product.name,
-          onClick: () => openForm(product.id),
-        })
+        h('div', { class: 'flex items-center gap-3' },
+          productThumb(product),
+          h('button', {
+            type: 'button',
+            class: 'text-left font-medium text-content hover:underline',
+            text: product.name,
+            onClick: () => openForm(product.id),
+          })
+        )
       ),
       h('td', { class: 'px-3 py-2 text-content-muted font-mono text-xs', text: product.sku ?? '—' }),
       h('td', { class: 'px-3 py-2 text-right tabular-nums text-content', text: formatMoney(price, { currency }) }),
@@ -184,6 +187,41 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
         )
       )
     )
+  }
+
+  /**
+   * The photo, at the head of the row.
+   *
+   * A shopkeeper scanning this list recognises a packet before they read its
+   * name — which is the whole reason the shop bothered to upload photos.
+   *
+   * Three details earn their keep. The box is a fixed `h-10 w-10` square so
+   * every row is the same height whatever shape the file is, and the image
+   * is `object-cover` so a wide label is cropped rather than letterboxed.
+   * `loading="lazy"` keeps a 200-row catalogue from fetching 200 images on a
+   * shop's phone connection. And an `error` handler swaps a dead ImgBB link
+   * for the placeholder: a broken-image glyph in every row is worse than no
+   * picture at all, and links do rot.
+   */
+  function productThumb(product: ProductRow): HTMLElement {
+    const box = 'h-10 w-10 shrink-0 aspect-square rounded-md border border-border object-cover bg-surface-muted'
+    const placeholder = (): HTMLElement =>
+      h('div', {
+        class: `${box} grid place-items-center text-content-subtle`,
+        'aria-hidden': 'true',
+      }, icon('inventory_2', 'text-lg'))
+
+    if (!product.image_url) return placeholder()
+
+    const img = h('img', {
+      src: product.image_url,
+      alt: '',
+      loading: 'lazy',
+      decoding: 'async',
+      class: box,
+    }) as HTMLImageElement
+    img.addEventListener('error', () => img.replaceWith(placeholder()), { once: true })
+    return img
   }
 
   /**

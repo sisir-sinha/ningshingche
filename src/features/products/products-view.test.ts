@@ -36,7 +36,7 @@ const product = {
   track_stock: true,
   allow_negative: false,
   is_active: true,
-  image_url: null,
+  image_url: null as string | null,
   metadata: {},
   created_at: '2026-09-01T00:00:00Z',
 }
@@ -196,5 +196,50 @@ describe('products list', () => {
     await settle()
     // The list is still there; only the quantity is missing.
     expect(root.textContent).toContain('Kala Jam')
+  })
+
+
+  it('shows the product photo at the head of the row', async () => {
+    list.mockResolvedValueOnce({
+      items: [{ ...product, image_url: 'https://i.ibb.co/abc/kala-jam.jpg' }],
+      nextCursor: null,
+    })
+    const root = view()
+    await settle()
+
+    const img = root.querySelector('tbody img') as HTMLImageElement
+    expect(img).not.toBeNull()
+    expect(img.src).toBe('https://i.ibb.co/abc/kala-jam.jpg')
+    // Square and cropped, so a wide label cannot change the row's height.
+    expect(img.className).toContain('h-10')
+    expect(img.className).toContain('w-10')
+    expect(img.className).toContain('object-cover')
+    // A long catalogue must not fetch every photo at once on a shop's phone.
+    expect(img.getAttribute('loading')).toBe('lazy')
+    // Decorative: the name is right beside it, so a screen reader must not
+    // hear the product twice.
+    expect(img.getAttribute('alt')).toBe('')
+  })
+
+  it('falls back to a placeholder when a product has no photo', async () => {
+    const root = view()
+    await settle()
+    expect(root.querySelector('tbody img')).toBeNull()
+    expect(root.querySelector('tbody .material-symbols-rounded')?.textContent).toBe('inventory_2')
+  })
+
+  it('replaces a dead image link with the placeholder', async () => {
+    list.mockResolvedValueOnce({
+      items: [{ ...product, image_url: 'https://i.ibb.co/gone.jpg' }],
+      nextCursor: null,
+    })
+    const root = view()
+    await settle()
+
+    const img = root.querySelector('tbody img') as HTMLImageElement
+    img.dispatchEvent(new Event('error'))
+
+    expect(root.querySelector('tbody img')).toBeNull()
+    expect(root.querySelector('tbody .material-symbols-rounded')?.textContent).toBe('inventory_2')
   })
 })
