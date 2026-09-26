@@ -97,9 +97,9 @@ describe('navigation model', () => {
     const inventory = groups.find((g) => g.section.id === 'inventory')
     const order = inventory?.items.map((i) => `${i.order}:${i.id}`) ?? []
 
-    // batch-expiry declares order 35, purchases 30, expenses 40 — so it sits
-    // between them rather than after everything.
-    expect(order).toEqual(['10:products', '20:stock', '30:purchases', '35:batch-expiry', '40:expenses'])
+    // Catalogue is the deliberate gap after Products; batch-expiry declares
+    // order 35, purchases 30, expenses 40 — so it sits between them.
+    expect(order).toEqual(['10:products', '15:catalogue', '20:stock', '30:purchases', '35:batch-expiry', '40:expenses'])
   })
 
   it('creates a section for an unknown section id rather than dropping the item', () => {
@@ -182,7 +182,7 @@ describe('rendered sidebar', () => {
     const link = el.querySelector('[data-nav-id="batch-expiry"]')
     expect(link).not.toBeNull()
     expect(link?.textContent).toContain('Expiry Watch')
-    expect(link?.getAttribute('href')).toBe('#/plugins/batch-expiry')
+    expect(link?.getAttribute('href')).toBe('/plugins/batch-expiry')
   })
 
   it('renders every core item the role can see', () => {

@@ -39,6 +39,9 @@ import type {
   ExpenseRepository,
   ExpenseRow,
   OrganizationRepository,
+  OrganizationSettings,
+  RoleRow,
+  StaffRow,
   PluginCatalogEntry,
   PluginImpactRole,
   PluginStateEntry,
@@ -445,6 +448,50 @@ function createCatalog(client: SupabaseClient, organizationId: () => string | nu
       )
     },
 
+    async listAllTaxes() {
+      return unwrap(
+        await client
+          .from('taxes')
+          .select('id,name,rate,is_inclusive,is_active')
+          .order('is_active', { ascending: false })
+          .order('rate')
+          .returns<Tax[]>()
+      )
+    },
+
+    async createTax(name, rate, isInclusive) {
+      return unwrap(
+        await client
+          .from('taxes')
+          .insert({
+            organization_id: requireOrg(organizationId),
+            name: name.trim(),
+            rate: numeric(rate, 4),
+            is_inclusive: isInclusive,
+          })
+          .select('id,name,rate,is_inclusive,is_active')
+          .single()
+          .returns<Tax>()
+      )
+    },
+
+    async updateTax(id, draft) {
+      const patch: Record<string, unknown> = {}
+      if (draft.name !== undefined) patch.name = draft.name.trim()
+      if (draft.rate !== undefined) patch.rate = numeric(draft.rate, 4)
+      if (draft.is_inclusive !== undefined) patch.is_inclusive = draft.is_inclusive
+      if (draft.is_active !== undefined) patch.is_active = draft.is_active
+      return unwrap(
+        await client
+          .from('taxes')
+          .update(patch)
+          .eq('id', id)
+          .select('id,name,rate,is_inclusive,is_active')
+          .single()
+          .returns<Tax>()
+      )
+    },
+
     async listPaymentMethods() {
       return unwrap(
         await client
@@ -454,6 +501,35 @@ function createCatalog(client: SupabaseClient, organizationId: () => string | nu
           .is('deleted_at', null)
           .order('sort_order')
           .returns<PaymentMethod[]>()
+      )
+    },
+
+    async listAllPaymentMethods() {
+      return unwrap(
+        await client
+          .from('payment_methods')
+          .select('id,key,name,type,is_cash,is_active,sort_order,icon,config')
+          .is('deleted_at', null)
+          .order('sort_order')
+          .returns<PaymentMethod[]>()
+      )
+    },
+
+    async updatePaymentMethod(id, draft) {
+      const patch: Record<string, unknown> = {}
+      if (draft.name !== undefined) patch.name = draft.name.trim()
+      if (draft.is_active !== undefined) patch.is_active = draft.is_active
+      if (draft.sort_order !== undefined) patch.sort_order = draft.sort_order
+      if (draft.icon !== undefined) patch.icon = draft.icon
+      if (draft.config !== undefined) patch.config = draft.config
+      return unwrap(
+        await client
+          .from('payment_methods')
+          .update(patch)
+          .eq('id', id)
+          .select('id,key,name,type,is_cash,is_active,sort_order,icon,config')
+          .single()
+          .returns<PaymentMethod>()
       )
     },
   }
@@ -1307,7 +1383,64 @@ function createRegisters(client: SupabaseClient): RegisterRepository {
 
 // ── Organization ──────────────────────────────────────────────────────────
 
-function createOrganization(client: SupabaseClient): OrganizationRepository {
+function normaliseStaffRows(value: unknown): StaffRow[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((row): StaffRow[] => {
+    if (typeof row !== 'object' || row === null) return []
+    const record = row as Record<string, unknown>
+    const roles = Array.isArray(record.roles)
+      ? record.roles.flatMap((role) => {
+          if (typeof role !== 'object' || role === null) return []
+          const item = role as Record<string, unknown>
+          return typeof item.id === 'string' && typeof item.key === 'string' && typeof item.name === 'string'
+            ? [{ id: item.id, key: item.key, name: item.name }]
+            : []
+        })
+      : []
+    const branches = Array.isArray(record.branches)
+      ? record.branches.flatMap((branch) => {
+          if (typeof branch !== 'object' || branch === null) return []
+          const item = branch as Record<string, unknown>
+          return typeof item.id === 'string' && typeof item.name === 'string' ? [{ id: item.id, name: item.name }] : []
+        })
+      : []
+    if (typeof record.email !== 'string' || typeof record.kind !== 'string') return []
+    return [
+      {
+        kind: record.kind === 'pending' ? 'pending' : 'member',
+        userId: typeof record.user_id === 'string' ? record.user_id : null,
+        email: record.email,
+        name: typeof record.name === 'string' ? record.name : record.email,
+        isActive: record.is_active === true,
+        roles,
+        branches,
+        invitationId: typeof record.invitation_id === 'string' ? record.invitation_id : null,
+        invitedAt: typeof record.invited_at === 'string' ? record.invited_at : null,
+        expiresAt: typeof record.expires_at === 'string' ? record.expires_at : null,
+      },
+    ]
+  })
+}
+
+async function replaceRolePermissions(
+  client: SupabaseClient,
+  organizationId: string,
+  roleId: string,
+  permissionKeys: string[]
+): Promise<void> {
+  unwrap(
+    await client.rpc('set_role_permissions', {
+      p_organization_id: organizationId,
+      p_role_id: roleId,
+      p_permission_keys: permissionKeys,
+    })
+  )
+}
+
+function createOrganization(
+  client: SupabaseClient,
+  organizationId: () => string | null
+): OrganizationRepository {
   return {
     async salesFloor(branchId) {
       const branches = unwrap(
@@ -1381,6 +1514,200 @@ function createOrganization(client: SupabaseClient): OrganizationRepository {
           .order('is_primary', { ascending: false })
           .order('name')
           .returns<{ id: string; name: string; code: string | null; is_primary: boolean }[]>()
+      )
+    },
+
+    async getSettings() {
+      const id = requireOrg(organizationId)
+      const row = unwrap(
+        await client
+          .from('organizations')
+          .select('id,name,slug,currency,timezone,locale,logo_url,settings')
+          .eq('id', id)
+          .single()
+          .returns<{ id: string; name: string; slug: string; currency: string; timezone: string; locale: string; logo_url: string | null; settings: Record<string, unknown> }>()
+      )
+      return {
+        id: row.id,
+        name: row.name,
+        slug: row.slug,
+        currency: row.currency,
+        timezone: row.timezone,
+        locale: row.locale,
+        logoUrl: row.logo_url,
+        settings: row.settings ?? {},
+      } satisfies OrganizationSettings
+    },
+
+    async updateSettings(input) {
+      const id = requireOrg(organizationId)
+      const patch: Record<string, unknown> = {}
+      if (input.name !== undefined) patch.name = input.name.trim()
+      if (input.currency !== undefined) patch.currency = input.currency.toUpperCase()
+      if (input.timezone !== undefined) patch.timezone = input.timezone
+      if (input.locale !== undefined) patch.locale = input.locale
+      if (input.logoUrl !== undefined) patch.logo_url = input.logoUrl
+      if (input.settings !== undefined) patch.settings = input.settings
+      const row = unwrap(
+        await client
+          .from('organizations')
+          .update(patch)
+          .eq('id', id)
+          .select('id,name,slug,currency,timezone,locale,logo_url,settings')
+          .single()
+          .returns<{ id: string; name: string; slug: string; currency: string; timezone: string; locale: string; logo_url: string | null; settings: Record<string, unknown> }>()
+      )
+      return {
+        id: row.id,
+        name: row.name,
+        slug: row.slug,
+        currency: row.currency,
+        timezone: row.timezone,
+        locale: row.locale,
+        logoUrl: row.logo_url,
+        settings: row.settings ?? {},
+      } satisfies OrganizationSettings
+    },
+
+    async listStaff() {
+      const data = unwrap(await client.rpc('list_staff', { p_organization_id: requireOrg(organizationId) })) as unknown
+      return normaliseStaffRows(data)
+    },
+
+    async inviteStaff(email, roleId, branchId = null) {
+      const data = unwrap(
+        await client.rpc('invite_staff', {
+          p_organization_id: requireOrg(organizationId),
+          p_email: email,
+          p_role_id: roleId,
+          p_branch_id: branchId,
+        })
+      ) as { id: string; email: string; expires_at: string }
+      const { error } = await client.auth.signInWithOtp({
+        email: data.email,
+        options: { shouldCreateUser: true },
+      })
+      if (error) throw error
+      return { id: data.id, email: data.email, expiresAt: data.expires_at }
+    },
+
+    async removeStaff(userId) {
+      unwrap(
+        await client.rpc('remove_staff', {
+          p_organization_id: requireOrg(organizationId),
+          p_user_id: userId,
+        })
+      )
+    },
+
+    async listPermissions() {
+      return unwrap(
+        await client
+          .from('permissions')
+          .select('id,key,label,category')
+          .is('plugin_key', null)
+          .order('category')
+          .order('key')
+          .returns<{ id: string; key: string; label: string; category: string }[]>()
+      )
+    },
+
+    async listRoles() {
+      const orgId = requireOrg(organizationId)
+      const roles = unwrap(
+        await client
+          .from('roles')
+          .select('id,key,name,is_system')
+          .eq('organization_id', orgId)
+          .order('is_system', { ascending: false })
+          .order('name')
+          .returns<{ id: string; key: string; name: string; is_system: boolean }[]>()
+      )
+      if (roles.length === 0) return []
+      const grants = unwrap(
+        await client
+          .from('role_permissions')
+          .select('role_id,permissions(key)')
+          .eq('organization_id', orgId)
+          .in('role_id', roles.map((role) => role.id))
+          .returns<{ role_id: string; permissions: { key: string } | { key: string }[] | null }[]>()
+      )
+      const permissionKeys = new Map<string, string[]>()
+      for (const grant of grants) {
+        const permission = Array.isArray(grant.permissions) ? grant.permissions[0] : grant.permissions
+        if (permission) permissionKeys.set(grant.role_id, [...(permissionKeys.get(grant.role_id) ?? []), permission.key])
+      }
+      return roles.map(
+        (role): RoleRow => ({
+          id: role.id,
+          key: role.key,
+          name: role.name,
+          isSystem: role.is_system,
+          permissionKeys: permissionKeys.get(role.id) ?? [],
+        })
+      )
+    },
+
+    async createRole(name, key, permissionKeys) {
+      const orgId = requireOrg(organizationId)
+      const role = unwrap(
+        await client
+          .from('roles')
+          .insert({ organization_id: orgId, name: name.trim(), key: key.trim().toLowerCase().replace(/\s+/g, '_'), is_system: false })
+          .select('id,key,name,is_system')
+          .single()
+          .returns<{ id: string; key: string; name: string; is_system: boolean }>()
+      )
+      await replaceRolePermissions(client, orgId, role.id, permissionKeys)
+      return { id: role.id, key: role.key, name: role.name, isSystem: role.is_system, permissionKeys: [...permissionKeys] }
+    },
+
+    async updateRole(id, name, permissionKeys) {
+      const orgId = requireOrg(organizationId)
+      const current = unwrap(
+        await client
+          .from('roles')
+          .select('id,key,name,is_system')
+          .eq('id', id)
+          .eq('organization_id', orgId)
+          .single()
+          .returns<{ id: string; key: string; name: string; is_system: boolean }>()
+      )
+      const role = current.is_system
+        ? current
+        : unwrap(
+            await client
+              .from('roles')
+              .update({ name: name.trim() })
+              .eq('id', id)
+              .eq('organization_id', orgId)
+              .eq('is_system', false)
+              .select('id,key,name,is_system')
+              .single()
+              .returns<{ id: string; key: string; name: string; is_system: boolean }>()
+          )
+      await replaceRolePermissions(client, orgId, role.id, permissionKeys)
+      return { id: role.id, key: role.key, name: role.name, isSystem: role.is_system, permissionKeys: [...permissionKeys] }
+    },
+
+    async deleteRole(id) {
+      const orgId = requireOrg(organizationId)
+      const assignments = unwrap(
+        await client.from('user_roles').select('id').eq('role_id', id).eq('organization_id', orgId).limit(1).returns<{ id: string }[]>()
+      )
+      if (assignments.length > 0) throw new Error('Remove this role from staff before deleting it.')
+      const result = await client.from('roles').delete().eq('id', id).eq('organization_id', orgId).eq('is_system', false)
+      if (result.error) throw result.error
+    },
+
+    async setStaffRoles(userId, roleIds, branchId = null) {
+      unwrap(
+        await client.rpc('set_staff_roles', {
+          p_organization_id: requireOrg(organizationId),
+          p_user_id: userId,
+          p_role_ids: roleIds,
+          p_branch_id: branchId,
+        })
       )
     },
   }
@@ -2973,7 +3300,7 @@ export function createSupabaseRepositories(
     customers: createCustomers(client, organizationId),
     sales: createSales(client),
     registers: createRegisters(client),
-    organization: createOrganization(client),
+    organization: createOrganization(client, organizationId),
     stock: createStock(client, organizationId),
     suppliers: createSuppliers(client, organizationId),
     purchases: createPurchases(client),

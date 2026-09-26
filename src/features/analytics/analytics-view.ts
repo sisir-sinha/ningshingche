@@ -497,7 +497,7 @@ export function answersPanel(answers: readonly BiAnswer[], currency = 'BDT'): HT
         h(
           'a',
           {
-            href: `#${answer.link}`,
+            href: answer.link,
             class:
               'group flex flex-col gap-1 rounded-md border border-border p-3 hover:border-primary/40 hover:bg-primary/5',
           },

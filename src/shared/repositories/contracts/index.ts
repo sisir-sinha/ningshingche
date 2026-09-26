@@ -98,7 +98,12 @@ export interface CatalogRepository {
   createBrand(name: string): Promise<Brand>
   listUnits(): Promise<Unit[]>
   listTaxes(): Promise<Tax[]>
+  listAllTaxes(): Promise<Tax[]>
+  createTax(name: string, rate: number, isInclusive: boolean): Promise<Tax>
+  updateTax(id: string, draft: { name?: string; rate?: number; is_inclusive?: boolean; is_active?: boolean }): Promise<Tax>
   listPaymentMethods(): Promise<PaymentMethod[]>
+  listAllPaymentMethods(): Promise<PaymentMethod[]>
+  updatePaymentMethod(id: string, draft: Partial<Pick<PaymentMethod, 'name' | 'is_active' | 'sort_order' | 'icon' | 'config'>>): Promise<PaymentMethod>
 }
 
 export interface ProductBarcode {
@@ -232,10 +237,59 @@ export interface SalesFloor {
   sessionId: string | null
 }
 
+export interface OrganizationSettings {
+  id: string
+  name: string
+  slug: string
+  currency: string
+  timezone: string
+  locale: string
+  logoUrl: string | null
+  settings: Record<string, unknown>
+}
+
+export interface StaffRoleAssignment {
+  id: string
+  key: string
+  name: string
+}
+
+export interface StaffRow {
+  kind: 'member' | 'pending'
+  userId: string | null
+  email: string
+  name: string
+  isActive: boolean
+  roles: StaffRoleAssignment[]
+  branches: { id: string; name: string }[]
+  invitationId: string | null
+  invitedAt: string | null
+  expiresAt: string | null
+}
+
+export interface RoleRow {
+  id: string
+  key: string
+  name: string
+  isSystem: boolean
+  permissionKeys: string[]
+}
+
 export interface OrganizationRepository {
   /** The branch this user sells from, and the resources hanging off it. */
   salesFloor(branchId: string): Promise<SalesFloor>
   listBranches(): Promise<{ id: string; name: string; code: string | null; is_primary: boolean }[]>
+  getSettings(): Promise<OrganizationSettings>
+  updateSettings(input: Partial<Pick<OrganizationSettings, 'name' | 'currency' | 'timezone' | 'locale' | 'logoUrl'>> & { settings?: Record<string, unknown> }): Promise<OrganizationSettings>
+  listStaff(): Promise<StaffRow[]>
+  inviteStaff(email: string, roleId: string, branchId?: string | null): Promise<{ id: string; email: string; expiresAt: string }>
+  removeStaff(userId: string): Promise<void>
+  listPermissions(): Promise<{ id: string; key: string; label: string; category: string }[]>
+  listRoles(): Promise<RoleRow[]>
+  createRole(name: string, key: string, permissionKeys: string[]): Promise<RoleRow>
+  updateRole(id: string, name: string, permissionKeys: string[]): Promise<RoleRow>
+  deleteRole(id: string): Promise<void>
+  setStaffRoles(userId: string, roleIds: string[], branchId?: string | null): Promise<void>
 }
 
 /**

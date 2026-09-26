@@ -46,6 +46,9 @@ import { auditRoutes } from './features/audit'
 import { analyticsRoutes } from './features/analytics'
 import { reportRoutes } from './features/reports'
 import { onboardingRoutes } from './features/onboarding'
+import { settingsRoutes } from './features/settings'
+import { userRoutes } from './features/users'
+import { roleRoutes } from './features/roles'
 import { sessionStore, can } from './app/state/session'
 import { translateError } from './app/platform/errors'
 import { h } from './components/ui/h'
@@ -154,6 +157,9 @@ const routes: Route[] = [
       ),
   },
   ...onboardingRoutes({ onDone: () => router.navigate('/') }),
+  ...settingsRoutes(),
+  ...userRoutes(),
+  ...roleRoutes(),
 ]
 
 /**

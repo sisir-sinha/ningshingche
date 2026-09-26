@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mekholi</title>
+    <script>
+      // GitHub Pages has no server rewrite for History API routes. Preserve the
+      // requested path, return to the app entry point, and let the router
+      // restore it with replaceState. No hash route is created.
+      (function () {
+        var base = '/Mekholi/'
+        var path = window.location.pathname.indexOf(base) === 0
+          ? window.location.pathname.slice(base.length)
+          : window.location.pathname.replace(/^\/+/, '')
+        try {
+          sessionStorage.setItem('mekholi.page-redirect', JSON.stringify({
+            path: '/' + path,
+            search: window.location.search,
+          }))
+        } catch (_) {
+          // The app will safely open at the dashboard if storage is disabled.
+        }
+        window.location.replace(base)
+      })()
+    </script>
+  </head>
+  <body></body>
+</html>

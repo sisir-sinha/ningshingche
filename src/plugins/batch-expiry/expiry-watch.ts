@@ -106,7 +106,12 @@ export function create(deps: ExpiryWatchDeps): PluginPageModule {
                   icon: 'open_in_new',
                   onClick: () => {
                     if (deps.onOpenProduct) deps.onOpenProduct(entry.product.id)
-                    else window.location.hash = `#/products/${entry.product.id}`
+                    else {
+                      const base = new URL(import.meta.env.BASE_URL || './', window.location.href).pathname
+                      const prefix = base === '/' ? '' : base.replace(/\/$/, '')
+                      window.history.pushState(null, '', `${prefix}/products/${entry.product.id}`)
+                      window.dispatchEvent(new PopStateEvent('popstate'))
+                    }
                   },
                 })
               )

@@ -9,7 +9,7 @@
  * @vitest-environment jsdom
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { PluginRegistry } from '../../shared/registry/plugin-registry'
 import { EventBus } from '../../shared/bus/event-bus'
 import type {
@@ -60,6 +60,8 @@ function products(values: Array<{ name: string; expiry?: string; batch?: string 
 }
 
 beforeEach(async () => {
+  vi.useFakeTimers()
+  vi.setSystemTime(NOW)
   bus = new EventBus()
   bus.onError = () => undefined
   rpcCalls = []
@@ -84,6 +86,10 @@ beforeEach(async () => {
   })
   registry.declare({ manifest: batchExpiryManifest, load: async () => batchExpiryPlugin })
   await registry.sync(['batch-expiry'])
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 describe('daysUntil', () => {

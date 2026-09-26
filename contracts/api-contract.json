@@ -1,7 +1,7 @@
 {
   "generatedFrom": "live database",
   "generatedBy": "tools/api-contract.mjs",
-  "migrations": 44,
+  "migrations": 52,
   "rpc": {
     "adjust_stock": {
       "returns": "numeric",
@@ -897,6 +897,111 @@
           "name": "p_note",
           "type": "text",
           "required": false
+        }
+      ]
+    },
+    "accept_staff_invitations": {
+      "returns": "integer",
+      "params": [
+        {
+          "name": "p_user_id",
+          "type": "uuid",
+          "required": false
+        }
+      ]
+    },
+    "invite_staff": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_organization_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_email",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "p_role_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_branch_id",
+          "type": "uuid",
+          "required": false
+        }
+      ]
+    },
+    "list_staff": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_organization_id",
+          "type": "uuid",
+          "required": true
+        }
+      ]
+    },
+    "remove_staff": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_organization_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_user_id",
+          "type": "uuid",
+          "required": true
+        }
+      ]
+    },
+    "set_staff_roles": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_organization_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_user_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_role_ids",
+          "type": "uuid[]",
+          "required": true
+        },
+        {
+          "name": "p_branch_id",
+          "type": "uuid",
+          "required": false
+        }
+      ]
+    },
+    "set_role_permissions": {
+      "returns": "jsonb",
+      "params": [
+        {
+          "name": "p_organization_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_role_id",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "p_permission_keys",
+          "type": "text[]",
+          "required": true
         }
       ]
     }

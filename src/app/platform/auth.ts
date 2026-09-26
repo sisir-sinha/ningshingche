@@ -207,6 +207,14 @@ export async function loadSessionPayload(): Promise<void> {
     return
   }
 
+  // Claim any pending organization invitations before reading permissions. The
+  // RPC only accepts the currently authenticated user, so the email address
+  // never becomes a client-controlled membership grant.
+  const { error: invitationError } = await supabase.rpc('accept_staff_invitations', {
+    p_user_id: user.id,
+  })
+  if (invitationError) throw invitationError
+
   const { data, error } = await supabase.rpc('session_payload')
   if (error) throw error
 

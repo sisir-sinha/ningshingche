@@ -1,12 +1,11 @@
 /**
- * Hash router with permission guards (spec §40).
+ * History API router with permission guards.
  *
- * Hash routing rather than History routing because the app must run from
- * `file://` and from a static host with no rewrite rules — an Android
- * WebView bundle is exactly that case.
- *
- * A route can declare a `permission`. The guard is consulted before the view
- * renders, so an unauthorized user never sees a partially-built screen.
+ * The deployed app is a static GitHub Pages site, so `public/404.html` sends
+ * direct deep links back to the application entry point. Navigation itself
+ * stays on real paths: links are copyable, browser back/forward works, and a
+ * legacy `#/settings` URL is migrated once rather than becoming a second
+ * routing system.
  */
 
 export interface RouteContext {
@@ -42,6 +41,23 @@ interface CompiledRoute {
   paramNames: string[]
 }
 
+/** The configured Vite base, resolved to an absolute path for this page. */
+export function appBasePath(): string {
+  const raw = new URL(import.meta.env.BASE_URL || './', window.location.href).pathname
+  const normalised = raw.endsWith('/') ? raw : `${raw}/`
+  return normalised === '//' ? '/' : normalised
+}
+
+/** The route portion of the current browser URL, excluding the deploy prefix. */
+export function appPath(): string {
+  const base = appBasePath()
+  const pathname = window.location.pathname
+  if (base === '/') return pathname || '/'
+  if (pathname === base.slice(0, -1) || pathname === base) return '/'
+  if (pathname.startsWith(base)) return `/${pathname.slice(base.length)}`
+  return pathname || '/'
+}
+
 /** `/products/:id/edit` → `^/products/([^/]+)/edit$`, `['id']`. */
 function compile(path: string): { matcher: RegExp; paramNames: string[] } {
   const paramNames: string[] = []
@@ -58,6 +74,36 @@ function compile(path: string): { matcher: RegExp; paramNames: string[] } {
   return { matcher: new RegExp(`^${pattern}$`), paramNames }
 }
 
+function absoluteRoute(to: string): string {
+  const route = to.startsWith('/') ? to : `/${to}`
+  const base = appBasePath()
+  return `${base === '/' ? '' : base.slice(0, -1)}${route}` || '/'
+}
+
+function migrateLegacyLocation(): void {
+  const hash = window.location.hash
+  if (hash.startsWith('#/')) {
+    const legacy = hash.slice(1)
+    window.history.replaceState(null, '', `${absoluteRoute(legacy)}${window.location.search}`)
+    return
+  }
+
+  // GitHub Pages' 404 page stores the deep link here before returning to the
+  // entry point. sessionStorage is used only for this one hand-off and is
+  // removed immediately, so a later reload never replays an old route.
+  try {
+    const saved = sessionStorage.getItem('mekholi.page-redirect')
+    if (!saved) return
+    sessionStorage.removeItem('mekholi.page-redirect')
+    const parsed = JSON.parse(saved) as { path?: string; search?: string }
+    if (typeof parsed.path === 'string' && parsed.path.startsWith('/')) {
+      window.history.replaceState(null, '', `${absoluteRoute(parsed.path)}${parsed.search ?? ''}`)
+    }
+  } catch {
+    // Storage may be disabled. The root route remains a safe fallback.
+  }
+}
+
 export class Router {
   readonly #routes: CompiledRoute[] = []
   #container: HTMLElement
@@ -67,7 +113,7 @@ export class Router {
   #fallback: string
   #current: { route: Route; ctx: RouteContext } | null = null
   #started = false
-  #onHashChange = (): void => {
+  #onPopState = (): void => {
     void this.#resolve()
   }
 
@@ -92,13 +138,14 @@ export class Router {
 
   start(): void {
     if (this.#started) return
+    migrateLegacyLocation()
     this.#started = true
-    window.addEventListener('hashchange', this.#onHashChange)
+    window.addEventListener('popstate', this.#onPopState)
     void this.#resolve()
   }
 
   stop(): void {
-    window.removeEventListener('hashchange', this.#onHashChange)
+    window.removeEventListener('popstate', this.#onPopState)
     this.#started = false
   }
 
@@ -111,17 +158,16 @@ export class Router {
   }
 
   navigate(to: string, options: { replace?: boolean } = {}): void {
-    const target = `#${to.startsWith('/') ? to : `/${to}`}`
-    if (window.location.hash === target) {
+    const target = absoluteRoute(to)
+    const current = `${window.location.pathname}${window.location.search}`
+    const next = `${target}${to.includes('?') ? '' : ''}`
+    if (current === next) {
       void this.#resolve()
       return
     }
-    if (options.replace) {
-      window.history.replaceState(null, '', target)
-      void this.#resolve()
-    } else {
-      window.location.hash = target
-    }
+    if (options.replace) window.history.replaceState(null, '', target)
+    else window.history.pushState(null, '', target)
+    void this.#resolve()
   }
 
   /** Re-render the current route without changing the URL. */
@@ -132,11 +178,9 @@ export class Router {
   // ── Resolution ────────────────────────────────────────────────────────
 
   #parse(): { path: string; query: URLSearchParams } {
-    const raw = window.location.hash.replace(/^#/, '') || '/'
-    const [pathPart, queryPart = ''] = raw.split('?')
     return {
-      path: pathPart === '' ? '/' : (pathPart as string),
-      query: new URLSearchParams(queryPart),
+      path: appPath().split('?')[0] || '/',
+      query: new URLSearchParams(window.location.search),
     }
   }
 
@@ -159,22 +203,18 @@ export class Router {
     const matched = this.#match(path)
 
     if (!matched) {
-      if (path !== this.#fallback) {
-        this.navigate(this.#fallback, { replace: true })
-      }
+      if (path !== this.#fallback) this.navigate(this.#fallback, { replace: true })
       return
     }
 
     const { compiled, params } = matched
 
-    // Ask the outgoing view whether it is safe to leave (unsaved cart, etc.).
     if (this.#current && this.#current.route !== compiled.route) {
       const leave = this.#current.route.beforeLeave
       if (leave) {
         const ok = await leave()
         if (!ok) {
-          // Restore the hash without re-triggering resolution.
-          window.history.replaceState(null, '', `#${this.#current.ctx.path}`)
+          this.navigate(this.#current.ctx.path, { replace: true })
           return
         }
       }
@@ -193,18 +233,14 @@ export class Router {
 
     try {
       const view = await compiled.route.render(ctx)
-      // A navigation may have happened while we awaited the view.
       if (this.#parse().path !== path) return
       this.#container.appendChild(view)
       this.#current = { route: compiled.route, ctx }
       document.title = compiled.route.title ? `${compiled.route.title} · Mekholi` : 'Mekholi'
       this.#onNavigate?.(compiled.route, ctx)
     } catch (error) {
-      if (this.#onError) {
-        this.#onError(error, compiled.route)
-      } else {
-        console.error(`[router] "${compiled.route.path}" failed to render`, error)
-      }
+      if (this.#onError) this.#onError(error, compiled.route)
+      else console.error(`[router] "${compiled.route.path}" failed to render`, error)
       this.#container.appendChild(this.#errorView(compiled.route, error))
     }
   }

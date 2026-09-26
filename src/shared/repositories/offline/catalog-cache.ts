@@ -212,11 +212,16 @@ export function createCatalogCache(
         () => next.listTaxes(),
         async () => (await cachedList<Awaited<ReturnType<CatalogRepository['listTaxes']>>>('list:taxes'))?.value
       ),
+    listAllTaxes: () => next.listAllTaxes(),
+    createTax: (name, rate, isInclusive) => next.createTax(name, rate, isInclusive),
+    updateTax: (id, draft) => next.updateTax(id, draft),
     listPaymentMethods: () =>
       readThrough(
         () => next.listPaymentMethods(),
         async () => (await cachedList<Awaited<ReturnType<CatalogRepository['listPaymentMethods']>>>('list:paymentMethods'))?.value
       ),
+    listAllPaymentMethods: () => next.listAllPaymentMethods(),
+    updatePaymentMethod: (id, draft) => next.updatePaymentMethod(id, draft),
   }
 
   /**

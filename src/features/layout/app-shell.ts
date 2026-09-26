@@ -14,6 +14,7 @@ import { sidebar, markActive } from './sidebar'
 import { CommandPalette } from './command-palette'
 import type { PluginRegistry } from '../../shared/registry/plugin-registry'
 import { sessionStore, activeOrganization, can } from '../../app/state/session'
+import { appPath } from '../../app/router/router'
 import { selectOrganization } from '../../app/platform/auth'
 import type { EventBus } from '../../shared/bus'
 
@@ -273,9 +274,7 @@ export function appShell(options: AppShellOptions): AppShell {
 }
 
 function currentPath(): string {
-  const raw = window.location.hash.replace(/^#/, '')
-  const path = raw.split('?')[0]
-  return path === '' ? '/' : (path ?? '/')
+  return appPath().split('?')[0] || '/'
 }
 
 function headerActions(onHelp: () => void): HTMLElement {

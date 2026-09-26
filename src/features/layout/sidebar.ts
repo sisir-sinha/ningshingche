@@ -191,7 +191,7 @@ function navItem(
   const link = h(
     'a',
     {
-      href: `#${item.route}`,
+      href: item.route,
       class:
         'group flex min-h-[44px] items-center gap-2.5 rounded-md px-2.5 py-2 text-sm ' +
         'text-content-muted hover:bg-surface hover:text-content ' +
