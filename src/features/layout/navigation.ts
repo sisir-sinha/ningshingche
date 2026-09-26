@@ -49,6 +49,7 @@ export const CORE_NAV: NavItem[] = [
   { id: 'sales', label: 'Sales', icon: 'receipt_long', section: 'selling', route: '/sales', permission: 'sales.view', order: 20 },
   { id: 'customers', label: 'Customers', icon: 'group', section: 'selling', route: '/customers', permission: 'customers.view', order: 30 },
   { id: 'products', label: 'Products', icon: 'inventory_2', section: 'inventory', route: '/products', permission: 'products.view', order: 10 },
+  { id: 'catalogue', label: 'Catalogue', icon: 'category', section: 'inventory', route: '/catalogue', permission: 'products.view', order: 15 },
   {
     id: 'stock',
     label: 'Stock',

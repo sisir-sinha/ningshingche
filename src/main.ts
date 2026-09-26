@@ -34,6 +34,7 @@ import { installRepositories, resetRepositories } from './app/data'
 import { startOffline, offlineRuntime } from './app/offline'
 import { posRoutes } from './features/pos'
 import { productRoutes } from './features/products'
+import { catalogueRoutes } from './features/catalogue'
 import { stockRoutes } from './features/stock'
 import { salesRoutes } from './features/sales'
 import { customerRoutes } from './features/customers'
@@ -113,6 +114,7 @@ const routes: Route[] = [
   },
   ...posRoutes({ bus: eventBus, registry }),
   ...productRoutes(registry),
+  ...catalogueRoutes(),
   ...stockRoutes({ onNavigate: (path) => router.navigate(path) }),
   ...salesRoutes({ registry }),
   ...customerRoutes({ onNavigate: (path) => router.navigate(path) }),
