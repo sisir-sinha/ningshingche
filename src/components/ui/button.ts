@@ -117,7 +117,11 @@ export function button(label: string, options: ButtonOptions = {}): HTMLButtonEl
     el.appendChild(icon(iconName, size === 'xl' ? 'text-2xl' : size === 'sm' ? 'text-base' : 'text-lg'))
   }
 
-  if (label) el.appendChild(h('span', { text: label }))
+  // `data-label`: a caller that re-labels a button live must be able to find
+  // the *text* span. The first span in a button with an icon is the icon —
+  // writing a price into it renders it in the Material Symbols font, which is
+  // how "Still owed 900.00" once appeared as glyph soup over the real label.
+  if (label) el.appendChild(h('span', { 'data-label': '', text: label }))
 
   if (trailingIcon) {
     el.appendChild(icon(trailingIcon, 'text-base opacity-70'))

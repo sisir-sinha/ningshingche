@@ -127,12 +127,36 @@ export function openPaymentDialog(options: PaymentDialogOptions): { close: () =>
     }
 
     renderTenders()
-    submitButton.disabled = !result.settled || submitting
-    submitButton.querySelector('span')!.textContent = result.settled
-      ? result.change > 0
-        ? `Complete · change ${formatMoney(result.change, { currency, symbol: false })}`
-        : 'Complete sale'
-      : `Still owed ${formatMoney(due, { currency, symbol: false })}`
+
+    // What the amount field is offering right now. The tender is not added
+    // until the cashier acts, but the button has to describe the *outcome* of
+    // acting — otherwise a till showing a pre-filled ৳900.00 against a ৳900.00
+    // total presents a disabled button reading "Still owed ৳900.00", which is
+    // both untrue and a dead end for anyone without a keyboard.
+    const typed = parseMinor(amountInput.value) ?? minor(0)
+    const offered = typed > 0 && selectedMethod ? typed : minor(0)
+    const willSettle = !result.settled && offered >= due
+    const change = result.settled ? result.change : minor(offered - due)
+
+    submitButton.disabled = submitting || (!result.settled && offered <= 0)
+    setSubmitLabel(
+      result.settled || willSettle
+        ? change > 0
+          ? `Complete · change ${formatMoney(change, { currency, symbol: false })}`
+          : 'Complete sale'
+        : offered > 0
+          ? `Add ${formatMoney(offered, { currency, symbol: false })} · ` +
+            `${formatMoney(minor(due - offered), { currency, symbol: false })} left`
+          : `Still owed ${formatMoney(due, { currency, symbol: false })}`
+    )
+  }
+
+  /**
+   * Writes the button's text, never its icon. `querySelector('span')` finds
+   * the icon first, and an icon font renders a price as nonsense.
+   */
+  function setSubmitLabel(text: string): void {
+    submitButton.querySelector('[data-label]')!.textContent = text
   }
 
   function renderTenders(): void {
@@ -205,7 +229,13 @@ export function openPaymentDialog(options: PaymentDialogOptions): { close: () =>
     size: 'lg',
     fullWidth: true,
     icon: 'check_circle',
-    onClick: () => void submit(),
+    // The one button does the one obvious thing: whatever is in the amount
+    // field becomes a tender, and a tender that covers the balance settles
+    // the sale — the same path Enter takes, reachable by thumb.
+    onClick: () => {
+      if (settlement(total, payments).settled) void submit()
+      else void addTender()
+    },
   })
 
   async function submit(): Promise<void> {
