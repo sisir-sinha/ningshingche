@@ -10,10 +10,12 @@ import { h, mount } from '../../components/ui/h'
 import { button, spinner } from '../../components/ui/button'
 import { badge, card, emptyState } from '../../components/ui/card'
 import { checkbox, field, input, select, textarea } from '../../components/ui/input'
+import { imagePicker } from '../../components/ui/image-upload'
 import { modal } from '../../components/feedback/modal'
 import { toastError, toastSuccess } from '../../components/feedback/toast'
 import { getRepositories } from '../../app/data'
 import { can } from '../../app/state/session'
+import { imageUploadsEnabled, uploadImage, validateImageFile } from '../../app/images'
 import { translateError } from '../../app/platform/errors'
 import type { PaymentMethod, Tax } from '../../shared/types/records'
 
@@ -74,14 +76,34 @@ export function settingsView(): HTMLElement {
     const deviceName = input({ value: typeof bag.deviceName === 'string' ? bag.deviceName : '', placeholder: 'Front counter' })
     const showLogo = checkbox({ label: 'Show the shop logo on receipts', checked: bag.receiptShowLogo !== false })
     const autoPrint = checkbox({ label: 'Print receipts automatically after a sale', checked: bag.autoPrintReceipt === true })
+    // The logo is uploaded to ImgBB and stored as a URL, the same way product
+    // photos are. Receipts and the sidebar read `logoUrl`, so one upload here
+    // changes both without a second place to keep the file.
+    const shopName = settings.name
+    const logo = imagePicker({
+      value: settings.logoUrl,
+      label: `${shopName} logo`,
+      previewClass: 'h-16 w-16',
+      validate: (file) => validateImageFile(file),
+      ...(imageUploadsEnabled()
+        ? {
+            upload: async (file, onProgress) => {
+              const uploaded = await uploadImage(file, { name: `${shopName} logo`, onProgress })
+              return { url: uploaded.url, thumbUrl: uploaded.thumbUrl }
+            },
+          }
+        : { disabledHint: 'Set VITE_IMGBB_API_KEY to upload a logo.' }),
+    })
     const saveButton = button('Save settings', { variant: 'primary', icon: 'save', disabled: !can('settings.business') })
 
     saveButton.addEventListener('click', () => {
       void (async () => {
         saveButton.disabled = true
         try {
+          const logoUrl = await logo.commit()
           settings = await repos.organization.updateSettings({
             name: name.value.trim(),
+            logoUrl,
             currency: currency.value.trim().toUpperCase(),
             timezone: timezone.value.trim(),
             locale: locale.value,
@@ -110,6 +132,11 @@ export function settingsView(): HTMLElement {
         field('Timezone', timezone, { required: true }),
         field('Language', locale, { required: true })
       ),
+      field('Shop logo', logo.root, {
+        hint: imageUploadsEnabled()
+          ? 'Shown on receipts when the option below is on. Hosted on ImgBB; only the link is stored.'
+          : 'Set VITE_IMGBB_API_KEY to upload a logo.',
+      }),
       h('div', { class: 'mt-4 flex justify-end' }, saveButton)
     )
 

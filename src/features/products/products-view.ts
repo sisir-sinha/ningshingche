@@ -32,7 +32,8 @@ import { modal } from '../../components/feedback/modal'
 import { toastError, toastSuccess } from '../../components/feedback/toast'
 import { confirm } from '../../components/feedback/modal'
 import { getRepositories } from '../../app/data'
-import { env } from '../../app/env'
+import { imageUploadsEnabled, uploadImage, validateImageFile } from '../../app/images'
+import { imagePicker } from '../../components/ui/image-upload'
 import { pluginFormSectionsHost } from '../../app/plugin-slots'
 import { bindDrafts, clearDraft, restoreDraft } from '../../app/state/drafts'
 import { translateError } from '../../app/platform/errors'
@@ -436,25 +437,6 @@ function productCombobox(options: ProductComboboxOptions): ProductCombobox {
   }
 }
 
-async function uploadProductImage(file: File): Promise<string> {
-  if (!env.imgbbApiKey) {
-    throw new Error('Image uploads are not configured. Set VITE_IMGBB_API_KEY first.')
-  }
-  if (!file.type.startsWith('image/')) throw new Error('Choose an image file.')
-  if (file.size > 10 * 1024 * 1024) throw new Error('Images must be 10 MB or smaller.')
-  const body = new FormData()
-  body.append('image', file)
-  const response = await fetch(`https://api.imgbb.com/1/upload?key=${encodeURIComponent(env.imgbbApiKey)}`, {
-    method: 'POST',
-    body,
-  })
-  const result = (await response.json()) as { success?: boolean; data?: { url?: string }; error?: { message?: string } }
-  if (!response.ok || result.success !== true || !result.data?.url) {
-    throw new Error(result.error?.message ?? 'The image upload failed.')
-  }
-  return result.data.url
-}
-
 function barcodeValues(value: string): string[] {
   return [...new Set(value.split(/[\\n,]+/).map((code) => code.trim()).filter(Boolean))]
 }
@@ -512,33 +494,28 @@ function openProductForm(options: FormOptions): void {
     rows: 2,
     placeholder: 'One barcode per line or separated by commas',
   })
-  const imageFileInput = h('input', {
-    type: 'file',
-    accept: 'image/png,image/jpeg,image/webp,image/gif',
-    class: 'block w-full text-sm text-content-muted file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-white',
-  }) as HTMLInputElement
-  const imagePreview = h('div', { class: 'empty:hidden' })
   const openingStockInput = input({ type: 'text', inputmode: 'decimal', placeholder: '0' })
-  imageFileInput.addEventListener('change', () => {
-    const file = imageFileInput.files?.[0]
-    if (!file) return
-    imagePreview.replaceChildren(
-      h('img', {
-        src: URL.createObjectURL(file),
-        alt: 'Product preview',
-        class: 'mt-2 h-20 w-20 rounded-md object-cover',
-      })
-    )
+
+  // One picker, one uploader. The bytes only leave the device when `commit()`
+  // runs during save, so a form abandoned half-filled costs a shop nothing in
+  // data — which on a shared phone connection is the difference between a
+  // feature used and a feature avoided (docs/09).
+  const imageField = imagePicker({
+    value: product?.image_url ?? null,
+    label: product?.name ?? 'Product image',
+    validate: (file) => validateImageFile(file),
+    ...(imageUploadsEnabled()
+      ? {
+          upload: async (file, onProgress) => {
+            const uploaded = await uploadImage(file, {
+              name: nameInput.value.trim() || file.name,
+              onProgress,
+            })
+            return { url: uploaded.url, thumbUrl: uploaded.thumbUrl }
+          },
+        }
+      : { disabledHint: 'Set VITE_IMGBB_API_KEY to enable product photos.' }),
   })
-  if (product?.image_url) {
-    imagePreview.replaceChildren(
-      h('img', {
-        src: product.image_url,
-        alt: product.name,
-        class: 'mt-2 h-20 w-20 rounded-md object-cover',
-      })
-    )
-  }
 
   const errorSlot = h('p', { class: 'text-sm text-danger mt-2 hidden' })
   const saveButton = button(product ? 'Save changes' : 'Create product', {
@@ -638,7 +615,6 @@ function openProductForm(options: FormOptions): void {
     const reorderPoint = parseMilli(reorderInput.value || '0', { decimal: true })
     const openingStock = parseMilli(openingStockInput.value || '0', { decimal: true })
     const trackStock = trackStockBox.querySelector('input')?.checked ?? true
-    const imageFile = imageFileInput.files?.[0]
     if (!name) {
       errorSlot.textContent = 'A product needs a name.'
       errorSlot.classList.remove('hidden')
@@ -686,7 +662,9 @@ function openProductForm(options: FormOptions): void {
 
     saveButton.disabled = true
     try {
-      const imageUrl = imageFile ? await uploadProductImage(imageFile) : product?.image_url ?? null
+      // Uploaded here, after validation and after the plugin checks — never
+      // before, so a save that was going to fail never spends a shop's data.
+      const imageUrl = await imageField.commit()
       const payload = {
         name,
         sku: skuInput.value.trim() || null,
@@ -752,8 +730,10 @@ function openProductForm(options: FormOptions): void {
       field('Barcode(s)', barcodeInput, {
         hint: 'The first code becomes primary. Variant barcodes can be managed in Variants.',
       }),
-      field('Product image', h('div', { class: 'space-y-1' }, imageFileInput, imagePreview), {
-        hint: env.imgbbApiKey ? 'Uploaded securely to ImgBB.' : 'Set VITE_IMGBB_API_KEY to enable uploads.',
+      field('Product image', imageField.root, {
+        hint: imageUploadsEnabled()
+          ? 'Hosted on ImgBB — only the link is stored. Drag a photo in, or shoot one on a phone.'
+          : 'Set VITE_IMGBB_API_KEY to enable product photos.',
       }),
       ...basicPluginFields.map(renderPluginField),
       pluginFormSectionsHost(registry, {

@@ -20,6 +20,11 @@ npm run db:push           # apply the schema to your Supabase project
 npm run dev               # http://localhost:5173
 ```
 
+Product photos and the shop logo upload to ImgBB from the browser. Set
+`VITE_IMGBB_API_KEY` (a *public* upload key from <https://api.imgbb.com>) to
+switch that on; leave it blank and the picker renders disabled while every
+other field keeps working. See [docs/15](./docs/15-image-uploads.md).
+
 `db:push` reads `.env.db` (gitignored) — see [tools/README.md](./tools/README.md)
 for the format and the three things that are easy to get wrong.
 
