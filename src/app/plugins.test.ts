@@ -15,7 +15,8 @@
  */
 
 import { describe, it, expect, afterAll } from 'vitest'
-import { SHIPPED_PLUGINS, declareShippedPlugins, pluginRegistry } from './plugins'
+import { SHIPPED_PLUGINS, declareShippedPlugins, pluginRegistry, rememberConfig } from './plugins'
+import { LICENCE_KEY, startSubscription } from '../shared/registry/plugin-licence'
 import { validateManifest } from '../shared/registry/plugin-manifest'
 
 const manifests = SHIPPED_PLUGINS.map((shipped) => shipped.manifest)
@@ -74,6 +75,52 @@ describe('what this bundle ships', () => {
   })
 })
 
+describe('what a plugin costs', () => {
+  it('leaves exactly one plugin free, and prices the rest', () => {
+    const free = manifests.filter((manifest) => (manifest.pricing?.priceBdt ?? 0) === 0)
+    expect(free.map((manifest) => manifest.id)).toEqual(['warranty'])
+    for (const manifest of manifests) {
+      // Every plugin states its price. A price that is implied is a price
+      // that gets argued about later.
+      expect(manifest.pricing).toBeDefined()
+      if (manifest.id !== 'warranty') expect(manifest.pricing!.priceBdt).toBeGreaterThan(0)
+    }
+  })
+
+  it('refuses to load a paid plugin this shop has not subscribed to', async () => {
+    rememberConfig('variants', {})
+    await pluginRegistry.sync(['variants'])
+
+    expect(pluginRegistry.loadedIds).not.toContain('variants')
+    expect(pluginRegistry.get('variants')?.status).toBe('blocked')
+    expect(pluginRegistry.get('variants')?.error).toContain('৳249/month')
+    await pluginRegistry.sync([])
+  })
+
+  it('loads the free one with no licence at all', async () => {
+    rememberConfig('warranty', {})
+    await pluginRegistry.sync(['warranty'])
+    expect(pluginRegistry.loadedIds).toContain('warranty')
+    await pluginRegistry.sync([])
+  })
+
+  it('stops loading a paid plugin once the trial has run out', async () => {
+    const longAgo = new Date(Date.now() - 60 * 86_400_000)
+    rememberConfig('variants', {
+      [LICENCE_KEY]: {
+        plan: 'trial',
+        startedAt: longAgo.toISOString(),
+        expiresAt: new Date(longAgo.getTime() + 14 * 86_400_000).toISOString(),
+      },
+    })
+    await pluginRegistry.sync(['variants'])
+
+    expect(pluginRegistry.loadedIds).not.toContain('variants')
+    expect(pluginRegistry.get('variants')?.error).toContain('trial ended')
+    await pluginRegistry.sync([])
+  })
+})
+
 describe('the host, loading the shipped set', () => {
   afterAll(async () => {
     // The registry is a singleton for the app's lifetime; a test that leaves
@@ -87,6 +134,11 @@ describe('the host, loading the shipped set', () => {
   })
 
   it('loads a plugin and its dependency together, through the real modules', async () => {
+    // Both are paid, and the engine will not load a plugin this shop is not
+    // entitled to — so the shop "subscribes" first, exactly as the Plugins
+    // screen does.
+    rememberConfig('loyalty-lite', { [LICENCE_KEY]: startSubscription() })
+    rememberConfig('batch-expiry', { [LICENCE_KEY]: startSubscription() })
     await pluginRegistry.sync(['loyalty-lite'])
 
     expect(pluginRegistry.loadedIds).toEqual(['batch-expiry', 'loyalty-lite'])

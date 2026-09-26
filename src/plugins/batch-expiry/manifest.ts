@@ -23,6 +23,11 @@ export const batchExpiryManifest: PluginManifest = {
   version: '1.0.0',
   coreApiVersion: '^1.0.0',
   category: 'optional',
+  pricing: {
+    plan: 'paid',
+    priceBdt: 349,
+    trialDays: 14,
+  },
   icon: 'event_busy',
   description: 'Track batch numbers and expiry dates. Warns before stock expires.',
   dataOwnership: 'persistent',

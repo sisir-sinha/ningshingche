@@ -54,6 +54,11 @@ export const weightScaleManifest: PluginManifest = {
   description:
     'Sell by weight: the till reads your scale’s labels, and the shop sees which items its scale cannot ring up.',
   category: 'industry',
+  pricing: {
+    plan: 'paid',
+    priceBdt: 299,
+    trialDays: 14,
+  },
   icon: 'scale',
   // The keys are written as literals, not as the constants above: the bundle
   // the server ships is compared against this manifest by reading the file, so

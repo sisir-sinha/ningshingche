@@ -20,7 +20,7 @@
  * the host recorded, and one button to try again — never a silent absence.
  */
 
-import { h, icon, mount } from '../../components/ui/h'
+import { h, mount } from '../../components/ui/h'
 import { button, iconButton, spinner } from '../../components/ui/button'
 import { badge, card, emptyState, stat } from '../../components/ui/card'
 import { checkbox, field, input, searchInput, select } from '../../components/ui/input'
@@ -30,6 +30,16 @@ import { getRepositories } from '../../app/data'
 import { activeOrganization, can } from '../../app/state/session'
 import { pluginRegistry, pluginConfig, rememberConfig, syncPlugins } from '../../app/plugins'
 import { translateError } from '../../app/platform/errors'
+import {
+  LICENCE_KEY,
+  licenceFor,
+  priceLabel,
+  startSubscription,
+  startTrial,
+  type Licence,
+} from '../../shared/registry/plugin-licence'
+import { pluginCover } from './plugin-cover'
+import type { PluginManifest } from '../../shared/registry/plugin-types'
 import type { PluginCatalogEntry, PluginImpactRole } from '../../shared/repositories/contracts'
 
 type Filter = 'all' | 'on' | 'off' | 'attention'
@@ -77,7 +87,10 @@ export function pluginsView(): HTMLElement {
 
   const headerSlot = h('div', { class: 'space-y-3 border-b border-border p-4' })
   const listSlot = h('div', { class: 'min-h-0 flex-1 overflow-y-auto p-4' })
-  const root = h('div', { class: 'mx-auto flex h-full min-h-0 max-w-5xl flex-col' }, headerSlot, listSlot)
+  // Wider than the rest of the app's settings screens on purpose: a plugin
+  // card carries a cover, a description, what it contributes, what it costs
+  // and its controls, and squeezing that into 64rem wrapped every line.
+  const root = h('div', { class: 'mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col' }, headerSlot, listSlot)
 
   const searchBox = searchInput('Search plugins…', (value) => {
     search = value
@@ -234,14 +247,25 @@ export function pluginsView(): HTMLElement {
     )
   }
 
-  /** One row per plugin: what it is, what it added, and what it can do next. */
+  function manifestOf(key: string): PluginManifest | undefined {
+    return pluginRegistry.get(key)?.manifest
+  }
+
+  function licenceOf(entry: PluginCatalogEntry): Licence {
+    return licenceFor(manifestOf(entry.key)?.pricing, pluginConfig(entry.key))
+  }
+
+  /** One card per plugin: what it is, what it costs, and its controls. */
   function pluginCard(entry: PluginCatalogEntry): HTMLElement {
     const registration = pluginRegistry.get(entry.key)
+    const manifest = manifestOf(entry.key)
     const hostError = registration?.error ?? null
     const failed = entry.status === 'error' || registration?.status === 'error'
     const blocked = registration?.status === 'blocked'
     const loaded = registration?.status === 'loaded'
     const parts = loaded ? contributions(entry.key) : []
+    const licence = licenceOf(entry)
+    const paid = licence.status !== 'free'
 
     const statusBadge = failed
       ? badge('Needs attention', { tone: 'danger', iconName: 'error' })
@@ -251,78 +275,109 @@ export function pluginsView(): HTMLElement {
           ? badge('On', { tone: 'success', iconName: 'check_circle' })
           : badge('Off', { tone: 'neutral', iconName: 'power_settings_new' })
 
-    const actions: HTMLElement[] = []
+    const priceBadge = !paid
+      ? badge('Free', { tone: 'success', iconName: 'volunteer_activism' })
+      : licence.status === 'trial'
+        ? badge(`Trial · ${licence.daysLeft}d left`, { tone: 'info', iconName: 'schedule' })
+        : licence.status === 'active'
+          ? badge('Subscribed', { tone: 'success', iconName: 'workspace_premium' })
+          : licence.status === 'expired'
+            ? badge('Expired', { tone: 'danger', iconName: 'event_busy' })
+            : badge(priceLabel(manifest?.pricing), { tone: 'warning', iconName: 'sell' })
+
+    // ── The right-hand column ────────────────────────────────────────────
+    // Everything that *acts* lives here, in one place, in the same order on
+    // every card: state, price, the switch, then settings. A shopkeeper
+    // scanning the list reads the left edge for what a thing is and the right
+    // edge for what they can do about it.
+    const controls: (HTMLElement | null)[] = [
+      h('div', { class: 'flex flex-wrap items-center justify-end gap-1.5' }, statusBadge, priceBadge),
+      h('p', { class: 'text-right text-xs text-content-subtle', text: licence.summary }),
+    ]
+
     if (canManage) {
-      actions.push(
+      controls.push(
         entry.enabled
           ? button('Switch off', {
               variant: 'secondary',
               icon: 'toggle_off',
+              fullWidth: true,
               onClick: () => void switchOff(entry),
             })
-          : button('Switch on', {
+          : button(paid && !licence.entitled ? 'Subscribe & switch on' : 'Switch on', {
               variant: 'primary',
-              icon: 'toggle_on',
+              icon: paid && !licence.entitled ? 'shopping_cart_checkout' : 'toggle_on',
+              fullWidth: true,
               onClick: () => void switchOn(entry),
             })
       )
     }
-    // Settings live in `plugins.config`, which needs a row in `plugins` to
-    // write to — so a plugin that has never been switched on offers the
-    // switch, not a form that would fail on save.
-    actions.push(
-      button('Settings', {
-        variant: 'ghost',
-        icon: 'tune',
-        disabled: !entry.installed,
-        title: entry.installed ? 'Settings' : 'Switch this plugin on first',
-        onClick: () => openSettings(entry),
-      })
+
+    controls.push(
+      h('div', { class: 'flex justify-end' },
+        // An icon, not a button with a word: settings is the secondary action
+        // and it should not compete with the switch above it.
+        iconButton('tune', `${entry.name} settings`, {
+          variant: 'ghost',
+          disabled: !entry.installed,
+          title: entry.installed ? 'Settings' : 'Switch this plugin on first',
+          onClick: () => openSettings(entry),
+        })
+      )
     )
 
     return card(
-      h(
-        'div',
-        { class: 'flex flex-wrap items-start justify-between gap-3' },
-        h(
-          'div',
-          { class: 'flex min-w-0 items-start gap-3' },
-          h(
-            'span',
-            { class: 'grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border bg-surface-muted' },
-            icon(registration?.manifest.icon ?? 'extension', 'text-content-muted text-xl')
+      h('div', { class: 'flex flex-col gap-4 lg:flex-row lg:items-start' },
+        // ── Cover ──────────────────────────────────────────────────────
+        h('img', {
+          src: manifest?.cover ?? pluginCover({ id: entry.key, name: entry.name }),
+          alt: '',
+          class: [
+            'h-24 w-full shrink-0 rounded-lg border border-border object-cover',
+            'lg:h-20 lg:w-28',
+            entry.enabled ? '' : 'opacity-60 grayscale',
+          ].filter(Boolean).join(' '),
+        }),
+
+        // ── What it is ─────────────────────────────────────────────────
+        h('div', { class: 'min-w-0 flex-1' },
+          h('div', { class: 'flex flex-wrap items-center gap-2' },
+            h('p', { class: 'text-base font-semibold text-content', text: entry.name }),
+            badge(`v${entry.version}`, { tone: 'neutral' }),
+            entry.migrationsPending > 0
+              ? badge(`${entry.migrationsPending} migration(s) pending`, { tone: 'info' })
+              : null
           ),
-          h(
-            'div',
-            { class: 'min-w-0' },
-            h(
-              'div',
-              { class: 'flex flex-wrap items-center gap-2' },
-              h('p', { class: 'text-sm font-semibold text-content', text: entry.name }),
-              badge(`v${entry.version}`, { tone: 'neutral' }),
-              statusBadge,
-              entry.migrationsPending > 0 ? badge(`${entry.migrationsPending} migration(s) pending`, { tone: 'info' }) : null
-            ),
-            h('p', { class: 'mt-1 text-sm text-content-muted', text: entry.description ?? '—' }),
-            h('p', { class: 'mt-1 text-xs text-content-subtle', text: `id: ${entry.key}` })
-          )
+          h('p', { class: 'mt-1 text-sm text-content-muted', text: entry.description ?? '—' }),
+          h('p', { class: 'mt-1 text-xs text-content-subtle', text: `id: ${entry.key}` }),
+          parts.length > 0
+            ? h('p', { class: 'mt-2 text-xs text-content-muted', text: `Adds: ${parts.join(' · ')}` })
+            : null,
+          entry.permissions.length > 0
+            ? h('p', {
+                class: 'mt-1 text-xs text-content-subtle',
+                text: `Permissions: ${entry.permissions.map((permission) => permission.key).join(', ')}`,
+              })
+            : null,
+          entry.dependencies.length > 0
+            ? h('p', {
+                class: 'mt-1 text-xs text-content-subtle',
+                text: `Needs: ${entry.dependencies.join(', ')}`,
+              })
+            : null,
+          workerLine(entry.key)
         ),
-        h('div', { class: 'flex shrink-0 flex-wrap items-center gap-2' }, ...actions)
+
+        // ── What you can do about it ───────────────────────────────────
+        h('div', { class: 'flex w-full shrink-0 flex-col gap-2 lg:w-52' }, ...controls)
       ),
-      parts.length > 0 ? h('p', { class: 'mt-3 text-xs text-content-muted', text: `Adds: ${parts.join(' · ')}` }) : null,
-      entry.permissions.length > 0
-        ? h(
-            'p',
-            { class: 'mt-1 text-xs text-content-subtle' },
-            `Permissions: ${entry.permissions.map((permission) => permission.key).join(', ')}`
+
+      blocked && registration?.error
+        ? h('div', { class: 'mt-3 rounded-lg border border-warning/30 bg-warning/5 p-3' },
+            h('p', { class: 'text-xs text-content-muted', text: registration.error })
           )
         : null,
-      entry.dependencies.length > 0
-        ? h('p', {
-            class: 'mt-1 text-xs text-content-subtle',
-            text: `Needs: ${entry.dependencies.join(', ')}`,
-          })
-        : null,
+
       failed && (hostError ?? entry.lastError)
         ? h(
             'div',
@@ -343,6 +398,28 @@ export function pluginsView(): HTMLElement {
     )
   }
 
+  /**
+   * What this plugin has cost the app, measured rather than guessed.
+   *
+   * The worker times every turn a plugin takes. A shop complaining that "the
+   * till got slow after I switched things on" deserves a number, and a plugin
+   * the worker has stopped calling must say so out loud.
+   */
+  function workerLine(key: string): HTMLElement | null {
+    const stat = pluginRegistry.worker.statFor(key)
+    if (!stat || stat.runs === 0) return null
+    const average = Math.round(stat.totalMs / stat.runs)
+    const trouble = stat.failures + stat.timeouts
+    return h('p', {
+      class: `mt-2 text-xs ${trouble > 0 ? 'text-warning' : 'text-content-subtle'}`,
+      text:
+        `${stat.runs} turn${stat.runs === 1 ? '' : 's'} · ${average}ms average · ` +
+        `slowest ${stat.slowestMs}ms` +
+        (trouble > 0 ? ` · ${trouble} gave up` : '') +
+        (pluginRegistry.worker.isTripped(key) ? ' · not being asked any more' : ''),
+    })
+  }
+
   /** The permissions a wildcard role would gain — the reason to ask first. */
   function impactText(roles: PluginImpactRole[]): string {
     if (roles.length === 0) {
@@ -353,19 +430,49 @@ export function pluginsView(): HTMLElement {
       .join('\n')
   }
 
+  /**
+   * Switching a plugin on is a decision with three consequences, and the
+   * dialog states all three before anything happens: what it will cost, what
+   * permissions it hands out, and what it will do to the database.
+   *
+   * The money is first because it is the one the shopkeeper cannot undo by
+   * switching the plugin off again.
+   */
   async function switchOn(entry: PluginCatalogEntry): Promise<void> {
-    try {
-      const impact = await repos.plugins.impact(organizationId, entry.key)
+    const manifest = manifestOf(entry.key)
+    const pricing = manifest?.pricing
+    const licence = licenceOf(entry)
 
+    try {
+      if (!licence.entitled && pricing) {
+        const started = await offerSubscription(entry, licence)
+        if (!started) return
+      }
+
+      const impact = await repos.plugins.impact(organizationId, entry.key)
       const willEnable = dependenciesOf(entry.key)
+      const paidDependencies = willEnable
+        .map((key) => entries.find((other) => other.key === key))
+        .filter((other): other is PluginCatalogEntry => !!other)
+        .filter((other) => (manifestOf(other.key)?.pricing?.priceBdt ?? 0) > 0)
+
       const ok = await confirm(`Switch on ${entry.name}?`, {
         message:
+          `${licenceOf(entry).summary}\n\n` +
           `It adds ${entry.permissions.length} permission(s).\n\n` +
           impactText(impact) +
           (entry.migrationsPending > 0
-            ? `\n\n${entry.migrationsPending} migration(s) will be applied to this shop's database.`
+            ? `\n\n${entry.migrationsPending} migration(s) will be applied to this shop's database. ` +
+              'Applying a migration cannot be undone by switching the plugin off.'
             : '') +
-          (willEnable.length > 0 ? `\n\nAlso switched on: ${willEnable.join(', ')}.` : ''),
+          (willEnable.length > 0 ? `\n\nAlso switched on: ${willEnable.join(', ')}.` : '') +
+          (paidDependencies.length > 0
+            ? `\n\nThose are charged separately: ` +
+              paidDependencies
+                .map((other) => `${other.name} ${priceLabel(manifestOf(other.key)?.pricing)}`)
+                .join(', ') +
+              '.'
+            : ''),
         confirmLabel: 'Switch on',
         iconName: 'extension',
       })
@@ -383,6 +490,50 @@ export function pluginsView(): HTMLElement {
       toastError(translateError(error).message)
       await load()
     }
+  }
+
+  /**
+   * The paywall, such as it is.
+   *
+   * There is no payment gateway in this build, and pretending otherwise would
+   * be worse than saying so: the dialog is explicit that subscribing records
+   * an entitlement against the shop and that billing is settled separately.
+   * The licence itself is written into the plugin's own config, so it reaches
+   * every device the shop signs in on.
+   */
+  async function offerSubscription(entry: PluginCatalogEntry, licence: Licence): Promise<boolean> {
+    const pricing = manifestOf(entry.key)?.pricing
+    if (!pricing) return true
+    const trialDays = pricing.trialDays ?? 14
+    const canTrial = licence.status === 'unlicensed'
+
+    const ok = await confirm(`${entry.name} is a paid plugin`, {
+      message:
+        `${priceLabel(pricing)}, per shop.\n\n` +
+        (canTrial
+          ? `Start a ${trialDays}-day free trial now — it switches itself off when the trial ends, ` +
+            'and nothing is charged until you subscribe.'
+          : `${licence.summary}\n\nSubscribing renews the entitlement for 30 days.`) +
+        '\n\nBilling is arranged with your supplier; this records the entitlement for this shop.',
+      confirmLabel: canTrial ? `Start ${trialDays}-day trial` : 'Subscribe',
+      iconName: 'workspace_premium',
+    })
+    if (!ok) return false
+
+    const config = {
+      ...pluginConfig(entry.key),
+      [LICENCE_KEY]: canTrial ? startTrial(pricing) : startSubscription(),
+    }
+    try {
+      const saved = await repos.plugins.setConfig(organizationId, entry.key, config)
+      rememberConfig(entry.key, saved.config)
+    } catch {
+      // The shop may not have a `plugins` row yet — the entitlement is still
+      // remembered for this session so the switch-on can proceed, and the
+      // write is retried by the settings save that follows enabling.
+      rememberConfig(entry.key, config)
+    }
+    return true
   }
 
   async function switchOff(entry: PluginCatalogEntry): Promise<void> {

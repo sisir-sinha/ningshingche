@@ -518,3 +518,124 @@ describe('LocalPluginStorage', () => {
     expect(() => new LocalPluginStorage('test', hostile).set('k', 1)).not.toThrow()
   })
 })
+
+/**
+ * Switching off must mean off *now*.
+ *
+ * The screen said "its screens and panels disappear from the shop straight
+ * away" and two things made that untrue: `sale_adjustments` was missing from
+ * the teardown checklist, and disabling emitted no `plugin.changed`, so every
+ * slot that redraws on that event kept the old plugin on screen until the next
+ * reload.
+ */
+describe('PluginRegistry — switching off', () => {
+  function everything(id: string): ShippedPlugin {
+    return {
+      manifest: manifest(id),
+      load: async (): Promise<Plugin> => ({
+        id,
+        name: id,
+        version: '1.0.0',
+        register: (api: PluginAPI) => {
+          api.registerNav({ id: `${id}-nav`, label: id, icon: 'extension', route: `/plugins/${id}` })
+          api.registerRoute({
+            path: `/plugins/${id}`,
+            title: id,
+            load: async () => ({ render: () => document.createElement('div') }) as never,
+          })
+          api.registerSaleAdjustment({
+            id: `${id}-adj`,
+            label: id,
+            quote: () => null,
+          } as never)
+          api.registerScanResolver({ id: `${id}-scan`, resolve: () => null } as never)
+          api.registerMiddleware({ action: 'sale.complete', handler: (_c, next) => next() })
+        },
+      }),
+    }
+  }
+
+  it('takes every kind of registration away, including the ones that were missed', async () => {
+    registry.declare(everything('alpha'))
+    await registry.sync(['alpha'])
+    expect(registry.saleAdjustments.items).toHaveLength(1)
+    expect(registry.middleware.items).toHaveLength(1)
+
+    await registry.sync([])
+
+    expect(registry.nav.items).toEqual([])
+    expect(registry.routes.items).toEqual([])
+    expect(registry.saleAdjustments.items).toEqual([])
+    expect(registry.scanResolvers.items).toEqual([])
+    expect(registry.middleware.items).toEqual([])
+  })
+
+  it('tells the app, so the screens redraw without a reload', async () => {
+    registry.declare(everything('alpha'))
+    await registry.sync(['alpha'])
+
+    const changed = vi.fn()
+    bus.on('plugin.changed', changed)
+    await registry.sync([])
+
+    expect(changed).toHaveBeenCalledTimes(1)
+  })
+
+  it('stops the plugin’s work in flight', async () => {
+    let aborted = false
+    registry.declare({
+      manifest: manifest('slow'),
+      load: async (): Promise<Plugin> => ({
+        id: 'slow',
+        name: 'slow',
+        version: '1.0.0',
+        register: () => undefined,
+      }),
+    })
+    await registry.sync(['slow'])
+
+    const running = registry.worker.run({
+      pluginId: 'slow',
+      action: 'test',
+      run: (signal) =>
+        new Promise((resolve) => signal.addEventListener('abort', () => {
+          aborted = true
+          resolve(null)
+        })),
+    })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    await registry.sync([])
+    await running
+
+    expect(aborted).toBe(true)
+  })
+
+  it('runs an action through the plugins that asked for a turn', async () => {
+    registry.declare({
+      manifest: manifest('loyalty'),
+      load: async (): Promise<Plugin> => ({
+        id: 'loyalty',
+        name: 'loyalty',
+        version: '1.0.0',
+        register: (api: PluginAPI) =>
+          api.registerMiddleware({
+            action: 'sale.complete',
+            handler: (ctx, next) => {
+              ;(ctx.payload as { seen?: string[] }).seen?.push('loyalty')
+              return next()
+            },
+          }),
+      }),
+    })
+    await registry.sync(['loyalty'])
+
+    const result = await registry.dispatch('sale.complete', { seen: [] as string[] })
+    expect(result.ok).toBe(true)
+    expect(result.payload.seen).toEqual(['loyalty'])
+
+    // And once it is off, it no longer gets a turn.
+    await registry.sync([])
+    const after = await registry.dispatch('sale.complete', { seen: [] as string[] })
+    expect(after.payload.seen).toEqual([])
+  })
+})

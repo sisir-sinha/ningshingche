@@ -47,6 +47,11 @@ export const warrantyManifest: PluginManifest = {
   version: '1.0.0',
   coreApiVersion: '^1.0.0',
   category: 'optional',
+  // The one that stays free: a shop should be able to keep a promise without paying for the privilege.
+  pricing: {
+    plan: 'free',
+    priceBdt: 0,
+  },
   icon: 'verified_user',
   description:
     'Keep the promises a sale makes — which unit, until when, to whom — and what honouring them cost.',

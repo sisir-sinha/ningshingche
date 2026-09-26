@@ -173,6 +173,24 @@ const routes: Route[] = [
 ]
 
 /**
+ * A plugin switched off while the shopkeeper is standing on one of its screens.
+ *
+ * Leaving them there is the worst of both worlds: the nav item is gone, the
+ * plugin is unloaded, and the page in front of them is a corpse that still
+ * takes clicks. Re-running the route costs nothing and the screen below
+ * explains itself — "this plugin is switched off for this shop".
+ *
+ * `router.currentContext` rather than `location.pathname`: the app is served
+ * from a sub-path on Pages, and the raw pathname carries that prefix.
+ */
+eventBus.on('plugin.changed', () => {
+  const path = router.currentContext?.path
+  if (!path?.startsWith('/plugins/')) return
+  const stillThere = registry.routes.items.some((entry) => entry.path === path)
+  if (!stillThere) router.navigate(path, { replace: true })
+})
+
+/**
  * Render whatever plugin screen matches this path.
  *
  * `load()` is awaited here rather than at registration, so the page module is

@@ -38,6 +38,11 @@ export const serialNumbersManifest: PluginManifest = {
   version: '1.0.0',
   coreApiVersion: '^1.0.0',
   category: 'optional',
+  pricing: {
+    plan: 'paid',
+    priceBdt: 399,
+    trialDays: 14,
+  },
   icon: 'qr_code_scanner',
   description:
     'Track every unit by its own number — IMEI, engine number, case number — from delivery to invoice.',

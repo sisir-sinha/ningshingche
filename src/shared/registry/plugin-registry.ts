@@ -15,6 +15,13 @@
 
 import type { EventBus } from '../bus/event-bus'
 import { resolvePlugins, validateManifest, type Resolution } from './plugin-manifest'
+import { PluginWorker, type PluginWorkerStat } from './plugin-worker'
+import {
+  runMiddleware,
+  type DispatchResult,
+  type MiddlewareDefinition,
+} from './plugin-middleware'
+import { licenceFor, priceLabel, type Licence } from './plugin-licence'
 import type {
   DashboardWidgetDefinition,
   EntityDefinition,
@@ -51,6 +58,13 @@ export interface PluginHostServices {
   settings: (pluginId: string) => PluginSettings
   data: (pluginId: string) => PluginDataStore
   db: (pluginId: string) => PluginDb
+  /**
+   * This shop's stored settings for a plugin, read *without* loading it — the
+   * licence lives there, and entitlement has to be decided before a line of
+   * the plugin's code runs. Optional so tests and the default host stay
+   * two-liners.
+   */
+  config?: (pluginId: string) => Record<string, unknown>
 }
 
 // ── Storage ───────────────────────────────────────────────────────────────
@@ -203,6 +217,14 @@ export class PluginRegistry {
   readonly saleTabs = new Registry<TabDefinition>()
   readonly formSections = new Registry<FormSectionDefinition>()
   readonly routes = new Registry<RouteDefinition>()
+  readonly middleware = new Registry<MiddlewareDefinition>()
+
+  /**
+   * Every piece of plugin work runs here: deadlined, cancellable, counted.
+   * Exposed so the Plugins screen can show which plugin is costing the till
+   * its milliseconds.
+   */
+  readonly worker = new PluginWorker()
 
   constructor(
     private readonly events: EventBus,
@@ -230,8 +252,16 @@ export class PluginRegistry {
     this.#enabled = [...enabledKeys]
 
     const wanted = new Set(resolution.order.map((manifest) => manifest.id))
+    let changed = false
     for (const id of [...this.#disposers.keys()]) {
-      if (!wanted.has(id)) this.unload(id)
+      if (!wanted.has(id)) {
+        this.unload(id)
+        // Switching *off* is a change too. This used to be missed, so every
+        // slot that re-reads on `plugin.changed` — the sidebar, the POS
+        // panels, the product form — kept drawing a plugin the shop had just
+        // turned off, until the next reload.
+        changed = true
+      }
     }
 
     const blocked = new Map<string, string>()
@@ -246,6 +276,21 @@ export class PluginRegistry {
     }
     for (const cycle of resolution.cycles) {
       for (const id of cycle) blocked.set(id, `dependency cycle: ${cycle.join(' → ')}`)
+    }
+    // Entitlement is enforced here, beside the dependency rules, because it is
+    // the same kind of fact: a reason this plugin may not run in this shop.
+    // A screen that hid the switch would still leave the plugin loadable by
+    // anything else that called `sync`.
+    for (const manifest of resolution.order) {
+      const licence = this.licenceOf(manifest.id)
+      if (!licence.entitled) {
+        blocked.set(
+          manifest.id,
+          licence.status === 'expired'
+            ? licence.summary
+            : `needs a subscription — ${priceLabel(manifest.pricing)}`
+        )
+      }
     }
 
     for (const registration of this.#registrations.values()) {
@@ -262,11 +307,11 @@ export class PluginRegistry {
       }
     }
 
-    let changed = false
     for (const manifest of resolution.order) {
       const registration = this.#registrations.get(manifest.id)
       const shipped = this.#shipped.get(manifest.id)
       if (!registration || !shipped || registration.status === 'loaded') continue
+      if (blocked.has(manifest.id)) continue
 
       try {
         const plugin = await shipped.load()
@@ -305,8 +350,11 @@ export class PluginRegistry {
     return this.list()
   }
 
-  /** Tear one plugin down: its registrations, then its own disposer. */
+  /** Tear one plugin down: its work, its registrations, then its disposer. */
   unload(pluginId: string): number {
+    // Work first. A plugin whose in-flight call resolves after its slots are
+    // gone would write to a screen it no longer owns.
+    this.worker.cancel(pluginId)
     const dispose = this.#disposers.get(pluginId)
     if (dispose) {
       try {
@@ -339,6 +387,7 @@ export class PluginRegistry {
 
   /** Tear down every loaded plugin. Called on logout. */
   disposeAll(): void {
+    this.worker.cancelAll()
     for (const [id] of [...this.#disposers]) this.unload(id)
     this.nav.clear()
     this.productFields.clear()
@@ -348,12 +397,50 @@ export class PluginRegistry {
     this.settingsSections.clear()
     this.shortcuts.clear()
     this.widgets.clear()
+    this.scanResolvers.clear()
+    this.saleAdjustments.clear()
+    this.middleware.clear()
     this.posPanels.clear()
     this.saleTabs.clear()
     this.formSections.clear()
     this.routes.clear()
     this.#resolution = null
     this.#enabled = []
+  }
+
+  /**
+   * Run a core action through whatever plugins asked to take part in it.
+   *
+   * The caller always gets an answer: vetoed with a reason, or carried through
+   * with a payload the plugins may have changed. A plugin that hangs, throws
+   * or is switched off mid-chain is named in `skipped` and the action
+   * continues — a shop must be able to finish a sale while a plugin is having
+   * a bad day.
+   */
+  async dispatch<P>(action: string, payload: P): Promise<DispatchResult<P>> {
+    return runMiddleware(action, payload, this.middleware.items, this.worker)
+  }
+
+  /**
+   * What this shop is entitled to run, and what it would cost.
+   *
+   * A host that cannot read the shop's settings cannot answer the question, so
+   * entitlement is not enforced there — the registry is used in tests and in
+   * tooling where there is no shop at all, and inventing an unlicensed verdict
+   * would turn "no licensing authority wired" into "everything is blocked".
+   * The app always wires `config`.
+   */
+  licenceOf(pluginId: string): Licence {
+    const manifest = this.#shipped.get(pluginId)?.manifest
+    if (!this.host.config) {
+      return { status: 'free', entitled: true, priceBdt: 0, daysLeft: null, summary: 'Not metered here.' }
+    }
+    return licenceFor(manifest?.pricing, this.host.config(pluginId))
+  }
+
+  /** Per-plugin timings, for the Plugins screen. */
+  get workerStats(): readonly PluginWorkerStat[] {
+    return this.worker.stats
   }
 
   list(): readonly PluginRegistration[] {
@@ -385,6 +472,10 @@ export class PluginRegistry {
       this.shortcuts,
       this.widgets,
       this.scanResolvers,
+      // `saleAdjustments` was missing from this list, so a plugin switched off
+      // mid-session kept its discount strip on the till until a reload.
+      this.saleAdjustments,
+      this.middleware,
       this.posPanels,
       this.saleTabs,
       this.formSections,
@@ -431,6 +522,8 @@ export class PluginRegistry {
       registerFormSection: (section) =>
         this.formSections.add({ ...section, source: pluginId }, pluginId),
       registerRoute: (route) => this.routes.add({ ...route, source: pluginId }, pluginId),
+      registerMiddleware: (middleware) =>
+        this.middleware.add({ ...middleware, source: pluginId }, pluginId),
       db: this.host.db(pluginId),
     }
   }

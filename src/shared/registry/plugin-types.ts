@@ -10,6 +10,8 @@
  */
 
 import type { EventBus } from '../bus/event-bus'
+import type { MiddlewareDefinition } from './plugin-middleware'
+import type { PluginPricing } from './plugin-licence'
 // Type-only, and only the two shapes a report is made of — those types already
 // exist because the eleven built-in reports return them.
 import type { ReportColumn, ReportRow } from '../repositories/contracts'
@@ -538,6 +540,18 @@ export interface PluginManifest {
   settingsSchema?: readonly SettingField[]
   /** `persistent` means disabling keeps the shop's data (the default). */
   dataOwnership?: 'transient' | 'persistent'
+  /**
+   * What the shop pays to run this. Absent means free — but every plugin in
+   * this bundle states it, because a price that is implied is a price that is
+   * argued about later.
+   */
+  pricing?: PluginPricing
+  /**
+   * A small illustration for the Plugins screen, as a data URI or a path. The
+   * screen draws a generated cover when this is absent, so a plugin is never
+   * a grey rectangle.
+   */
+  cover?: string
 }
 
 export interface SettingField {
@@ -580,6 +594,11 @@ export interface PluginAPI {
   registerSaleTab(tab: TabDefinition): void
   registerFormSection(section: FormSectionDefinition): void
   registerRoute(route: RouteDefinition): void
+  /**
+   * Take part in a core action — the seam that lets a plugin change what the
+   * shop *does*, not just what it shows (see `plugin-middleware.ts`).
+   */
+  registerMiddleware(middleware: MiddlewareDefinition): void
 }
 
 /**

@@ -111,6 +111,24 @@ export function validateManifest(manifest: PluginManifest): void {
     throw new PluginManifestError(`${manifest.id}: unknown category "${manifest.category}"`)
   }
 
+  if (manifest.pricing) {
+    const { plan, priceBdt } = manifest.pricing
+    if (plan !== 'free' && plan !== 'paid') {
+      throw new PluginManifestError(`${manifest.id}: pricing.plan must be "free" or "paid"`)
+    }
+    if (!Number.isFinite(priceBdt) || priceBdt < 0) {
+      throw new PluginManifestError(`${manifest.id}: pricing.priceBdt must be zero or more`)
+    }
+    // A paid plugin with no price is a plugin nobody can buy — and it would
+    // read as free everywhere the price is shown.
+    if (plan === 'paid' && priceBdt <= 0) {
+      throw new PluginManifestError(`${manifest.id}: a paid plugin needs a price`)
+    }
+    if (plan === 'free' && priceBdt > 0) {
+      throw new PluginManifestError(`${manifest.id}: a free plugin cannot carry a price`)
+    }
+  }
+
   for (const permission of manifest.permissions ?? []) {
     // The privilege-escalation guard. A plugin is not allowed to define a key
     // outside its own namespace, ever (docs/07 §3).

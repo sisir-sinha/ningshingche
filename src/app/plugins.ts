@@ -109,6 +109,9 @@ function dataFor(pluginId: string): PluginDataStore {
 const hostServices: PluginHostServices = {
   settings: settingsFor,
   data: dataFor,
+  // Read without loading: entitlement has to be decided before the plugin's
+  // first line runs, and the licence lives in the same config bag.
+  config: (pluginId) => ({ ...(configs.get(pluginId) ?? {}) }),
   db: (pluginId) => ({
     products: () => getRepositories().plugins.products(organization()),
     rpc: (fn, args) => getRepositories().plugins.rpc(organization(), pluginId, fn, args),

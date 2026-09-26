@@ -18,6 +18,11 @@ export const loyaltyLiteManifest: PluginManifest = {
   version: '1.0.0',
   coreApiVersion: '^1.0.0',
   category: 'optional',
+  pricing: {
+    plan: 'paid',
+    priceBdt: 149,
+    trialDays: 14,
+  },
   icon: 'card_membership',
   description: 'Points per customer, earned on completed sales.',
   dependencies: ['batch-expiry'],

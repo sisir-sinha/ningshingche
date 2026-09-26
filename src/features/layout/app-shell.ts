@@ -273,6 +273,9 @@ export function appShell(options: AppShellOptions): AppShell {
 
   // A plugin finishing its load may have added nav items.
   bus.on('plugin.loaded', () => renderSidebar())
+  // …and switching one off takes them away. Without this the sidebar kept
+  // offering a screen the shop had just turned off, until the next reload.
+  bus.on('plugin.changed', () => renderSidebar())
 
   return {
     el: shell,

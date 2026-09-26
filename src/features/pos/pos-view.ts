@@ -164,7 +164,8 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
   const currency = organization?.currency ?? 'BDT'
 
   const repos = getRepositories()
-  const sales = new SaleService(repos, bus)
+  // The registry is handed in so plugins get their turn at `sale.complete`.
+  const sales = new SaleService(repos, bus, registry)
   const cart = new CartStore(floor.branchId)
 
   const root = h('div', { class: 'flex h-full min-h-0 flex-col lg:flex-row' })

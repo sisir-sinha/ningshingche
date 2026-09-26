@@ -43,6 +43,11 @@ export const loyaltyManifest: PluginManifest = {
   description:
     'Points, tiers and redemption: what the shop owes its best customers, and money off the sale when they spend it.',
   category: 'optional',
+  pricing: {
+    plan: 'paid',
+    priceBdt: 499,
+    trialDays: 14,
+  },
   icon: 'card_membership',
   permissions: [
     {

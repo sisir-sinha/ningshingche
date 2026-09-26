@@ -27,6 +27,15 @@ import type { SalesFloor } from '../../shared/repositories/contracts'
 import type { CartLineSource } from '../../shared/domain/cart'
 import type { CompletedSale } from '../../shared/types/records'
 
+/**
+ * What `SaleService` needs from the plugin host: one method. Typed structurally
+ * rather than importing `PluginRegistry`, so the till's orchestration keeps no
+ * dependency on the plugin engine and stays trivially testable.
+ */
+export interface SaleMiddlewareHost {
+  dispatch<P>(action: string, payload: P): Promise<{ ok: boolean; reason?: string; vetoedBy?: string; payload: P }>
+}
+
 export interface CompleteSaleInput {
   cart: Cart
   payments: PaymentEntry[]
@@ -51,10 +60,12 @@ export interface CompleteSaleInput {
 export class SaleService {
   readonly #repos: Repositories
   readonly #bus: EventBus
+  readonly #plugins: SaleMiddlewareHost | undefined
 
-  constructor(repos: Repositories, bus: EventBus) {
+  constructor(repos: Repositories, bus: EventBus, plugins?: SaleMiddlewareHost) {
     this.#repos = repos
     this.#bus = bus
+    this.#plugins = plugins
   }
 
   /**
@@ -66,6 +77,32 @@ export class SaleService {
    */
   async complete(input: CompleteSaleInput): Promise<CompletedSale> {
     const { cart, payments, floor, currency } = input
+
+    // The plugins' turn, before the money moves.
+    //
+    // This is the seam that stops the core from knowing plugin names: loyalty
+    // does not need `SaleService` to call it, it registers a middleware for
+    // `sale.complete`. A plugin may annotate the sale or refuse it outright —
+    // a serial-number plugin with an unscanned unit has a legitimate reason to
+    // stop a sale, and "the till silently sold it anyway" is not an option.
+    //
+    // A plugin that hangs or throws is skipped by the worker and the sale goes
+    // through: the shop keeps selling while a plugin is having a bad day.
+    if (this.#plugins) {
+      const verdict = await this.#plugins.dispatch('sale.complete', {
+        cart,
+        payments,
+        branchId: floor.branchId,
+        organizationId: input.organizationId,
+      })
+      if (!verdict.ok) {
+        throw new Error(
+          `${verdict.reason ?? 'A plugin stopped this sale.'}` +
+            (verdict.vetoedBy ? ` (${verdict.vetoedBy})` : '')
+        )
+      }
+    }
+
     const totals = computeTotals(cart)
     if (totals.oversold.length > 0) {
       // The database would refuse this too; failing here saves a round trip and

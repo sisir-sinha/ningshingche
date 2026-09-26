@@ -27,6 +27,11 @@ export const variantsManifest: PluginManifest = {
   version: '1.0.0',
   coreApiVersion: '^1.0.0',
   category: 'optional',
+  pricing: {
+    plan: 'paid',
+    priceBdt: 249,
+    trialDays: 14,
+  },
   icon: 'grid_view',
   description:
     'Build a product’s variants from its options — size, colour, capacity — and price them in one pass.',
