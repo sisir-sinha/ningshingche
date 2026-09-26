@@ -27,7 +27,7 @@ export function catalogueView(): HTMLElement {
   let brands: Brand[] = []
   let loading = false
 
-  const root = h('div', { class: 'flex flex-col p-4' })
+  const root = h('div', { class: 'flex w-full min-w-0 flex-col p-4' })
   const listSlot = h('div', { class: '' })
   const searchInput = input({
     type: 'search',

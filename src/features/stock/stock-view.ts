@@ -49,7 +49,7 @@ export function stockView(options: StockViewOptions = {}): HTMLElement {
   let warehouses: WarehouseOption[] = []
   let loading = false
 
-  const root = h('div', { class: 'flex flex-col' })
+  const root = h('div', { class: 'flex w-full min-w-0 flex-col' })
 
   const summarySlot = h('div', { class: 'grid grid-cols-2 gap-2 p-3 sm:grid-cols-4' })
   const listSlot = h('div', { class: 'px-3 pb-6' })

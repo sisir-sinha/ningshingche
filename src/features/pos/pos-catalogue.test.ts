@@ -265,3 +265,11 @@ describe('ticking rows', () => {
     expect(rows(view)[0]!.querySelectorAll('button')).toHaveLength(0)
   })
 })
+
+describe('a counter tablet in portrait', () => {
+  it('scrolls the catalogue sideways instead of crushing the columns', async () => {
+    const view = await build()
+    const box = view.querySelector('table')!.parentElement!
+    expect(box.className).toContain('overflow-x-auto')
+  })
+})

@@ -384,3 +384,13 @@ describe('products list', () => {
     expect(inline?.textContent).toBe('KJ-1')
   })
 })
+
+describe('a table too wide for the screen', () => {
+  it('scrolls itself rather than the whole app', async () => {
+    const root = view()
+    await settle()
+    const box = root.querySelector('table')!.parentElement!
+    expect(box.className).toContain('overflow-x-auto')
+    expect(box.className).toContain('min-w-0')
+  })
+})

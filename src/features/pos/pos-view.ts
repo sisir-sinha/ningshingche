@@ -353,7 +353,11 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
     }
     statusLine.textContent = `${results.length} product${results.length === 1 ? '' : 's'}`
     grid.replaceChildren(
-      h('table', { class: 'w-full text-sm' },
+      // A counter tablet in portrait is narrower than these columns. The
+      // catalogue keeps them and scrolls sideways rather than stacking the
+      // price under the name.
+      h('div', { class: 'w-full min-w-0 overflow-x-auto' },
+      h('table', { class: 'w-full min-w-[34rem] text-sm' },
         h('thead', {
           class: 'bg-surface text-left text-xs text-content-muted shadow-[0_1px_0_0_var(--color-border)]',
         },
@@ -368,6 +372,7 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
           )
         ),
         h('tbody', {}, ...results.map((product, index) => productRow(product, index)))
+      )
       )
     )
   }

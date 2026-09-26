@@ -29,7 +29,7 @@ export function registerView(): HTMLElement {
   const organization = activeOrganization()
   const currency = organization?.currency ?? 'BDT'
 
-  const root = h('div', { class: 'flex flex-col' })
+  const root = h('div', { class: 'flex w-full min-w-0 flex-col' })
   const statusSlot = h('div', { class: 'p-3' })
   const historySlot = h('div', { class: 'px-3 pb-6' })
 

@@ -51,7 +51,7 @@ export function stockHistoryView(options: StockHistoryOptions): HTMLElement {
   const repos = getRepositories()
   const currency = activeOrganization()?.currency ?? 'BDT'
 
-  const root = h('div', { class: 'flex flex-col' })
+  const root = h('div', { class: 'flex w-full min-w-0 flex-col' })
   const headerSlot = h('div', { class: 'border-b border-border p-3' })
   const listSlot = h('div', { class: 'p-3' })
   const footerSlot = h('div', { class: 'border-t border-border p-3' })

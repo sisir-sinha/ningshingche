@@ -168,7 +168,10 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
 
     listBox.replaceChildren(
       panel(
-        h('table', { class: 'w-full text-sm' },
+        // Eleven columns do not fit a phone even after the responsive ones
+        // have dropped out. The table keeps its width and the box scrolls.
+        h('div', { class: 'w-full min-w-0 overflow-x-auto' },
+        h('table', { class: 'w-full min-w-[42rem] text-sm' },
           h('thead', { class: 'text-left text-xs text-content-muted border-b border-border' },
             h('tr', {},
               h('th', { class: 'px-3 py-2 font-medium', text: 'Product' }),
@@ -185,6 +188,7 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
             )
           ),
           tableBody
+        )
         )
       )
     )
@@ -479,7 +483,7 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
     })
   }
 
-  const root = h('div', { class: 'flex flex-col p-4' },
+  const root = h('div', { class: 'flex w-full min-w-0 flex-col p-4' },
     h('div', { class: 'mb-3 flex items-center gap-2' },
       h('div', { class: 'flex-1 max-w-sm' },
         searchInput('Search by name, SKU or barcode', (value) => {

@@ -39,7 +39,7 @@ export function expensesView(): HTMLElement {
   let dayTotal: Minor = toMinor(0)
   let loading = false
 
-  const root = h('div', { class: 'flex flex-col' })
+  const root = h('div', { class: 'flex w-full min-w-0 flex-col' })
   const headSlot = h('div', { class: 'space-y-3 border-b border-border p-3' })
   const listSlot = h('div', { class: 'p-3' })
 

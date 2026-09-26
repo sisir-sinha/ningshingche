@@ -250,7 +250,11 @@ export function dataTable(options: TableOptions): HTMLElement {
         )
       : null
 
-  const scroller = h('div', { class: 'overflow-x-auto' }, table)
+  // `min-w-0` alongside `overflow-x-auto`: a flex or grid child defaults to
+  // `min-width: auto`, which means it refuses to be narrower than its content.
+  // Without it the *page* grows to the width of the widest table and the whole
+  // app scrolls sideways — the scrollbar appears, just on the wrong element.
+  const scroller = h('div', { class: 'w-full min-w-0 max-w-full overflow-x-auto' }, table)
 
   if (options.rows.length === 0) {
     return h(
@@ -269,5 +273,11 @@ export function dataTable(options: TableOptions): HTMLElement {
     )
   }
 
-  return h('div', { class: 'rounded-lg border border-border bg-surface' }, scroller, footer, more)
+  // The totals row goes *inside* the table, which is both where the HTML spec
+  // puts a `tfoot` and the only way it can stay in step with the columns once
+  // the table scrolls sideways. It used to be a sibling of the scroller, so a
+  // wide table slid under a stationary total.
+  if (footer) table.appendChild(footer)
+
+  return h('div', { class: 'w-full min-w-0 rounded-lg border border-border bg-surface' }, scroller, more)
 }

@@ -55,7 +55,7 @@ export function analyticsView(options: AnalyticsViewOptions = {}): HTMLElement {
   let answers: BiAnswer[] = []
   let loading = false
 
-  const root = h('div', { class: 'flex flex-col' })
+  const root = h('div', { class: 'flex w-full min-w-0 flex-col' })
   const controlsSlot = h('div', { class: 'space-y-3 border-b border-border p-3' })
   const bodySlot = h('div', { class: 'space-y-3 p-3' })
 

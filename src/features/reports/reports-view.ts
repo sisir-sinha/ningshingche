@@ -117,7 +117,7 @@ export function reportsView(options: ReportsViewOptions): HTMLElement {
   let result: ReportResult | null = null
   let loading = false
 
-  const root = h('div', { class: 'flex flex-col' })
+  const root = h('div', { class: 'flex w-full min-w-0 flex-col' })
   const librarySlot = h('div', { class: 'hidden w-64 shrink-0 border-r border-border p-3 lg:block' })
   const controlsSlot = h('div', { class: 'space-y-3 border-b border-border p-3' })
   const bodySlot = h('div', { class: '' })
