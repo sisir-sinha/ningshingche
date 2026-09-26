@@ -43,6 +43,7 @@ import type {
   PluginImpactRole,
   PluginStateEntry,
   PluginRepository,
+  ProductBarcode,
   ProductRepository,
   ProductSnapshot,
   PurchaseDetail,
@@ -368,6 +369,32 @@ function createCatalog(client: SupabaseClient, organizationId: () => string | nu
       return rows
     },
 
+    async createCategory(name, parentId = null) {
+      const clean = name.trim()
+      if (!clean) throw new Error('A category needs a name.')
+      const slug = clean
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'category'
+      const rows = unwrap(
+        await client
+          .from('product_categories')
+          .insert({
+            organization_id: requireOrg(organizationId),
+            name: clean,
+            slug,
+            parent_id: parentId,
+            sort_order: 0,
+          })
+          .select('id,name,slug,parent_id,sort_order,is_active')
+          .limit(1)
+          .returns<Category[]>()
+      )
+      const category = rows[0]
+      if (!category) throw new Error('The category was not created.')
+      return category
+    },
+
     async listBrands() {
       return unwrap(
         await client
@@ -377,6 +404,22 @@ function createCatalog(client: SupabaseClient, organizationId: () => string | nu
           .order('name')
           .returns<Brand[]>()
       )
+    },
+
+    async createBrand(name) {
+      const clean = name.trim()
+      if (!clean) throw new Error('A brand needs a name.')
+      const rows = unwrap(
+        await client
+          .from('product_brands')
+          .insert({ organization_id: requireOrg(organizationId), name: clean })
+          .select('id,name')
+          .limit(1)
+          .returns<Brand[]>()
+      )
+      const brand = rows[0]
+      if (!brand) throw new Error('The brand was not created.')
+      return brand
     },
 
     async listUnits() {
@@ -515,6 +558,58 @@ function createProducts(
           .returns<VariantRow[]>()
       )
       return { product, variants }
+    },
+
+    async listBarcodes(productId) {
+      const detail = await this.getWithVariants(productId)
+      const variantIds = detail?.variants.map((variant) => variant.id) ?? []
+      if (variantIds.length === 0) return []
+      const rows = unwrap(
+        await client
+          .from('product_barcodes')
+          .select('id,variant_id,code,is_primary')
+          .in('variant_id', variantIds)
+          .order('is_primary', { ascending: false })
+          .order('code')
+          .returns<{ id: string; variant_id: string; code: string; is_primary: boolean }[]>()
+      )
+      return rows.map(
+        (row): ProductBarcode => ({
+          id: row.id,
+          variantId: row.variant_id,
+          code: row.code,
+          isPrimary: row.is_primary,
+        })
+      )
+    },
+
+    async replaceBarcodes(variantId, codes) {
+      const clean = [...new Set(codes.map((code) => code.trim()).filter(Boolean))]
+      const removed = await client.from('product_barcodes').delete().eq('variant_id', variantId)
+      if (removed.error) throw removed.error
+      if (clean.length === 0) return []
+      const rows = unwrap(
+        await client
+          .from('product_barcodes')
+          .insert(
+            clean.map((code, index) => ({
+              organization_id: requireOrg(organizationId),
+              variant_id: variantId,
+              code,
+              is_primary: index === 0,
+            }))
+          )
+          .select('id,variant_id,code,is_primary')
+          .returns<{ id: string; variant_id: string; code: string; is_primary: boolean }[]>()
+      )
+      return rows.map(
+        (row): ProductBarcode => ({
+          id: row.id,
+          variantId: row.variant_id,
+          code: row.code,
+          isPrimary: row.is_primary,
+        })
+      )
     },
 
     async create(draft) {
