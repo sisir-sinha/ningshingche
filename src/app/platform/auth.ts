@@ -213,7 +213,14 @@ export async function loadSessionPayload(): Promise<void> {
   const { error: invitationError } = await supabase.rpc('accept_staff_invitations', {
     p_user_id: user.id,
   })
-  if (invitationError) throw invitationError
+  if (invitationError) {
+    // Keep existing shops sign-in compatible while migration 052 is being
+    // rolled out. Once the function exists, every real error still blocks the
+    // session rather than silently hiding an invitation failure.
+    const message = typeof invitationError.message === 'string' ? invitationError.message : ''
+    const missingInvitationRpc = invitationError.code === 'PGRST202' || /accept_staff_invitations/i.test(message)
+    if (!missingInvitationRpc) throw invitationError
+  }
 
   const { data, error } = await supabase.rpc('session_payload')
   if (error) throw error
