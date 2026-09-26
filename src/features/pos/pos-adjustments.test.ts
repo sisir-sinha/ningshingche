@@ -63,6 +63,8 @@ const RICE: SellableProduct = {
   metadata: {},
 }
 
+const OIL: SellableProduct = { ...RICE, productId: 'p-oil', variantId: 'v-oil', name: 'Soybean oil', sku: '1234562', price: minor(30000) }
+
 let barcodeHits: Record<string, SellableProduct> = {}
 let completed: Array<Record<string, unknown>> = []
 let quotes: SaleAdjustmentContext[] = []
@@ -88,6 +90,28 @@ vi.mock('../../app/data', () => ({
       listPaymentMethods: async () => [
         { id: 'pm-1', key: 'cash', name: 'Cash', isActive: true, requiresReference: false },
       ],
+    },
+    customers: {
+      list: async () => ({
+        items: [
+          {
+            id: 'c-1',
+            name: 'Rahim Uddin',
+            phone: '01700000000',
+            email: null,
+            address: null,
+            creditLimit: 0,
+            balance: 0,
+            storeCredit: 0,
+            note: null,
+            createdAt: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+        total: 1,
+        limit: 20,
+        offset: 0,
+      }),
+      create: async () => null,
     },
     sales: {
       complete: async (input: Record<string, unknown>) => {
@@ -398,6 +422,32 @@ describe('a plugin that can take money off the sale', () => {
     expect(textOf(view)).not.toContain('Discount')
   })
 
+  it('matches a plugin’s offer to the sale it is standing on', async () => {
+    // The plugin prices its offer off the sale, and the sale is the sale *it*
+    // was asked about: the host asks again whenever the cart changes, and asks
+    // with the customer attached, because a redemption that does not know who
+    // is paying is not a redemption at all.
+    const view = await build()
+    await scan(view, '1234561')
+    expect(quotes.at(-1)?.customerId).toBeNull()
+    expect(quotes.at(-1)?.totalMinor).toBe(20000)
+
+    buttonLabelled(view, 'Customer on this sale').click()
+    await settle()
+    const search = document.querySelector<HTMLInputElement>('[aria-modal="true"] input')
+    expect(search).not.toBeNull()
+    if (search) {
+      search.value = 'Rahim'
+      search.dispatchEvent(new Event('input', { bubbles: true }))
+      await new Promise((resolve) => setTimeout(resolve, 250))
+      search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    }
+    await settle()
+
+    expect(textOf(view)).toContain('Rahim Uddin')
+    expect(quotes.at(-1)?.customerId).toBe('c-1')
+  })
+
   it('refuses to treat a made-up number as a discount', async () => {
     // A quote that is not a whole number of minor units, or not positive, is
     // not money off: the host contains it the way it contains a scan.
@@ -411,5 +461,90 @@ describe('a plugin that can take money off the sale', () => {
     quoteReply = () => ({ amountMinor: -5000, label: 'Nice try' })
     await scan(view, '1234561')
     expect(textOf(view)).not.toContain('Nice try')
+  })
+})
+
+// ── What the sale can pay for ─────────────────────────────────────────────
+
+describe('money the sale cannot pay for', () => {
+  /** A second plugin offering money off, so two offers can be added up. */
+  function couponPlugin(amountMinor: number): Plugin {
+    return {
+      id: 'coupons',
+      name: 'Coupons',
+      version: '1.0.0',
+      register: (api) => {
+        api.registerSaleAdjustment({
+          id: 'coupons.taka-off',
+          label: 'Coupons',
+          quote: () => ({ amountMinor, label: 'Coupon: 120 off', token: 'cp-1' }),
+          onReleased: (quote, reason) => {
+            released.push({ quote, reason })
+          },
+        })
+      },
+    }
+  }
+
+  it('never draws an Apply the sale could not pay', async () => {
+    // 500.00 off a 200.00 sale. `complete_sale` clamps an order discount to the
+    // sale, so pressing it would hand the customer 200.00 for 5,000 points and
+    // debit the rest against nothing.
+    quoteReply = () => ({ amountMinor: 50000, label: 'Redeem 5000 points', token: 'rd-big' })
+    const view = await build()
+    await scan(view, '1234561')
+
+    expect(hasButton(view, 'Apply')).toBe(false)
+    expect(textOf(view)).not.toContain('Redeem 5000 points')
+    expect(textOf(view)).toContain('200.00')
+  })
+
+  it('offers a second adjustment only while the sale can still pay for both', async () => {
+    // Two plugins, 120.00 off each, on the same 200.00 sale. Either is fine;
+    // both is 240.00, which the sale cannot pay — and the host is the only party
+    // that can see both at once.
+    quoteReply = () => ({ amountMinor: 12000, label: 'Redeem 1200 points', token: 'rd-a' })
+    const view = await build([discountPlugin(), couponPlugin(12000)])
+    await scan(view, '1234561')
+    expect(hasButton(view, 'Apply')).toBe(true)
+
+    buttonNamed(view, 'Apply').click()
+    await settle()
+
+    // The coupon's offer is gone — the sale cannot pay for it any more.
+    expect(textOf(view)).not.toContain('Coupon: 120 off')
+    expect(textOf(view)).toContain('80.00')
+  })
+
+  it('withdraws what the sale has shrunk out from under, both of them', async () => {
+    // Both applied on a 500.00 cart, then the dear line comes off: 240.00 of
+    // adjustments on a 200.00 sale, which the host must withdraw — a plugin
+    // that had already debited points would otherwise have taken them for a
+    // discount the customer never received.
+    barcodeHits = { '1234561': RICE, '1234562': OIL }
+    quoteReply = () => ({ amountMinor: 12000, label: 'Redeem 1200 points', token: 'rd-a' })
+    const view = await build([discountPlugin(), couponPlugin(12000)])
+    await scan(view, '1234561')
+    await scan(view, '1234562')
+    await settle()
+
+    const applies = [...view.querySelectorAll('button')].filter((entry) =>
+      (entry.textContent ?? '').includes('Apply')
+    )
+    expect(applies).toHaveLength(2)
+    applies[0]?.click()
+    await settle()
+    applies[1]?.click()
+    await settle()
+
+    const lines = [...view.querySelectorAll<HTMLButtonElement>('button[aria-label="Remove line"]')]
+    expect(lines).toHaveLength(2)
+    lines[1]?.click()
+    await settle()
+
+    // The dear line is gone, so the cart is 200.00 against 240.00 of promises.
+    expect(textOf(view)).toContain('200.00')
+    expect(released.filter((entry) => entry.reason === 'invalid')).toHaveLength(2)
+    expect(textOf(view)).not.toContain('Discount')
   })
 })

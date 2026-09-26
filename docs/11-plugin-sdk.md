@@ -277,6 +277,11 @@ plugin:
   can never go negative, and prints `Discount` in the totals where the cashier
   already looks. You describe money off a sale the core has priced; you never
   price anything.
+- **A quote the sale cannot pay for is never offered.** Clamping is a last
+  resort, not a plan: `complete_sale` clamping a discount means the customer
+  paid points for money the shop did not give. So the host compares the sum of
+  everything applied *plus* your quote against the sale before it draws the
+  button, and withdraws applied adjustments the sale has since shrunk below.
 - **`context.totalMinor` is the sale *before* any adjustment.** Quote against it
   and your quote is stable — quoting against the cart's total would shrink your
   offer every time your own discount was applied.
@@ -293,6 +298,23 @@ plugin:
 is queued in the offline outbox — the discount is real either way, but the
 invoice number is the till's own guess until the queue drains, and a plugin that
 settles on a guess will settle twice.
+
+**First consumer:** [`loyalty/`](../src/plugins/loyalty/) is the worked example
+in full. Three of its decisions are worth copying:
+
+- **It keeps its own reservation ledger.** `onApplied` debits the customer's
+  points against a token, `onSettled` ties that token to the invoice, and
+  `onReleased` hands them back. The plugin can therefore answer the only
+  question that matters about money it gave away — *which invoice did this buy?*
+  — without trusting that the till survived the sale;
+- **its `onApplied` refuses a quote it is no longer offering.** The host may
+  apply a quote the plugin has since re-quoted past (the cart moved); a
+  reservation token that does not match the live offer is a throw, and the
+  discount does not go on the sale;
+- **a redemption that never reached an invoice is a worklist**, not a silent
+  spend. The plugin's screen shows those first, with the amount and a
+  give-them-back button, and the server reports `drift` — balances that disagree
+  with their own ledger — as the plugin's own audit.
 
 ### Reports
 

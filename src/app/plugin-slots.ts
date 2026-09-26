@@ -277,7 +277,9 @@ export function saleAdjustmentsHost(
   context: SaleAdjustmentContext,
   options: SaleAdjustmentsHostOptions
 ): HTMLElement {
-  const host = h('div', { class: 'space-y-1' })
+  // A handle for the tests, and for a shop's own CSS: the strip is the only
+  // place a plugin's money appears on the till.
+  const host = h('div', { class: 'space-y-1', dataset: { adjustmentStrip: '' } })
 
   async function draw(): Promise<void> {
     const definitions = visible<SaleAdjustmentDefinition>(registry.saleAdjustments.items)
@@ -285,6 +287,13 @@ export function saleAdjustmentsHost(
       mount(host, null)
       return
     }
+
+    // What the plugins have already taken off, added up. The host is the only
+    // party that can see every plugin at once, so the sum is the host's job —
+    // and it is the sum that decides whether the till can honour what the
+    // plugins have promised.
+    const appliedMinor = options.applied.reduce((total, entry) => total + entry.quote.amountMinor, 0)
+    const over = appliedMinor > context.totalMinor
 
     const rows: Array<HTMLElement | null> = []
     for (const definition of definitions) {
@@ -303,10 +312,12 @@ export function saleAdjustmentsHost(
 
       if (applied) {
         // Withdrawn when the plugin no longer offers it at all (the customer
-        // was removed, the balance went) or when it is worth more than the sale
-        // it sits on — the sale would silently clamp it, and the customer would
-        // have paid points for money the shop did not give.
-        if (!quote || applied.quote.amountMinor > context.totalMinor) {
+        // was removed, the balance went) or when the adjustments together are
+        // worth more than the sale they sit on. That second case is the one
+        // that costs a customer real money: `complete_sale` clamps an order
+        // discount to the sale, so a plugin that had already debited the points
+        // would have taken them for a discount the customer never received.
+        if (!quote || over) {
           options.onRemove(definition, applied.quote, 'invalid')
           continue
         }
@@ -314,7 +325,11 @@ export function saleAdjustmentsHost(
         continue
       }
 
-      if (quote) rows.push(adjustmentRow(definition, quote, options, false))
+      // A quote the sale cannot pay for is not offered at all — an Apply button
+      // that would clamp to nothing is a button that takes points for free.
+      if (quote && appliedMinor + quote.amountMinor <= context.totalMinor) {
+        rows.push(adjustmentRow(definition, quote, options, false))
+      }
     }
 
     mount(host, ...rows.filter((row): row is HTMLElement => row !== null))
