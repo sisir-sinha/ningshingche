@@ -117,10 +117,10 @@ export function reportsView(options: ReportsViewOptions): HTMLElement {
   let result: ReportResult | null = null
   let loading = false
 
-  const root = h('div', { class: 'flex h-full min-h-0 flex-col' })
-  const librarySlot = h('div', { class: 'hidden w-64 shrink-0 overflow-y-auto border-r border-border p-3 lg:block' })
+  const root = h('div', { class: 'flex flex-col' })
+  const librarySlot = h('div', { class: 'hidden w-64 shrink-0 border-r border-border p-3 lg:block' })
   const controlsSlot = h('div', { class: 'space-y-3 border-b border-border p-3' })
-  const bodySlot = h('div', { class: 'min-h-0 flex-1 overflow-y-auto' })
+  const bodySlot = h('div', { class: '' })
 
   /** Every report the shop can open, in library order: core first, then plugins. */
   function library(): LibraryEntry[] {

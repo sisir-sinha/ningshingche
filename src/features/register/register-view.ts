@@ -29,9 +29,9 @@ export function registerView(): HTMLElement {
   const organization = activeOrganization()
   const currency = organization?.currency ?? 'BDT'
 
-  const root = h('div', { class: 'flex h-full min-h-0 flex-col' })
+  const root = h('div', { class: 'flex flex-col' })
   const statusSlot = h('div', { class: 'p-3' })
-  const historySlot = h('div', { class: 'min-h-0 flex-1 overflow-y-auto px-3 pb-6' })
+  const historySlot = h('div', { class: 'px-3 pb-6' })
 
   let sessions: RegisterSessionSummary[] = []
   let loading = false

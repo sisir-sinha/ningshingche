@@ -355,9 +355,7 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
     grid.replaceChildren(
       h('table', { class: 'w-full text-sm' },
         h('thead', {
-          // Sticky: the cashier scrolls a long catalogue and the column
-          // meanings have to stay on screen with it.
-          class: 'sticky top-0 z-10 bg-surface text-left text-xs text-content-muted shadow-[0_1px_0_0_var(--color-border)]',
+          class: 'bg-surface text-left text-xs text-content-muted shadow-[0_1px_0_0_var(--color-border)]',
         },
           h('tr', {},
             h('th', { class: 'w-10 px-3 py-2' }, selectAllBox()),

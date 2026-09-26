@@ -87,7 +87,7 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
   let unitNames: Record<string, string> = {}
 
   const tableBody = h('tbody')
-  const listBox = h('div', { class: 'flex-1 min-h-0 overflow-y-auto' })
+  const listBox = h('div', { class: '' })
 
   /**
    * The lookups behind Category, Brand and Unit.
@@ -479,7 +479,7 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
     })
   }
 
-  const root = h('div', { class: 'flex h-full flex-col p-4' },
+  const root = h('div', { class: 'flex flex-col p-4' },
     h('div', { class: 'mb-3 flex items-center gap-2' },
       h('div', { class: 'flex-1 max-w-sm' },
         searchInput('Search by name, SKU or barcode', (value) => {

@@ -191,7 +191,10 @@ export function dataTable(options: TableOptions): HTMLElement {
       ? null
       : h(
           'thead',
-          { class: 'sticky top-0 z-1 border-b border-border bg-surface-muted/80 backdrop-blur' },
+          // Not sticky: a page scrolls as one document under the app's own
+          // header, and a second frozen strip inside it was the thing that made
+          // long lists feel like two pages fighting each other.
+          { class: 'border-b border-border bg-surface-muted/80' },
           h('tr', null, ...headCells)
         ),
     body

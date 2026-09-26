@@ -35,8 +35,8 @@ export function customersView(options: CustomersViewOptions = {}): HTMLElement {
   let cursor: string | null = null
   let loading = false
 
-  const root = h('div', { class: 'flex h-full min-h-0 flex-col' })
-  const listSlot = h('div', { class: 'min-h-0 flex-1 overflow-y-auto p-3' })
+  const root = h('div', { class: 'flex flex-col' })
+  const listSlot = h('div', { class: 'p-3' })
   const footerSlot = h('div', { class: 'border-t border-border p-3' })
 
   const searchBox = searchInput('Search by name or phone…', (value) => {

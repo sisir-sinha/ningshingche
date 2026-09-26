@@ -86,11 +86,11 @@ export function pluginsView(): HTMLElement {
   let loadError: string | null = null
 
   const headerSlot = h('div', { class: 'space-y-3 border-b border-border p-4' })
-  const listSlot = h('div', { class: 'min-h-0 flex-1 overflow-y-auto p-4' })
+  const listSlot = h('div', { class: 'p-4' })
   // Wider than the rest of the app's settings screens on purpose: a plugin
   // card carries a cover, a description, what it contributes, what it costs
   // and its controls, and squeezing that into 64rem wrapped every line.
-  const root = h('div', { class: 'mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col' }, headerSlot, listSlot)
+  const root = h('div', { class: 'mx-auto flex w-full max-w-7xl flex-col' }, headerSlot, listSlot)
 
   const searchBox = searchInput('Search plugins…', (value) => {
     search = value
