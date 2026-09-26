@@ -44,7 +44,7 @@ import { splitPluginFields } from '../../shared/types/shop-profile'
 import type { PluginRegistry } from '../../shared/registry/plugin-registry'
 import type { ProductField } from '../../shared/registry/plugin-types'
 import type { Brand, Category, ProductRow, Tax, Unit } from '../../shared/types/records'
-import { formatMoney, milliToNumber, minor, minorToNumber, parseMilli, parseMinor, type Minor } from '../../shared/domain/money'
+import { formatMoney, formatQty, milli, milliToNumber, minor, minorToNumber, parseMilli, parseMinor, type Milli, type Minor } from '../../shared/domain/money'
 
 export interface ProductsViewOptions {
   registry: PluginRegistry
@@ -59,6 +59,8 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
   let cursor: string | null = null
   let searchTerm = ''
   let loading = false
+  /** Stock on hand per product id, filled one page at a time. */
+  let onHand: Record<string, Milli> = {}
 
   const tableBody = h('tbody')
   const listBox = h('div', { class: 'flex-1 min-h-0 overflow-y-auto' })
@@ -78,7 +80,24 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
       })
       rows = reset ? page.items : [...rows, ...page.items]
       cursor = page.nextCursor
+      if (reset) onHand = {}
       render()
+
+      // Quantities are fetched after the list is on screen, not before it:
+      // the names, prices and buttons are what the shop came for, and they
+      // must not wait on a second round trip. The cell redraws when it lands.
+      const tracked = page.items.filter((item) => item.track_stock).map((item) => item.id)
+      if (tracked.length > 0) {
+        try {
+          const levels = await repos.products.onHand(tracked, salesFloor()?.warehouseId ?? null)
+          // Every tracked product gets an entry, so "no balance row" reads as
+          // a real zero instead of staying a dash forever.
+          for (const id of tracked) onHand[id] = levels[id] ?? milli(0)
+          render()
+        } catch {
+          // A stock table a role cannot read must not blank the product list.
+        }
+      }
     } catch (error) {
       toastError(translateError(error).message)
     } finally {
@@ -143,29 +162,56 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
       h('td', { class: 'px-3 py-2 text-content-muted font-mono text-xs', text: product.sku ?? '—' }),
       h('td', { class: 'px-3 py-2 text-right tabular-nums text-content', text: formatMoney(price, { currency }) }),
       h('td', { class: 'px-3 py-2 text-right tabular-nums text-content-muted', text: Number(product.cost_price).toFixed(2) }),
-      h('td', { class: 'px-3 py-2 text-center' },
-        product.track_stock
-          ? badge('Tracked', { tone: 'neutral' })
-          : badge('Not tracked', { tone: 'info' })
-      ),
+      h('td', { class: 'px-3 py-2 text-center' }, stockCell(product)),
       h('td', { class: 'px-3 py-2' },
         h('div', { class: 'flex justify-end gap-1' },
-          iconButton('content_copy', 'Duplicate', {
+          iconButton('edit', `Edit ${product.name}`, {
+            size: 'sm',
+            variant: 'ghost',
+            onClick: () => void openForm(product.id),
+          }),
+          iconButton('content_copy', `Copy ${product.name}`, {
             size: 'sm',
             variant: 'ghost',
             onClick: () => void duplicate(product),
           }),
-          iconButton('delete', 'Archive', {
+          iconButton('delete', `Delete ${product.name}`, {
             size: 'sm',
             variant: 'ghost',
-            onClick: () => void archive(product),
+            class: 'text-danger hover:bg-danger-soft',
+            onClick: () => void remove(product),
           })
         )
       )
     )
   }
 
+  /**
+   * The Stock column used to read "Tracked" — a fact about configuration
+   * where a shopkeeper is looking for a number. Quantities arrive one query
+   * per page; until they do, the cell shows a dash rather than a zero,
+   * because "0" and "not loaded yet" are very different answers.
+   */
+  function stockCell(product: ProductRow): HTMLElement {
+    if (!product.track_stock) return badge('Not tracked', { tone: 'info' })
+    const qty = onHand[product.id]
+    if (qty === undefined) return h('span', { class: 'text-content-subtle', text: '—' })
+    const reorder = parseMilli(product.reorder_point || '0', { decimal: true }) ?? milli(0)
+    const tone = qty <= 0 ? 'danger' : reorder > 0 && qty <= reorder ? 'warning' : 'neutral'
+    return badge(formatQty(qty, { decimal: true }), { tone })
+  }
+
   async function duplicate(product: ProductRow): Promise<void> {
+    // A copy is cheap to make and easy to make twice: two taps on a slow
+    // connection used to leave two identical "(copy)" rows behind.
+    const ok = await confirm(`Copy “${product.name}”?`, {
+      message:
+        'A new product is created with the same prices and settings, named ' +
+        `“${product.name} (copy)”. It starts with no SKU, no barcodes and no stock.`,
+      confirmLabel: 'Make a copy',
+      iconName: 'content_copy',
+    })
+    if (!ok) return
     try {
       const copy = await repos.products.duplicate(product.id)
       toastSuccess(`Copied as “${copy.name}”`)
@@ -175,20 +221,52 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
     }
   }
 
-  async function archive(product: ProductRow): Promise<void> {
-    const ok = await confirm(`Archive “${product.name}”?`, {
-      message: 'It disappears from the POS and the list. Past sales keep their record of it.',
-      confirmLabel: 'Archive',
+  /**
+   * Delete means delete.
+   *
+   * There is no trash in Mekholi, so the old "Archive" button left rows the
+   * owner could neither see nor remove. This asks plainly, in the words that
+   * describe what happens — permanent, database, cannot be undone — and then
+   * does it. The one case it cannot honour is a product with sales behind it;
+   * the database refuses that, and the refusal is offered back as the archive
+   * that was the right answer all along.
+   */
+  async function remove(product: ProductRow): Promise<void> {
+    const ok = await confirm(`Delete “${product.name}”?`, {
+      message:
+        'This permanently removes the product, its variants, barcodes and ' +
+        'stock records from the database. It cannot be undone.',
+      confirmLabel: 'Delete permanently',
       tone: 'danger',
-      iconName: 'archive',
+      iconName: 'delete_forever',
     })
     if (!ok) return
     try {
-      await repos.products.archive(product.id)
-      toastSuccess('Archived')
+      await repos.products.remove(product.id)
+      toastSuccess(`“${product.name}” deleted`)
       await load(true)
     } catch (error) {
-      toastError(translateError(error).message)
+      const message = translateError(error).message
+      // 23001 / restrict_violation: the product is on the books.
+      const onTheBooks = /sale line|purchase line|return line|restrict|violat|referenc/i.test(message)
+      if (!onTheBooks) {
+        toastError(message)
+        return
+      }
+      const archiveInstead = await confirm(`“${product.name}” cannot be deleted`, {
+        message: `${message} Archiving hides it from the POS and every list, and keeps those records readable.`,
+        confirmLabel: 'Archive instead',
+        tone: 'danger',
+        iconName: 'archive',
+      })
+      if (!archiveInstead) return
+      try {
+        await repos.products.archive(product.id)
+        toastSuccess('Archived')
+        await load(true)
+      } catch (archiveError) {
+        toastError(translateError(archiveError).message)
+      }
     }
   }
 
@@ -494,7 +572,14 @@ function openProductForm(options: FormOptions): void {
     rows: 2,
     placeholder: 'One barcode per line or separated by commas',
   })
-  const openingStockInput = input({ type: 'text', inputmode: 'decimal', placeholder: '0' })
+  // Stock lives on this form, for both halves of the job: a new product opens
+  // with a count, and an existing one can be corrected here. Sending an owner
+  // to /stock to fix a number they are already looking at is a route, a
+  // search and a second dialog for one edit.
+  const stockInput = input({ type: 'text', inputmode: 'decimal', placeholder: '0' })
+  /** On hand when the form opened; the delta on save is what gets recorded. */
+  let stockBefore: Milli = milli(0)
+  let stockKnown = false
 
   // One picker, one uploader. The bytes only leave the device when `commit()`
   // runs during save, so a form abandoned half-filled costs a shop nothing in
@@ -613,7 +698,7 @@ function openProductForm(options: FormOptions): void {
     const sellingPrice = parseMinor(priceInput.value)
     const costPrice = parseMinor(costInput.value || '0')
     const reorderPoint = parseMilli(reorderInput.value || '0', { decimal: true })
-    const openingStock = parseMilli(openingStockInput.value || '0', { decimal: true })
+    const stockWanted = parseMilli(stockInput.value || '0', { decimal: true })
     const trackStock = trackStockBox.querySelector('input')?.checked ?? true
     if (!name) {
       errorSlot.textContent = 'A product needs a name.'
@@ -625,7 +710,7 @@ function openProductForm(options: FormOptions): void {
       errorSlot.classList.remove('hidden')
       return
     }
-    if (costPrice === null || reorderPoint === null || openingStock === null || openingStock < 0) {
+    if (costPrice === null || reorderPoint === null || stockWanted === null || stockWanted < 0) {
       errorSlot.textContent = 'Check the cost, reorder point and stock quantities.'
       errorSlot.classList.remove('hidden')
       return
@@ -692,14 +777,30 @@ function openProductForm(options: FormOptions): void {
       if (!defaultVariant) throw new Error('The product was saved without a default variant.')
 
       await repos.products.replaceBarcodes(defaultVariant.id, barcodeValues(barcodeInput.value))
-      if (trackStock && openingStock > 0) {
+      // A new product's field is an opening count; an existing product's is
+      // the count on the shelf, so only the *difference* is written — and
+      // it is written through the same ledger the Stock screen uses, never
+      // as a balance this form sets by hand.
+      const delta = milli((stockWanted ?? milli(0)) - (product && stockKnown ? stockBefore : milli(0)))
+      if (trackStock && delta !== 0) {
         const warehouseId = salesFloor()?.warehouseId ?? (await repos.stock.listWarehouses())[0]?.id
         if (!warehouseId) throw new Error('The product was saved, but no stock location is available.')
-        await repos.stock.stockIn(
-          warehouseId,
-          [{ variantId: defaultVariant.id, qty: openingStock, unitCost: costPrice }],
-          { note: product ? 'Additional stock from product form' : 'Opening stock' }
-        )
+        if (delta > 0) {
+          await repos.stock.stockIn(
+            warehouseId,
+            [{ variantId: defaultVariant.id, qty: milli(delta), unitCost: costPrice }],
+            { note: product ? 'Corrected from the product form' : 'Opening stock' }
+          )
+        } else {
+          await repos.stock.adjust(
+            warehouseId,
+            defaultVariant.id,
+            milli(-delta),
+            'other',
+            -1,
+            'Corrected from the product form'
+          )
+        }
       }
       toastSuccess(product ? 'Product updated' : 'Product created')
       clearDraft(draftKey)
@@ -724,8 +825,10 @@ function openProductForm(options: FormOptions): void {
         field('Unit', unitSelect, { required: true })
       ),
       field('Brand', brandCombo.root, { hint: 'Optional · add a brand without leaving the form' }),
-      field('Opening stock', openingStockInput, {
-        hint: 'Adds stock to the current stock location at the cost above.',
+      field(product ? 'Stock on hand' : 'Opening stock', stockInput, {
+        hint: product
+          ? 'The count on the shelf. Change it here and the difference is recorded in the stock ledger.'
+          : 'Received into the current stock location at the cost above.',
       }),
       field('Barcode(s)', barcodeInput, {
         hint: 'The first code becomes primary. Variant barcodes can be managed in Variants.',
@@ -813,6 +916,22 @@ function openProductForm(options: FormOptions): void {
       fill(unitSelect, units.map((x) => ({ value: x.id, label: `${x.name} (${x.symbol})` })), defaultUnitId)
       fill(taxSelect, taxes.map((x) => ({ value: x.id, label: `${x.name} (${x.rate}%)` })), product?.tax_id ?? null)
       barcodeInput.value = barcodes.map((barcode) => barcode.code).join('\\n')
+
+      // What the shelf says right now, so the field can be corrected rather
+      // than added to. Loaded after the rest: a stock table this role cannot
+      // read must not stop the form from opening, it just leaves the field
+      // behaving the way it does for a new product.
+      if (product?.track_stock) {
+        try {
+          const levels = await repos.products.onHand([product.id], salesFloor()?.warehouseId ?? null)
+          stockBefore = levels[product.id] ?? milli(0)
+          stockKnown = true
+          stockInput.value = formatQty(stockBefore, { decimal: true })
+        } catch {
+          stockKnown = false
+        }
+      }
+
       restoreDraft(dialog.body, draftKey)
     } catch (error) {
       toastError(translateError(error).message)

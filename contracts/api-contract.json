@@ -1,7 +1,7 @@
 {
   "generatedFrom": "live database",
   "generatedBy": "tools/api-contract.mjs",
-  "migrations": 52,
+  "migrations": 53,
   "rpc": {
     "adjust_stock": {
       "returns": "numeric",
@@ -244,6 +244,16 @@
           "name": "p_day",
           "type": "date",
           "required": false
+        }
+      ]
+    },
+    "delete_product": {
+      "returns": "void",
+      "params": [
+        {
+          "name": "p_product_id",
+          "type": "uuid",
+          "required": true
         }
       ]
     },

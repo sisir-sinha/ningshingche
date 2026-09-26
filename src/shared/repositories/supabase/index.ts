@@ -775,6 +775,57 @@ function createProducts(
       if (error) throw error
     },
 
+    /**
+     * Hard delete, through `delete_product` (migration 053).
+     *
+     * Not `.from('products').delete()`: `stock_movements` and
+     * `stock_transfer_items` reference the product with no cascade, and RLS
+     * makes both SELECT-only for a browser — so the direct delete fails with
+     * a foreign-key violation on every product that was ever stocked. The
+     * function clears them under `security definer` and refuses when a sale,
+     * return or purchase is involved.
+     *
+     * The fallback matters in the field: a project that has not run 053 yet
+     * answers PGRST202 ("function not found"), and a product that was never
+     * stocked still deletes cleanly the plain way.
+     */
+    async remove(id) {
+      const { error } = await client.rpc('delete_product', { p_product_id: id })
+      if (!error) return
+      if (error.code !== 'PGRST202') throw error
+
+      const direct = await client.from('products').delete().eq('id', id)
+      if (!direct.error) return
+      if (direct.error.code === '23503') {
+        throw new Error(
+          'This product has stock history, and the database has not been ' +
+            'migrated to delete it (migration 053). Archive it, or apply the ' +
+            'migration and try again.'
+        )
+      }
+      throw direct.error
+    },
+
+    /**
+     * One query for the whole page. `stock_balances` has a row per warehouse,
+     * so the sum happens here rather than in five round trips.
+     */
+    async onHand(productIds, warehouseId) {
+      if (productIds.length === 0) return {}
+      let query = client
+        .from('stock_balances')
+        .select('product_id, quantity')
+        .in('product_id', productIds)
+      if (warehouseId) query = query.eq('warehouse_id', warehouseId)
+      const rows = unwrap(await query.returns<{ product_id: string; quantity: string }[]>())
+      const totals: Record<string, Milli> = {}
+      for (const row of rows) {
+        const previous = totals[row.product_id] ?? milli(0)
+        totals[row.product_id] = milli(previous + toMilli(row.quantity))
+      }
+      return totals
+    },
+
     async duplicate(id) {
       const source = await this.get(id)
       if (!source) throw new Error('Product not found')

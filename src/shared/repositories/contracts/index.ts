@@ -122,8 +122,26 @@ export interface ProductRepository {
   replaceBarcodes(variantId: string, codes: string[]): Promise<ProductBarcode[]>
   create(draft: ProductDraft): Promise<ProductRow>
   update(id: string, draft: Partial<ProductDraft>): Promise<ProductRow>
-  /** Soft delete. Nothing in Mekholi hard-deletes a row a sale can reference. */
+  /** Soft delete: the row stays, `deleted_at` hides it. */
   archive(id: string): Promise<void>
+  /**
+   * Hard delete — the row leaves the database.
+   *
+   * Mekholi has no trash view, so an archived product is invisible *and*
+   * permanent, which is the wrong end state for the mistakes made while a
+   * shop is being set up. `delete_product` (migration 053) removes the
+   * product and the rows that merely describe it, and refuses when a sale,
+   * return or purchase points at it — those are the books.
+   */
+  remove(id: string): Promise<void>
+  /**
+   * Stock on hand per product, in milli-units, for the rows currently listed.
+   *
+   * The Products list showed a "Tracked" badge where a shopkeeper expects a
+   * number. One extra query per page beats a join that would slow the list
+   * for the shops that do not track stock at all.
+   */
+  onHand(productIds: string[], warehouseId?: string | null): Promise<Record<string, Milli>>
   /** Spec §9 method 3: copy everything except the identity and the SKU. */
   duplicate(id: string): Promise<ProductRow>
 }
