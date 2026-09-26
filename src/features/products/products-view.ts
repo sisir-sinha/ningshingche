@@ -800,13 +800,14 @@ function openProductForm(options: FormOptions): void {
     const busy = spinner('h-4 w-4')
     advancedBody.prepend(busy)
     try {
-      let [c, b, u, t, barcodes] = await Promise.all([
+      const [initialCategories, b, u, t, barcodes] = await Promise.all([
         repos.catalog.listCategories(),
         repos.catalog.listBrands(),
         repos.catalog.listUnits(),
         repos.catalog.listTaxes(),
         product ? repos.products.listBarcodes(product.id) : Promise.resolve([]),
       ])
+      let c = initialCategories
       if (c.length === 0) {
         const defaults = activeShopType()?.recommendations.categories ?? []
         const seeded = await Promise.all(
@@ -828,7 +829,8 @@ function openProductForm(options: FormOptions): void {
       brandCombo.setItems(brands)
       categoryCombo.setValue(product?.category_id ?? null)
       brandCombo.setValue(product?.brand_id ?? null)
-      fill(unitSelect, units.map((x) => ({ value: x.id, label: `${x.name} (${x.symbol})` })), product?.unit_id ?? null)
+      const defaultUnitId = product?.unit_id ?? units.find((unit) => unit.name.toLowerCase() === 'each')?.id ?? null
+      fill(unitSelect, units.map((x) => ({ value: x.id, label: `${x.name} (${x.symbol})` })), defaultUnitId)
       fill(taxSelect, taxes.map((x) => ({ value: x.id, label: `${x.name} (${x.rate}%)` })), product?.tax_id ?? null)
       barcodeInput.value = barcodes.map((barcode) => barcode.code).join('\\n')
       restoreDraft(dialog.body, draftKey)
