@@ -279,7 +279,7 @@ afterEach(() => {
 /** Puts the first customer the dialog offers on the sale. */
 async function attachCustomer(view: HTMLElement): Promise<void> {
   ;[...view.querySelectorAll('button')]
-    .find((b) => (b.textContent ?? '').includes('Walk-in'))!
+    .find((b) => (b.textContent ?? '').includes('Add Customer'))!
     .click()
   await settle()
   const dialog = document.querySelector<HTMLElement>('[aria-modal="true"]')!
@@ -448,7 +448,7 @@ describe('a plugin that can take money off the sale', () => {
     expect(quotes.at(-1)?.customerId).toBeNull()
     expect(quotes.at(-1)?.totalMinor).toBe(20000)
 
-    buttonLabelled(view, 'Customer on this sale').click()
+    buttonLabelled(view, 'Add a customer to this sale').click()
     await settle()
     const search = document.querySelector<HTMLInputElement>('[aria-modal="true"] input')
     expect(search).not.toBeNull()

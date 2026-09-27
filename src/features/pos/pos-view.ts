@@ -520,10 +520,19 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
    * and nothing ever set it, so every sale was a walk-in and no add-on could be
    * about the person at the counter (spec §19).
    */
-  let attachedCustomer: CustomerRow | null = null
+  /**
+   * Everyone the cashier has put on this sale.
+   *
+   * It is a list because a counter is not always one person — a company buyer
+   * with the person collecting, a parent paying for a child's account — and the
+   * cashier should be able to name them all without a second screen. The
+   * server stores one customer per sale, so the **first** chip is the one the
+   * sale is billed to; removing it promotes the next.
+   */
+  let attachedCustomers: CustomerRow[] = []
 
   const customerLine = h('div', {
-    class: 'flex items-center gap-1 border-b border-border px-3 py-1.5',
+    class: 'border-b border-border px-3 py-1.5',
   })
 
   // `overflow-x-hidden` is deliberate: a container with `overflow-y-auto`
@@ -597,6 +606,14 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
       mount(adjustmentsSlot, null)
     }
 
+    // Completing, holding or clearing a sale empties the cart's customer id.
+    // The chips are a view of that id, so they have to go with it — otherwise
+    // the next customer starts their sale with the last one's name on it.
+    if (state.cart.customerId === null && attachedCustomers.length > 0) {
+      attachedCustomers = []
+      renderCustomer()
+    }
+
     const count = state.cart.lines.length
     lineCountBadge.textContent = t('common.itemCount', { count })
     lineCountBadge.classList.toggle('hidden', count === 0)
@@ -641,42 +658,101 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
     }
   }
 
+  /** Who the sale is billed to: the first chip, or nobody. */
+  function billedCustomer(): CustomerRow | null {
+    return attachedCustomers[0] ?? null
+  }
+
+  /** Writes the list back to the cart, which is what the server prices. */
+  function commitCustomers(): void {
+    cart.setCustomer(billedCustomer()?.id ?? null)
+    renderCustomer()
+  }
+
+  function addCustomer(customer: CustomerRow | null): void {
+    if (!customer) {
+      attachedCustomers = []
+    } else if (!attachedCustomers.some((existing) => existing.id === customer.id)) {
+      attachedCustomers = [...attachedCustomers, customer]
+    }
+    commitCustomers()
+  }
+
+  /**
+   * One person on the sale: their name, and the one control that takes them
+   * off again.
+   *
+   * The cross is its own button rather than a click target on the chip, because
+   * a chip that removes itself when tapped is how a cashier loses the customer
+   * they just spent ten seconds searching for.
+   */
+  function customerChip(customer: CustomerRow, billed: boolean): HTMLElement {
+    const remove = h('button', {
+      type: 'button',
+      class:
+        'grid h-5 w-5 shrink-0 place-items-center rounded-full text-content-subtle ' +
+        'hover:bg-danger/10 hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+      'aria-label': `Remove ${customer.name}`,
+      title: `Remove ${customer.name}`,
+    }, icon('close', 'text-[15px]'))
+    remove.addEventListener('click', () => {
+      attachedCustomers = attachedCustomers.filter((row) => row.id !== customer.id)
+      commitCustomers()
+    })
+
+    return h('div', {
+      class: [
+        // `max-w-full` + `truncate` on the name: a long name shortens, it does
+        // not push the row sideways. The row wraps instead (spec §19).
+        'inline-flex max-w-full items-center gap-1 rounded-full border py-0.5 pl-2.5 pr-1',
+        billed ? 'border-primary/30 bg-primary/10' : 'border-border bg-surface-muted',
+      ].join(' '),
+      'data-customer-chip': customer.id,
+    },
+      h('span', {
+        class: `min-w-0 truncate text-xs ${billed ? 'font-medium text-primary' : 'text-content'}`,
+        text: customer.name,
+        title: customer.phone ? `${customer.name} · ${customer.phone}` : customer.name,
+      }),
+      remove
+    )
+  }
+
   function renderCustomer(): void {
     if (!can('customers.view')) {
       mount(customerLine, null)
       return
     }
+
+    const chips = attachedCustomers.map((customer, index) => customerChip(customer, index === 0))
+
     mount(
       customerLine,
-      button(attachedCustomer?.name ?? 'Walk-in', {
-        // `md` (40px), not `sm` (32px): this spans the width of the cart panel
-        // and is the only way to put a customer on the sale, so it is a
-        // thumb target on a phone rather than a dense secondary control.
-        size: 'md',
-        variant: 'ghost',
-        icon: 'person',
-        ariaLabel: 'Customer on this sale',
-        title: attachedCustomer ? 'Change the customer on this sale' : 'Attach a customer',
-        class: 'min-w-0 flex-1 justify-start',
-        onClick: () =>
-          openCustomerDialog({
-            current: attachedCustomer,
-            currency,
-            onPick: (customer) => {
-              attachedCustomer = customer
-              // The till's cart is what the server prices and stores, so this
-              // is the only place the choice needs to land.
-              cart.setCustomer(customer?.id ?? null)
-              renderCustomer()
-            },
-          }),
-      }),
-      attachedCustomer
-        ? h('span', {
-            class: 'text-[11px] text-content-subtle truncate max-w-[45%]',
-            text: attachedCustomer.phone ?? '',
-          })
-        : h('span', { class: 'text-[11px] text-content-subtle', text: 'optional' })
+      h('div', { class: 'flex items-center gap-2' },
+        button('Add Customer', {
+          // `md` (40px), not `sm` (32px): this spans the width of the cart
+          // panel and is the only way to put a customer on the sale, so it is
+          // a thumb target on a phone rather than a dense secondary control.
+          size: 'md',
+          variant: 'ghost',
+          icon: 'person_add',
+          ariaLabel: 'Add a customer to this sale',
+          title: 'Search the customers this shop already has, or add a new one',
+          class: 'min-w-0 flex-1 justify-start',
+          onClick: () =>
+            openCustomerDialog({ current: billedCustomer(), currency, onPick: addCustomer }),
+        }),
+        h('span', {
+          class: 'shrink-0 text-[11px] text-content-subtle',
+          text: chips.length === 0 ? 'optional' : chips.length === 1 ? 'billed to' : `${chips.length} people`,
+        })
+      ),
+      // The chips sit *below* the button, on their own wrapping row, so the
+      // fourth customer moves the list down rather than squeezing the three
+      // before it into initials.
+      chips.length > 0
+        ? h('div', { class: 'mt-1.5 flex flex-wrap items-center gap-1.5' }, ...chips)
+        : null
     )
   }
 
@@ -983,15 +1059,7 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
       // button — and the one thing that is missing is opened for them.
       toastWarning(missing === 'Add a product' ? 'Add a product to the sale first.' : 'Choose a customer for this sale first.')
       if (missing === 'Choose a customer') {
-        openCustomerDialog({
-          current: attachedCustomer,
-          currency,
-          onPick: (customer) => {
-            attachedCustomer = customer
-            cart.setCustomer(customer?.id ?? null)
-            renderCustomer()
-          },
-        })
+        openCustomerDialog({ current: billedCustomer(), currency, onPick: addCustomer })
       } else {
         searchField.focus()
       }
@@ -1183,9 +1251,10 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
       // The held row carries the customer's id; the name is a lookup, and a
       // failure to fetch it must not lose the sale — the id is what the server
       // stores and what the receipt is joined from.
-      attachedCustomer = resumed.customerId
+      const resumedCustomer = resumed.customerId
         ? await repos.customers.get(resumed.customerId).catch(() => null)
         : null
+      attachedCustomers = resumedCustomer ? [resumedCustomer] : []
       renderCustomer()
       // A held sale was parked without its adjustments (see `holdCart`), so
       // anything on it now is a discount this till cannot explain.

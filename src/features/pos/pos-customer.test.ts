@@ -245,7 +245,7 @@ function hasButton(root: ParentNode, text: string): boolean {
 }
 
 function customerButton(view: HTMLElement): HTMLButtonElement {
-  const found = view.querySelector<HTMLButtonElement>('button[aria-label="Customer on this sale"]')
+  const found = view.querySelector<HTMLButtonElement>('button[aria-label="Add a customer to this sale"]')
   // It is the only way to attach a customer, and it spans the cart panel, so
   // it is a thumb target on a phone: `md` (40px), never `sm` (32px). The
   // phone audit fails any control under 40px.
@@ -289,11 +289,64 @@ afterEach(() => {
 })
 
 describe('the customer on the sale', () => {
-  it('says walk-in until somebody is attached', async () => {
+  it('offers to add a customer, and shows nobody until one is added', async () => {
     const view = await build()
 
-    expect(textOf(view)).toContain('Walk-in')
+    expect(textOf(view)).toContain('Add Customer')
     expect(textOf(view)).toContain('optional')
+    expect(view.querySelector('[data-customer-chip]')).toBeNull()
+  })
+
+  /**
+   * A counter is not always one person, so the people on the sale are chips on
+   * their own wrapping row under the button rather than a single line of text
+   * that has to be overwritten to change.
+   */
+  it('lists everyone on the sale as a chip that can be taken off again', async () => {
+    const view = await build()
+    await scan(view)
+
+    const first = await openDialog(view, 'Rahima')
+    buttonNamed(first, 'Rahima Begum').click()
+    await settle()
+    const second = await openDialog(view, 'Karim')
+    buttonNamed(second, 'Karim Mia').click()
+    await settle()
+
+    const chips = [...view.querySelectorAll('[data-customer-chip]')]
+    expect(chips.map((chip) => chip.textContent?.replace(/close/g, '').trim())).toEqual([
+      'Rahima Begum',
+      'Karim Mia',
+    ])
+    // They wrap rather than squeezing each other.
+    expect(chips[0]?.parentElement?.className).toContain('flex-wrap')
+    // The sale is billed to the first of them.
+    expect(quotedFor.at(-1)).toBe('c-1')
+
+    view.querySelector<HTMLButtonElement>('button[aria-label="Remove Rahima Begum"]')!.click()
+    await settle()
+
+    expect([...view.querySelectorAll('[data-customer-chip]')]).toHaveLength(1)
+    // Taking the billed customer off promotes the next one.
+    expect(quotedFor.at(-1)).toBe('c-2')
+  })
+
+  it('will not put the same customer on the sale twice', async () => {
+    const view = await build()
+
+    const first = await openDialog(view, 'Rahima')
+    buttonNamed(first, 'Rahima Begum').click()
+    await settle()
+
+    // Karim twice: the dialog hides whoever the sale is billed to, not the rest
+    // of the list, so a double-tap is a thing the cashier can actually do.
+    for (const _ of [0, 1]) {
+      const dialog = await openDialog(view, 'Karim')
+      buttonNamed(dialog, 'Karim Mia').click()
+      await settle()
+    }
+
+    expect([...view.querySelectorAll('[data-customer-chip]')]).toHaveLength(2)
   })
 
   it('searches the shop’s customers and attaches the one picked', async () => {
@@ -424,7 +477,7 @@ describe('the customer on the sale', () => {
     await settle()
 
     expect(released).toEqual(['rd-c-1:invalid'])
-    expect(textOf(view)).toContain('Walk-in')
+    expect(view.querySelector('[data-customer-chip]')).toBeNull()
     expect(textOf(view)).not.toContain('Discount')
     expect(textOf(view)).toContain('200.00')
   })
@@ -433,7 +486,7 @@ describe('the customer on the sale', () => {
     permissions = ['sales.create']
     const view = await build()
 
-    expect(view.querySelector('button[aria-label="Customer on this sale"]')).toBeNull()
+    expect(view.querySelector('button[aria-label="Add a customer to this sale"]')).toBeNull()
     expect(textOf(view)).not.toContain('optional')
     // And the plugin is quoted with no customer: the seam never sees one.
     expect(quotedFor.every((id) => id === null)).toBe(true)
