@@ -20,7 +20,7 @@ import { batchExpiryManifest } from '../../plugins/batch-expiry/manifest'
 import { printerSetupPlugin } from '../../plugins/printer-setup'
 import { printerSetupManifest } from '../../plugins/printer-setup/manifest'
 import { buildNavigation, navPluginMark, CORE_NAV } from './navigation'
-import { sidebar } from './sidebar'
+import { sidebar, markActive } from './sidebar'
 import { sessionStore, EMPTY_SESSION } from '../../app/state/session'
 
 let bus: EventBus
@@ -336,5 +336,43 @@ describe('the free / paid mark on a plugin’s menu entry', () => {
 
     // And nothing on a core entry.
     expect(el.querySelector('[data-nav-id="products"]')?.querySelector('[data-plugin-mark]')).toBeNull()
+  })
+})
+
+// ── Links that survive a sub-path deployment ──────────────────────────────
+
+describe('sidebar links', () => {
+  const options = {
+    shopName: 'Test Shop',
+    shopInitial: 'T',
+    onNavigate: vi.fn(),
+    onOpenPalette: vi.fn(),
+    onSignOut: vi.fn(),
+  }
+
+  it('keeps the route on the element, not only in the href', () => {
+    // `href` is for the browser and carries the deploy prefix; the router and
+    // `markActive` speak app paths. Conflating the two left every entry
+    // unhighlighted on GitHub Pages, where the app lives under /Mekholi/.
+    const el = sidebar({ registry, ...options })
+    const pos = el.querySelector<HTMLElement>('[data-nav-id="pos"]')!
+
+    expect(pos.dataset.navRoute).toBe('/pos')
+    expect(pos.getAttribute('href')).toContain('/pos')
+  })
+
+  it('highlights the entry for the current path', () => {
+    const el = sidebar({ registry, ...options })
+    markActive(el, '/plugins/batch-expiry')
+
+    const active = el.querySelector('[aria-current]')
+    expect(active?.getAttribute('data-nav-id')).toBe('batch-expiry')
+  })
+
+  it('highlights the parent entry for a child path', () => {
+    const el = sidebar({ registry, ...options })
+    markActive(el, '/products/7f3a9c21-0000-4000-8000-000000000000')
+
+    expect(el.querySelector('[aria-current]')?.getAttribute('data-nav-id')).toBe('products')
   })
 })

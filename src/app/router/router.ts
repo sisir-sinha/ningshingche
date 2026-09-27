@@ -41,11 +41,87 @@ interface CompiledRoute {
   paramNames: string[]
 }
 
+/**
+ * Work out where the app is deployed, from facts that do not move.
+ *
+ * The bundle is built with Vite's `base: './'` so it can be served from any
+ * sub-path. That makes `BASE_URL` a *relative* string, and resolving it
+ * against `window.location.href` resolves it against **the route the user is
+ * currently on** — which is not a constant. On the deploy root it gave the
+ * right answer, so this looked fine for a year:
+ *
+ *     /Mekholi/                        → base /Mekholi/        ✓
+ *     /Mekholi/plugins/printer-setup   → base /Mekholi/plugins/ ✗
+ *
+ * From that second URL every link gained a segment — `/Mekholi/plugins/` +
+ * `/plugins/barcode-scanner` = `/Mekholi/plugins/plugins/barcode-scanner` —
+ * and every path was parsed one segment short, so `/plugins/printer-setup`
+ * read as `/printer-setup`, matched nothing, and fell through the router's
+ * fallback to the dashboard. Two symptoms, one cause. Any two-segment route
+ * would have done it; plugin screens are simply where we have most of them.
+ *
+ * The fix is to stop asking a question whose answer depends on where you are
+ * standing:
+ *
+ *   * an **absolute** `BASE_URL` ('/', '/Mekholi/') is already the answer —
+ *     that is the dev server and any explicitly-configured deployment;
+ *   * a **relative** one is resolved against this module's own URL instead.
+ *     In a build this file lives at `<root>/assets/index-xxxx.js`, and the
+ *     asset directory is a build constant rather than a user's position.
+ *
+ * Whatever comes out must still be a prefix of the current path; if it is
+ * not, we are somewhere unforeseen and the site root is the safe answer.
+ *
+ * Exported pure so it can be tested against real deployment shapes without a
+ * browser — the original bug was invisible at the root path, which is the
+ * only path a naive test would try.
+ */
+export function resolveBasePath(options: {
+  baseUrl: string
+  moduleUrl: string
+  locationHref: string
+}): string {
+  const { baseUrl, moduleUrl, locationHref } = options
+  const pathname = new URL(locationHref).pathname
+
+  const tidy = (value: string): string => {
+    const withSlash = value.endsWith('/') ? value : `${value}/`
+    return withSlash === '//' ? '/' : withSlash
+  }
+
+  if (baseUrl.startsWith('/')) return tidy(baseUrl)
+
+  let derived = '/'
+  try {
+    // `<root>/assets/index-abc.js` → `<root>/assets/` → `<root>/`.
+    const dir = tidy(new URL('.', moduleUrl).pathname)
+    derived = dir.endsWith(`/${ASSETS_DIR}/`) ? dir.slice(0, -(ASSETS_DIR.length + 1)) : dir
+  } catch {
+    derived = '/'
+  }
+
+  return pathname.startsWith(derived) ? tidy(derived) : '/'
+}
+
+/** Vite's `build.assetsDir`. Kept in step with vite.config.ts by a test. */
+const ASSETS_DIR = 'assets'
+
+let basePathCache: string | null = null
+
 /** The configured Vite base, resolved to an absolute path for this page. */
 export function appBasePath(): string {
-  const raw = new URL(import.meta.env.BASE_URL || './', window.location.href).pathname
-  const normalised = raw.endsWith('/') ? raw : `${raw}/`
-  return normalised === '//' ? '/' : normalised
+  if (basePathCache !== null) return basePathCache
+  basePathCache = resolveBasePath({
+    baseUrl: import.meta.env.BASE_URL || './',
+    moduleUrl: import.meta.url,
+    locationHref: window.location.href,
+  })
+  return basePathCache
+}
+
+/** Test seam: forget the memoised base. Not used by the app. */
+export function resetBasePathCache(): void {
+  basePathCache = null
 }
 
 /** The route portion of the current browser URL, excluding the deploy prefix. */
@@ -72,6 +148,18 @@ function compile(path: string): { matcher: RegExp; paramNames: string[] } {
     })
     .join('/')
   return { matcher: new RegExp(`^${pattern}$`), paramNames }
+}
+
+/**
+ * A route as a URL the browser can be given: the deploy prefix plus the path.
+ *
+ * Exported because anchors need it too. A sidebar link whose `href` is the
+ * bare route looks right (the click handler calls the router) until someone
+ * middle-clicks it, at which point the browser is asked for a path with no
+ * deploy prefix — on Pages that is a different site's 404, not ours.
+ */
+export function routeHref(to: string): string {
+  return absoluteRoute(to)
 }
 
 function absoluteRoute(to: string): string {

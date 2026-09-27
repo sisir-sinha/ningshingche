@@ -7,6 +7,7 @@
  */
 
 import { h, icon } from '../../components/ui/h'
+import { routeHref } from '../../app/router/router'
 import { buildNavigation, navLabel, navPluginMark, sectionLabel, type NavPluginMark } from './navigation'
 import type { NavItem } from '../../shared/registry/plugin-types'
 import { t } from '../../shared/i18n'
@@ -201,12 +202,16 @@ function navItem(
   const link = h(
     'a',
     {
-      href: item.route,
+      href: routeHref(item.route),
       class:
         'group flex min-h-[44px] items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm ' +
         'text-content-muted hover:bg-secondary hover:text-content ' +
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-      dataset: { navId: item.id },
+      // The href carries the deploy prefix so the browser can follow it;
+      // the route is kept separately because that is what the router and
+      // `markActive` talk in. Comparing a prefixed href against an app path
+      // would leave nothing highlighted on a sub-path deployment.
+      dataset: { navId: item.id, navRoute: item.route },
     },
     icon(item.icon, 'text-lg shrink-0'),
     h('span', { class: 'flex-1 truncate', text: navLabel(item) })
@@ -261,7 +266,8 @@ export function markActive(sidebarEl: HTMLElement, path: string): void {
   let bestLength = -1
   for (const el of sidebarEl.querySelectorAll<HTMLElement>('[data-nav-id]')) {
     const href = el.getAttribute('href') ?? ''
-    const route = href.startsWith('#') ? href.slice(1) : href
+    const raw = el.dataset.navRoute ?? href
+    const route = raw.startsWith('#') ? raw.slice(1) : raw
     if (route === path || (route !== '/' && path.startsWith(`${route}/`))) {
       if (route.length > bestLength) {
         best = el
