@@ -18,6 +18,8 @@ export const DB = {
   PERMISSION: '42501',
   NOT_FOUND: 'P0001',
   FOREIGN_KEY: '23503',
+  /** `invalid input syntax for type uuid: ""` — a blank id reached the API. */
+  BAD_INPUT: '22P02',
 } as const
 
 const BUSINESS_MESSAGES: Record<string, string> = {
@@ -69,6 +71,15 @@ export function translateError(error: unknown): TranslatedError {
     case DB.NOT_FOUND:
     case DB.RAISE:
       return { message: stripPrefix(raw) || 'That record no longer exists.', code, retryable: false }
+    case DB.BAD_INPUT:
+      // Always our bug, never the shopkeeper's: a screen posted a blank or
+      // malformed id. Postgres names the type, which means nothing at the
+      // counter, so say what can be done instead.
+      return {
+        message: 'Something was missing from that form. Reload the page and try again.',
+        code,
+        retryable: false,
+      }
     case DB.FOREIGN_KEY:
       return {
         message: 'That record is still referenced elsewhere and cannot be removed.',
@@ -115,11 +126,19 @@ function rawPrefix(message: string): string | null {
   return m ? (m[1] as string) : null
 }
 
-/** `insufficient_stock: variant 123` → `variant 123`. */
+/**
+ * `insufficient_stock: variant 123` → `variant 123`.
+ *
+ * Returns the whole message when the tail is not something a person can
+ * read. `invalid input syntax for type uuid: ""` used to strip down to two
+ * quote marks, and a dialog that reports a failure as `""` is indistinguishable
+ * from a button that does nothing.
+ */
 function stripPrefix(message: string): string {
   const at = message.indexOf(':')
   if (at < 0) return message
-  return message.slice(at + 1).trim()
+  const tail = message.slice(at + 1).trim()
+  return /[\p{L}\p{N}]/u.test(tail) ? tail : message
 }
 
 function friendlyUniqueViolation(message: string): string {

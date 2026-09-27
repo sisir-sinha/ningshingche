@@ -262,46 +262,86 @@ export function expensesView(): HTMLElement {
         )
       )
 
-      submit.addEventListener('click', () => {
-        void (async () => {
-          const amount = parseMinor(amountInput.value)
-          if (amount === null || minorToNumber(amount) <= 0) {
-            errorSlot.textContent = 'Enter an amount greater than zero.'
-            errorSlot.classList.remove('hidden')
+      const fail = (message: string): void => {
+        errorSlot.textContent = message
+        errorSlot.classList.remove('hidden')
+        // The message sits under the last field, and on a phone the footer
+        // button is what the thumb is on — without this the reason scrolls
+        // out of sight and the button reads as dead.
+        errorSlot.scrollIntoView?.({ block: 'nearest' })
+      }
+
+      async function record(): Promise<void> {
+        if (submit.disabled) return
+
+        const amount = parseMinor(amountInput.value)
+        if (amount === null || minorToNumber(amount) <= 0) {
+          fail('Enter an amount greater than zero.')
+          amountInput.focus()
+          return
+        }
+
+        errorSlot.classList.add('hidden')
+        submit.disabled = true
+        submit.setAttribute('aria-busy', 'true')
+        const label = submit.querySelector('[data-label]')
+        const wasLabel = label?.textContent ?? ''
+        if (label) label.textContent = 'Recording…'
+
+        try {
+          // The branch has to be a real one. Sending the empty string here is
+          // what made this button look broken: Postgres rejects '' as a uuid
+          // and the failure came back as a message consisting of two quote
+          // marks, so a tap appeared to do nothing at all.
+          const floor = salesFloor() ?? (await refreshSalesFloor())
+          const branchId = floor?.branchId
+          if (!branchId) {
+            fail('This shop has no branch set up yet, so there is nothing to record the expense against.')
             return
           }
-          submit.disabled = true
-          try {
-            let sessionId: string | null = null
-            if (registerInput.checked) {
-              if (!salesFloor()) await refreshSalesFloor()
-              sessionId = salesFloor()?.sessionId ?? null
-              if (!sessionId) {
-                throw new Error('No drawer is open — open the register first, or untick the box.')
-              }
-            } else if (!salesFloor()) {
-              await refreshSalesFloor()
+
+          let sessionId: string | null = null
+          if (registerInput.checked) {
+            sessionId = floor.sessionId ?? null
+            if (!sessionId) {
+              fail('No drawer is open — open the register first, or untick the box.')
+              return
             }
-            await repos.expenses.create({
-              branchId: salesFloor()?.branchId ?? '',
-              amount,
-              categoryId: categorySelect.value || null,
-              methodId: methodSelect.value || null,
-              description: descriptionInput.value.trim() || null,
-              sessionId,
-              expenseDate: dateInput.value || today,
-            })
-            dialog.close()
-            toastSuccess('Expense recorded')
-            void reload()
-          } catch (error) {
-            errorSlot.textContent = translateError(error).message
-            errorSlot.classList.remove('hidden')
-          } finally {
-            submit.disabled = false
           }
-        })()
-      })
+
+          await repos.expenses.create({
+            branchId,
+            amount,
+            categoryId: categorySelect.value || null,
+            methodId: methodSelect.value || null,
+            description: descriptionInput.value.trim() || null,
+            sessionId,
+            expenseDate: dateInput.value || today,
+          })
+          dialog.close()
+          toastSuccess('Expense recorded')
+          void reload()
+        } catch (error) {
+          fail(translateError(error).message)
+        } finally {
+          submit.disabled = false
+          submit.removeAttribute('aria-busy')
+          if (label) label.textContent = wasLabel
+        }
+      }
+
+      submit.addEventListener('click', () => void record())
+
+      // Enter records it. One amount and a category is the whole form, and a
+      // shopkeeper typing 500 expects the keyboard's own button to finish the
+      // job rather than having to reach for the screen.
+      for (const control of [amountInput, descriptionInput, dateInput]) {
+        control.addEventListener('keydown', (event) => {
+          if ((event as KeyboardEvent).key !== 'Enter') return
+          event.preventDefault()
+          void record()
+        })
+      }
     })()
   }
 
