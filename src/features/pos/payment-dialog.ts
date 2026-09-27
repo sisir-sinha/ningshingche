@@ -23,6 +23,7 @@ import {
   type PaymentEntry,
 } from '../../shared/domain/cart'
 import { formatMoney, minor, parseMinor, type Minor } from '../../shared/domain/money'
+import { translateError } from '../../app/platform/errors'
 import type { PaymentMethod } from '../../shared/types/records'
 
 export interface PaymentDialogOptions {
@@ -253,7 +254,9 @@ export function openPaymentDialog(options: PaymentDialogOptions): { close: () =>
     } catch (error) {
       submitting = false
       submitButton.disabled = false
-      showError(error instanceof Error ? error.message : String(error))
+      // `String(error)` on a PostgREST failure renders `[object Object]`:
+      // these are plain objects with `code`/`message`/`details`, not Errors.
+      showError(translateError(error).message)
     }
   }
 

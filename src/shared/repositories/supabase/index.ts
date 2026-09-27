@@ -1004,7 +1004,12 @@ function createSales(client: SupabaseClient): SaleRepository {
               'items:sale_items(id,variant_id,product_id,product_name,variant_name,sku,' +
               'unit_label,quantity,unit_price,unit_cost,discount_type,discount_value,' +
               'discount_total,tax_rate,tax_total,line_total,line_cogs,returned_qty),' +
-              'payments:sale_payments(id,method_id,amount,reference,created_at,' +
+              // `received_at`, not `created_at`: `sale_payments` is the one
+              // table in the schema that names its timestamp after the event
+              // rather than after the row, and asking for the wrong one made
+              // every completed sale answer `42703` *after* the money was
+              // taken.
+              'payments:sale_payments(id,method_id,amount,reference,received_at,' +
               'method:payment_methods(key,name))'
           )
           .eq('id', id)

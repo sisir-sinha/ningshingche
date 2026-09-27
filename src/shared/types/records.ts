@@ -206,7 +206,8 @@ export interface SalePaymentRow {
   method_id: string
   amount: string
   reference: string | null
-  created_at: string
+  /** The column is `received_at` — when the money arrived, not when the row did. */
+  received_at: string
   method?: { key: string; name: string } | null
 }
 

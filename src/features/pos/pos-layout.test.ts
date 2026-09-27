@@ -349,4 +349,31 @@ describe('the panel itself', () => {
     expect(view.className).toContain('flex-col')
     expect(view.className).toContain('lg:flex-row')
   })
+
+  it('does not pin the cart to the viewport on a phone', async () => {
+    // The screenshot that started this: on a 390px portrait phone the cart
+    // filled the whole window and the catalogue behind it was crushed to
+    // nothing. The cause was the desktop rail's own classes applying at every
+    // width — a viewport-height screen with a `shrink-0` cart in it. Below
+    // `lg` nothing may be pinned: the page grows and the app outlet scrolls.
+    const view = await build()
+    const aside = view.querySelector('aside')!
+    const catalogue = view.querySelector('section')!
+
+    for (const cls of ['h-full', 'min-h-0', 'shrink-0', 'overflow-hidden']) {
+      expect(aside.className.split(' ')).not.toContain(cls)
+      expect(catalogue.className.split(' ')).not.toContain(cls)
+    }
+    // …and the same classes still apply from `lg` up, where they belong.
+    expect(aside.className).toContain('lg:h-full')
+    expect(aside.className).toContain('lg:shrink-0')
+    expect(catalogue.className).toContain('lg:flex-1')
+
+    // The cart's line list scrolls inside the rail, never inside the phone.
+    const lineList = [...view.querySelectorAll('div')].find((el) =>
+      el.className.includes('lg:overflow-y-auto') && el.className.includes('px-2.5')
+    )
+    expect(lineList).toBeDefined()
+    expect(lineList!.className.split(' ')).not.toContain('overflow-y-auto')
+  })
 })

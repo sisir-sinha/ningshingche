@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { PGlite } from '@electric-sql/pglite'
 import { splitStatements, statementLabel } from './sql-split.mjs'
+import { checkSelects } from './check-selects.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const dir = join(root, 'supabase', 'migrations')
@@ -3702,6 +3703,39 @@ check(
   'every live function reads only v_ variables it declares',
   undeclaredVars.length === 0,
   undeclaredVars.length ? undeclaredVars.join(', ') : `${functionsScanned} function bodies`
+)
+
+// ── Every column the client selects exists in this schema ────────────────
+//
+// A PostgREST select is a string, so no compiler reads it. Two shipped bugs
+// came from exactly that blind spot — `sale_items.created_at` and
+// `sale_payments.created_at`, neither column ever having existed. Both failed
+// only at runtime, on one screen, and the second one failed *after* taking
+// the customer's money. The schema is right here in PGlite, so the strings
+// can simply be checked against it.
+const columnRows = await q(`
+  select table_name, column_name from information_schema.columns
+   where table_schema = 'public'`)
+const viewRows = await q(`
+  select table_name from information_schema.views where table_schema = 'public'`)
+
+const schemaColumns = new Map()
+for (const row of columnRows) {
+  if (!schemaColumns.has(row.table_name)) schemaColumns.set(row.table_name, new Set())
+  schemaColumns.get(row.table_name).add(row.column_name)
+}
+void viewRows
+
+const selectProblems = checkSelects([join(root, 'src')], (table) => schemaColumns.get(table))
+
+check(
+  'every selected column exists in the schema',
+  selectProblems.length === 0,
+  selectProblems.length
+    ? selectProblems
+        .map((p) => `${p.path}.${p.column} (${p.file.replace(root + '/', '')})`)
+        .join('; ')
+    : `${schemaColumns.size} tables scanned`
 )
 
 // ── The generated contract still describes these migrations ───────────────

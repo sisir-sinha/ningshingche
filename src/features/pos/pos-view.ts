@@ -170,7 +170,16 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
   const sales = new SaleService(repos, bus, registry)
   const cart = new CartStore(floor.branchId)
 
-  const root = h('div', { class: 'flex h-full min-h-0 flex-col lg:flex-row' })
+  // Two panes side by side on a till, one scrolling page on a phone.
+  //
+  // The phone case used to be the desktop case turned vertical: the screen
+  // was pinned to the viewport and the cart was `shrink-0`, so the cart took
+  // whatever height it wanted — all of it — and the catalogue above it was
+  // squeezed to nothing while the cart's own content spilled past the clip.
+  // A 390px portrait screen cannot hold a catalogue *and* a full cart at
+  // once, so below `lg` neither is pinned: the page grows and the app's
+  // outlet scrolls it, catalogue first, cart underneath.
+  const root = h('div', { class: 'flex min-h-full flex-col lg:h-full lg:min-h-0 lg:flex-row' })
 
   // ── Left: catalogue ─────────────────────────────────────────────────────
 
@@ -542,7 +551,9 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
   // cart a horizontal scrollbar. Nothing in a cart is ever meant to be read
   // sideways.
   const lineList = h('div', {
-    class: 'flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2.5 py-2 space-y-1.5',
+    // On a phone the list is as tall as the sale is long and the page
+    // scrolls; only the desktop rail scrolls its lines internally.
+    class: 'overflow-x-hidden px-2.5 py-2 space-y-1.5 lg:flex-1 lg:min-h-0 lg:overflow-y-auto',
   })
   // Money a plugin has taken off this sale, and the strip the cashier applies it
   // from. The till owns this list, not the plugin: the *sum* is what reaches
@@ -561,7 +572,7 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
     const state = cart.state
     if (state.cart.lines.length === 0) {
       lineList.replaceChildren(
-        h('div', { class: 'flex h-full flex-col items-center justify-center px-4 py-10 text-center' },
+        h('div', { class: 'flex flex-col items-center justify-center px-4 py-10 text-center lg:h-full' },
           h('span', {
             class: 'grid h-12 w-12 place-items-center rounded-full bg-surface-muted text-content-subtle',
           }, icon('shopping_cart', 'text-2xl')),
@@ -1121,8 +1132,21 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
             } else {
               toastSuccess(`Sale ${result.invoice_no} · ${formatMoney(minorFromString(result.total), { currency })}`)
             }
-            const sale = await repos.sales.get(result.sale_id)
-            if (sale) openReceipt(sale, currency, 'Mekholi', printableNotes(registry, seen.values()))
+            // The sale is banked by this point: the money is taken, the stock
+            // has moved and the cart is empty. Fetching it back to draw the
+            // receipt is a *separate* job, and it used to be inside the same
+            // try — so one bad column in that query reported a completed sale
+            // as a failure, left the payment dialog open on an error, and
+            // invited the cashier to take the same money twice.
+            try {
+              const sale = await repos.sales.get(result.sale_id)
+              if (sale) openReceipt(sale, currency, 'Mekholi', printableNotes(registry, seen.values()))
+            } catch (error) {
+              toastWarning(
+                `Sale ${result.invoice_no} is saved, but the receipt could not be loaded: ` +
+                  `${translateError(error).message} Reprint it from Sales.`
+              )
+            }
             if (heldId) void refreshHeld()
             searchField.focus()
           } catch (error) {
@@ -1298,12 +1322,12 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
   const busyIndicator = h('div', { class: 'hidden items-center gap-2 px-3 py-1 text-xs text-content-muted' })
 
   root.append(
-    h('section', { class: 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden' },
+    h('section', { class: 'flex min-w-0 flex-col lg:min-h-0 lg:flex-1 lg:overflow-hidden' },
       // The search field is the till's front door and stays put while the grid
       // scrolls under it.
       h('div', { class: 'shrink-0 border-b border-border bg-surface px-3 pt-3 pb-2' }, searchField),
       statusLine,
-      h('div', { class: 'flex-1 min-h-0 overflow-y-auto' }, grid),
+      h('div', { class: 'lg:flex-1 lg:min-h-0 lg:overflow-y-auto' }, grid),
       // The keyboard contract, stated where a new cashier will see it. Hidden
       // on touch-sized screens, where there are no F-keys to press.
       h('p', {
@@ -1311,14 +1335,15 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
         text: 'Enter add · ↑↓ choose · F2 pay · F4 hold · F8 clear',
       })
     ),
-    // The cart is a fixed rail beside the catalogue on a desktop, and the
-    // lower half of the screen on a phone — a counter is as often a phone in
-    // portrait as it is a widescreen till, and a 360px rail squeezed into a
+    // The cart is a fixed rail beside the catalogue on a desktop, and simply
+    // the next thing down the page on a phone — a counter is as often a phone
+    // in portrait as it is a widescreen till, and a 360px rail squeezed into a
     // 390px viewport is neither.
     h('aside', {
       class:
-        'flex min-h-0 w-full shrink-0 flex-col overflow-hidden border-t border-border bg-surface ' +
-        'lg:h-full lg:w-[380px] lg:border-l lg:border-t-0 xl:w-[420px]',
+        'flex w-full flex-col border-t border-border bg-surface ' +
+        'lg:h-full lg:min-h-0 lg:w-[380px] lg:shrink-0 lg:overflow-hidden ' +
+        'lg:border-l lg:border-t-0 xl:w-[420px]',
     },
       h('div', { class: 'flex items-center gap-2 border-b border-border px-3 py-2' },
         h('p', { class: 'text-sm font-semibold text-content', text: 'Current sale' }),

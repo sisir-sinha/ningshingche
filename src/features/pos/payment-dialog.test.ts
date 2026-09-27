@@ -119,6 +119,25 @@ describe('the button that takes the money', () => {
     expect(onSubmit.mock.calls[0]![0]).toHaveLength(2)
   })
 
+  it('shows what went wrong instead of [object Object]', async () => {
+    // A PostgREST failure is a plain object, not an Error, so the old
+    // `String(error)` fallback printed `[object Object]` under the Reference
+    // field — the cashier was told a sale had failed and not told why.
+    const onSubmit = vi.fn().mockRejectedValue({
+      code: '42703',
+      message: 'column sale_payments_1.created_at does not exist',
+    })
+    openPaymentDialog({ total: minor(90000), methods: [CASH], currency: 'BDT', onSubmit })
+    await settle()
+
+    submitButton().click()
+    await settle()
+
+    const shown = document.body.textContent ?? ''
+    expect(shown).not.toContain('[object Object]')
+    expect(shown).toContain('column sale_payments_1.created_at does not exist')
+  })
+
   it('says what is owed, and refuses, when the field is empty', async () => {
     openPaymentDialog({ total: minor(90000), methods: [CASH], currency: 'BDT', onSubmit: () => undefined })
     await settle()
