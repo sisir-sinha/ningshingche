@@ -73,6 +73,7 @@ import {
   type Minor,
 } from '../../shared/domain/money'
 import { translateError } from '../../app/platform/errors'
+import type { PaymentEntry } from '../../shared/domain/cart'
 
 export interface PosViewOptions {
   bus: EventBus
@@ -898,27 +899,23 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
   payButton.dataset.action = 'pay'
 
   /**
-   * The queue button: cash in hand, nothing written down.
+   * The queue button: the sale, without the paperwork.
    *
-   * This is deliberately *not* a faster way to record a sale — it records
-   * nothing at all. No invoice, no stock movement, no row in `sales`, and
-   * therefore nothing in any report. It exists for the trade a counter does
-   * between the sales worth invoicing, and it is labelled for exactly that so
-   * nobody reaches for it expecting the books to catch up later.
+   * It banks exactly the same sale the invoiced button does — stock moves, it
+   * lands in Sales history, the reports are right — and skips only what the
+   * counter queue has no time for: the tender dialog and the receipt. The
+   * tender it assumes is the obvious one, the whole total in cash.
    *
-   * Two consequences are designed for rather than hidden:
-   *   - The toast says "not recorded", every time. A quiet success message
-   *     here would be a lie the shop only discovers at stock-take.
-   *   - It carries Undo. One mis-tap would otherwise destroy a full cart with
-   *     no trace to recover it from, which is the whole risk of a button that
-   *     writes nothing.
+   * The invoice is deferred, not lost. Sales history can preview, print,
+   * image or PDF any sale afterwards, which is when the customer usually
+   * asks for it anyway.
    */
   const quickPayButton = button('Pay without invoice', {
     variant: 'outline',
     size: 'lg',
     icon: 'bolt',
     fullWidth: true,
-    title: 'Take the cash and clear the till — nothing is recorded',
+    title: 'Record the sale and clear the till — full total in cash, no receipt',
     onClick: () => quickPay(),
   })
   quickPayButton.dataset.action = 'quick-pay'
@@ -1128,79 +1125,101 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
         methods,
         currency,
         onSubmit: async (payments) => {
-          cart.setBusy(true)
-          try {
-            const result = await sales.complete({
-              cart: cart.state.cart,
-              payments,
-              floor: floor!,
-              currency,
-              organizationId: organization?.organization_id ?? '',
-              heldSaleId: cart.state.heldSaleId,
-            })
-            const heldId = cart.state.heldSaleId
-            // Told before the cart goes: every plugin whose money was in this
-            // sale learns which sale took it — and, offline, that the invoice
-            // number is not final yet.
-            settleAdjustments({
-              saleId: result.sale_id,
-              invoiceNo: result.invoice_no,
-              stored: !result.queued,
-            })
-            cart.clear()
-            if (result.queued) {
-              // The money is real and the goods have gone; what is missing is
-              // the invoice number. Saying "saved offline" is what stops the
-              // cashier taking the sale a second time.
-              toastWarning(
-                `Saved on this device · ${formatMoney(minorFromString(result.total), { currency })}. ` +
-                  'It will sync when the connection returns.'
-              )
-            } else {
-              toastSuccess(`Sale ${result.invoice_no} · ${formatMoney(minorFromString(result.total), { currency })}`)
-            }
-            // The sale is banked by this point: the money is taken, the stock
-            // has moved and the cart is empty. Fetching it back to draw the
-            // receipt is a *separate* job, and it used to be inside the same
-            // try — so one bad column in that query reported a completed sale
-            // as a failure, left the payment dialog open on an error, and
-            // invited the cashier to take the same money twice.
-            try {
-              const sale = await repos.sales.get(result.sale_id)
-              if (sale) openReceipt(sale, currency, 'Mekholi', printableNotes(registry, seen.values()))
-            } catch (error) {
-              toastWarning(
-                `Sale ${result.invoice_no} is saved, but the receipt could not be loaded: ` +
-                  `${translateError(error).message} Reprint it from Sales.`
-              )
-            }
-            if (heldId) void refreshHeld()
-            searchField.focus()
-          } catch (error) {
-            const translated = translateError(error)
-            toastError(translated.message)
-            throw error
-          } finally {
-            cart.setBusy(false)
-          }
+          // The dialog stays open on a throw, which is how a failed sale
+          // keeps the tenders the cashier already entered.
+          await bankSale(payments, { invoice: true })
         },
       })
     })()
   }
 
   /**
-   * Cash taken, nothing recorded.
+   * Take the money and write the sale down. The only route to `complete`.
    *
-   * One tap, no dialogs: the cart's total is the amount, the money goes in
-   * the drawer by hand, and the till is cleared for the next customer. No
-   * `sales` row, no stock movement, no invoice number — the sale never
-   * existed as far as the database is concerned, which is what "no invoice"
-   * was asked to mean.
+   * `invoice` decides what happens *after* the money is banked, and nothing
+   * else: with an invoice the receipt opens for printing, without one the
+   * till simply clears. Both write the identical sale — same stock movement,
+   * same row in Sales history, same reports — because a shop that sells
+   * without printing is still a shop that sold something.
    *
-   * Everything that would have been written is therefore released rather
-   * than settled: a plugin holding a redemption for this cart gets it back,
-   * exactly as if the cart had been cleared, because no sale is coming to
-   * consume it.
+   * Throws on failure so the payment dialog can stay open with its tenders
+   * intact; the quick path swallows it after the toast, having no dialog to
+   * keep.
+   */
+  async function bankSale(payments: PaymentEntry[], options: { invoice: boolean }): Promise<void> {
+    cart.setBusy(true)
+    try {
+      const result = await sales.complete({
+        cart: cart.state.cart,
+        payments,
+        floor: floor!,
+        currency,
+        organizationId: organization?.organization_id ?? '',
+        heldSaleId: cart.state.heldSaleId,
+      })
+      const heldId = cart.state.heldSaleId
+      // Told before the cart goes: every plugin whose money was in this
+      // sale learns which sale took it — and, offline, that the invoice
+      // number is not final yet.
+      settleAdjustments({
+        saleId: result.sale_id,
+        invoiceNo: result.invoice_no,
+        stored: !result.queued,
+      })
+      cart.clear()
+      if (result.queued) {
+        // The money is real and the goods have gone; what is missing is
+        // the invoice number. Saying "saved offline" is what stops the
+        // cashier taking the sale a second time.
+        toastWarning(
+          `Saved on this device · ${formatMoney(minorFromString(result.total), { currency })}. ` +
+            'It will sync when the connection returns.'
+        )
+      } else {
+        toastSuccess(`Sale ${result.invoice_no} · ${formatMoney(minorFromString(result.total), { currency })}`)
+      }
+
+      // The sale is banked by this point: the money is taken, the stock
+      // has moved and the cart is empty. Fetching it back to draw the
+      // receipt is a *separate* job, and it used to be inside the same
+      // try — so one bad column in that query reported a completed sale
+      // as a failure, left the payment dialog open on an error, and
+      // invited the cashier to take the same money twice.
+      if (options.invoice) {
+        try {
+          const sale = await repos.sales.get(result.sale_id)
+          if (sale) openReceipt(sale, currency, 'Mekholi', printableNotes(registry, seen.values()))
+        } catch (error) {
+          toastWarning(
+            `Sale ${result.invoice_no} is saved, but the receipt could not be loaded: ` +
+              `${translateError(error).message} Reprint it from Sales.`
+          )
+        }
+      }
+
+      if (heldId) void refreshHeld()
+      searchField.focus()
+    } catch (error) {
+      toastError(translateError(error).message)
+      throw error
+    } finally {
+      cart.setBusy(false)
+    }
+  }
+
+  /**
+   * The queue button: money in, sale written, no paperwork.
+   *
+   * One tap and the sale is banked exactly as an invoiced one — stock moves,
+   * it appears in Sales history, the reports are right — but nothing is
+   * printed and no dialog interrupts. It assumes the obvious tender: the
+   * whole total, in cash, which is what a counter queue actually hands over.
+   * Anything else (a split, a card, change from a larger note) is what the
+   * invoiced button's dialog is for.
+   *
+   * The invoice is not lost by skipping it here. Every sale can be previewed,
+   * printed, imaged or PDF'd afterwards from Sales history, which is where
+   * the request usually arrives anyway.
    */
   function quickPay(): void {
     const state = cart.state
@@ -1210,28 +1229,40 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
       searchField.focus()
       return
     }
+    if (state.totals.oversold.length > 0) {
+      toastWarning('Some lines exceed the stock on hand. Reduce them first.')
+      return
+    }
 
-    const taken = state.totals.total
-    // Snapshot before clearing: Undo is the only route back from a button
-    // that leaves no record anywhere to recover from.
-    const snapshot = structuredClone(state.cart)
-    const heldId = state.heldSaleId
+    void (async () => {
+      let methods: Awaited<ReturnType<typeof repos.catalog.listPaymentMethods>> = []
+      try {
+        methods = await repos.catalog.listPaymentMethods()
+      } catch (error) {
+        toastError(translateError(error).message)
+        return
+      }
 
-    releaseAll('cleared')
-    cart.clear()
+      // Cash, or whatever this shop uses in its place. A quick sale with no
+      // method to book it against would be a sale with no payment row, so it
+      // refuses rather than inventing one.
+      const cash = methods.find((method) => method.is_cash) ?? methods[0]
+      if (!cash) {
+        toastError('This shop has no payment methods configured.')
+        return
+      }
 
-    toastWarning(`Cash taken · ${formatMoney(taken, { currency })} — not recorded.`, {
-      title: 'Quick sale',
-      action: {
-        label: 'Undo',
-        onClick: () => {
-          cart.replace(snapshot, heldId)
-          renderCart()
-          toastSuccess('The cart is back.')
-        },
-      },
-    })
-    searchField.focus()
+      try {
+        await bankSale(
+          [{ methodId: cash.id, methodKey: cash.key, methodName: cash.name, amount: state.totals.total }],
+          { invoice: false }
+        )
+      } catch {
+        // `bankSale` has already said what went wrong. There is no dialog
+        // holding the cashier's tenders here, so the cart stays as it was
+        // and the button can simply be pressed again.
+      }
+    })()
   }
 
   async function holdCart(): Promise<void> {

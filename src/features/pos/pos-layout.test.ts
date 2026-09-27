@@ -57,13 +57,33 @@ const KALA_JAM: SellableProduct = {
 
 let held: unknown[] = []
 
+/** Every sale the till banked, in the shape the repository received it. */
+const completed: Array<{ payments: Array<{ method_id: string; amount: number }> }> = []
+
 vi.mock('../../app/data', () => ({
   getRepositories: () => ({
     catalog: {
       findByBarcode: async () => null,
       searchProducts: async () => ({ items: [KALA_JAM], total: 1, limit: 40, offset: 0 }),
+      listPaymentMethods: async () => [
+        { id: 'm-cash', key: 'CASH', name: 'Cash', is_cash: true },
+        { id: 'm-card', key: 'CARD', name: 'Card', is_cash: false },
+      ],
     },
-    sales: { held: async () => held },
+    sales: {
+      held: async () => held,
+      complete: async (input: { payments: Array<{ method_id: string; amount: number }> }) => {
+        completed.push({ payments: input.payments })
+        return {
+          sale_id: 'sale-9',
+          invoice_no: 'INV-0009',
+          total: '450.00',
+          queued: false,
+          change_due: '0.00',
+        }
+      },
+      get: async () => null,
+    },
     customers: { get: async () => null },
   }),
 }))
@@ -128,6 +148,7 @@ const byLabel = (view: HTMLElement, label: string): HTMLButtonElement =>
 
 beforeEach(() => {
   held = []
+  completed.length = 0
   localStorage.clear()
   salesFloorStore.reset({ status: 'idle', floor: null, error: null, generation: 0 })
 })
@@ -306,36 +327,41 @@ describe('the controls still work', () => {
 })
 
 describe('pay without invoice', () => {
-  it('clears the till and says plainly that nothing was recorded', async () => {
-    // The whole risk of this button is a shopkeeper assuming the books will
-    // catch up. They will not: no sale row, no stock movement, no report
-    // entry. The toast has to say so every single time.
-    const view = await build()
-    await addProduct(view)
-
-    view.querySelector<HTMLButtonElement>('[data-action=quick-pay]')!.click()
-    await settle()
-
-    expect(cartLines(view)).toHaveLength(0)
-    expect(document.body.textContent).toContain('not recorded')
-    expect(document.body.textContent).toContain('450.00')
+  // The screenshot product has nothing in stock, which every other test here
+  // relies on. A sale that cannot be made for want of stock would never reach
+  // the payment step, so these tests put some on the shelf.
+  beforeEach(() => {
+    KALA_JAM.availableQty = milli(5000)
+  })
+  afterEach(() => {
+    KALA_JAM.availableQty = milli(0)
   })
 
-  it('offers Undo, because there is nowhere else to recover the cart from', async () => {
+  it('banks a real sale — full total, in cash, with no dialog', async () => {
+    // The point of the button is the missing paperwork, not a missing sale.
+    // Stock has to move and the money has to reach the reports, or the shop
+    // discovers the difference at stock-take.
+    const view = await build()
+    await addProduct(view)
+
+    view.querySelector<HTMLButtonElement>('[data-action=quick-pay]')!.click()
+    await settle()
+
+    expect(completed).toHaveLength(1)
+    // `method_id` and taka, because that is the wire payload the repository
+    // is handed — 450.00, the whole total, against the shop's cash method.
+    expect(completed[0]!.payments).toEqual([{ method_id: 'm-cash', amount: 450 }])
+    expect(cartLines(view)).toHaveLength(0)
+    expect(document.body.textContent).toContain('INV-0009')
+  })
+
+  it('shows no receipt, which is the whole difference from the invoiced button', async () => {
     const view = await build()
     await addProduct(view)
     view.querySelector<HTMLButtonElement>('[data-action=quick-pay]')!.click()
     await settle()
 
-    const undo = [...document.querySelectorAll<HTMLButtonElement>('button')].find(
-      (button) => (button.textContent ?? '').trim() === 'Undo'
-    )
-    expect(undo).toBeDefined()
-
-    undo!.click()
-    await settle()
-
-    expect(cartLines(view)).toHaveLength(1)
+    expect(document.querySelector('#mekholi-print-root')).toBeNull()
   })
 
   it('is refused while the cart is empty, like every other money button', async () => {
