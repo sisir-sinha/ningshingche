@@ -10,6 +10,7 @@
 
 import type { NavItem } from '../../shared/registry/plugin-types'
 import type { PluginRegistry } from '../../shared/registry/plugin-registry'
+import { priceLabel } from '../../shared/registry/plugin-licence'
 import { can } from '../../app/state/session'
 import { lowStockCount } from '../../app/state/stock-alerts'
 import { t, type StringKey } from '../../shared/i18n'
@@ -174,6 +175,60 @@ export function buildNavigation(registry: PluginRegistry): NavGroup[] {
 function humanize(id: string): string {
   const words = id.replace(/[-_]+/g, ' ').trim()
   return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
+// ── Where a menu entry came from, and what it costs ───────────────────────
+
+/**
+ * The little mark on the right of a plugin's menu entry.
+ *
+ * Half this sidebar is now contributed by plugins, and from the inside a
+ * plugin's entry looks exactly like Products or Sales. That is the point of
+ * the architecture, but it is the wrong answer for the shopkeeper: "Loyalty"
+ * sitting between two core screens gives no hint that it is a subscription
+ * which can lapse, or that Printer Setup costs nothing. The mark says which,
+ * in the place the eye already goes for the stock badge.
+ *
+ * Core items get nothing. A tick on every built-in screen would be noise, and
+ * the absence of a mark is itself the message: this one is simply the app.
+ */
+export interface NavPluginMark {
+  /** Material Symbols Rounded ligature. */
+  icon: string
+  /** `free`, `paid`, or `trial` — the sidebar maps these to colours. */
+  tone: 'free' | 'paid' | 'trial'
+  /** Tooltip and screen-reader text. Always a full sentence-ish phrase. */
+  title: string
+}
+
+export function navPluginMark(registry: PluginRegistry, item: NavItem): NavPluginMark | null {
+  const pluginId = item.source
+  if (!pluginId) return null
+
+  const manifest = registry.get(pluginId)?.manifest
+  if (!manifest) return null
+
+  const pricing = manifest.pricing
+  const name = manifest.name
+  if (!pricing || pricing.plan === 'free' || pricing.priceBdt <= 0) {
+    return { icon: 'volunteer_activism', tone: 'free', title: `${name} — free plugin` }
+  }
+
+  // A paid plugin only reaches the sidebar when the shop is entitled to run
+  // it, so the interesting distinction here is subscribed versus on trial:
+  // one of those disappears in a fortnight and the owner should not find out
+  // by the menu entry vanishing.
+  const licence = registry.licenceOf(pluginId)
+  if (licence.status === 'trial') {
+    const days = licence.daysLeft ?? 0
+    return {
+      icon: 'hourglass_top',
+      tone: 'trial',
+      title: `${name} — trial, ${days} day${days === 1 ? '' : 's'} left, then ${priceLabel(pricing)}`,
+    }
+  }
+
+  return { icon: 'paid', tone: 'paid', title: `${name} — paid plugin, ${priceLabel(pricing)}` }
 }
 
 /** Flat list for the command palette and for keyboard routing. */

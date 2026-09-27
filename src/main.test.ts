@@ -99,6 +99,25 @@ describe('application bootstrap', () => {
     expect(root.textContent).toContain('Sign in')
   })
 
+  /**
+   * The hardware pages moved to `/plugins/…` when they became plugins. The
+   * router sends an unknown path to the dashboard, so the old addresses —
+   * printed in notes to staff, saved as bookmarks, and linked from the
+   * "set up the printer first" toast for months — resolved to the dashboard
+   * with no explanation. A move is not a deletion.
+   */
+  it('forwards the old hardware URLs to their plugin screens', async () => {
+    const router = window.mekholi!.router
+
+    await router.navigate('/printer-setup')
+    await settle()
+    expect(router.currentContext?.path).toBe('/plugins/printer-setup')
+
+    await router.navigate('/scanner-setup')
+    await settle()
+    expect(router.currentContext?.path).toBe('/plugins/barcode-scanner')
+  })
+
   it('exposes the diagnostics handle', () => {
     expect(window.mekholi?.bus).toBeDefined()
     expect(window.mekholi?.session).toBeDefined()

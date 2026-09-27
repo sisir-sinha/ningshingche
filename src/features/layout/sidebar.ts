@@ -7,7 +7,7 @@
  */
 
 import { h, icon } from '../../components/ui/h'
-import { buildNavigation, navLabel, sectionLabel } from './navigation'
+import { buildNavigation, navLabel, navPluginMark, sectionLabel, type NavPluginMark } from './navigation'
 import type { NavItem } from '../../shared/registry/plugin-types'
 import { t } from '../../shared/i18n'
 import type { PluginRegistry } from '../../shared/registry/plugin-registry'
@@ -49,7 +49,7 @@ export function sidebar(options: SidebarOptions): HTMLElement {
     const list = h('ul', { id: listId, class: 'space-y-0.5', role: 'list' })
 
     for (const item of group.items) {
-      list.appendChild(navItem(item, onNavigate))
+      list.appendChild(navItem(item, onNavigate, navPluginMark(registry, item)))
     }
 
     const header = h(
@@ -186,9 +186,17 @@ export function sidebar(options: SidebarOptions): HTMLElement {
   )
 }
 
+/** Tailwind classes per mark tone, kept whole so the scanner can see them. */
+const MARK_TONE: Record<NavPluginMark['tone'], string> = {
+  free: 'text-success',
+  paid: 'text-warning',
+  trial: 'text-warning',
+}
+
 function navItem(
   item: NavItem,
-  onNavigate: (path: string) => void
+  onNavigate: (path: string) => void,
+  mark: NavPluginMark | null = null
 ): HTMLLIElement {
   const link = h(
     'a',
@@ -208,6 +216,23 @@ function navItem(
     event.preventDefault()
     onNavigate(item.route)
   })
+
+  if (mark) {
+    // `ml-auto` on the first thing after the label, so the mark sits hard
+    // right whether or not a count follows it.
+    link.appendChild(
+      h('span', {
+        class: `material-symbols-rounded ml-auto shrink-0 select-none text-base leading-none ${MARK_TONE[mark.tone]}`,
+        // Material Symbols renders the ligature; the title carries the
+        // meaning for everyone who is not looking at a coin-shaped glyph.
+        text: mark.icon,
+        title: mark.title,
+        'aria-label': mark.title,
+        role: 'img',
+        dataset: { pluginMark: mark.tone },
+      })
+    )
+  }
 
   const badgeValue = item.badge?.()
   if (badgeValue !== null && badgeValue !== undefined && badgeValue !== '' && badgeValue !== 0) {

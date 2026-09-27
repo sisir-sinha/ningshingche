@@ -663,6 +663,21 @@ export interface ShippedPlugin {
   manifest: PluginManifest
   /** Only called when the plugin is enabled — a disabled plugin costs nothing. */
   load: () => Promise<Plugin>
+  /**
+   * Load this one whatever the shop's catalogue says.
+   *
+   * For the handful of plugins that are really *core code kept out of the
+   * main bundle*: they own no server data, cost nothing, and were shipped as
+   * built-in screens before they were split out. Printer Setup is the
+   * example — gating a page that configures the shop's own printer behind a
+   * `plugin_packages` row means that if the row is missing, or the device is
+   * offline, or the catalogue read fails, the shopkeeper loses access to
+   * their hardware settings and the menu entry simply is not there.
+   *
+   * Never set this on anything that charges money or writes to a table of
+   * its own. Those must be a deliberate, recorded decision by the shop.
+   */
+  alwaysOn?: boolean
 }
 
 export interface Plugin {

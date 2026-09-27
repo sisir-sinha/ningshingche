@@ -28,7 +28,7 @@ import { confirm, modal } from '../../components/feedback/modal'
 import { toastError, toastSuccess } from '../../components/feedback/toast'
 import { getRepositories } from '../../app/data'
 import { activeOrganization, can } from '../../app/state/session'
-import { pluginRegistry, pluginConfig, rememberConfig, syncPlugins } from '../../app/plugins'
+import { pluginRegistry, pluginConfig, rememberConfig, syncPlugins, alwaysOnPlugins } from '../../app/plugins'
 import { translateError } from '../../app/platform/errors'
 import {
   LICENCE_KEY,
@@ -124,7 +124,7 @@ export function pluginsView(): HTMLElement {
     try {
       const catalog = await repos.plugins.catalog(organizationId)
       if (id !== requestId) return
-      entries = catalog
+      entries = withAlwaysOn(catalog)
       loadError = null
       for (const entry of catalog) rememberConfig(entry.key, entry.config)
     } catch (error) {
@@ -251,6 +251,42 @@ export function pluginsView(): HTMLElement {
     return pluginRegistry.get(key)?.manifest
   }
 
+  /**
+   * Show the always-on plugins even when the server has never heard of them.
+   *
+   * `plugin_packages` is seeded by a migration, and a shop whose database is
+   * a version behind would otherwise see a menu entry in the sidebar for a
+   * plugin that does not exist on this screen. Running code the list denies
+   * is worse than an extra row: the row at least tells the truth.
+   */
+  function withAlwaysOn(catalog: PluginCatalogEntry[]): PluginCatalogEntry[] {
+    const known = new Set(catalog.map((entry) => entry.key))
+    const missing = alwaysOnPlugins()
+      .filter((key) => !known.has(key))
+      .map((key) => manifestOf(key))
+      .filter((manifest): manifest is PluginManifest => manifest !== undefined)
+      .map<PluginCatalogEntry>((manifest) => ({
+        key: manifest.id,
+        name: manifest.name,
+        category: manifest.category,
+        version: manifest.version,
+        coreApiVersion: manifest.coreApiVersion,
+        description: manifest.description,
+        dependencies: [...(manifest.dependencies ?? [])],
+        conflicts: [...(manifest.conflicts ?? [])],
+        installed: true,
+        enabled: true,
+        status: 'ok',
+        lastError: null,
+        config: pluginConfig(manifest.id),
+        enabledAt: null,
+        permissions: [],
+        migrationsTotal: 0,
+        migrationsPending: 0,
+      }))
+    return [...catalog, ...missing]
+  }
+
   function licenceOf(entry: PluginCatalogEntry): Licence {
     return licenceFor(manifestOf(entry.key)?.pricing, pluginConfig(entry.key))
   }
@@ -266,8 +302,11 @@ export function pluginsView(): HTMLElement {
     const parts = loaded ? contributions(entry.key) : []
     const licence = licenceOf(entry)
     const paid = licence.status !== 'free'
+    const alwaysOn = alwaysOnPlugins().includes(entry.key)
 
-    const statusBadge = failed
+    const statusBadge = alwaysOn
+      ? badge('Always on', { tone: 'success', iconName: 'lock' })
+      : failed
       ? badge('Needs attention', { tone: 'danger', iconName: 'error' })
       : blocked
         ? badge('Blocked', { tone: 'warning', iconName: 'block' })
@@ -295,7 +334,14 @@ export function pluginsView(): HTMLElement {
       h('p', { class: 'text-right text-xs text-content-subtle', text: licence.summary }),
     ]
 
-    if (canManage) {
+    if (alwaysOn) {
+      controls.push(
+        h('p', {
+          class: 'text-right text-xs text-content-subtle',
+          text: 'Always on — it configures this device and stores nothing on the server.',
+        })
+      )
+    } else if (canManage) {
       controls.push(
         entry.enabled
           ? button('Switch off', {

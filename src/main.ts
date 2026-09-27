@@ -153,6 +153,21 @@ const routes: Route[] = [
     title: 'Plugin',
     render: (ctx) => renderPluginRoute(ctx.params.pluginId ?? '', ctx.path, ctx.query),
   },
+  // The hardware screens used to live at these paths. They are plugin screens
+  // now, and the router's fallback sends an unknown path to the dashboard —
+  // so without these two lines every old bookmark, and every link printed in
+  // a note to staff, silently became "the dashboard again".
+  ...[
+    ['/printer-setup', '/plugins/printer-setup', 'Printer setup'],
+    ['/scanner-setup', '/plugins/barcode-scanner', 'Scanner setup'],
+  ].map<Route>(([from, to, title]) => ({
+    path: from as string,
+    title: title as string,
+    render: () => {
+      router.navigate(to as string, { replace: true })
+      return h('div', { class: 'p-6 text-sm text-content-muted', text: 'Taking you there…' })
+    },
+  })),
   {
     path: '/forbidden',
     title: 'Not permitted',

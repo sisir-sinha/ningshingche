@@ -17,7 +17,9 @@ import { PluginRegistry } from '../../shared/registry/plugin-registry'
 import { EventBus } from '../../shared/bus/event-bus'
 import { batchExpiryPlugin } from '../../plugins/batch-expiry'
 import { batchExpiryManifest } from '../../plugins/batch-expiry/manifest'
-import { buildNavigation, CORE_NAV } from './navigation'
+import { printerSetupPlugin } from '../../plugins/printer-setup'
+import { printerSetupManifest } from '../../plugins/printer-setup/manifest'
+import { buildNavigation, navPluginMark, CORE_NAV } from './navigation'
 import { sidebar } from './sidebar'
 import { sessionStore, EMPTY_SESSION } from '../../app/state/session'
 
@@ -242,5 +244,97 @@ describe('rendered sidebar', () => {
 
     const rebuilt = sidebar({ registry, ...options })
     expect(rebuilt.querySelector('[data-nav-id="late"]')).not.toBeNull()
+  })
+})
+
+// ── Free or paid, in the menu itself ──────────────────────────────────────
+
+describe('the free / paid mark on a plugin’s menu entry', () => {
+  const options = {
+    shopName: 'Test Shop',
+    shopInitial: 'T',
+    onNavigate: vi.fn(),
+    onOpenPalette: vi.fn(),
+    onSignOut: vi.fn(),
+  }
+
+  /** A registry whose licences come from a config this test controls. */
+  async function withConfig(config: Record<string, Record<string, unknown>>): Promise<PluginRegistry> {
+    const host = {
+      settings: () => ({ get: () => undefined, set: async () => undefined, all: () => ({}) }),
+      data: () => ({ get: async () => undefined, set: async () => undefined, remove: async () => undefined }),
+      db: () => ({}),
+      config: (pluginId: string) => config[pluginId] ?? {},
+    } as unknown as ConstructorParameters<typeof PluginRegistry>[1]
+
+    const scoped = new PluginRegistry(bus, host)
+    scoped.declare({ manifest: batchExpiryManifest, load: async () => batchExpiryPlugin })
+    scoped.declare({ manifest: printerSetupManifest, load: async () => printerSetupPlugin })
+    await scoped.sync(['batch-expiry', 'printer-setup'])
+    return scoped
+  }
+
+  it('marks a free plugin free', async () => {
+    const scoped = await withConfig({})
+    const item = buildNavigation(scoped).flatMap((g) => g.items).find((i) => i.id === 'printer-setup')!
+    const mark = navPluginMark(scoped, item)
+
+    expect(mark?.tone).toBe('free')
+    expect(mark?.title).toContain('free plugin')
+  })
+
+  it('marks a paid plugin with its price', async () => {
+    const scoped = await withConfig({
+      'batch-expiry': { __licence: { plan: 'paid', startedAt: '2026-01-01T00:00:00Z' } },
+    })
+    const item = buildNavigation(scoped).flatMap((g) => g.items).find((i) => i.id === 'batch-expiry')!
+    const mark = navPluginMark(scoped, item)
+
+    expect(mark?.tone).toBe('paid')
+    expect(mark?.title).toContain('৳349/month')
+  })
+
+  it('says how long a trial has left, rather than calling it paid', async () => {
+    const expiresAt = new Date(Date.now() + 3 * 86_400_000).toISOString()
+    const scoped = await withConfig({
+      'batch-expiry': { __licence: { plan: 'trial', startedAt: '2026-01-01T00:00:00Z', expiresAt } },
+    })
+    const item = buildNavigation(scoped).flatMap((g) => g.items).find((i) => i.id === 'batch-expiry')!
+    const mark = navPluginMark(scoped, item)
+
+    expect(mark?.tone).toBe('trial')
+    expect(mark?.title).toContain('3 days left')
+  })
+
+  it('leaves core items unmarked — the absence is the message', () => {
+    const core = CORE_NAV.find((item) => item.id === 'products')!
+    expect(navPluginMark(registry, core)).toBeNull()
+  })
+
+  it('draws the mark in the sidebar, on the right of the entry', async () => {
+    // A paid plugin has to be entitled before it reaches the sidebar at all —
+    // an unlicensed one is blocked at load, so there is no menu entry to mark.
+    const scoped = await withConfig({
+      'batch-expiry': { __licence: { plan: 'paid', startedAt: '2026-01-01T00:00:00Z' } },
+    })
+    const el = sidebar({ registry: scoped, ...options })
+
+    const pluginLink = el.querySelector('[data-nav-id="batch-expiry"]')!
+    const badge = pluginLink.querySelector<HTMLElement>('[data-plugin-mark]')!
+    expect(badge).not.toBeNull()
+    expect(badge.getAttribute('data-plugin-mark')).toBe('paid')
+    expect(badge.className).toContain('material-symbols-rounded')
+    expect(badge.className).toContain('ml-auto')
+    // Readable without seeing the glyph, and it names the *plugin* rather
+    // than the menu entry — that is the name to look for on the Plugins
+    // screen when deciding whether to keep paying for it.
+    expect(badge.getAttribute('aria-label')).toContain('Batch & Expiry')
+    expect(badge.getAttribute('aria-label')).toContain('৳349/month')
+
+    const freeLink = el.querySelector('[data-nav-id="printer-setup"]')!
+    expect(freeLink.querySelector('[data-plugin-mark]')?.getAttribute('data-plugin-mark')).toBe('free')
+
+    // And nothing on a core entry.
+    expect(el.querySelector('[data-nav-id="products"]')?.querySelector('[data-plugin-mark]')).toBeNull()
   })
 })

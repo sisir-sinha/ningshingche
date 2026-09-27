@@ -127,6 +127,8 @@ export const SHIPPED_PLUGINS: readonly ShippedPlugin[] = [
   {
     manifest: barcodeScannerManifest,
     load: async () => (await import('../plugins/barcode-scanner')).barcodeScannerPlugin,
+    // Device setup, not a capability the shop buys. See `alwaysOn`.
+    alwaysOn: true,
   },
   {
     manifest: batchExpiryManifest,
@@ -143,6 +145,7 @@ export const SHIPPED_PLUGINS: readonly ShippedPlugin[] = [
   {
     manifest: printerSetupManifest,
     load: async () => (await import('../plugins/printer-setup')).printerSetupPlugin,
+    alwaysOn: true,
   },
   {
     manifest: serialNumbersManifest,
@@ -183,12 +186,26 @@ export function declareShippedPlugins(): string[] {
  * A failure to read the catalogue leaves the shop with core screens rather
  * than a blank app — plugins are optional by construction.
  */
+export function alwaysOnPlugins(): string[] {
+  return SHIPPED_PLUGINS.filter((shipped) => shipped.alwaysOn === true).map(
+    (shipped) => shipped.manifest.id
+  )
+}
+
 export async function syncPlugins(): Promise<void> {
   const organizationId = sessionStore.state.activeOrganizationId
   if (!organizationId) {
     pluginRegistry.disposeAll()
     return
   }
+
+  // The always-on set loads before the catalogue is even asked for, and
+  // stays loaded if the answer never comes. Printer Setup and Barcode
+  // Scanner were core screens until they were split into plugins, and a
+  // shopkeeper whose server has not been migrated yet — or who is simply
+  // offline — must still be able to pair a printer. Nothing here can charge
+  // money or own a table, so there is no decision being made on their behalf.
+  const alwaysOn = alwaysOnPlugins()
 
   try {
     // `state`, not `catalog`: loading the app needs only what this shop has
@@ -204,9 +221,16 @@ export async function syncPlugins(): Promise<void> {
       .filter((entry) => entry.enabled && entry.status === 'ok')
       .map((entry) => entry.key)
 
-    await pluginRegistry.sync(enabled)
+    await pluginRegistry.sync([...new Set([...alwaysOn, ...enabled])])
   } catch (error) {
     console.error('[mekholi] the shop’s plugin state could not be read', error)
+    // Core screens that happen to be packaged as plugins are not optional
+    // just because the catalogue is unreachable.
+    try {
+      await pluginRegistry.sync(alwaysOn)
+    } catch (fallbackError) {
+      console.error('[mekholi] the always-on plugins could not be loaded', fallbackError)
+    }
   }
 }
 
