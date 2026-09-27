@@ -638,8 +638,9 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
     // be filed.
     const missing = missingBeforePayment()
     payButton.disabled = missing !== null || state.busy
-    setPayLabel(missing ?? 'Pay')
+    setPayLabel(missing ?? 'Pay with invoice')
     payButton.title = missing ?? 'Take payment (F2)'
+    quickPayButton.disabled = missing !== null || state.busy
     holdButton.disabled = state.cart.lines.length === 0 || state.busy
     clearButton.disabled = state.cart.lines.length === 0 || state.busy
 
@@ -755,7 +756,10 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
         }),
         h('span', {
           class: 'shrink-0 text-[11px] text-content-subtle',
-          text: chips.length === 0 ? 'optional' : chips.length === 1 ? 'billed to' : `${chips.length} people`,
+          // "Anonymous" rather than "optional": the cashier is told what the
+          // sale *will* be, not what they are permitted to skip. A till that
+          // leaves the question open invites a pause at the counter.
+          text: chips.length === 0 ? 'Anonymous' : chips.length === 1 ? 'billed to' : `${chips.length} people`,
         })
       ),
       // The chips sit *below* the button, on their own wrapping row, so the
@@ -882,7 +886,7 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
 
   // Green, not brand: the one button on this screen that takes money is the
   // one button that must never be confused with the others.
-  const payButton = button('Pay', {
+  const payButton = button('Pay with invoice', {
     variant: 'success',
     size: 'xl',
     icon: 'payments',
@@ -892,6 +896,32 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
   // The label changes to name what the sale is still missing, so nothing may
   // find this button by its words.
   payButton.dataset.action = 'pay'
+
+  /**
+   * The queue button: cash in hand, nothing written down.
+   *
+   * This is deliberately *not* a faster way to record a sale — it records
+   * nothing at all. No invoice, no stock movement, no row in `sales`, and
+   * therefore nothing in any report. It exists for the trade a counter does
+   * between the sales worth invoicing, and it is labelled for exactly that so
+   * nobody reaches for it expecting the books to catch up later.
+   *
+   * Two consequences are designed for rather than hidden:
+   *   - The toast says "not recorded", every time. A quiet success message
+   *     here would be a lie the shop only discovers at stock-take.
+   *   - It carries Undo. One mis-tap would otherwise destroy a full cart with
+   *     no trace to recover it from, which is the whole risk of a button that
+   *     writes nothing.
+   */
+  const quickPayButton = button('Pay without invoice', {
+    variant: 'outline',
+    size: 'lg',
+    icon: 'bolt',
+    fullWidth: true,
+    title: 'Take the cash and clear the till — nothing is recorded',
+    onClick: () => quickPay(),
+  })
+  quickPayButton.dataset.action = 'quick-pay'
 
   const holdButton = button('Hold', {
     variant: 'outline',
@@ -1044,15 +1074,15 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
   /**
    * Why this sale cannot be paid for yet, or `null` when it can.
    *
-   * A sale needs a product and it needs somebody to attribute it to. The
-   * customer requirement is conditional on the cashier being *able* to attach
-   * one: a role without `customers.view` has no customer control on screen, and
-   * demanding one would leave that till unable to sell anything at all.
+   * A product, and nothing else. The till used to insist on a customer too,
+   * which is right for a shop that invoices and wrong for the counter queue
+   * it was blocking: most sales over a counter are to nobody in particular,
+   * and `sales.customer_id` has always been nullable. An anonymous sale is
+   * now the default rather than a refusal, and the customer control stays
+   * exactly where it is for the sales that need one.
    */
   function missingBeforePayment(): string | null {
-    const state = cart.state
-    if (state.cart.lines.length === 0) return 'Add a product'
-    if (can('customers.view') && !state.cart.customerId) return 'Choose a customer'
+    if (cart.state.cart.lines.length === 0) return 'Add a product'
     return null
   }
 
@@ -1067,13 +1097,9 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
     const missing = missingBeforePayment()
     if (missing !== null) {
       // F2 lands here too, so the keyboard path gets the same answer as the
-      // button — and the one thing that is missing is opened for them.
-      toastWarning(missing === 'Add a product' ? 'Add a product to the sale first.' : 'Choose a customer for this sale first.')
-      if (missing === 'Choose a customer') {
-        openCustomerDialog({ selected: attachedCustomers, currency, onChange: setCustomers })
-      } else {
-        searchField.focus()
-      }
+      // button.
+      toastWarning('Add a product to the sale first.')
+      searchField.focus()
       return
     }
     const problem = state.totals.oversold.length > 0
@@ -1160,6 +1186,52 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
         },
       })
     })()
+  }
+
+  /**
+   * Cash taken, nothing recorded.
+   *
+   * One tap, no dialogs: the cart's total is the amount, the money goes in
+   * the drawer by hand, and the till is cleared for the next customer. No
+   * `sales` row, no stock movement, no invoice number — the sale never
+   * existed as far as the database is concerned, which is what "no invoice"
+   * was asked to mean.
+   *
+   * Everything that would have been written is therefore released rather
+   * than settled: a plugin holding a redemption for this cart gets it back,
+   * exactly as if the cart had been cleared, because no sale is coming to
+   * consume it.
+   */
+  function quickPay(): void {
+    const state = cart.state
+    if (state.busy) return
+    if (state.cart.lines.length === 0) {
+      toastWarning('Add a product to the sale first.')
+      searchField.focus()
+      return
+    }
+
+    const taken = state.totals.total
+    // Snapshot before clearing: Undo is the only route back from a button
+    // that leaves no record anywhere to recover from.
+    const snapshot = structuredClone(state.cart)
+    const heldId = state.heldSaleId
+
+    releaseAll('cleared')
+    cart.clear()
+
+    toastWarning(`Cash taken · ${formatMoney(taken, { currency })} — not recorded.`, {
+      title: 'Quick sale',
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          cart.replace(snapshot, heldId)
+          renderCart()
+          toastSuccess('The cart is back.')
+        },
+      },
+    })
+    searchField.focus()
   }
 
   async function holdCart(): Promise<void> {
@@ -1361,6 +1433,7 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
       panelsSlot,
       h('div', { class: 'border-t border-border p-3 space-y-2' },
         payButton,
+        quickPayButton,
         h('div', { class: 'grid grid-cols-2 gap-2' }, holdButton, clearButton)
       ),
       heldSection

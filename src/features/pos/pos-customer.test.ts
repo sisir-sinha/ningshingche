@@ -295,11 +295,13 @@ afterEach(() => {
 })
 
 describe('the customer on the sale', () => {
-  it('offers to add a customer, and shows nobody until one is added', async () => {
+  it('offers to add a customer, and calls the sale anonymous until one is', async () => {
     const view = await build()
 
     expect(textOf(view)).toContain('Add Customer')
-    expect(textOf(view)).toContain('optional')
+    // Not "optional". The cashier is told what the sale will be if they do
+    // nothing, which is the question they actually have at the counter.
+    expect(textOf(view)).toContain('Anonymous')
     expect(view.querySelector('[data-customer-chip]')).toBeNull()
   })
 
@@ -383,31 +385,32 @@ describe('the customer on the sale', () => {
     expect(document.querySelector('[aria-modal="true"]')).toBeNull()
   })
 
-  it('unlocks the pay button once the sale has a product and a customer', async () => {
+  it('unlocks the pay buttons on the product alone — a customer is optional', async () => {
+    // This reverses an earlier rule deliberately. Insisting on a customer was
+    // right for an invoicing shop and wrong for the counter queue it blocked:
+    // most sales over a counter are to nobody in particular, and
+    // `sales.customer_id` has always been nullable.
     const view = await build()
     const pay = (): HTMLButtonElement => view.querySelector<HTMLButtonElement>('[data-action=pay]')!
+    const quick = (): HTMLButtonElement => view.querySelector<HTMLButtonElement>('[data-action=quick-pay]')!
 
     expect(pay().disabled).toBe(true)
     expect(pay().textContent).toContain('Add a product')
+    expect(quick().disabled).toBe(true)
 
     await scan(view)
-    expect(pay().disabled).toBe(true)
-    expect(pay().textContent).toContain('Choose a customer')
-
-    const dialog = await openDialog(view, '01712345678')
-    buttonNamed(dialog, 'Rahima Begum').click()
-    await settle()
 
     expect(pay().disabled).toBe(false)
-    expect(pay().textContent).toContain('Pay')
+    expect(pay().textContent).toContain('Pay with invoice')
+    expect(quick().disabled).toBe(false)
   })
 
   /**
-   * F2 is the fast path to payment, and a keyboard-only cashier never sees the
-   * disabled button explaining itself. So the shortcut opens the thing that is
-   * missing rather than doing nothing.
+   * F2 is the fast path to payment. It used to divert to the customer dialog,
+   * because a sale with nobody on it could not be paid for; now it goes
+   * straight to the money, and the anonymous sale is the normal one.
    */
-  it('sends F2 to the customer dialog while the sale has nobody on it', async () => {
+  it('takes F2 straight to payment with nobody on the sale', async () => {
     const view = await build()
     await scan(view)
 
@@ -416,7 +419,8 @@ describe('the customer on the sale', () => {
 
     const dialog = document.querySelector<HTMLElement>('[aria-modal="true"]')
     expect(dialog).not.toBeNull()
-    expect(textOf(dialog!)).toContain('customer')
+    // The payment dialog, not the customer one.
+    expect(textOf(dialog!)).toContain('Cash')
   })
 
   it('puts the customer on the sale the server stores', async () => {

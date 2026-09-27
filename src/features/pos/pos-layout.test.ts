@@ -292,15 +292,57 @@ describe('the controls still work', () => {
     expect(pay.textContent).toContain('Add a product')
   })
 
-  it('will not take money for a sale with nobody on it, and says so', async () => {
+  it('takes money for a sale with nobody on it', async () => {
+    // The counter queue is anonymous by default now: a product is the only
+    // thing a sale needs before it can be paid for.
     const view = await build()
     await addProduct(view)
     const pay = view.querySelector<HTMLButtonElement>('[data-action=pay]')!
 
-    expect(pay.disabled).toBe(true)
-    expect(pay.textContent).toContain('Choose a customer')
+    expect(pay.disabled).toBe(false)
+    expect(pay.textContent).toContain('Pay with invoice')
   })
 
+})
+
+describe('pay without invoice', () => {
+  it('clears the till and says plainly that nothing was recorded', async () => {
+    // The whole risk of this button is a shopkeeper assuming the books will
+    // catch up. They will not: no sale row, no stock movement, no report
+    // entry. The toast has to say so every single time.
+    const view = await build()
+    await addProduct(view)
+
+    view.querySelector<HTMLButtonElement>('[data-action=quick-pay]')!.click()
+    await settle()
+
+    expect(cartLines(view)).toHaveLength(0)
+    expect(document.body.textContent).toContain('not recorded')
+    expect(document.body.textContent).toContain('450.00')
+  })
+
+  it('offers Undo, because there is nowhere else to recover the cart from', async () => {
+    const view = await build()
+    await addProduct(view)
+    view.querySelector<HTMLButtonElement>('[data-action=quick-pay]')!.click()
+    await settle()
+
+    const undo = [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => (button.textContent ?? '').trim() === 'Undo'
+    )
+    expect(undo).toBeDefined()
+
+    undo!.click()
+    await settle()
+
+    expect(cartLines(view)).toHaveLength(1)
+  })
+
+  it('is refused while the cart is empty, like every other money button', async () => {
+    const view = await build()
+    const quick = view.querySelector<HTMLButtonElement>('[data-action=quick-pay]')!
+    expect(quick.disabled).toBe(true)
+  })
 })
 
 describe('the panel itself', () => {
