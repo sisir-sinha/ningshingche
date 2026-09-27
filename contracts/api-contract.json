@@ -1258,7 +1258,8 @@
         "line_total": "numeric(14,2) not null",
         "line_cogs": "numeric(14,2) not null",
         "returned_qty": "numeric(14,3) not null",
-        "note": "text"
+        "note": "text",
+        "created_at": "timestamp with time zone not null"
       }
     },
     "sales": {

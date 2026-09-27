@@ -1113,24 +1113,48 @@ function createSales(client: SupabaseClient): SaleRepository {
       // Returned quantities matter here more than anywhere else: the refund
       // dialog must not offer to give back something already given back, and
       // the database would refuse it anyway.
-      const itemRows = unwrap(
-        await client
+      type SaleItemRow = {
+        id: string
+        product_name: string
+        variant_name: string | null
+        quantity: string
+        returned_qty: string
+        unit_price: string
+        line_total: string
+      }
+
+      const itemColumns = 'id,product_name,variant_name,quantity,returned_qty,unit_price,line_total'
+
+      /**
+       * Lines in the order they were rung up.
+       *
+       * `sale_items.created_at` only exists from migration 055; before it, this
+       * query answered `42703 column does not exist` and the whole sale failed
+       * to open — a refund screen taken down by a sort key. So the order is
+       * attempted and the unordered result accepted when the column is not
+       * there yet, which keeps a shop that has not run the migration working
+       * rather than locking it out of its own history.
+       *
+       * The ordering is not cosmetic: refunding a line updates `returned_qty`,
+       * and an updated row moves to the end of the physical order, so without
+       * a sort key the list reshuffles itself under the cashier's finger.
+       */
+      let itemResult = await client
+        .from('sale_items')
+        .select(itemColumns)
+        .eq('sale_id', id)
+        .order('created_at')
+        .returns<SaleItemRow[]>()
+
+      if (itemResult.error && /created_at/.test(itemResult.error.message)) {
+        itemResult = await client
           .from('sale_items')
-          .select('id,product_name,variant_name,quantity,returned_qty,unit_price,line_total')
+          .select(itemColumns)
           .eq('sale_id', id)
-          .order('created_at')
-          .returns<
-            {
-              id: string
-              product_name: string
-              variant_name: string | null
-              quantity: string
-              returned_qty: string
-              unit_price: string
-              line_total: string
-            }[]
-          >()
-      )
+          .returns<SaleItemRow[]>()
+      }
+
+      const itemRows = unwrap(itemResult)
 
       const paymentRows = unwrap(
         await client

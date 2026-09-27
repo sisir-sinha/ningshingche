@@ -3819,6 +3819,36 @@ const undocumented = ownedFunctions.rows
   .map((row) => row.name)
   .filter((name) => !(name in apiContract.rpc) && !pluginFunctionNames.has(name))
 
+// ── 055: a sale line knows when it was rung up ────────────────────────────
+// The bug this guards: opening any sale answered `42703 column
+// sale_items.created_at does not exist`, because the client sorted the lines
+// by a column the table never had.
+{
+  const column = await q(`
+    select column_default, is_nullable
+      from information_schema.columns
+     where table_schema = 'public' and table_name = 'sale_items' and column_name = 'created_at'`)
+
+  check(
+    'sale_items can be ordered by created_at, which is what the sale screen does',
+    column.length === 1,
+    column.length === 1 ? 'column present' : 'missing — Stock → History cannot open a sale'
+  )
+
+  // `now()` would hand every line of one sale the same timestamp and leave the
+  // order exactly as undefined as it was before the column existed.
+  check(
+    'and the default advances within a transaction, so lines keep their order',
+    /clock_timestamp/.test(column[0]?.column_default ?? ''),
+    column[0]?.column_default ?? 'no default'
+  )
+
+  const ordered = await q(
+    `select id from public.sale_items order by created_at limit 1`
+  ).then(() => true).catch(() => false)
+  check('the exact query the sale screen runs is accepted', ordered)
+}
+
 check(
   'the generated contract describes every function it lists, with the same parameters',
   contractMissing.length === 0 && contractMismatched.length === 0,
