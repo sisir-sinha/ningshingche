@@ -137,11 +137,28 @@ export interface PairedBluetooth {
 }
 
 export class PrinterError extends Error {
-  constructor(message: string) {
+  /**
+   * True when the job failed because the printer was never finished being set
+   * up — no bridge address, nothing paired, no printer chosen at all.
+   *
+   * It is worth distinguishing from every other failure because the two need
+   * opposite things from the shopkeeper. "The printer did not answer" means
+   * check the paper and the power. "There is no printer yet" means open a
+   * settings page, and the message should carry them there rather than
+   * describing a socket they have no reason to know about.
+   */
+  readonly setupRequired: boolean
+
+  constructor(message: string, options: { setupRequired?: boolean } = {}) {
     super(message)
     this.name = 'PrinterError'
+    this.setupRequired = options.setupRequired ?? false
   }
 }
+
+/** A printer failure the shopkeeper fixes on the setup page, not at the till. */
+export const printerSetupRequired = (message: string): PrinterError =>
+  new PrinterError(message, { setupRequired: true })
 
 // ── Bluetooth ─────────────────────────────────────────────────────────────
 
@@ -222,7 +239,7 @@ async function sendBluetooth(config: PrinterConfig, bytes: Uint8Array): Promise<
   const bluetooth = nav()?.bluetooth
   const paired = config.bluetooth
   if (!bluetooth) throw new PrinterError('This browser has no Bluetooth support.')
-  if (!paired) throw new PrinterError('That printer has not been paired yet.')
+  if (!paired) throw printerSetupRequired('This printer has not been paired yet.')
 
   const known = (await bluetooth.getDevices?.()) ?? []
   const device = known.find((d) => d.id === paired.deviceId)
@@ -290,7 +307,7 @@ async function sendUsb(config: PrinterConfig, bytes: Uint8Array): Promise<void> 
   const usb = nav()?.usb
   const paired = config.usb
   if (!usb) throw new PrinterError('This browser has no USB support.')
-  if (!paired) throw new PrinterError('That printer has not been paired yet.')
+  if (!paired) throw printerSetupRequired('This printer has not been paired yet.')
 
   const devices = await usb.getDevices()
   const device = devices.find(
@@ -350,7 +367,9 @@ function outEndpoint(iface: UsbInterface): number | null {
 async function sendNetwork(config: PrinterConfig, bytes: Uint8Array): Promise<void> {
   const target = config.network
   if (!target?.bridgeUrl) {
-    throw new PrinterError('This printer has no bridge address. A browser cannot open a printer socket by itself.')
+    throw printerSetupRequired(
+      'This printer has no bridge address yet — a browser cannot open a printer socket by itself.'
+    )
   }
 
   const url = new URL(target.bridgeUrl)

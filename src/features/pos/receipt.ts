@@ -15,6 +15,7 @@
 import { h } from '../../components/ui/h'
 import { activePrinter } from '../../shared/devices/device-config'
 import { sendToPrinter } from '../../shared/devices/printer-transport'
+import { reportPrintFailure } from '../devices'
 import { downloadBlob } from '../../shared/export/download'
 import { toastError, toastSuccess } from '../../components/feedback/toast'
 import { escPosJob, receiptPdf, receiptPng } from './receipt-export'
@@ -232,7 +233,9 @@ export function openReceipt(
     } catch (error) {
       // Never a dead end: the sale is already banked, so a printer that is off
       // must leave the cashier with the dialog and its other three buttons.
-      toastError(error instanceof Error ? error.message : 'The printer did not answer.')
+      // A printer that was never finished being set up gets the setup page
+      // offered on the toast rather than an explanation of TCP sockets.
+      reportPrintFailure(error, 'The printer did not answer.')
     }
   }
 

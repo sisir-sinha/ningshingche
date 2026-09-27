@@ -34,8 +34,9 @@ import { CartStore } from './cart-store'
 import { SaleService, toCartLine } from './sale-service'
 import { openPaymentDialog } from './payment-dialog'
 import { openCustomerDialog } from './customer-dialog'
-import { loadDeviceSettings } from '../../shared/devices/device-config'
+import { capabilities, loadDeviceSettings } from '../../shared/devices/device-config'
 import { beep, listenForScans } from '../../shared/devices/scanner'
+import { promptDeviceSetup } from '../devices'
 import { openReceipt } from './receipt'
 import { refreshSalesFloor, salesFloor, salesFloorStore } from '../../app/state/sales-floor'
 import { activeOrganization, can } from '../../app/state/session'
@@ -1395,6 +1396,17 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
    * it twice would add the product twice.
    */
   const scannerConfig = loadDeviceSettings().scanner
+
+  // Serial is the one scanner mode that can be configured and then not work:
+  // Web Serial exists only in Chrome and Edge on a desktop, and a shop that
+  // chose it on a PC and then opened the till on an iPad would scan into
+  // nothing with no explanation. Say so once, on arrival, with the page that
+  // fixes it attached — a scan that silently does nothing is the hardest
+  // fault in the shop to diagnose.
+  if (scannerConfig.mode === 'serial' && !capabilities().serial.supported) {
+    promptDeviceSetup('scanner', 'This scanner is set to serial mode, which this browser does not support.')
+  }
+
   const stopScanner = listenForScans({
     ...scannerConfig,
     onScan: (event) => {

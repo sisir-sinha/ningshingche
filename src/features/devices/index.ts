@@ -29,3 +29,8 @@ export function deviceRoutes(): Route[] {
 }
 
 export { printerSetupView, scannerSetupView }
+
+// The till needs these: a print that fails for want of setup, or a scanner
+// mode this browser cannot honour, is reported by the POS but answered by
+// these pages. Public so `features/pos` never reaches into this folder.
+export { promptDeviceSetup, reportPrintFailure, requirePrinterSetup, type DeviceKind } from './setup-prompt'

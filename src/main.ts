@@ -16,6 +16,7 @@
 import './styles/base.css'
 import { env } from './app/env'
 import { Router, type Route } from './app/router/router'
+import { setNavigator } from './app/router/navigation'
 import { appShell, type AppShell } from './features/layout/app-shell'
 import { loginView, notConfiguredView } from './features/auth/login-view'
 import { dashboardView } from './features/dashboard/dashboard-view'
@@ -272,6 +273,10 @@ const router = new Router({
     toastError(`${route.title}: ${translated.message}`)
   },
 })
+// Deep code — a failed print, a plugin — can now offer a working link to a
+// settings page without every layer in between carrying a router argument.
+setNavigator((path) => router.navigate(path))
+
 // Every item the sidebar advertises must lead somewhere. The router silently
 // redirects an unknown path to the dashboard, so an unbuilt screen looked
 // like a broken menu rather than a screen that does not exist yet. Deriving

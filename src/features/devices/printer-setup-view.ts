@@ -38,6 +38,7 @@ import {
   type PrinterTransport,
 } from '../../shared/devices/device-config'
 import { pairBluetoothPrinter, pairUsbPrinter, sendToPrinter } from '../../shared/devices/printer-transport'
+import { reportPrintFailure } from './setup-prompt'
 import { EscPosBuilder, columnsFor } from '../../shared/devices/escpos'
 import { escPosJob, receiptPdf, receiptPng } from '../pos'
 import { sampleReceipt } from './sample-receipt'
@@ -187,7 +188,7 @@ export function printerSetupView(): HTMLElement {
       await sendToPrinter(printer, job.build())
       toastSuccess('Test sent.')
     } catch (error) {
-      toastError(error instanceof Error ? error.message : 'The test page could not be printed.')
+      reportPrintFailure(error, 'The test page could not be printed.')
     }
   }
 
@@ -197,7 +198,7 @@ export function printerSetupView(): HTMLElement {
       await sendToPrinter(printer, escPosJob(data, printer))
       toastSuccess('Sample receipt sent.')
     } catch (error) {
-      toastError(error instanceof Error ? error.message : 'The sample could not be printed.')
+      reportPrintFailure(error, 'The sample could not be printed.')
     }
   }
 
