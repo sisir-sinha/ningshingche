@@ -33,3 +33,6 @@ export { posView } from './pos-view'
 export { openReceipt, buildReceipt, renderReceipt } from './receipt'
 export type { ReceiptData, ReceiptLine } from './receipt'
 export { SaleService } from './sale-service'
+// Receipt output. Printer setup renders a sample through exactly the path a
+// real sale takes, which is the only way a test page proves anything.
+export { escPosJob, receiptCanvas, receiptPdf, receiptPng, receiptNeedsRaster } from './receipt-export'

@@ -34,6 +34,8 @@ import { CartStore } from './cart-store'
 import { SaleService, toCartLine } from './sale-service'
 import { openPaymentDialog } from './payment-dialog'
 import { openCustomerDialog } from './customer-dialog'
+import { loadDeviceSettings } from '../../shared/devices/device-config'
+import { beep, listenForScans } from '../../shared/devices/scanner'
 import { openReceipt } from './receipt'
 import { refreshSalesFloor, salesFloor, salesFloorStore } from '../../app/state/sales-floor'
 import { activeOrganization, can } from '../../app/state/session'
@@ -1356,12 +1358,35 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
 
   document.addEventListener('keydown', onKeyDown)
 
+  /**
+   * Scans from anywhere on the screen, not only from the search box.
+   *
+   * A wedge scanner types into whatever has focus, so a barcode fired while
+   * the cashier's caret sat in the quantity field used to end up *in* the
+   * quantity field. This listener recognises the burst by its speed (see
+   * `shared/devices/scanner.ts`) and gives it to the till instead.
+   *
+   * When focus is already in the search box that box handles it, and handling
+   * it twice would add the product twice.
+   */
+  const scannerConfig = loadDeviceSettings().scanner
+  const stopScanner = listenForScans({
+    ...scannerConfig,
+    onScan: (event) => {
+      if (document.activeElement === searchField) return
+      if (scannerConfig.beep) beep(true)
+      searchField.value = event.code
+      void runSearch(event.code)
+    },
+  })
+
   // Tear down the document listener when the router replaces this view, or the
   // F-keys keep firing against a screen that is no longer there.
   const observer = new MutationObserver(() => {
     if (!root.isConnected) {
       observer.disconnect()
       document.removeEventListener('keydown', onKeyDown)
+      stopScanner()
       unsubscribeCart()
       if (searchTimer) clearTimeout(searchTimer)
     }

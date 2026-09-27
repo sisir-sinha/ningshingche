@@ -52,6 +52,37 @@ export function downloadText(filename: string, content: string, mime = 'text/csv
   }
 }
 
+/**
+ * The same, for bytes that are already a Blob — an image, a PDF.
+ *
+ * Kept beside `downloadText` rather than folded into it: the text path owns a
+ * charset and a mime default that mean nothing for binary, and conflating them
+ * is how a PDF ends up served as `text/csv;charset=utf-8`.
+ */
+export function downloadBlob(filename: string, blob: Blob): DownloadResult {
+  if (typeof document === 'undefined' || typeof URL.createObjectURL !== 'function') {
+    return { ok: false, reason: 'This device cannot save files from the browser.' }
+  }
+
+  try {
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = filename
+    anchor.rel = 'noopener'
+    anchor.style.display = 'none'
+    document.body.appendChild(anchor)
+    anchor.click()
+    window.setTimeout(() => {
+      URL.revokeObjectURL(url)
+      anchor.remove()
+    }, 1000)
+    return { ok: true }
+  } catch (error) {
+    return { ok: false, reason: error instanceof Error ? error.message : 'The file could not be saved.' }
+  }
+}
+
 export interface PrintResult {
   ok: boolean
   reason?: string

@@ -13,6 +13,11 @@
  */
 
 import { h } from '../../components/ui/h'
+import { activePrinter } from '../../shared/devices/device-config'
+import { sendToPrinter } from '../../shared/devices/printer-transport'
+import { downloadBlob } from '../../shared/export/download'
+import { toastError, toastSuccess } from '../../components/feedback/toast'
+import { escPosJob, receiptPdf, receiptPng } from './receipt-export'
 import { formatMoney, formatQty, milli, minor, type Minor } from '../../shared/domain/money'
 import type { SaleRow } from '../../shared/types/records'
 
@@ -184,25 +189,70 @@ export function openReceipt(
   }
   document.addEventListener('keydown', onKey)
 
+  /**
+   * What the cashier can do with a finished sale.
+   *
+   * Four routes off one receipt, because a shop counter is not one setup:
+   * the thermal printer when there is one, the system dialog when there is
+   * not, and two files for the customer who says "send it to me". The files
+   * are the same picture the printer is given, so nothing the customer keeps
+   * disagrees with what came out of the machine.
+   */
+  const printer = activePrinter()
+  const paper = printer?.paperWidth ?? 80
+
+  const actionButton = (label: string, primary: boolean, onClick: () => void): HTMLElement =>
+    h('button', {
+      type: 'button',
+      class: primary
+        ? 'flex-1 h-9 rounded-md bg-primary text-primary-foreground text-sm font-medium'
+        : 'flex-1 h-9 rounded-md border border-border bg-surface text-content text-sm font-medium',
+      text: label,
+      onclick: onClick,
+    })
+
+  async function saveFile(kind: 'png' | 'pdf'): Promise<void> {
+    try {
+      const blob = kind === 'png' ? await receiptPng(data, paper) : await receiptPdf(data, paper)
+      const result = downloadBlob(`${data.invoiceNo}.${kind}`, blob)
+      if (!result.ok) toastError(result.reason ?? 'The file could not be saved.')
+    } catch (error) {
+      toastError(error instanceof Error ? error.message : 'The file could not be created.')
+    }
+  }
+
+  async function printNow(): Promise<void> {
+    if (!printer || printer.transport === 'browser') {
+      window.print()
+      return
+    }
+    try {
+      await sendToPrinter(printer, escPosJob(data, printer))
+      toastSuccess('Printing.')
+    } catch (error) {
+      // Never a dead end: the sale is already banked, so a printer that is off
+      // must leave the cashier with the dialog and its other three buttons.
+      toastError(error instanceof Error ? error.message : 'The printer did not answer.')
+    }
+  }
+
   const actions = h(
     'div',
-    { class: 'mekholi-receipt-actions mx-auto mb-3 flex max-w-[272px] gap-2' },
-    h('button', {
-      type: 'button',
-      class: 'flex-1 h-9 rounded-md bg-primary text-primary-foreground text-sm font-medium',
-      text: 'Print',
-      onclick: () => window.print(),
-    }),
-    h('button', {
-      type: 'button',
-      class: 'flex-1 h-9 rounded-md border border-border bg-surface text-content text-sm font-medium',
-      text: 'Close',
-      onclick: () => close(),
-    })
+    { class: 'mekholi-receipt-actions mx-auto mb-3 flex max-w-[272px] flex-wrap gap-2' },
+    actionButton(printer && printer.transport !== 'browser' ? `Print · ${printer.name}` : 'Print', true, () => void printNow()),
+    actionButton('Image', false, () => void saveFile('png')),
+    actionButton('PDF', false, () => void saveFile('pdf')),
+    actionButton('Close', false, () => close())
   )
 
   overlay.append(h('style', { text: RECEIPT_CSS }), actions, renderReceipt(data))
   document.body.appendChild(overlay)
+
+  // "Print automatically when a sale completes" (Printer setup). The dialog
+  // still opens: the cashier needs somewhere to reprint from when the paper
+  // jams, and a silent auto-print that failed would leave no trace on screen.
+  if (printer?.autoPrint && printer.transport !== 'browser') void printNow()
+
   return { close }
 }
 

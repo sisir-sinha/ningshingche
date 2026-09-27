@@ -47,6 +47,7 @@ import { analyticsRoutes } from './features/analytics'
 import { reportRoutes } from './features/reports'
 import { onboardingRoutes } from './features/onboarding'
 import { settingsRoutes } from './features/settings'
+import { deviceRoutes } from './features/devices'
 import { userRoutes } from './features/users'
 import { roleRoutes } from './features/roles'
 import { sessionStore, can } from './app/state/session'
@@ -168,6 +169,7 @@ const routes: Route[] = [
   },
   ...onboardingRoutes({ onDone: () => router.navigate('/') }),
   ...settingsRoutes(),
+  ...deviceRoutes(),
   ...userRoutes(),
   ...roleRoutes(),
 ]
