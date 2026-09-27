@@ -33,6 +33,7 @@ import { formatMoney, formatQty, milliToNumber, minorToNumber, type Milli, type 
 import { translateError } from '../../app/platform/errors'
 import type { SaleDetail, SalesListRow } from '../../shared/repositories/contracts'
 import type { PaymentMethod } from '../../shared/types/records'
+import { buildReceipt, printReceipt, saveReceiptFile, showReceipt, type ReceiptData } from '../pos'
 
 export interface SalesViewOptions {
   /** The plugin host: tabs registered by enabled plugins appear on a sale. */
@@ -54,6 +55,8 @@ export function salesView(options: SalesViewOptions): HTMLElement {
   const { registry } = options
   const repos = getRepositories()
   const currency = activeOrganization()?.currency ?? 'BDT'
+  /** Invoices already fetched this session, keyed by sale id. */
+  const receiptCache = new Map<string, ReceiptData>()
 
   let search = ''
   let status = ''
@@ -235,6 +238,76 @@ export function salesView(options: SalesViewOptions): HTMLElement {
     }
   }
 
+  /**
+   * The invoice, as the customer would receive it.
+   *
+   * Built from the stored sale rather than from the rows on screen, and by
+   * the same `buildReceipt` the till uses, so a reprint months later is the
+   * document that came out of the printer at the time — not a re-rendering of
+   * it with today's shop name and today's rounding. Fetched once per dialog
+   * and remembered: four buttons must not mean four round trips.
+   */
+  async function invoiceFor(saleId: string): Promise<ReceiptData | null> {
+    const cached = receiptCache.get(saleId)
+    if (cached) return cached
+    try {
+      const row = await repos.sales.get(saleId)
+      if (!row) {
+        toastError('That sale could not be loaded.')
+        return null
+      }
+      const data = buildReceipt(row, activeOrganization()?.name ?? 'Mekholi')
+      receiptCache.set(saleId, data)
+      return data
+    } catch (error) {
+      toastError(translateError(error).message)
+      return null
+    }
+  }
+
+  /**
+   * Preview, print, image, PDF — the four things a shop does with an invoice
+   * after the sale.
+   *
+   * They are here rather than only on the till because the request always
+   * arrives later: the customer wants it emailed, the accountant wants the
+   * PDF, the paper jammed and it needs reprinting. Every one of them produces
+   * the identical document.
+   */
+  function invoiceActions(saleId: string): HTMLElement {
+    const run = (action: (data: ReceiptData) => void | Promise<void>) => async (): Promise<void> => {
+      const data = await invoiceFor(saleId)
+      if (data) await action(data)
+    }
+
+    return h('div', { class: 'flex flex-wrap gap-2' },
+      button('Preview invoice', {
+        variant: 'outline',
+        size: 'sm',
+        icon: 'receipt_long',
+        onClick: () => void run((data) => void showReceipt(data))(),
+      }),
+      button('Print', {
+        variant: 'outline',
+        size: 'sm',
+        icon: 'print',
+        onClick: () => void run((data) => printReceipt(data))(),
+      }),
+      button('Image', {
+        variant: 'outline',
+        size: 'sm',
+        icon: 'image',
+        onClick: () => void run((data) => saveReceiptFile(data, 'png'))(),
+      }),
+      button('PDF', {
+        variant: 'outline',
+        size: 'sm',
+        icon: 'picture_as_pdf',
+        onClick: () => void run((data) => saveReceiptFile(data, 'pdf'))(),
+      })
+    )
+  }
+
   function renderDetail(dialog: ReturnType<typeof modal>, detail: SaleDetail): void {
     const { sale, items, payments, returns } = detail
     const refundable = can('sales.refund') && ['COMPLETED', 'PARTIALLY_PAID', 'PARTIALLY_REFUNDED'].includes(sale.status)
@@ -260,6 +333,8 @@ export function salesView(options: SalesViewOptions): HTMLElement {
           ),
           badge(sale.status.replace(/_/g, ' ').toLowerCase(), { tone: STATUS_TONES[sale.status] ?? 'neutral' })
         ),
+
+        invoiceActions(sale.id),
 
         card(
           h(

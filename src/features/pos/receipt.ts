@@ -158,6 +158,51 @@ const RECEIPT_CSS = `
   }
 `
 
+
+// ── Receipt actions, independent of the dialog ────────────────────────────
+//
+// Printing a receipt and saving it as a file are not things only the till
+// does. Sales history reprints months-old invoices, and a customer asking for
+// "the PDF" is asking for the same bytes the printer was given. Both live here
+// as plain functions over `ReceiptData` so that every screen produces an
+// identical document — a reprint that disagreed with the original paper would
+// be worse than no reprint at all.
+
+/** Save the receipt as a PNG or a PDF, at the active printer's paper width. */
+export async function saveReceiptFile(data: ReceiptData, kind: 'png' | 'pdf'): Promise<void> {
+  const paper = activePrinter()?.paperWidth ?? 80
+  try {
+    const blob = kind === 'png' ? await receiptPng(data, paper) : await receiptPdf(data, paper)
+    const result = downloadBlob(`${data.invoiceNo}.${kind}`, blob)
+    if (!result.ok) toastError(result.reason ?? 'The file could not be saved.')
+  } catch (error) {
+    toastError(error instanceof Error ? error.message : 'The file could not be created.')
+  }
+}
+
+/**
+ * Send the receipt to whatever this shop prints with.
+ *
+ * With a configured thermal printer that means raw ESC/POS; with none it means
+ * the browser's own dialog, which every machine has. A printer that was never
+ * finished being set up gets the setup page offered rather than a socket
+ * error, and nothing here throws: printing is never the last step that can
+ * fail, because the sale is already banked by the time anyone prints it.
+ */
+export async function printReceipt(data: ReceiptData): Promise<void> {
+  const printer = activePrinter()
+  if (!printer || printer.transport === 'browser') {
+    window.print()
+    return
+  }
+  try {
+    await sendToPrinter(printer, escPosJob(data, printer))
+    toastSuccess('Printing.')
+  } catch (error) {
+    reportPrintFailure(error, 'The printer did not answer.')
+  }
+}
+
 /**
  * Show the receipt and offer to print it.
  *
@@ -171,8 +216,18 @@ export function openReceipt(
   shopName = 'Mekholi',
   notes: ReadonlyMap<string, readonly string[]> = new Map()
 ): { close: () => void } {
-  const data = buildReceipt(sale, shopName, notes)
   void currency
+  return showReceipt(buildReceipt(sale, shopName, notes))
+}
+
+/**
+ * The same dialog, for a receipt that has already been built.
+ *
+ * Sales history has a `SaleDetail` and its own reasons to preview an invoice;
+ * it should not have to reconstruct a `SaleRow` to borrow this screen.
+ */
+export function showReceipt(data: ReceiptData): { close: () => void } {
+  const printer = activePrinter()
 
   const overlay = h('div', {
     id: 'mekholi-print-root',
@@ -199,9 +254,6 @@ export function openReceipt(
    * are the same picture the printer is given, so nothing the customer keeps
    * disagrees with what came out of the machine.
    */
-  const printer = activePrinter()
-  const paper = printer?.paperWidth ?? 80
-
   const actionButton = (label: string, primary: boolean, onClick: () => void): HTMLElement =>
     h('button', {
       type: 'button',
@@ -212,32 +264,8 @@ export function openReceipt(
       onclick: onClick,
     })
 
-  async function saveFile(kind: 'png' | 'pdf'): Promise<void> {
-    try {
-      const blob = kind === 'png' ? await receiptPng(data, paper) : await receiptPdf(data, paper)
-      const result = downloadBlob(`${data.invoiceNo}.${kind}`, blob)
-      if (!result.ok) toastError(result.reason ?? 'The file could not be saved.')
-    } catch (error) {
-      toastError(error instanceof Error ? error.message : 'The file could not be created.')
-    }
-  }
-
-  async function printNow(): Promise<void> {
-    if (!printer || printer.transport === 'browser') {
-      window.print()
-      return
-    }
-    try {
-      await sendToPrinter(printer, escPosJob(data, printer))
-      toastSuccess('Printing.')
-    } catch (error) {
-      // Never a dead end: the sale is already banked, so a printer that is off
-      // must leave the cashier with the dialog and its other three buttons.
-      // A printer that was never finished being set up gets the setup page
-      // offered on the toast rather than an explanation of TCP sockets.
-      reportPrintFailure(error, 'The printer did not answer.')
-    }
-  }
+  const saveFile = (kind: 'png' | 'pdf'): Promise<void> => saveReceiptFile(data, kind)
+  const printNow = (): Promise<void> => printReceipt(data)
 
   const actions = h(
     'div',

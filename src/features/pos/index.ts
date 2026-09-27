@@ -30,7 +30,7 @@ export function posRoutes(options: PosRoutesOptions): Route[] {
 }
 
 export { posView } from './pos-view'
-export { openReceipt, buildReceipt, renderReceipt } from './receipt'
+export { openReceipt, showReceipt, buildReceipt, renderReceipt, printReceipt, saveReceiptFile } from './receipt'
 export type { ReceiptData, ReceiptLine } from './receipt'
 export { SaleService } from './sale-service'
 // Receipt output. Printer setup renders a sample through exactly the path a
