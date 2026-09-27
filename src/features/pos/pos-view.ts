@@ -601,7 +601,14 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
     lineCountBadge.textContent = t('common.itemCount', { count })
     lineCountBadge.classList.toggle('hidden', count === 0)
 
-    payButton.disabled = state.cart.lines.length === 0 || state.busy
+    // What the sale is still missing, in the order a cashier fixes it. The
+    // button says which one rather than sitting there greyed out with no
+    // explanation — "Pay" that cannot be pressed is a bug report waiting to
+    // be filed.
+    const missing = missingBeforePayment()
+    payButton.disabled = missing !== null || state.busy
+    setPayLabel(missing ?? 'Pay')
+    payButton.title = missing ?? 'Take payment (F2)'
     holdButton.disabled = state.cart.lines.length === 0 || state.busy
     clearButton.disabled = state.cart.lines.length === 0 || state.busy
 
@@ -795,6 +802,9 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
     fullWidth: true,
     onClick: () => openPayment(),
   })
+  // The label changes to name what the sale is still missing, so nothing may
+  // find this button by its words.
+  payButton.dataset.action = 'pay'
 
   const holdButton = button('Hold', {
     variant: 'outline',
@@ -944,8 +954,49 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
     }
   }
 
+  /**
+   * Why this sale cannot be paid for yet, or `null` when it can.
+   *
+   * A sale needs a product and it needs somebody to attribute it to. The
+   * customer requirement is conditional on the cashier being *able* to attach
+   * one: a role without `customers.view` has no customer control on screen, and
+   * demanding one would leave that till unable to sell anything at all.
+   */
+  function missingBeforePayment(): string | null {
+    const state = cart.state
+    if (state.cart.lines.length === 0) return 'Add a product'
+    if (can('customers.view') && !state.cart.customerId) return 'Choose a customer'
+    return null
+  }
+
+  /** Writes the button's words, never its icon (an icon font renders text as glyph soup). */
+  function setPayLabel(text: string): void {
+    const label = payButton.querySelector('[data-label]')
+    if (label) label.textContent = text
+  }
+
   function openPayment(): void {
     const state = cart.state
+    const missing = missingBeforePayment()
+    if (missing !== null) {
+      // F2 lands here too, so the keyboard path gets the same answer as the
+      // button — and the one thing that is missing is opened for them.
+      toastWarning(missing === 'Add a product' ? 'Add a product to the sale first.' : 'Choose a customer for this sale first.')
+      if (missing === 'Choose a customer') {
+        openCustomerDialog({
+          current: attachedCustomer,
+          currency,
+          onPick: (customer) => {
+            attachedCustomer = customer
+            cart.setCustomer(customer?.id ?? null)
+            renderCustomer()
+          },
+        })
+      } else {
+        searchField.focus()
+      }
+      return
+    }
     const problem = state.totals.oversold.length > 0
       ? 'Some lines exceed the stock on hand. Reduce them first.'
       : null

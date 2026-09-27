@@ -311,7 +311,10 @@ function posButton(onNavigate: (path: string) => void): HTMLElement {
       type: 'button',
       'data-action': 'open-pos',
       class:
-        'inline-flex h-10 items-center gap-1.5 rounded-full bg-primary px-3.5 text-sm font-semibold ' +
+        // h-9: the same 36px as the avatar beside it. Two controls of
+        // different heights in a 56px bar read as a mistake, and they are
+        // the only two things in that corner.
+        'inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-3.5 text-sm font-semibold ' +
         'text-primary-contrast transition-colors hover:bg-primary-hover focus:outline-none ' +
         'focus-visible:ring-2 focus-visible:ring-ring',
       title: 'Point of Sale',

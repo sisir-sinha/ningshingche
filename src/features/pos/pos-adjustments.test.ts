@@ -276,6 +276,19 @@ afterEach(() => {
   document.body.replaceChildren()
 })
 
+/** Puts the first customer the dialog offers on the sale. */
+async function attachCustomer(view: HTMLElement): Promise<void> {
+  ;[...view.querySelectorAll('button')]
+    .find((b) => (b.textContent ?? '').includes('Walk-in'))!
+    .click()
+  await settle()
+  const dialog = document.querySelector<HTMLElement>('[aria-modal="true"]')!
+  ;[...dialog.querySelectorAll('button')]
+    .find((b) => (b.textContent ?? '').includes('Rahim Uddin'))!
+    .click()
+  await settle()
+}
+
 describe('a plugin that can take money off the sale', () => {
   it('offers its quote on the cart, and applying it takes the money off', async () => {
     const view = await build()
@@ -307,8 +320,11 @@ describe('a plugin that can take money off the sale', () => {
     buttonNamed(view, 'Apply').click()
     await settle()
 
+    // The till will not take money for a sale with nobody on it.
+    await attachCustomer(view)
+
     // Pay it: the dialog pre-fills the total, and Enter tenders it.
-    buttonNamed(view, 'Pay').click()
+    view.querySelector<HTMLButtonElement>('[data-action=pay]')!.click()
     await settle()
     const dialog = document.querySelector<HTMLElement>('[aria-modal="true"]') ?? document.body
     const amount = dialog.querySelector<HTMLInputElement>('input[inputmode="decimal"]')

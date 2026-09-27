@@ -263,21 +263,44 @@ describe('the controls still work', () => {
     expect(view.textContent).toContain('1 item')
   })
 
-  it('enables Pay, Hold and Clear only once something is in the cart', async () => {
+  it('enables Hold and Clear once something is in the cart', async () => {
     const view = await build()
     const labelled = (text: string): HTMLButtonElement =>
       [...view.querySelectorAll('button')].find((b) => (b.textContent ?? '').includes(text))!
 
-    expect(labelled('Pay').disabled).toBe(true)
     expect(labelled('Hold').disabled).toBe(true)
     expect(labelled('Clear').disabled).toBe(true)
 
     await addProduct(view)
 
-    expect(labelled('Pay').disabled).toBe(false)
     expect(labelled('Hold').disabled).toBe(false)
     expect(labelled('Clear').disabled).toBe(false)
   })
+
+  /**
+   * The pay button names what the sale is still missing.
+   *
+   * A greyed-out "Pay" with no explanation is the shape of a support call:
+   * the cashier can see the button, cannot press it, and the screen offers no
+   * reason. Each state says the next thing to do instead.
+   */
+  it('will not take money for a sale with no product, and says so', async () => {
+    const view = await build()
+    const pay = view.querySelector<HTMLButtonElement>('[data-action=pay]')!
+
+    expect(pay.disabled).toBe(true)
+    expect(pay.textContent).toContain('Add a product')
+  })
+
+  it('will not take money for a sale with nobody on it, and says so', async () => {
+    const view = await build()
+    await addProduct(view)
+    const pay = view.querySelector<HTMLButtonElement>('[data-action=pay]')!
+
+    expect(pay.disabled).toBe(true)
+    expect(pay.textContent).toContain('Choose a customer')
+  })
+
 })
 
 describe('the panel itself', () => {

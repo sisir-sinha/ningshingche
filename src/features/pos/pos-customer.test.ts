@@ -313,6 +313,42 @@ describe('the customer on the sale', () => {
     expect(document.querySelector('[aria-modal="true"]')).toBeNull()
   })
 
+  it('unlocks the pay button once the sale has a product and a customer', async () => {
+    const view = await build()
+    const pay = (): HTMLButtonElement => view.querySelector<HTMLButtonElement>('[data-action=pay]')!
+
+    expect(pay().disabled).toBe(true)
+    expect(pay().textContent).toContain('Add a product')
+
+    await scan(view)
+    expect(pay().disabled).toBe(true)
+    expect(pay().textContent).toContain('Choose a customer')
+
+    const dialog = await openDialog(view, '01712345678')
+    buttonNamed(dialog, 'Rahima Begum').click()
+    await settle()
+
+    expect(pay().disabled).toBe(false)
+    expect(pay().textContent).toContain('Pay')
+  })
+
+  /**
+   * F2 is the fast path to payment, and a keyboard-only cashier never sees the
+   * disabled button explaining itself. So the shortcut opens the thing that is
+   * missing rather than doing nothing.
+   */
+  it('sends F2 to the customer dialog while the sale has nobody on it', async () => {
+    const view = await build()
+    await scan(view)
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'F2', bubbles: true }))
+    await settle()
+
+    const dialog = document.querySelector<HTMLElement>('[aria-modal="true"]')
+    expect(dialog).not.toBeNull()
+    expect(textOf(dialog!)).toContain('customer')
+  })
+
   it('puts the customer on the sale the server stores', async () => {
     const view = await build()
     await scan(view)
@@ -320,7 +356,7 @@ describe('the customer on the sale', () => {
     buttonNamed(dialog, 'Rahima Begum').click()
     await settle()
 
-    buttonNamed(view, 'Pay').click()
+    view.querySelector<HTMLButtonElement>('[data-action=pay]')!.click()
     await settle()
     const payDialog = document.querySelector<HTMLElement>('[aria-modal="true"]') ?? document.body
     payDialog
