@@ -286,29 +286,167 @@ describe('app shell', () => {
   })
 })
 
-describe('the theme switch', () => {
-  it('is in the topbar, where a shopkeeper can find it', () => {
-    const shell = appShell({
-      registry,
-      bus,
-      onNavigate: () => {},
-      onSignOut: () => {},
-      outlet: document.createElement('div'),
+/** Opens the shop menu behind the avatar and returns the shell. */
+function shellWithMenu(onNavigate: (path: string) => void = () => {}): HTMLElement {
+  const shell = appShell({
+    registry,
+    bus,
+    onNavigate,
+    onSignOut: () => {},
+    outlet: document.createElement('div'),
+  })
+  document.body.append(shell.el)
+  return shell.el
+}
+
+const menuRow = (el: HTMLElement, label: string): HTMLButtonElement =>
+  [...el.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find((row) =>
+    (row.textContent ?? '').includes(label)
+  )!
+
+describe('the shop menu behind the avatar', () => {
+  it('shows the shop as a circle with its initial, and a status dot on the corner', () => {
+    const el = shellWithMenu()
+    const trigger = el.querySelector('[data-action="open-profile"]') as HTMLElement
+
+    expect(trigger).not.toBeNull()
+    expect(trigger.querySelector('span')?.className).toContain('rounded-full')
+    expect(trigger.textContent).toBe('R') // Rahim Store
+
+    // Green, and pinned to the top-right corner of the avatar.
+    const dot = trigger.querySelectorAll('span')[trigger.querySelectorAll('span').length - 1]!
+    expect(dot.className).toContain('bg-success')
+    expect(dot.className).toContain('-top-0.5')
+    expect(dot.className).toContain('-right-0.5')
+  })
+
+  it('keeps the menu shut until the avatar is tapped, and closes on Escape', () => {
+    const el = shellWithMenu()
+    const trigger = el.querySelector('[data-action="open-profile"]') as HTMLElement
+    const menu = el.querySelector('[role="menu"]') as HTMLElement
+
+    expect(menu.classList.contains('hidden')).toBe(true)
+    trigger.click()
+    expect(menu.classList.contains('hidden')).toBe(false)
+    expect(trigger.getAttribute('aria-expanded')).toBe('true')
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    expect(menu.classList.contains('hidden')).toBe(true)
+  })
+
+  it('carries the things a shopkeeper reaches for — and only the ones they may open', () => {
+    // This owner holds `dashboard.view`, `inventory.view` and `sales.create`.
+    const el = shellWithMenu()
+    ;(el.querySelector('[data-action="open-profile"]') as HTMLElement).click()
+
+    const labels = [...el.querySelectorAll('[role="menuitem"]')].map((row) => row.textContent ?? '')
+    expect(el.querySelector('[data-action="toggle-theme"]')).not.toBeNull()
+    expect(labels.some((label) => label.includes('Sign out'))).toBe(true)
+    // A page this role cannot open is not offered, rather than offered and
+    // then refused by the router.
+    expect(labels.some((label) => label.includes('Settings'))).toBe(false)
+
+    sessionStore.reset({
+      ...sessionStore.state,
+      permissions: ['customers.view', 'suppliers.view', 'analytics.view', 'reports.view', 'settings.view'],
     })
-    const button = shell.el.querySelector('[data-action="toggle-theme"]') as HTMLElement
+    const allowed = shellWithMenu()
+    ;(allowed.querySelector('[data-action="open-profile"]') as HTMLElement).click()
+    const full = [...allowed.querySelectorAll('[role="menuitem"]')].map((row) => row.textContent ?? '')
+    for (const expected of ['Customers', 'Suppliers', 'Analytics', 'Reports', 'Settings']) {
+      expect(full.some((label) => label.includes(expected))).toBe(true)
+    }
+  })
 
-    expect(button).not.toBeNull()
-    // It advertises the state you get by pressing it, not the one you are in.
-    expect(button.getAttribute('aria-label')).toBe('Switch to dark theme')
-    expect(button.querySelector('.material-symbols-rounded')?.textContent).toBe('dark_mode')
+  it('navigates from a menu row, and shuts behind itself', () => {
+    sessionStore.reset({ ...sessionStore.state, permissions: ['customers.view'] })
+    const went: string[] = []
+    const el = shellWithMenu((path) => went.push(path))
+    ;(el.querySelector('[data-action="open-profile"]') as HTMLElement).click()
 
-    button.click()
+    menuRow(el, 'Customers').click()
+
+    expect(went).toEqual(['/customers'])
+    expect((el.querySelector('[role="menu"]') as HTMLElement).classList.contains('hidden')).toBe(true)
+  })
+
+  it('leaves no loose icon buttons in the corner', () => {
+    const el = shellWithMenu()
+    const header = el.querySelector('header')!
+    const labels = [...header.querySelectorAll('button')].map(
+      (button) => button.getAttribute('data-action') ?? button.getAttribute('aria-label') ?? ''
+    )
+
+    // The menu (for a phone) and the two new controls. No register icon, no
+    // theme icon, no help icon, and no "Online" chip.
+    expect(labels.filter((label) => label === 'Help')).toEqual([])
+    expect(labels.filter((label) => label === 'Open register')).toEqual([])
+    expect(header.textContent).not.toContain('Online')
+  })
+})
+
+describe('the POS button', () => {
+  it('sits in the top bar and goes straight to the till', () => {
+    const went: string[] = []
+    const el = shellWithMenu((path) => went.push(path))
+    const pos = el.querySelector('[data-action="open-pos"]') as HTMLButtonElement
+
+    expect(pos).not.toBeNull()
+    expect(pos.textContent).toContain('POS')
+    pos.click()
+    expect(went).toEqual(['/pos'])
+  })
+
+  it('is immediately left of the shop avatar', () => {
+    const el = shellWithMenu()
+    const pos = el.querySelector('[data-action="open-pos"]')!
+    const avatar = el.querySelector('[data-action="open-profile"]')!
+    // Same row, POS first.
+    expect(pos.parentElement).toBe(avatar.parentElement!.parentElement)
+    expect(pos.compareDocumentPosition(avatar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})
+
+describe('the theme switch', () => {
+  it('lives in the shop menu, and says what pressing it does', () => {
+    const el = shellWithMenu()
+    ;(el.querySelector('[data-action="open-profile"]') as HTMLElement).click()
+
+    const before = el.querySelector('[data-action="toggle-theme"]') as HTMLElement
+    expect(before.getAttribute('aria-label')).toBe('Switch to dark theme')
+    before.click()
+
     expect(theme()).toBe('dark')
     expect(document.documentElement.classList.contains('dark')).toBe(true)
-    expect(button.getAttribute('aria-label')).toBe('Switch to light theme')
-    expect(button.querySelector('.material-symbols-rounded')?.textContent).toBe('light_mode')
 
-    button.click()
+    // The row is redrawn, so it is read again rather than held on to.
+    const after = el.querySelector('[data-action="toggle-theme"]') as HTMLElement
+    expect(after.getAttribute('aria-label')).toBe('Switch to light theme')
+    after.click()
     expect(document.documentElement.classList.contains('dark')).toBe(false)
+  })
+})
+
+describe('what became of the sync chip', () => {
+  it('offers the queue only when there is something in it', async () => {
+    const { offlineStatus } = await import('../../app/state/offline')
+    const el = shellWithMenu()
+    ;(el.querySelector('[data-action="open-profile"]') as HTMLElement).click()
+    expect(el.textContent).toContain('Everything is synced')
+    expect(menuRow(el, 'waiting to sync')).toBeUndefined()
+
+    offlineStatus.set({ ...offlineStatus.state, pending: 3 })
+    ;(el.querySelector('[data-action="open-profile"]') as HTMLElement).click()
+    ;(el.querySelector('[data-action="open-profile"]') as HTMLElement).click()
+
+    expect(el.textContent).toContain('3 sales waiting to sync')
+    expect(menuRow(el, 'waiting to sync')).not.toBeUndefined()
+
+    // The dot carries the same news for anyone who has not opened the menu.
+    const trigger = el.querySelector('[data-action="open-profile"]') as HTMLElement
+    const dot = [...trigger.querySelectorAll('span')].at(-1)!
+    expect(dot.className).toContain('bg-warning')
+
+    offlineStatus.set({ ...offlineStatus.state, pending: 0, failed: 0 })
   })
 })

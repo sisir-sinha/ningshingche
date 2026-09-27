@@ -9,13 +9,15 @@
 
 import { t } from '../../shared/i18n'
 import { onThemeChange, resolvedTheme, toggleTheme } from '../../shared/theme'
-import { h, mount } from '../../components/ui/h'
+import { h, icon, mount } from '../../components/ui/h'
 import { iconButton } from '../../components/ui/button'
-import { syncIndicator } from './sync-indicator'
 import { sidebar, markActive } from './sidebar'
+import { openQueue } from './sync-indicator'
 import { CommandPalette } from './command-palette'
 import type { PluginRegistry } from '../../shared/registry/plugin-registry'
 import { sessionStore, activeOrganization, can } from '../../app/state/session'
+import { offlineStatus } from '../../app/state/offline'
+import { getRepositories } from '../../app/data'
 import { appPath } from '../../app/router/router'
 import { selectOrganization } from '../../app/platform/auth'
 import type { EventBus } from '../../shared/bus'
@@ -245,14 +247,9 @@ export function appShell(options: AppShellOptions): AppShell {
         ),
         h(
           'div',
-          { class: 'flex items-center gap-1' },
-          syncIndicator(),
-          headerActions(() =>
-            bus.emit('ui.toast', {
-              type: 'ui.toast',
-              data: { message: 'Press Ctrl+K to search pages and actions.', tone: 'info' },
-            })
-          )
+          { class: 'flex items-center gap-2' },
+          posButton(onNavigate),
+          profileMenu({ shopName, shopInitial, onNavigate, onSignOut })
         )
       ),
 
@@ -299,49 +296,264 @@ function currentPath(): string {
   return appPath().split('?')[0] || '/'
 }
 
-function headerActions(onHelp: () => void): HTMLElement {
-  const actions = h('div', { class: 'flex items-center gap-1' })
 
-  if (can('register.open')) {
-    actions.appendChild(iconButton('point_of_sale', 'Open register', { variant: 'ghost' }))
-  }
-  actions.appendChild(themeButton())
-  actions.appendChild(
-    iconButton('help', 'Help', { variant: 'ghost', onClick: onHelp })
+/**
+ * The one button the counter reaches for.
+ *
+ * Selling is what the app is *for*, and until now getting to the till from
+ * another screen meant opening the sidebar and finding it in a list. It sits
+ * immediately left of the shop's avatar, where a thumb lands.
+ */
+function posButton(onNavigate: (path: string) => void): HTMLElement {
+  const el = h(
+    'button',
+    {
+      type: 'button',
+      'data-action': 'open-pos',
+      class:
+        'inline-flex h-10 items-center gap-1.5 rounded-full bg-primary px-3.5 text-sm font-semibold ' +
+        'text-primary-contrast transition-colors hover:bg-primary-hover focus:outline-none ' +
+        'focus-visible:ring-2 focus-visible:ring-ring',
+      title: 'Point of Sale',
+      onClick: () => onNavigate('/pos'),
+    },
+    icon('point_of_sale', 'text-lg'),
+    // The word disappears on a phone; the icon and the shape carry it.
+    h('span', { class: 'hidden sm:inline', text: 'POS' })
   )
-  return actions
+  return el
 }
 
 /**
- * The light/dark switch.
+ * The shop's avatar, and everything behind it.
  *
- * `darkMode: 'class'` and a full `.dark` palette have been in the build all
- * along with nothing to write the class — the dark theme shipped unreachable.
- * The button shows the theme you would get by pressing it (a sun while you
- * are in the dark), which is the convention every OS uses, and relabels
- * itself so a screen reader hears the action rather than the state.
+ * What was here before: a sync chip reading "Online", a register icon, a theme
+ * icon and a help icon — four controls competing for the corner, three of them
+ * doing something a shopkeeper does once a month.
+ *
+ * What is here now: the shop's logo, round, with a status dot on its corner.
+ * One tap opens the things a shopkeeper actually reaches for. The dot is not
+ * decoration and it is not `navigator.onLine`, which lies through a captive
+ * portal — it is the sync queue: green when everything has reached the server,
+ * amber while sales are waiting, red when the server refused one. Those states
+ * used to be a chip with words; now they are a colour plus a line in the menu
+ * that opens the queue, which is the only part of it a person can act on.
  */
-function themeButton(): HTMLElement {
-  const paint = (el: HTMLElement): void => {
+function profileMenu(options: {
+  shopName: string
+  shopInitial: string
+  onNavigate: (path: string) => void
+  onSignOut: () => void
+}): HTMLElement {
+  const { shopName, shopInitial, onNavigate, onSignOut } = options
+
+  const initial = h('span', { class: 'text-sm font-semibold', text: shopInitial })
+  const avatar = h(
+    'span',
+    {
+      class:
+        'grid h-9 w-9 place-items-center overflow-hidden rounded-full bg-primary ' +
+        'text-primary-contrast ring-1 ring-border',
+    },
+    initial
+  )
+
+  // The dot sits on the avatar's top-right, half outside it, with a ring in
+  // the bar's own colour so it reads as a badge rather than a smudge.
+  const dot = h('span', {
+    class: 'absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-success ring-2 ring-surface',
+    'aria-hidden': 'true',
+  })
+
+  const trigger = h(
+    'button',
+    {
+      type: 'button',
+      'data-action': 'open-profile',
+      'aria-haspopup': 'menu',
+      'aria-expanded': 'false',
+      class:
+        'relative rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+      title: shopName,
+      'aria-label': `${shopName} — menu`,
+    },
+    avatar,
+    dot
+  )
+
+  const menu = h('div', {
+    class:
+      'absolute right-0 top-12 z-40 hidden w-60 overflow-hidden rounded-xl border border-border ' +
+      'bg-surface p-1 shadow-lg',
+    role: 'menu',
+  })
+
+  const wrap = h('div', { class: 'relative' }, trigger, menu)
+
+  const row = (
+    iconName: string,
+    label: string,
+    onClick: () => void,
+    extra?: { trailing?: HTMLElement; tone?: string }
+  ): HTMLElement =>
+    h(
+      'button',
+      {
+        type: 'button',
+        role: 'menuitem',
+        class:
+          'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm ' +
+          `${extra?.tone ?? 'text-content'} hover:bg-surface-muted focus:outline-none focus-visible:bg-surface-muted`,
+        onClick: () => {
+          close()
+          onClick()
+        },
+      },
+      icon(iconName, 'text-lg text-content-muted'),
+      h('span', { class: 'flex-1 truncate', text: label }),
+      extra?.trailing ?? null
+    )
+
+  const themeRow = (): HTMLElement => {
     const dark = resolvedTheme() === 'dark'
-    const label = dark ? t('theme.toggleToLight') : t('theme.toggleToDark')
-    el.setAttribute('aria-label', label)
-    el.setAttribute('title', label)
-    el.dataset.theme = dark ? 'dark' : 'light'
-    const glyph = el.querySelector('.material-symbols-rounded')
-    if (glyph) glyph.textContent = dark ? 'light_mode' : 'dark_mode'
+    return h(
+      'button',
+      {
+        type: 'button',
+        role: 'menuitem',
+        'data-action': 'toggle-theme',
+        class:
+          'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-content ' +
+          'hover:bg-surface-muted focus:outline-none focus-visible:bg-surface-muted',
+        // The label says what pressing it *does*, not what the theme is —
+        // a screen reader hears the action, which is the convention.
+        'aria-label': dark ? t('theme.toggleToLight') : t('theme.toggleToDark'),
+        onClick: () => {
+          toggleTheme()
+          draw()
+        },
+      },
+      icon(dark ? 'light_mode' : 'dark_mode', 'text-lg text-content-muted'),
+      h('span', { class: 'flex-1', text: dark ? 'Light theme' : 'Dark theme' }),
+      h('span', { class: 'text-xs text-content-subtle', text: dark ? 'Dark' : 'Light' })
+    )
   }
 
-  const el = iconButton(resolvedTheme() === 'dark' ? 'light_mode' : 'dark_mode', 'Theme', {
-    variant: 'ghost',
-    onClick: () => toggleTheme(),
+  /** Only the pages this user may actually open. */
+  const links: Array<[string, string, string, string]> = [
+    ['group', 'Customers', '/customers', 'customers.view'],
+    ['handshake', 'Suppliers', '/suppliers', 'suppliers.view'],
+    ['monitoring', 'Analytics', '/analytics', 'analytics.view'],
+    ['assessment', 'Reports', '/reports', 'reports.view'],
+    ['settings', 'Settings', '/settings', 'settings.view'],
+  ]
+
+  function draw(): void {
+    const status = offlineStatus.state
+    const waiting = status.failed > 0 || status.pending > 0
+    mount(
+      menu,
+      h('div', { class: 'px-2.5 pb-1.5 pt-2' },
+        h('p', { class: 'truncate text-sm font-semibold text-content', text: shopName }),
+        h('p', {
+          class: `text-xs ${status.failed > 0 ? 'text-danger' : status.pending > 0 ? 'text-warning' : 'text-content-subtle'}`,
+          text:
+            status.failed > 0
+              ? `${status.failed} sale${status.failed === 1 ? '' : 's'} refused`
+              : status.pending > 0
+                ? `${status.pending} sale${status.pending === 1 ? '' : 's'} waiting to sync`
+                : 'Everything is synced',
+        })
+      ),
+      // The queue panel — the only actionable part of the old "Online" chip —
+      // is offered exactly when there is something in it to act on.
+      waiting
+        ? row(
+            status.failed > 0 ? 'sync_problem' : 'sync',
+            status.failed > 0 ? 'Review refused sales' : 'Sales waiting to sync',
+            () => void openQueue(),
+            { tone: status.failed > 0 ? 'text-danger' : 'text-content' }
+          )
+        : null,
+      h('div', { class: 'my-1 h-px bg-border' }),
+      themeRow(),
+      ...links
+        .filter(([, , , permission]) => can(permission))
+        .map(([glyph, label, path]) => row(glyph, label, () => onNavigate(path))),
+      h('div', { class: 'my-1 h-px bg-border' }),
+      row('logout', 'Sign out', onSignOut, { tone: 'text-danger' })
+    )
+
+    // The dot repeats what the first line of the menu says, for anyone who
+    // has not opened it.
+    dot.className =
+      'absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full ring-2 ring-surface ' +
+      (status.failed > 0 ? 'bg-danger' : waiting ? 'bg-warning' : 'bg-success')
+    trigger.title = status.failed > 0
+      ? `${shopName} — ${status.failed} sale(s) refused`
+      : status.pending > 0
+        ? `${shopName} — ${status.pending} waiting to sync`
+        : `${shopName} — synced`
+  }
+
+  function open(): void {
+    draw()
+    menu.classList.remove('hidden')
+    trigger.setAttribute('aria-expanded', 'true')
+    document.addEventListener('pointerdown', onOutside, true)
+    document.addEventListener('keydown', onEscape, true)
+  }
+
+  function close(): void {
+    menu.classList.add('hidden')
+    trigger.setAttribute('aria-expanded', 'false')
+    document.removeEventListener('pointerdown', onOutside, true)
+    document.removeEventListener('keydown', onEscape, true)
+  }
+
+  const onOutside = (event: Event): void => {
+    if (!wrap.contains(event.target as Node)) close()
+  }
+  const onEscape = (event: KeyboardEvent): void => {
+    if (event.key === 'Escape') {
+      close()
+      trigger.focus()
+    }
+  }
+
+  trigger.addEventListener('click', () => {
+    if (menu.classList.contains('hidden')) open()
+    else close()
   })
-  el.dataset.action = 'toggle-theme'
-  paint(el)
-  // The OS can flip underneath us while the app is open, and Settings has a
-  // three-way control of its own; either way this button must agree.
-  onThemeChange(() => paint(el))
-  return el
+
+  // The shop's own logo, when it has uploaded one. Fetched once, and a failure
+  // is not worth a word: the initial is a perfectly good avatar.
+  void (async () => {
+    try {
+      const settings = await getRepositories().organization.getSettings()
+      if (!settings.logoUrl) return
+      const img = h('img', {
+        src: settings.logoUrl,
+        alt: '',
+        class: 'h-full w-full object-cover',
+      })
+      img.addEventListener('error', () => mount(avatar, initial), { once: true })
+      mount(avatar, img)
+    } catch {
+      /* the initial stands */
+    }
+  })()
+
+  draw()
+  offlineStatus.subscribe(() => {
+    // Only the dot needs repainting while the menu is shut.
+    if (menu.classList.contains('hidden')) draw()
+  })
+  onThemeChange(() => {
+    if (!menu.classList.contains('hidden')) draw()
+  })
+
+  return wrap
 }
 
 function buildOrgSwitcher(): HTMLElement {
