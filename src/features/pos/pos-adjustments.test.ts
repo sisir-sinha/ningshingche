@@ -287,6 +287,12 @@ async function attachCustomer(view: HTMLElement): Promise<void> {
     .find((b) => (b.textContent ?? '').includes('Rahim Uddin'))!
     .click()
   await settle()
+  // The list is a multi-select, so it waits for the cashier to say they are
+  // finished rather than closing under the first tick.
+  ;[...dialog.querySelectorAll('button')]
+    .find((b) => (b.textContent ?? '').includes('Done'))!
+    .click()
+  await settle()
 }
 
 describe('a plugin that can take money off the sale', () => {

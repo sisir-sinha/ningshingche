@@ -669,12 +669,9 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
     renderCustomer()
   }
 
-  function addCustomer(customer: CustomerRow | null): void {
-    if (!customer) {
-      attachedCustomers = []
-    } else if (!attachedCustomers.some((existing) => existing.id === customer.id)) {
-      attachedCustomers = [...attachedCustomers, customer]
-    }
+  /** Everyone the dialog now has ticked. */
+  function setCustomers(customers: CustomerRow[]): void {
+    attachedCustomers = [...customers]
     commitCustomers()
   }
 
@@ -740,7 +737,7 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
           title: 'Search the customers this shop already has, or add a new one',
           class: 'min-w-0 flex-1 justify-start',
           onClick: () =>
-            openCustomerDialog({ current: billedCustomer(), currency, onPick: addCustomer }),
+            openCustomerDialog({ selected: attachedCustomers, currency, onChange: setCustomers }),
         }),
         h('span', {
           class: 'shrink-0 text-[11px] text-content-subtle',
@@ -1059,7 +1056,7 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
       // button — and the one thing that is missing is opened for them.
       toastWarning(missing === 'Add a product' ? 'Add a product to the sale first.' : 'Choose a customer for this sale first.')
       if (missing === 'Choose a customer') {
-        openCustomerDialog({ current: billedCustomer(), currency, onPick: addCustomer })
+        openCustomerDialog({ selected: attachedCustomers, currency, onChange: setCustomers })
       } else {
         searchField.focus()
       }

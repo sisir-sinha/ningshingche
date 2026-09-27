@@ -15,7 +15,7 @@
  * the shopkeeper has the information and the reason to write it down.
  */
 
-import { h, mount } from '../../components/ui/h'
+import { h, icon, mount } from '../../components/ui/h'
 import { button, spinner } from '../../components/ui/button'
 import { modal } from '../../components/feedback/modal'
 import { input, field } from '../../components/ui/input'
@@ -29,10 +29,18 @@ import { parseMinor } from '../../shared/domain/money'
 import type { Minor } from '../../shared/domain/money'
 
 export interface CustomerDialogOptions {
-  /** The customer on the sale now, if any. */
-  current: CustomerRow | null
+  /** Everyone on the sale now. The first is the one it is billed to. */
+  selected: CustomerRow[]
   currency: string
-  onPick: (customer: CustomerRow | null) => void
+  /**
+   * Called on every tick and untick, not once at the end.
+   *
+   * The till behind the dialog shows the chips and unlocks the pay button, and
+   * a cashier who ticks a name expects to see that happen — waiting for
+   * “Done” would make the dialog feel like a form to submit rather than a list
+   * to tick.
+   */
+  onChange: (customers: CustomerRow[]) => void
 }
 
 /**
@@ -60,7 +68,10 @@ export function describe(customer: CustomerRow, currency: string): string {
 }
 
 export function openCustomerDialog(options: CustomerDialogOptions): { close: () => void } {
-  const { current, currency, onPick } = options
+  const { currency, onChange } = options
+  // The dialog owns a copy while it is open and hands the whole list back on
+  // every change, so the till never has to merge two versions of the truth.
+  let selected: CustomerRow[] = [...options.selected]
   const repos = getRepositories()
 
   let results: CustomerRow[] = []
@@ -69,8 +80,8 @@ export function openCustomerDialog(options: CustomerDialogOptions): { close: () 
   let timer: ReturnType<typeof setTimeout> | undefined
 
   const dialog = modal({
-    title: current ? 'Change the customer' : 'Attach a customer',
-    subtitle: 'Name and phone number are enough — everything else is optional.',
+    title: 'Customers on this sale',
+    subtitle: 'Tick everyone who is on it. The first is who the sale is billed to.',
     iconName: 'person_add',
     size: 'md',
     dismissible: true,
@@ -93,12 +104,41 @@ export function openCustomerDialog(options: CustomerDialogOptions): { close: () 
       // Enter takes the first match, so a cashier holding a phone number never
       // reaches for the mouse.
       const first = results[0]
-      if (first) pick(first)
+      if (first) toggle(first)
       else void run(query)
     },
   })
 
   const listBox = h('div', { class: 'space-y-1' })
+
+  const clearButton = button('Clear', {
+    size: 'sm',
+    variant: 'ghost',
+    icon: 'close',
+    title: 'Take everyone off this sale',
+    onClick: () => {
+      selected = []
+      onChange(selected)
+      draw()
+    },
+  })
+
+  const doneButton = button('Done', {
+    size: 'sm',
+    variant: 'primary',
+    onClick: () => dialog.close(),
+  })
+
+  /**
+   * Writes the count into the button.
+   *
+   * Never `querySelector('span')`: the first span is the icon, rendered in
+   * Material Symbols, and text put there comes out as glyph soup.
+   */
+  function setDoneLabel(text: string): void {
+    const label = doneButton.querySelector('[data-label]')
+    if (label) label.textContent = text
+  }
   const statusLine = h('p', { class: 'text-xs text-content-muted' })
   const busyLine = h('div', { class: 'hidden items-center gap-2 text-xs text-content-muted' })
 
@@ -117,63 +157,69 @@ export function openCustomerDialog(options: CustomerDialogOptions): { close: () 
     }
   }
 
+  /** Is this person already on the sale? */
+  function isSelected(id: string): boolean {
+    return selected.some((row) => row.id === id)
+  }
+
+  /**
+   * One row in the list: a tick box, the name, and what tells two people with
+   * the same name apart.
+   *
+   * It does not close the dialog. A counter with a company buyer and the person
+   * collecting needs two names on one sale, and reopening the dialog between
+   * them turned a two-second job into a four-step one.
+   */
+  function resultRow(customer: CustomerRow): HTMLElement {
+    const on = isSelected(customer.id)
+    const billed = selected[0]?.id === customer.id
+    return h('button', {
+      type: 'button',
+      role: 'checkbox',
+      'aria-checked': on ? 'true' : 'false',
+      'data-customer-option': customer.id,
+      class: [
+        'w-full flex items-center gap-2 rounded-lg border px-3 py-2 text-left',
+        on ? 'border-primary/40 bg-primary/5' : 'border-border bg-surface hover:bg-surface-muted',
+      ].join(' '),
+      onClick: () => toggle(customer),
+    },
+      h('span', {
+        class: [
+          'grid h-5 w-5 shrink-0 place-items-center rounded border',
+          on ? 'border-primary bg-primary text-white' : 'border-border text-transparent',
+        ].join(' '),
+        'aria-hidden': 'true',
+      }, icon('check', 'text-[15px]')),
+      h('div', { class: 'min-w-0 flex-1' },
+        h('p', { class: 'truncate text-sm text-content', text: customer.name }),
+        h('p', { class: 'truncate text-xs text-content-muted', text: describe(customer, currency) })
+      ),
+      billed
+        ? h('span', {
+            class: 'shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary',
+            text: 'billed',
+          })
+        : null,
+      customer.balance !== '0.00'
+        ? h('span', {
+            class: 'shrink-0 text-xs tabular-nums text-content-muted',
+            text: `owes ${formatMoney(parseMinor(customer.balance) ?? (0 as Minor), { currency })}`,
+          })
+        : null
+    )
+  }
+
   function draw(): void {
     const rows: HTMLElement[] = []
 
-    if (current) {
-      rows.push(
-        h(
-          'div',
-          {
-            class:
-              'flex items-center justify-between gap-2 rounded-lg border border-border ' +
-              'bg-surface-muted px-3 py-2',
-          },
-          h(
-            'div',
-            { class: 'min-w-0' },
-            h('p', { class: 'truncate text-sm font-medium text-content', text: current.name }),
-            h('p', { class: 'truncate text-xs text-content-muted', text: describe(current, currency) })
-          ),
-          button('Make it a walk-in', {
-            size: 'sm',
-            variant: 'ghost',
-            icon: 'close',
-            onClick: () => {
-              onPick(null)
-              dialog.close()
-            },
-          })
-        )
-      )
-    }
-
+    // Whoever is already on the sale stays pinned to the top, in order, even
+    // when the search term does not match them — otherwise typing a second
+    // name hides the first and the cashier cannot tell what is ticked.
+    for (const customer of selected) rows.push(resultRow(customer))
     for (const customer of results) {
-      if (customer.id === current?.id) continue
-      rows.push(
-        h(
-          'button',
-          {
-            type: 'button',
-            class:
-              'w-full flex items-center justify-between gap-2 rounded-lg border border-border ' +
-              'bg-surface px-3 py-2 text-left hover:bg-surface-muted',
-            onClick: () => pick(customer),
-          },
-          h(
-            'div',
-            { class: 'min-w-0' },
-            h('p', { class: 'truncate text-sm text-content', text: customer.name }),
-            h('p', { class: 'truncate text-xs text-content-muted', text: describe(customer, currency) })
-          ),
-          customer.balance !== '0.00'
-            ? h('span', {
-                class: 'shrink-0 text-xs tabular-nums text-content-muted',
-                text: `owes ${formatMoney(parseMinor(customer.balance) ?? (0 as Minor), { currency })}`,
-              })
-            : null
-        )
-      )
+      if (isSelected(customer.id)) continue
+      rows.push(resultRow(customer))
     }
 
     // Only offered when the search came back empty: "add what I typed" beside
@@ -195,12 +241,14 @@ export function openCustomerDialog(options: CustomerDialogOptions): { close: () 
     mount(listBox, ...rows)
     statusLine.textContent = busy
       ? ''
-      : results.length === 0
-        ? current
-          ? ''
-          : 'Nobody matches yet — type a name to add a customer.'
-        : `${results.length} match${results.length === 1 ? '' : 'es'}`
+      : selected.length > 0
+        ? `${selected.length} on this sale`
+        : results.length === 0
+          ? 'Nobody matches yet — type a name to add a customer.'
+          : `${results.length} match${results.length === 1 ? '' : 'es'}`
     busyLine.classList.toggle('hidden', !busy)
+    clearButton.classList.toggle('hidden', selected.length === 0)
+    setDoneLabel(selected.length === 0 ? 'Done' : `Done · ${selected.length}`)
   }
 
   async function create(name: string, phone: string | null): Promise<void> {
@@ -208,7 +256,14 @@ export function openCustomerDialog(options: CustomerDialogOptions): { close: () 
     draw()
     try {
       const created = await repos.customers.create({ name, phone })
-      pick(created)
+      // A customer written down at the counter is one the cashier meant to put
+      // on the sale, so it is ticked rather than merely listed.
+      busy = false
+      selected = [...selected, created]
+      onChange(selected)
+      query = ''
+      search.value = ''
+      await run('')
     } catch (error) {
       toastError(translateError(error).message)
       busy = false
@@ -216,17 +271,23 @@ export function openCustomerDialog(options: CustomerDialogOptions): { close: () 
     }
   }
 
-  function pick(customer: CustomerRow): void {
-    onPick(customer)
-    dialog.close()
+  function toggle(customer: CustomerRow): void {
+    selected = isSelected(customer.id)
+      ? selected.filter((row) => row.id !== customer.id)
+      : [...selected, customer]
+    onChange(selected)
+    draw()
   }
 
   busyLine.append(spinner('h-3 w-3'), h('span', { text: 'Looking…' }))
 
   dialog.body.append(
     field('Find the customer', search),
-    h('div', { class: 'mt-3' }, busyLine, listBox),
-    h('div', { class: 'mt-2' }, statusLine)
+    h('div', { class: 'mt-3 max-h-[46vh] overflow-y-auto pr-0.5 space-y-1' }, busyLine, listBox),
+    h('div', { class: 'mt-2 flex items-center justify-between gap-2' },
+      statusLine,
+      h('div', { class: 'flex items-center gap-2' }, clearButton, doneButton)
+    )
   )
 
   void run('')

@@ -271,6 +271,12 @@ async function openDialog(view: HTMLElement, term?: string): Promise<HTMLElement
   return dialog
 }
 
+/** Closes the multi-select once the ticking is done. */
+async function closeDialog(dialog: HTMLElement): Promise<void> {
+  buttonNamed(dialog, 'Done').click()
+  await settle()
+}
+
 beforeEach(() => {
   directory = [RAHIMA, KARIM]
   searched = []
@@ -306,12 +312,22 @@ describe('the customer on the sale', () => {
     const view = await build()
     await scan(view)
 
-    const first = await openDialog(view, 'Rahima')
-    buttonNamed(first, 'Rahima Begum').click()
+    // One trip to the dialog, two names: the list stays open between ticks.
+    const dialog = await openDialog(view, 'Rahima')
+    buttonNamed(dialog, 'Rahima Begum').click()
     await settle()
-    const second = await openDialog(view, 'Karim')
-    buttonNamed(second, 'Karim Mia').click()
+    const field = dialog.querySelector<HTMLInputElement>('input[type="search"]')!
+    field.value = 'Karim'
+    field.dispatchEvent(new Event('input', { bubbles: true }))
+    await new Promise((resolve) => setTimeout(resolve, 250))
     await settle()
+    buttonNamed(dialog, 'Karim Mia').click()
+    await settle()
+
+    // Whoever is ticked stays visible even though the search term no longer
+    // matches them.
+    expect(textOf(dialog)).toContain('Rahima Begum')
+    await closeDialog(dialog)
 
     const chips = [...view.querySelectorAll('[data-customer-chip]')]
     expect(chips.map((chip) => chip.textContent?.replace(/close/g, '').trim())).toEqual([
@@ -331,22 +347,17 @@ describe('the customer on the sale', () => {
     expect(quotedFor.at(-1)).toBe('c-2')
   })
 
-  it('will not put the same customer on the sale twice', async () => {
+  it('unticks a name that is ticked, rather than adding them twice', async () => {
     const view = await build()
 
-    const first = await openDialog(view, 'Rahima')
-    buttonNamed(first, 'Rahima Begum').click()
+    const dialog = await openDialog(view, 'Karim')
+    buttonNamed(dialog, 'Karim Mia').click()
     await settle()
+    expect([...view.querySelectorAll('[data-customer-chip]')]).toHaveLength(1)
 
-    // Karim twice: the dialog hides whoever the sale is billed to, not the rest
-    // of the list, so a double-tap is a thing the cashier can actually do.
-    for (const _ of [0, 1]) {
-      const dialog = await openDialog(view, 'Karim')
-      buttonNamed(dialog, 'Karim Mia').click()
-      await settle()
-    }
-
-    expect([...view.querySelectorAll('[data-customer-chip]')]).toHaveLength(2)
+    buttonNamed(dialog, 'Karim Mia').click()
+    await settle()
+    expect([...view.querySelectorAll('[data-customer-chip]')]).toHaveLength(0)
   })
 
   it('searches the shop’s customers and attaches the one picked', async () => {
@@ -362,7 +373,13 @@ describe('the customer on the sale', () => {
     buttonNamed(dialog, 'Rahima Begum').click()
     await settle()
 
+    // The sale has her immediately — the till does not wait for the dialog to
+    // be dismissed — and the row shows as ticked so a second name can follow.
     expect(textOf(view)).toContain('Rahima Begum')
+    expect(dialog.querySelector('[data-customer-option="c-1"]')?.getAttribute('aria-checked')).toBe('true')
+    expect(document.querySelector('[aria-modal="true"]')).not.toBeNull()
+
+    await closeDialog(dialog)
     expect(document.querySelector('[aria-modal="true"]')).toBeNull()
   })
 
@@ -408,6 +425,7 @@ describe('the customer on the sale', () => {
     const dialog = await openDialog(view, '01712345678')
     buttonNamed(dialog, 'Rahima Begum').click()
     await settle()
+    await closeDialog(dialog)
 
     view.querySelector<HTMLButtonElement>('[data-action=pay]')!.click()
     await settle()
@@ -473,7 +491,7 @@ describe('the customer on the sale', () => {
     // Rahima, so it goes back to her rather than staying on a sale that is no
     // longer hers.
     const again = await openDialog(view, '')
-    buttonNamed(again, 'Make it a walk-in').click()
+    buttonNamed(again, 'Clear').click()
     await settle()
 
     expect(released).toEqual(['rd-c-1:invalid'])
