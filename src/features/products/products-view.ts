@@ -171,7 +171,11 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
         // Eleven columns do not fit a phone even after the responsive ones
         // have dropped out. The table keeps its width and the box scrolls.
         h('div', { class: 'w-full min-w-0 overflow-x-auto' },
-        h('table', { class: 'w-full min-w-[42rem] text-sm' },
+        // `w-max min-w-full`: the columns are as wide as their contents and no
+        // wider. The old `min-w-[42rem]` was a guess at how much room eleven
+        // columns need — it forced a sideways scrollbar onto a shop with short
+        // product names, and still was not enough for one with long ones.
+        h('table', { class: 'w-max min-w-full table-auto text-sm' },
           h('thead', { class: 'text-left text-xs text-content-muted border-b border-border' },
             h('tr', {},
               h('th', { class: 'px-3 py-2 font-medium', text: 'Product' }),
@@ -184,7 +188,7 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
               h('th', { class: 'px-3 py-2 font-medium text-center', text: 'Stock' }),
               h('th', { class: `px-3 py-2 font-medium ${AT_LG}`, text: 'Status' }),
               h('th', { class: `px-3 py-2 font-medium ${AT_2XL}`, text: 'Added' }),
-              h('th', { class: 'px-3 py-2 w-24' })
+              h('th', { class: 'px-3 py-2' })
             )
           ),
           tableBody
@@ -215,7 +219,10 @@ export function productsView(options: ProductsViewOptions): HTMLElement {
           h('div', { class: 'min-w-0' },
             h('button', {
               type: 'button',
-              class: 'block max-w-[22ch] truncate text-left font-medium text-content hover:underline sm:max-w-none',
+              // No character cap: the column is as wide as the longest name
+              // and the box scrolls if that is wider than the phone. A name
+              // clipped at 22 characters is two products that look identical.
+              class: 'block text-left font-medium text-content hover:underline',
               text: product.name,
               title: product.name,
               onClick: () => openForm(product.id),

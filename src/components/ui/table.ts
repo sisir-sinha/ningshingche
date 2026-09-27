@@ -186,7 +186,19 @@ export function dataTable(options: TableOptions): HTMLElement {
 
   const table = h(
     'table',
-    { class: 'w-full border-collapse' },
+    {
+      // `w-max min-w-full`, not `w-full`.
+      //
+      // `w-full` pins the table to the width of its box, and auto layout then
+      // shares the leftover space out between the columns in proportion to
+      // their content — so a two-word status column is handed the same kind of
+      // slab as the product name, and every table on the screen divides its
+      // width differently from the last one. `w-max` sizes the table to what
+      // is actually in it, which is what "auto" means for a column; `min-w-full`
+      // keeps it filling the box when the content is narrower than the screen,
+      // so a three-column report does not sit in a puddle on the left.
+      class: 'w-max min-w-full table-auto border-collapse',
+    },
     options.dense
       ? null
       : h(

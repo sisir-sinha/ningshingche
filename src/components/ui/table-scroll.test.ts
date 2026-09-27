@@ -57,6 +57,26 @@ describe('the reusable table', () => {
     expect(foot!.closest('table')).not.toBeNull()
   })
 
+  /**
+   * Column widths follow the content.
+   *
+   * `w-full` on the table made every column a share of the screen rather than
+   * a fit to what was in it: the same report looked different on a laptop and
+   * a tablet, and a one-word status column was handed as much room as a
+   * product name. `w-max` sizes to the content; `min-w-full` still fills the
+   * box when there is less content than screen.
+   */
+  it('sizes its columns to their content, not to the screen', () => {
+    const el = dataTable({ columns: COLUMNS, rows: ROWS, currency: 'BDT' })
+    const table = el.querySelector('table')!
+
+    expect(table.className).toContain('w-max')
+    expect(table.className).toContain('min-w-full')
+    expect(table.className).toContain('table-auto')
+    // `w-full` would pin the table to the box and share the slack out again.
+    expect(table.className.split(/\s+/)).not.toContain('w-full')
+  })
+
   it('does not let the outer box widen past its parent', () => {
     const el = dataTable({ columns: COLUMNS, rows: ROWS, currency: 'BDT' })
     expect(el.className).toContain('min-w-0')

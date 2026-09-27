@@ -359,7 +359,7 @@ function posScreen(options: PosViewOptions, floor: SalesFloor): HTMLElement {
       // catalogue keeps them and scrolls sideways rather than stacking the
       // price under the name.
       h('div', { class: 'w-full min-w-0 overflow-x-auto' },
-      h('table', { class: 'w-full min-w-[34rem] text-sm' },
+      h('table', { class: 'w-max min-w-full table-auto text-sm' },
         h('thead', {
           class: 'bg-surface text-left text-xs text-content-muted shadow-[0_1px_0_0_var(--color-border)]',
         },
