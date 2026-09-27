@@ -222,6 +222,7 @@ async function openOptionsScreen(): Promise<HTMLElement> {
     params: {},
     query: new URLSearchParams(),
     organizationId: ORG,
+    organizationName: 'Test Shop',
     branchId: null,
     currency: 'BDT',
   })

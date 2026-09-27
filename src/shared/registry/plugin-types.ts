@@ -627,6 +627,14 @@ export interface PluginPageContext {
   params: Record<string, string>
   query: URLSearchParams
   organizationId: string
+  /**
+   * The shop's display name.
+   *
+   * Handed over because a plugin may not read the session for itself, and a
+   * screen that prints or previews anything the customer sees needs the name
+   * above it. An id is not something you can put on a receipt.
+   */
+  organizationName: string
   branchId: string | null
   currency: string
 }

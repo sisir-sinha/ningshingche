@@ -22,9 +22,11 @@ import type {
   PluginSettings,
   ShippedPlugin,
 } from '../shared/registry/plugin-types'
+import { barcodeScannerManifest } from '../plugins/barcode-scanner/manifest'
 import { batchExpiryManifest } from '../plugins/batch-expiry/manifest'
 import { loyaltyManifest } from '../plugins/loyalty/manifest'
 import { loyaltyLiteManifest } from '../plugins/loyalty-lite/manifest'
+import { printerSetupManifest } from '../plugins/printer-setup/manifest'
 import { serialNumbersManifest } from '../plugins/serial-numbers/manifest'
 import { variantsManifest } from '../plugins/variants/manifest'
 import { warrantyManifest } from '../plugins/warranty/manifest'
@@ -123,6 +125,10 @@ export const pluginRegistry = new PluginRegistry(eventBus, hostServices)
 /** Everything this bundle ships. Adding a plugin is adding one entry here. */
 export const SHIPPED_PLUGINS: readonly ShippedPlugin[] = [
   {
+    manifest: barcodeScannerManifest,
+    load: async () => (await import('../plugins/barcode-scanner')).barcodeScannerPlugin,
+  },
+  {
     manifest: batchExpiryManifest,
     load: async () => (await import('../plugins/batch-expiry')).batchExpiryPlugin,
   },
@@ -133,6 +139,10 @@ export const SHIPPED_PLUGINS: readonly ShippedPlugin[] = [
   {
     manifest: loyaltyLiteManifest,
     load: async () => (await import('../plugins/loyalty-lite')).loyaltyLitePlugin,
+  },
+  {
+    manifest: printerSetupManifest,
+    load: async () => (await import('../plugins/printer-setup')).printerSetupPlugin,
   },
   {
     manifest: serialNumbersManifest,

@@ -15,6 +15,8 @@
  * was; this file only records how to reach the hardware.
  */
 
+import { DEFAULT_INVOICE_DESIGN, normaliseDesign, type InvoiceDesign } from '../receipt/design'
+
 export type PrinterTransport = 'bluetooth' | 'usb' | 'network' | 'browser'
 
 export interface PrinterConfig {
@@ -99,6 +101,8 @@ export interface DeviceSettings {
   printers: PrinterConfig[]
   activePrinterId: string | null
   scanner: ScannerConfig
+  /** How the printed invoice looks. Per device, like the printer itself. */
+  invoice: InvoiceDesign
 }
 
 const STORAGE_KEY = 'mekholi.devices.v1'
@@ -114,7 +118,12 @@ export const DEFAULT_SCANNER: ScannerConfig = {
 }
 
 export function defaultSettings(): DeviceSettings {
-  return { printers: [], activePrinterId: null, scanner: { ...DEFAULT_SCANNER } }
+  return {
+    printers: [],
+    activePrinterId: null,
+    scanner: { ...DEFAULT_SCANNER },
+    invoice: { ...DEFAULT_INVOICE_DESIGN },
+  }
 }
 
 /** A printer entry with every optional field filled in. */
@@ -167,6 +176,7 @@ export function loadDeviceSettings(): DeviceSettings {
       // as no printer at all, and saying so here saves every caller a check.
       activePrinterId: printers.some((p) => p.id === activeId) ? activeId : (printers[0]?.id ?? null),
       scanner: { ...DEFAULT_SCANNER, ...(parsed.scanner ?? {}) },
+      invoice: normaliseDesign(parsed.invoice),
     }
   } catch {
     return defaultSettings()
@@ -239,4 +249,14 @@ export function capabilities(nav: Navigator | undefined = typeof navigator === '
     usb: check(Boolean(device?.usb), 'WebUSB'),
     serial: check(Boolean(device?.serial), 'Web Serial'),
   }
+}
+
+/** The invoice design this device prints with. */
+export function invoiceDesign(settings: DeviceSettings = loadDeviceSettings()): InvoiceDesign {
+  return settings.invoice
+}
+
+/** Save a changed design, leaving every other device setting alone. */
+export function saveInvoiceDesign(design: InvoiceDesign): void {
+  saveDeviceSettings({ ...loadDeviceSettings(), invoice: design })
 }

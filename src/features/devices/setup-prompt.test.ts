@@ -48,7 +48,7 @@ describe('the prompt that sends a shopkeeper to the setup page', () => {
     const button = actionButton('Printer setup')
     expect(button).toBeDefined()
     button!.click()
-    expect(navigate).toHaveBeenCalledWith('/printer-setup')
+    expect(navigate).toHaveBeenCalledWith('/plugins/printer-setup')
   })
 
   it('sends a scanner fault to the scanner page instead', () => {
@@ -57,7 +57,7 @@ describe('the prompt that sends a shopkeeper to the setup page', () => {
     promptDeviceSetup('scanner', 'Serial mode is unsupported here.')
 
     actionButton('Scanner setup')!.click()
-    expect(navigate).toHaveBeenCalledWith('/scanner-setup')
+    expect(navigate).toHaveBeenCalledWith('/plugins/barcode-scanner')
   })
 
   it('names the page in words when there is no router to ask', () => {

@@ -18,9 +18,13 @@ import { PrinterError } from '../../shared/devices/printer-transport'
 
 export type DeviceKind = 'printer' | 'scanner'
 
+// The setup screens are plugin screens now, so they live under `/plugins/`.
+// A shop with the plugin switched off lands on the host's own "this plugin is
+// switched off" page, which is a better answer than a dead link — and a
+// truer one than pretending the screen exists.
 const PAGE: Record<DeviceKind, string> = {
-  printer: '/printer-setup',
-  scanner: '/scanner-setup',
+  printer: '/plugins/printer-setup',
+  scanner: '/plugins/barcode-scanner',
 }
 
 const LINK_LABEL: Record<DeviceKind, string> = {

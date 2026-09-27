@@ -8,7 +8,7 @@
  * ever printed `ABC 123` would pass on a printer that cannot serve this shop.
  */
 
-import type { ReceiptData } from '../pos'
+import type { ReceiptData } from './receipt'
 
 export function sampleReceipt(shopName = 'Mekholi'): ReceiptData {
   return {

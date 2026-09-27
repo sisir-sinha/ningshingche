@@ -57,7 +57,9 @@ const settle = async (): Promise<void> => {
 }
 
 function mount(): HTMLElement {
-  const view = printerSetupView()
+  // The shop's name is handed in by the host now: a plugin may not read the
+  // session for itself (spec §51).
+  const view = printerSetupView({ shopName: 'Rahim Store' })
   document.body.appendChild(view)
   return view
 }

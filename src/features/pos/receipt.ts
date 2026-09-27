@@ -13,151 +13,24 @@
  */
 
 import { h } from '../../components/ui/h'
-import { activePrinter } from '../../shared/devices/device-config'
+import { activePrinter, invoiceDesign } from '../../shared/devices/device-config'
 import { sendToPrinter } from '../../shared/devices/printer-transport'
 import { reportPrintFailure } from '../devices'
 import { downloadBlob } from '../../shared/export/download'
 import { toastError, toastSuccess } from '../../components/feedback/toast'
-import { escPosJob, receiptPdf, receiptPng } from './receipt-export'
-import { formatMoney, formatQty, milli, minor, type Minor } from '../../shared/domain/money'
+import { escPosJob, receiptPdf, receiptPng } from '../../shared/receipt/export'
+import {
+  buildReceipt,
+  receiptCss,
+  renderReceipt,
+  type ReceiptData,
+} from '../../shared/receipt/receipt'
 import type { SaleRow } from '../../shared/types/records'
 
-// ── Data model ────────────────────────────────────────────────────────────
-
-export interface ReceiptLine {
-  name: string
-  variant: string | null
-  /**
-   * Plugin-printed values for this line (`printable` product fields, spec §32):
-   * a batch number, an expiry date, a warranty code. Empty when no plugin asked
-   * for one, which is every shop with no plugins installed.
-   */
-  notes: string[]
-  /** Already carries the unit symbol, e.g. `1.5 kg` or `3 ea`. */
-  quantity: string
-  unitPrice: string
-  lineTotal: string
-}
-
-export interface ReceiptData {
-  shopName: string
-  invoiceNo: string
-  status: string
-  soldAt: string
-  cashier: string
-  customer: string
-  currency: string
-  lines: ReceiptLine[]
-  subtotal: string
-  discount: string
-  tax: string
-  total: string
-  paid: string
-  change: string
-  note: string | null
-}
-
-/**
- * Turn a stored sale into a receipt.
- *
- * Reads only the columns the sale actually has. Nothing here recomputes a
- * total: the numbers on the paper are the numbers Postgres stored, so a
- * reprint months later matches the original.
- */
-export function buildReceipt(
-  sale: SaleRow,
-  shopName: string,
-  /** Printed per line, keyed by variant id — what the till knew at the time. */
-  notes: ReadonlyMap<string, readonly string[]> = new Map()
-): ReceiptData {
-  const money = (value: string | null | undefined): string =>
-    formatMoney(minor(Math.round(Number(value ?? 0) * 100) as Minor), {
-      currency: sale.currency,
-    })
-
-  return {
-    shopName,
-    invoiceNo: sale.invoice_no,
-    status: humanStatus(sale.status),
-    soldAt: new Date(sale.completed_at ?? sale.created_at).toLocaleString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    }),
-    cashier: sale.created_by ?? '—',
-    customer: sale.customer?.name ?? 'Walk-in',
-    currency: sale.currency,
-    lines: (sale.items ?? []).map((item) => ({
-      name: item.product_name,
-      variant: item.variant_name,
-      quantity: formatQty(milli(Math.round(Number(item.quantity) * 1000)), {
-        decimal: !Number.isInteger(Number(item.quantity)),
-        unitLabel: item.unit_label ?? undefined,
-      }),
-      unitPrice: money(item.unit_price),
-      lineTotal: money(item.line_total),
-      notes: [...(notes.get(item.variant_id) ?? [])],
-    })),
-    subtotal: money(sale.subtotal),
-    discount: money(sale.discount_total),
-    tax: money(sale.tax_total),
-    total: money(sale.total),
-    paid: money(sale.paid_total),
-    change: money(sale.change_due),
-    note: sale.note,
-  }
-}
-
-function humanStatus(status: string): string {
-  switch (status) {
-    case 'COMPLETED':
-      return 'Paid'
-    case 'PARTIALLY_PAID':
-      return 'Part paid'
-    case 'REFUNDED':
-      return 'Refunded'
-    case 'PARTIALLY_REFUNDED':
-      return 'Part refunded'
-    default:
-      return status
-  }
-}
-
-// ── Rendering ─────────────────────────────────────────────────────────────
-
-/** 72mm at 96dpi, which is the printable width inside 80mm stock. */
-const RECEIPT_WIDTH_PX = 272
-
-const RECEIPT_CSS = `
-  .mekholi-receipt {
-    width: ${RECEIPT_WIDTH_PX}px;
-    margin: 0 auto;
-    padding: 8px 4px 16px;
-    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-    font-size: 11px;
-    line-height: 1.45;
-    color: #000;
-    background: #fff;
-  }
-  .mekholi-receipt h1 { font-size: 14px; text-align: center; margin: 0 0 2px; letter-spacing: .04em; }
-  .mekholi-receipt .center { text-align: center; }
-  .mekholi-receipt .rule { border-top: 1px dashed #000; margin: 6px 0; }
-  .mekholi-receipt table { width: 100%; border-collapse: collapse; }
-  .mekholi-receipt td { vertical-align: top; padding: 1px 0; }
-  .mekholi-receipt td.num { text-align: right; white-space: nowrap; }
-  .mekholi-receipt .muted { opacity: .75; }
-  .mekholi-receipt .big { font-size: 14px; font-weight: 700; }
-  @media print {
-    body { margin: 0; background: #fff; }
-    body > *:not(#mekholi-print-root) { display: none !important; }
-    #mekholi-print-root { position: static; inset: auto; background: #fff; padding: 0; overflow: visible; }
-    .mekholi-receipt-actions { display: none !important; }
-    @page { size: 80mm auto; margin: 2mm; }
-  }
-`
-
+// Re-exported so the rest of the app still has one place to ask for a
+// receipt, even though the engine now lives in `shared/` where a plugin can
+// reach it too.
+export { buildReceipt, renderReceipt, type ReceiptData, type ReceiptLine } from '../../shared/receipt/receipt'
 
 // ── Receipt actions, independent of the dialog ────────────────────────────
 //
@@ -171,8 +44,9 @@ const RECEIPT_CSS = `
 /** Save the receipt as a PNG or a PDF, at the active printer's paper width. */
 export async function saveReceiptFile(data: ReceiptData, kind: 'png' | 'pdf'): Promise<void> {
   const paper = activePrinter()?.paperWidth ?? 80
+  const design = invoiceDesign()
   try {
-    const blob = kind === 'png' ? await receiptPng(data, paper) : await receiptPdf(data, paper)
+    const blob = kind === 'png' ? await receiptPng(data, paper, design) : await receiptPdf(data, paper, design)
     const result = downloadBlob(`${data.invoiceNo}.${kind}`, blob)
     if (!result.ok) toastError(result.reason ?? 'The file could not be saved.')
   } catch (error) {
@@ -196,7 +70,7 @@ export async function printReceipt(data: ReceiptData): Promise<void> {
     return
   }
   try {
-    await sendToPrinter(printer, escPosJob(data, printer))
+    await sendToPrinter(printer, escPosJob(data, printer, invoiceDesign()))
     toastSuccess('Printing.')
   } catch (error) {
     reportPrintFailure(error, 'The printer did not answer.')
@@ -276,7 +150,7 @@ export function showReceipt(data: ReceiptData): { close: () => void } {
     actionButton('Close', false, () => close())
   )
 
-  overlay.append(h('style', { text: RECEIPT_CSS }), actions, renderReceipt(data))
+  overlay.append(h('style', { text: receiptCss(invoiceDesign()) }), actions, renderReceipt(data, invoiceDesign()))
   document.body.appendChild(overlay)
 
   // "Print automatically when a sale completes" (Printer setup). The dialog
@@ -287,57 +161,3 @@ export function showReceipt(data: ReceiptData): { close: () => void } {
   return { close }
 }
 
-/** The 80mm layout. Pure: give it data, get a node. */
-export function renderReceipt(data: ReceiptData): HTMLElement {
-  const row = (label: string, value: string, strong = false): HTMLElement =>
-    h('tr', {},
-      h('td', { class: strong ? 'big' : '', text: label }),
-      h('td', { class: `num ${strong ? 'big' : ''}`.trim(), text: value })
-    )
-
-  return h(
-    'div',
-    { class: 'mekholi-receipt' },
-    h('h1', { text: data.shopName }),
-    h('p', { class: 'center muted', text: data.invoiceNo }),
-    h('p', { class: 'center muted', text: `${data.soldAt} · ${data.status}` }),
-    h('p', { class: 'center muted', text: `Served: ${data.customer}` }),
-
-    h('div', { class: 'rule' }),
-
-    h('table', {},
-      h('tbody', {},
-        ...data.lines.flatMap((line) => [
-          h('tr', {}, h('td', { colspan: '2', text: line.name })),
-          ...(line.variant ? [h('tr', {}, h('td', { colspan: '2', class: 'muted', text: `  ${line.variant}` }))] : []),
-          h('tr', {},
-            h('td', { class: 'muted', text: `  ${line.quantity} × ${line.unitPrice}` }),
-            h('td', { class: 'num', text: line.lineTotal })
-          ),
-          // What a plugin asked to print for this line, under it, small.
-          ...line.notes.map((note) =>
-            h('tr', {}, h('td', { colspan: '2', class: 'muted', text: `  ${note}` }))
-          ),
-        ])
-      )
-    ),
-
-    h('div', { class: 'rule' }),
-
-    h('table', {},
-      h('tbody', {},
-        row('Subtotal', data.subtotal),
-        ...(Number(data.discount.replace(/[^0-9.-]/g, '')) > 0 ? [row('Discount', `-${data.discount}`)] : []),
-        ...(Number(data.tax.replace(/[^0-9.-]/g, '')) > 0 ? [row('Tax', data.tax)] : []),
-        row('TOTAL', data.total, true),
-        row('Paid', data.paid),
-        row('Change', data.change)
-      )
-    ),
-
-    ...(data.note ? [h('div', { class: 'rule' }), h('p', { class: 'muted', text: data.note })] : []),
-
-    h('div', { class: 'rule' }),
-    h('p', { class: 'center muted', text: 'Thank you' })
-  )
-}

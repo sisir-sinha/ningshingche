@@ -1051,6 +1051,7 @@ describe('the screen', () => {
       params: {},
       query: new URLSearchParams(),
       organizationId: ORG,
+      organizationName: 'Test Shop',
       branchId: BRANCH,
       currency: 'BDT',
     })
@@ -1386,6 +1387,7 @@ describe('the plugin boundary', () => {
       params: {},
       query: new URLSearchParams(),
       organizationId: ORG,
+      organizationName: 'Test Shop',
       branchId: BRANCH,
       currency: 'BDT',
     })

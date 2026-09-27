@@ -126,8 +126,6 @@ export const CORE_NAV: NavItem[] = [
   { id: 'settings', label: 'Settings', icon: 'settings', section: 'admin', route: '/settings', permission: 'settings.view', order: 50 },
   // Hardware sits beside Settings because it answers the same question — how
   // this shop is set up — and is gated by the same permission.
-  { id: 'printer-setup', label: 'Printer setup', icon: 'print', section: 'admin', route: '/printer-setup', permission: 'settings.view', order: 55 },
-  { id: 'scanner-setup', label: 'Scanner setup', icon: 'barcode_scanner', section: 'admin', route: '/scanner-setup', permission: 'settings.view', order: 60 },
 ]
 
 export interface NavGroup {

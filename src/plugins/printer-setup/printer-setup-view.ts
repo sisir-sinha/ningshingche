@@ -26,10 +26,10 @@ import { badge, card, cardHeader, emptyState } from '../../components/ui/card'
 import { checkbox, field, input, select } from '../../components/ui/input'
 import { confirm } from '../../components/feedback/modal'
 import { toastError, toastSuccess, toastWarning } from '../../components/feedback/toast'
-import { activeOrganization } from '../../app/state/session'
 import {
   activePrinter,
   capabilities,
+  invoiceDesign,
   loadDeviceSettings,
   newPrinter,
   saveDeviceSettings,
@@ -38,10 +38,10 @@ import {
   type PrinterTransport,
 } from '../../shared/devices/device-config'
 import { pairBluetoothPrinter, pairUsbPrinter, sendToPrinter } from '../../shared/devices/printer-transport'
-import { reportPrintFailure } from './setup-prompt'
+import { reportPrintFailure } from './report'
 import { EscPosBuilder, columnsFor } from '../../shared/devices/escpos'
-import { escPosJob, receiptPdf, receiptPng } from '../pos'
-import { sampleReceipt } from './sample-receipt'
+import { escPosJob, receiptPdf, receiptPng } from '../../shared/receipt/export'
+import { sampleReceipt } from '../../shared/receipt/sample'
 import { downloadBlob } from '../../shared/export/download'
 
 const TRANSPORTS: Array<{ id: PrinterTransport; label: string; icon: string; blurb: string }> = [
@@ -71,7 +71,20 @@ const TRANSPORTS: Array<{ id: PrinterTransport; label: string; icon: string; blu
   },
 ]
 
-export function printerSetupView(): HTMLElement {
+export interface PrinterSetupOptions {
+  /**
+   * The shop's name, for the test page and the sample receipt.
+   *
+   * Passed in rather than read from the session: a plugin may not import the
+   * app layer (spec §51), and the host knows the organisation anyway. The
+   * invoice design's own shop name wins over it when one is set, because
+   * that is the name the paper actually carries.
+   */
+  shopName?: string
+}
+
+export function printerSetupView(options: PrinterSetupOptions = {}): HTMLElement {
+  const orgName = options.shopName ?? 'Mekholi'
   const settings: DeviceSettings = loadDeviceSettings()
   const caps = capabilities()
 
@@ -155,7 +168,7 @@ export function printerSetupView(): HTMLElement {
   // ── Testing ─────────────────────────────────────────────────────────────
 
   async function testPrint(printer: PrinterConfig): Promise<void> {
-    const shop = activeOrganization()?.name ?? 'Mekholi'
+    const shop = invoiceDesign().shopName.trim() || orgName
     try {
       if (printer.transport === 'browser') {
         window.print()
@@ -194,7 +207,7 @@ export function printerSetupView(): HTMLElement {
 
   async function testReceipt(printer: PrinterConfig): Promise<void> {
     try {
-      const data = sampleReceipt(activeOrganization()?.name ?? 'Mekholi')
+      const data = sampleReceipt(invoiceDesign().shopName.trim() || orgName)
       await sendToPrinter(printer, escPosJob(data, printer))
       toastSuccess('Sample receipt sent.')
     } catch (error) {
@@ -205,7 +218,7 @@ export function printerSetupView(): HTMLElement {
   async function previewFile(kind: 'png' | 'pdf'): Promise<void> {
     const printer = activePrinter(settings)
     const paper = printer?.paperWidth ?? 80
-    const data = sampleReceipt(activeOrganization()?.name ?? 'Mekholi')
+    const data = sampleReceipt(invoiceDesign().shopName.trim() || orgName)
     try {
       const blob = kind === 'png' ? await receiptPng(data, paper) : await receiptPdf(data, paper)
       const result = downloadBlob(`sample-receipt.${kind}`, blob)

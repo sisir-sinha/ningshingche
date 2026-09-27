@@ -32,7 +32,7 @@ describe('remembering the hardware', () => {
 
   it('round-trips a printer', () => {
     const printer = newPrinter({ name: 'Xprinter XP-58', transport: 'bluetooth' })
-    saveDeviceSettings({ printers: [printer], activePrinterId: printer.id, scanner: defaultSettings().scanner })
+    saveDeviceSettings({ ...defaultSettings(), printers: [printer], activePrinterId: printer.id })
 
     const loaded = loadDeviceSettings()
     expect(loaded.printers[0]?.name).toBe('Xprinter XP-58')
@@ -46,7 +46,7 @@ describe('remembering the hardware', () => {
 
   it('does not point at a printer that has been removed', () => {
     const kept = newPrinter({ name: 'Kept', transport: 'usb' })
-    saveDeviceSettings({ printers: [kept], activePrinterId: 'deleted-one', scanner: defaultSettings().scanner })
+    saveDeviceSettings({ ...defaultSettings(), printers: [kept], activePrinterId: 'deleted-one' })
 
     // Falls back to what is actually there rather than reporting a printer
     // the shop no longer has.

@@ -26,10 +26,11 @@ import {
   monochrome,
   needsRaster,
   type PaperWidth,
-} from '../../shared/devices/escpos'
-import type { PrinterConfig } from '../../shared/devices/device-config'
-import { imagePdf } from '../../shared/export/pdf'
+} from '../devices/escpos'
+import type { PrinterConfig } from '../devices/device-config'
+import { imagePdf } from '../export/pdf'
 import type { ReceiptData } from './receipt'
+import { DEFAULT_INVOICE_DESIGN, resolveDesign, type InvoiceDesign } from './design'
 
 // ── Canvas layout ─────────────────────────────────────────────────────────
 
@@ -51,20 +52,42 @@ interface Row {
  * Kept separate from the drawing so the layout can be reasoned about — and
  * tested — without a canvas, which is exactly what jsdom does not have.
  */
-export function receiptRows(data: ReceiptData, base: number): Row[] {
+export function receiptRows(
+  data: ReceiptData,
+  base: number,
+  design: InvoiceDesign = DEFAULT_INVOICE_DESIGN
+): Row[] {
+  // The printed slip and the on-screen one are the same document, so they
+  // read the same design. A shop that removed the cashier's name from the
+  // preview and still found it on the paper would rightly call that a bug.
+  const look = resolveDesign(design)
+
   const rows: Row[] = [
-    { text: data.shopName, size: base * 1.6, bold: true, align: 'center' },
+    { text: design.shopName.trim() || data.shopName, size: base * 1.6, bold: true, align: 'center' },
+    ...look.headerLines.map((line) => ({ text: line, size: base * 0.85, align: 'center' as const })),
     { text: data.invoiceNo, size: base * 0.95, align: 'center' },
     { text: `${data.soldAt} · ${data.status}`, size: base * 0.85, align: 'center' },
-    { text: `Served: ${data.customer}`, size: base * 0.85, align: 'center' },
-    { text: '', size: base * 0.4, rule: true },
   ]
+  if (look.showCustomer) rows.push({ text: `Served: ${data.customer}`, size: base * 0.85, align: 'center' })
+  if (look.showCashier) rows.push({ text: `Cashier: ${data.cashier}`, size: base * 0.85, align: 'center' })
+  rows.push({ text: '', size: base * 0.4, rule: true })
 
   for (const line of data.lines) {
+    if (look.oneLinePerItem) {
+      const prefix = line.quantity.startsWith('1 ') || line.quantity === '1' ? '' : `${line.quantity} `
+      rows.push({ text: `${prefix}${line.name}`, right: line.lineTotal, size: base })
+      continue
+    }
     rows.push({ text: line.name, size: base })
     if (line.variant) rows.push({ text: `  ${line.variant}`, size: base * 0.85 })
-    rows.push({ text: `  ${line.quantity} × ${line.unitPrice}`, right: line.lineTotal, size: base * 0.9 })
-    for (const note of line.notes) rows.push({ text: `  ${note}`, size: base * 0.8 })
+    rows.push({
+      text: look.showUnitPrice ? `  ${line.quantity} × ${line.unitPrice}` : `  ${line.quantity}`,
+      right: line.lineTotal,
+      size: base * 0.9,
+    })
+    if (look.showItemNotes) {
+      for (const note of line.notes) rows.push({ text: `  ${note}`, size: base * 0.8 })
+    }
   }
 
   rows.push({ text: '', size: base * 0.4, rule: true })
@@ -80,8 +103,10 @@ export function receiptRows(data: ReceiptData, base: number): Row[] {
     rows.push({ text: data.note, size: base * 0.85, align: 'center' })
   }
 
-  rows.push({ text: '', size: base * 0.4, rule: true })
-  rows.push({ text: 'Thank you', size: base * 0.95, align: 'center' })
+  if (look.footerText) {
+    rows.push({ text: '', size: base * 0.4, rule: true })
+    rows.push({ text: look.footerText, size: base * 0.95, align: 'center' })
+  }
   return rows
 }
 
@@ -93,6 +118,8 @@ export interface CanvasOptions {
   paperWidth?: PaperWidth
   /** Override the pixel width — the PNG download uses a wider one for screens. */
   dots?: number
+  /** Defaults to the plain design, so a caller that has none still prints. */
+  design?: InvoiceDesign
 }
 
 /**
@@ -107,7 +134,7 @@ export function receiptCanvas(data: ReceiptData, options: CanvasOptions = {}): H
   const width = options.dots ?? dotsFor(paper)
   const base = Math.round(width / 24)
   const margin = Math.round(width * 0.035)
-  const rows = receiptRows(data, base)
+  const rows = receiptRows(data, base, options.design ?? DEFAULT_INVOICE_DESIGN)
 
   const canvas = document.createElement('canvas')
   const measure = canvas.getContext('2d')
@@ -218,8 +245,12 @@ function canvasBlob(canvas: HTMLCanvasElement, type: string, quality?: number): 
 }
 
 /** PNG of the receipt, at twice printer resolution so it reads on a phone. */
-export async function receiptPng(data: ReceiptData, paper: PaperWidth = 80): Promise<Blob> {
-  return canvasBlob(receiptCanvas(data, { paperWidth: paper, dots: dotsFor(paper) * 2 }), 'image/png')
+export async function receiptPng(
+  data: ReceiptData,
+  paper: PaperWidth = 80,
+  design: InvoiceDesign = DEFAULT_INVOICE_DESIGN
+): Promise<Blob> {
+  return canvasBlob(receiptCanvas(data, { paperWidth: paper, dots: dotsFor(paper) * 2, design }), 'image/png')
 }
 
 /**
@@ -229,8 +260,12 @@ export async function receiptPng(data: ReceiptData, paper: PaperWidth = 80): Pro
  * while a PNG would have to be decoded and re-deflated to become a valid PDF
  * image stream. Quality 0.92 on black-on-white text is visually lossless.
  */
-export async function receiptPdf(data: ReceiptData, paper: PaperWidth = 80): Promise<Blob> {
-  const canvas = receiptCanvas(data, { paperWidth: paper, dots: dotsFor(paper) * 2 })
+export async function receiptPdf(
+  data: ReceiptData,
+  paper: PaperWidth = 80,
+  design: InvoiceDesign = DEFAULT_INVOICE_DESIGN
+): Promise<Blob> {
+  const canvas = receiptCanvas(data, { paperWidth: paper, dots: dotsFor(paper) * 2, design })
   const jpeg = new Uint8Array(await (await canvasBlob(canvas, 'image/jpeg', 0.92)).arrayBuffer())
   const bytes = imagePdf({
     jpeg,
@@ -254,13 +289,18 @@ export async function receiptPdf(data: ReceiptData, paper: PaperWidth = 80): Pro
  * contains a non-ASCII character is switched to raster whatever the setting
  * says — printing `????` is not a preference anyone chose.
  */
-export function escPosJob(data: ReceiptData, config: PrinterConfig): Uint8Array {
+export function escPosJob(
+  data: ReceiptData,
+  config: PrinterConfig,
+  design: InvoiceDesign = DEFAULT_INVOICE_DESIGN
+): Uint8Array {
+  const look = resolveDesign(design)
   const paper = config.paperWidth
   const builder = new EscPosBuilder().init().codePage('cp437')
   const mustRaster = config.mode === 'raster' || receiptNeedsRaster(data)
 
   if (mustRaster) {
-    const canvas = receiptCanvas(data, { paperWidth: paper })
+    const canvas = receiptCanvas(data, { paperWidth: paper, design })
     const context = canvas.getContext('2d')
     if (!context) throw new Error('This browser cannot render the receipt for printing.')
 
@@ -274,15 +314,35 @@ export function escPosJob(data: ReceiptData, config: PrinterConfig): Uint8Array 
     }
   } else {
     const width = columnsFor(paper)
-    builder.align('center').size(2, 2).bold(true).line(data.shopName).size(1, 1).bold(false)
-    builder.line(data.invoiceNo).line(`${data.soldAt} · ${data.status}`).line(`Served: ${data.customer}`)
+    builder
+      .align('center')
+      .size(2, 2)
+      .bold(true)
+      .line(design.shopName.trim() || data.shopName)
+      .size(1, 1)
+      .bold(false)
+    for (const headerLine of look.headerLines) builder.line(headerLine)
+    builder.line(data.invoiceNo).line(`${data.soldAt} · ${data.status}`)
+    if (look.showCustomer) builder.line(`Served: ${data.customer}`)
+    if (look.showCashier) builder.line(`Cashier: ${data.cashier}`)
     builder.align('left').rule(width)
 
     for (const line of data.lines) {
+      if (look.oneLinePerItem) {
+        const prefix = line.quantity.startsWith('1 ') || line.quantity === '1' ? '' : `${line.quantity} `
+        builder.columns(`${prefix}${line.name}`, line.lineTotal, width)
+        continue
+      }
       builder.line(line.name)
       if (line.variant) builder.line(`  ${line.variant}`)
-      builder.columns(`  ${line.quantity} x ${line.unitPrice}`, line.lineTotal, width)
-      for (const note of line.notes) builder.line(`  ${note}`)
+      builder.columns(
+        look.showUnitPrice ? `  ${line.quantity} x ${line.unitPrice}` : `  ${line.quantity}`,
+        line.lineTotal,
+        width
+      )
+      if (look.showItemNotes) {
+        for (const note of line.notes) builder.line(`  ${note}`)
+      }
     }
 
     builder.rule(width)
@@ -293,7 +353,7 @@ export function escPosJob(data: ReceiptData, config: PrinterConfig): Uint8Array 
     builder.columns('Paid', data.paid, width)
     builder.columns('Change', data.change, width)
     if (data.note) builder.rule(width).line(data.note)
-    builder.rule(width).align('center').line('Thank you').align('left')
+    if (look.footerText) builder.rule(width).align('center').line(look.footerText).align('left')
   }
 
   if (config.openDrawer) builder.openDrawer()
@@ -304,9 +364,17 @@ export function escPosJob(data: ReceiptData, config: PrinterConfig): Uint8Array 
 }
 
 /** Is there anything on this receipt a thermal font cannot print? */
-export function receiptNeedsRaster(data: ReceiptData): boolean {
+export function receiptNeedsRaster(
+  data: ReceiptData,
+  design: InvoiceDesign = DEFAULT_INVOICE_DESIGN
+): boolean {
   const text = [
     data.shopName,
+    // A Bangla shop name or footer typed into the design is exactly the case
+    // that must force raster — the printer's ROM has no glyph for it.
+    design.shopName,
+    design.headerLines,
+    design.footerText,
     data.customer,
     data.note ?? '',
     ...data.lines.flatMap((line) => [line.name, line.variant ?? '', ...line.notes]),

@@ -1,36 +1,14 @@
-import type { Route } from '../../app/router/router'
-import { printerSetupView } from './printer-setup-view'
-import { scannerSetupView } from './scanner-setup-view'
-
 /**
- * Hardware setup.
+ * Devices — what is left in the core.
  *
- * Gated on `settings.view` rather than a new permission: the permission
- * catalogue is checked against the database by `tools/validate-migrations.mjs`,
- * so inventing `devices.manage` here would fail the build until a migration
- * added it — and "who may configure the printer" is the same question as "who
- * may configure the shop", which this key already answers.
+ * The setup screens moved out to the Printer Setup and Barcode Scanner
+ * plugins: most shops print nothing and scan on the defaults, so carrying
+ * pairing dialogs and an ESC/POS test page in every bundle was the wrong
+ * trade. What stays here is the one thing a sale needs — telling a cashier
+ * that a device is not ready, and where to go about it.
+ *
+ * The hardware itself is described in `shared/devices` and the receipt in
+ * `shared/receipt`, both core, both usable with every plugin switched off.
  */
-export function deviceRoutes(): Route[] {
-  return [
-    {
-      path: '/printer-setup',
-      title: 'Printer setup',
-      permission: 'settings.view',
-      render: () => printerSetupView(),
-    },
-    {
-      path: '/scanner-setup',
-      title: 'Barcode scanner setup',
-      permission: 'settings.view',
-      render: () => scannerSetupView(),
-    },
-  ]
-}
 
-export { printerSetupView, scannerSetupView }
-
-// The till needs these: a print that fails for want of setup, or a scanner
-// mode this browser cannot honour, is reported by the POS but answered by
-// these pages. Public so `features/pos` never reaches into this folder.
 export { promptDeviceSetup, reportPrintFailure, requirePrinterSetup, type DeviceKind } from './setup-prompt'
