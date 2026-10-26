@@ -47,6 +47,23 @@ data class TranslationTable(
 internal fun looseKey(text: String): String =
     text.trim().replace(WHITESPACE, " ").trimEnd('।', '.', '!', '?', ' ', '\u200b')
 
+/**
+ * The same, computed once per string.
+ *
+ * The inputs are the literals the app is written with — a fixed set of about a
+ * thousand, not a stream — so a small map settles after the first pass and the
+ * regex stops running. The cap is a guard, not a policy: a caller passing a
+ * string built at runtime would otherwise grow this for ever.
+ */
+private val looseKeys = java.util.concurrent.ConcurrentHashMap<String, String>(1024)
+
+internal fun looseKeyOf(text: String): String {
+    looseKeys[text]?.let { return it }
+    val key = looseKey(text)
+    if (looseKeys.size < 4096) looseKeys[text] = key
+    return key
+}
+
 private val WHITESPACE = Regex("\\s+")
 
 val LocalTranslations = staticCompositionLocalOf { TranslationTable() }
@@ -60,9 +77,21 @@ fun translate(table: TranslationTable, bengali: String, vararg args: Any?): Stri
     // The file wins whenever it has this string — for Bengali as well, where a
     // row means an editor rewrote that wording. Anything absent or blank stays
     // exactly as compiled, which is what every key looks like by default.
-    val text = table.strings[bengali]?.takeIf { it.isNotBlank() }
-        ?: table.loose[looseKey(bengali)]?.takeIf { it.isNotBlank() }
-        ?: bengali
+    //
+    // Nothing at all in the file is the common case (Bengali out of the box, and
+    // every language before its first publish), and it is answered without
+    // touching the second map: the loose lookup normalises the string first —
+    // a regex and two allocations — and a screen asks this function about a
+    // thousand times per pass, which is not a price to pay for nothing.
+    val exact = table.strings[bengali]
+    val text = if (exact != null && exact.isNotBlank()) {
+        exact
+    } else if (table.loose.isEmpty()) {
+        bengali
+    } else {
+        val loose = table.loose[looseKeyOf(bengali)]
+        if (loose != null && loose.isNotBlank()) loose else bengali
+    }
     if (args.isEmpty()) return text
     var filled = text
     args.forEachIndexed { index, value ->
@@ -71,7 +100,35 @@ fun translate(table: TranslationTable, bengali: String, vararg args: Any?): Stri
     return filled
 }
 
-@Composable
-@ReadOnlyComposable
-fun t(bengali: String, vararg args: Any?): String =
-    translate(LocalTranslations.current, bengali, *args)
+fun t(bengali: String, vararg args: Any?): String = tNow(bengali, *args)
+
+/**
+ * The lookup itself: Bengali source text in, the reader's language out.
+ *
+ * It is deliberately a plain function and not a composable. The app says
+ * `t("…")` everywhere — in a screen, in an `onClick` body, in a `LaunchedEffect`,
+ * in a view model that builds the message a screen shows later, in a data class's
+ * `toString`. Only some of those are places a composable may be called from, and
+ * a call site that is wrong in that way is a build failure, not a fallback. One
+ * plain function cannot be wrong anywhere.
+ *
+ * Recomposition is the app's job instead, and it is done at the root: the reader
+ * host reads the table and keys the navigation graph on it, so a language swap
+ * rebuilds every screen — and the app's root recomposes whenever the table
+ * changes, which redraws everything outside the graph as well. The table itself
+ * lives in [Translations], installed by [Translations.install] from the root.
+ */
+fun tNow(bengali: String, vararg args: Any?): String =
+    translate(Translations.current, bengali, *args)
+
+/** Where [tNow] finds the table: the one the app is rendering in right now. */
+object Translations {
+    @Volatile
+    var current: TranslationTable = TranslationTable()
+        private set
+
+    /** Called from the app's root. Cheap enough to run on every composition. */
+    fun install(table: TranslationTable) {
+        current = table
+    }
+}

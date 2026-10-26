@@ -36,9 +36,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.ningshingche.app.data.model.ContentLanguage
+import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 
 /**
  * The first of the three first-install steps: which language to read in.
@@ -59,7 +62,7 @@ fun LanguageSetupScreen(
     selected: ContentLanguage,
     onSelect: (ContentLanguage) -> Unit,
     onContinue: () -> Unit,
-    continueLabel: String = "শুরু করুন"
+    continueLabel: String = tNow("শুরু করুন")
 ) {
     // Held locally so a tap feels immediate; the preference follows through.
     var chosen by remember(selected) { mutableStateOf(selected) }
@@ -90,16 +93,18 @@ fun LanguageSetupScreen(
 
             Spacer(Modifier.height(20.dp))
             Text(
-                text = "ভাষা বাছাই করুন",
+                text = t("ভাষা বাছাই করুন"),
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
-                fontSize = 24.sp,
+                fontSize = textSize(24),
+                lineHeight = leading(24),
                 color = MaterialTheme.colorScheme.onBackground
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "Choose your language · লাউখোল",
-                fontSize = 13.sp,
+                text = t("Choose your language · লাউখোল"),
+                fontSize = textSize(13),
+                lineHeight = leading(13),
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -132,14 +137,16 @@ fun LanguageSetupScreen(
                     text = continueLabel,
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
+                    fontSize = textSize(16),
+                    lineHeight = leading(16)
                 )
             }
 
             Spacer(Modifier.height(14.dp))
             Text(
-                text = "পরে সেটিংস থেকে ভাষা বদলাতে পারবেন।",
-                fontSize = 12.sp,
+                text = t("পরে সেটিংস থেকে ভাষা বদলাতে পারবেন।"),
+                fontSize = textSize(12),
+                lineHeight = leading(12),
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -179,13 +186,15 @@ private fun LanguageChoiceCard(
                     text = title,
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
+                    fontSize = textSize(18),
+                    lineHeight = leading(18),
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
                     text = subtitle,
-                    fontSize = 12.sp,
+                    fontSize = textSize(12),
+                    lineHeight = leading(12),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -210,13 +219,13 @@ private fun LanguageChoiceCard(
 
 /** The language's name in the language itself. */
 fun ContentLanguage.displayName(): String = when (this) {
-    ContentLanguage.BENGALI -> "বাংলা"
+    ContentLanguage.BENGALI -> tNow("বাংলা")
     ContentLanguage.ENGLISH -> "English"
-    ContentLanguage.BISHNUPRIYA -> "বিষ্ণুপ্রিয়া মণিপুরী"
+    ContentLanguage.BISHNUPRIYA -> tNow("বিষ্ণুপ্রিয়া মণিপুরী")
 }
 
 private fun ContentLanguage.nativeHint(): String = when (this) {
     ContentLanguage.BENGALI -> "Bengali — the app's own language"
-    ContentLanguage.ENGLISH -> "ইংরেজি"
-    ContentLanguage.BISHNUPRIYA -> "বিষ্ণুপ্রিয়া মণিপুরী / Bishnupriya Manipuri"
+    ContentLanguage.ENGLISH -> tNow("ইংরেজি")
+    ContentLanguage.BISHNUPRIYA -> tNow("বিষ্ণুপ্রিয়া মণিপুরী / Bishnupriya Manipuri")
 }

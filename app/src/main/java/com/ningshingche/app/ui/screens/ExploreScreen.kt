@@ -59,7 +59,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ningshingche.app.data.portal.ArticleSummary
 import com.ningshingche.app.data.portal.IssueSummary
@@ -79,8 +78,12 @@ import com.ningshingche.app.ui.reader.CategoryFacet
 import com.ningshingche.app.ui.reader.ExploreData
 import com.ningshingche.app.ui.reader.ExploreUiState
 import com.ningshingche.app.ui.reader.ExploreViewModel
+import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import kotlinx.coroutines.launch
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 
 /**
  * "অন্বেষণ ও সংগ্রহ" — categories, authors, annual issues and popular picks.
@@ -144,20 +147,20 @@ fun ExploreScreen(
                     title = {
                         Column {
                             Text(
-                                text = "অন্বেষণ ও সংগ্রহ",
+                                text = tNow("অন্বেষণ ও সংগ্রহ"),
                                 fontFamily = Kalpurush,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 19.sp,
-                                lineHeight = 22.sp,
+                                fontSize = textSize(19),
+                                lineHeight = textSize(22),
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = "বিভাগ, লেখক, বার্ষিক সংখ্যা ও নির্বাচিত লেখা",
+                                text = tNow("বিভাগ, লেখক, বার্ষিক সংখ্যা ও নির্বাচিত লেখা"),
                                 fontFamily = Kalpurush,
-                                fontSize = 12.sp,
-                                lineHeight = 14.sp,
+                                fontSize = textSize(12),
+                                lineHeight = textSize(14),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -177,7 +180,7 @@ fun ExploreScreen(
                             onClick = onSearchClick,
                             modifier = Modifier.testTag("explore_search_button")
                         ) {
-                            Icon(Icons.Default.Search, contentDescription = "অনুসন্ধান")
+                            Icon(Icons.Default.Search, contentDescription = tNow("অনুসন্ধান"))
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -286,7 +289,8 @@ private fun ExploreTabStrip(
                             fontFamily = Kalpurush,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                             color = tint,
-                            fontSize = 14.sp,
+                            fontSize = textSize(14),
+                            lineHeight = leading(14),
                             maxLines = 1
                         )
                     }
@@ -308,7 +312,7 @@ private fun ExplorePage(
     when (tab) {
         ExploreTab.Categories -> {
             if (data.categories.isEmpty()) {
-                ScrollableEmpty("কোনো বিভাগ পাওয়া যায়নি।")
+                ScrollableEmpty(t("কোনো বিভাগ পাওয়া যায়নি।"))
                 return
             }
             LazyColumn(
@@ -326,7 +330,7 @@ private fun ExplorePage(
 
         ExploreTab.Authors -> {
             if (data.authors.isEmpty()) {
-                ScrollableEmpty("কোনো লেখক পাওয়া যায়নি।")
+                ScrollableEmpty(t("কোনো লেখক পাওয়া যায়নি।"))
                 return
             }
             LazyColumn(
@@ -344,7 +348,7 @@ private fun ExplorePage(
 
         ExploreTab.Issues -> {
             if (data.issues.isEmpty()) {
-                ScrollableEmpty("এখনো কোনো বার্ষিক সংখ্যা প্রকাশিত হয়নি।")
+                ScrollableEmpty(t("এখনো কোনো বার্ষিক সংখ্যা প্রকাশিত হয়নি।"))
                 return
             }
             LazyColumn(
@@ -362,7 +366,7 @@ private fun ExplorePage(
 
         ExploreTab.Popular -> {
             if (data.popular.isEmpty()) {
-                ScrollableEmpty("এখনো কোনো নির্বাচিত লেখা নেই।")
+                ScrollableEmpty(t("এখনো কোনো নির্বাচিত লেখা নেই।"))
                 return
             }
             LazyColumn(
@@ -404,9 +408,10 @@ private fun PopularArticleRow(article: ArticleSummary, onClick: () -> Unit) {
                     modifier = Modifier.size(12.dp)
                 )
                 Text(
-                    text = if (article.isSpecial) "নির্বাচিত লেখা" else "ফিচার্ড",
+                    text = if (article.isSpecial) t("নির্বাচিত লেখা") else t("ফিচার্ড"),
                     fontFamily = Kalpurush,
-                    fontSize = 11.sp,
+                    fontSize = textSize(11),
+                    lineHeight = leading(11),
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -425,7 +430,8 @@ private fun CountChip(text: String) {
         Text(
             text = text,
             fontFamily = Kalpurush,
-            fontSize = 11.sp,
+            fontSize = textSize(11),
+            lineHeight = leading(11),
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -469,22 +475,23 @@ private fun CategoryFacetCard(facet: CategoryFacet, onClick: () -> Unit) {
                     text = category.title,
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
+                    fontSize = textSize(16),
+                    lineHeight = leading(16),
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = category.subTitle.ifBlank { "${category.title} বিষয়ে প্রকাশিত প্রবন্ধসমূহ" },
+                    text = category.subTitle.ifBlank { tNow("{1} বিষয়ে প্রকাশিত প্রবন্ধসমূহ", category.title) },
                     fontFamily = Kalpurush,
-                    fontSize = 12.sp,
-                    lineHeight = 17.sp,
+                    fontSize = textSize(12),
+                    lineHeight = textSize(17),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            CountChip("${IssueTags.toBengaliDigits(facet.articleCount)}টি")
+            CountChip(t("{1}টি", IssueTags.toBengaliDigits(facet.articleCount)))
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = null,
@@ -532,7 +539,8 @@ private fun AuthorFacetCard(facet: AuthorFacet, onClick: () -> Unit) {
                         text = author.name,
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
+                        fontSize = textSize(15),
+                        lineHeight = leading(15),
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -547,7 +555,8 @@ private fun AuthorFacetCard(facet: AuthorFacet, onClick: () -> Unit) {
                     Text(
                         text = author.designation,
                         fontFamily = Kalpurush,
-                        fontSize = 12.sp,
+                        fontSize = textSize(12),
+                        lineHeight = leading(12),
                         color = MaterialTheme.colorScheme.primary,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
@@ -565,10 +574,11 @@ private fun AuthorFacetCard(facet: AuthorFacet, onClick: () -> Unit) {
                         modifier = Modifier.size(12.dp)
                     )
                     Text(
-                        text = "${IssueTags.toBengaliDigits(facet.articleCount)}টি প্রবন্ধ" +
+                        text = t("{1}টি প্রবন্ধ", IssueTags.toBengaliDigits(facet.articleCount)) +
                             if (author.location.isNotBlank()) " • ${author.location}" else "",
                         fontFamily = Kalpurush,
-                        fontSize = 11.sp,
+                        fontSize = textSize(11),
+                        lineHeight = leading(11),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -621,7 +631,8 @@ private fun IssueCard(issue: IssueSummary, onClick: () -> Unit) {
                         text = issue.bengaliYear,
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Black,
-                        fontSize = 13.sp,
+                        fontSize = textSize(13),
+                        lineHeight = leading(13),
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
@@ -631,19 +642,21 @@ private fun IssueCard(issue: IssueSummary, onClick: () -> Unit) {
                     text = issue.label,
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
+                    fontSize = textSize(16),
+                    lineHeight = leading(16),
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "বার্ষিক সংখ্যা • ${issue.bengaliYear} সালে প্রকাশিত লেখাসমূহ",
+                    text = t("বার্ষিক সংখ্যা • {1} সালে প্রকাশিত লেখাসমূহ", issue.bengaliYear),
                     fontFamily = Kalpurush,
-                    fontSize = 12.sp,
+                    fontSize = textSize(12),
+                    lineHeight = leading(12),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(Modifier.height(4.dp))
-                CountChip("${IssueTags.toBengaliDigits(issue.articleCount)}টি প্রবন্ধ")
+                CountChip(t("{1}টি প্রবন্ধ", IssueTags.toBengaliDigits(issue.articleCount)))
             }
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,

@@ -228,14 +228,23 @@ data class BlogFacetDto(
 @JsonClass(generateAdapter = true)
 data class ViewDayDto(
     val day: String,
-    val views: Long? = null
+    val views: Long? = null,
+    /** Distinct readers that day — a reader who came back is one visitor, two views. */
+    val visitors: Long? = null,
+    @Json(name = "minutes_listened") val minutesListened: Long? = null
 )
 
 /** `user_view_totals` RPC: what the reader's published work has been read/watched. */
 @JsonClass(generateAdapter = true)
 data class ViewTotalsDto(
     @Json(name = "article_views") val articleViews: Long? = null,
-    @Json(name = "music_views") val musicViews: Long? = null
+    @Json(name = "music_views") val musicViews: Long? = null,
+    @Json(name = "forum_views") val forumViews: Long? = null,
+    /** Distinct readers across everything the reader published. */
+    val visitors: Long? = null,
+    @Json(name = "registered_views") val registeredViews: Long? = null,
+    @Json(name = "guest_views") val guestViews: Long? = null,
+    @Json(name = "minutes_listened") val minutesListened: Long? = null
 )
 
 /** A published article as it appears on a public user page. */
@@ -280,10 +289,85 @@ data class PublicProfileDto(
     /** Migration 028 adds these three to the same RPC. */
     val points: Int? = null,
     @Json(name = "month_points") val monthPoints: Int? = null,
+    /**
+     * Migration 037: the counts the counting engine keeps, with the forum in them
+     * and the parts added up on the server, so the page's headline and the split
+     * under it are the same arithmetic. A database that has not run 037 answers
+     * with the two 028 sent — the fields are nullable for exactly that reason.
+     */
     @Json(name = "article_views") val articleViews: Long? = null,
     @Json(name = "music_views") val musicViews: Long? = null,
+    @Json(name = "forum_views") val forumViews: Long? = null,
+    @Json(name = "total_views") val totalViews: Long? = null,
+    val visitors: Long? = null,
+    @Json(name = "minutes_listened") val minutesListened: Long? = null,
     val articles: List<PublicArticleDto>? = null,
     val songs: List<PublicSongDto>? = null
+)
+
+/**
+ * `profile_items` RPC — one page of one public-profile list (migration 033).
+ *
+ * [items] carries whichever kind was asked for, so one adapter reads four shapes:
+ * an article has `slug`/`published_date`, a song has `audio_url`/`duration_seconds`,
+ * a thread has `excerpt`/`replies_count`, an answer has `discussion_id`/
+ * `like_count`. Every field is nullable here and the mapping decides what a row
+ * of each kind actually needs — a profile page answers with one shape at a time
+ * and never mixes them.
+ */
+@JsonClass(generateAdapter = true)
+data class ProfileItemsDto(
+    val kind: String? = null,
+    val total: Int? = null,
+    val items: List<ProfileItemDto>? = null,
+    /** Present on `kind = "counts"`: the four totals, with no items at all. */
+    val totals: ProfileTotalsDto? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class ProfileTotalsDto(
+    val articles: Int? = null,
+    val songs: Int? = null,
+    val threads: Int? = null,
+    val answers: Int? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class ProfileItemDto(
+    val id: String? = null,
+    val title: String? = null,
+    // Article
+    val slug: String? = null,
+    /** `image` is the column; `thumbnail` is the same value under Moshi's name. */
+    val image: String? = null,
+    val thumbnail: String? = null,
+    @Json(name = "published_date") val publishedDate: String? = null,
+    @Json(name = "category_title") val categoryTitle: String? = null,
+    // Song
+    val artist: String? = null,
+    val album: String? = null,
+    val genre: String? = null,
+    @Json(name = "thumbnail_url") val thumbnailUrl: String? = null,
+    @Json(name = "audio_url") val audioUrl: String? = null,
+    @Json(name = "file_storage_path") val fileStoragePath: String? = null,
+    @Json(name = "duration_seconds") val durationSeconds: Int? = null,
+    @Json(name = "love_count") val loveCount: Int? = null,
+    // Forum, both kinds
+    val excerpt: String? = null,
+    val body: String? = null,
+    @Json(name = "category_slug") val categorySlug: String? = null,
+    @Json(name = "cover_image_url") val coverImageUrl: String? = null,
+    @Json(name = "is_official") val isOfficial: Boolean? = null,
+    // Forum, answers
+    @Json(name = "discussion_id") val discussionId: String? = null,
+    @Json(name = "discussion_title") val discussionTitle: String? = null,
+    @Json(name = "like_count") val likeCount: Int? = null,
+    @Json(name = "dislike_count") val dislikeCount: Int? = null,
+    @Json(name = "agree_count") val agreeCount: Int? = null,
+    // Both
+    @Json(name = "views_count") val viewsCount: Long? = null,
+    @Json(name = "replies_count") val repliesCount: Int? = null,
+    @Json(name = "created_at") val createdAt: String? = null
 )
 
 // ---------------------------------------------------------------------- forum
@@ -343,7 +427,26 @@ data class ForumReplyDto(
     @Json(name = "agree_count") val agrees: Int? = null,
     // '' when the reader has not reacted, or when the caller did not say who
     // they are (a guest with no device id).
-    @Json(name = "my_reaction") val myReaction: String? = null
+    @Json(name = "my_reaction") val myReaction: String? = null,
+    // True when the dashboard wrote this answer (032's own mark on the row, handed
+    // to the app by 034). Null on a database that has not run 034: a missing badge
+    // is a smaller thing than a screen that will not open.
+    @Json(name = "is_official") val isOfficial: Boolean? = null,
+    // True when this reader wrote it. The long press — edit, delete — is offered
+    // on exactly these answers, and the database is what says so.
+    @Json(name = "is_mine") val isMine: Boolean? = null
+)
+
+/**
+ * What removing one of the reader's own answers answers with (migration 034):
+ * the id that went, where it sat, and how many answers were folded up onto the
+ * answer it answered.
+ */
+data class ForumReplyDeletionDto(
+    val id: String? = null,
+    @Json(name = "discussion_id") val discussionId: String? = null,
+    @Json(name = "parent_id") val parentId: String? = null,
+    @Json(name = "answers_moved") val answersMoved: Int? = null
 )
 
 /** What one tap on the reaction popup answers with. */

@@ -42,11 +42,14 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.ningshingche.app.ui.editorial.EditorialSpace
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
+import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 
 @Composable
 internal fun CommenterAvatar(
@@ -78,7 +81,8 @@ internal fun CommenterAvatar(
                 text = name.trim().take(1).uppercase().ifBlank { "প" },
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
-                fontSize = (size.value * 0.42f).sp,
+                fontSize = textSize(size.value * 0.42f),
+                lineHeight = leading(size.value * 0.42f),
                 color = tokens.accent
             )
         }
@@ -102,7 +106,7 @@ internal fun ArticleCommentForm(
         focusedBorderColor = tokens.accent,
         unfocusedBorderColor = tokens.rule
     )
-    val fieldStyle = TextStyle(fontFamily = Kalpurush, fontSize = 15.sp)
+    val fieldStyle = TextStyle(fontFamily = Kalpurush, fontSize = textSize(15), lineHeight = leading(15))
     val canSubmit = editable && form.content.isNotBlank() && (registered || form.name.isNotBlank())
 
     Surface(
@@ -116,11 +120,11 @@ internal fun ArticleCommentForm(
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(Icons.Default.Comment, contentDescription = null, tint = tokens.accent, modifier = Modifier.size(22.dp))
-                Text("মন্তব্য করুন", fontFamily = Kalpurush, fontWeight = FontWeight.Bold,
-                    fontSize = 16.5.sp, color = MaterialTheme.colorScheme.onSurface)
+                Text(t("মন্তব্য করুন"), fontFamily = Kalpurush, fontWeight = FontWeight.Bold,
+                    fontSize = textSize(16.5), lineHeight = leading(16.5), color = MaterialTheme.colorScheme.onSurface)
             }
             if (!form.detailsLoaded) {
-                Text("সংরক্ষিত তথ্য লোড হচ্ছে...", fontFamily = Kalpurush, fontSize = 13.sp, color = tokens.inkMuted)
+                Text(t("সংরক্ষিত তথ্য লোড হচ্ছে..."), fontFamily = Kalpurush, fontSize = textSize(13), lineHeight = leading(13), color = tokens.inkMuted)
             }
             if (registered) {
                 Row(
@@ -133,18 +137,20 @@ internal fun ArticleCommentForm(
                     CommenterAvatar(name = form.name, avatarUrl = form.avatarUrl, size = 44.dp)
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = form.name.ifBlank { "পাঠক" },
+                            text = form.name.ifBlank { tNow("পাঠক") },
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
+                            fontSize = textSize(16),
+                            lineHeight = leading(16),
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = "নিবন্ধিত পাঠক",
+                            text = t("নিবন্ধিত পাঠক"),
                             fontFamily = Kalpurush,
-                            fontSize = 12.sp,
+                            fontSize = textSize(12),
+                            lineHeight = leading(12),
                             color = tokens.inkMuted
                         )
                     }
@@ -153,7 +159,7 @@ internal fun ArticleCommentForm(
                 OutlinedTextField(
                     value = form.name,
                     onValueChange = { onFormChange(form.copy(name = it)) },
-                    label = { Text("আপনার নাম *", fontFamily = Kalpurush) },
+                    label = { Text(t("আপনার নাম *"), fontFamily = Kalpurush) },
                     singleLine = true, enabled = editable, textStyle = fieldStyle,
                     shape = RoundedCornerShape(10.dp), colors = fieldColors,
                     modifier = Modifier.fillMaxWidth().testTag("comment_name")
@@ -161,7 +167,7 @@ internal fun ArticleCommentForm(
                 OutlinedTextField(
                     value = form.email,
                     onValueChange = { onFormChange(form.copy(email = it)) },
-                    label = { Text("ইমেইল (ঐচ্ছিক)", fontFamily = Kalpurush) },
+                    label = { Text(t("ইমেইল (ঐচ্ছিক)"), fontFamily = Kalpurush) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     singleLine = true, enabled = editable, textStyle = fieldStyle,
                     shape = RoundedCornerShape(10.dp), colors = fieldColors,
@@ -170,7 +176,7 @@ internal fun ArticleCommentForm(
                 OutlinedTextField(
                     value = form.phone,
                     onValueChange = { onFormChange(form.copy(phone = it)) },
-                    label = { Text("ফোন (ঐচ্ছিক)", fontFamily = Kalpurush) },
+                    label = { Text(t("ফোন (ঐচ্ছিক)"), fontFamily = Kalpurush) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     singleLine = true, enabled = editable, textStyle = fieldStyle,
                     shape = RoundedCornerShape(10.dp), colors = fieldColors,
@@ -180,7 +186,7 @@ internal fun ArticleCommentForm(
             OutlinedTextField(
                 value = form.content,
                 onValueChange = { onFormChange(form.copy(content = it)) },
-                label = { Text("আপনার মূল্যবান মন্তব্য *", fontFamily = Kalpurush) },
+                label = { Text(t("আপনার মূল্যবান মন্তব্য *"), fontFamily = Kalpurush) },
                 minLines = 3, maxLines = 8, enabled = editable, textStyle = fieldStyle,
                 shape = RoundedCornerShape(10.dp), colors = fieldColors,
                 modifier = Modifier.fillMaxWidth().testTag("comment_content")
@@ -199,7 +205,7 @@ internal fun ArticleCommentForm(
                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
                 }
                 Spacer(Modifier.width(8.dp))
-                Text("মন্তব্য জমা দিন", fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text(t("মন্তব্য জমা দিন"), fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = textSize(15), lineHeight = leading(15))
             }
             if (!status.isNullOrBlank()) {
                 Surface(
@@ -207,7 +213,8 @@ internal fun ArticleCommentForm(
                     color = if (form.isError) MaterialTheme.colorScheme.errorContainer else tokens.accentSoft,
                     modifier = Modifier.fillMaxWidth().testTag("comment_status")
                 ) {
-                    Text(status, fontFamily = Kalpurush, fontSize = 13.sp,
+                    Text(status, fontFamily = Kalpurush, fontSize = textSize(13),
+                    lineHeight = leading(13),
                         color = if (form.isError) MaterialTheme.colorScheme.onErrorContainer else tokens.accent,
                         modifier = Modifier.padding(10.dp))
                 }

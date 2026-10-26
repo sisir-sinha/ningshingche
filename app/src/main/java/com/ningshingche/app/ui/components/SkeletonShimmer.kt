@@ -31,10 +31,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
+import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 
 @Composable
 fun Modifier.shimmerEffect(
@@ -51,21 +50,15 @@ fun Modifier.shimmerEffect(
         label = "shimmer_anim"
     )
 
-    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.4f
-
-    val shimmerColors = if (isDark) {
-        listOf(
-            Color(0xFF1F2937),
-            Color(0xFF374151),
-            Color(0xFF1F2937)
-        )
-    } else {
-        listOf(
-            Color(0xFFE5E7EB),
-            Color(0xFFF3F4F6),
-            Color(0xFFE5E7EB)
-        )
-    }
+    // The tokens already know which side is on screen, so the shimmer is the
+    // palette's own rule and surface: a loading card belongs to the paper it will
+    // become.
+    val tokens = LocalEditorialTokens.current
+    val shimmerColors = listOf(
+        tokens.rule,
+        tokens.surfaceVariant,
+        tokens.rule
+    )
 
     val brush = Brush.linearGradient(
         colors = shimmerColors,

@@ -12,6 +12,7 @@ import com.ningshingche.app.data.remote.UserNotificationRecord
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import com.ningshingche.app.ui.i18n.tNow
 
 /**
  * Turns a [HomeFeed] snapshot into Android system notifications.
@@ -99,7 +100,7 @@ class ContentUpdateNotifier(
             ContentNotice(
                 kind = NotificationKind.MESSAGE,
                 id = item.id,
-                title = "অ্যাডমিনের বার্তা",
+                title = tNow("অ্যাডমিনের বার্তা"),
                 body = item.body.take(180),
                 uri = AppNotificationManager.ROUTE_INBOX
             )
@@ -110,7 +111,7 @@ class ContentUpdateNotifier(
             ContentNotice(
                 kind = NotificationKind.MESSAGE,
                 id = "notice-${item.id}",
-                title = item.title.ifBlank { "অ্যাডমিনের বার্তা" },
+                title = item.title.ifBlank { tNow("অ্যাডমিনের বার্তা") },
                 body = item.body.take(180),
                 uri = AppNotificationManager.ROUTE_INBOX
             )
@@ -119,7 +120,7 @@ class ContentUpdateNotifier(
             ContentNotice(
                 kind = NotificationKind.ARTICLE,
                 id = "user-article-${item.id}",
-                title = item.title.ifBlank { "প্রবন্ধ প্রকাশিত হয়েছে" },
+                title = item.title.ifBlank { tNow("প্রবন্ধ প্রকাশিত হয়েছে") },
                 body = item.body.take(180),
                 uri = item.relatedId.ifBlank { item.body }
             )
@@ -128,7 +129,7 @@ class ContentUpdateNotifier(
             ContentNotice(
                 kind = NotificationKind.ARTICLE,
                 id = "user-comment-${item.id}",
-                title = item.title.ifBlank { "মন্তব্য প্রকাশিত হয়েছে" },
+                title = item.title.ifBlank { tNow("মন্তব্য প্রকাশিত হয়েছে") },
                 body = item.body.take(180),
                 uri = item.relatedId
             )
@@ -194,8 +195,8 @@ class ContentUpdateNotifier(
                     ContentNotice(
                         kind = NotificationKind.SYSTEM,
                         id = "version-$versionCode",
-                        title = "অ্যাপ আপডেট হয়েছে",
-                        body = "নিংশিং চে-র নতুন সংস্করণ ইনস্টল আছে।",
+                        title = tNow("অ্যাপ আপডেট হয়েছে"),
+                        body = tNow("নিংশিং চে-র নতুন সংস্করণ ইনস্টল আছে।"),
                         uri = AppNotificationManager.ROUTE_SETTINGS
                     )
                 )
@@ -205,8 +206,8 @@ class ContentUpdateNotifier(
                     ContentNotice(
                         kind = NotificationKind.SYSTEM,
                         id = "settings-$settingsHash",
-                        title = "সাইট হালনাগাদ",
-                        body = feed.settings.title.ifBlank { "নিংশিং চে" },
+                        title = tNow("সাইট হালনাগাদ"),
+                        body = feed.settings.title.ifBlank { tNow("নিংশিং চে") },
                         uri = AppNotificationManager.ROUTE_SETTINGS
                     )
                 )

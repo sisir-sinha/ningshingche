@@ -19,7 +19,7 @@ without touching the string the app looks up. See **Rewriting the Bengali** belo
 | `backend/tests/languages*.test.cjs` | The grid's CSV layer and page wiring: sheet ⇄ per-language files, quoting, the filter/search behaviour, import and save. |
 
 Both scripts run without a JVM. `bn.csv` maps every key to itself, so it doubles as the key list;
-`en.csv` and `bpy.csv` ship with empty values for a translator to fill.
+`en.csv` and `bpy.csv` ship **filled**: every one of the 940 interface rows carries English and Bishnupriya Manipuri wording. See **What is in the two filled columns** below for the vocabulary the Bishnupriya column is built from, and what a speaker most usefully reviews. An empty cell is still the format's way of saying "not translated", which is why the files no longer contain one.
 
 The templates carry the strings the **interface** shows. Publication text — article and category
 copy from `NinghsingCheContentData.kt`, author biographies, the contact block — is listed in the
@@ -37,6 +37,36 @@ language file saved by an older build can still carry them and Import can paste 
 Value markers stay: `পৃষ্ঠা {1} / {2}` is one string with the page number spliced in, so `{1}` and
 `{2}` have to survive a translation — a translation may even move them, which is the reason they are
 numbered rather than named.
+
+## What is in the two filled columns
+
+Both columns were filled in one pass, one row per interface string.
+
+**`en.csv`** is plain English: the same sentence, the same tone, the same `{1}` slots. Product and
+brand names stay as they are (`AI`, `APK`, `Google`, `Supabase`, `ImgBB`, `Facebook`, `PDF`, `MP3`),
+and the numbers are written the English way (`৩টি প্রবন্ধ` → `3 articles`).
+
+**`bpy.csv`** is Bishnupriya Manipuri in Bengali script, built from the language the community
+already writes — the interface of **bpy.wikipedia.org** (`edit` = পতানি, `delete` = পুসানি, `login` =
+হমানি, `logout` = নিকুলানি, `search` = বিসারিয়া চা, `preview` = আগচা, `next` = থাংনাত, `save` =
+ইতু, `all` = হাবি, `view` = চা, `error` = লালুইসে, `ok` = চুমিসে, `cancel` = বাতিল করেদে) and its
+articles (`dialog` = য়্যারী, `name` = নাঙ, `about` = বারে, `write` = ইকরানি, `link` = মিলাপ,
+`user` = আতাকুরা, `language` = ঠার, `category` = বিভাগ) — plus the Bengali loanwords that community itself
+uses for modern things (`মোবাইল`, `ইন্টারনেট`, `ডাউনলোড`, `প্রবন্ধ`, `মন্তব্য`, `সেটিংস`). The bpy
+column never simply repeats the Bengali: a row that repeats the key is a row that was not translated.
+
+Three kinds of row are deliberately **identical in all three files**, and that is not an oversight:
+
+- **proper nouns** — `নিংশিং চে`, `ইঞ্চৌঘর`, `মিংকৌ`, `বিশু`, `সুদেষ্ণা সিংহ`, the street address;
+- **the community's own label for a thing** — `এলাহান বরিক`, which the app uses for the song file
+  itself (the same wording the owner asked for in Bengali), and `ইমার ঠারর এলা`;
+- **strings the app only matches against data** — `পৌ`, `ফিচা / ড`, `তামকরিক`, `হাব্বি মন্তব্যহানি`
+  (website page titles used as keywords, never printed to a reader).
+
+Two things a speaker should look at first, because they are the likeliest to want a different word:
+the **loanwords** (`সেটিংস`, `ড্যাশবোর্ড`, `নোটিফিকেশন`, `প্রবন্ধ`) where a purer bpy word may exist
+in the writer's own dialect, and the **dialect of the verb endings** — this pass follows the
+Wikipedia's spelling throughout, so a change is one edit in the grid, not a re-translation.
 
 ## How it lands in the app
 
@@ -99,22 +129,31 @@ the translation, it may be moved but not dropped.
 
 ## Size of the job
 
-- **965 distinct strings**: **734 interface** strings and **231 publication-content** strings —
+- **1118 distinct strings**: **914 interface** strings and **204 publication-content** strings —
   author bios, category names, standing copy in `NinghsingCheContentData.kt`, `AuthorProfiles.kt`,
   `SiteContact.kt`. Content rows are listed for completeness; they are what the magazine publishes,
   so they normally stay as authored and are marked `content` in the inventory. The templates carry
   the interface rows only.
-- The `uses` column matters: translating the 100 most-used strings covers a little over a quarter of
-  the interface occurrences.
+- The `uses` column matters: the grid's template carries the 914 interface rows, and translating the
+  100 most-used of them covers 33% of the interface occurrences (the top 50 cover 23%).
 
 ## How a pass works
 
-1. Open **Dashboard → Languages**, pick the language, press **Load template**. The page reports how
-   many rows are translated, how many values are still empty, and which Bengali keys the file does
-   not carry yet.
+1. Open **Dashboard → Languages**. The grid fills itself from the templates committed in
+   `backend/assets/lang/` as it loads, and **Load templates** reads them again on demand — that is the
+   road from a translator's CSV in the repository to the dashboard. Each language shows two numbers
+   beside its name: how many rows the grid holds (`en 42/914`) and how many the app can actually read
+   (`42 saved`). A language with **0 saved** has never been published, and readers who pick it still
+   see Bengali; when any language is in that state the page says so above the grid, naming it.
+   Press **Save translations** to publish — reading a template never writes anything on its own.
 2. Work down the grid. The search box matches Bengali and both translations; **Missing** shows the
    rows that still lack a `bpy` or `en` value and **Complete** the rest, which is how you find what
    is left. Leave a cell empty if you are unsure: the app shows its own Bengali text for that string.
+   Wording that reaches the dashboard from a template is never written over a cell somebody typed, so
+   the two roads — a CSV committed in `backend/assets/lang/`, and the sheet on this page — can be used
+   in either order. A wording already in a template is carried through
+   `python3 i18n/build_language_templates.py`, so filling a template by hand and regenerating it does
+   not lose the work.
 3. Refresh the language in the app (Settings → অনুবাদ হালনাগাদ করুন, or just switch language) to see
    the result. No app release is involved.
 

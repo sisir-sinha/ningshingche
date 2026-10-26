@@ -56,9 +56,11 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
+import com.ningshingche.app.ui.i18n.tNow
 
 /**
  * Renders HTML formatted text (from author descriptions, bios, and rich CMS data)
@@ -69,8 +71,8 @@ fun HtmlFormattedText(
     html: String,
     modifier: Modifier = Modifier,
     baseTextColor: Color = MaterialTheme.colorScheme.onSurface,
-    fontSize: TextUnit = 14.sp,
-    lineHeight: TextUnit = 22.sp,
+    fontSize: TextUnit = textSize(14),
+    lineHeight: TextUnit = leading(14),
     linkColor: Color = MaterialTheme.colorScheme.primary,
     maxLines: Int = Int.MAX_VALUE,
     overflow: TextOverflow = TextOverflow.Clip
@@ -136,7 +138,7 @@ fun parseHtmlToAnnotatedString(
                     addStyle(SpanStyle(color = Color(span.foregroundColor)), start, end)
                 }
                 is RelativeSizeSpan -> {
-                    addStyle(SpanStyle(fontSize = (14 * span.sizeChange).sp), start, end)
+                    addStyle(SpanStyle(fontSize = textSize(14f * span.sizeChange)), start, end)
                 }
                 is URLSpan -> {
                     addStyle(
@@ -174,8 +176,8 @@ fun MarkdownFormattedText(
     markdown: String,
     modifier: Modifier = Modifier,
     baseTextColor: Color = MaterialTheme.colorScheme.onSurface,
-    fontSize: TextUnit = 14.sp,
-    lineHeight: TextUnit = 22.sp,
+    fontSize: TextUnit = textSize(14),
+    lineHeight: TextUnit = leading(14),
     onLinkClick: (String) -> Unit = {}
 ) {
     val blocks = remember(markdown) { parseMarkdownBlocks(markdown) }
@@ -188,17 +190,20 @@ fun MarkdownFormattedText(
         blocks.forEach { block ->
             when (block) {
                 is MarkdownBlock.Heading -> {
+                    // Through the dial like every other size: a heading that
+                    // stayed put while the body grew would have flattened the
+                    // page it is there to break up.
                     val headFontSize = when (block.level) {
-                        1 -> 18.sp
-                        2 -> 16.sp
-                        else -> 15.sp
+                        1 -> textSize(18)
+                        2 -> textSize(16)
+                        else -> textSize(15)
                     }
                     Text(
                         text = parseInlineMarkdown(block.text, baseTextColor, linkColor, onLinkClick),
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
                         fontSize = headFontSize,
-                        lineHeight = (headFontSize.value + 6).sp,
+                        lineHeight = textSize(headFontSize.value + 6f),
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
                     )
@@ -315,8 +320,8 @@ fun MarkdownFormattedText(
                         Text(
                             text = block.code,
                             fontFamily = FontFamily.Monospace,
-                            fontSize = 12.sp,
-                            lineHeight = 18.sp,
+                            fontSize = textSize(12),
+                            lineHeight = leading(12),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(10.dp)
                         )
@@ -443,7 +448,7 @@ private fun MarkdownTable(
                                     ),
                                     fontFamily = Kalpurush,
                                     fontSize = fontSize,
-                                    lineHeight = (fontSize.value + 6).sp,
+                                    lineHeight = textSize(fontSize.value + 6f),
                                     textAlign = alignment,
                                     color = baseTextColor,
                                     modifier = Modifier.fillMaxWidth()
@@ -605,7 +610,7 @@ private fun parseMarkdownBlocks(raw: String): List<MarkdownBlock> {
             blocks.add(
                 MarkdownBlock.Image(
                     url = imageMatch.groupValues[2].trim(),
-                    alt = imageMatch.groupValues[1].trim().ifBlank { "ছবি" }
+                    alt = imageMatch.groupValues[1].trim().ifBlank { tNow("ছবি") }
                 )
             )
             i++
@@ -666,7 +671,7 @@ private fun normalizeRichText(raw: String): String {
 fun parseInlineMarkdown(
     text: String,
     defaultColor: Color,
-    linkColor: Color = Color(0xFF0D6EFD),
+    linkColor: Color,
     onLinkClick: (String) -> Unit = {}
 ): AnnotatedString {
     // AI providers sometimes return HTML (or HTML-escaped HTML) instead of Markdown.

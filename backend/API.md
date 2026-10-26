@@ -450,6 +450,71 @@ Public library of MP3/audio tracks for the Android player (migration `014_music_
 | `sort_order` | integer | Default `0` |
 | `love_count` (020) | integer | Public love reacts; trigger-synced from `music_loves`, written only through `toggle_music_love` (§7.13) |
 
+### `forum_categories` (migration `029_forum.sql`)
+The handful of boards a reader files a discussion under. Public read; no dashboard editor — a new
+category is a migration or a SQL-editor insert, exactly as the app's own `forum_overview`
+advertises them.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | uuid PK | |
+| `slug` | text unique | What `forum_create_discussion` is called with |
+| `title`, `description` | text | Bengali titles are the ones readers see |
+| `position` | integer | Order in the app's board list |
+| `is_locked` | boolean | Locked boards take no new discussion |
+
+### `forum_discussions`
+A thread a signed-in reader wrote, and everything the dashboard moderates (page **Forum**, route
+`forum`).
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | uuid PK | |
+| `category_id` | uuid → `forum_categories` | `on delete cascade` |
+| `user_id` | uuid → `profiles` | The reader — **nullable since `032`**, because an editorial post has no reader behind it. Names are joined from `profiles` when the row carries none of its own |
+| `author_name` (032) | text | The dashboard's own signature; when it is set the app shows it instead of the profile name |
+| `title` | text | Required |
+| `body` | text | The reader's HTML, as the app's editor produced it |
+| `status` | text | `Publish` \\| `Unpublish` — **the only field the dashboard writes** |
+| `views_count` | bigint | Counted by `forum_discussion(…, p_count_view)`, which records a visit through `content_view_record` since `036` — one per viewer per thirty minutes |
+| `replies_count` | integer | Trigger-synced from visible replies |
+| `last_reply_at` | timestamptz | `null` until someone answers |
+| `cover_image_url`, `cover_delete_url` (030) | text | Optional ImgBB cover |
+| `is_official` (030) | boolean | Set by a trigger for editor-posted threads |
+| `created_at`, `updated_at` | timestamptz | |
+
+### `forum_replies`
+An answer. Answers are **not** rewritten by the dashboard either: hiding one is `status`.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | uuid PK | |
+| `discussion_id` | uuid → `forum_discussions` | `on delete cascade` |
+| `user_id` | uuid → `profiles` | |
+| `body` | text | The answer's HTML |
+| `status` | text | `Publish` \\| `Unpublish` |
+| `parent_id` (030) | uuid | One indent level; `null` for a top-level answer |
+| `author_name` (032) | text | The dashboard's signature, as on a thread |
+| `is_official` (032) | boolean | An answer written from the dashboard can be marked as one |
+| `created_at` | timestamptz | Answers read oldest first |
+
+### `forum_reactions` (migration `030_forum_answers.sql`)
+One row per reaction per reactor, written by a reader only through `forum_react` (§7.19). `reactor_key`
+is the reader's id, an opaque device key, or — since `032` — `dashboard:<dashboard user id>` for a
+reaction left from the CMS, so an anonymous reader's reaction counts once on one device and two
+admins hold a reaction each. `032` grants the dashboard `select`/`insert`/`update`/`delete` on it
+(read with `forum` or `analytics`, write with `forum`), because `030` left the table with RLS on and
+no policy at all: the RPC was the only door, and a dashboard session is neither a reader nor a
+device.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `reply_id` | uuid → `forum_replies` | Part of the PK |
+| `reactor_key` | text | Part of the PK |
+| `user_id` | uuid | `null` for an anonymous reaction |
+| `kind` | text | `like` \\| `dislike` \\| `agree` |
+| `created_at` | timestamptz | |
+
 ### `settings`
 Single row, `id = 'site_settings'`.
 
@@ -501,6 +566,10 @@ Table name mapping lives in `NC_CONFIG.tables`:
 | `submissions` (app articles) | `submitted_blogs` | `created_at.desc` | 10 (Registered users › Articles) |
 | `messages` | `admin_messages` | `created_at.desc` | grouped per user |
 | `notifications` | `user_notifications` | `created_at.desc` | 10 |
+| `forum` | `forum_discussions` | `created_at.desc` | 10 (Forum) |
+| `forumReplies` | `forum_replies` | `created_at.asc` | — (inside one discussion) |
+| `forumReactions` | `forum_reactions` | `created_at.asc` | — (inside one answer) |
+| `forumCategories` | `forum_categories` | `position.asc` | filter dropdown |
 | — (read-only view) | `blog_tag_counts` | `issue_year.desc.nullslast,total.desc` | filter dropdowns |
 
 Generic operations — substitute `<table>` from the mapping above:
@@ -522,6 +591,8 @@ Granted by `schema.sql` so the website and Android app can read content directly
 | `blogs` | `SELECT` — only `status = 'Publish'` |
 | `comments` | `SELECT` — only `status = 'Publish'`; `INSERT` allowed (visitor comments) |
 | `submitted_blogs` | `INSERT` allowed (public article submission) |
+| `forum_categories` | `SELECT` — all rows |
+| `forum_discussions`, `forum_replies` | `SELECT` — only `status = 'Publish'`; `INSERT`/`UPDATE`/`DELETE` — only the reader's own row (`user_id = auth.uid()`) |
 | `storage.objects` (`pdf-books`, `music`) | `SELECT` — public read |
 
 Write access to everything else requires a dashboard session whose role carries the matching menu
@@ -539,6 +610,36 @@ permission (migration 004 creates per-menu policies).
 **Comments**
 - Quick moderation is a single column patch: `PATCH /rest/v1/comments?id=eq.<id>` with
   `{ "status": "Publish" }` or `{ "status": "Unpublish" }`.
+
+**Forum (route `forum`)**
+- The page reads the **tables** — `forum_discussions`, `forum_replies`, `forum_categories` — and not
+  the `forum_*` RPCs or the `forum_*_rows` views. Migration 029 grants the dashboard `select` on
+  each table with a dashboard-level policy (`is_dashboard_request()`), and that policy is the only
+  door through which a hidden thread can be read back at all; the views are revoked from browser
+  roles on purpose. Reads join `profiles` for names.
+- Moderation is one column: `PATCH /rest/v1/forum_discussions?id=eq.<id>` with
+  `{ "status": "Unpublish" }` to hide, `{ "status": "Publish" }` to restore — the same values the
+  app's RPCs filter on, so the effect is immediate everywhere. The same patch on
+  `forum_replies` hides a single answer. Deleting a discussion removes its cover from ImgBB when
+  `cover_delete_url` is present, and the cascade takes its answers with it.
+- A reader's `body` is displayed as **text**: `NC.utils.stripHTML` runs after block tags become line
+  breaks, so nothing a reader wrote is ever parsed as markup. `<a href>` targets found in the body
+  are listed as attachments (that is where the app keeps a picture or a PDF), and
+  `cover_image_url` is passed through `safeImage`.
+- **Writing.** A thread or answer inserted through a dashboard session is official by `030`'s own
+  trigger, and `032` adds the row's own signature: `author_name` first, then the reader's profile
+  name, then the magazine's reader label — the order both read views use, so what the CMS writes is
+  what the app shows. A body is HTML written with the same sanitising editor as the rest of the
+  dashboard; the page never writes one without an explicit save.
+- **Nobody else decides who wrote it.** `032`'s `forum_content_guard` trigger returns early for a
+  dashboard request and, for every other writer — a reader PATCHing their own row through the
+  `*_own_write` policy of `029`, or the app's own RPCs — forces `author_name` and `is_official` back
+  to their stored values (`''`/`false` on insert).
+- **The menu key is `forum`, not `comments`.** Migration `031_forum_menu_permission.sql` adds it to `dashboard_valid_permissions()` (004's allow-list, already extended by 008 and 014) and appends it to the roles that hold Comments, because `dashboard_save_role` filters every requested permission through that list and drops an unknown key **without an error**. The three tables' dashboard policies are named after the same key: `select` for `dashboard_has_any_permission(array['forum','analytics'])` (Analytics draws the index dashboard panel), `insert`/`update`/`delete` for `dashboard_has_permission('forum')`. The public reader policies and the app's `security definer` RPCs are untouched.
+- Needs-attention queues on the index dashboard link to the page's own filters:
+  `#/forum?filter=Waiting` (published, `replies_count = 0`) and `#/forum?filter=Unpublish`.
+- `body_text` is **not** a column and `forum_display_name` is **not** a function: search matches
+  `title`; names come from `profiles`.
 
 **Categories**
 - Duplicate detection before insert: `count('categories', { title, slug })`; usage counts come from
@@ -881,8 +982,15 @@ The app calls it every five minutes while it is open and again when it goes to t
                       "articles", "songs", "comments", "views", "seconds", "points" } ] }
 ```
 
-Ordered by points, then articles, then songs. Readers with nothing in the month are left out.
-`p_month` is any date inside the month wanted; `p_limit` is clamped to 1–100.
+Ordered by points, then articles, then songs, descending. Readers with nothing in the month are
+left out. `p_month` is any date inside the month wanted; `p_limit` is clamped to 1–100.
+
+**The rank and the order are the same ordering (`035_contributor_order.sql`).** `026` computed the
+rank with `row_number() over ()` and ordered the query separately; a window function is evaluated
+before the query's own `order by`, so `over ()` numbered the rows in the order the executor read
+them and the board came back in the table's physical order. `035` moves the ordering inside the
+window, which is the only place it can be seen by the rank. The app sorts the board it is handed by
+the same rule before drawing it (`PortalModels`), so neither end is trusting the other's order.
 
 **Who may call what.** All three functions are `revoke`d from `public` and granted to
 `authenticated` only — a guest with the publishable key is refused by the database, which is what
@@ -911,14 +1019,16 @@ the two callers apart.
 
 Counting is unchanged and still lives in `contributor_score` / `contributor_points_from`; `026`'s
 `contributor_leaderboard` and this one are both thin wrappers over a shared, unexported
-`contributor_board(p_limit, p_month, p_all)`, so the two cannot drift apart.
+`contributor_board(p_limit, p_month, p_all)`, so the two cannot drift apart — and both take their
+order from the one place `035_contributor_order.sql` re-states, so the app's page and the dashboard's
+page rank identically.
 
 App side: `/contributors` in the dashboard is not a page — it is the app's own screen. Dashboard side:
 the **সেরা অবদানকারী** route under Registered users.
 
 ---
 
-### 7.17 `public_profile` (`024_uploader_and_public_profile.sql`, publishable key allowed)
+### 7.17 `public_profile` (`024_uploader_and_public_profile.sql`, `028`, `037`, publishable key allowed)
 
 One registered reader's public page: their name and avatar, the published articles their submissions
 were converted into, and the songs they uploaded — with the view totals for both. Exists because
@@ -930,9 +1040,25 @@ only for `status in ('Publish','Published')`.
 | --- | --- |
 | `p_user_id` | `uuid` of a `public.profiles` row |
 
-Returns `jsonb` (`{ id, name, avatar_url, joined_at, article_views, music_views, articles[], songs[] }`),
-or `null` when no such profile exists. `articles[]` is `{ id, title, slug, thumbnail, views_count, published_date, created_at, category_title }` (max 60);
-`songs[]` is `{ id, title, artist, album, genre, thumbnail_url, audio_url, file_storage_path, duration_seconds, love_count, views_count, created_at }` (max 120).
+Returns `jsonb`, or `null` when no such profile exists:
+
+| field | notes |
+| --- | --- |
+| `id`, `name`, `avatar_url`, `designation`, `address`, `joined_at` | who they are. `028` added the designation and the address; the email, phone and website stay private |
+| `points`, `month_points` | `contributor_score` (026), asked for through `to_regprocedure` so the page opens without it |
+| `article_views`, `music_views`, `forum_views` | the reader's views, **counted by `036_view_logic.sql`'s engine** and read from `user_view_totals` — the same call the app's dashboard uses, so the two cannot disagree. `037` added `forum_views` |
+| `total_views` | `article_views + music_views + forum_views`, added up on the server so the page's headline and the split beside it are the same arithmetic |
+| `visitors` | distinct viewers of their work — different people, where the counts above are visits |
+| `minutes_listened` | seconds of their songs that were really listened to, as whole minutes |
+| `articles[]`, `songs[]` | their published articles (`{ id, title, slug, image, views_count, published_date, created_at, category_title }`, max 60) and their songs (`{ id, title, artist, album, genre, thumbnail_url, audio_url, file_storage_path, duration_seconds, love_count, views_count, created_at }`, max 120), most read first |
+
+`037_profile_views.sql` may be run **before** `036`: when `user_view_totals` is not there, the three
+counts are summed from the item rows (`blogs.views_count`, `music_tracks.views_count`,
+`forum_discussions.views_count`) and `visitors` is `0` — a database that never recorded who was reading
+says so rather than guessing. `forum_discussions` is asked for with `to_regclass`, so a profile without
+the forum is a zero, not an error. The article count covers **every** blog the reader's submissions
+became, published or not, which is what `036` counts; the article *list* still shows the published
+ones.
 
 The same migration denormalises the uploader onto the track: `music_tracks.uploader_name`, filled
 from `profiles.name` for the rows that already existed, and written by the app on new uploads. It is
@@ -940,28 +1066,59 @@ what the player's `Uploader: …` line reads, with no extra request.
 
 ---
 
-### 7.18 View counting (`025_content_views.sql`, publishable key allowed)
+### 7.18 View counting (`025_content_views.sql`, `036_view_logic.sql`, publishable key allowed)
 
 A running total cannot draw a graph, so the counts are derived from events: every view is one row in
-`public.content_views`, a trigger keeps `blogs.views_count` / `music_tracks.views_count` in step, and
-the dashboard's series comes from the same rows. The table itself is closed — no grants, RLS on, no
-policies — so only the security-definer functions below touch it.
+`public.content_views`, a trigger keeps `blogs.views_count` / `music_tracks.views_count` /
+`forum_discussions.views_count` in step, and the dashboard's series comes from the same rows. The
+table itself is closed — no grants, RLS on, no policies — so only the security-definer functions below
+touch it.
 
-**`record_content_view(p_type text, p_id uuid, p_device_id text default null) → bigint`**
+`036` is the rule the counts follow, and it is one rule for all three:
 
-Counts one view and returns the item's new total. `p_type` is `blog` or `music`. A signed-in reader
-is identified by `auth.uid()`; a guest by `md5('ningshingche:view:' || p_device_id)`, so the device id
-is never stored. The same viewer counts once per item per 20 hours.
+* **one view per visit.** A visit is thirty minutes (`content_view_visit_window()`): the same viewer
+  re-opening the same item inside that window is the same visit and adds nothing; after it, they have
+  come back and it counts once. The twenty-hour window `025` used is gone.
+* **every view says who.** `viewer_kind` is `registered` when the call carried a session and `guest`
+  otherwise, so the split can be reported instead of guessed.
+* **a song counts when it has been listened to.** Thirty seconds, or half the track when the track is
+  shorter than a minute (`music_valid_seconds()`). The caller reports the seconds it actually played;
+  the database decides whether they are a play, and keeps the seconds — so minutes listened is a
+  measurement, not plays × runtime.
+
+**`content_view_record(p_type text, p_id uuid, p_device_id text default null, p_seconds integer default null) → bigint`**
+
+Records one visit and returns the item's new total. `p_type` is `blog`, `music` or `forum`. A
+signed-in reader is identified by `auth.uid()`; a guest by `md5('ningshingche:view:' || p_device_id)`,
+so the device id is never stored. `p_seconds` is how much of a song was heard since the last report,
+and only the `music` branch reads it — a song with no seconds is never counted.
 
 | error | when |
 | --- | --- |
-| `22023` | `p_type` is not `blog`/`music`, or `p_id` is null |
+| `22023` | `p_type` is not `blog`/`music`/`forum`, or `p_id` is null |
 
-**`user_view_totals(p_user_id uuid) → jsonb`** — `{ article_views, music_views }`: the counts on the
-blogs the reader's submissions became, plus the plays of the tracks they uploaded.
+**`record_content_view(p_type text, p_id uuid, p_device_id text default null) → bigint`** — `025`'s
+door, kept because an installed app still calls it. It routes through the engine with no seconds, so
+it can record a blog or a forum visit but never a play.
 
-**`user_view_series(p_user_id uuid, p_days integer default 30) → table(day date, views bigint)`** —
-one row per day, empty days included, UTC, so the chart has a continuous axis.
+**`view_stats(p_type text, p_id uuid) → jsonb`** — one item: `{ views, visitors, registered, guest,
+minutes_listened }`. `views` counts visits; `visitors` counts distinct viewers.
+
+**`view_summary(p_days integer default 30) → jsonb`** — the window in one line: `{ days, views,
+visitors, registered_views, guest_views, registered_visitors, guest_visitors, minutes_listened }`.
+`visitors` is a distinct count across the whole window, which is not the sum of the days' uniques.
+
+**`view_overview(p_days integer default 30) → table(day date, views bigint, visitors bigint,
+registered bigint, guest bigint, minutes_listened bigint)`** — one row per day, empty days included,
+UTC. Aggregate counts only: no per-reader rows leave it.
+
+**`user_view_totals(p_user_id uuid) → jsonb`** — `{ article_views, music_views, forum_views, visitors,
+registered_views, guest_views, minutes_listened }`. The three view counts are the item rows' own
+`views_count`, so this and the dashboard cannot disagree; the rest is measured from the views.
+
+**`user_view_series(p_user_id uuid, p_days integer default 30) → table(day date, views bigint,
+visitors bigint, minutes_listened bigint)`** — one row per day, empty days included, UTC, so the chart
+has a continuous axis. This shape changed in `036`; the old four-column version is dropped first.
 
 ---
 
@@ -991,6 +1148,39 @@ on save; the app only ever reads one language at a time.
 A blank `value` means "not translated"; the app shows its own Bengali text for that key. The CSV
 reader on both sides handles quoted fields, doubled quotes, CRLF, a BOM and embedded newlines, and
 the last duplicate key wins — see `backend/tests/languages.test.cjs` and `TranslationCsvTest.kt`.
+
+### 7.19 The forum (`029_forum.sql`, `030_forum_answers.sql`, publishable key allowed)
+
+The app's own doors. The dashboard moderates through the tables (§6.2); these are what a reader
+calls, and they only ever return `status = 'Publish'` rows.
+
+| Function | Arguments | Returns | Notes |
+| --- | --- | --- | --- |
+| `forum_overview` | `p_limit integer = 20`, `p_order text = 'recent'` | jsonb | Boards, latest and popular threads. `030` adds the order argument and the answer counts; `p_order` accepts the app's own order names |
+| `forum_category` | `p_slug text`, `p_limit integer = 30`, `p_offset integer = 0` | jsonb | One board, paged (`029`; unchanged by `030`) |
+| `forum_search` | `p_query text`, `p_limit integer = 30` | jsonb | Title and body search (`029`) |
+| `forum_discussion` | `p_id uuid`, `p_count_view boolean = true`, `p_device_id text = null` | jsonb | One thread with its answers and reactions. `p_count_view` records a visit through the counting engine (`036`), so re-opening a thread in the same visit counts once |
+| `forum_react` | `p_reply_id uuid`, `p_kind text`, `p_device_id text = null` | jsonb | `like` \\| `dislike` \\| `agree`; the same call again takes the reaction back. Anonymous readers are keyed by `forum_reactor_key(p_device_id)` |
+| `forum_create_discussion` | `p_category_slug text`, `p_title text`, `p_body text`, `p_cover_image_url text = ''`, `p_cover_delete_url text = ''` | jsonb | Signed-in (`authenticated`) only |
+| `forum_reply` | `p_id uuid`, `p_body text`, `p_parent_id uuid = null`, `p_device_id text = null` | jsonb | Signed-in only; `p_parent_id` is the one indent level |
+| `forum_activity` | `p_user_id uuid`, `p_limit integer = 20` | jsonb | A reader's own forum history — threads, answers, points (used by the public profile and the app dashboard) |
+| `forum_edit_reply` (`034`) | `p_id uuid`, `p_body text` | jsonb | The reader's **own** answer, re-worded. Author only: anyone else — and an editorial answer, which has no reader behind it — is refused with `42501`. Returns the reply as it now is, with `is_official` and `is_mine` |
+| `forum_delete_reply` (`034`) | `p_id uuid` | jsonb | The reader's **own** answer, removed: `status = 'Removed'`, with the answers under it handed to the answer it answered. Returns `{id, discussion_id, parent_id, answers_moved}`. Author only, `42501` otherwise |
+
+`030` re-creates `forum_overview`, `forum_discussion`, `forum_create_discussion` and `forum_reply`
+with the signatures above and **drops the four `029` signatures** they replace, so an old call shape
+is a hard `404` rather than a silent wrong answer.
+
+`034` re-creates `forum_discussion` and `forum_reply` once more — the same signatures, the same
+columns in the same order, with `is_official` and `is_mine` **appended** to each reply. A function
+whose shape is a promise may only grow at the end, and the app reads it by name. `is_mine` is
+`(author_id is not null and author_id = auth.uid())`: an editorial answer has no reader, and
+`null = null` is null, which is not true. Bodies are flattened with the same
+`forum_plain_text` helper the app's reader uses, which is where the plain-text search and length
+limits come from. Points a reader earns from the forum come through `contributor_score`
+(§7.15) — `contributor_forum_points_from` is internal.
+
+---
 
 ## 8. Storage API (PDF)
 
@@ -1132,6 +1322,7 @@ GET /rest/v1/<table>?select=*&or=(<f1>.ilike.*term*,<f2>.ilike.*term*)&order=cre
 | `submitted_blogs` | `title`, `writer_name`, `content_title` |
 | `videos` | `title`, `description` |
 | `music_tracks` | `title`, `artist`, `album` |
+| `forum_discussions` | `title`, `body` |
 
 Requests run in parallel via `Promise.allSettled`; tables the user may not access are skipped and
 individual failures are dropped. Results are flattened to
@@ -1149,7 +1340,10 @@ lightweight `GET …?select=…&limit=1` per table and reports:
 | Content tables | `select=id` | `PGRST205` → table missing → run `schema.sql` |
 | `blogs` media columns | `select=id,imgbb_delete_url,image_meta,inline_media,pdf_file_provider,pdf_storage_path,pdf_file_size_mb` | `PGRST204`/`42703` → run migration `003` |
 | `submitted_blogs.inline_media` | `select=id,inline_media` | run migration `003` |
+| Forum columns | `forum_discussions` `select=id,status,replies_count,last_reply_at,is_official,author_name`; `forum_replies` `select=id,parent_id,status,author_name,is_official`; `forum_categories` `select=id,slug,position` | `PGRST205`/`PGRST204` → run `029_forum.sql`, then `030_forum_answers.sql`, then `032_forum_editorial.sql` (the banner names them all) |
+| The app's public profile lists | The app calls `rpc/profile_items` (`p_user_id, p_kind, p_limit, p_offset`); the dashboard itself never calls it, but the database it points at must have it | `PGRST202` → run `033_profile_paging.sql`; the app says so in words on the list it could not read |
 | Access control | presence of the `dashboard_login` RPC (client-side `isLegacy()` check) | run migration `004` |
+| Forum menu key | the snapshot's `valid_permissions` from `dashboard_access_snapshot`, compared with the routes in `config.js` (client-side) | a menu the database does not list cannot be granted → run `031_forum_menu_permission.sql` |
 
 Returns `{ ok, results[], missing[], mismatched[], accessControlMissing }`.
 
@@ -1277,6 +1471,12 @@ All helpers live on the `window.NC` namespace. Load order matters — see `index
 Pure helpers (no requests) — see §4.3.1: `clean`, `normalize`, `keyOf`, `issueYear`, `isIssue`,
 `issueKey`, `issueLabel`, `issueVariants`, `tagsOf`, `matchesKey`, `matchesIssue`, `parseIssueParam`,
 `index`, `indexFromRows`, `houseIssueLabel`, `displayLabel`, `withIssue`, `toAsciiDigits`, `toBengaliDigits`.
+
+### `NC.views.forum` (`assets/js/forum.js`, route `forum`)
+The forum moderation page: `render(container, context)` and an internal `load(context, { keepListStill })`.
+Filters are the URL too — `#/forum?filter=Waiting`, `#/forum?filter=Unpublish`, `?answers=waiting`,
+`?category=<slug>`, `?action=view&id=<uuid>`. Writes go through `NC.api.update` /
+`NC.api.remove` and `NC.crud.deleteRecord`; nothing here writes a `body`.
 
 ### `NC.crud` additions
 

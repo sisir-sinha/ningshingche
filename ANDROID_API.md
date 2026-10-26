@@ -187,21 +187,48 @@ issue are collapsed by `data/portal/IssueTags.kt`, the Kotlin twin of `backend/a
 
 ## 5. Theme and design tokens
 
-`ui/theme/Color.kt` — portal palette:
+`ui/editorial/EditorialTheme.kt` (259 lines) — `EditorialPalette`, the palette the reader actually
+sees: **নীলা-কালি**, indigo ink. Two families, and the second one exists because a colour that
+reads as ink on paper disappears on near-black:
+
+| | Light | Dark |
+| --- | --- | --- |
+| Paper (background) | `0xFFF7F8FB` | `0xFF0D1017` |
+| Sunken / surface-variant | `0xFFEDF0F7` / `0xFFF1F3F8` | `0xFF1B2130` |
+| Surface (a card) | `0xFFFFFFFF` | `0xFF141926` |
+| Ink | `0xFF131722` | `0xFFEDF0F7` |
+| Ink soft / muted | `0xFF414A5C` / `0xFF6E7787` | `0xFFC3CAD8` / `0xFF8C95A6` |
+| Rule / rule strong | `0xFFDDE2EC` / `0xFFC3CBD9` | `0xFF252C3B` |
+| **Indigo** (accent) | `0xFF2F4B8F` | `0xFF93B0E6` |
+| Indigo soft (fills) | `0xFFE7ECF8` | `0xFF1D2740` |
+| **Gold** (second accent) | `0xFFB4761B` | `0xFFE3B368` |
+| Gold soft | `0xFFFBF0DC` | `0xFF33280F` |
+
+`Success` `0xFF1E7A54`, `Warning` `0xFFB4761B`, `Danger` `0xFFB4232A`. `EditorialTokens` hands
+`rule`, `ruleStrong`, `inkSoft`, `inkMuted`, `accent`, `accentSoft`, `surfaceSunken` and `isDark`
+to screens through `LocalEditorialTokens`; the Material schemes take `primary` from the indigo
+and `secondary` from the gold. Measured contrast: ink on paper 16.9:1, indigo on paper 7.8:1.
+
+`ui/theme/Color.kt` (72 lines) — brand and panel tokens, for the screens that sit outside
+`EditorialTheme` (the splash, the music player, the PDF reader, the drawer, the toast) and for
+slabs, which stay brand-coloured in both themes:
 
 | Token | Value |
 | --- | --- |
-| `PortalMaroon` | `0xFF6E2B19` |
-| `PortalSaffron` | `0xFFFF8C00` |
-| `PortalDeepBrown` | `0xFF4B2E2B` |
-| `PortalCream1` | `0xFFF9F5E9` |
-| `PortalCream2` | `0xFFFFFAF2` |
-| `PortalGold` | `0xFFFFD700` |
-| `PortalWhite` | `0xFFFFFFFF` |
-| `PortalDarkBg` / `Surface` / `Variant` / `Border` / `Text` | `0xFF111827` / `0xFF1F2937` / `0xFF374151` / `0xFF4B5563` / `0xFFF9FAFB` |
+| `BrandIndigo` / `BrandIndigoDeep` | `0xFF2F4B8F` / `0xFF263C73` |
+| `BrandIndigoLight` | `0xFF93B0E6` |
+| `BrandGold` / `BrandGoldLight` / `BrandOnGold` | `0xFFB4761B` / `0xFFE3B368` / `0xFF131722` |
+| `PanelDeep` / `Panel` / `PanelSoft` / `PanelRule` | `0xFF0B0E14` / `0xFF141926` / `0xFF1B2130` / `0xFF2A3141` |
+| `PanelInk` / `PanelInkMuted` / `PanelChip` | `0xFFEDF0F7` / `0xFFC3CAD8` / `0x33EDF0F7` |
+| `BrandDarkCanvas` | `0xFF0D1017` |
 
-Plus an amber ramp (`Amber50` … `Amber950`) and reader-only palettes: `SepiaCanvas`, `SepiaSurface`,
-`SepiaText`, `PaperCanvasLight`, `PaperSurfaceLight`, `PaperSurfaceVariantLight`, `PaperCardBorderLight`.
+The old portal set — `PortalMaroon`, `PortalSaffron`, the amber ramp, the sepia triad, the night
+paper names and the five category accents — is gone. Twenty-five of those twenty-eight tokens had
+no reader left when the palette was repainted, and a token nothing reads cannot promise a colour;
+`BrandDarkCanvas` is what `PortalDarkBg` became. Nothing in `app/src/main` names a colour by hex
+outside these two files except neutral scrims (`0xCC0B0E14` and friends), the semantic status
+colours in `UserDashboardScreen` (a green tick, a red rejection) and the rank medals in
+`ContributorScreen`.
 
 `ui/theme/Theme.kt` — `MyApplicationTheme(darkTheme: Boolean, content)` builds
 `LightPortalScheme` / `DarkPortalScheme` (`lightColorScheme` / `darkColorScheme`), applies
@@ -476,6 +503,24 @@ suspend fun uploadAudio(context, uri): Result<UploadedSong>       // publicUrl, 
 chunks instead of reading it into memory. `Add Song` tries this host first and falls back to
 `SupabaseClient.uploadUserMusicFile` (Storage, 32 MB, user JWT) if it is unreachable.
 
+### Attachments — `data/remote/ForumAttachmentUploader.kt`
+
+A forum post carries files, and a file is one of two kinds: a picture, which goes
+to ImgBB where the app's pictures already go, and a PDF, which goes to the
+Catbox-compatible host [SatoruUploadClient] already uses for songs — ImgBB takes
+images and nothing else, and Supabase Storage wants a session and a bucket policy
+for the same result. `SatoruUploadClient.uploadAttachment` is the same multipart
+POST as `uploadAudio` (they share `sendFile`), answering with a public URL *and*
+the file's own name, because the thread has to draw a chip that says which
+document it is.
+
+The limits are the owner's: **five files**, pictures and PDFs. `PICKER_TYPES`
+hands the system picker exactly those two types, `isSupported` checks the answer
+again (some providers hand back `application/octet-stream` for a PDF, and the name
+decides), and `MAX_FILES` stops the sixth at the moment it is picked rather than
+after it has been uploaded. Pictures are capped at ImgBB's 32 MB and documents at
+the host's 200 MB, both before anything is read into memory.
+
 ### Reader search — `data/portal/SearchQuery.kt`
 
 `SearchViewModel` debounces the query and calls `PortalRepository.searchArticles(query, limit, offset)`,
@@ -515,7 +560,10 @@ whitespace collapsed, trailing `।`/`.`/`!`/`?` dropped — so a key typed by h
 (`অডিও ফাইল পড়া যায়নি`) still finds the string compiled into the app (`অডিও ফাইল পড়া যায়নি।`).
 Those CSVs are written by the dashboard's **Languages** grid (one row per string, a column per
 language, all three editable, Bengali doubling as the key the app looks a string up by) into
-`app_language_files` from migration 023;
+`app_language_files` from migration 023; the grid starts from the templates committed in
+`backend/assets/lang/`, so wording translated in the repository is filled into the blank cells on
+load (the **Load templates** button re-reads them) and is published when an editor presses **Save**
+— an empty cell in that row is why a reader of that language still sees Bengali;
 `TranslationTable.loose` is only consulted after the exact lookup misses, so a hand-typed key can
 never shadow a real one. Switching
 language in Settings calls `refresh`, as does the "অনুবাদ হালনাগাদ করুন" button.
@@ -650,23 +698,39 @@ page prints the same table for the reader, in words.
 
 Every registered reader has a public page: `ui/screens/PublicProfileScreen.kt`, route
 `user/{userId}` (`ReaderRoute.PublicProfile`), reachable by tapping an uploader's name on a song. It
-shows their name and avatar, their songs (tapping one starts playback with that list as the queue)
-and the articles their submissions were converted into. It is one request —
+shows their name and avatar, their articles, their songs (tapping one starts playback with that list
+as the queue) and their forum work. The identity card is one request —
 `PortalRepository.publicProfile(userId)` → the `public_profile` RPC (**migration 028**, which replaces
 024 and widens its answer) —
 because `profiles` and `submitted_blogs` are both select-own and a submission row carries the
 writer's contact details. It opens for guests too.
 
+**The three lists are paged, five rows at a time.** `PortalRepository.profilePage(userId, kind,
+offset)` → `profile_items` (**migration 033**) asks for one window of five for one kind —
+`articles`, `songs`, `threads` or `answers` — and answers `{kind, total, items}`, so the screen
+knows how many rows exist without holding them: it draws the first five, and **আরও দেখুন (n)** asks
+for the next five at `offset = loaded` and appends them to what is on screen. The four counts the
+tabs are labelled with come from a second door of the same function, `kind = 'counts'`
+(`profileTotals`). Nothing is sliced in the app — a page is a page on both sides of the wire — and
+the order is the database's: articles and songs by `views_count desc nulls last`, a reader's
+discussions and answers newest first. A database without 033 fails the two list calls and nothing
+else: the identity card and the statistics card still open, and the list says which file to run.
+
 **The page is real data or nothing.** Three lines, in the order the owner asked for: the name, then
 the designation (`profiles.designation`, shown as muted **পাঠক** when the reader has not written one),
 then the first line of the address and only if there is an address. Nothing on the page is
 placeholder text, so a reader with no designation and no address simply has a shorter card. Under it,
-one statistics card — **মোট ভিউ / মোট পয়েন্ট / এই মাসের পয়েন্ট** — and then two tabs, **প্রবন্ধ (n)** and
-**গান (n)**, whose counts are the lengths of the two lists. Both lists arrive ordered by views,
-highest first (`views_count desc nulls last` in 028, and sorted a second time in `PublicProfile` so a
-cached list cannot disagree), and every row carries its published date through `formatBengaliDate`.
-The app bar is transparent over a scrolling list, so the content starts below the sticky back arrow
-rather than under it.
+one statistics card — **মোট ভিউ / মোট পয়েন্ট / এই মাসের পয়েন্ট** — and then three tabs: **প্রবন্ধ (n)**,
+**গান (n)** and **আলোচনা (n)**, whose counts are the database's totals. Every row carries its
+published date through `formatBengaliDate`, and a forum row carries the date at its right-hand edge
+and its three reactions as icons with their counts — the words লাইক / একমত / অপছন্দ are not written
+on this page any more than they are on the forum's own cards. The app bar is transparent over a
+scrolling list, so the content starts below the sticky back arrow rather than under it.
+
+**Inside আলোচনা, two filters and no third.** **আলোচনা** is this reader's discussions and **উত্তর** is
+the answers they wrote, one list at a time, each fetched for its own kind when it is picked. The
+third tab of the first cut — **প্রতিক্রিয়া** — is deleted: it was a fourth list of the same reader's
+work with the least to say, and the counts it showed are already on the answers themselves.
 
 The statistics card is the database's own totals: `points` for life, `month_points` for this month,
 both read through `contributor_score` with a `to_regprocedure` guard so the page still opens on a
@@ -717,9 +781,9 @@ are rows in `forum_categories`, seeded by the migration and editable from the da
 
 | Screen | Route | What it is |
 | --- | --- | --- |
-| `ForumHomeScreen` | `forum` | **বিভাগসমূহ** as a sideways-scrolling rail, then **সাম্প্রতিক আলোচনা** with its three filters, with the search field over both |
+| `ForumHomeScreen` | `forum` | **বিভাগসমূহ** as a sideways-scrolling rail, then **সাম্প্রতিক আলোচনা** with its three filters; the search field **sits on the page under the bar** (the owner asked for it to be visible) and the bar's magnifier puts the caret in it — the `topBar` slot stacks the bar, the field and the refresh line in a `Column`, because Scaffold places every child of that slot at (0, 0), and a field emitted there as a second child is drawn *over* the bar |
 | `ForumCategoryScreen` | `forum_room/{slug}` | one room, paged 30 at a time, with **নতুন আলোচনা** |
-| `ForumThreadScreen` | `forum_thread/{discussionId}` | the opening post, its answers with their reactions and their own answers, and a composer |
+| `ForumThreadScreen` | `forum_thread/{discussionId}` | the opening post, its answers with their reactions and their own answers, a composer, and — on a long tap — the reader's own two actions |
 | `NewDiscussionScreen` | `forum_new?room=` | room (a row of `FilterChip`s, preselected when a room sent the reader here), title, an optional cover, and the body in the compact editor |
 
 Every discussion shows its room, author and avatar, the date **as the reader reads it**
@@ -734,6 +798,25 @@ as tables — migration 029 grants nothing on them to a client, and every read g
 security-definer functions, which is also what makes an unpublished thread disappear from the lists
 while staying readable by id. Reads are granted to `anon` and `authenticated`; the two writes are
 granted to `authenticated` alone and raise `42501` for a guest.
+
+A row the dashboard wrote carries **অ্যাডমিন**, at the right-hand end of its own header, in the
+accent colour on `accentSoft` with `Icons.Default.Verified` beside it. It reads `is_official`, which
+`032` put on the view and `034` re-publishes on the function — the same fact as the অনুমোদিত badge on a
+thread, in the place a reader looks for it on an answer. The badge is never about the reader: the
+long press beside it is the thing that is (`is_mine`), and the two never stand in for each other.
+
+**An answer of the reader's own carries two actions, behind a long tap.** A long tap on your own
+answer opens **সম্পাদনা** and **মুছে ফেলুন** inside the answer itself — no window, no sheet — and a long
+tap on anyone else's, or on one the dashboard wrote, does nothing at all. The whole screen shares one
+`ForumReplyActions` holder (which answer is open, and which is asking to be confirmed), so a nested
+reply is drawn by the same code as the answer over it. **সম্পাদনা** opens the thread's own composer with
+the answer already in it: `HtmlContentEditor` takes its `value` from the screen, so the box is handed
+`replyBody` and the editor follows — nothing reaches into the WebView. The line above the box says
+**উত্তর সম্পাদনা** instead of naming somebody being answered, and while an edit is open the draft store
+is left alone, because half an edit is not a draft and must not come back as one. **মুছে ফেলুন** asks
+once (`হ্যাঁ` / `না`), then the answer leaves the screen at once and the thread is read again with
+`countView = false`, because only the database knows which answers were handed up to the answer it
+answered. A refusal is said in a toast: the row the reader was looking at is already gone.
 
 **Which the app answers as a session problem, not a permission one** — the same call the contributor
 board makes (§12.3): a refusal becomes `PortalError.SignedOut`, and the screens answer it with the way
@@ -789,22 +872,27 @@ because a draft is a few hundred bytes that has to be readable the instant a com
 nothing joins on it; per thread rather than one reply box because a reader may leave a half-written
 answer in one thread, read another, and come back to the first one as they left it.
 
-*Reactions, from a long press.* `forum_reactions` holds one row per reactor per answer — `like`,
+*Reactions, one tap, no popup.* `forum_reactions` holds one row per reactor per answer — `like`,
 `dislike` or `agree` — and `forum_react(reply_id, kind, device_id)` toggles: the same tap takes the
 reaction away, which is what 022's music love does and therefore what a reader already expects. A
 guest may react, keyed by `md5('ningshingche-forum:' || device_id)` from the device id the transport
 already carries for loved songs. Every answer comes back with its three counts and with the reader's
-own reaction (`my_reaction`), and the counts feed (10).
+own reaction (`my_reaction`), and the counts feed (10). The three icons are the whole control: each
+one sends its own kind, and nothing is asked twice — there is no `ForumReactionDialog` and no long
+press left in the app.
 
 *One step of indentation, and only the newest answer under each one.* A reply to a reply is folded
 onto its own answer (`coalesce(parent.parent_id, parent.id)`), so a thread can be argued in but never
 marches off the right of the screen. Under each answer the newest answer is drawn, with **সব উত্তর
 দেখুন (n)** opening the rest.
 
-*একটি ছোট «আরও দেখুন»* — no border, no fill, 12 sp, accent-coloured, on the opening post and on any
-answer long enough to need it. "Long enough" is 240 characters or an image, decided from the string
-rather than from a measurement: a card that had to be measured before it could decide would grow a
-"see more" on every short answer that happened to wrap. Open, the body goes through the article
+*একটি ছোট «আরও দেখুন»* — no border, no fill, 13.5 sp, accent-coloured, on the opening post and on
+any answer long enough to need it. "Long enough" is a hundred characters, decided from the string
+rather than from a measurement (`FORUM_FOLD_CHARS = 100`, one constant the model and the screen
+share); a card that had to be measured before it could decide would grow a "see more" on every short
+answer that happened to wrap. Folded, three lines of the body are drawn (`FORUM_FOLD_LINES`) with the
+renderer's own ellipsis on the last of them, and a discussion card's summary is cut at the same
+hundred characters with a `…` — one rule, three places. Open, the body goes through the article
 renderer, which is what knows how to draw the picture the editor can insert.
 
 *উত্তরসমূহ has its own filter* — **শীর্ষ উত্তর** (most liked or agreed first, the owner's "top
@@ -841,10 +929,323 @@ thread), and the public page gains a third tab, **আলোচনা (n)**. The 
 `discussions`, `replies` and `reactions`. The weights live in the database; the app shows the numbers
 and never works the arithmetic out itself.
 
-**The API is seven functions** — 029's six plus `forum_react`, with `forum_overview`,
+**The third pass (app 1.3 → 1.4).** Thirteen notes came back from reading the second pass on a
+phone. None of them changed the database; all of them changed how the forum is drawn, and one of
+them was a bug worth naming.
+
+*A bug: `invalid input syntax for type uuid: ""`.* Answering a thread with no answer above it sent
+`p_parent_id: ""`, and PostgREST casts an empty string to `uuid` and fails. `PortalRepository` now
+sends `withoutBlanks()` — a parameter with nothing in it is a parameter the call does not need, and
+the migration's default (a reply with no parent) is what an omitted argument becomes. It is applied
+to every call that takes a uuid or an id.
+
+*Spacing and the bar.* Every forum screen clears the app bar by `FORUM_TOP_SPACE`; the forum's own
+bar carries a back arrow and a refresh, and **no bell** — notices are the dashboard's, and the home
+page's own bell is untouched. The search field stays on the page, where it can be typed into.
+
+*বিভাগসমূহ is one line* — `বিভাগসমূহ (৫)` and a chevron — and it starts zipped. Opening it animates
+(`AnimatedVisibility` with `expandVertically`/`shrinkVertically` and a fade, 220 ms) and the chevron
+turns as it goes. A room is 232 dp wide with its two lines tight together (`lineHeight = 13.5.sp`).
+
+*Cards.* A discussion title is 16 sp — one size, because every card now has a cover column beside its
+words; the author block is a **column** — a 30 dp face on the left, the name and then the date under
+it, the two lines tight enough to be the height of the face beside them (`lineHeight = nameSize * 1.15f`
+for the name, 12 sp for the date) — and the picture is the left column of every card at 116 dp, with
+the view/answer counters in **its own top-left corner**. Answers and replies use the same block with `showTime`, so a thread reads `সিসির সিংহ` and
+`১২ সেপ্টেম্বর, ৩:৪৫ অপরাহ্ণ` on two lines (`formatBengaliDateTime`, which parses the UTC the database
+wrote and renders the reader's own zone, without `java.time`).
+
+*Reactions are icons, and one tap counts.* `ThumbUp`, `CheckCircle`, `ThumbDown`, each with its count
+and its own colour when it is the reader's; tapping the kind that is already there takes it back.
+There is no popup and no long press: a tap that has to be repeated is a tap a reader stops making.
+
+*One card per answer.* The replies are drawn inside the answer's card, indented 22 dp, with a 2 dp
+line down their left (`drawBehind`), so an argument reads as the answer it belongs to. The database's
+one-level fold is unchanged.
+
+*The reply box* is the thread's `bottomBar`, not an item in the list: a strip with the editor at 96 dp
+that grows to 240 dp and scrolls inside itself beyond that (the page reports its own `scrollHeight`
+through the bridge), small 30 dp toolbar buttons, and `imePadding()` so the keyboard lifts it rather
+than covering it. Back while the keyboard is up closes the keyboard first (`BackHandler` on
+`WindowInsets.ime`), and a tap that no control claimed does the same (`detectTapGestures` on the
+list, plus each card's own tap).
+
+*Pictures are attached, not typed.* `HtmlContentEditor` takes `attachments`, `onAttachImage` and
+`onRemoveAttachment`: thumbnails drawn above the box with a cross to take them back, and never an
+image inside the body — the caller appends the URLs to the HTML as the post is sent
+(`forumWithAttachments`). The compact editor's own picker is only ever used where the full editor is.
+Attachments are part of the draft, so they survive a wrong turn like the text does.
+
+**The fifth pass (app 1.4 → 1.5, and 1.5.1).** Eight more notes, and one of them was a bug the owner had
+reported twice.
+
+*Bold and italic "still did nothing".* Two causes, both fixed in `HtmlContentEditor`:
+
+  * `document.execCommand` applies to the selection, and a tap on a Compose `IconButton` is a tap
+    on a different view — the page may no longer hold the focus the selection lived in, and the
+    command then does nothing at all, quietly. The page now keeps its last range
+    (`saveSelection` on `keyup`/`mouseup`/`input`/`touchend`/`focus` and on `selectionchange`) and
+    puts it back inside a single entry point, `window.command(cmd, arg)`, which also sets
+    `styleWithCSS` to false so the markup is `<b>`/`<i>`/`<u>` — the tags both renderers
+    (HtmlCompat and the WebView) already understand. `run()` calls `webView.requestFocus()` first,
+    because the view has to be focused for the page to take the caret back.
+  * The WebView's `@font-face` for Kalpurush declared `font-weight: 100 900`. Kalpurush ships one
+    weight, and a face that claims a range tells the browser every weight is covered — so it drew
+    bold text with the regular glyphs and bold looked like nothing had happened. It declares
+    `font-weight: 400` now, which lets the browser synthesise the bold (and the oblique) the reader
+    asked for.
+
+**The composition rule (app 1.5.1).** The way bold and italic were fixed described above broke typing for
+a Bengali keyboard, and the fix is worth stating as a rule rather than a patch: **while the reader's
+IME is composing, the page must not touch the DOM or the selection at all.** Bengali is written by
+composing — ক + ্ + ষ is one character to a reader and three keystrokes to the keyboard — and
+`removeAllRanges()`/`addRange()` (or an `innerHTML` write) in the middle of one is a garbled word at
+best and a keyboard that raises an error at worst. So `HtmlContentEditor`'s page now:
+
+  * tracks `composing` (`compositionstart` / `compositionend`, and `ev.isComposing` on `input`,
+    because some builds do not fire the former);
+  * never reads the selection while it is true, and never listens for `input` to do it — the
+    selection is remembered on `keyup`, `mouseup`, `touchend`, `focus` and `selectionchange` only;
+  * runs a toolbar command without touching the selection when a composition is open;
+  * refuses a value from outside the page while the page is composing *or* holds the caret, keeping
+    it as `pendingHtml` and applying it on `blur`/`focusout`/`compositionend`. The app clears the
+    reply box after blurring it, so the clear still lands;
+  * raises the keyboard for a box that was just opened only when the reader is not already in it,
+    and never moves a caret that is being typed at;
+  * hides the article composer's selection bar while composing, because a composing region counts as
+    a non-collapsed selection and the bar would otherwise appear over every Bengali word.
+
+`run()` also only calls `requestFocus()` when the view is not focused already: asking a WebView for a
+focus it has restarts the input connection, which a composing keyboard does not survive.
+
+**The second hotfix (app 1.5.1 → 1.6).** Three things the owner found by using 1.5.1, and the first
+of them was a hole in the composition rule above.
+
+*A sent post left its text in the box.* Setting the value from the outside is refused while the page
+holds the caret — that is the composition rule doing its job — and after a send the box **did** still
+hold it for a moment, so the clear was deferred and no event ever came to flush it. A sent post is
+not a draft arriving under someone's fingers, so it now has its own door: `HtmlEditorController.clear()`
+→ `window.clearEditor()`, which drops the composition flag, the pending value and the remembered
+range and empties the element outright. The screen calls it before `dismiss()`, in the same breath as
+clearing its own state. `setHtml('')` is also treated as an instruction rather than a draft — an empty
+value is applied at once, focused or not — and a deferred value is now flushed on `keyup` and
+`touchend` as well as on `blur`/`focusout`, so nothing can be left waiting for a blur that never comes.
+
+*A WebView inside a screen must never navigate.* The editor's page is a document, and a link in a
+draft — or a drag Chromium reads as a link-drag — could take the box off to a website inside a 96 dp
+text field, with the writing gone. Both `shouldOverrideUrlLoading` signatures return `true` (the
+platform asks for one or the other depending on the API level), and popup windows are off
+(`setSupportMultipleWindows(false)`, `javaScriptCanOpenWindowsAutomatically = false`).
+
+*উত্তর যোগ করুন is a button, not a bar.* It is an `ExtendedFloatingActionButton` in the corner over the
+page's own background — no `Surface`, no tone of its own, nothing covering the bottom of the page.
+The scaffold still reserves its height, so no answer is ever underneath it.
+
+**The third hotfix (app 1.6 → 1.7).** "It reload the page and show the skeleton min for 0.5s" — the
+chat and a forum thread. Both were loading states tied to the *screen's lifetime* rather than to the
+data, so a screen that was rebuilt showed a skeleton or a spinner over content that was still in
+memory.
+
+  * **The assistant** played its one-second skeleton from
+    `remember { mutableStateOf(true) }`, which is `true` again every time the screen is composed — so
+    opening it, or coming back to it, always cost a second of shimmer, conversation or no
+    conversation. It is `rememberSaveable` now, and it never plays over a conversation that is already
+    on screen (`showSkeleton = !introShown && messages.isEmpty()`).
+  * **The thread** kept its answers in `remember`, so leaving the screen and coming back — an author's
+    page, an activity rebuilt — dropped them and re-fetched with a spinner. They live in
+    `ForumThreadHolder`, a `ViewModel` scoped to the destination: a return finds them, the screen
+    paints instantly, and a refresh runs behind the content with a thin `LinearProgressIndicator`
+    under the bar (`forum_thread_refreshing`) instead of a spinner over the page.
+  * **And the view count is honest again.** It used to be "the screen has not loaded before", so a
+    rebuilt screen counted the same reader a second time. The holder owns it: `counted` is set when
+    the count has actually been sent, `countView = reloadToken == 0 && !holder.counted`.
+
+**The seventh read (app 1.7 → 1.8).** Three corrections: the audio tabs did not work, the dashboard
+home wanted its sections as tabs with the forum paged five at a time, and a successful submission
+should land on the content tab instead of going back where it came from.
+
+  * **A page state with no pager.** `MusicScreen` read its pane from `pagerState.currentPage` and its
+    chips called `pagerState.animateScrollToPage`, and there was no `HorizontalPager` anywhere in the
+    file. A `PagerState` on its own holds a page and changes a number; it scrolls nothing, and with the
+    pane chosen from that number, tapping a chip moved the number the chips read their selection from
+    and left the pane alone. The screen now composes one `HorizontalPager` over `MusicTab.entries`, so
+    the number the chips animate *is* the page on screen, and swipes work for the same reason taps do.
+    The lesson is general: **a derived state is only as live as the thing that drives it.**
+  * **The dashboard's five sections are tabs.** Points, forum, views, কার্যক্রম and article analytics
+    used to be one column of cards that had to be scrolled to find any one of them. They are a
+    `HomeSection` enum, a row of `FilterChip`s (`dashboard_sections`, each chip
+    `dashboard_section_<name>`) and a `when` over `rememberSaveable` state. The summary — the user
+    card and the four metrics — stays above the tabs; the tabs trade places below it. The two graphs
+    that shared one composable are two: `ActivityChart` (কার্যক্রম) and `ArticleStatusChart`
+    (প্রবন্ধের অবস্থা), and ভিউ adds the split the database counts (`metric_article_views`,
+    `metric_music_views`).
+  * **Five, then load more.** `forum_activity` takes a limit and **no offset**, so paging is the same
+    call asked for a bigger window: `forumLimit` starts at 5 and grows by 5 to the repository's own
+    ceiling of 50 (`loadMoreForumActivity()`, `forumHasMore` from `ForumActivity.hasMoreThan(limit)` —
+    the counters are the whole truth, the lists are the window). The initial `refresh()` reads the same
+    window, so a reload does not shrink what the reader has already loaded. The card shows
+    `dashboard_forum_more` only while the counts say there is more.
+  * **A submit ends on the content tab.** The composer screens no longer decide where a send goes;
+    they call `onSubmitted()` when the message says the submit succeeded — after the fields and the
+    draft are cleared and after `clearMessage()`, so nothing is left to replay — and the nav host
+    routes it: `forwardToSubmittedContent()` finds the dashboard in the back stack and drops its old
+    entry (a pop restores an entry's *arguments*, so popping back would have re-shown the tab it was
+    created with), then `openSubmittedContent()` navigates to
+    `ReaderRoute.dashboard(tab = ReaderRoute.DASHBOARD_CONTENT)`. The intent itself travels in a
+    `ReaderSubmission` note on `ReaderWorkspaceViewModel` — kind, row id, title, and the instant it was
+    stamped (`isFresh()`, three minutes) — and the dashboard reads it **once**, on the way in:
+    content tab, the new row focused via `contentFocus`, the note spent, and the confirmation snackbar
+    the composer used to show repeated on the screen the reader is actually looking at.
+
+**The build fix (app 1.8 → 1.8.1).** The owner ran `./gradlew assembleDebug` on this tree for the first time
+and it did not compile — **twenty-four errors**, and only a handful of them from that morning's work: the
+tree had not been compilable since the forum and dashboard batches, because every gate here is lexical and
+none of them can see a name that is *used* without being imported or declared. The classes, and the rule
+each one left behind:
+
+  * **An icon is an extension property.** `Icons.Default.FormatListBulleted` was used with no import for it
+    at all; the compiler wants `import androidx.compose.material.icons.filled.FormatListBulleted`. In icons
+    1.7 the whole direction-sensitive family moved to `Icons.AutoMirrored.*` and the old ones are
+    deprecated, so the import is
+    `androidx.compose.material.icons.automirrored.filled.FormatListBulleted` now. **Rule: every
+    `Icons.<Family>.<Name>` must have its matching import** — checked in
+    `backend/tests/app-source-health.test.cjs`.
+  * **A name from another package needs an import.** `Modifier.width(` without
+    `androidx.compose.foundation.layout.width`; `rememberSaveable` without its runtime-saveable import;
+    `ForumActivity` used as a parameter type with no import; `monthNameOf` called in `HomeScreen` while it
+    is declared `internal` in `ui/screens/ContributorScreen.kt`. **Rule: the Compose names in that table,
+    and every project declaration used across packages, are checked against the file's imports.**
+  * **Two imports of the same name.** `EditorialSpace` was imported twice in `HomeScreen` — "imported name
+    is ambiguous" — and `kotlinx.coroutines.launch` likewise. (Two *different* packages may legally share a
+    simple name: an icon lives in both `filled` and `automirrored.filled`, and `items` belongs to both
+    `lazy` and `lazy.grid`; only the identical pair is a conflict.) **Rule: no import written twice.**
+  * **`@Composable` twice, and `@Composable` missing.** `ToolIcon` and `ContributorPointsCard` each carried
+    the annotation above the KDoc *and* below it — "this annotation is not repeatable" — and `MetricCard`
+    had none at all while its body composes `Surface`/`Text`/`Icon` (every call site of it then failed
+    too). **Rule: one annotation per declaration, and one wherever the body composes.**
+  * **A parameter that does not exist.** `shrinkVertically(shrinkFrom = …)` — renamed `shrinkTowards` in
+    Compose animation 1.7. Checked against the 1.7 sources, not from memory.
+  * **A composable read inside a derived state.** `derivedStateOf { WindowInsets.ime.getBottom(density) > 0 }`
+    — `WindowInsets.ime` is a `@Composable` getter, so it cannot be read from a plain lambda. The insets are
+    read in composition and the *plain* `getBottom` call is what the derived state watches, which is still
+    reactive because the insets live in a `mutableStateOf`.
+  * **A private API.** `NavController.backQueue` is private in navigation 2.8.9; the public stack is
+    `currentBackStack: StateFlow<List<NavBackStackEntry>>`. The submit-forwarding helper now reads that and
+    pops by **destination id** (`dashboard.destination.id`) — the `String` overload of `popBackStack`
+    matches *routes*, and an entry's own id is a UUID no route will ever equal.
+  * **A nullable that was treated as a Result.** `supabaseClient.userViewTotals(...)` answers with
+    `ViewTotals?`, not with a `Result`, so there is no `getOrNull()` to unwrap.
+
+*The formatting row is four buttons.* The compact editor no longer offers a picture button, and it
+no longer draws attachments — `HtmlContentEditor` is an editor again. Files are attached on the row
+under the box, which is also where they are previewed.
+
+*The reply box is asked for.* The thread's bottom bar shows one button — **উত্তর যোগ করুন**, bottom
+right — and the box expands out of the bottom of the screen when it is tapped and shrinks back into
+it when it is done (`AnimatedVisibility` with `expandVertically`/`shrinkVertically` from
+`Alignment.Bottom` and a fade, in both directions, the launcher animating the other way in the same
+seat). The keyboard is asked for once the box has arrived (`FORUM_COMPOSER_APPEAR_MS`), the chevron
+on the box's header puts it away without posting anything, and Back goes keyboard → box → screen
+(the box's `BackHandler` is disabled while the IME is up, so the order cannot invert).
+
+**সাম্প্রতিক আলোচনা on the home page.** Under the header, for **registered readers only** (the
+request is gated in `HomeViewModel.loadForumLatest`, not merely the drawing), the five threads that
+moved last: `forum_overview(limit = 5, order = recent)` through the same repository call the forum
+itself uses, cut to five again on arrival. The card is an **inline list** — one row per thread,
+hairline between them, nothing scrolling sideways — with each row carrying a thumbnail (the cover,
+or the stand-in a thread without a picture gets — the same `ForumCover.Photo` the forum page draws),
+the title on two lines, one line of facts (রুম, কতজন দেখেছে, কত উত্তর) and the date it last moved. The
+row is **tight**: 8 dp above and below (`EditorialSpace.xs`, down from 12 — five of them stacked made
+the gap between rows the loudest space on the card), 8 dp between the picture and the words, and 2 dp
+and 1 dp between the three lines of the column. A tap opens the thread; **সব দেখুন**
+opens the forum. A failure is one quiet line with **আবার** in it, because the strip is a way into the
+forum and not the forum. The composable lives in `ForumScreens.kt` (`HomeForumBlock`,
+`HomeForumRow`), beside the pieces it is built from.
+
+**Orders, and who decides them.** Three lists on three screens are rankings, and each one is sorted
+where it is drawn as well as in the database, so a screen cannot show a "top" list in any other
+order:
+
+| List | Order | Where |
+| --- | --- | --- |
+| সেরা অবদানকারী (home page and contributor page) | points desc, then articles, then songs | `PortalModels.ContributorBoardDto.toModel` |
+| জনপ্রিয় (forum home) | answers desc, then views | `PortalModels.ForumOverviewDto.toModel`, for `order = popular` |
+| সাম্প্রতিক আলোচনা (home page strip, forum home) | last activity desc | the database (`030`), left as it arrives |
+
+The contributor board's rank was genuinely wrong before `035`: `026` numbered the rows with
+`row_number() over ()` and ordered the query separately, and a window function runs before the
+query's own `order by` — so the rank was the table's physical order. The migration is the fix; the
+app-side sort is what makes the two pages right on a database that has not run it yet.
+
+*The forum's cards are one shape.* Every card is exactly `FORUM_CARD_HEIGHT` (**152 dp**) — the
+owner's third sentence, *the items should be equal height* — so the words on it are capped rather than
+allowed to push the card taller than its neighbours: a **two-line** title at 16 sp, a **one-line**
+description under it, and a 116 dp cover column filling that height beside them, with the face, the
+name and the date on the floor of the card. There is no second shape: no branch on `hasCover` is left
+on the card, because every card has a picture.
+
+**The view and answer counters sit in the cover's top-left corner**, on the card and on the thread's
+own cover alike (`ForumCounters` at `Alignment.TopStart` — `forum_card_counters_<id>`,
+`forum_thread_counters` — tinted `Color.White` because what is under them is a photograph or one of
+the solid stand-in fills, over a 30 dp scrim that fades out of the top of the picture: a gradient, not
+a pill, so the counters still keep no box of their own). They have moved three times in this card's
+life — the card's own top-right corner, then the category's line, and now the picture — and the
+category line has no second occupant at all any more.
+
+**Every thread has a cover** (`ForumCover`), which is the owner's other sentence here: a reader who
+uploaded one gets their photograph, and a reader who did not gets a **stand-in**. Its fill is
+**random** — `ForumCover.fillFor(id)` is `Color.hsl(random.nextInt(360), 0.34f, 0.33f)`, a hue drawn
+per thread at one pitch and one depth so the page stays editorial rather than turning into a colour
+chart — and `fills` (a `ConcurrentHashMap` keyed by thread id) remembers what each thread drew, so the
+colour is random across threads and new on every launch, but does not change under a reader's eyes
+while they scroll. On the cover, centred, sits the **first letter of the title**
+(`ForumCover.initial`, skipping punctuation a title may open with), at 34 sp in the card's column,
+66 sp on the thread's own cover and 22 sp on the home page's thumbnail. One composable
+(`ForumCover.Photo`) draws all three, so a reader's photograph and the stand-in cannot drift apart
+between screens; a stand-in has nothing of its own to open, so tapping the thread's cover opens a
+picture only when the reader attached one.
+
+**The verified mark is the tick alone.** The owner took the word অনুমোদিত off the card and the thread:
+what is left is `VerifiedMark`, one composable for both surfaces — a dark scrim with a white tick over
+a picture (`onImage = true`), the pale accent chip in a line of words — with the meaning in its
+`contentDescription` for a screen reader. It shares the cover with the counters, so it takes the
+other corner: a card's cover at `forum_card_official_<id>`, the home page's thumbnail at
+`home_forum_official_<id>`, and the thread's own cover at `forum_thread_verified` — all three
+`Alignment.TopEnd`, all three `onImage = true`. The creator's row below (`ForumOpeningMeta`) is what a
+row under a picture should be: the face, the name, the date, and nothing else.
+
+*Files are attached, previewed and opened.* `ForumAttachment` (a URL, a name, a type, a size) is
+the model; `forumWithAttachments` appends `<p><img src="…" alt="…"></p>` for a picture and
+`<p><a href="…">name</a></p>` for a document — **on the way out**, so nothing is ever inserted into
+the middle of a sentence. A post's body is then read in two parts: `forumBodyMarkup` (the words,
+with the attachments taken out) and `forumBodyImages`/`forumBodyDocs` (the files, drawn as previews
+under it). That split is the fix for the second complaint of the same family: an `<img>` handed to
+`HtmlCompat` becomes U+FFFC, the platform's "an object I cannot draw", which a reader sees as a
+boxed **obj** — and a body used to fold on the strength of the tag, so the boxed obj was what the
+folded copy showed until "see more" was tapped. Folding now counts the words
+(`ForumReply.isLong` = `forumBodyText(body).length > FORUM_FOLD_CHARS`, and that constant is 100).
+
+*And a tap opens it.* `AttachmentViewer` is a frame-less dialog: a picture fills the screen and can
+be pinched (1×–5×, panning only once it is larger than the screen), a PDF is opened by the app's own
+viewer library at its plainest setting — `pageFitPolicy(FitPolicy.WIDTH)`, a swipe between pages,
+no settings sheet and no night mode, because the owner asked for no smart options here. Both kinds
+carry a download button in the top right that writes to `Download/Ningshingche_PDFs` for a document
+and `Download/Ningshingche` for a picture, and says so in a toast.
+
+*A posted draft is gone.* The reply draft keeps words *and* files (a file is stored with its name
+and type, and a draft written before this pass — a bare list of image URLs — is read back as what it
+is). After a successful post the box empties, the files are dropped and the draft is cleared, all
+after the database has answered. That last part needed a second fix in the editor: a WebView only
+takes `value` on page load, so an emptied box stayed full on screen. `HtmlContentEditor` now pushes
+an outside change into the page (`lastEmitted` / `lastPushed`: a value from the page is never pushed
+back at it, one from anywhere else is) and `window.setHtml` leaves the caret at the end.
+
+**The API is nine functions** — 029's six plus `forum_react`, with `forum_overview`,
 `forum_discussion`, `forum_create_discussion` and `forum_reply` replaced on new signatures by 030, and
 `forum_activity(user, limit)` reading one reader's forum work for their dashboard and their public
-page. 030 drops the four old signatures first (a new parameter makes a new function, and
+page. `034` adds the two that belong to the reader: `forum_edit_reply(p_id, p_body)` and
+`forum_delete_reply(p_id)`, both granted to `authenticated` alone and both author-only, and re-states
+`is_official` and `is_mine` on every reply `forum_discussion` and `forum_reply` hand back. 030 drops the four old signatures first (a new parameter makes a new function, and
 `forum_overview(20)` was "not unique" until it did), re-grants them after creating them, and guards
 the two grants that belong to 029 so it still applies to a database that has never seen it.
 
@@ -856,9 +1257,9 @@ declarations: `Hairline`, `Eyebrow`, `SectionHeader`, `EditorialImage`, `remembe
 `NumberedArticleCard`, `AnimatedHamburgerIcon`, `AiAssistantHomeBanner`, `CategoryVisualCard`,
 `CategoryRail`, `GalleryModalDialog`, `ArticleRail`, `AuthorRail`, `AuthorChip`, `GalleryGrid`,
 `PdfRail`, `VideoRail`, `MusicRail`, `LoadingFeed`, `EmptyState`, `ErrorState`, `teaserOf`.
-Companions in the same package: `EditorialTheme.kt` (245 lines — `EditorialPalette`,
+Companions in the same package: `EditorialTheme.kt` (259 lines — `EditorialPalette`,
 `EditorialType`, `EditorialSpace`, `EditorialShape`, `EditorialTheme`, `toBengaliNumeral`),
-`LazyImage.kt` (47 — `ShimmerPlaceholder`, `ImagePlaceholder`), `SiteFooter.kt` (350 —
+`LazyImage.kt` (47 — `ShimmerPlaceholder`, `ImagePlaceholder`), `SiteFooter.kt` (356 —
 `EditorialFooter`, `SiteContact`), `VideoPlayer.kt` (250 — `VideoPlayerDialog`,
 `SocialEmbedPlayer`, `embedUrlFor`).
 
@@ -1295,6 +1696,29 @@ Room-backed offline cache are the next increment. The components in
 `ui/editorial/EditorialComponents.kt` and the paging contract in
 `ui/reader/ReaderViewModels.kt` are already shared, so those screens are mostly
 layout.
+
+### 17.3 The formatter buttons say what is already on
+
+A formatter button had two states and showed one: bold, italic, underline and the bullet list looked
+the same whether or not the caret was inside that format, so a reader could not tell what the word they
+were about to type would look like.
+
+The answer can only come from the page — `document.queryCommandState` at the caret, which is true for a
+caret *inside* a `<b>` with nothing selected, not just for a selected run of bold text. So the page
+reports it: `reportFormats()` collects the four, fills the little selection bar's own buttons
+(`#selbar button.on`), and crosses the bridge once per **change** through `Android.onFormats(csv)`.
+`HtmlContentEditor` keeps the list (`activeFormats`) and passes `"bold" in activeFormats` to each
+`ToolIcon`, which fills with `colorScheme.primary` and inks the icon `onPrimary` when its format is on.
+Copy, cut and paste are actions rather than states and never light up, and nothing at all is read while
+a Bengali word is being composed — the DOM and the selection belong to the keyboard until it is
+finished, which is the rule the rest of that page already follows.
+
+The fill is the accent-on-accent pair because that pair is **measured**: `onAccent` on `accent` is held
+at 4.5:1 or better for every preset and every one of the 240 positions of the custom colour wheel by
+`backend/tests/app-theme-palette.test.cjs`, which computes the WCAG ratio rather than trusting the
+derivation. The softer `accentSoft` tint was the obvious prettier choice and was walked over the whole
+wheel before it was rejected: it falls to **4.27:1** against the accent on the light side, which is a
+toolbar a reader cannot read.
 
 ---
 

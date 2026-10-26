@@ -31,12 +31,14 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ningshingche.app.ui.components.GoogleSignInButton
 import com.ningshingche.app.ui.components.NingshingCheBrandLogo
+import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.SettingsViewModel
+import com.ningshingche.app.ui.i18n.t
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,10 +59,10 @@ fun LoginScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("সাইন ইন", fontFamily = Kalpurush, fontWeight = FontWeight.Bold) },
+                title = { Text(t("সাইন ইন"), fontFamily = Kalpurush, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick, modifier = Modifier.testTag("login_back_button")) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "ফিরুন")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t("ফিরুন"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -81,16 +83,18 @@ fun LoginScreen(
             NingshingCheBrandLogo(size = 72.dp)
             Spacer(Modifier.height(16.dp))
             Text(
-                text = "নিংশিং চে",
+                text = t("নিংশিং চে"),
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
-                fontSize = 26.sp,
+                fontSize = textSize(26),
+                lineHeight = leading(26),
                 color = MaterialTheme.colorScheme.onBackground
             )
             Text(
-                text = "Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন",
+                text = t("Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন"),
                 fontFamily = Kalpurush,
-                fontSize = 14.sp,
+                fontSize = textSize(14),
+                lineHeight = leading(14),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 6.dp, bottom = 28.dp)

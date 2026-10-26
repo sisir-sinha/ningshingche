@@ -178,7 +178,7 @@ test('a refusal is answered in the app\'s words, not the database\'s', async (t)
     // The absolute numbers are not the point — that they only ever move forward
     // is: a report can say which build the phone is running, and 1.0 is the
     // build that was refused. 1.2 is the forum and the new profile.
-    const versionName = /versionName = "(\d+)\.(\d+)"/.exec(BUILD_GRADLE);
+    const versionName = /versionName = "(\d+)\.(\d+)(?:\.(\d+))?"/.exec(BUILD_GRADLE);
     const versionCode = /versionCode = (\d+)/.exec(BUILD_GRADLE);
     assert.ok(versionName && versionCode, 'the build declares its version');
     const [major, minor] = [Number(versionName[1]), Number(versionName[2])];

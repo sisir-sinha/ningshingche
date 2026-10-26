@@ -39,11 +39,14 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ningshingche.app.ui.components.ArticleListItemCard
+import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.BookmarksViewModel
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.editorial.toBengaliNumeral
 
 /**
  * "সংরক্ষিত" — every article the reader saved with the bookmark icon (on
@@ -71,21 +74,21 @@ fun BookmarksScreen(
                 title = {
                     Column {
                         Text(
-                            text = "সংরক্ষিত প্রবন্ধ",
+                            text = t("সংরক্ষিত প্রবন্ধ"),
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 19.sp,
-                            lineHeight = 22.sp,
+                            fontSize = textSize(19),
+                            lineHeight = textSize(22),
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = if (savedCount == 0) "অফলাইনে পড়ার জন্য সংরক্ষিত লেখা"
-                            else "${toBengaliDigits(savedCount)}টি লেখা সংরক্ষিত",
+                            text = if (savedCount == 0) t("অফলাইনে পড়ার জন্য সংরক্ষিত লেখা")
+                            else t("{1}টি লেখা সংরক্ষিত", toBengaliNumeral(savedCount)),
                             fontFamily = Kalpurush,
-                            fontSize = 12.sp,
-                            lineHeight = 14.sp,
+                            fontSize = textSize(12),
+                            lineHeight = textSize(14),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -94,7 +97,7 @@ fun BookmarksScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick, modifier = Modifier.testTag("bookmarks_back_button")) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "পেছনে")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t("পেছনে"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -115,10 +118,11 @@ fun BookmarksScreen(
                     onValueChange = { viewModel.onSearchQueryChange(it) },
                     placeholder = {
                         Text(
-                            text = "সংরক্ষিত তালিকার মধ্যে খুঁজুন...",
+                            text = t("সংরক্ষিত তালিকার মধ্যে খুঁজুন..."),
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                fontSize = 13.sp
+                                fontSize = textSize(13),
+                                lineHeight = leading(13)
                             )
                         )
                     },
@@ -135,7 +139,7 @@ fun BookmarksScreen(
                             IconButton(onClick = { viewModel.onSearchQueryChange("") }) {
                                 Icon(
                                     imageVector = Icons.Default.Close,
-                                    contentDescription = "মুছুন",
+                                    contentDescription = t("মুছুন"),
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(16.dp)
                                 )
@@ -173,7 +177,7 @@ fun BookmarksScreen(
                         }
                         items(categories, key = { it.slug }) { cat ->
                             FilterChipPill(
-                                label = "${cat.title} (${toBengaliDigits(cat.count)})",
+                                label = "${cat.title} (${toBengaliNumeral(cat.count)})",
                                 isSelected = selectedCategoryFilter == cat.slug,
                                 onClick = { viewModel.setCategoryFilter(cat.slug) }
                             )
@@ -200,7 +204,7 @@ fun BookmarksScreen(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = if (savedCount == 0) "কোনো সংরক্ষিত প্রবন্ধ নেই" else "কোনো মিল পাওয়া যায়নি",
+                        text = if (savedCount == 0) t("কোনো সংরক্ষিত প্রবন্ধ নেই") else t("কোনো মিল পাওয়া যায়নি"),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
@@ -210,11 +214,12 @@ fun BookmarksScreen(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = if (savedCount == 0)
-                            "যে কোনো প্রবন্ধের কার্ডে বা পড়ার সময় বুকমার্ক আইকনে চাপ দিলে তা এখানে সংরক্ষিত থাকবে।"
-                        else "অন্য শব্দ দিয়ে খুঁজুন বা বিভাগ ফিল্টার বদলান।",
+                            t("যে কোনো প্রবন্ধের কার্ডে বা পড়ার সময় বুকমার্ক আইকনে চাপ দিলে তা এখানে সংরক্ষিত থাকবে।")
+                        else t("অন্য শব্দ দিয়ে খুঁজুন বা বিভাগ ফিল্টার বদলান।"),
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 12.sp
+                            fontSize = textSize(12),
+                            lineHeight = leading(12)
                         ),
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
@@ -261,7 +266,3 @@ private fun FilterChipPill(label: String, isSelected: Boolean, onClick: () -> Un
     }
 }
 
-private fun toBengaliDigits(value: Int): String {
-    val digits = "০১২৩৪৫৬৭৮৯"
-    return value.toString().map { ch -> if (ch.isDigit()) digits[ch - '0'] else ch }.joinToString("")
-}

@@ -198,14 +198,54 @@ test('a sheet with no Bengali column and no language header is rejected', () => 
 
 test('the shipped templates parse and keep every key', () => {
   const dir = path.join(__dirname, '..', 'assets', 'lang');
+  const keys = new Set();
   ['bn.csv', 'en.csv', 'bpy.csv'].forEach((name) => {
     const pairs = pairsOf(fs.readFileSync(path.join(dir, name), 'utf8'));
     assert.ok(pairs.length > 500, `${name} should carry the full key list, got ${pairs.length}`);
     assert.equal(new Set(pairs.map(([key]) => key)).size, pairs.length, `${name} has duplicate keys`);
-    if (name === 'bn.csv') {
-      assert.ok(pairs.every(([key, value]) => key === value), 'bn.csv should map every key to itself');
+    // A value is either blank or a translation somebody committed; nothing else.
+    assert.ok(pairs.every(([key, value]) => value === '' || (value.length > 0 && key.length > 0)),
+      `${name} has a malformed row`);
+    if (keys.size) {
+      assert.deepEqual(pairs.map(([key]) => key).sort(), [...keys].sort(),
+        `${name} should carry the same keys as bn.csv, so the grid fills every row`);
     } else {
-      assert.ok(pairs.every(([, value]) => value === ''), `${name} should ship empty values`);
+      pairs.forEach(([key]) => keys.add(key));
+    }
+    if (name === 'bn.csv') {
+      // Bengali is the key list itself: every row maps a key to itself as it
+      // ships. A rewrite here is a legitimate commit — it is what the Bengali
+      // column publishes — so the rule is only that a row is never half-filled.
+      assert.ok(pairs.every(([key, value]) => value.length > 0), 'bn.csv should map every key');
     }
   });
+});
+
+test('the page reads every committed template, not just the key list', () => {
+  // The grid used to fetch `bn.csv` for its key list and nothing else, so a
+  // translator's `en.csv`/`bpy.csv` committed in the repository was invisible to
+  // the dashboard however full it was. Fill is per language now, on load, and
+  // again whenever the button is pressed.
+  const source = fs.readFileSync(SCRIPT, 'utf8');
+  const start = source.indexOf('async function fillFromTemplates()');
+  assert.ok(start > 0, 'the fill function exists');
+  const fill = source.slice(start, source.indexOf('\n  async function ', start + 10));
+  assert.match(fill, /LANGS\.map\(async \(lang\)/, 'every language is filled, not only the source one');
+  assert.match(fill, /await templateValues\(lang\.code\)/);
+  assert.match(source, /await fillFromTemplates\(\);/, 'and it runs as the page loads');
+  assert.match(source, /data-load-templates/, 'with a button to read the templates again');
+  assert.match(source, /loadTemplates\(event\.currentTarget\)/, 'and the button is wired');
+});
+
+test('the page can tell an unpublished translation from an untranslated one', () => {
+  const source = fs.readFileSync(SCRIPT, 'utf8');
+  // The chips carry two numbers per language: what the grid holds, and what the
+  // database holds. A row exists for every language, so `row_count` alone cannot
+  // answer "has anything been published" — the CSV is what the app reads.
+  assert.match(source, /published\[lang\.code\] = parsePairs\(/,
+    'what is published is counted from the stored CSV');
+  assert.match(source, /isScaffolding\(key\)/, 'and only rows the grid would actually show');
+  assert.match(source, /data-publish-note/, 'the notice has somewhere to render');
+  assert.match(source, /NC\.components\.notice\(/, 'and it is a notice, not a toast that disappears');
+  assert.match(source, /Not published yet/, 'it names the languages a reader still sees in Bengali');
 });

@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
@@ -37,6 +38,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -50,6 +52,7 @@ import androidx.compose.material.icons.filled.Comment
 import androidx.compose.material.icons.filled.Stars
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Forum
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Reply
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
@@ -60,12 +63,14 @@ import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.HourglassTop
+import androidx.compose.material.icons.filled.HowToReg
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PersonOutline
 import androidx.compose.material.icons.filled.Publish
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
@@ -101,6 +106,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -118,7 +124,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -132,22 +137,29 @@ import com.ningshingche.app.data.remote.UserNotificationRecord
 import com.ningshingche.app.data.portal.MusicTrack
 import com.ningshingche.app.data.portal.ContributionStats
 import com.ningshingche.app.data.portal.ContributorScore
+import com.ningshingche.app.data.portal.ForumActivity
 import com.ningshingche.app.data.portal.ViewDay
 import com.ningshingche.app.data.remote.UserProfile
 import com.ningshingche.app.data.remote.messageAttachmentUrls
 import com.ningshingche.app.data.remote.shortDateTime
 import com.ningshingche.app.ui.components.AppToasts
+import com.ningshingche.app.ui.editorial.cardBorder
+import com.ningshingche.app.ui.editorial.formatBengaliDate
 import com.ningshingche.app.ui.editorial.Hairline
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.editorial.toBengaliNumeral
 import com.ningshingche.app.ui.components.LocalMusicController
 import com.ningshingche.app.ui.reader.RichHtmlArticleBody
+import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.ReaderMetrics
 import com.ningshingche.app.ui.viewmodel.ReaderWorkspaceViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 
 private const val PAGE_SIZE = 5
 private const val MESSAGE_WINDOW = 10
@@ -189,6 +201,15 @@ fun UserDashboardScreen(
     val viewSeries by viewModel.viewSeries.collectAsStateWithLifecycle()
     val contributorScore by viewModel.contributorScore.collectAsStateWithLifecycle()
     val forumActivity by viewModel.forumActivity.collectAsStateWithLifecycle()
+    val forumHasMore by viewModel.forumHasMore.collectAsStateWithLifecycle()
+    val forumLoadingMore by viewModel.forumLoadingMore.collectAsStateWithLifecycle()
+    val submission by viewModel.submission.collectAsStateWithLifecycle()
+
+    // Where this visit lands. A submission that has just gone through decides
+    // it — the owner asked for the content tab, with the new row in front of the
+    // reader — and it is captured once, when the screen composes, so clearing the
+    // note afterwards cannot move the reader a second time.
+    val landing = remember { submission?.takeIf { it.isFresh() } }
     val loading by viewModel.isLoading.collectAsStateWithLifecycle()
     val saving by viewModel.isSaving.collectAsStateWithLifecycle()
     val status by viewModel.message.collectAsStateWithLifecycle()
@@ -252,8 +273,26 @@ fun UserDashboardScreen(
         scope.launch { pagerState.animateScrollToPage(targetTab) }
         }
     }
-    LaunchedEffect(initialTab) {
-        pagerState.scrollToPage(initialTab.coerceIn(0, TAB_COMMENTS))
+    val snackbarHostState = remember { SnackbarHostState() }
+    // One landing, in one hop: a submission takes the reader to the content tab
+    // and points the pane at the row that was just written, and the ordinary
+    // case goes to whatever tab the route asked for. `scrollToPage` and not
+    // `animateScrollToPage` — the screen is appearing, not travelling, and an
+    // animation here is a flash of the wrong tab first.
+    LaunchedEffect(initialTab, landing) {
+        val note = landing
+        if (note != null) {
+            if (note.id.isNotBlank()) contentFocus = note.id
+            pagerState.scrollToPage(TAB_CONTENT)
+            // Cleared before the snackbar, which suspends: a note is spent the
+            // moment it has moved the reader, not four seconds later.
+            viewModel.clearSubmission()
+            if (note.confirmation.isNotBlank()) {
+                snackbarHostState.showSnackbar(note.confirmation)
+            }
+        } else {
+            pagerState.scrollToPage(initialTab.coerceIn(0, TAB_COMMENTS))
+        }
     }
     LaunchedEffect(onContentTab) {
         if (!onContentTab) fabOpen = false
@@ -262,7 +301,6 @@ fun UserDashboardScreen(
         scope.launch { pagerState.animateScrollToPage(TAB_HOME) }
     }
 
-    val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(status) {
         val text = status ?: return@LaunchedEffect
         if (text.isBlank()) return@LaunchedEffect
@@ -281,7 +319,7 @@ fun UserDashboardScreen(
                     ) {
                         Icon(Icons.Default.Dashboard, contentDescription = null)
                         Text(
-                            "আমার ড্যাশবোর্ড",
+                            tNow("আমার ড্যাশবোর্ড"),
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
@@ -308,7 +346,8 @@ fun UserDashboardScreen(
                                         Badge {
                                             Text(
                                                 if (noticeUnread > 99) "99+" else noticeUnread.toString(),
-                                                fontSize = 10.sp
+                                                fontSize = textSize(10),
+                                                lineHeight = leading(10)
                                             )
                                         }
                                     }
@@ -316,7 +355,7 @@ fun UserDashboardScreen(
                             ) {
                                 Icon(
                                     Icons.Default.Notifications,
-                                    contentDescription = "বিজ্ঞপ্তি",
+                                    contentDescription = tNow("বিজ্ঞপ্তি"),
                                     // The bell is the notifications page itself, so while that
                                     // page is on screen it switches to the accent colour to
                                     // show the current tab instead of looking idle.
@@ -332,7 +371,7 @@ fun UserDashboardScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick, modifier = Modifier.testTag("user_dashboard_back")) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "ফিরুন")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tNow("ফিরুন"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -349,11 +388,11 @@ fun UserDashboardScreen(
                             horizontalAlignment = Alignment.End,
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            SpeedDialItem("প্রবন্ধ যোগ", Icons.AutoMirrored.Filled.Article) {
+                            SpeedDialItem(tNow("প্রবন্ধ যোগ"), Icons.AutoMirrored.Filled.Article) {
                                 fabOpen = false
                                 if (user?.isProfileComplete == true) onNewArticle() else onCompleteProfile()
                             }
-                            SpeedDialItem("গান যোগ", Icons.Default.LibraryMusic) {
+                            SpeedDialItem(tNow("গান যোগ"), Icons.Default.LibraryMusic) {
                                 fabOpen = false
                                 if (user?.isProfileComplete == true) onNewMusic() else onCompleteProfile()
                             }
@@ -365,7 +404,7 @@ fun UserDashboardScreen(
                     ) {
                         Icon(
                             if (fabOpen) Icons.Default.Close else Icons.Default.Add,
-                            contentDescription = "যোগ করুন"
+                            contentDescription = tNow("যোগ করুন")
                         )
                     }
                 }
@@ -405,6 +444,12 @@ fun UserDashboardScreen(
                         articles = articles,
                         tracks = tracks,
                         comments = comments,
+                        forumActivity = forumActivity,
+                        forumHasMore = forumHasMore,
+                        forumLoadingMore = forumLoadingMore,
+                        onLoadMoreForum = { viewModel.loadMoreForumActivity() },
+                        onOpenForum = onOpenForum,
+                        onOpenForumThread = onOpenForumThread,
                         onEditProfile = onCompleteProfile
                     )
                     TAB_NOTICES -> NoticePane(notifications, openNotice)
@@ -468,20 +513,227 @@ private fun DashboardBottomBar(
             selected = selected == TAB_MESSAGES,
             onClick = { onSelect(TAB_MESSAGES) },
             icon = { Icon(Icons.Default.Mail, contentDescription = null) },
-            label = { Text("বার্তা", fontFamily = Kalpurush, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            label = { Text(t("বার্তা"), fontFamily = Kalpurush, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         )
         NavigationBarItem(
             selected = selected == TAB_CONTENT,
             onClick = { onSelect(TAB_CONTENT) },
             icon = { Icon(Icons.AutoMirrored.Filled.Article, contentDescription = null) },
-            label = { Text("কন্টেন্ট", fontFamily = Kalpurush, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            label = { Text(t("কন্টেন্ট"), fontFamily = Kalpurush, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         )
         NavigationBarItem(
             selected = selected == TAB_COMMENTS,
             onClick = { onSelect(TAB_COMMENTS) },
             icon = { Icon(Icons.Default.Comment, contentDescription = null) },
-            label = { Text("মন্তব্য", fontFamily = Kalpurush, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            label = { Text(t("মন্তব্য"), fontFamily = Kalpurush, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         )
+    }
+}
+
+/** The five sections of the dashboard home, shown one at a time. */
+private enum class HomeSection(val label: String) {
+    Points(tNow("পয়েন্ট")),
+    Forum(tNow("ফোরাম")),
+    Views(tNow("ভিউ")),
+    Activity(tNow("কার্যক্রম")),
+    Analytics(tNow("বিশ্লেষণ"))
+}
+
+@Composable
+private fun HomeSectionTabs(selected: HomeSection, onSelect: (HomeSection) -> Unit) {
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("dashboard_sections"),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(HomeSection.entries.toList(), key = { it.name }) { entry ->
+            FilterChip(
+                selected = entry == selected,
+                onClick = { onSelect(entry) },
+                label = {
+                    Text(entry.label, fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold)
+                },
+                modifier = Modifier.testTag("dashboard_section_${entry.name.lowercase()}")
+            )
+        }
+    }
+}
+
+/**
+ * The view counters split, so the total in the chart above it can be read.
+ *
+ * Two rows, because the numbers answer two different questions. The first says
+ * what was viewed — the articles, the songs, the threads. The second says who was
+ * reading: how many *people* rather than visits, how many of them were signed in,
+ * and how many minutes of the songs were really listened to. A view is one visit
+ * (the same reader inside half an hour is the same visit); a visitor is one person.
+ */
+@Composable
+private fun ViewSplit(metrics: ReaderMetrics) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("dashboard_view_split"),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            MetricCard(
+                t("প্রবন্ধ ভিউ"),
+                toBengaliNumeral(metrics.articleViews),
+                Icons.AutoMirrored.Filled.Article,
+                Modifier.weight(1f)
+            )
+            MetricCard(
+                t("গান ভিউ"),
+                toBengaliNumeral(metrics.musicViews),
+                Icons.Default.MusicNote,
+                Modifier.weight(1f)
+            )
+            MetricCard(
+                t("আলোচনা ভিউ"),
+                toBengaliNumeral(metrics.forumViews),
+                Icons.Default.Forum,
+                Modifier.weight(1f)
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            MetricCard(
+                t("পাঠক"),
+                toBengaliNumeral(metrics.visitors),
+                Icons.Default.Groups,
+                Modifier.weight(1f)
+            )
+            MetricCard(
+                t("নিবন্ধিত ভিউ"),
+                toBengaliNumeral(metrics.registeredViews),
+                Icons.Default.HowToReg,
+                Modifier.weight(1f)
+            )
+            MetricCard(
+                t("অতিথি ভিউ"),
+                toBengaliNumeral(metrics.guestViews),
+                Icons.Default.PersonOutline,
+                Modifier.weight(1f)
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            MetricCard(
+                t("শোনা মিনিট"),
+                toBengaliNumeral(metrics.minutesListened),
+                Icons.Default.Timer,
+                Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+/**
+ * বিশ্লেষণ — the reader's articles, one row each, with what is known about them.
+ *
+ * Deliberately honest about what the data holds: a submission has a status, a
+ * date, and the comments readers left on the article it became (the app matches
+ * them by `convertedBlogId`). Per-article view counts are not in the submissions
+ * table — the views live on the published blog — so this list does not invent
+ * them, and the total the database does count is on the ভিউ section.
+ *
+ * Five rows at a time behind the same "আরও দেখুন" the other lists use.
+ */
+@Composable
+private fun ArticleAnalyticsList(
+    articles: List<SubmittedBlogRecord>,
+    comments: List<CommentRecord>
+) {
+    var limit by rememberSaveable { mutableIntStateOf(PAGE_SIZE) }
+    val tokens = LocalEditorialTokens.current
+    // `compareByDescending` and not `sortedByDescending`: the latter asks for a
+    // `Comparable` selector, the former takes any comparable value, and the date
+    // is a String either way.
+    val sorted = remember(articles) {
+        articles.sortedWith(
+            compareByDescending { it.createdAt.ifBlank { it.updatedAt } }
+        )
+    }
+    val commentsByBlog = remember(comments) {
+        comments.filter { it.blogId.isNotBlank() }.groupingBy { it.blogId }.eachCount()
+    }
+
+    Surface(
+        border = cardBorder(),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("dashboard_analytics")
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                text = t("প্রবন্ধ বিশ্লেষণ"),
+                fontFamily = Kalpurush,
+                fontWeight = FontWeight.Bold,
+                fontSize = textSize(15),
+                lineHeight = leading(15)
+            )
+            if (sorted.isEmpty()) {
+                EmptyHint(t("এখনো কোনো প্রবন্ধ জমা দেওয়া হয়নি।"))
+                return@Column
+            }
+            sorted.take(limit).forEach { article ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = article.title,
+                            fontFamily = Kalpurush,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = textSize(13.5),
+                            lineHeight = leading(13.5),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = buildString {
+                                append(formatBengaliDate(article.createdAt))
+                                val replies = commentsByBlog[article.convertedBlogId] ?: 0
+                                if (replies > 0) {
+                                    append(" · ")
+                                    append(toBengaliNumeral(replies))
+                                    append(tNow(" মন্তব্য"))
+                                }
+                            },
+                            fontFamily = Kalpurush,
+                            fontSize = textSize(10.5),
+                            lineHeight = leading(10.5),
+                            color = tokens.inkMuted
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    ContentStatusChip(status = article.status)
+                }
+            }
+            if (limit < sorted.size) {
+                OutlinedButton(
+                    onClick = { limit = (limit + PAGE_SIZE).coerceAtMost(sorted.size) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("dashboard_analytics_more")
+                ) {
+                    Text(t("আরও দেখুন"), fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
     }
 }
 
@@ -495,8 +747,15 @@ private fun HomePane(
     articles: List<SubmittedBlogRecord>,
     tracks: List<SubmittedMusicRecord>,
     comments: List<CommentRecord>,
+    forumActivity: ForumActivity?,
+    forumHasMore: Boolean,
+    forumLoadingMore: Boolean,
+    onLoadMoreForum: () -> Unit,
+    onOpenForum: () -> Unit,
+    onOpenForumThread: (String) -> Unit,
     onEditProfile: () -> Unit
 ) {
+    var section by rememberSaveable { mutableStateOf(HomeSection.Points) }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -513,38 +772,67 @@ private fun HomePane(
             ) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "প্রোফাইল অসম্পূর্ণ। নতুন প্রবন্ধ বা গান জমা দিতে আগে প্রোফাইল পূরণ করুন।",
+                        tNow("প্রোফাইল অসম্পূর্ণ। নতুন প্রবন্ধ বা গান জমা দিতে আগে প্রোফাইল পূরণ করুন।"),
                         fontFamily = Kalpurush
                     )
                     Button(onClick = onEditProfile, modifier = Modifier.testTag("complete_profile_cta")) {
-                        Text("প্রোফাইল সম্পাদনা", fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
+                        Text(tNow("প্রোফাইল সম্পাদনা"), fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
                     }
                 }
             }
         }
         MetricsGrid(metrics = metrics)
-        // Points, from the same place the contributor board gets them.
-        contributorScore?.let { ContributorPointsCard(score = it) }
-        ForumCard(
-            activity = forumActivity,
-            onOpenForum = onOpenForum,
-            onOpenThread = onOpenForumThread,
-            modifier = Modifier.testTag("dashboard_forum")
-        )
-        // The one graph that comes from the server: the views the database has
-        // counted on the reader's articles and songs, day by day.
-        ViewsOverTimeChart(
-            series = viewSeries,
-            totalViews = metrics.totalViews,
-            days = viewSeriesDays
-        )
-        // Graphs of the reader's own records, drawn from the same local lists
-        // the tabs show — no extra requests.
-        ContributionCharts(
-            articles = articles,
-            tracks = tracks,
-            comments = comments
-        )
+
+        // One section at a time, in tabs.
+        //
+        // The owner's words were "points, forum, view, কার্যক্রম, Article
+        // analytics view in tab": these five used to be a single column of cards
+        // that had to be scrolled through to find any one of them. The summary
+        // above stays put — it is four numbers, not a section — and the sections
+        // below it trade places.
+        HomeSectionTabs(selected = section, onSelect = { section = it })
+
+        when (section) {
+            HomeSection.Points -> if (contributorScore != null) {
+                // Points, from the same place the contributor board gets them.
+                ContributorPointsCard(score = contributorScore)
+            } else {
+                EmptyHint(tNow("পয়েন্টের হিসাব এখনো পাওয়া যায়নি।"))
+            }
+
+            HomeSection.Forum -> ForumCard(
+                activity = forumActivity,
+                onOpenForum = onOpenForum,
+                onOpenThread = onOpenForumThread,
+                onLoadMore = if (forumHasMore || forumLoadingMore) onLoadMoreForum else null,
+                loadingMore = forumLoadingMore,
+                modifier = Modifier.testTag("dashboard_forum")
+            )
+
+            HomeSection.Views -> {
+                // The one graph that comes from the server: the views the
+                // database has counted on the reader's articles and songs, day
+                // by day.
+                ViewsOverTimeChart(
+                    series = viewSeries,
+                    totalViews = metrics.totalViews,
+                    days = viewSeriesDays
+                )
+                ViewSplit(metrics = metrics)
+            }
+
+            HomeSection.Activity -> ActivityChart(
+                articles = articles,
+                tracks = tracks,
+                comments = comments
+            )
+
+            HomeSection.Analytics -> {
+                ArticleStatusChart(articles = articles)
+                ArticleAnalyticsList(articles = articles, comments = comments)
+            }
+        }
+
         Spacer(Modifier.height(24.dp))
     }
 }
@@ -561,7 +849,7 @@ private fun NoticePane(
         modifier = Modifier.fillMaxSize()
     ) {
         if (notifications.isEmpty()) {
-            item { EmptyHint("এখনো কোনো বিজ্ঞপ্তি নেই। প্রবন্ধ বা মন্তব্য প্রকাশিত হলে এখানে দেখাবে।") }
+            item { EmptyHint(t("এখনো কোনো বিজ্ঞপ্তি নেই। প্রবন্ধ বা মন্তব্য প্রকাশিত হলে এখানে দেখাবে।")) }
         } else {
             items(notifications.take(limit), key = { "n-${it.id}" }) { notice ->
                 NotificationCard(notice = notice, onOpen = { onOpen(notice) })
@@ -572,7 +860,7 @@ private fun NoticePane(
                         onClick = { limit = (limit + PAGE_SIZE).coerceAtMost(notifications.size) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("আরও দেখুন", fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
+                        Text(t("আরও দেখুন"), fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -612,7 +900,7 @@ private fun ContentPane(
                     id = it.id,
                     isMusic = true,
                     title = it.title,
-                    subtitle = listOf(it.artist, it.album).filter { s -> s.isNotBlank() }.joinToString(" · ").ifBlank { "গান" },
+                    subtitle = listOf(it.artist, it.album).filter { s -> s.isNotBlank() }.joinToString(" · ").ifBlank { tNow("গান") },
                     // A song in the catalogue is live in the app's music screen,
                     // which is also where tapping the row sends the reader.
                     status = "Published",
@@ -668,7 +956,7 @@ private fun ContentPane(
                 FilterChip(
                     selected = filter == ContentFilter.Articles,
                     onClick = { filter = ContentFilter.Articles; limit = PAGE_SIZE },
-                    label = { Text("প্রবন্ধ", fontFamily = Kalpurush) },
+                    label = { Text(t("প্রবন্ধ"), fontFamily = Kalpurush) },
                     leadingIcon = {
                         Icon(Icons.AutoMirrored.Filled.Article, contentDescription = null, modifier = Modifier.size(16.dp))
                     }
@@ -676,7 +964,7 @@ private fun ContentPane(
                 FilterChip(
                     selected = filter == ContentFilter.Songs,
                     onClick = { filter = ContentFilter.Songs; limit = PAGE_SIZE },
-                    label = { Text("গান", fontFamily = Kalpurush) },
+                    label = { Text(t("গান"), fontFamily = Kalpurush) },
                     leadingIcon = {
                         Icon(Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(16.dp))
                     }
@@ -687,9 +975,9 @@ private fun ContentPane(
             item {
                 EmptyHint(
                     when (filter) {
-                        ContentFilter.Articles -> "এখনো কোনো প্রবন্ধ জমা দেননি।"
-                        ContentFilter.Songs -> "এখনো কোনো গান জমা দেননি।"
-                        ContentFilter.All -> "এখনো কোনো প্রবন্ধ বা গান জমা দেননি।"
+                        ContentFilter.Articles -> t("এখনো কোনো প্রবন্ধ জমা দেননি।")
+                        ContentFilter.Songs -> t("এখনো কোনো গান জমা দেননি।")
+                        ContentFilter.All -> t("এখনো কোনো প্রবন্ধ বা গান জমা দেননি।")
                     }
                 )
             }
@@ -708,7 +996,7 @@ private fun ContentPane(
                                 if (track.hasPlayableSource()) {
                                     player.play(track, musicQueue.ifEmpty { listOf(track) }, expand = true)
                                 } else {
-                                    AppToasts.show("এই গানের অডিও ফাইল নেই।")
+                                    AppToasts.show(tNow("এই গানের অডিও ফাইল নেই।"))
                                 }
                             }
                             isPublishedStatus(article.status) -> scope.launch {
@@ -729,7 +1017,7 @@ private fun ContentPane(
                         onClick = { limit = (limit + PAGE_SIZE).coerceAtMost(rows.size) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("আরও দেখুন", fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
+                        Text(t("আরও দেখুন"), fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -768,15 +1056,16 @@ private fun ArticlePreviewDialog(article: SubmittedBlogRecord, onDismiss: () -> 
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "এভাবে প্রকাশিত হবে",
+                        text = t("এভাবে প্রকাশিত হবে"),
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
+                        fontSize = textSize(15),
+                        lineHeight = leading(15),
                         modifier = Modifier.weight(1f)
                     )
                     ContentStatusChip(status = article.status)
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "বন্ধ করুন")
+                        Icon(Icons.Default.Close, contentDescription = t("বন্ধ করুন"))
                     }
                 }
                 Hairline()
@@ -799,17 +1088,18 @@ private fun ArticlePreviewDialog(article: SubmittedBlogRecord, onDismiss: () -> 
                         )
                     }
                     Text(
-                        text = article.title.ifBlank { "শিরোনামহীন" },
+                        text = article.title.ifBlank { tNow("শিরোনামহীন") },
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 21.sp,
-                        lineHeight = 30.sp
+                        fontSize = textSize(21),
+                        lineHeight = leading(21)
                     )
                     if (article.contentTitle.isNotBlank()) {
                         Text(
                             text = article.contentTitle,
                             fontFamily = Kalpurush,
-                            fontSize = 15.sp,
+                            fontSize = textSize(15),
+                            lineHeight = leading(15),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -818,7 +1108,8 @@ private fun ArticlePreviewDialog(article: SubmittedBlogRecord, onDismiss: () -> 
                             .filter { it.isNotBlank() }
                             .joinToString(" · "),
                         fontFamily = Kalpurush,
-                        fontSize = 13.sp,
+                        fontSize = textSize(13),
+                        lineHeight = leading(13),
                         color = MaterialTheme.colorScheme.primary
                     )
                     Hairline()
@@ -829,7 +1120,7 @@ private fun ArticlePreviewDialog(article: SubmittedBlogRecord, onDismiss: () -> 
                         // Nothing to open inside a preview: the body is there
                         // to be read, and a link in a submission that is not
                         // live should not walk the reader out of the dashboard.
-                        onOpenLink = { AppToasts.show("প্রকাশিত হলে লিংকটি কাজ করবে।") }
+                        onOpenLink = { AppToasts.show(tNow("প্রকাশিত হলে লিংকটি কাজ করবে।")) }
                     )
                     Spacer(Modifier.height(20.dp))
                 }
@@ -909,7 +1200,7 @@ private fun CommentPane(
         modifier = Modifier.fillMaxSize()
     ) {
         if (comments.isEmpty()) {
-            item { EmptyHint("আপনার কোনো মন্তব্য পাওয়া যায়নি।") }
+            item { EmptyHint(t("আপনার কোনো মন্তব্য পাওয়া যায়নি।")) }
         } else {
             items(comments.take(limit), key = { "c-${it.id}" }) { comment ->
                 CommentStatusCard(
@@ -924,7 +1215,7 @@ private fun CommentPane(
                         onClick = { limit = (limit + PAGE_SIZE).coerceAtMost(comments.size) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("আরও দেখুন", fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
+                        Text(t("আরও দেখুন"), fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -971,7 +1262,7 @@ private fun MessagePane(
                 if (preview != null) {
                     ImgBbUploader.uploadBitmap(preview, "pdf_${System.currentTimeMillis()}")
                 } else {
-                    Result.failure(IllegalArgumentException("পিডিএফ পড়া যায়নি।"))
+                    Result.failure(IllegalArgumentException(tNow("পিডিএফ পড়া যায়নি।")))
                 }
             } else {
                 ImgBbUploader.uploadFromUri(context, uri, "msg_${System.currentTimeMillis()}")
@@ -980,7 +1271,7 @@ private fun MessagePane(
                 val url = image.displayUrl.ifBlank { image.url }
                 pendingUrls = pendingUrls + url
                 if (mime.contains("pdf", true)) {
-                    body = if (body.isBlank()) "📎 পিডিএফ সংযুক্ত" else body
+                    body = if (body.isBlank()) tNow("📎 পিডিএফ সংযুক্ত") else body
                 }
             }
             attaching = false
@@ -1001,12 +1292,12 @@ private fun MessagePane(
                             onClick = { window = (window + MESSAGE_WINDOW).coerceAtMost(ordered.size) },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("আগের বার্তা লোড করুন", fontFamily = Kalpurush)
+                            Text(t("আগের বার্তা লোড করুন"), fontFamily = Kalpurush)
                         }
                     }
                 }
                 if (ordered.isEmpty()) {
-                    item { EmptyHint("অ্যাডমিনকে প্রশ্ন বা অনুরোধ পাঠান। উত্তর এখানে দেখাবে।") }
+                    item { EmptyHint(t("অ্যাডমিনকে প্রশ্ন বা অনুরোধ পাঠান। উত্তর এখানে দেখাবে।")) }
                 }
                 items(visible, key = { it.id }) { item ->
                     ChatBubble(item, onOpenImage = { previewUrl = it })
@@ -1023,7 +1314,7 @@ private fun MessagePane(
                     .padding(12.dp)
                     .testTag("dashboard_scroll_latest")
             ) {
-                Icon(Icons.Default.KeyboardArrowDown, contentDescription = "নিচে যান")
+                Icon(Icons.Default.KeyboardArrowDown, contentDescription = t("নিচে যান"))
             }
         }
 
@@ -1050,7 +1341,7 @@ private fun MessagePane(
                             onClick = { pendingUrls = pendingUrls.filterNot { it == url } },
                             modifier = Modifier.align(Alignment.TopEnd).size(28.dp)
                         ) {
-                            Icon(Icons.Default.Close, contentDescription = "সরান")
+                            Icon(Icons.Default.Close, contentDescription = t("সরান"))
                         }
                     }
                 }
@@ -1065,19 +1356,19 @@ private fun MessagePane(
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             IconButton(onClick = onReload, modifier = Modifier.testTag("dashboard_admin_message_reload")) {
-                Icon(Icons.Default.Refresh, contentDescription = "রিলোড")
+                Icon(Icons.Default.Refresh, contentDescription = t("রিলোড"))
             }
             IconButton(
                 onClick = { picker.launch("*/*") },
                 enabled = !attaching,
                 modifier = Modifier.testTag("dashboard_admin_message_attach")
             ) {
-                Icon(Icons.Default.AttachFile, contentDescription = "ছবি বা পিডিএফ")
+                Icon(Icons.Default.AttachFile, contentDescription = t("ছবি বা পিডিএফ"))
             }
             OutlinedTextField(
                 value = body,
                 onValueChange = { body = it },
-                label = { Text("বার্তা", fontFamily = Kalpurush) },
+                label = { Text(t("বার্তা"), fontFamily = Kalpurush) },
                 minLines = 1,
                 maxLines = 4,
                 modifier = Modifier.weight(1f).testTag("dashboard_admin_message_body")
@@ -1093,7 +1384,7 @@ private fun MessagePane(
                 enabled = !saving && !attaching && (body.isNotBlank() || pendingUrls.isNotEmpty()),
                 modifier = Modifier.testTag("dashboard_admin_message_send")
             ) {
-                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "পাঠান")
+                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = t("পাঠান"))
             }
         }
     }
@@ -1123,7 +1414,7 @@ private fun ImagePreviewDialog(url: String, onDismiss: () -> Unit) {
                     .align(Alignment.TopEnd)
                     .padding(8.dp)
             ) {
-                Icon(Icons.Default.Close, contentDescription = "বন্ধ", tint = Color.White)
+                Icon(Icons.Default.Close, contentDescription = t("বন্ধ"), tint = Color.White)
             }
         }
     }
@@ -1190,7 +1481,7 @@ private fun ZoomableChatImage(url: String) {
     ) {
         AsyncImage(
             model = url,
-            contentDescription = "ছবি",
+            contentDescription = t("ছবি"),
             contentScale = ContentScale.Fit,
             modifier = Modifier
                 .fillMaxWidth()
@@ -1212,6 +1503,7 @@ private fun ChatBubble(item: AdminMessageRecord, onOpenImage: (String) -> Unit) 
     val text = images.fold(item.body) { acc, url -> acc.replace(url, "") }.trim()
     Box(modifier = Modifier.fillMaxWidth()) {
         Surface(
+            border = cardBorder(),
             shape = RoundedCornerShape(
                 topStart = 16.dp,
                 topEnd = 16.dp,
@@ -1226,18 +1518,19 @@ private fun ChatBubble(item: AdminMessageRecord, onOpenImage: (String) -> Unit) 
         ) {
             Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    if (fromAdmin) "অ্যাডমিন" else "আপনি",
+                    if (fromAdmin) t("অ্যাডমিন") else t("আপনি"),
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp
+                    fontSize = textSize(11),
+                    lineHeight = leading(11)
                 )
                 if (text.isNotBlank()) {
-                    Text(text, fontFamily = Kalpurush, fontSize = 15.sp)
+                    Text(text, fontFamily = Kalpurush, fontSize = textSize(15), lineHeight = leading(15))
                 }
                 images.forEach { url ->
                     AsyncImage(
                         model = url,
-                        contentDescription = "সংযুক্তি",
+                        contentDescription = tNow("সংযুক্তি"),
                         contentScale = ContentScale.Fit,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1255,14 +1548,15 @@ private fun ChatBubble(item: AdminMessageRecord, onOpenImage: (String) -> Unit) 
                         Text(
                             shortDateTime(item.createdAt),
                             fontFamily = Kalpurush,
-                            fontSize = 10.sp,
+                            fontSize = textSize(10),
+                            lineHeight = leading(10),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     if (!fromAdmin) {
                         Icon(
                             imageVector = if (item.isRead) Icons.Default.DoneAll else Icons.Default.Done,
-                            contentDescription = if (item.isRead) "দেখা হয়েছে" else "পাঠানো হয়েছে",
+                            contentDescription = if (item.isRead) t("দেখা হয়েছে") else t("পাঠানো হয়েছে"),
                             tint = if (item.isRead) TickGreen else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -1277,9 +1571,10 @@ private fun UserInfoCard(
     user: UserProfile?,
     onEditProfile: () -> Unit
 ) {
-    val name = user?.composedFullName().orEmpty().ifBlank { "পাঠক" }
+    val name = user?.composedFullName().orEmpty().ifBlank { tNow("পাঠক") }
     val designation = user?.designation.orEmpty().ifBlank { "—" }
     Surface(
+        border = cardBorder(),
         shape = RoundedCornerShape(16.dp),
         tonalElevation = 2.dp,
         modifier = Modifier
@@ -1295,7 +1590,7 @@ private fun UserInfoCard(
                 if (!user?.avatarUrl.isNullOrBlank()) {
                     AsyncImage(
                         model = user?.avatarUrl,
-                        contentDescription = "প্রোফাইল ছবি",
+                        contentDescription = t("প্রোফাইল ছবি"),
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize().clip(CircleShape)
                     )
@@ -1306,11 +1601,12 @@ private fun UserInfoCard(
                 }
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(name, fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text(name, fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = textSize(20), lineHeight = leading(20))
                 Text(
                     designation,
                     fontFamily = Kalpurush,
-                    fontSize = 13.sp,
+                    fontSize = textSize(13),
+                    lineHeight = leading(13),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -1318,7 +1614,7 @@ private fun UserInfoCard(
                 onClick = onEditProfile,
                 modifier = Modifier.testTag("dashboard_edit_profile")
             ) {
-                Icon(Icons.Default.Edit, contentDescription = "প্রোফাইল সম্পাদনা")
+                Icon(Icons.Default.Edit, contentDescription = t("প্রোফাইল সম্পাদনা"))
             }
         }
     }
@@ -1328,39 +1624,73 @@ private fun UserInfoCard(
 private fun MetricsGrid(metrics: ReaderMetrics) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag("dashboard_metrics")) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            MetricCard("প্রবন্ধ", metrics.totalArticles.toString(), Icons.AutoMirrored.Filled.Article, Modifier.weight(1f))
-            MetricCard("গান", metrics.songs.toString(), Icons.Default.MusicNote, Modifier.weight(1f))
-            MetricCard("অপেক্ষমাণ", metrics.pendingArticles.toString(), Icons.Default.HourglassTop, Modifier.weight(1f))
+            MetricCard(t("প্রবন্ধ"), metrics.totalArticles.toString(), Icons.AutoMirrored.Filled.Article, Modifier.weight(1f))
+            MetricCard(t("গান"), metrics.songs.toString(), Icons.Default.MusicNote, Modifier.weight(1f))
+            MetricCard(t("অপেক্ষমাণ"), metrics.pendingArticles.toString(), Icons.Default.HourglassTop, Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            MetricCard("প্রকাশিত", metrics.publishedArticles.toString(), Icons.Default.Publish, Modifier.weight(1f))
-            MetricCard("মন্তব্য", metrics.comments.toString(), Icons.Default.Comment, Modifier.weight(1f))
+            MetricCard(t("প্রকাশিত"), metrics.publishedArticles.toString(), Icons.Default.Publish, Modifier.weight(1f))
+            MetricCard(t("মন্তব্য"), metrics.comments.toString(), Icons.Default.Comment, Modifier.weight(1f))
             MetricCard(
-                "ভিউ",
+                t("ভিউ"),
                 toBengaliNumeral(metrics.totalViews),
                 Icons.Default.Visibility,
                 Modifier.weight(1f)
             )
         }
-        // The view counter split, so the total above can be read.
+        // The view counter split, so the total above can be read — plus who was
+        // reading it: people rather than visits, and the minutes actually heard.
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             MetricCard(
-                "প্রবন্ধ ভিউ",
+                t("প্রবন্ধ ভিউ"),
                 toBengaliNumeral(metrics.articleViews),
                 Icons.AutoMirrored.Filled.Article,
                 Modifier.weight(1f)
             )
             MetricCard(
-                "গান ভিউ",
+                t("গান ভিউ"),
                 toBengaliNumeral(metrics.musicViews),
                 Icons.Default.MusicNote,
+                Modifier.weight(1f)
+            )
+            MetricCard(
+                t("আলোচনা ভিউ"),
+                toBengaliNumeral(metrics.forumViews),
+                Icons.Default.Forum,
+                Modifier.weight(1f)
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            MetricCard(
+                t("পাঠক"),
+                toBengaliNumeral(metrics.visitors),
+                Icons.Default.Groups,
+                Modifier.weight(1f)
+            )
+            MetricCard(
+                t("নিবন্ধিত ভিউ"),
+                toBengaliNumeral(metrics.registeredViews),
+                Icons.Default.HowToReg,
+                Modifier.weight(1f)
+            )
+            MetricCard(
+                t("অতিথি ভিউ"),
+                toBengaliNumeral(metrics.guestViews),
+                Icons.Default.PersonOutline,
+                Modifier.weight(1f)
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            MetricCard(
+                t("শোনা মিনিট"),
+                toBengaliNumeral(metrics.minutesListened),
+                Icons.Default.Timer,
                 Modifier.weight(1f)
             )
         }
     }
 }
 
-@Composable
 /**
  * The reader's own points, on their dashboard.
  *
@@ -1372,6 +1702,7 @@ private fun MetricsGrid(metrics: ReaderMetrics) {
 private fun ContributorPointsCard(score: ContributorScore, modifier: Modifier = Modifier) {
     val tokens = LocalEditorialTokens.current
     Surface(
+        border = cardBorder(),
         shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 1.dp,
@@ -1389,24 +1720,27 @@ private fun ContributorPointsCard(score: ContributorScore, modifier: Modifier = 
                 )
                 Spacer(Modifier.width(6.dp))
                 Text(
-                    text = "অবদান পয়েন্ট",
+                    text = t("অবদান পয়েন্ট"),
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
+                    fontSize = textSize(15),
+                    lineHeight = leading(15)
                 )
                 Spacer(Modifier.weight(1f))
                 Text(
-                    text = "${toBengaliNumeral(score.lifetime.points)} পয়েন্ট",
+                    text = t("{1} পয়েন্ট", toBengaliNumeral(score.lifetime.points)),
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
+                    fontSize = textSize(18),
+                    lineHeight = leading(18),
                     color = MaterialTheme.colorScheme.primary
                 )
             }
             Text(
-                text = "${monthLabel(score.monthKey)} মাসে ${toBengaliNumeral(score.month.points)} পয়েন্ট",
+                text = t("{1} মাসে {2} পয়েন্ট", monthLabel(score.monthKey), toBengaliNumeral(score.month.points)),
                 fontFamily = Kalpurush,
-                fontSize = 12.sp,
+                fontSize = textSize(12),
+                lineHeight = leading(12),
                 color = tokens.inkMuted
             )
             Hairline()
@@ -1423,13 +1757,13 @@ private fun PointsBreakdown(stats: ContributionStats) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        BreakdownItem("প্রবন্ধ", stats.articles, Icons.AutoMirrored.Filled.Article, tokens.inkMuted)
-        BreakdownItem("গান", stats.songs, Icons.Default.MusicNote, tokens.inkMuted)
-        BreakdownItem("মন্তব্য", stats.comments, Icons.Default.Comment, tokens.inkMuted)
-        BreakdownItem("ভিউ", stats.views.toInt(), Icons.Default.Visibility, tokens.inkMuted)
-        BreakdownItem("মিনিট", stats.minutes, Icons.Default.Timer, tokens.inkMuted)
-        BreakdownItem("আলোচনা", stats.discussions, Icons.Default.Forum, tokens.inkMuted)
-        BreakdownItem("উত্তর", stats.replies, Icons.Default.Reply, tokens.inkMuted)
+        BreakdownItem(t("প্রবন্ধ"), stats.articles, Icons.AutoMirrored.Filled.Article, tokens.inkMuted)
+        BreakdownItem(t("গান"), stats.songs, Icons.Default.MusicNote, tokens.inkMuted)
+        BreakdownItem(t("মন্তব্য"), stats.comments, Icons.Default.Comment, tokens.inkMuted)
+        BreakdownItem(t("ভিউ"), stats.views.toInt(), Icons.Default.Visibility, tokens.inkMuted)
+        BreakdownItem(t("মিনিট"), stats.minutes, Icons.Default.Timer, tokens.inkMuted)
+        BreakdownItem(t("আলোচনা"), stats.discussions, Icons.Default.Forum, tokens.inkMuted)
+        BreakdownItem(t("উত্তর"), stats.replies, Icons.Default.Reply, tokens.inkMuted)
     }
 }
 
@@ -1446,21 +1780,24 @@ private fun BreakdownItem(
             text = toBengaliNumeral(value),
             fontFamily = Kalpurush,
             fontWeight = FontWeight.Bold,
-            fontSize = 13.sp
+            fontSize = textSize(13),
+            lineHeight = leading(13)
         )
-        Text(text = label, fontFamily = Kalpurush, fontSize = 10.sp, color = tint)
+        Text(text = label, fontFamily = Kalpurush, fontSize = textSize(10), lineHeight = leading(10), color = tint)
     }
 }
 
+@Composable
 private fun MetricCard(label: String, value: String, icon: ImageVector, modifier: Modifier = Modifier) {
     Surface(
+        border = cardBorder(),
         modifier = modifier,
         shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 1.dp
     ) {
         Column(Modifier.padding(horizontal = 10.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(value, fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text(value, fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = textSize(20), lineHeight = leading(20))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -1474,7 +1811,8 @@ private fun MetricCard(label: String, value: String, icon: ImageVector, modifier
                 Text(
                     label,
                     fontFamily = Kalpurush,
-                    fontSize = 12.sp,
+                    fontSize = textSize(12),
+                    lineHeight = leading(12),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -1495,6 +1833,7 @@ private fun NotificationCard(
     onOpen: () -> Unit
 ) {
     Surface(
+        border = cardBorder(),
         shape = RoundedCornerShape(14.dp),
         color = if (notice.isRead) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.primaryContainer,
         modifier = Modifier
@@ -1516,19 +1855,20 @@ private fun NotificationCard(
             Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.weight(1f)) {
                 Text(notice.title, fontFamily = Kalpurush, fontWeight = FontWeight.Bold)
                 if (notice.body.isNotBlank()) {
-                    Text(notice.body, fontFamily = Kalpurush, fontSize = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                    Text(notice.body, fontFamily = Kalpurush, fontSize = textSize(13), lineHeight = leading(13), maxLines = 3, overflow = TextOverflow.Ellipsis)
                 }
                 Text(
                     when {
-                        notice.isForumReply -> "ফোরাম · উত্তর"
-                        notice.isForumThread -> "ফোরাম · আলোচনা"
-                        notice.isComment -> "মন্তব্য"
-                        notice.isAdminMessage || notice.kind == "staff_notice" -> "বার্তা"
-                        notice.isArticle -> "প্রবন্ধ"
+                        notice.isForumReply -> t("ফোরাম · উত্তর")
+                        notice.isForumThread -> t("ফোরাম · আলোচনা")
+                        notice.isComment -> t("মন্তব্য")
+                        notice.isAdminMessage || notice.kind == "staff_notice" -> t("বার্তা")
+                        notice.isArticle -> t("প্রবন্ধ")
                         else -> notice.kind
                     },
                     fontFamily = Kalpurush,
-                    fontSize = 11.sp,
+                    fontSize = textSize(11),
+                    lineHeight = leading(11),
                     color = MaterialTheme.colorScheme.primary
                 )
             }
@@ -1549,6 +1889,7 @@ private fun NotificationCard(
 @Composable
 private fun ContentCard(row: ContentRow, highlighted: Boolean = false, onOpen: () -> Unit) {
     Surface(
+        border = cardBorder(),
         shape = RoundedCornerShape(14.dp),
         color = if (highlighted) MaterialTheme.colorScheme.primaryContainer
         else MaterialTheme.colorScheme.surface,
@@ -1583,9 +1924,10 @@ private fun ContentCard(row: ContentRow, highlighted: Boolean = false, onOpen: (
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(row.title, fontFamily = Kalpurush, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(
-                    if (row.isMusic) "গান · ${row.subtitle}" else row.subtitle,
+                    if (row.isMusic) t("গান · {1}", row.subtitle) else row.subtitle,
                     fontFamily = Kalpurush,
-                    fontSize = 12.sp,
+                    fontSize = textSize(12),
+                    lineHeight = leading(12),
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -1627,7 +1969,8 @@ private fun ContentStatusChip(status: String, modifier: Modifier = Modifier) {
         Text(
             text = label,
             fontFamily = Kalpurush,
-            fontSize = 11.sp,
+            fontSize = textSize(11),
+            lineHeight = leading(11),
             fontWeight = FontWeight.Bold,
             color = tint,
             maxLines = 1,
@@ -1639,6 +1982,7 @@ private fun ContentStatusChip(status: String, modifier: Modifier = Modifier) {
 @Composable
 private fun CommentStatusCard(comment: CommentRecord, highlighted: Boolean = false, onOpen: () -> Unit) {
     Surface(
+        border = cardBorder(),
         shape = RoundedCornerShape(14.dp),
         color = if (highlighted) MaterialTheme.colorScheme.primaryContainer
         else MaterialTheme.colorScheme.surface,
@@ -1652,13 +1996,14 @@ private fun CommentStatusCard(comment: CommentRecord, highlighted: Boolean = fal
             Icon(Icons.Default.Comment, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.weight(1f)) {
                 if (comment.blogTitle.isNotBlank()) {
-                    Text(comment.blogTitle, fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text(comment.blogTitle, fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = textSize(13), lineHeight = leading(13))
                 }
-                Text(comment.content, fontFamily = Kalpurush, fontSize = 14.sp, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                Text(comment.content, fontFamily = Kalpurush, fontSize = textSize(14), lineHeight = leading(14), maxLines = 4, overflow = TextOverflow.Ellipsis)
                 Text(
-                    if (comment.isPublished) "প্রকাশিত" else "পর্যালোচনায়",
+                    if (comment.isPublished) t("প্রকাশিত") else t("পর্যালোচনায়"),
                     fontFamily = Kalpurush,
-                    fontSize = 12.sp,
+                    fontSize = textSize(12),
+                    lineHeight = leading(12),
                     color = MaterialTheme.colorScheme.primary
                 )
             }
@@ -1668,10 +2013,10 @@ private fun CommentStatusCard(comment: CommentRecord, highlighted: Boolean = fal
 
 private fun statusLabel(status: String): String {
     return when (status.lowercase()) {
-        "pending" -> "অপেক্ষমাণ"
-        "published", "approved" -> "প্রকাশিত"
-        "rejected" -> "প্রত্যাখ্যাত"
-        "reviewed" -> "পর্যালোচিত"
+        "pending" -> tNow("অপেক্ষমাণ")
+        "published", "approved" -> tNow("প্রকাশিত")
+        "rejected" -> tNow("প্রত্যাখ্যাত")
+        "reviewed" -> tNow("পর্যালোচিত")
         else -> status
     }
 }

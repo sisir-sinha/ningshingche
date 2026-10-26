@@ -12,6 +12,7 @@ The dashboard is located entirely inside `backend/`, as requested.
 - **Filters everywhere** — Blogs filter by author, নিংশিং চে annual issue, and other tags; Comments filter by blog author *and* by commenter; Registered users › Articles and Messages filter by app user. Active filters are shown as removable chips and encoded in the URL.
 - **Registered-user articles use the full editor** — the same Quill workspace, ImgBB thumbnail, preview, and status controls as Blogs, plus *Add article* on behalf of a selected app user and *Approve & convert to Blog*.
 - **Registered-user charts** — growth, article status, profile completion, 14-day message volume, most active users, and notification read state.
+- **Forum moderation and writing** — the app's forum as a page of its own (**Forum**, route `forum`): every thread readers wrote, its board and its answers, filters for *hidden* and *waiting for an answer*, and a thread shown exactly as the reader wrote it — as text, never as markup. The admin can also **write**: open a thread (it appears in the app under **অনুমোদিত**), answer it, answer an answer, edit or delete any thread or answer, and add, change or clear reactions.
 - Dark-first editorial interface with a persistent light theme
 - Database-backed dashboard users with bcrypt password hashes and expiring, revocable, SHA-256-hashed sessions
 - Custom roles with menu-level authorization, direct-route denial, and permission-aware Supabase RLS
@@ -60,6 +61,7 @@ backend/
 │       ├── blogs.js
 │       ├── categories.js
 │       ├── comments.js
+│       ├── forum.js            # Reader discussions and answers: read back and moderated
 │       ├── galleries.js
 │       ├── books.js
 │       ├── submissions.js
@@ -80,7 +82,15 @@ backend/
         ├── 003_blog_media_uploads.sql
         ├── 004_dashboard_access_control.sql
         ├── 005 … 012                       # Registered-user profiles, inbox, notifications, comment avatars
-        └── 013_blog_tags.sql               # Tag keys, blog_tag_counts view, blogs_by_issue / blogs_by_tag RPCs
+        ├── 013_blog_tags.sql               # Tag keys, blog_tag_counts view, blogs_by_issue / blogs_by_tag RPCs
+        ├── 014 … 028                       # Music, languages, uploader/profile, views, contributors, …
+        ├── 029_forum.sql                   # Forum boards, discussions, answers, RLS, the app's read RPCs
+        ├── 030_forum_answers.sql           # Cover images, one indent level, reactions, notifications, forum activity
+        ├── 031_forum_menu_permission.sql   # Forum as a menu permission: the allow-list, the roles, the tables behind it
+        ├── 032_forum_editorial.sql         # Editorial threads and answers: a signature, no reader required, reactions for the dashboard
+        ├── 033_profile_paging.sql          # The app's paged public profile: five rows of one kind at a time, and the four totals
+        ├── 034_forum_reply_edit.sql        # An answer is its author's: is_mine for every reply, and the edit/delete RPCs behind a long tap
+        └── 035_contributor_order.sql       # The contributor board's rank, computed with the order it is ranked by
 ```
 
 ## Database setup
@@ -105,9 +115,16 @@ The project owner subsequently installed `schema.sql`, and a second read-only RE
 
 1. Sign in to the correct [Supabase dashboard](https://supabase.com/dashboard).
 2. Open **SQL Editor** for the project.
-3. Review and run the complete `supabase/schema.sql` file.
+3. Review and run the complete `supabase/schema.sql` file. It builds the **nine base tables** plus
+   the Storage bucket, and it is not the whole database: `profiles`, `music_tracks`,
+   `user_notifications`, `admin_messages`, `app_language_files` and the three forum tables all come
+   from the numbered files in `supabase/migrations/`. The dashboard's overview reads sixteen tables
+   in total, which is why it keeps asking for the ones that are missing.
 4. Review and run `supabase/migrations/004_dashboard_access_control.sql` (the current base schema already contains migration 003's media columns).
-5. Sign in, replace the initial Super Admin password, and open **Settings → Authentication & database → Run check**.
+5. Sign in, replace the initial Super Admin password, and open **Settings → Authentication & database → Run check**. The check lists every table it asked for, marks each **Ready** or **Missing**, and names the file that adds the missing ones — read that line rather than guessing.
+6. Run the rest of the migrations **in number order** (`005` … `035`) if the features they add are in
+   use. The dashboard does not fail quietly when one is missing: its overview banner now names the
+   table and the file. **Settings → Authentication & database → Run check** is the complete list.
 
 ### Upgrade an existing dashboard database
 
@@ -139,7 +156,20 @@ For an existing installation, use this order:
 4. Sign in as `admin` / `admin123` only on a fresh access-control installation and replace that password immediately.
 5. Open **Settings → Authentication & database → Run check**.
 6. Run the registered-user migrations `005`–`012` in order if the app's reader features are in use.
+   Then `014_music_tracks.sql` (the Music menu and the app's player), `023_app_language_files.sql`
+   (the Languages page), and `026`–`028` (contributor points, the board's dashboard page, and the
+   public profile's detail columns). Skip any migration only if you are happy for the surface it
+   adds to stay empty — the dashboard's overview still reads the table, and will name it.
 7. Run `013_blog_tags.sql` (optional but recommended). It installs the **tag endpoints**: normalised tag keys (`blog_tag_key`), a generated `blogs.tag_keys` column with a GIN index, the `blog_tag_counts` view, and the `blogs_by_issue` / `blogs_by_tag` / `blog_issue_years` RPCs. Until it is installed, the Blogs page shows a small hint and runs the issue/tag filters in the browser instead.
+8. Run `029_forum.sql`, then `030_forum_answers.sql`, if the app's forum is in use. Between them they add the forum boards, discussions, answers and reactions, the public read policies the app needs, dashboard policies for the **Forum** page, the app's `forum_*` read/write RPCs, notifications, and the forum's share of contributor points. Supabase's SQL Editor may warn that the older `forum_*` function signatures are being replaced: that is expected — `030` drops the four `029` signatures it re-creates and re-states **Run and enable RLS** for each table it adds. Until these are installed, the dashboard's Forum page reports the migration it is missing (see **Troubleshooting**).
+9. Run `031_forum_menu_permission.sql` — the one that makes **Forum** a menu a role can actually hold. Until it is installed, `dashboard_save_role` filters the key through an allow-list that has never heard of it, so ticking *Forum* in Users & Roles saves without it and the sidebar shows no Forum row. It also replaces `029`'s blanket dashboard policy on the three tables with ones named after the menu (read: Forum or Analytics; every write: Forum), exactly as Comments and Music are guarded. A database that has not installed `029` or `004` is left alone by it.
+10. Run `032_forum_editorial.sql` to let the dashboard **write** in the forum: it makes `user_id` optional (an editorial post has no reader behind it), adds the `author_name` a dashboard post is signed with and the app shows, and opens `forum_reactions` to the dashboard so its counts can be read and its rows managed. It also adds a guard trigger, so a reader still cannot sign their post with someone else's name or award themselves the official badge through PostgREST. Without it the Forum page reads and moderates as before, and its editor reports the missing column.
+
+11. Run `033_profile_paging.sql` so the app's public profile can page its lists: it adds `profile_items(user, kind, limit, offset)`, which answers one window of five rows per kind (`articles`, `songs`, `threads`, `answers`) with the kind's total, and a `counts` kind that answers the four totals the tabs are labelled with. It reads the same tables `public_profile` does and exposes nothing else — no contact details, and no new table. Without it the app's public profile still opens: the identity card and the statistics card come from `public_profile`, and only the three lists wait, saying which file they need.
+
+12. Run `034_forum_reply_edit.sql` so a reader can change or remove **their own** answer in the app. It does two things. It re-creates `forum_discussion` and `forum_reply` with `is_official` and `is_mine` appended to every reply, so the app can mark an answer the dashboard wrote (**অ্যাডমিন**, on the right of the header) and can offer its own two actions (long tap → **সম্পাদনা** / **মুছে ফেলুন**) only on an answer that is the reader's. And it adds the two functions those actions call: `forum_edit_reply(p_id, p_body)` and `forum_delete_reply(p_id)`, both **author-only** — anyone else, including an editorial answer with no reader behind it, is refused with `42501`. A removal is `status = 'Removed'` rather than a `delete`, and the answers written under it are handed to the answer it answered, so nothing falls into a hole. Without it, the app still reads the forum: no অ্যাডমিন mark, and a long tap does nothing.
+
+13. Run `035_contributor_order.sql` so the সেরা অবদানকারী board is in the order it is named for. `026` (and `027`, which kept its shape) ranked the rows with `row_number() over ()` and ordered the query separately, expecting the two to agree — they do not: a window function is evaluated **before** the query's own `order by`, so the rank was the order the executor read the rows in, and `jsonb_agg(entry order by rank)` handed the page a board in the table's own order. The fix puts the ordering inside the window (`order by points desc, articles desc, songs desc, created_at asc`). The app sorts by the same rule before it draws, so the two pages are in order either way — but the numbers beside the rows are this file's job. It re-states the two wrappers' grants and changes nothing else.
 
 ### Annual issues and tags (নিংশিং চে বার্ষিক সংখ্যা)
 
@@ -434,6 +464,24 @@ Approval calls the transactional `approve_submission(...)` database function. It
 
 Migration 004 requires **Submit Blogs** permission before the RPC can run, and its Author/Blog/Submission writes still pass the matching RLS policies. Assign all relevant editorial menus to roles that perform approvals. The frontend has a compatibility fallback if the RPC has not yet been installed, but the SQL RPC is preferred because it is atomic.
 
+## Forum moderation
+
+`#/forum` is the app's forum, read back. Readers write threads and answers in the Android app; this page is where a moderator sees them and hides what must not be public.
+
+- **What it reads.** The three tables `forum_discussions`, `forum_replies`, and `forum_categories` — the doors migration `029` opens for the dashboard. It deliberately does **not** use the app's `forum_*` RPCs or the `forum_*_rows` views: those only ever show `status = 'Publish'`, so a hidden thread could never be found again to restore it, and the views are revoked from browser roles.
+- **What it writes.** One column: `status` → `Unpublish` to hide, `Publish` to restore, on a discussion or on a single answer. The app's RPCs filter on that same value, so the effect is immediate. Deleting a discussion offers the same ImgBB cover cleanup as every other delete, and the database cascade takes its answers with it.
+- **What it writes from scratch.** *New discussion* opens a thread the admin authors: a board, a title, the same rich-text editor the rest of the dashboard uses, an optional ImgBB cover, and a signature. **Every thread created here is official** — migration `030`'s trigger forces the flag for any dashboard insert — which is what puts it under **অনুমোদিত** in the app, and the page says so rather than leaving it to be discovered. A thread is signed with the name in *Signed by* (the signed-in admin by default, নিংশিং চে if that is cleared); leaving the field empty on a **reader's** thread keeps the reader's own profile name, which is what the page shows in the list.
+- **Answers.** The thread view carries a composer: write an answer, or answer one of the answers. `parent_id` is folded back to one level exactly as the app reads it, so answering an already-nested answer hangs off its parent rather than growing a second indent. An answer can be marked official, edited in place (words, what it hangs off, badge), hidden, or deleted.
+- **Every post is editable, including a reader's.** *Edit* opens the same editor on the stored HTML. The page does not silently rewrite anyone: nothing is written until **Save the changes**, and the editor is the only thing that touches a body.
+- **Reactions.** Each answer carries its three counts, the dashboard's own reaction (keyed `dashboard:<user id>`, so two admins hold their own), and — when there is anything to clear — a *Clear N reactions* action that removes every row on that answer. Reading and writing reactions needs `032`, because `030` deliberately left the table with no policy at all: `forum_react` was the only door, and it needs a signed-in reader or a guest device id, which a dashboard session is not.
+- **A reader cannot fake any of it.** `author_name` and `is_official` are the dashboard's to write, and `032`'s guard trigger forces both back to their stored values for every other writer — including a reader PATCHing their own row through PostgREST, which `029` allows.
+- **Who sees the menu.** *Forum* is an ordinary menu permission, like *Comments*: a Super Admin ticks it per role in **Users & Roles**. That needs `031_forum_menu_permission.sql`, which adds the key to the database's allow-list and gives it to the roles that already moderate comments — without it the tick cannot be saved and the sidebar has no row to show. The three tables are guarded by that same key (reads also allow *Analytics*, which draws the index dashboard's forum panel), and the Users & Roles page says so plainly if the database is still an older one.
+- **A post is shown as text.** The body is sanitised, block tags become line breaks, and the rest is escaped — a reader's markup is never parsed here, so nothing they wrote can act on the moderator's browser. Links inside the body are listed as attachments (that is where the app keeps a picture or a PDF), and a cover image only renders if it is a plain `http(s)` URL.
+- **Filtering.** Search (title, reader, board), status, board, and answers (*waiting for an answer* / *answered*). Active filters become removable chips and are encoded in the URL: `#/forum?filter=Waiting`, `#/forum?filter=Unpublish`, `?answers=waiting`, `?category=<slug>`, and `?action=view&id=<uuid>` to open one thread.
+- **On the index dashboard**, the forum appears as two metric cards (*Forum Threads*, *Forum Answers*, under the Forum permission rather than Analytics), a bar in the content distribution chart, a **Latest forum discussions** panel with the newest five threads and a link to the page, quick action *Review the forum*, Discussion/Answer entries in the live activity feed, and two Needs-attention queues — *waiting for an answer* and *hidden from readers* — that open the page already filtered. The overview reads the threads without their bodies: the text is only fetched when a moderator opens one.
+
+No new SQL, no new table, and no new column: this page is a client of migration `029`/`030`.
+
 ## Theme and dashboard preferences
 
 - Dark is the default.
@@ -499,6 +547,9 @@ Completed checks:
 - A genuine `.xlsx` workbook populated the first Author Add form row, including text, boolean, direct image URL, and Quill biography values.
 - The Author Description Quill editor preserved formatted, sanitized HTML in its live preview and intercepted Supabase payload; its 375 px toolbar stayed inside the modal with internal scrolling.
 - CSV and genuine Excel template downloads were generated successfully, and all eight list/Add workflows exposed their correct import controls while Settings exposed none.
+- The route list in `config.js` is checked against the newest `dashboard_valid_permissions()` in the migrations — every tickable menu must be a key `dashboard_save_role` will keep — and the Users & Roles page is exercised against an older allow-list to prove it names the missing file instead of reporting a save that dropped the key.
+- The Forum page was exercised against intercepted Supabase-shaped fixtures: readers' names joined from `profiles`, boards, the four counters, the two Needs-attention filters arriving from the index dashboard, opening one thread with its answers, and hiding/restoring a discussion and an answer — each asserting the exact `PATCH` (`status: Publish`↔`Unpublish`) it sends. A fixture body carrying a `<script>` tag and an `onerror` attribute rendered as text with no element, no attribute, and nothing executed.
+- The Forum page's writing side was exercised on the same fixtures: a new thread inserted with `is_official: true`, its words, its cover and its signature; a reader's thread edited and promoted to official (and then signed, rather than left blank); an answer posted, an answer to an answer folded to one level; an answer's words, parent and badge patched; a delete behind its confirmation; a reaction upserted on `(reply_id, reactor_key)` and withdrawn; and every reaction on an answer cleared. Each assertion reads the payload the page actually sent.
 - All eight entity transformers passed valid schema-shaped rows; Blog relation lookup, tag parsing, direct-media metadata, reading time, and HTML sanitization were verified.
 - The import modal was checked at 375 px: it retained 10 px viewport margins, caused no document-level overflow, and confined its wide preview table to an internal horizontal scroller.
 - Automated axe accessibility checks reported zero violations for the login and dashboard views at desktop and mobile sizes.
@@ -536,7 +587,64 @@ The tests use fixtures only and do not contact or modify production Supabase. Se
 
 ### “Database setup required”
 
-Run `supabase/schema.sql` in the project SQL Editor and then use the Settings database check.
+**Read the sentence first — it names the table and the file.** The banner is raised by one thing
+only: a table the page asked for answered `404` with PostgREST's `PGRST205` ("Could not find the
+table … in the schema cache"), which means the table does not exist. It is not raised by an empty
+table, by RLS filtering every row out (that is a `200` with `[]`), by a `500`, or by a slow request.
+
+`schema.sql` builds nine tables. The dashboard reads sixteen:
+
+| Table | Added by |
+| --- | --- |
+| `authors`, `categories`, `blogs`, `comments`, `galleries`, `pdf_books`, `submitted_blogs`, `videos`, `settings` | `supabase/schema.sql` |
+| `profiles` | `migrations/005_reader_profiles.sql` |
+| `user_notifications`, `admin_messages` | `migrations/007_user_inbox.sql` |
+| `music_tracks` | `migrations/014_music_tracks.sql` |
+| `app_language_files` | `migrations/023_app_language_files.sql` |
+| `forum_discussions`, `forum_replies`, `forum_categories` | `migrations/029_forum.sql` (+ `030`, `032`, `034` for their columns and functions) |
+| `forum_reactions` | `migrations/030_forum_answers.sql` |
+
+So running `schema.sql` again cannot clear this banner when the missing table is one of the eight at
+the bottom — run the file the banner names, in the order **Settings → Authentication & database →
+Run check** lists them.
+
+To list what is missing without opening the dashboard, in the Supabase **SQL Editor**:
+
+```sql
+select expected.name as missing_table
+from (values
+  ('authors'), ('categories'), ('blogs'), ('comments'), ('galleries'), ('pdf_books'),
+  ('submitted_blogs'), ('videos'), ('settings'), ('profiles'), ('user_notifications'),
+  ('admin_messages'), ('music_tracks'), ('app_language_files'),
+  ('forum_discussions'), ('forum_replies'), ('forum_categories')
+) as expected(name)
+where not exists (
+  select 1 from information_schema.tables t
+  where t.table_schema = 'public' and t.table_name = expected.name
+)
+order by expected.name;
+```
+
+An empty result means every table the dashboard reads exists — if the banner is still on screen
+then, reload the page. Two causes are left, and neither is a migration:
+
+1. **A key the config does not know.** `NC.api.tableName(key)` falls back to the key itself, so a
+   screen that asks for `'forumAnswers'` when `config.tables` carries `forumReplies` makes PostgREST
+   look for a table called `forumAnswers` — `404 PGRST205`, which is exactly what raises this banner.
+   That is what happened here: `assets/js/dashboard.js` asked for `forumAnswers` (the config's key is
+   `forumReplies`) and `assets/js/forum.js` asked for `forumReactions` (the table is `forum_reactions`,
+   from migration 030). Both are fixed, and `backend/tests/schema-probe.test.cjs` now fails if any key
+   passed to `NC.api.*` is missing from `config.tables`, so the phantom key cannot come back.
+2. **A dashboard talking to another project.** The dashboard reads whatever `supabase.url` says, and a
+   URL left on a different project's ref gives the same "Could not find the table" answer with the SQL
+   run in the wrong place. `setup.html` prints the project ref the page is actually using.
+
+A table that exists but still answers `PGRST205` is a stale PostgREST schema cache: `notify pgrst,
+'reload schema';` in the SQL Editor, then reload.
+
+A table that exists but still answers `PGRST205` is a stale PostgREST schema cache. Create or change
+tables through the SQL Editor and it reloads on its own; if it does not (rare, and it used to happen
+when SQL ran outside the editor), run `notify pgrst, 'reload schema';` in the SQL Editor and reload.
 
 ### “Database update required” or missing columns
 
@@ -547,10 +655,27 @@ from the check that failed, so read it rather than assuming Blog uploads:
 - `app_language_files` (the Languages page) → `supabase/migrations/023_app_language_files.sql`
 - A track's uploader or a public user page → `supabase/migrations/024_uploader_and_public_profile.sql`
 - View counts, the dashboard's ভিউ counter and its views-over-time chart →
-  `supabase/migrations/025_content_views.sql`
+  `supabase/migrations/025_content_views.sql`, then `036_view_logic.sql`
 - Contributor points and the সেরা অবদানকারী board → `supabase/migrations/026_contributors.sql`
 - The same board inside the dashboard (Registered users → সেরা অবদানকারী) →
   `supabase/migrations/027_contributor_board_dashboard.sql`
+- The Forum page, or the forum cards on the index dashboard →
+  `supabase/migrations/029_forum.sql`, then `030_forum_answers.sql`
+- **Forum** ticked in Users & Roles but no Forum row in the sidebar, or the Forum checkbox shown as *Not yet in the database* →
+  `supabase/migrations/031_forum_menu_permission.sql` (then sign out and in, so the session carries the new menu key)
+- The Forum page's editor, or a thread written from the dashboard, reports a missing `author_name` column →
+  `supabase/migrations/032_forum_editorial.sql`
+- The app's public profile says its lists need a database update, or a reader's tabs show an error where the rows should be → `supabase/migrations/033_profile_paging.sql` (the identity card and the statistics card open without it; only the three lists wait for it)
+- A reader cannot edit or remove their own answer in the app, or no answer carries the অ্যাডমিন mark →
+  `supabase/migrations/034_forum_reply_edit.sql`
+- The সেরা অবদানকারী board is not in order of points (on the home page or on the contributor page),
+  or the dashboard's Contributors page is not → `supabase/migrations/035_contributor_order.sql`
+- Forum view counts move without anyone reading, or the dashboard's পাঠক panel (registered/guest
+  views, minutes listened) is empty where the rest of Analytics loads →
+  `supabase/migrations/036_view_logic.sql`
+- A reader's profile page shows no total views, or shows fewer than the app's dashboard does for the
+  same reader → `supabase/migrations/037_profile_views.sql` (`036` first if it is not in yet, and the
+  profile answers either way)
 - A table reported as *missing* → `supabase/schema.sql`, then the migrations in order
 
 Run that file in the Supabase SQL Editor, reload the dashboard, and check again in **Settings →

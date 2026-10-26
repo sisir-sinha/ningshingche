@@ -86,8 +86,11 @@ def is_ui_copy(value: str, filename: str = "") -> bool:
     if looks_like_pattern(value) or is_prompt_block(value, filename):
         return False
     # GraphQL/SQL/JSON fragments and path-ish strings are never shown verbatim.
+    # `&` is not on this list: it was there for query strings, but a heading like
+    # `পঠন সেটিংস (Font & Spacing)` is read by a person, and an ampersand is not
+    # a way to tell copy from a query.
     lowered = value.lower()
-    if any(token in lowered for token in ("select ", "insert into", "json", "eq.", "&")):
+    if any(token in lowered for token in ("select ", "insert into", "json", "eq.")):
         return False
     return True
 

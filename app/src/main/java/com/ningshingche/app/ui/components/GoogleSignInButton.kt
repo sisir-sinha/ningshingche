@@ -21,8 +21,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.ningshingche.app.R
+import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
+import com.ningshingche.app.ui.i18n.tNow
 
 @Composable
 fun GoogleSignInButton(
@@ -30,8 +32,8 @@ fun GoogleSignInButton(
     enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    loadingLabel: String = "প্রবেশ করা হচ্ছে...",
-    label: String = "Google দিয়ে চালিয়ে যান"
+    loadingLabel: String = tNow("প্রবেশ করা হচ্ছে..."),
+    label: String = tNow("Google দিয়ে চালিয়ে যান")
 ) {
     OutlinedButton(
         onClick = onClick,
@@ -52,7 +54,8 @@ fun GoogleSignInButton(
             Spacer(modifier = Modifier.width(10.dp))
             Text(
                 text = loadingLabel,
-                fontSize = 15.sp,
+                fontSize = textSize(15),
+                lineHeight = leading(15),
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )

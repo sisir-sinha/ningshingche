@@ -62,7 +62,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ningshingche.app.R
 import com.ningshingche.app.data.model.AiChatMessage
@@ -76,7 +75,10 @@ import com.ningshingche.app.ui.components.keyboardAvoidingPadding
 import com.ningshingche.app.ui.viewmodel.AiViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
+import com.ningshingche.app.ui.i18n.t
 
 @Composable
 fun AiAssistantScreen(
@@ -89,11 +91,17 @@ fun AiAssistantScreen(
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
 
-    var isSkeletonLoading by remember { mutableStateOf(true) }
+    // The skeleton is a first impression, not a tax on every visit. It used to
+    // replay on every composition of this screen — a return from the reader, a
+    // rebuild of the activity — which the owner saw as the page reloading. It
+    // plays once per visit, never over a conversation that is already on screen,
+    // and `rememberSaveable` so a rebuilt screen does not play it again.
+    var introShown by rememberSaveable { mutableStateOf(false) }
+    val showSkeleton = !introShown && messages.isEmpty()
     var promptSent by rememberSaveable(initialQuestion) { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         delay(1000L) // Minimum 1 second skeleton view
-        isSkeletonLoading = false
+        introShown = true
     }
     LaunchedEffect(initialQuestion) {
         if (!promptSent && initialQuestion.isNotBlank()) {
@@ -128,7 +136,7 @@ fun AiAssistantScreen(
         if (keyboardVisible) scrollChatToBottom()
     }
 
-    if (isSkeletonLoading) {
+    if (showSkeleton) {
         AiAssistantSkeletonLayout()
         return
     }
@@ -170,14 +178,14 @@ fun AiAssistantScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Menu,
-                        contentDescription = "মেনু",
+                        contentDescription = t("মেনু"),
                         tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
                 Image(
                     painter = painterResource(R.drawable.ic_ningshingche_logo),
-                    contentDescription = "নিংশিং চে",
+                    contentDescription = t("নিংশিং চে"),
                     modifier = Modifier.height(34.dp)
                 )
 
@@ -185,20 +193,22 @@ fun AiAssistantScreen(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "নিংশিং চে AI সহকারী",
+                        text = t("নিংশিং চে AI সহকারী"),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 16.sp
+                            fontSize = textSize(16),
+                            lineHeight = leading(16)
                         ),
                         maxLines = 1
                     )
                     Text(
-                        text = "বিষ্ণুপ্রিয়া মণিপুরি ঐতিহ্য ও বিশ্ব জ্ঞানকোষ",
+                        text = t("বিষ্ণুপ্রিয়া মণিপুরি ঐতিহ্য ও বিশ্ব জ্ঞানকোষ"),
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 11.sp
+                            fontSize = textSize(11),
+                            lineHeight = leading(11)
                         ),
                         maxLines = 1
                     )
@@ -213,7 +223,7 @@ fun AiAssistantScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "AI সহকারী লুকান",
+                        contentDescription = t("AI সহকারী লুকান"),
                         tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
@@ -269,10 +279,11 @@ fun AiAssistantScreen(
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
-                            text = "AI বিশ্লেষণ ও উত্তর প্রস্তুত করা হচ্ছে...",
+                            text = t("AI বিশ্লেষণ ও উত্তর প্রস্তুত করা হচ্ছে..."),
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = MaterialTheme.colorScheme.primary,
-                                fontSize = 12.sp
+                                fontSize = textSize(12),
+                                lineHeight = leading(12)
                             )
                         )
                     }
@@ -289,7 +300,7 @@ fun AiAssistantScreen(
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Text(
-                    text = "প্রস্তাবিত জিজ্ঞাসা:",
+                    text = t("প্রস্তাবিত জিজ্ঞাসা:"),
                     style = MaterialTheme.typography.labelSmall.copy(
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
@@ -310,7 +321,8 @@ fun AiAssistantScreen(
                                 text = suggestion,
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    fontSize = 11.sp,
+                                    fontSize = textSize(11),
+                                    lineHeight = leading(11),
                                     fontWeight = FontWeight.Medium
                                 ),
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
@@ -347,10 +359,11 @@ fun AiAssistantScreen(
                     onValueChange = { inputQuery = it },
                     placeholder = {
                         Text(
-                            text = "যেকোনো বিষয়ে প্রশ্ন করুন...",
+                            text = t("যেকোনো বিষয়ে প্রশ্ন করুন..."),
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                fontSize = 13.sp
+                                fontSize = textSize(13),
+                                lineHeight = leading(13)
                             )
                         )
                     },
@@ -426,8 +439,8 @@ fun ChatMessageItem(
                     text = message.text,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = MaterialTheme.colorScheme.onPrimary,
-                        fontSize = 14.sp,
-                        lineHeight = 20.sp
+                        fontSize = textSize(14),
+                        lineHeight = textSize(20)
                     ),
                     modifier = Modifier.padding(14.dp)
                 )
@@ -504,11 +517,12 @@ fun ChatMessageItem(
                                 modifier = Modifier.size(14.dp)
                             )
                             Text(
-                                text = "সম্পর্কিত জিজ্ঞাসা (সরাসরি উত্তর জানতে ট্যাপ করুন):",
+                                text = t("সম্পর্কিত জিজ্ঞাসা (সরাসরি উত্তর জানতে ট্যাপ করুন):"),
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 11.sp
+                                    fontSize = textSize(11),
+                                    lineHeight = leading(11)
                                 )
                             )
                         }
@@ -539,15 +553,15 @@ fun ChatMessageItem(
                                         text = question,
                                         style = MaterialTheme.typography.bodySmall.copy(
                                             color = MaterialTheme.colorScheme.onSurface,
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Medium,
-                                            lineHeight = 17.sp
+                                            fontSize = textSize(12),
+                                            lineHeight = leading(12),
+                                            fontWeight = FontWeight.Medium
                                         ),
                                         modifier = Modifier.weight(1f)
                                     )
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                        contentDescription = "জিজ্ঞাসা করুন",
+                                        contentDescription = t("জিজ্ঞাসা করুন"),
                                         tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.75f),
                                         modifier = Modifier.size(14.dp)
                                     )
@@ -560,11 +574,12 @@ fun ChatMessageItem(
                 // Citations list / References
                 if (message.citations.isNotEmpty()) {
                     Text(
-                        text = "তথ্যসূত্র ও গবেষণা প্রবন্ধ:",
+                        text = t("তথ্যসূত্র ও গবেষণা প্রবন্ধ:"),
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
+                            fontSize = textSize(11),
+                            lineHeight = leading(11)
                         ),
                         modifier = Modifier.padding(top = 4.dp)
                     )

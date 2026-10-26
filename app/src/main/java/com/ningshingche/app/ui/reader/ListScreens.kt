@@ -60,7 +60,6 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ningshingche.app.data.portal.AuthorRef
 import com.ningshingche.app.data.portal.CategoryRef
@@ -80,6 +79,10 @@ import com.ningshingche.app.ui.editorial.Hairline
 import com.ningshingche.app.ui.editorial.LoadingFeed
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.editorial.SectionHeader
+import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 
 /**
  * The three list screens — search, category and author — share one paging
@@ -125,7 +128,7 @@ internal fun ArticleList(
 
         is ListUiState.Ready -> {
             if (state.articles.isEmpty() && header == null) {
-                EmptyState(message = "এখানে কোনো প্রবন্ধ পাওয়া যায়নি।", modifier = modifier)
+                EmptyState(message = t("এখানে কোনো প্রবন্ধ পাওয়া যায়নি।"), modifier = modifier)
                 return
             }
             LazyColumn(
@@ -136,7 +139,7 @@ internal fun ArticleList(
                 if (header != null) item { header() }
                 if (state.articles.isEmpty()) {
                     item {
-                        EmptyState(message = "এখানে কোনো প্রবন্ধ পাওয়া যায়নি।")
+                        EmptyState(message = t("এখানে কোনো প্রবন্ধ পাওয়া যায়নি।"))
                     }
                 }
                 items(state.articles, key = { it.id }) { article ->
@@ -158,7 +161,7 @@ internal fun ArticleList(
                             )
                         }
                         state.endReached && state.articles.isNotEmpty() && showEndMarker -> Text(
-                            text = "— শেষ —",
+                            text = t("— শেষ —"),
                             style = EditorialType.Caption,
                             color = LocalEditorialTokens.current.inkMuted,
                             modifier = Modifier
@@ -203,10 +206,10 @@ fun SearchScreen(
         topBar = {
             Column {
                 TopAppBar(
-                    title = { Text("অনুসন্ধান", style = EditorialType.Title) },
+                    title = { Text(tNow("অনুসন্ধান"), style = EditorialType.Title) },
                     navigationIcon = {
                         IconButton(onClick = onBackClick) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "পেছনে")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tNow("পেছনে"))
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -246,7 +249,7 @@ fun SearchScreen(
     ) { padding ->
         if (query.trim().length < 2) {
             EmptyState(
-                message = "অন্তত দুই অক্ষর লিখুন। শিরোনাম, উপশিরোনাম, লেখক, ট্যাগ ও লেখার ভেতরে খোঁজা হয়।",
+                message = tNow("অন্তত দুই অক্ষর লিখুন। শিরোনাম, উপশিরোনাম, লেখক, ট্যাগ ও লেখার ভেতরে খোঁজা হয়।"),
                 modifier = Modifier.padding(padding)
             )
         } else if (songs.isNotEmpty() && state is ListUiState.Loading) {
@@ -255,7 +258,7 @@ fun SearchScreen(
                 contentPadding = PaddingValues(bottom = EditorialSpace.xxl)
             ) {
                 item {
-                    SectionHeader(title = "গান", subtitle = "${songs.size}টি মিল")
+                    SectionHeader(title = tNow("গান"), subtitle = tNow("{1}টি মিল", songs.size))
                 }
                 items(songs, key = { "song-${it.id}" }) { track ->
                     MusicCatalogCard(
@@ -291,12 +294,12 @@ fun SearchScreen(
                 if (state is ListUiState.Ready) {
                     val ready = state as ListUiState.Ready
                     SectionHeader(
-                        title = if (ready.articles.isEmpty()) "কোনো ফলাফল নেই" else "ফলাফল",
+                        title = if (ready.articles.isEmpty()) tNow("কোনো ফলাফল নেই") else tNow("ফলাফল"),
                         subtitle = when {
-                            ready.total != null -> "${ready.total} টি প্রবন্ধ"
+                            ready.total != null -> tNow("{1} টি প্রবন্ধ", ready.total)
                             // Plain text on purpose: a key with the query spliced into
                             // it is harder to translate than two short strings.
-                            ready.articles.isEmpty() -> "অন্য শব্দে চেষ্টা করুন"
+                            ready.articles.isEmpty() -> tNow("অন্য শব্দে চেষ্টা করুন")
                             else -> null
                         }
                     )
@@ -323,12 +326,12 @@ private fun SearchField(
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { onSubmit() }),
         textStyle = EditorialType.Body,
-                    placeholder = { Text("প্রবন্ধ ও গান খুঁজুন...", style = EditorialType.Body, color = tokens.inkMuted) },
+                    placeholder = { Text(t("প্রবন্ধ ও গান খুঁজুন..."), style = EditorialType.Body, color = tokens.inkMuted) },
         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = tokens.inkMuted) },
         trailingIcon = {
             if (value.text.isNotEmpty()) {
                 IconButton(onClick = { onValueChange(TextFieldValue("")); onSubmit() }) {
-                    Icon(Icons.Default.Close, contentDescription = "মুছুন", tint = tokens.inkMuted)
+                    Icon(Icons.Default.Close, contentDescription = t("মুছুন"), tint = tokens.inkMuted)
                 }
             }
         },
@@ -363,7 +366,7 @@ fun CategoryScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = category?.title ?: "বিভাগ",
+                        text = category?.title ?: t("বিভাগ"),
                         style = EditorialType.Title,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -372,7 +375,7 @@ fun CategoryScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "পেছনে")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t("পেছনে"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -393,7 +396,7 @@ fun CategoryScreen(
                 Hairline()
                 Spacer(Modifier.height(EditorialSpace.md))
                 Text(
-                    text = "ক্যাটাগরির প্রবন্ধহানি",
+                    text = t("ক্যাটাগরির প্রবন্ধহানি"),
                     style = EditorialType.Headline,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 2,
@@ -404,7 +407,7 @@ fun CategoryScreen(
                     if (total != null) {
                         Spacer(Modifier.height(EditorialSpace.xs))
                         Text(
-                            text = "$total টি প্রবন্ধ",
+                            text = t("{1} টি প্রবন্ধ", total),
                             style = EditorialType.Caption,
                             color = LocalEditorialTokens.current.inkMuted
                         )
@@ -439,7 +442,7 @@ fun IssueScreen(
                 title = { Text(label, style = EditorialType.Title) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "পেছনে")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t("পেছনে"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -463,7 +466,7 @@ fun IssueScreen(
                 )
                 Spacer(Modifier.height(EditorialSpace.xs))
                 Text(
-                    text = "বার্ষিক সংখ্যা • ${IssueTags.toBengaliDigits(viewModel.year)} সালে প্রকাশিত লেখাসমূহ",
+                    text = t("বার্ষিক সংখ্যা • {1} সালে প্রকাশিত লেখাসমূহ", IssueTags.toBengaliDigits(viewModel.year)),
                     style = EditorialType.Body,
                     color = LocalEditorialTokens.current.inkSoft
                 )
@@ -472,7 +475,7 @@ fun IssueScreen(
                     if (total != null) {
                         Spacer(Modifier.height(EditorialSpace.sm))
                         Text(
-                            text = "${IssueTags.toBengaliDigits(total)} টি প্রবন্ধ",
+                            text = t("{1} টি প্রবন্ধ", IssueTags.toBengaliDigits(total)),
                             style = EditorialType.Caption,
                             color = LocalEditorialTokens.current.inkMuted
                         )
@@ -504,10 +507,10 @@ fun AuthorScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text(author?.name ?: "লেখক", style = EditorialType.Title) },
+                title = { Text(author?.name ?: t("লেখক"), style = EditorialType.Title) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "পেছনে")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t("পেছনে"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -577,7 +580,8 @@ private fun AuthorHeader(author: AuthorRef?) {
                     Text(
                         text = author.name,
                         style = EditorialType.Display.copy(
-                            fontSize = 20.sp,
+                            fontSize = textSize(20),
+                            lineHeight = leading(20),
                             fontWeight = FontWeight.Bold
                         ),
                         color = MaterialTheme.colorScheme.onSurface,
@@ -641,8 +645,8 @@ private fun AuthorHeader(author: AuthorRef?) {
 
                     HtmlFormattedText(
                         html = author.bio,
-                        fontSize = 14.5.sp,
-                        lineHeight = 23.sp,
+                        fontSize = textSize(14.5),
+                        lineHeight = leading(14.5),
                         baseTextColor = tokens.inkSoft,
                         maxLines = if (isExpanded || !isLongBio) Int.MAX_VALUE else 3,
                         overflow = if (isExpanded || !isLongBio) TextOverflow.Clip else TextOverflow.Ellipsis,
@@ -662,7 +666,8 @@ private fun AuthorHeader(author: AuthorRef?) {
                             Text(
                                 text = if (isExpanded) "See less" else "See more",
                                 style = EditorialType.Subtitle.copy(
-                                    fontSize = 13.5.sp,
+                                    fontSize = textSize(13.5),
+                                    lineHeight = leading(13.5),
                                     fontWeight = FontWeight.SemiBold
                                 ),
                                 color = MaterialTheme.colorScheme.primary
@@ -688,7 +693,7 @@ private fun AuthorHeader(author: AuthorRef?) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "লেখকের রচনাবলী",
+                text = t("লেখকের রচনাবলী"),
                 style = EditorialType.Title,
                 color = MaterialTheme.colorScheme.onSurface
             )

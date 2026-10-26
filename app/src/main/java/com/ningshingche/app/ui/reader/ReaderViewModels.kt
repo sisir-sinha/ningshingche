@@ -20,6 +20,8 @@ import com.ningshingche.app.data.portal.Page
 import com.ningshingche.app.data.portal.PortalError
 import com.ningshingche.app.NinghsingCheApp
 import com.ningshingche.app.data.portal.Contributor
+import com.ningshingche.app.data.portal.ForumDiscussion
+import com.ningshingche.app.data.portal.ForumOverview
 import com.ningshingche.app.data.portal.PortalRepository
 import com.ningshingche.app.data.portal.GalleryItem
 import com.ningshingche.app.data.portal.IssueSummary
@@ -36,6 +38,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import com.ningshingche.app.ui.i18n.tNow
 
 /**
  * ViewModels for the public reader.
@@ -47,7 +50,7 @@ import kotlinx.coroutines.launch
  */
 
 private fun PortalError?.message(): String =
-    (this as? PortalError)?.message ?: "তথ্য লোড করতে সমস্যা হয়েছে।"
+    (this as? PortalError)?.message ?: tNow("তথ্য লোড করতে সমস্যা হয়েছে।")
 
 // ---------------------------------------------------------------------------
 // Home
@@ -61,6 +64,9 @@ sealed interface HomeUiState {
 
 /** How many names the home page shows before "সব দেখুন". */
 private const val HOME_CONTRIBUTOR_COUNT = 5
+
+/** How many threads the home page's forum strip shows. */
+private const val HOME_FORUM_COUNT = 5
 
 class HomeViewModel(private val repository: PortalRepository) : ViewModel() {
 
@@ -108,6 +114,22 @@ class HomeViewModel(private val repository: PortalRepository) : ViewModel() {
      */
     private val _contributorsMonth = MutableStateFlow("")
     val contributorsMonth: StateFlow<String> = _contributorsMonth.asStateFlow()
+
+    /**
+     * The forum's newest threads, for the home page.
+     *
+     * A registered-readers section, like the contributor board above it: the
+     * request is gated here rather than the display, so a guest does not ask the
+     * database for something the page will not show them.
+     */
+    private val _forumLatest = MutableStateFlow<List<ForumDiscussion>>(emptyList())
+    val forumLatest: StateFlow<List<ForumDiscussion>> = _forumLatest.asStateFlow()
+
+    private val _forumLatestError = MutableStateFlow<String?>(null)
+    val forumLatestError: StateFlow<String?> = _forumLatestError.asStateFlow()
+
+    private val _forumLatestLoading = MutableStateFlow(false)
+    val forumLatestLoading: StateFlow<Boolean> = _forumLatestLoading.asStateFlow()
 
     private val _musicCatalog = MutableStateFlow<List<MusicTrack>>(emptyList())
     val musicCatalog: StateFlow<List<MusicTrack>> = _musicCatalog.asStateFlow()
@@ -171,6 +193,37 @@ class HomeViewModel(private val repository: PortalRepository) : ViewModel() {
                     _contributorsRefused.value = refused
                 }
             _contributorsLoading.value = false
+        }
+    }
+
+    /**
+     * সাম্প্রতিক আলোচনা for the home page: the five threads that moved last.
+     *
+     * `recent` is the forum's own default order — a new thread, or an old one that
+     * has just been answered — so the strip is what a reader would see at the top
+     * of the forum itself.
+     */
+    fun loadForumLatest(isSignedIn: Boolean, force: Boolean = false) {
+        if (!isSignedIn) {
+            _forumLatest.value = emptyList()
+            _forumLatestError.value = null
+            return
+        }
+        if (_forumLatestLoading.value) return
+        if (!force && _forumLatest.value.isNotEmpty()) return
+        viewModelScope.launch {
+            _forumLatestLoading.value = true
+            _forumLatestError.value = null
+            repository.forumOverview(limit = HOME_FORUM_COUNT, order = ForumOverview.ORDER_RECENT)
+                .onSuccess { _forumLatest.value = it.latest.take(HOME_FORUM_COUNT) }
+                .onFailure { failure ->
+                    // The strip is a way into the forum, not the forum: a failure
+                    // is said in one quiet line under the heading, and the reader
+                    // has the Forum row in the account menu either way.
+                    _forumLatestError.value = (failure as? PortalError)?.message()
+                        ?: tNow("আলোচনা আনা যায়নি।")
+                }
+            _forumLatestLoading.value = false
         }
     }
 
@@ -365,7 +418,7 @@ class ArticleViewModel(
         }
         currentIdOrSlug = idOrSlug.trim()
         if (currentIdOrSlug.isBlank()) {
-            _state.value = ArticleUiState.Error("প্রবন্ধটি পাওয়া যায়নি।")
+            _state.value = ArticleUiState.Error(tNow("প্রবন্ধটি পাওয়া যায়নি।"))
             return
         }
         viewModelScope.launch {
@@ -440,9 +493,9 @@ class ArticleViewModel(
         val address = account?.address?.ifBlank { form.address } ?: form.address
         val avatarUrl = account?.avatarUrl?.ifBlank { form.avatarUrl } ?: form.avatarUrl
         val invalid = when {
-            name.isBlank() || form.content.isBlank() -> if (account != null) "মন্তব্য আবশ্যক।" else "নাম ও মন্তব্য আবশ্যক।"
+            name.isBlank() || form.content.isBlank() -> if (account != null) tNow("মন্তব্য আবশ্যক।") else tNow("নাম ও মন্তব্য আবশ্যক।")
             email.isNotBlank() && !Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$").matches(email.trim()) ->
-                "সঠিক ইমেইল দিন অথবা ঐচ্ছিক ঘরটি খালি রাখুন।"
+                tNow("সঠিক ইমেইল দিন অথবা ঐচ্ছিক ঘরটি খালি রাখুন।")
             else -> null
         }
         if (invalid != null) {
@@ -453,7 +506,7 @@ class ArticleViewModel(
         // Set synchronously, before launching: rapid taps must not create duplicate POSTs.
         _isPostingComment.value = true
         _commentForm.update { it.copy(isError = false) }
-        _commentStatus.value = "মন্তব্য পাঠানো হচ্ছে..."
+        _commentStatus.value = tNow("মন্তব্য পাঠানো হচ্ছে...")
         viewModelScope.launch {
             try {
                 repository.postComment(
@@ -481,7 +534,7 @@ class ArticleViewModel(
                             identityFromAccount = account != null
                         )
                     }
-                    _commentStatus.value = "মন্তব্য জমা হয়েছে। অনুমোদনের পর প্রকাশিত হবে।"
+                    _commentStatus.value = tNow("মন্তব্য জমা হয়েছে। অনুমোদনের পর প্রকাশিত হবে।")
                     _state.update { state ->
                         (state as? ArticleUiState.Ready)?.takeIf { it.article.id == current.article.id }
                             ?.copy(commentPosted = true) ?: state
@@ -493,12 +546,12 @@ class ArticleViewModel(
                     } catch (_: Exception) {
                         // The comment succeeded. Never report a failed POST or invite a duplicate
                         // submission merely because saving local contact details failed.
-                        _commentStatus.value = "মন্তব্য জমা হয়েছে। অনুমোদনের পর প্রকাশিত হবে। তবে এই ডিভাইসে আপনার তথ্য মনে রাখা যায়নি।"
+                        _commentStatus.value = tNow("মন্তব্য জমা হয়েছে। অনুমোদনের পর প্রকাশিত হবে। তবে এই ডিভাইসে আপনার তথ্য মনে রাখা যায়নি।")
                     }
                 }.onFailure { error ->
                     _commentForm.update { it.copy(isError = true) }
                     _commentStatus.value = if (error is PortalError.Offline) {
-                        "ইন্টারনেট সংযোগ যাচাই করে আবার চেষ্টা করুন। আপনার মন্তব্য মুছে ফেলা হয়নি।"
+                        tNow("ইন্টারনেট সংযোগ যাচাই করে আবার চেষ্টা করুন। আপনার মন্তব্য মুছে ফেলা হয়নি।")
                     } else (error as? PortalError).message()
                 }
             } finally {

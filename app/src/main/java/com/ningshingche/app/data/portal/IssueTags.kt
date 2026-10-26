@@ -1,6 +1,7 @@
 package com.ningshingche.app.data.portal
 
 import java.text.Normalizer
+import com.ningshingche.app.util.BENGALI_DIGITS
 
 /**
  * Tag normalisation shared by every screen that touches `blogs.tags`.
@@ -18,7 +19,6 @@ import java.text.Normalizer
  */
 object IssueTags {
 
-    private const val BENGALI_DIGITS = "০১২৩৪৫৬৭৮৯"
     private const val ISSUE_LABEL_PREFIX = "নিংশিং চে"
     private const val ISSUE_KEY_PREFIX = "নিংশিংচে-"
     private val ISSUE_PATTERN = Regex("^(?:নিংশিংচে|ningshingche|ningshing-che)-?(\\d{4})$")

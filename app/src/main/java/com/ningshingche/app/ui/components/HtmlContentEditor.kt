@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.view.ActionMode
 import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -26,6 +28,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.FormatBold
@@ -44,7 +47,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -61,9 +67,61 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.ningshingche.app.data.remote.ImgBbUploader
+import com.ningshingche.app.ui.theme.APP_TEXT_SCALE
+import com.ningshingche.app.ui.theme.APP_LEADING
 import com.ningshingche.app.ui.theme.Kalpurush
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import com.ningshingche.app.ui.i18n.tNow
+
+/**
+ * A handle on the editor's keyboard, for the screen that owns it.
+ *
+ * A WebView is not a Compose text field, so `focusManager.clearFocus()` does not
+ * close its keyboard. A screen that wants to dismiss it — because the reader
+ * tapped outside, or because Back was pressed while the keyboard was up — asks
+ * the editor through this instead, and the editor blurs the page and hides the
+ * input method from the view that actually opened it.
+ */
+class HtmlEditorController {
+    internal var hideKeyboard: (() -> Unit)? = null
+    internal var focusEditor: (() -> Unit)? = null
+    internal var clearBox: (() -> Unit)? = null
+
+    /** Blur the editing surface and put the keyboard away. */
+    fun dismiss() {
+        hideKeyboard?.invoke()
+    }
+
+    /**
+     * Put the caret in the box and raise the keyboard.
+     *
+     * A reply box that opens under a tap is a box the reader expects to type in
+     * straight away, and a WebView only raises the keyboard for a focus the page
+     * asked for itself — so the screen asks the page, not the view.
+     */
+    fun focus() {
+        focusEditor?.invoke()
+    }
+
+    /**
+     * Empty the box, whatever state it is in.
+     *
+     *  *Wanted for one thing:* a post that has gone through. Setting the value
+     *  from the outside is a race — the box may still hold the caret, and the
+     *  page refuses to rewrite a document the reader is typing in (that refusal
+     *  is what keeps a Bengali word from being cut in half). A clear is not a
+     *  draft arriving under someone's fingers, though: the post is already in
+     *  the database, so this says so plainly and the page empties itself.
+     */
+    fun clear() {
+        clearBox?.invoke()
+    }
+}
+
+/** The smallest a box may be. A reply starts near this and grows from there. */
+private const val EDITOR_MIN_HEIGHT = 88
 
 /**
  * The app's rich text editor: a WebView with a toolbar over it.
@@ -71,9 +129,18 @@ import org.json.JSONObject
  * Two shapes, one component. The article composer takes the full editor — the
  * HTML switch, the height controls, the resize handle, and the little bar that
  * appears over selected text. The forum takes [compact], which is the same
- * editing surface without any of that: bold, italic, underline, a bullet list
- * and an image, and no selection popup at all, because a reply box is not a
- * page and a popup over three lines of text covers most of them.
+ * editing surface without any of that: bold, italic, underline and a bullet
+ * list, no selection popup (a popup over three lines of reply covers most of
+ * them), and no way to put a picture *into* the text.
+ *
+ * The editor holds no files of its own. A forum post's attachments are drawn by
+ * the screen that owns the box — on the row under it, beside the button that
+ * added them — and they are appended to the HTML on their way to the database;
+ * nothing is ever typed into the middle of a sentence.
+ *
+ * The box grows with what is written in it ([autoGrow]) up to [maxGrow], and
+ * scrolls inside itself beyond that — a reply of three lines does not open a
+ * box the height of a page, and a reply of thirty does not become unreadable.
  */
 @Composable
 fun HtmlContentEditor(
@@ -84,24 +151,84 @@ fun HtmlContentEditor(
     onEditorHeightChange: (Int) -> Unit = {},
     selectionPopup: Boolean = true,
     compact: Boolean = false,
-    placeholder: String = "লেখা লিখুন… নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি, কাট ও পেস্ট আসবে।",
-    testTag: String = "article_content"
+    placeholder: String = tNow("লেখা লিখুন… নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি, কাট ও পেস্ট আসবে।"),
+    testTag: String = "article_content",
+    controller: HtmlEditorController? = null,
+    autoGrow: Boolean = true,
+    maxGrow: Int = if (compact) 260 else 720
 ) {
     var htmlMode by remember { mutableStateOf(false) }
     var webView by remember { mutableStateOf<WebView?>(null) }
+    // What the page last told us, and what we last told the page. A value that
+    // comes back from the page is not pushed back into it (that would fight the
+    // caret); a value that changes anywhere else — the box being emptied after a
+    // post went through, a draft being restored — is pushed, and that is how the
+    // text actually disappears from the screen.
+    var lastEmitted by remember { mutableStateOf("") }
+    var lastPushed by remember { mutableStateOf("") }
     var uploading by remember { mutableStateOf(false) }
+    // Which formats the caret is inside, as the page last reported them —
+    // "bold,italic" and so on. A formatter button with a background is a button
+    // whose format is already on where the reader is writing, which is the one
+    // question a toolbar cannot answer about itself.
+    var activeFormats by remember { mutableStateOf(emptySet<String>()) }
     var uploadError by remember { mutableStateOf<String?>(null) }
-    val height = editorHeight.coerceIn(200, 720)
+    // What the box measures: the caller's height is the floor, what the reader
+    // has written raises it, and `maxGrow` is the ceiling beyond which the box
+    // scrolls instead of growing.
+    var contentHeight by remember { mutableIntStateOf(0) }
+    val baseHeight = editorHeight.coerceIn(EDITOR_MIN_HEIGHT, 720)
+    val height = maxOf(baseHeight, contentHeight).coerceAtMost(maxGrow)
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    fun run(command: String, arg: String? = null) {
-        val script = if (arg == null) {
-            "document.execCommand('$command')"
-        } else {
-            "document.execCommand('$command', false, ${JSONObject.quote(arg)})"
+    // The reader's own Back, while the keyboard is up, is the keyboard's first.
+    SideEffect {
+        controller?.focusEditor = {
+            webView?.requestFocus()
+            webView?.evaluateJavascript("if(window.focusEditor){window.focusEditor();}", null)
         }
-        webView?.evaluateJavascript(script, null)
+        controller?.clearBox = {
+            // The caller's copy is empty from here on, so nothing stale is left
+            // to be pushed at the page later.
+            lastPushed = ""
+            lastEmitted = ""
+            webView?.evaluateJavascript("if(window.clearEditor){window.clearEditor();}", null)
+        }
+        controller?.hideKeyboard = {
+            webView?.evaluateJavascript(
+                "if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();",
+                null
+            )
+            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            imm?.hideSoftInputFromWindow(webView?.windowToken, 0)
+        }
+    }
+
+    /**
+     * A toolbar button, in three steps: the box takes the focus back, the caret
+     * is put where it was, and only then does the command run.
+     *
+     * That order is the whole of a bug the owner reported twice — bold and
+     * italic "did nothing". Tapping a Compose button is not a tap on the page, so
+     * the page may have lost the focus the selection lived in; `execCommand` with
+     * no selection does nothing at all, quietly. The page keeps its last range
+     * and puts it back before every command, which is what makes the button work
+     * whether or not the reader still has the caret showing.
+     */
+    fun run(command: String, arg: String? = null) {
+        val web = webView ?: return
+        // Only if it is not focused already: asking a WebView for the focus it
+        // already has is a no-op, but asking for it *while the keyboard is
+        // attached* restarts the input connection, and a Bengali keyboard that
+        // is composing a conjunct does not survive that.
+        if (!web.isFocused) web.requestFocus()
+        val script = if (arg == null) {
+            "window.command(${JSONObject.quote(command)})"
+        } else {
+            "window.command(${JSONObject.quote(command)}, ${JSONObject.quote(arg)})"
+        }
+        web.evaluateJavascript(script, null)
     }
 
     fun insertImageUrl(url: String) {
@@ -126,12 +253,12 @@ fun HtmlContentEditor(
                 val url = image.displayUrl.ifBlank { image.url }
                 if (url.isNotBlank()) insertImageUrl(url)
             }.onFailure { error ->
-                uploadError = error.message ?: "ছবি আপলোড হয়নি।"
+                uploadError = error.message ?: tNow("ছবি আপলোড হয়নি।")
             }
         }
     }
 
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 8.dp)) {
         Surface(
             shape = RoundedCornerShape(12.dp),
             tonalElevation = 1.dp,
@@ -145,18 +272,37 @@ fun HtmlContentEditor(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (!htmlMode) {
-                    ToolIcon("মোটা", Icons.Default.FormatBold) { run("bold") }
-                    ToolIcon("বাঁকা", Icons.Default.FormatItalic) { run("italic") }
-                    ToolIcon("নিচে দাগ", Icons.Default.FormatUnderlined) { run("underline") }
-                    ToolIcon("তালিকা", Icons.Default.FormatListBulleted) { run("insertUnorderedList") }
-                    if (!compact) {
-                        ToolIcon("পেস্ট", Icons.Default.ContentPaste) { pasteClipboard() }
+                    ToolIcon(tNow("মোটা"), Icons.Default.FormatBold, compact, "bold" in activeFormats) {
+                        run("bold")
                     }
-                    ToolIcon("ছবি যোগ", Icons.Default.Image) {
-                        if (!uploading) imagePicker.launch("image/*")
+                    ToolIcon(tNow("বাঁকা"), Icons.Default.FormatItalic, compact, "italic" in activeFormats) {
+                        run("italic")
+                    }
+                    ToolIcon(
+                        tNow("নিচে দাগ"),
+                        Icons.Default.FormatUnderlined,
+                        compact,
+                        "underline" in activeFormats
+                    ) { run("underline") }
+                    ToolIcon(
+                        tNow("তালিকা"),
+                        Icons.AutoMirrored.Filled.FormatListBulleted,
+                        compact,
+                        "insertUnorderedList" in activeFormats
+                    ) { run("insertUnorderedList") }
+                    if (!compact) {
+                        ToolIcon(tNow("পেস্ট"), Icons.Default.ContentPaste) { pasteClipboard() }
+                    }
+                    // The picture button is the article composer's. A forum post
+                    // attaches its files on the row under the box — a picture and a
+                    // PDF alike — so the four the owner listed are the four here.
+                    if (!compact) {
+                        ToolIcon(tNow("ছবি যোগ"), Icons.Default.Image) {
+                            if (!uploading) imagePicker.launch("image/*")
+                        }
                     }
                     if (!compact) {
-                        ToolIcon("আগের কাজ", Icons.Default.Undo) { run("undo") }
+                        ToolIcon(tNow("আগের কাজ"), Icons.Default.Undo) { run("undo") }
                     }
                 }
                 // The HTML switch belongs to the article composer: a forum reply
@@ -182,7 +328,7 @@ fun HtmlContentEditor(
 
         if (!compact) {
             Text(
-                "লেখা নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি, কাট ও পেস্ট দেখাবে। ছবি ImgBB-তে আপলোড হয়।",
+                tNow("লেখা নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি, কাট ও পেস্ট দেখাবে। ছবি ImgBB-তে আপলোড হয়।"),
             fontFamily = Kalpurush,
             style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -193,7 +339,7 @@ fun HtmlContentEditor(
             OutlinedTextField(
                 value = value,
                 onValueChange = onValueChange,
-                label = { Text("HTML লেখা", fontFamily = Kalpurush) },
+                label = { Text(tNow("HTML লেখা"), fontFamily = Kalpurush) },
                 minLines = 8,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -206,6 +352,7 @@ fun HtmlContentEditor(
             val onSurface = MaterialTheme.colorScheme.onSurface
             val outline = MaterialTheme.colorScheme.outline
             val accent = MaterialTheme.colorScheme.primary
+            val onAccent = MaterialTheme.colorScheme.onPrimary
             Box {
                 AndroidView(
                     modifier = Modifier
@@ -228,6 +375,8 @@ fun HtmlContentEditor(
                             isHapticFeedbackEnabled = false
                             settings.javaScriptEnabled = true
                             settings.domStorageEnabled = false
+                            settings.setSupportMultipleWindows(false)
+                            settings.javaScriptCanOpenWindowsAutomatically = false
                             settings.allowFileAccess = true
                             settings.allowContentAccess = true
                             settings.loadsImagesAutomatically = true
@@ -235,11 +384,52 @@ fun HtmlContentEditor(
                             addJavascriptInterface(
                                 HtmlBridge(
                                     host = this,
-                                    emit = { html -> post { onValueChange(html) } }
+                                    emit = { html ->
+                                        post {
+                                            lastEmitted = html
+                                            onValueChange(html)
+                                        }
+                                    },
+                                    emitHeight = { measured ->
+                                        post {
+                                            // Reported by the page as it grows;
+                                            // ignored entirely when the caller
+                                            // has asked for a fixed box.
+                                            if (autoGrow) contentHeight = measured.coerceIn(0, 720)
+                                        }
+                                    },
+                                    emitFormats = { csv ->
+                                        post {
+                                            activeFormats = csv.split(',')
+                                                .map { it.trim() }
+                                                .filter { it.isNotEmpty() }
+                                                .toSet()
+                                        }
+                                    }
                                 ),
                                 "Android"
                             )
                             webViewClient = object : WebViewClient() {
+                                /**
+                                 * The editor is not a browser. A link in a draft,
+                                 * a stray tap, a drag that Chromium reads as a
+                                 * link-drag — none of it may take the box
+                                 * somewhere else: the page would load a website
+                                 * inside a 96 dp text box and the writing would
+                                 * be gone with it. Nothing navigates; the tab is
+                                 * told the click was handled.
+                                 */
+                                override fun shouldOverrideUrlLoading(
+                                    view: WebView?,
+                                    request: android.webkit.WebResourceRequest?
+                                ): Boolean = true
+
+                                @Deprecated("the older signature, still asked for below API 24")
+                                override fun shouldOverrideUrlLoading(
+                                    view: WebView?,
+                                    url: String?
+                                ): Boolean = true
+
                                 override fun onPageFinished(view: WebView?, url: String?) {
                                     val quoted = JSONObject.quote(value)
                                     view?.evaluateJavascript(
@@ -254,6 +444,7 @@ fun HtmlContentEditor(
                                     background.toArgb(),
                                     onSurface.toArgb(),
                                     accent.toArgb(),
+                                    onAccent.toArgb(),
                                     KalpurushWebFont.css(viewContext),
                                     selectionPopup,
                                     placeholder
@@ -267,6 +458,17 @@ fun HtmlContentEditor(
                     },
                     update = { view ->
                         webView = view
+                        // What the caller holds and what the box shows are kept in
+                        // step here. Setting the value from the page may be pushed
+                        // straight back in a moment later, which is what empties the
+                        // box the instant an answer has gone through.
+                        if (value != lastEmitted && value != lastPushed) {
+                            lastPushed = value
+                            view.evaluateJavascript(
+                                "if(window.setHtml){window.setHtml(${JSONObject.quote(value)});}",
+                                null
+                            )
+                        }
                     }
                 )
                 if (uploading) {
@@ -278,7 +480,7 @@ fun HtmlContentEditor(
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 2.dp)
-                            Text("ছবি আপলোড হচ্ছে…", fontFamily = Kalpurush, modifier = Modifier.padding(top = 8.dp))
+                            Text(tNow("ছবি আপলোড হচ্ছে…"), fontFamily = Kalpurush, modifier = Modifier.padding(top = 8.dp))
                         }
                     }
                 }
@@ -288,9 +490,9 @@ fun HtmlContentEditor(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(18.dp)
-                    .pointerInput(height) {
+                    .pointerInput(baseHeight) {
                         detectVerticalDragGestures { _, dragAmount ->
-                            onEditorHeightChange((height + dragAmount).toInt().coerceIn(200, 720))
+                            onEditorHeightChange((baseHeight + dragAmount).toInt().coerceIn(200, 720))
                         }
                     },
                 contentAlignment = Alignment.Center
@@ -323,14 +525,14 @@ fun HtmlContentEditor(
                 verticalAlignment = Alignment.CenterVertically
             ) {
             FilledTonalIconButton(
-                onClick = { onEditorHeightChange((height - 80).coerceAtLeast(200)) },
-                enabled = height > 200
+                onClick = { onEditorHeightChange((baseHeight - 80).coerceAtLeast(200)) },
+                enabled = baseHeight > 200
             ) {
                 Text("−", fontWeight = FontWeight.Bold)
             }
             FilledTonalIconButton(
-                onClick = { onEditorHeightChange((height + 80).coerceAtMost(720)) },
-                enabled = height < 720
+                onClick = { onEditorHeightChange((baseHeight + 80).coerceAtMost(720)) },
+                enabled = baseHeight < 720
             ) {
                 Text("+", fontWeight = FontWeight.Bold)
             }
@@ -339,26 +541,83 @@ fun HtmlContentEditor(
     }
 }
 
+/**
+ * One toolbar button. [compact] shrinks it: the reply box is a strip at the
+ * bottom of the screen, and three 40 dp buttons over a 96 dp box would be most
+ * of the box.
+ *
+ * [active] is whether the format the button applies is already on at the caret,
+ * and the button says so with a filled background. It is filled with the theme's
+ * **accent and its own ink** — `colorScheme.primary` and `onPrimary` — which is
+ * the pair `EditorialPalettes` derives to 4.5:1 or better for every preset and
+ * every position of the custom wheel, and which
+ * `backend/tests/app-theme-palette.test.cjs` computes at exactly that ratio
+ * rather than trusting the derivation. The softer accent tint would have been
+ * prettier and is not used: walked over the whole wheel it drops to **4.27:1**
+ * against the accent on the light side, and a toolbar a reader cannot read is
+ * not a toolbar.
+ */
 @Composable
 private fun ToolIcon(
     label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
+    compact: Boolean = false,
+    active: Boolean = false,
     onClick: () -> Unit
 ) {
-    IconButton(onClick = onClick, modifier = Modifier.size(40.dp)) {
-        Icon(icon, contentDescription = label, modifier = Modifier.size(20.dp))
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(if (compact) 30.dp else 40.dp)
+            .then(
+                if (active) {
+                    Modifier
+                        .clip(RoundedCornerShape(if (compact) 9.dp else 11.dp))
+                        .background(MaterialTheme.colorScheme.primary)
+                } else {
+                    Modifier
+                }
+            )
+    ) {
+        Icon(
+            icon,
+            contentDescription = label,
+            tint = if (active) {
+                MaterialTheme.colorScheme.onPrimary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            modifier = Modifier.size(if (compact) 16.dp else 20.dp)
+        )
     }
 }
 
 private class HtmlBridge(
     private val host: WebView,
-    private val emit: (String) -> Unit
+    private val emit: (String) -> Unit,
+    private val emitHeight: (Int) -> Unit,
+    private val emitFormats: (String) -> Unit
 ) {
     @JavascriptInterface
     fun onHtml(html: String) {
         emit(html)
     }
 
+    /** How tall the writing is, in CSS pixels — which is what a dp is here. */
+    @JavascriptInterface
+    fun onHeight(px: Int) {
+        host.post { emitHeight(px) }
+    }
+
+    /**
+     * The formats that are on at the caret, as a comma-separated list — the one
+     * thing the toolbar cannot see for itself, because the caret lives in the
+     * page. Empty means nothing is on.
+     */
+    @JavascriptInterface
+    fun onFormats(csv: String) {
+        host.post { emitFormats(csv) }
+    }
 }
 
 private fun clipboardText(context: Context): String {
@@ -389,11 +648,16 @@ private object KalpurushWebFont {
                     .use { it.readBytes() }
             }.getOrNull() ?: return ""
             val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+            // `font-weight: 400` and not a range: Kalpurush ships one weight, and a
+            // face that claims 100–900 tells the browser every weight is covered —
+            // so it draws bold text with the regular glyphs and bold looks like
+            // nothing happened. Declaring the single weight lets the browser
+            // synthesise the bold (and the italic) the reader asked for.
             val face = """
             @font-face {
               font-family: 'Kalpurush';
               src: url('data:font/truetype;charset=utf-8;base64,$b64') format('truetype');
-              font-weight: 100 900;
+              font-weight: 400;
               font-style: normal;
               font-display: block;
             }
@@ -408,13 +672,20 @@ private fun editorHtml(
     bgArgb: Int,
     fgArgb: Int,
     accentArgb: Int,
+    onAccentArgb: Int,
     fontFaceCss: String,
     selectionPopup: Boolean = true,
-    placeholder: String = "লেখা লিখুন… নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি, কাট ও পেস্ট আসবে।"
+    placeholder: String = tNow("লেখা লিখুন… নির্বাচন করলে মোটা, বাঁকা, নিচে দাগ, কপি, কাট ও পেস্ট আসবে।")
 ): String {
     val bg = hexColor(bgArgb)
     val fg = hexColor(fgArgb)
     val accent = hexColor(accentArgb)
+    val onAccent = hexColor(onAccentArgb)
+    // The page's own type, on the same dial as the rest of the app: a reader
+    // writing a reply should be looking at the size they will read it at. The
+    // WebView is not Compose, so the scale arrives as pixels.
+    val bodyPx = (16f * APP_TEXT_SCALE).roundToInt()
+    val barPx = (13f * APP_TEXT_SCALE).roundToInt()
     return """
         <!DOCTYPE html>
         <html>
@@ -423,11 +694,11 @@ private fun editorHtml(
           <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
           <style>
             $fontFaceCss
-            html,body { margin:0; padding:0; background:$bg; color:$fg; font-size:16px; height:100%;
+            html,body { margin:0; padding:0; background:$bg; color:$fg; font-size:${bodyPx}px; height:100%;
               font-family:'Kalpurush', sans-serif !important;
               -webkit-touch-callout:none; -webkit-user-select:text; user-select:text; }
             body { position:relative; }
-            #e { min-height:100%; padding:14px 14px 56px; outline:none; line-height:1.65;
+            #e { min-height:100%; padding:14px 14px 56px; outline:none; line-height:${APP_LEADING};
               font-family:'Kalpurush', sans-serif !important;
               -webkit-touch-callout:none; -webkit-user-select:text; user-select:text; }
             #e:empty:before { content:'${placeholder.replace("'", "")}'; color:#888; font-family:'Kalpurush', sans-serif !important; }
@@ -440,9 +711,13 @@ private fun editorHtml(
             }
             #selbar button {
               color:#fff; background:transparent; border:0; border-radius:7px;
-              padding:7px 9px; font-weight:700; font-size:13px;
+              padding:7px 9px; font-weight:700; font-size:${barPx}px;
             }
             #selbar button:active { background:rgba(255,255,255,.15); }
+            /* A format that is already on, in the reader's own accent and its ink.
+               :active above stays as it is: one is "you are pressing this", the
+               other is "this is already true where the caret is". */
+            #selbar button.on { background:$accent; color:$onAccent; }
           </style>
         </head>
         <body>
@@ -459,12 +734,194 @@ private fun editorHtml(
             const e = document.getElementById('e');
             const bar = document.getElementById('selbar');
             function emit(){ if (window.Android) Android.onHtml(e.innerHTML); }
-            e.addEventListener('input', emit);
-            e.addEventListener('blur', emit);
-            document.addEventListener('contextmenu', function(ev){ ev.preventDefault(); });
-            window.setHtml = function(html){
-              if (typeof html === 'string' && html !== e.innerHTML) e.innerHTML = html;
+            // Where the caret was, kept across taps that leave the page. A tap on
+            // a toolbar button is a tap outside the document, and the selection
+            // does not survive it on every WebView build — which is why the
+            // buttons put the range back before they run a command.
+            var lastRange = null;
+            // Whether the reader's keyboard is in the middle of a letter. Bengali
+            // is written by composing — ক + ্ + ষ is one character to a reader and
+            // three keystrokes to the IME — and while a composition is open the
+            // DOM and the selection belong to the keyboard. Anything this page
+            // does to either of them mid-composition is a garbled word at best
+            // and a keyboard that throws its hands up at worst, so every path
+            // below that touches the document is closed while it is true.
+            var composing = false;
+            e.addEventListener('compositionstart', function(){ composing = true; });
+            e.addEventListener('compositionend', function(){
+              composing = false;
+              flushPending();
+              saveSelection();
+            });
+            // The four the toolbar toggles. Copy, cut and paste are actions, not
+            // states: there is no such thing as "the caret is inside a paste", so
+            // they are never asked about and never light up.
+            const FORMAT_CMDS = ['bold','italic','underline','insertUnorderedList'];
+            // What the toolbar was last told, so a caret moving through a line of
+            // ordinary text does not cross the bridge on every keystroke.
+            var lastFormats = null;
+            function saveSelection(){
+              if (composing) return;
+              const sel = window.getSelection();
+              if (sel && sel.rangeCount > 0 && e.contains(sel.anchorNode)) {
+                lastRange = sel.getRangeAt(0).cloneRange();
+              }
+              reportFormats();
+            }
+            /**
+             * What is on at the caret, told to both bars at once: the little bar
+             * that is drawn here, and the app's toolbar on the other side of the
+             * bridge. queryCommandState is the page's own answer, and it is read
+             * at the caret rather than at the last range — a caret inside a <b>
+             * with nothing selected is bold, which is the whole point.
+             */
+            function reportFormats(){
+              // Mid-composition the DOM and the selection belong to the Bengali
+              // keyboard, so nothing here reads either of them; the answer that
+              // was already being shown stays until the word is finished.
+              if (composing) return;
+              var on = [];
+              for (var i = 0; i < FORMAT_CMDS.length; i++){
+                var active = false;
+                try { active = document.queryCommandState(FORMAT_CMDS[i]); }
+                catch (err) { active = false; }
+                if (active) on.push(FORMAT_CMDS[i]);
+              }
+              var buttons = document.querySelectorAll('#selbar [data-cmd]');
+              for (var k = 0; k < buttons.length; k++){
+                var cmd = buttons[k].getAttribute('data-cmd');
+                var toggles = FORMAT_CMDS.indexOf(cmd) >= 0;
+                buttons[k].classList.toggle('on', toggles && on.indexOf(cmd) >= 0);
+              }
+              const csv = on.join(',');
+              if (csv === lastFormats) return;
+              lastFormats = csv;
+              if (window.Android && Android.onFormats) Android.onFormats(csv);
+            }
+            function restoreSelection(){
+              if (!lastRange) return;
+              const sel = window.getSelection();
+              sel.removeAllRanges();
+              sel.addRange(lastRange);
+            }
+            // Only ever used when the page is not focused by the reader — a value
+            // arriving from outside, with nobody's caret to disturb.
+            function placeCaretAtEnd(){
+              const range = document.createRange();
+              range.selectNodeContents(e);
+              range.collapse(false);
+              const sel = window.getSelection();
+              sel.removeAllRanges();
+              sel.addRange(range);
+              lastRange = range.cloneRange();
+            }
+            // Not on 'input': that fires on every keystroke of every composition,
+            // and reading the selection there is the one thing an IME does not
+            // want happening underneath it.
+            ['keyup','mouseup','touchend','focus'].forEach(function(ev){
+              e.addEventListener(ev, saveSelection);
+            });
+            document.addEventListener('selectionchange', saveSelection);
+            window.command = function(cmd, arg){
+              if (!composing) {
+                // The caret may have been left behind by the tap that got here;
+                // putting it back is what makes the button work. Mid-composition
+                // it is the keyboard's, and is left alone.
+                if (e.focus && document.activeElement !== e) e.focus();
+                restoreSelection();
+              }
+              // Tags, not inline styles: the reader's markup is read back by the
+              // app's own renderer and by the site, and both know <b> and <i>.
+              document.execCommand('styleWithCSS', false, false);
+              var done = false;
+              try { done = document.execCommand(cmd, false, arg === undefined ? null : arg); }
+              catch (err) { done = false; }
+              if (!composing) saveSelection();
+              // saveSelection said what was on before the command ran, or said
+              // nothing at all mid-composition; either way this is the answer the
+              // button that was just pressed has to show.
+              reportFormats();
+              emit();
+              grow();
+              return done;
             };
+            // Raising the keyboard for a box that was just opened — and doing
+            // nothing at all when the reader is already in it, because moving a
+            // caret that someone is typing at is how a word ends up in pieces.
+            window.focusEditor = function(){
+              if (composing || document.activeElement === e) return;
+              e.focus();
+            };
+            // How tall the writing is. The box on the other side of the bridge
+            // grows to fit it, up to the ceiling the caller set, and scrolls past
+            // that — so a long reply is readable inside a box that never takes
+            // more of the screen than it has to.
+            function grow(){ if (window.Android && Android.onHeight) Android.onHeight(Math.ceil(e.scrollHeight)); }
+            e.addEventListener('input', function(ev){
+              // The keyboard says so itself, and it is believed over the flag: a
+              // composition can open without a compositionstart on some builds.
+              if (ev && ev.isComposing) composing = true;
+              emit();
+              grow();
+            });
+            e.addEventListener('blur', emit);
+            window.addEventListener('resize', grow);
+            setTimeout(grow, 60);
+            document.addEventListener('contextmenu', function(ev){ ev.preventDefault(); });
+            var pendingHtml = null;
+            function applyHtml(html){
+              if (typeof html !== 'string' || html === e.innerHTML) return;
+              e.innerHTML = html;
+              lastRange = null;
+              if (document.activeElement !== e) placeCaretAtEnd();
+              grow();
+              reportFormats();
+            }
+            // A value from the caller. Refused while the reader is composing or
+            // has the caret in the box — the app clears the box *after* blurring
+            // it, for exactly this reason — and kept until the page is free.
+            window.setHtml = function(html){
+              if (typeof html !== 'string') return;
+              if (html === e.innerHTML) { pendingHtml = null; return; }
+              // An empty value is an instruction, not a draft: the app empties
+              // the box the moment a post has gone through, and whether the
+              // caret is still in it is beside the point.
+              if (html === '') { pendingHtml = null; applyHtml(''); return; }
+              if (composing || document.activeElement === e) {
+                pendingHtml = html;
+                return;
+              }
+              pendingHtml = null;
+              applyHtml(html);
+            };
+            // Emptied on the app's word: the post is sent, so nothing in the box
+            // is worth keeping — including a composition the keyboard still had
+            // open when the button was tapped.
+            window.clearEditor = function(){
+              composing = false;
+              pendingHtml = null;
+              lastRange = null;
+              if (e.innerHTML !== '') e.innerHTML = '';
+              grow();
+              // Emptied: nothing is on anywhere, and the toolbar has to stop
+              // showing a format the reader is no longer inside.
+              reportFormats();
+            };
+            function flushPending(){
+              if (pendingHtml === null) return;
+              if (composing || document.activeElement === e) return;
+              const html = pendingHtml;
+              pendingHtml = null;
+              applyHtml(html);
+            }
+            e.addEventListener('blur', flushPending);
+            // A value that arrived while the reader was typing is applied at the
+            // first moment after — the box being left is one, the finger coming
+            // off the glass is another, so a deferred draft can never be stranded
+            // by a blur that never comes.
+            ['blur','focusout','keyup','touchend'].forEach(function(ev){
+              e.addEventListener(ev, flushPending);
+            });
             window.insertImage = function(url){
               if (!url) return;
               e.focus();
@@ -474,13 +931,16 @@ private fun editorHtml(
             document.querySelectorAll('#selbar [data-cmd]').forEach(function(btn){
               btn.addEventListener('mousedown', function(ev){ ev.preventDefault(); });
               btn.addEventListener('click', function(){
-                document.execCommand(btn.getAttribute('data-cmd'));
-                emit();
+                window.command(btn.getAttribute('data-cmd'));
               });
             });
             // The selection bar belongs to the article composer alone: over three
             // lines of reply it is in the way, which is why the forum turns it off.
             if (${selectionPopup}) document.addEventListener('selectionchange', function(){
+              // A composing region counts as a selection, and the black bar
+              // appearing over every Bengali word as it is written is worse than
+              // no bar at all — so the bar waits for the word to be finished.
+              if (composing) { bar.style.display = 'none'; return; }
               const sel = window.getSelection();
               if (!sel || sel.rangeCount === 0 || sel.isCollapsed || !e.contains(sel.anchorNode)) {
                 bar.style.display = 'none';

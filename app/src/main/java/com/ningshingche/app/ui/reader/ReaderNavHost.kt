@@ -25,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -92,6 +93,10 @@ import kotlinx.coroutines.launch
 import java.net.URLEncoder
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.unit.dp
+import com.ningshingche.app.ui.i18n.LocalTranslations
+import com.ningshingche.app.ui.i18n.tNow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 /**
  * Navigation routes for NingshingChe Portal.
@@ -111,6 +116,9 @@ object ReaderRoute {
     // A registered reader's public page: their songs and published articles.
     const val PublicProfile = "user/{userId}"
     const val UserDashboard = "user_dashboard"
+
+    /** The dashboard tab a successful submission forwards to (see the `tabKey` map). */
+    const val DASHBOARD_CONTENT = "content"
     const val UserDashboardPattern = "user_dashboard?tab={tab}&focus={focus}"
     const val UserProfile = "user_profile"
     const val NewArticle = "new_article"
@@ -225,6 +233,15 @@ fun EditorialReaderApp(
     modifier: Modifier = Modifier
 ) {
     val navController = rememberNavController()
+
+    // The table the app is rendering in. Reading it here is what makes a language
+    // swap visible: the graph below is keyed on it, so changing the language (or
+    // the language file arriving) rebuilds every destination in the new words —
+    // including the places that looked their text up with `tNow()` from a click
+    // handler or a view model. The controller is remembered above the key, so the
+    // reader's place in the app is not thrown away.
+    val translations = LocalTranslations.current
+
     val context = LocalContext.current
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
@@ -295,7 +312,15 @@ fun EditorialReaderApp(
     val currentRoute = navBackStackEntry?.destination?.route ?: ReaderRoute.Home
     val pendingHolder = remember { kotlinx.coroutines.flow.MutableStateFlow<String?>(null) }
     val launchRoute by (pendingRoute ?: pendingHolder).collectAsState()
-    val playerUi by app.musicController.state.collectAsState()
+    // Only the two facts this screen needs, not the whole player state: the state
+    // carries the position, which changes every 400 ms while a song plays, and
+    // collecting it here re-drew the entire reader — every visible row of every
+    // screen — two and a half times a second, for a bottom padding.
+    val showMiniBar by remember(app.musicController) {
+        app.musicController.state
+            .map { it.visible && !it.expanded }
+            .distinctUntilChanged()
+    }.collectAsState(initial = false)
 
     LaunchedEffect(launchRoute, currentRoute) {
         val route = launchRoute ?: return@LaunchedEffect
@@ -404,7 +429,7 @@ fun EditorialReaderApp(
                             )
                             type = "text/plain"
                         }
-                        context.startActivity(Intent.createChooser(sendIntent, "নিংশিং চে অ্যাপ শেয়ার করুন"))
+                        context.startActivity(Intent.createChooser(sendIntent, tNow("নিংশিং চে অ্যাপ শেয়ার করুন")))
                     }
                 },
                 onCloseDrawer = {
@@ -416,6 +441,7 @@ fun EditorialReaderApp(
         }
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
+        key(translations) {
         NavHost(
             navController = navController,
             startDestination = ReaderRoute.Splash,
@@ -459,6 +485,8 @@ fun EditorialReaderApp(
                     onSeeAllMusic = { navController.navigate(ReaderRoute.Music) },
                     onSeeAllContributors = { navController.navigate(ReaderRoute.Contributors) },
                     onContributorClick = { navController.navigate(ReaderRoute.publicProfile(it)) },
+                    onForumDiscussionClick = { id -> navController.navigate(ReaderRoute.forumThread(id)) },
+                    onSeeAllForum = { navController.navigate(ReaderRoute.Forum) },
                     onMenuClick = {
                         coroutineScope.launch { drawerState.open() }
                     },
@@ -740,7 +768,12 @@ fun EditorialReaderApp(
                 PublicProfileScreen(
                     userId = entry.arguments?.getString("userId").orEmpty(),
                     loadProfile = { userId -> app.portalRepository.publicProfile(userId) },
-                    loadForumActivity = { userId -> app.portalRepository.forumActivity(userId) },
+                    // Two doors for the lists: the four totals the tabs are
+                    // labelled with, and one page of five rows at a time.
+                    loadTotals = { userId -> app.portalRepository.profileTotals(userId) },
+                    loadPage = { userId, kind, offset ->
+                        app.portalRepository.profilePage(userId, kind, offset = offset)
+                    },
                     onBackClick = { navController.popBackStack() },
                     onArticleClick = { articleId -> navController.navigate(ReaderRoute.article(articleId)) },
                     onDiscussionClick = { id -> navController.navigate(ReaderRoute.forumThread(id)) }
@@ -797,11 +830,45 @@ fun EditorialReaderApp(
                 )
             }
 
+            // Where a successful submit goes: the dashboard, opened on its
+            // content tab, so the row the reader has just written is in front of
+            // them. The dashboard's own entry is thrown away first when it is
+            // already underneath this screen, otherwise the pattern route underneath
+            // would be re-shown with the tab it was created with (a pop restores
+            // the arguments of the entry, it cannot change them) and there would
+            // be two dashboards in the stack. A fresh entry is honest: content
+            // tab, focus row, and Back still returns to whatever was under the
+            // dashboard. Returns false when nothing had to be thrown away.
+            fun androidx.navigation.NavHostController.forwardToSubmittedContent(): Boolean {
+                val dashboard = currentBackStack.value.lastOrNull { entry ->
+                    val route = entry.destination.route.orEmpty()
+                    route == ReaderRoute.UserDashboard ||
+                        route.startsWith("${ReaderRoute.UserDashboard}?")
+                }
+                if (dashboard == null) {
+                    // New Article is reachable from the home screen too: the
+                    // composer is the only thing to close.
+                    popBackStack()
+                    return false
+                }
+                // By destination id, not by the entry's own id: the String
+                // overload of popBackStack matches *routes*, and the entry id is
+                // a UUID that no route will ever equal.
+                return popBackStack(dashboard.destination.id, inclusive = true)
+            }
+
+            /** The one trip both composers take when the send has succeeded. */
+            fun androidx.navigation.NavHostController.openSubmittedContent() {
+                forwardToSubmittedContent()
+                navigate(ReaderRoute.dashboard(tab = ReaderRoute.DASHBOARD_CONTENT))
+            }
+
             composable(ReaderRoute.NewArticle, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
                 NewArticleScreen(
                     viewModel = workspaceViewModel,
                     onBackClick = { navController.popBackStack() },
-                    onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) }
+                    onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) },
+                    onSubmitted = { navController.openSubmittedContent() }
                 )
             }
 
@@ -809,7 +876,8 @@ fun EditorialReaderApp(
                 NewMusicScreen(
                     viewModel = workspaceViewModel,
                     onBackClick = { navController.popBackStack() },
-                    onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) }
+                    onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) },
+                    onSubmitted = { navController.openSubmittedContent() }
                 )
             }
 
@@ -1020,10 +1088,10 @@ fun EditorialReaderApp(
                     onAuthorClick = { id -> navController.navigate(ReaderRoute.publicProfile(id)) },
                     onNewDiscussion = { navController.navigate(ReaderRoute.newDiscussion()) },
                     onSignInClick = { navController.navigate(ReaderRoute.Login) },
-                    onNotificationsClick = {
-                        navController.navigate(ReaderRoute.dashboard("notices"))
-                    },
-                    unreadCount = unreadCount
+                    // The forum's own bar carries a back arrow and a refresh; the
+                    // bell it used to hold was taken away by the owner, who wanted
+                    // the forum to look like a page and not a dashboard.
+                    onBackClick = { navController.popBackStack() }
                 )
             }
 
@@ -1066,6 +1134,12 @@ fun EditorialReaderApp(
                         app.portalRepository.forumReply(id, body, parentId)
                     },
                     react = { replyId, kind -> app.portalRepository.reactToForumReply(replyId, kind) },
+                    // A reader's own answer: the database refuses anything that is
+                    // not theirs, so the screen only ever sends an id and a body.
+                    editReply = { replyId, body ->
+                        app.portalRepository.editForumReply(replyId, body)
+                    },
+                    deleteReply = { replyId -> app.portalRepository.deleteForumReply(replyId) },
                     draftStore = app.forumDraftStore,
                     onBackClick = { navController.popBackStack() },
                     onSignInClick = { navController.navigate(ReaderRoute.Login) },
@@ -1115,13 +1189,14 @@ fun EditorialReaderApp(
         }
         MusicMiniPlayerBar(controller = app.musicController)
         }
+        }
     }
     MusicFullPlayerOverlay(controller = app.musicController)
     AppToastHost(
         modifier = Modifier.padding(
             // Clears the mini player, which is 52dp of content below the
             // system navigation bar inset.
-            bottom = if (playerUi.visible && !playerUi.expanded) 56.dp else 0.dp
+            bottom = if (showMiniBar) 56.dp else 0.dp
         )
     )
     }

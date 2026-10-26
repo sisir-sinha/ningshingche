@@ -30,14 +30,17 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.ningshingche.app.data.portal.ViewDay
 import com.ningshingche.app.data.remote.CommentRecord
 import com.ningshingche.app.data.remote.SubmittedBlogRecord
 import com.ningshingche.app.data.remote.SubmittedMusicRecord
 import com.ningshingche.app.ui.editorial.toBengaliNumeral
+import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import java.util.Calendar
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 
 /**
  * Charts for the signed-in dashboard, drawn from the reader's own records.
@@ -52,8 +55,8 @@ import java.util.Calendar
  */
 
 private val BENGALI_MONTHS = listOf(
-    "জানু", "ফেব", "মার্চ", "এপ্রিল", "মে", "জুন",
-    "জুলাই", "আগস্ট", "সেপ্টে", "অক্টো", "নভে", "ডিসে"
+    tNow("জানু"), tNow("ফেব"), tNow("মার্চ"), tNow("এপ্রিল"), "মে", tNow("জুন"),
+    tNow("জুলাই"), tNow("আগস্ট"), tNow("সেপ্টে"), tNow("অক্টো"), tNow("নভে"), tNow("ডিসে")
 )
 
 /** One calendar month of the reader's activity. [month] is 0-based, like `Calendar.MONTH`. */
@@ -114,11 +117,14 @@ private fun monthKey(createdAt: String): String? {
 }
 
 /**
- * The two dashboard graphs: contributions per month and where the reader's
- * articles stand. Sits under the metrics grid on the dashboard home tab.
+ * কার্যক্রম — what the reader did, month by month.
+ *
+ * One of the five dashboard sections the owner asked to see one at a time rather
+ * than stacked down a page; [ArticleStatusChart] is the other half of what used
+ * to be a single composable.
  */
 @Composable
-internal fun ContributionCharts(
+internal fun ActivityChart(
     articles: List<SubmittedBlogRecord>,
     tracks: List<SubmittedMusicRecord>,
     comments: List<CommentRecord>,
@@ -128,53 +134,61 @@ internal fun ContributionCharts(
         monthlyActivity(articles, tracks, comments)
     }
     val totalActivity = activity.sumOf { it.total }
+
+    ChartCard(
+        title = t("কার্যক্রম"),
+        subtitle = if (totalActivity > 0) {
+            t("শেষ ৬ মাসে মোট {1}টি", toBengaliNumeral(totalActivity))
+        } else {
+            t("শেষ ৬ মাস")
+        },
+        modifier = modifier
+    ) {
+        if (totalActivity == 0) {
+            ChartEmptyHint(t("শেষ ছয় মাসে কোনো কার্যক্রম নেই।"))
+        } else {
+            ActivityBars(activity)
+            Spacer(Modifier.height(10.dp))
+            Legend(
+                entries = listOf(
+                    t("প্রবন্ধ") to (activity.sumOf { it.articles } to MaterialTheme.colorScheme.primary),
+                    t("গান") to (activity.sumOf { it.songs } to MaterialTheme.colorScheme.tertiary),
+                    t("মন্তব্য") to (activity.sumOf { it.comments } to MaterialTheme.colorScheme.secondary)
+                )
+            )
+        }
+    }
+}
+
+/** Where the reader's articles stand: published, waiting, refused. */
+@Composable
+internal fun ArticleStatusChart(
+    articles: List<SubmittedBlogRecord>,
+    modifier: Modifier = Modifier
+) {
     val published = articles.count {
         it.status.equals("Published", true) || it.status.equals("Approved", true)
     }
     val pending = articles.count { it.status.equals("Pending", true) }
     val rejected = articles.count { it.status.equals("Rejected", true) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = modifier) {
-        ChartCard(
-            title = "কার্যক্রম",
-            subtitle = if (totalActivity > 0) {
-                "শেষ ৬ মাসে মোট ${toBengaliNumeral(totalActivity)}টি"
-            } else {
-                "শেষ ৬ মাস"
-            }
-        ) {
-            if (totalActivity == 0) {
-                ChartEmptyHint("শেষ ছয় মাসে কোনো কার্যক্রম নেই।")
-            } else {
-                ActivityBars(activity)
-                Spacer(Modifier.height(10.dp))
-                Legend(
-                    entries = listOf(
-                        "প্রবন্ধ" to (activity.sumOf { it.articles } to MaterialTheme.colorScheme.primary),
-                        "গান" to (activity.sumOf { it.songs } to MaterialTheme.colorScheme.tertiary),
-                        "মন্তব্য" to (activity.sumOf { it.comments } to MaterialTheme.colorScheme.secondary)
-                    )
+    ChartCard(
+        title = t("প্রবন্ধের অবস্থা"),
+        subtitle = t("মোট {1}টি জমা", toBengaliNumeral(articles.size)),
+        modifier = modifier
+    ) {
+        if (articles.isEmpty()) {
+            ChartEmptyHint(t("এখনো কোনো প্রবন্ধ জমা দেওয়া হয়নি।"))
+        } else {
+            StatusBar(published = published, pending = pending, rejected = rejected)
+            Spacer(Modifier.height(10.dp))
+            Legend(
+                entries = listOf(
+                    t("প্রকাশিত") to (published to MaterialTheme.colorScheme.primary),
+                    t("অপেক্ষমাণ") to (pending to MaterialTheme.colorScheme.tertiary),
+                    t("প্রত্যাখ্যাত") to (rejected to MaterialTheme.colorScheme.error)
                 )
-            }
-        }
-
-        ChartCard(
-            title = "প্রবন্ধের অবস্থা",
-            subtitle = "মোট ${toBengaliNumeral(articles.size)}টি জমা"
-        ) {
-            if (articles.isEmpty()) {
-                ChartEmptyHint("এখনো কোনো প্রবন্ধ জমা দেওয়া হয়নি।")
-            } else {
-                StatusBar(published = published, pending = pending, rejected = rejected)
-                Spacer(Modifier.height(10.dp))
-                Legend(
-                    entries = listOf(
-                        "প্রকাশিত" to (published to MaterialTheme.colorScheme.primary),
-                        "অপেক্ষমাণ" to (pending to MaterialTheme.colorScheme.tertiary),
-                        "প্রত্যাখ্যাত" to (rejected to MaterialTheme.colorScheme.error)
-                    )
-                )
-            }
+            )
         }
     }
 }
@@ -200,16 +214,16 @@ internal fun ViewsOverTimeChart(
     val accent = MaterialTheme.colorScheme.primary
 
     ChartCard(
-        title = "সময়ের সাথে ভিউ",
+        title = t("সময়ের সাথে ভিউ"),
         subtitle = if (totalViews > 0L) {
-            "মোট ${toBengaliNumeral(totalViews)} · শেষ ${toBengaliNumeral(days)} দিনে ${toBengaliNumeral(counted)}"
+            t("মোট {1} · শেষ {2} দিনে {3}", toBengaliNumeral(totalViews), toBengaliNumeral(days), toBengaliNumeral(counted))
         } else {
-            "শেষ ${toBengaliNumeral(days)} দিন"
+            t("শেষ {1} দিন", toBengaliNumeral(days))
         },
         modifier = modifier
     ) {
         if (series.isEmpty()) {
-            ChartEmptyHint("ভিউয়ের তথ্য এখনো পাওয়া যায়নি।")
+            ChartEmptyHint(t("ভিউয়ের তথ্য এখনো পাওয়া যায়নি।"))
             return@ChartCard
         }
         Canvas(
@@ -273,7 +287,7 @@ internal fun ViewsOverTimeChart(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = "সর্বোচ্চ ${toBengaliNumeral(peak)}",
+                text = t("সর্বোচ্চ {1}", toBengaliNumeral(peak)),
                 style = com.ningshingche.app.ui.editorial.EditorialType.Caption,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -300,11 +314,12 @@ private fun ChartCard(
         modifier = modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            Text(title, fontFamily = Kalpurush, fontWeight = FontWeight.Bold, fontSize = textSize(15), lineHeight = leading(15))
             Text(
                 subtitle,
                 fontFamily = Kalpurush,
-                fontSize = 11.sp,
+                fontSize = textSize(11),
+                lineHeight = leading(11),
                 color = MaterialTheme.colorScheme.primary
             )
             Spacer(Modifier.height(12.dp))
@@ -339,7 +354,7 @@ private fun ActivityBars(activity: List<MonthlyActivity>) {
                     }
                 }
                 Spacer(Modifier.height(6.dp))
-                Text(month.label, fontFamily = Kalpurush, fontSize = 10.sp, maxLines = 1)
+                Text(month.label, fontFamily = Kalpurush, fontSize = textSize(10), lineHeight = leading(10), maxLines = 1)
             }
         }
     }
@@ -420,7 +435,8 @@ private fun Legend(entries: List<Pair<String, Pair<Int, Color>>>) {
                 Text(
                     "${label} ${toBengaliNumeral(value)}",
                     fontFamily = Kalpurush,
-                    fontSize = 11.sp
+                    fontSize = textSize(11),
+                    lineHeight = leading(11)
                 )
             }
         }
@@ -432,7 +448,8 @@ private fun ChartEmptyHint(text: String) {
     Text(
         text,
         fontFamily = Kalpurush,
-        fontSize = 12.sp,
+        fontSize = textSize(12),
+        lineHeight = leading(12),
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
 }

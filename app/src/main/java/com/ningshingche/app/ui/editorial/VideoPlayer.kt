@@ -44,6 +44,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.ningshingche.app.data.portal.VideoItem
 import com.ningshingche.app.ui.theme.Kalpurush
 import java.net.URLEncoder
+import com.ningshingche.app.ui.i18n.t
 
 // ---------------------------------------------------------------------------
 // Embed resolution
@@ -221,7 +222,7 @@ fun VideoPlayerDialog(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, contentDescription = "বন্ধ করুন", tint = Color.White)
+                    Icon(Icons.Default.Close, contentDescription = t("বন্ধ করুন"), tint = Color.White)
                 }
                 Text(
                     text = video.title,
@@ -238,7 +239,7 @@ fun VideoPlayerDialog(
                 ) {
                     Icon(
                         Icons.Filled.OpenInNew,
-                        contentDescription = "ব্রাউজারে খুলুন",
+                        contentDescription = t("ব্রাউজারে খুলুন"),
                         tint = Color.White,
                         modifier = Modifier.padding(8.dp).size(20.dp)
                     )

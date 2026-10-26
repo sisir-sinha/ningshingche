@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.ningshingche.app.ui.theme.Kalpurush
+import com.ningshingche.app.ui.i18n.tNow
 
 @Composable
 fun AccountHeaderButton(
@@ -54,7 +55,7 @@ fun AccountHeaderButton(
             if (isSignedIn && avatarUrl.isNotBlank()) {
                 AsyncImage(
                     model = avatarUrl,
-                    contentDescription = "অ্যাকাউন্ট",
+                    contentDescription = tNow("অ্যাকাউন্ট"),
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .size(32.dp)
@@ -64,7 +65,7 @@ fun AccountHeaderButton(
             } else {
                 Icon(
                     imageVector = if (isSignedIn) Icons.Default.AccountCircle else Icons.Default.Person,
-                    contentDescription = if (isSignedIn) "অ্যাকাউন্ট" else "সাইন ইন",
+                    contentDescription = if (isSignedIn) tNow("অ্যাকাউন্ট") else tNow("সাইন ইন"),
                     tint = MaterialTheme.colorScheme.onSurface
                 )
             }
@@ -76,7 +77,7 @@ fun AccountHeaderButton(
         ) {
             DropdownMenuItem(
                 text = {
-                    Text("ড্যাশবোর্ড", fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold)
+                    Text(tNow("ড্যাশবোর্ড"), fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold)
                 },
                 leadingIcon = { Icon(Icons.Default.Dashboard, contentDescription = null) },
                 onClick = {
@@ -87,7 +88,7 @@ fun AccountHeaderButton(
             )
             DropdownMenuItem(
                 text = {
-                    Text("প্রোফাইল", fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold)
+                    Text(tNow("প্রোফাইল"), fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold)
                 },
                 leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
                 onClick = {
@@ -98,7 +99,7 @@ fun AccountHeaderButton(
             )
             DropdownMenuItem(
                 text = {
-                    val label = if (unreadCount > 0) "বিজ্ঞপ্তি ($unreadCount)" else "বিজ্ঞপ্তি"
+                    val label = if (unreadCount > 0) tNow("বিজ্ঞপ্তি ({1})", unreadCount) else tNow("বিজ্ঞপ্তি")
                     Text(label, fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold)
                 },
                 leadingIcon = { Icon(Icons.Default.Notifications, contentDescription = null) },
@@ -110,7 +111,7 @@ fun AccountHeaderButton(
             )
             DropdownMenuItem(
                 text = {
-                    Text("ফোরাম", fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold)
+                    Text(tNow("ফোরাম"), fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold)
                 },
                 leadingIcon = { Icon(Icons.Default.Forum, contentDescription = null) },
                 onClick = {
@@ -121,7 +122,7 @@ fun AccountHeaderButton(
             )
             DropdownMenuItem(
                 text = {
-                    Text("লগ আউট", fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold)
+                    Text(tNow("লগ আউট"), fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold)
                 },
                 leadingIcon = { Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null) },
                 onClick = {

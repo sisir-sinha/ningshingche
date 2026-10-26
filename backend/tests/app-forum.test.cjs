@@ -25,7 +25,59 @@ const ROOT = path.join(__dirname, '..', '..');
 const APP = path.join(ROOT, 'app', 'src', 'main', 'java', 'com', 'ningshingche', 'app');
 const MIGRATIONS = path.join(ROOT, 'backend', 'supabase', 'migrations');
 
-const read = (...parts) => fs.readFileSync(path.join(APP, ...parts), 'utf8');
+// The app asks the language table for its copy now — `t("…")`, or `tNow("…")`
+// where no composable may run — so these sources are read with that call lifted
+// off: `tNow("মোটা")` reads as `"মোটা"`, and if the call filled slots, the
+// arguments stay where they were. An assertion about a string does not care
+// whether the call site asks for a translation, and this keeps every existing
+// anchor honest rather than loosened: the string still has to be there, in that
+// place, in that shape.
+function unwrap(text) {
+  const opener = /(?<![A-Za-z0-9_.])(?:t|tNow)\(\s*(?=")/g;
+  let out = '';
+  let i = 0;
+  while (i < text.length) {
+    opener.lastIndex = i;
+    const match = opener.exec(text);
+    if (!match) { out += text.slice(i); break; }
+    out += text.slice(i, match.index);
+    let j = match.index + match[0].length;
+    const literalStart = j;
+    j += 1;
+    while (j < text.length) {
+      if (text[j] === '\\') { j += 2; continue; }
+      if (text[j] === '"') { j += 1; break; }
+      j += 1;
+    }
+    const literal = text.slice(literalStart, j);
+    // Skip the rest of the call: the closing paren of the one that wraps it.
+    let depth = 0;
+    let rest = '';
+    while (j < text.length) {
+      const ch = text[j];
+      if (ch === '"') {
+        let k = j + 1;
+        while (k < text.length && text[k] !== '"') { if (text[k] === '\\') k += 1; k += 1; }
+        rest += text.slice(j, k + 1);
+        j = k + 1;
+        continue;
+      }
+      if (ch === '(') depth += 1;
+      else if (ch === ')') {
+        if (depth === 0) { j += 1; break; }
+        depth -= 1;
+      }
+      rest += ch;
+      j += 1;
+    }
+    // One argument (the string itself) leaves nothing behind; a filled slot
+    // keeps its arguments, minus the parens that only existed for the call.
+    out += rest.trim() ? literal + rest : literal;
+    i = j;
+  }
+  return out;
+}
+const read = (...parts) => unwrap(fs.readFileSync(path.join(APP, ...parts), 'utf8'));
 const readRoot = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8');
 
 const PORTAL_API = read('data', 'portal', 'PortalApi.kt');
@@ -46,6 +98,8 @@ const FORUM_SQL = fs.readFileSync(
   path.join(MIGRATIONS, '029_forum.sql'), 'utf8');
 const PROFILE_SQL = fs.readFileSync(
   path.join(MIGRATIONS, '028_public_profile_details.sql'), 'utf8');
+const PROFILE_PAGING_SQL = fs.readFileSync(
+  path.join(MIGRATIONS, '033_profile_paging.sql'), 'utf8');
 
 /** The text inside a balanced `(` … `)` that starts at `openIndex`. */
 function balanced(text, openIndex) {
@@ -279,7 +333,12 @@ test('a discussion can be read from the list to the last reply', async (t) => {
       'lastActivityAt', 'views', 'replies']) {
       assert.ok(card.includes(field), `the card shows ${field}`);
     }
-    assert.match(card, /formatBengaliDate\(/, 'the date is the reader\'s, not ISO text');
+    // The date moved into the author block the card shares with the thread: a
+    // picture, the name, and the date beside it.
+    assert.match(card, /ForumAuthorRow\(/,
+      'the card hands its author to the shared block');
+    assert.match(FORUM_SCREENS, /formatBengaliDate\(date\)/,
+      'which is where the reader\'s own date format lives');
   });
 
   await t.test('the thread shows the opening post and every reply', () => {
@@ -391,7 +450,7 @@ test('the home contributor rail matches what was asked for', async (t) => {
 
   await t.test('titled সেরা অবদানকারী, with this month under it', () => {
     assert.match(HOME_SCREEN, /title = "সেরা অবদানকারী"/, 'the title');
-    assert.match(HOME_SCREEN, /subtitle = "\$\{monthNameOf\(contributorsMonth\)\} মাস"/,
+    assert.match(HOME_SCREEN, /subtitle = "\{1\} মাস", monthNameOf\(contributorsMonth\)/,
       'and the month, from the board the database sent');
     assert.match(READER_VIEW_MODELS, /val contributorsMonth: StateFlow<String>/,
       'which the view model keeps');
@@ -493,27 +552,69 @@ test('a public profile is real data, in the order asked for', async (t) => {
       'the old article/song counts are not in the statistics card');
   });
 
-  await t.test('three tabs, each with its count', () => {
+  await t.test('three tabs, each with its count, five rows at a time', () => {
     assert.match(PUBLIC_PROFILE,
-      /val tabs = listOf\(\s*"প্রবন্ধ" to articles\.size,\s*"গান" to songs\.size,\s*"আলোচনা" to \(forumActivity\?\.total \?: 0\)\s*\)/,
+      /val tabs = listOf\(\s*"প্রবন্ধ" to shownTotals\.articles,\s*"গান" to shownTotals\.songs,\s*"আলোচনা" to \(shownTotals\.threads \+ shownTotals\.answers\)\s*\)/,
       'the three tabs and their counters');
     assert.match(PUBLIC_PROFILE, /TabRow\(/, 'rendered as tabs');
     assert.match(PUBLIC_PROFILE, /text = "\$label \(\$\{toBengaliNumeral\(count\)\}\)"/,
       'with the count in Bengali numerals');
     assert.match(PUBLIC_PROFILE, /testTag\("public_profile_tabs"\)/, 'and reachable in a UI test');
+    // The owner's first correction: five rows to a page, fetched from the API, and
+    // then আরও দেখুন for the next five.
+    assert.match(PUBLIC_PROFILE, /loadPage\(userId, kind, 0\)/,
+      'the first page is asked for by offset');
+    assert.match(PUBLIC_PROFILE, /loadPage\(userId, kind, current\.loaded\)/,
+      'and the next starts where the rows already held end');
+    assert.match(PUBLIC_PROFILE, /if \(page\.hasMore\)/, 'the button is drawn only while there is more');
+    assert.match(PUBLIC_PROFILE, /testTag\("public_profile_more"\)/,
+      'and it is the আরও দেখুন the owner asked for');
+    assert.match(PUBLIC_PROFILE, /items = held\.items \+ next\.items/,
+      'a page is added to the rows on screen, not swapped for them');
+    assert.match(PORTAL_REPOSITORY, /const val PROFILE_PAGE_SIZE = 5/,
+      'five, decided in one place');
+    assert.match(PROFILE_PAGING_SQL, /p_limit integer default 5/, 'and five again at the database');
+    assert.match(PROFILE_PAGING_SQL, /p_offset integer default 0/, 'with the offset the screen hands over');
+    assert.match(PORTAL_API, /rpc\/profile_items/, 'through a call of its own');
   });
 
-  await t.test('most-read first, and sorted in the app as well as the database', () => {
-    assert.match(PROFILE_SQL, /order by b\.views_count desc nulls last/,
-      'the SQL orders articles by views');
-    assert.match(PROFILE_SQL, /order by t\.views_count desc nulls last, t\.created_at desc/,
+  await t.test('inside আলোচনা it is আলোচনা and উত্তর — প্রতিক্রিয়া is gone', () => {
+    assert.match(PUBLIC_PROFILE, /testTag = "public_profile_forum_threads"/, 'the discussions filter');
+    assert.match(PUBLIC_PROFILE, /testTag = "public_profile_forum_answers"/, 'and the answers one');
+    assert.ok(!PUBLIC_PROFILE.includes('প্রতিক্রিয়া'), 'the reactions tab is deleted, not hidden');
+    assert.match(PUBLIC_PROFILE,
+      /else -> if \(forumTab == 0\) ProfileTotals\.THREADS else ProfileTotals\.ANSWERS/,
+      'and each filter asks for its own kind');
+    assert.match(PROFILE_PAGING_SQL, /'threads'/, 'which the database knows');
+    assert.match(PROFILE_PAGING_SQL, /'answers'/, 'both of them');
+  });
+
+  await t.test('a forum row shows its reactions as icons and its date at the edge', () => {
+    assert.match(PUBLIC_PROFILE, /ProfileReactionCount\(/, 'the reactions are icons');
+    assert.match(PUBLIC_PROFILE, /Icons\.Default\.ThumbUp|Icons\.Default\.ThumbDown/,
+      'the same three the forum draws');
+    assert.ok(!/text = "লাইক|text = "একমত|text = "অপছন্দ/.test(PUBLIC_PROFILE),
+      'never written out as words');
+    assert.match(PUBLIC_PROFILE, /text = formatBengaliDate\(thread\.createdAt\)/,
+      'and the date is on the row, at its right-hand edge');
+    assert.match(PUBLIC_PROFILE, /formatBengaliDate\(answer\.createdAt\)/, 'both kinds of row');
+  });
+
+  await t.test('most-read first, ordered where the rows are read', () => {
+    // The lists are paged now, so the order has to be the database one: the app can
+    // no longer sort a page it has only been given part of.
+    assert.match(PROFILE_PAGING_SQL, /order by b\.views_count desc nulls last/,
+      'the paging function orders articles by views');
+    assert.match(PROFILE_PAGING_SQL, /order by t\.views_count desc nulls last, t\.created_at desc/,
       'and songs the same way');
-    assert.match(PORTAL_MODELS, /val articlesByViews: List<PublicArticle>\s*\n\s*get\(\) = articles\.sortedWith\(/,
-      'the app sorts too, so a cached page cannot disagree');
-    assert.match(PORTAL_MODELS, /compareByDescending<MusicTrack> \{ it\.viewsCount \}/,
-      'the songs by their play count');
-    assert.match(PUBLIC_PROFILE, /val articles = remember\(loaded\) \{ loaded\.articlesByViews \}/,
-      'and the page reads the sorted lists');
+    assert.match(PROFILE_PAGING_SQL, /order by v\.created_at desc/,
+      'a reader discussions and answers are newest first');
+    assert.match(PROFILE_SQL, /order by b\.views_count desc nulls last/,
+      'and the identity card own lists keep the same order');
+    assert.match(PORTAL_MODELS, /val articlesByViews: List<PublicArticle>/,
+      'the model can still sort a page it holds in full');
+    assert.match(PUBLIC_PROFILE, /items\(rows, key = \{ it\.key \}\)/,
+      'and the rows are drawn in the order they arrived');
   });
 
   await t.test('every row carries a published date', () => {
@@ -559,8 +660,8 @@ test('counters and lists arrive with the right numbers', async (t) => {
       'the model says whether anyone answered');
     assert.match(FORUM_SCREENS, /answered = discussion\.hasReplies/,
       'and the card asks it');
-    assert.match(FORUM_SCREENS, /tint = if \(answered\) tokens\.accent else tokens\.inkMuted/,
-      'so the reply counter means something');
+    assert.match(FORUM_SCREENS, /val answeredInk = tint \?: if \(answered\) tokens\.accent else tokens\.inkMuted/,
+      'so the reply counter means something, unless the card has an ink of its own');
   });
 
   await t.test('a thread with no replies falls back to its own post date', () => {

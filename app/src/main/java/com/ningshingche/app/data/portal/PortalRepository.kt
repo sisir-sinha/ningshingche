@@ -30,6 +30,17 @@ import java.util.concurrent.TimeUnit
  *    `Content-Range`, which is what drives "load more" and the result counter in
  *    search.
  */
+/**
+ * PostgREST reads a JSON `""` as the empty string and casts it to whatever the
+ * function expects. For a `uuid` parameter that cast fails, and the reader who
+ * was answering a thread — with no answer above them, so no parent — was shown
+ * `invalid input syntax for type uuid: ""` instead of their reply going up. A
+ * parameter with nothing in it is a parameter the call does not need: the
+ * defaults in the migrations are what an omitted argument becomes.
+ */
+private fun Map<String, String>.withoutBlanks(): Map<String, String> =
+    filterValues { it.isNotBlank() }
+
 class PortalRepository(
     private val api: PortalApi
 ) {
@@ -72,6 +83,13 @@ class PortalRepository(
     @Volatile private var tagEndpointsAvailable: Boolean? = null
 
     private companion object {
+        /**
+         * How many items a profile tab shows before it offers "আরও দেখুন", and
+         * the size of every page after it. Five is the owner's number: a tab is a
+         * glance, and the button under it is the reader's decision.
+         */
+        const val PROFILE_PAGE_SIZE = 5
+
         val TTL_REFERENCE = TimeUnit.MINUTES.toMillis(10)
         val TTL_SETTINGS = TimeUnit.HOURS.toMillis(1)
 
@@ -445,6 +463,75 @@ class PortalRepository(
                 .mapCatching { dto -> dto?.toModel() ?: throw PortalError.NotFound }
         }
 
+    // ------------------------------------------------------------ profile paging
+
+    /**
+     * The four totals the public page labels its tabs with (migration 033 RPC).
+     *
+     * One call, no items: a profile used to arrive with both lists inside it, and
+     * a tab could only say what had already been downloaded. The totals are the
+     * database's own counts, so a tab is true before anything under it is read.
+     */
+    suspend fun profileTotals(userId: String): Result<ProfileTotals> =
+        withContext(Dispatchers.IO) {
+            val id = userId.trim()
+            if (id.isBlank()) return@withContext Result.failure(PortalError.NotFound)
+            callOne {
+                api.profileItems(
+                    mapOf(
+                        "p_user_id" to id,
+                        "p_kind" to ProfileTotals.COUNTS,
+                        "p_limit" to "1",
+                        "p_offset" to "0"
+                    )
+                )
+            }.mapCatching { it.toTotals() }
+        }
+
+    /**
+     * One page of one list: five items to start with, five more behind "আরও দেখুন".
+     *
+     * The four kinds answer with the same envelope and different rows, so this is
+     * one call and four mappings. A page is asked for by [offset], never by
+     * growing the limit — the same rows the reader has already read are not sent
+     * twice, which is what makes a second page cheap on a phone connection.
+     */
+    suspend fun profilePage(
+        userId: String,
+        kind: String,
+        profileName: String = "",
+        offset: Int = 0,
+        limit: Int = PROFILE_PAGE_SIZE
+    ): Result<Paged<ProfileItem>> = withContext(Dispatchers.IO) {
+        val id = userId.trim()
+        if (id.isBlank()) return@withContext Result.failure(PortalError.NotFound)
+        val wanted = kind.trim().lowercase()
+        callOne {
+            api.profileItems(
+                mapOf(
+                    "p_user_id" to id,
+                    "p_kind" to wanted,
+                    "p_limit" to limit.coerceIn(1, 50).toString(),
+                    "p_offset" to offset.coerceAtLeast(0).toString()
+                )
+            )
+        }.mapCatching { dto ->
+            val page = dto.toPage(offset)
+            Paged(
+                items = page.items.map { row ->
+                    when (wanted) {
+                        ProfileTotals.ARTICLES -> ProfileItem.Article(row.toArticle())
+                        ProfileTotals.SONGS -> ProfileItem.Song(row.toSong(id, profileName))
+                        ProfileTotals.THREADS -> ProfileItem.Thread(row.toActivityThread())
+                        else -> ProfileItem.Answer(row.toActivityAnswer())
+                    }
+                },
+                total = page.total,
+                offset = offset
+            )
+        }
+    }
+
     // ----------------------------------------------------------- contributors
 
     /**
@@ -483,22 +570,33 @@ class PortalRepository(
 
     // ------------------------------------------------------------------ views
 
-    /** Counts one article view; the result is the item's new public total. */
+    /** Records one visit of an article; the result is the item's new public total. */
     suspend fun recordArticleView(articleId: String): Result<Long> = recordView("blog", articleId)
 
-    /** Counts one play of a song; the result is the track's new public total. */
-    suspend fun recordMusicView(trackId: String): Result<Long> = recordView("music", trackId)
+    /**
+     * Reports listening to a song: the seconds heard since the last report, of
+     * which the database keeps the total and — once enough of the track has been
+     * heard — counts the play.
+     *
+     * The seconds are what the player *actually played*, so a skip is not
+     * listening and a play is not counted for a track nobody stayed on. The
+     * threshold itself lives in the database (`music_valid_seconds`), which means
+     * a bug here cannot mint a play.
+     */
+    suspend fun recordMusicListen(trackId: String, seconds: Int): Result<Long> =
+        recordView("music", trackId, seconds)
 
-    private suspend fun recordView(type: String, id: String): Result<Long> =
+    private suspend fun recordView(type: String, id: String, seconds: Int? = null): Result<Long> =
         withContext(Dispatchers.IO) {
             val target = id.trim()
             if (target.isBlank()) return@withContext Result.failure(PortalError.NotFound)
             callOne {
-                api.recordContentView(
+                api.contentViewRecord(
                     mapOf(
                         "p_type" to type,
                         "p_id" to target,
-                        "p_device_id" to guestViewerId
+                        "p_device_id" to guestViewerId,
+                        "p_seconds" to (seconds ?: 0).coerceAtLeast(0).toString()
                     )
                 )
             }
@@ -793,7 +891,7 @@ class PortalRepository(
                         // fine: it simply means no answer comes back marked as
                         // theirs.
                         "p_device_id" to guestViewerId
-                    )
+                    ).withoutBlanks()
                 )
             }.mapCatching { dto ->
                 dto?.toModel() ?: throw PortalError.NotFound
@@ -824,7 +922,7 @@ class PortalRepository(
                     "p_reply_id" to clean,
                     "p_kind" to wanted,
                     "p_device_id" to guestViewerId
-                )
+                ).withoutBlanks()
             )
         }.mapCatching { dto ->
             dto?.toModel() ?: throw PortalError.NotFound
@@ -866,7 +964,7 @@ class PortalRepository(
                     // thread; neither is required for the post to go up.
                     "p_cover_image_url" to coverImageUrl.trim(),
                     "p_cover_delete_url" to coverDeleteUrl.trim()
-                )
+                ).withoutBlanks()
             )
         }.mapCatching { dto ->
             val created = dto?.toModel() ?: throw PortalError.NotFound
@@ -897,11 +995,63 @@ class PortalRepository(
                     mapOf(
                         "p_id" to clean,
                         "p_body" to body.trim(),
+                        // An answer to the thread itself has no parent, and an
+                        // empty one must not be sent: `uuid = ''` is a cast error,
+                        // not a missing parent.
                         "p_parent_id" to parentId.trim()
+                    ).withoutBlanks()
+                )
+            }.mapCatching { dto ->
+                dto?.toModel() ?: throw PortalError.NotFound
+            }
+        }
+
+
+    /**
+     * Change one of the reader's own answers.
+     *
+     * The database decides who the author is — this sends an id and a body and
+     * nothing else — and it refuses anyone else's answer, an editorial answer
+     * (`user_id` is null) and a body that is empty once its markup is read. The
+     * answer comes back in the shape the card draws from, so the thread does not
+     * have to be re-read to show the new words.
+     */
+    suspend fun editForumReply(
+        replyId: String,
+        body: String
+    ): Result<ForumReply> =
+        withContext(Dispatchers.IO) {
+            val clean = replyId.trim()
+            if (clean.isBlank()) return@withContext Result.failure(PortalError.NotFound)
+            callOne {
+                api.forumEditReply(
+                    mapOf(
+                        "p_id" to clean,
+                        "p_body" to body.trim()
                     )
                 )
             }.mapCatching { dto ->
                 dto?.toModel() ?: throw PortalError.NotFound
+            }
+        }
+
+    /**
+     * Take one of the reader's own answers out of the thread.
+     *
+     * A removal rather than a `delete`: the answers written under it are folded
+     * onto the answer it answered and stay in the thread, and the dashboard can
+     * still see what was there. `true` means the database accepted it — a refusal
+     * (someone else's answer, an editorial one, one already gone) arrives as a
+     * failure with the reason in it.
+     */
+    suspend fun deleteForumReply(replyId: String): Result<Boolean> =
+        withContext(Dispatchers.IO) {
+            val clean = replyId.trim()
+            if (clean.isBlank()) return@withContext Result.failure(PortalError.NotFound)
+            callOne {
+                api.forumDeleteReply(mapOf("p_id" to clean))
+            }.mapCatching { dto ->
+                dto?.id?.isNotBlank() == true
             }
         }
 

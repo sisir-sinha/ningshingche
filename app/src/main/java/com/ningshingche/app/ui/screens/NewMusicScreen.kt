@@ -64,13 +64,16 @@ import com.ningshingche.app.ui.i18n.t
 import com.ningshingche.app.ui.components.GenreCombobox
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.ReaderWorkspaceViewModel
+import com.ningshingche.app.ui.i18n.tNow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewMusicScreen(
     viewModel: ReaderWorkspaceViewModel,
     onBackClick: () -> Unit,
-    onCompleteProfile: () -> Unit
+    onCompleteProfile: () -> Unit,
+    /** The dashboard's content tab, where a submitted song is listed. */
+    onSubmitted: () -> Unit
 ) {
     val context = LocalContext.current
     val user by viewModel.currentUser.collectAsStateWithLifecycle()
@@ -89,8 +92,7 @@ fun NewMusicScreen(
     LaunchedEffect(message) {
         val text = message ?: return@LaunchedEffect
         if (text.isBlank()) return@LaunchedEffect
-        snackbarHostState.showSnackbar(text)
-        if (text.startsWith("গান জমা হয়েছে")) {
+        if (text.startsWith(tNow("গান জমা হয়েছে"))) {
             title = ""
             artist = ""
             album = ""
@@ -99,7 +101,13 @@ fun NewMusicScreen(
             audioName = ""
             audioSize = 0L
             cover = null
+            // Straight to the content tab: the dashboard repeats the
+            // confirmation, so the reader does not stay here for a snackbar.
+            viewModel.clearMessage()
+            onSubmitted()
+            return@LaunchedEffect
         }
+        snackbarHostState.showSnackbar(text)
         viewModel.clearMessage()
     }
 

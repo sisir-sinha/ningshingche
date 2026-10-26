@@ -29,10 +29,19 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.ningshingche.app.R
 import com.ningshingche.app.data.portal.SiteSettings
+import com.ningshingche.app.ui.theme.BrandGoldLight
+import com.ningshingche.app.ui.theme.BrandIndigo
+import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
+import com.ningshingche.app.ui.theme.PanelDeep
+import com.ningshingche.app.ui.theme.PanelInk
+import com.ningshingche.app.ui.theme.PanelInkMuted
+import com.ningshingche.app.ui.theme.PanelRule
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 
 /**
  * Footer details, mirroring the footer of https://ningshingche.com.
@@ -42,8 +51,8 @@ import com.ningshingche.app.ui.theme.Kalpurush
  * the moment an editor fills those columns in, without needing a code change.
  */
 object SiteContact {
-    const val TAGLINE = "বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ"
-    const val ADDRESS = "তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট"
+    val TAGLINE: String get() = tNow("বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ")
+    val ADDRESS: String get() = tNow("তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট")
     const val MAPS_URL = "https://maps.app.goo.gl/1SmaUj5kGPYgP7gJA"
     const val PHONE = "+880 9638-781890"
     const val PHONE_URI = "tel:+8809638781890"
@@ -58,7 +67,7 @@ object SiteContact {
     const val PLAY_STORE_URL =
         "https://play.google.com/store/apps/details?id=com.shakilsoftltd.ningshingche"
     const val DEVELOPER_URL = "https://kehem.com/"
-    const val DEVELOPER_NAME = "কেহেম আইটি"
+    val DEVELOPER_NAME: String get() = tNow("কেহেম আইটি")
 
     /** API value first, published site value second. */
     fun resolve(settings: SiteSettings) = Resolved(
@@ -78,11 +87,14 @@ object SiteContact {
     )
 }
 
-// Matches the dark footer band on ningshingche.com in both light and dark app themes.
-private val FooterBg = Color(0xFF1A1512)
-private val FooterText = Color(0xFFF3ECE2)
-private val FooterMuted = Color(0xFFB9A795)
-private val FooterAccent = Color(0xFFD97706)
+// The footer is a band rather than a page: it stays dark in both app themes, the
+// way the website's does. Its colour is the app's own dark family, not the old
+// warm brown — the band keeps the site footer's *shape*, and the reader never
+// meets a colour the rest of the app does not speak.
+private val FooterBg = PanelDeep
+private val FooterText = PanelInk
+private val FooterMuted = PanelInkMuted
+private val FooterAccent = BrandGoldLight
 
 /**
  * The app footer: brand block, contact details, quick links, social channels, the
@@ -118,15 +130,16 @@ fun EditorialFooter(
                 Text(
                     text = settings.title,
                     fontFamily = Kalpurush,
-                    fontSize = 20.sp,
+                    fontSize = textSize(20),
+                    lineHeight = leading(20),
                     fontWeight = FontWeight.Bold,
                     color = FooterText
                 )
                 Text(
                     text = SiteContact.TAGLINE,
                     fontFamily = Kalpurush,
-                    fontSize = 13.sp,
-                    lineHeight = 18.sp,
+                    fontSize = textSize(13),
+                    lineHeight = textSize(18),
                     color = FooterAccent
                 )
             }
@@ -152,19 +165,19 @@ fun EditorialFooter(
         FooterDivider()
 
         // --- Quick links --------------------------------------------------
-        FooterHeading("দ্রুত লিংকসমূহ")
+        FooterHeading(t("দ্রুত লিংকসমূহ"))
         Spacer(Modifier.height(10.dp))
         Row(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.weight(1f)) {
-                FooterLink("আমাদের সম্পর্কে") { onNavigate("about") }
-                FooterLink("লেখা জমাদান") { onOpenLink(SiteContact.SUBMIT_URL) }
-                FooterLink("গোপনীয়তা নীতি") { onOpenLink(SiteContact.PRIVACY_URL) }
+                FooterLink(t("আমাদের সম্পর্কে")) { onNavigate("about") }
+                FooterLink(t("লেখা জমাদান")) { onOpenLink(SiteContact.SUBMIT_URL) }
+                FooterLink(t("গোপনীয়তা নীতি")) { onOpenLink(SiteContact.PRIVACY_URL) }
             }
             Spacer(Modifier.width(EditorialSpace.md))
             Column(modifier = Modifier.weight(1f)) {
-                FooterLink("শর্তাবলী") { onOpenLink(SiteContact.TERMS_URL) }
-                FooterLink("যোগাযোগ করুন") { onOpenLink(info.emailUri) }
-                FooterLink("সাইটম্যাপ") { onOpenLink(SiteContact.SITEMAP_URL) }
+                FooterLink(t("শর্তাবলী")) { onOpenLink(SiteContact.TERMS_URL) }
+                FooterLink(t("যোগাযোগ করুন")) { onOpenLink(info.emailUri) }
+                FooterLink(t("সাইটম্যাপ")) { onOpenLink(SiteContact.SITEMAP_URL) }
             }
         }
 
@@ -172,7 +185,7 @@ fun EditorialFooter(
         FooterDivider()
 
         // --- Social -------------------------------------------------------
-        FooterHeading("আমাদের অনুসরণ করুন")
+        FooterHeading(t("আমাদের অনুসরণ করুন"))
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(EditorialSpace.md)) {
             SocialButton(R.drawable.ic_social_facebook, "Facebook") {
@@ -190,12 +203,12 @@ fun EditorialFooter(
         FooterDivider()
 
         // --- Download -----------------------------------------------------
-        FooterHeading("সর্বশেষ আপডেট পেতে আমাদের অ্যাপটি ডাউনলোড করুন")
+        FooterHeading(t("সর্বশেষ আপডেট পেতে আমাদের অ্যাপটি ডাউনলোড করুন"))
         Spacer(Modifier.height(12.dp))
         Surface(
             onClick = { onOpenLink(SiteContact.PLAY_STORE_URL) },
             shape = RoundedCornerShape(8.dp),
-            color = Color(0xFF7A2E1E)
+            color = BrandIndigo
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
@@ -211,7 +224,8 @@ fun EditorialFooter(
                 Text(
                     text = "Play Store",
                     fontFamily = Kalpurush,
-                    fontSize = 14.sp,
+                    fontSize = textSize(14),
+                    lineHeight = leading(14),
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
@@ -228,16 +242,18 @@ fun EditorialFooter(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "© ২০২৬ ${settings.title} | সাইট উন্নয়ন ",
+                text = t("© ২০২৬ {1} | সাইট উন্নয়ন", settings.title),
                 fontFamily = Kalpurush,
-                fontSize = 12.sp,
+                fontSize = textSize(12),
+                lineHeight = leading(12),
                 color = FooterMuted,
                 textAlign = TextAlign.Center
             )
             Text(
                 text = SiteContact.DEVELOPER_NAME,
                 fontFamily = Kalpurush,
-                fontSize = 12.sp,
+                fontSize = textSize(12),
+                lineHeight = leading(12),
                 fontWeight = FontWeight.SemiBold,
                 color = FooterAccent,
                 modifier = Modifier.clickable { onOpenLink(SiteContact.DEVELOPER_URL) }
@@ -271,8 +287,8 @@ private fun ContactRow(
         Text(
             text = text,
             fontFamily = Kalpurush,
-            fontSize = 14.sp,
-            lineHeight = 22.sp,
+            fontSize = textSize(14),
+            lineHeight = leading(14),
             color = FooterMuted
         )
     }
@@ -283,8 +299,8 @@ private fun FooterHeading(text: String) {
     Text(
         text = text,
         fontFamily = Kalpurush,
-        fontSize = 15.sp,
-        lineHeight = 22.sp,
+        fontSize = textSize(15),
+        lineHeight = leading(15),
         fontWeight = FontWeight.Bold,
         color = FooterText
     )
@@ -309,8 +325,8 @@ private fun FooterLink(label: String, onClick: () -> Unit) {
         Text(
             text = label,
             fontFamily = Kalpurush,
-            fontSize = 14.sp,
-            lineHeight = 22.sp,
+            fontSize = textSize(14),
+            lineHeight = leading(14),
             color = FooterMuted
         )
     }
@@ -321,7 +337,7 @@ private fun SocialButton(icon: Int, label: String, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         shape = CircleShape,
-        color = Color(0xFF7A2E1E),
+        color = BrandIndigo,
         modifier = Modifier.size(44.dp)
     ) {
         Box(contentAlignment = Alignment.Center) {
@@ -341,7 +357,7 @@ private fun FooterDivider() {
         modifier = Modifier
             .fillMaxWidth()
             .height(1.dp)
-            .background(Color(0xFF3A2F29))
+            .background(PanelRule)
     )
     Spacer(Modifier.height(EditorialSpace.lg))
 }

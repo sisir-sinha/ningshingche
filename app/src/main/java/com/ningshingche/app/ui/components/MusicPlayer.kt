@@ -100,7 +100,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.ningshingche.app.data.music.UserPlaylist
 import com.ningshingche.app.data.portal.MusicTrack
 import com.ningshingche.app.playback.MusicController
@@ -109,14 +108,21 @@ import com.ningshingche.app.playback.RepeatMode
 import com.ningshingche.app.ui.editorial.EditorialImage
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.editorial.SocialEmbedPlayer
+import com.ningshingche.app.ui.theme.BrandGoldLight
+import com.ningshingche.app.ui.theme.BrandIndigo
+import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
-import com.ningshingche.app.ui.theme.PortalMaroon
-import com.ningshingche.app.ui.theme.PortalSaffron
+import com.ningshingche.app.ui.theme.Panel
+import com.ningshingche.app.ui.theme.PanelDeep
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
+import com.ningshingche.app.ui.editorial.toBengaliNumeral
 
 val LocalMusicController = staticCompositionLocalOf<MusicController> {
     error("MusicController is not provided")
@@ -226,15 +232,17 @@ private fun MiniMusicPlayer(
                         text = track.title,
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
+                        fontSize = textSize(14),
+                        lineHeight = leading(14),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = track.artist.ifBlank { "নিংশিং চে" },
+                        text = track.artist.ifBlank { tNow("নিংশিং চে") },
                         fontFamily = Kalpurush,
-                        fontSize = 11.sp,
+                        fontSize = textSize(11),
+                        lineHeight = leading(11),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         color = tokens.inkMuted
@@ -243,7 +251,7 @@ private fun MiniMusicPlayer(
                 MiniPlayerButton(onClick = onToggle) {
                     Icon(
                         imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = if (state.isPlaying) "বিরতি" else "চালান",
+                        contentDescription = if (state.isPlaying) t("বিরতি") else t("চালান"),
                         tint = tokens.accent,
                         modifier = Modifier.size(22.dp)
                     )
@@ -251,7 +259,7 @@ private fun MiniMusicPlayer(
                 MiniPlayerButton(onClick = onNext, enabled = state.hasNext) {
                     Icon(
                         imageVector = Icons.Default.SkipNext,
-                        contentDescription = "পরের গান",
+                        contentDescription = t("পরের গান"),
                         tint = if (state.hasNext) MaterialTheme.colorScheme.onSurface
                         else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
                         modifier = Modifier.size(22.dp)
@@ -260,7 +268,7 @@ private fun MiniMusicPlayer(
                 MiniPlayerButton(onClick = onDismiss) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "বন্ধ করুন",
+                        contentDescription = t("বন্ধ করুন"),
                         tint = tokens.inkMuted,
                         modifier = Modifier.size(20.dp)
                     )
@@ -365,7 +373,7 @@ private fun FullMusicPlayer(
             .graphicsLayer { translationY = offsetY }
             .background(
                 Brush.verticalGradient(
-                    listOf(Color(0xFF2A120E), PortalMaroon, Color(0xFF120806))
+                    listOf(PanelDeep, BrandIndigo, PanelDeep)
                 )
             )
             .pointerInput(showQueue, minimizePx) {
@@ -426,23 +434,24 @@ private fun FullMusicPlayer(
                     IconButton(onClick = controller::collapse) {
                         Icon(
                             imageVector = Icons.Default.KeyboardArrowDown,
-                            contentDescription = "ছোট করুন",
+                            contentDescription = t("ছোট করুন"),
                             tint = Color.White
                         )
                     }
                     Spacer(Modifier.weight(1f))
                     Text(
-                        text = "এখন বাজছে",
+                        text = t("এখন বাজছে"),
                         fontFamily = Kalpurush,
-                        color = PortalSaffron,
-                        fontSize = 13.sp,
+                        color = BrandGoldLight,
+                        fontSize = textSize(13),
+                        lineHeight = leading(13),
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(Modifier.weight(1f))
                     IconButton(onClick = { sheet = PlayerSheet.Menu }) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
-                            contentDescription = "আরও",
+                            contentDescription = t("আরও"),
                             tint = Color.White.copy(alpha = 0.9f)
                         )
                     }
@@ -472,7 +481,8 @@ private fun FullMusicPlayer(
                             text = pageTrack.title,
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 22.sp,
+                            fontSize = textSize(22),
+                            lineHeight = leading(22),
                             color = Color.White,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -480,7 +490,8 @@ private fun FullMusicPlayer(
                         Text(
                             text = pageTrack.playerCreditLine(),
                             fontFamily = Kalpurush,
-                            fontSize = 14.sp,
+                            fontSize = textSize(14),
+                            lineHeight = leading(14),
                             color = Color.White.copy(alpha = 0.88f),
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
@@ -506,9 +517,10 @@ private fun FullMusicPlayer(
                                 modifier = Modifier.size(14.dp)
                             )
                             Text(
-                                text = "${bengaliDigits(viewsForPage)} বার শোনা হয়েছে",
+                                text = t("{1} বার শোনা হয়েছে", toBengaliNumeral(viewsForPage)),
                                 fontFamily = Kalpurush,
-                                fontSize = 12.sp,
+                                fontSize = textSize(12),
+                                lineHeight = leading(12),
                                 color = Color.White.copy(alpha = 0.8f)
                             )
                         }
@@ -559,32 +571,32 @@ private fun FullMusicPlayer(
                 PlayerIcon(
                     icon = if (state.liked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                     tint = if (state.liked) Color(0xFFFF6B81) else Color.White,
-                    label = "পছন্দ"
+                    label = t("পছন্দ")
                 ) { controller.toggleLike() }
                 PlayerIcon(
                     icon = Icons.Default.Shuffle,
-                    tint = if (state.shuffle) PortalSaffron else Color.White.copy(alpha = 0.7f),
-                    label = "শাফেল"
+                    tint = if (state.shuffle) BrandGoldLight else Color.White.copy(alpha = 0.7f),
+                    label = t("শাফেল")
                 ) { controller.toggleShuffle() }
                 PlayerIcon(
                     icon = if (state.repeatMode == RepeatMode.ONE) Icons.Default.RepeatOne else Icons.Default.Repeat,
-                    tint = if (state.repeatMode == RepeatMode.OFF) Color.White.copy(alpha = 0.7f) else PortalSaffron,
-                    label = "রিপিট"
+                    tint = if (state.repeatMode == RepeatMode.OFF) Color.White.copy(alpha = 0.7f) else BrandGoldLight,
+                    label = t("রিপিট")
                 ) { controller.cycleRepeat() }
                 PlayerIcon(
                     icon = Icons.AutoMirrored.Filled.PlaylistPlay,
-                    tint = if (state.autoPlay) PortalSaffron else Color.White.copy(alpha = 0.7f),
-                    label = "অটোপ্লে"
+                    tint = if (state.autoPlay) BrandGoldLight else Color.White.copy(alpha = 0.7f),
+                    label = t("অটোপ্লে")
                 ) { controller.toggleAutoPlay() }
                 PlayerIcon(
                     icon = Icons.Default.Download,
-                    tint = if (state.offline) PortalSaffron else Color.White.copy(alpha = 0.7f),
-                    label = "ডাউনলোড"
+                    tint = if (state.offline) BrandGoldLight else Color.White.copy(alpha = 0.7f),
+                    label = t("ডাউনলোড")
                 ) { controller.saveCurrentOffline() }
                 PlayerIcon(
                     icon = Icons.Default.Lyrics,
-                    tint = if (state.showLyrics) PortalSaffron else Color.White.copy(alpha = 0.7f),
-                    label = "লিরিক"
+                    tint = if (state.showLyrics) BrandGoldLight else Color.White.copy(alpha = 0.7f),
+                    label = t("লিরিক")
                 ) { controller.toggleLyrics() }
             }
 
@@ -604,7 +616,7 @@ private fun FullMusicPlayer(
                         modifier = Modifier
                             .size(14.dp)
                             .clip(CircleShape)
-                            .background(PortalSaffron)
+                            .background(BrandGoldLight)
                     )
                 },
                 track = { sliderState ->
@@ -612,15 +624,15 @@ private fun FullMusicPlayer(
                         sliderState = sliderState,
                         modifier = Modifier.height(3.dp),
                         colors = SliderDefaults.colors(
-                            thumbColor = PortalSaffron,
-                            activeTrackColor = PortalSaffron,
+                            thumbColor = BrandGoldLight,
+                            activeTrackColor = BrandGoldLight,
                             inactiveTrackColor = Color.White.copy(alpha = 0.22f)
                         )
                     )
                 },
                 colors = SliderDefaults.colors(
-                    thumbColor = PortalSaffron,
-                    activeTrackColor = PortalSaffron,
+                    thumbColor = BrandGoldLight,
+                    activeTrackColor = BrandGoldLight,
                     inactiveTrackColor = Color.White.copy(alpha = 0.22f)
                 )
             )
@@ -628,8 +640,8 @@ private fun FullMusicPlayer(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(formatMs(sliderValue.toLong()), color = Color.White.copy(alpha = 0.85f), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                Text(formatMs(duration), color = Color.White.copy(alpha = 0.85f), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text(formatMs(sliderValue.toLong()), color = Color.White.copy(alpha = 0.85f), fontSize = textSize(15), lineHeight = leading(15), fontWeight = FontWeight.SemiBold)
+                Text(formatMs(duration), color = Color.White.copy(alpha = 0.85f), fontSize = textSize(15), lineHeight = leading(15), fontWeight = FontWeight.SemiBold)
             }
 
             Row(
@@ -642,19 +654,19 @@ private fun FullMusicPlayer(
                     onClick = { sheet = PlayerSheet.Sleep }
                 )
                 IconButton(onClick = controller::skipPrevious, modifier = Modifier.size(56.dp)) {
-                    Icon(Icons.Default.SkipPrevious, "আগের গান", tint = Color.White, modifier = Modifier.size(36.dp))
+                    Icon(Icons.Default.SkipPrevious, t("আগের গান"), tint = Color.White, modifier = Modifier.size(36.dp))
                 }
                 Surface(
                     onClick = controller::togglePlayPause,
                     shape = CircleShape,
-                    color = PortalSaffron,
+                    color = BrandGoldLight,
                     modifier = Modifier.size(76.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = if (state.isPlaying) "বিরতি" else "চালান",
-                            tint = Color(0xFF2A120E),
+                            contentDescription = if (state.isPlaying) t("বিরতি") else t("চালান"),
+                            tint = PanelDeep,
                             modifier = Modifier.size(40.dp)
                         )
                     }
@@ -662,7 +674,7 @@ private fun FullMusicPlayer(
                 IconButton(onClick = controller::skipNext, enabled = state.hasNext, modifier = Modifier.size(56.dp)) {
                     Icon(
                         Icons.Default.SkipNext,
-                        "পরের গান",
+                        t("পরের গান"),
                         tint = if (state.hasNext) Color.White else Color.White.copy(alpha = 0.3f),
                         modifier = Modifier.size(36.dp)
                     )
@@ -670,7 +682,7 @@ private fun FullMusicPlayer(
                 IconButton(onClick = { showQueue = true }, modifier = Modifier.size(48.dp)) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.QueueMusic,
-                        contentDescription = "তালিকা",
+                        contentDescription = t("তালিকা"),
                         tint = Color.White,
                         modifier = Modifier.size(28.dp)
                     )
@@ -741,17 +753,19 @@ private fun PlayerHud(volume: Float, minimize: Boolean, modifier: Modifier = Mod
                     modifier = Modifier.size(26.dp)
                 )
                 Text(
-                    text = "ছেড়ে দিলে ছোট হয়ে যাবে",
+                    text = t("ছেড়ে দিলে ছোট হয়ে যাবে"),
                     fontFamily = Kalpurush,
                     color = Color.White,
-                    fontSize = 13.sp
+                    fontSize = textSize(13),
+                    lineHeight = leading(13)
                 )
             } else {
                 Text(
-                    text = "ভলিউম ${bengaliDigits((level * 100f).roundToInt().toLong())}%",
+                    text = t("ভলিউম {1}%", toBengaliNumeral((level * 100f).roundToInt().toLong())),
                     fontFamily = Kalpurush,
                     color = Color.White,
-                    fontSize = 13.sp,
+                    fontSize = textSize(13),
+                    lineHeight = leading(13),
                     fontWeight = FontWeight.Bold
                 )
                 Box(
@@ -766,7 +780,7 @@ private fun PlayerHud(volume: Float, minimize: Boolean, modifier: Modifier = Mod
                             .fillMaxWidth(level)
                             .height(6.dp)
                             .clip(RoundedCornerShape(99.dp))
-                            .background(PortalSaffron)
+                            .background(BrandGoldLight)
                     )
                 }
             }
@@ -788,8 +802,9 @@ private fun SleepTimerControl(untilMs: Long?, onClick: () -> Unit) {
             val left = (untilMs - now).coerceAtLeast(0L)
             Text(
                 text = formatMs(left),
-                color = PortalSaffron,
-                fontSize = 10.sp,
+                color = BrandGoldLight,
+                fontSize = textSize(10),
+                lineHeight = leading(10),
                 fontWeight = FontWeight.Bold,
                 fontFamily = Kalpurush
             )
@@ -797,8 +812,8 @@ private fun SleepTimerControl(untilMs: Long?, onClick: () -> Unit) {
         IconButton(onClick = onClick, modifier = Modifier.size(44.dp)) {
             Icon(
                 imageVector = Icons.Default.Timer,
-                contentDescription = "স্লিপ টাইমার",
-                tint = if (untilMs != null) PortalSaffron else Color.White.copy(alpha = 0.85f),
+                contentDescription = t("স্লিপ টাইমার"),
+                tint = if (untilMs != null) BrandGoldLight else Color.White.copy(alpha = 0.85f),
                 modifier = Modifier.size(26.dp)
             )
         }
@@ -840,7 +855,7 @@ private fun QueueSidebar(
                     }
             )
             Surface(
-                color = Color(0xFF1C0E0C),
+                color = Panel,
                 modifier = Modifier
                     .fillMaxHeight()
                     .width(304.dp)
@@ -871,7 +886,7 @@ private fun QueueSidebar(
                             .background(Color.White.copy(alpha = 0.28f))
                     )
                     Spacer(Modifier.height(12.dp))
-                    Text("তালিকা", fontFamily = Kalpurush, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 18.sp)
+                    Text(t("তালিকা"), fontFamily = Kalpurush, fontWeight = FontWeight.Bold, color = Color.White, fontSize = textSize(18), lineHeight = leading(18))
                     Spacer(Modifier.height(10.dp))
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.weight(1f)) {
                         items(queue, key = { it.id }) { item ->
@@ -911,7 +926,7 @@ private fun PlayerSheets(
     ) {
         Surface(
             shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
-            color = Color(0xFF1C0E0C),
+            color = Panel,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
@@ -933,19 +948,19 @@ private fun PlayerSheets(
                 Spacer(Modifier.height(14.dp))
                 when (sheet) {
                     PlayerSheet.Menu -> {
-                        SheetRow(Icons.Default.PlaylistAdd, "প্লেলিস্টে যোগ করুন") { onOpen(PlayerSheet.Playlist) }
-                        SheetRow(Icons.Default.Info, "গানের বিবরণ") { onOpen(PlayerSheet.Details) }
+                        SheetRow(Icons.Default.PlaylistAdd, t("প্লেলিস্টে যোগ করুন")) { onOpen(PlayerSheet.Playlist) }
+                        SheetRow(Icons.Default.Info, t("গানের বিবরণ")) { onOpen(PlayerSheet.Details) }
                         SheetRow(
                             Icons.Default.Download,
-                            if (state.offline) "অফলাইনে সংরক্ষিত" else "অ্যাপে MP3 সংরক্ষণ"
+                            if (state.offline) t("অফলাইনে সংরক্ষিত") else t("অ্যাপে MP3 সংরক্ষণ")
                         ) {
                             controller.saveCurrentOffline()
                             onClose()
                         }
-                        SheetRow(Icons.Default.Timer, "স্লিপ টাইমার") { onOpen(PlayerSheet.Sleep) }
+                        SheetRow(Icons.Default.Timer, t("স্লিপ টাইমার")) { onOpen(PlayerSheet.Sleep) }
                     }
                     PlayerSheet.Playlist -> {
-                        Text("প্লেলিস্টে যোগ করুন", fontFamily = Kalpurush, color = Color.White, fontWeight = FontWeight.Bold)
+                        Text(t("প্লেলিস্টে যোগ করুন"), fontFamily = Kalpurush, color = Color.White, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(10.dp))
                         playlists.filter { !it.isLoved }.forEach { playlist ->
                             SheetRow(Icons.Default.MusicNote, playlist.title) {
@@ -953,20 +968,20 @@ private fun PlayerSheets(
                                 onClose()
                             }
                         }
-                        SheetRow(Icons.Default.PlaylistAdd, "নতুন প্লেলিস্ট") { onOpen(PlayerSheet.NewPlaylist) }
+                        SheetRow(Icons.Default.PlaylistAdd, t("নতুন প্লেলিস্ট")) { onOpen(PlayerSheet.NewPlaylist) }
                     }
                     PlayerSheet.NewPlaylist -> {
-                        Text("নতুন প্লেলিস্ট", fontFamily = Kalpurush, color = Color.White, fontWeight = FontWeight.Bold)
+                        Text(t("নতুন প্লেলিস্ট"), fontFamily = Kalpurush, color = Color.White, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(10.dp))
                         OutlinedTextField(
                             value = newTitle,
                             onValueChange = { newTitle = it },
-                            placeholder = { Text("নাম লিখুন", fontFamily = Kalpurush) },
+                            placeholder = { Text(t("নাম লিখুন"), fontFamily = Kalpurush) },
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedTextColor = Color.White,
                                 unfocusedTextColor = Color.White,
-                                focusedBorderColor = PortalSaffron,
+                                focusedBorderColor = BrandGoldLight,
                                 unfocusedBorderColor = Color.White.copy(alpha = 0.3f)
                             ),
                             modifier = Modifier.fillMaxWidth()
@@ -978,32 +993,32 @@ private fun PlayerSheets(
                                 onClose()
                             }
                         }) {
-                            Text("তৈরি করুন", fontFamily = Kalpurush, color = PortalSaffron)
+                            Text(t("তৈরি করুন"), fontFamily = Kalpurush, color = BrandGoldLight)
                         }
                     }
                     PlayerSheet.Details -> {
-                        Text(track.title, fontFamily = Kalpurush, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                        Text(track.title, fontFamily = Kalpurush, color = Color.White, fontWeight = FontWeight.Bold, fontSize = textSize(20), lineHeight = leading(20))
                         Spacer(Modifier.height(8.dp))
-                        DetailLine("শিল্পী", track.artist.ifBlank { "নিংশিং চে" })
-                        if (track.album.isNotBlank()) DetailLine("অ্যালবাম", track.album)
-                        if (track.genre.isNotBlank()) DetailLine("ধরন", track.genre)
-                        if (track.videoLink.isNotBlank()) DetailLine("ভিডিও", track.videoLink)
-                        if (track.durationSeconds > 0) DetailLine("সময়", formatMs(track.durationSeconds * 1000L))
+                        DetailLine(t("শিল্পী"), track.artist.ifBlank { tNow("নিংশিং চে") })
+                        if (track.album.isNotBlank()) DetailLine(t("অ্যালবাম"), track.album)
+                        if (track.genre.isNotBlank()) DetailLine(t("ধরন"), track.genre)
+                        if (track.videoLink.isNotBlank()) DetailLine(t("ভিডিও"), track.videoLink)
+                        if (track.durationSeconds > 0) DetailLine(t("সময়"), formatMs(track.durationSeconds * 1000L))
                         if (track.description.isNotBlank()) {
                             Spacer(Modifier.height(8.dp))
-                            Text(track.description, fontFamily = Kalpurush, color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
+                            Text(track.description, fontFamily = Kalpurush, color = Color.White.copy(alpha = 0.8f), fontSize = textSize(14), lineHeight = leading(14))
                         }
                     }
                     PlayerSheet.Sleep -> {
-                        Text("স্লিপ টাইমার", fontFamily = Kalpurush, color = Color.White, fontWeight = FontWeight.Bold)
+                        Text(t("স্লিপ টাইমার"), fontFamily = Kalpurush, color = Color.White, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(8.dp))
                         listOf(5, 15, 30, 45, 60).forEach { minutes ->
-                            SheetRow(Icons.Default.Timer, "$minutes মিনিট") {
+                            SheetRow(Icons.Default.Timer, t("{1} মিনিট", minutes)) {
                                 controller.setSleepTimer(minutes)
                                 onClose()
                             }
                         }
-                        SheetRow(Icons.Default.Close, "বন্ধ করুন") {
+                        SheetRow(Icons.Default.Close, t("বন্ধ করুন")) {
                             controller.setSleepTimer(0)
                             onClose()
                         }
@@ -1025,9 +1040,9 @@ private fun SheetRow(icon: ImageVector, label: String, onClick: () -> Unit) {
             .padding(vertical = 12.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = PortalSaffron, modifier = Modifier.size(22.dp))
+        Icon(icon, contentDescription = null, tint = BrandGoldLight, modifier = Modifier.size(22.dp))
         Spacer(Modifier.width(14.dp))
-        Text(label, fontFamily = Kalpurush, color = Color.White, fontSize = 16.sp)
+        Text(label, fontFamily = Kalpurush, color = Color.White, fontSize = textSize(16), lineHeight = leading(16))
     }
 }
 
@@ -1037,7 +1052,8 @@ private fun DetailLine(label: String, value: String) {
         text = "$label · $value",
         fontFamily = Kalpurush,
         color = Color.White.copy(alpha = 0.82f),
-        fontSize = 14.sp,
+        fontSize = textSize(14),
+        lineHeight = leading(14),
         modifier = Modifier.padding(vertical = 2.dp)
     )
 }
@@ -1077,16 +1093,17 @@ private fun QueueRow(
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
             )
             Text(
-                text = item.artist.ifBlank { "নিংশিং চে" },
+                text = item.artist.ifBlank { tNow("নিংশিং চে") },
                 fontFamily = Kalpurush,
                 color = Color.White.copy(alpha = 0.65f),
-                fontSize = 12.sp,
+                fontSize = textSize(12),
+                lineHeight = leading(12),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
         }
         if (selected && playing) {
-            Icon(Icons.Default.MusicNote, null, tint = PortalSaffron, modifier = Modifier.size(16.dp))
+            Icon(Icons.Default.MusicNote, null, tint = BrandGoldLight, modifier = Modifier.size(16.dp))
         }
     }
 }
@@ -1218,11 +1235,11 @@ private fun TrackCoverCanvas(
                         .padding(16.dp)
                 ) {
                     Text(
-                        text = pageTrack.lyrics.ifBlank { "এই গানের লিরিক এখনো যোগ করা হয়নি।" },
+                        text = pageTrack.lyrics.ifBlank { tNow("এই গানের লিরিক এখনো যোগ করা হয়নি।") },
                         fontFamily = Kalpurush,
                         color = Color.White,
-                        fontSize = 16.sp,
-                        lineHeight = 26.sp,
+                        fontSize = textSize(16),
+                        lineHeight = leading(16),
                         modifier = Modifier
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState())
@@ -1255,7 +1272,7 @@ private fun TrackCoverCanvas(
 
         if (state.isBuffering && isCurrent && !showVideo) {
             CircularProgressIndicator(
-                color = PortalSaffron,
+                color = BrandGoldLight,
                 strokeWidth = 2.dp,
                 modifier = Modifier
                     .align(Alignment.Center)
@@ -1273,7 +1290,8 @@ private fun TrackCoverCanvas(
                     color = Color.White,
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
+                    fontSize = textSize(16),
+                    lineHeight = leading(16),
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
                 )
             }
@@ -1291,8 +1309,8 @@ private fun TrackCoverCanvas(
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = if (showVideo) Icons.Default.MusicNote else Icons.Default.Videocam,
-                        contentDescription = if (showVideo) "অডিওতে ফিরুন" else "ভিডিও চালান",
-                        tint = PortalSaffron,
+                        contentDescription = if (showVideo) tNow("অডিওতে ফিরুন") else tNow("ভিডিও চালান"),
+                        tint = BrandGoldLight,
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -1311,7 +1329,7 @@ private fun CoverArt(url: String, modifier: Modifier, corner: androidx.compose.u
                 .background(Color(0x33FFFFFF)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.MusicNote, contentDescription = null, tint = PortalSaffron, modifier = Modifier.size(28.dp))
+            Icon(Icons.Default.MusicNote, contentDescription = null, tint = BrandGoldLight, modifier = Modifier.size(28.dp))
         }
     } else {
         EditorialImage(
@@ -1328,10 +1346,6 @@ private fun formatMs(ms: Long): String {
     val total = (ms / 1000L).coerceAtLeast(0L)
     val m = total / 60
     val s = total % 60
-    return "${bengaliDigits(m)}:${bengaliDigits(s).padStart(2, '০')}"
+    return tNow("{1}:{2}", toBengaliNumeral(m), toBengaliNumeral(s).padStart(2, '০'))
 }
 
-private fun bengaliDigits(value: Long): String {
-    val map = charArrayOf('০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯')
-    return value.toString().map { ch -> if (ch in '0'..'9') map[ch - '0'] else ch }.joinToString("")
-}

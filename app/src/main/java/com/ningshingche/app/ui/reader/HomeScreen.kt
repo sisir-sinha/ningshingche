@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import kotlinx.coroutines.launch
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -57,8 +56,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.ningshingche.app.ui.editorial.EditorialSpace
 import com.ningshingche.app.ui.screens.ContributorList
+import com.ningshingche.app.ui.screens.HomeForumBlock
+import com.ningshingche.app.ui.screens.monthNameOf
+import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
-import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
@@ -66,6 +68,7 @@ import com.ningshingche.app.data.portal.ArticleSummary
 import com.ningshingche.app.data.portal.AuthorRef
 import com.ningshingche.app.data.portal.CategoryRef
 import com.ningshingche.app.data.portal.Contributor
+import com.ningshingche.app.data.portal.ForumDiscussion
 import com.ningshingche.app.data.portal.PdfBook
 import com.ningshingche.app.data.portal.VideoItem
 import com.ningshingche.app.ui.components.LocalMusicController
@@ -78,7 +81,6 @@ import com.ningshingche.app.ui.editorial.ArticleRail
 import com.ningshingche.app.ui.editorial.ArticleRow
 import com.ningshingche.app.ui.editorial.AuthorRail
 import com.ningshingche.app.ui.editorial.CategoryRail
-import com.ningshingche.app.ui.editorial.EditorialSpace
 import com.ningshingche.app.ui.editorial.EmptyState
 import com.ningshingche.app.ui.editorial.ErrorState
 import com.ningshingche.app.ui.editorial.GalleryGrid
@@ -93,6 +95,8 @@ import com.ningshingche.app.ui.editorial.SectionHeader
 import com.ningshingche.app.ui.editorial.MusicRail
 import com.ningshingche.app.ui.editorial.VideoRail
 import kotlinx.coroutines.launch
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 
 /**
  * Home — the magazine's front page.
@@ -127,6 +131,9 @@ fun HomeScreen(
     onSeeAllMusic: () -> Unit = {},
     onSeeAllContributors: () -> Unit = {},
     onContributorClick: (String) -> Unit = {},
+    /** সাম্প্রতিক আলোচনা: the five newest threads, for a signed-in reader. */
+    onForumDiscussionClick: (String) -> Unit = {},
+    onSeeAllForum: () -> Unit = {},
     onMenuClick: () -> Unit = {},
     onAiClick: () -> Unit = {},
     onAiPrompt: (String) -> Unit = {},
@@ -149,7 +156,15 @@ fun HomeScreen(
     val contributorsError by viewModel.contributorsError.collectAsState()
     val contributorsRefused by viewModel.contributorsRefused.collectAsState()
     val contributorsMonth by viewModel.contributorsMonth.collectAsState()
-    LaunchedEffect(isSignedIn) { viewModel.loadContributors(isSignedIn) }
+    val forumLatest by viewModel.forumLatest.collectAsState()
+    val forumLatestError by viewModel.forumLatestError.collectAsState()
+    val forumLatestLoading by viewModel.forumLatestLoading.collectAsState()
+    // Both sections are for registered readers, and both requests are gated in the
+    // view model: a guest never asks for either.
+    LaunchedEffect(isSignedIn) {
+        viewModel.loadContributors(isSignedIn)
+        viewModel.loadForumLatest(isSignedIn)
+    }
     val offlineNotice by viewModel.offlineNotice.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
@@ -183,11 +198,11 @@ fun HomeScreen(
                         // Brand wordmark (text, not the logo image). Tapping it
                         // scrolls the feed back to the top.
                         Text(
-                            text = "নিংশিং চে",
+                            text = tNow("নিংশিং চে"),
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 21.sp,
-                            lineHeight = 24.sp,
+                            fontSize = textSize(21),
+                            lineHeight = textSize(24),
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -219,7 +234,7 @@ fun HomeScreen(
                         onClick = onSearchClick,
                         modifier = Modifier.testTag("search_top_button")
                     ) {
-                        Icon(Icons.Default.Search, contentDescription = "অনুসন্ধান")
+                        Icon(Icons.Default.Search, contentDescription = tNow("অনুসন্ধান"))
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -256,10 +271,16 @@ fun HomeScreen(
                     contributorsError = contributorsError,
                     contributorsRefused = contributorsRefused,
                     contributorsMonth = contributorsMonth,
+                    forumLatest = forumLatest,
+                    forumLatestLoading = forumLatestLoading,
+                    forumLatestError = forumLatestError,
                     isSignedIn = isSignedIn,
                     onSeeAllContributors = onSeeAllContributors,
                     onContributorClick = onContributorClick,
                     onRetryContributors = { viewModel.loadContributors(isSignedIn, force = true) },
+                    onForumDiscussionClick = onForumDiscussionClick,
+                    onSeeAllForum = onSeeAllForum,
+                    onRetryForum = { viewModel.loadForumLatest(isSignedIn, force = true) },
                     onSignInClick = onLoginClick,
                     onArticleClick = onArticleClick,
                     onCategoryClick = onCategoryClick,
@@ -291,10 +312,16 @@ private fun HomeContent(
     contributorsError: String?,
     contributorsRefused: Boolean,
     contributorsMonth: String,
+    forumLatest: List<ForumDiscussion>,
+    forumLatestLoading: Boolean,
+    forumLatestError: String?,
     isSignedIn: Boolean,
     onSeeAllContributors: () -> Unit,
     onContributorClick: (String) -> Unit,
     onRetryContributors: () -> Unit,
+    onForumDiscussionClick: (String) -> Unit,
+    onSeeAllForum: () -> Unit,
+    onRetryForum: () -> Unit,
     onSignInClick: () -> Unit,
     onArticleClick: (String) -> Unit,
     onCategoryClick: (CategoryRef) -> Unit,
@@ -353,7 +380,7 @@ private fun HomeContent(
                     )
                     type = "text/plain"
                 }
-                context.startActivity(Intent.createChooser(sendIntent, "ছবি শেয়ার করুন"))
+                context.startActivity(Intent.createChooser(sendIntent, tNow("ছবি শেয়ার করুন")))
             }
         )
     }
@@ -389,6 +416,26 @@ private fun HomeContent(
             }
         }
 
+        // 1b. সাম্প্রতিক আলোচনা — the forum's five newest threads, right under
+        // the header. Registered readers only: the owner asked for that, and the
+        // request is gated in the view model so a guest does not even make it.
+        if (isSignedIn) {
+            item {
+                HomeForumBlock(
+                    discussions = forumLatest,
+                    loading = forumLatestLoading,
+                    error = forumLatestError,
+                    onDiscussionClick = onForumDiscussionClick,
+                    onSeeAll = onSeeAllForum,
+                    onRetry = onRetryForum,
+                    modifier = Modifier.padding(
+                        top = EditorialSpace.xs,
+                        bottom = EditorialSpace.xs
+                    )
+                )
+            }
+        }
+
         // 2. AI Assistant Banner (Placed right after Hero Carousel)
         item {
             AiAssistantHomeBanner(
@@ -418,7 +465,7 @@ private fun HomeContent(
         if (feed.settings.featuredEnabled && featuredArticles.isNotEmpty()) {
             item {
                 ArticleRail(
-                    title = "ফিচার্ড",
+                    title = tNow("ফিচার্ড"),
                     articles = featuredArticles,
                     onArticleClick = { onArticleClick(it.id) },
                     onSeeAll = onSeeAllFeatured
@@ -430,7 +477,7 @@ private fun HomeContent(
         if (feed.latest.isNotEmpty()) {
             item {
                 SectionHeader(
-                    title = "সাম্প্রতিক",
+                    title = tNow("সাম্প্রতিক"),
                     actionLabel = "সব",
                     onAction = onSeeAllLatest
                 )
@@ -441,7 +488,7 @@ private fun HomeContent(
             }
         } else {
             item {
-                EmptyState(message = "এখনো কোনো প্রবন্ধ প্রকাশিত হয়নি।")
+                EmptyState(message = tNow("এখনো কোনো প্রবন্ধ প্রকাশিত হয়নি।"))
             }
         }
 
@@ -450,7 +497,7 @@ private fun HomeContent(
             item {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     SectionHeader(
-                        title = "বিশেষ নির্বাচন",
+                        title = tNow("বিশেষ নির্বাচন"),
                         actionLabel = if (onSeeAllSpecial != null) "সব" else null,
                         onAction = onSeeAllSpecial
                     )
@@ -537,9 +584,9 @@ private fun HomeContent(
                 ) {
                     Column(Modifier.padding(vertical = EditorialSpace.sm)) {
                         SectionHeader(
-                            title = "সেরা অবদানকারী",
-                            subtitle = "${monthNameOf(contributorsMonth)} মাস",
-                            actionLabel = "সব দেখুন",
+                            title = tNow("সেরা অবদানকারী"),
+                            subtitle = tNow("{1} মাস", monthNameOf(contributorsMonth)),
+                            actionLabel = tNow("সব দেখুন"),
                             onAction = onSeeAllContributors,
                             modifier = Modifier.padding(horizontal = 0.dp)
                         )
@@ -603,17 +650,19 @@ private fun ContributorBoardNotice(
             .padding(horizontal = EditorialSpace.gutter, vertical = EditorialSpace.xs)
     ) {
         Text(
-            text = message.ifBlank { "তালিকা আনা যায়নি।" },
+            text = message.ifBlank { tNow("তালিকা আনা যায়নি।") },
             fontFamily = Kalpurush,
-            fontSize = 12.5.sp,
+            fontSize = textSize(12.5),
+            lineHeight = leading(12.5),
             color = tokens.inkMuted
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            text = if (refused) "সাইন ইন করুন" else "আবার চেষ্টা করুন",
+            text = if (refused) t("সাইন ইন করুন") else t("আবার চেষ্টা করুন"),
             fontFamily = Kalpurush,
             fontWeight = FontWeight.Bold,
-            fontSize = 13.sp,
+            fontSize = textSize(13),
+            lineHeight = leading(13),
             color = tokens.accent,
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))

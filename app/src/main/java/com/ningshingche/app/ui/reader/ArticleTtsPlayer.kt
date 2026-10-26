@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import com.ningshingche.app.data.portal.stripHtml
 import java.util.Locale
+import com.ningshingche.app.ui.i18n.tNow
 
 /**
  * State for Voice Synthesis TTS Player.
@@ -108,7 +109,7 @@ class ArticleTtsController(
                 setupListener()
             } else {
                 onStateChange(TtsPlayState.ERROR)
-                onError("ভয়েস ইঞ্জিন প্রস্তুত করা যায়নি।")
+                onError(tNow("ভয়েস ইঞ্জিন প্রস্তুত করা যায়নি।"))
             }
         }
     }
@@ -131,7 +132,7 @@ class ArticleTtsController(
             @Deprecated("Deprecated in Java")
             override fun onError(utteranceId: String?) {
                 onStateChange(TtsPlayState.ERROR)
-                onError("পড়ে শোনানোর সময় ত্রুটি হয়েছে।")
+                onError(tNow("পড়ে শোনানোর সময় ত্রুটি হয়েছে।"))
             }
         })
     }
@@ -151,7 +152,7 @@ class ArticleTtsController(
             .filter { it.length > 1 }
 
         if (textChunks.isEmpty()) {
-            onError("পড়ার মতো কোনো লেখা পাওয়া যায়নি।")
+            onError(tNow("পড়ার মতো কোনো লেখা পাওয়া যায়নি।"))
             return
         }
 

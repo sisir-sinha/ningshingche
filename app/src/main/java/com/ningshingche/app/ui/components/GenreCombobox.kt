@@ -26,6 +26,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.ningshingche.app.data.music.MusicGenres
 import com.ningshingche.app.ui.theme.Kalpurush
+import com.ningshingche.app.ui.i18n.t
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -54,7 +55,7 @@ fun GenreCombobox(
     }
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("ধরন / ক্যাটাগরি", fontFamily = Kalpurush, style = MaterialTheme.typography.labelLarge)
+        Text(t("ধরন / ক্যাটাগরি"), fontFamily = Kalpurush, style = MaterialTheme.typography.labelLarge)
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -80,8 +81,8 @@ fun GenreCombobox(
                     query = next
                 }
             },
-            label = { Text("অন্য ধরন লিখুন", fontFamily = Kalpurush) },
-            placeholder = { Text("কমা বা ট্যাব চাপলে চিপ হবে", fontFamily = Kalpurush) },
+            label = { Text(t("অন্য ধরন লিখুন"), fontFamily = Kalpurush) },
+            placeholder = { Text(t("কমা বা ট্যাব চাপলে চিপ হবে"), fontFamily = Kalpurush) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { addTokens(query) }),

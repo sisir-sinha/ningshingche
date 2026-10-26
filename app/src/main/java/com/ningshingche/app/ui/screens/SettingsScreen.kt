@@ -10,11 +10,14 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -41,6 +44,7 @@ import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Person
@@ -65,7 +69,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -77,19 +83,40 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.ningshingche.app.data.model.AppPalette
 import com.ningshingche.app.data.model.AppThemeMode
-import com.ningshingche.app.ui.components.GoogleSignInButton
-import com.ningshingche.app.ui.viewmodel.SettingsViewModel
-import com.ningshingche.app.util.ApkManager
-import kotlinx.coroutines.launch
 import com.ningshingche.app.data.model.ContentLanguage
+import com.ningshingche.app.ui.components.GoogleSignInButton
+import com.ningshingche.app.ui.editorial.EditorialPalettes
+import com.ningshingche.app.ui.editorial.LocalEditorialTokens
+import com.ningshingche.app.ui.editorial.PaletteSide
 import com.ningshingche.app.ui.i18n.LocalTranslations
 import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
+import com.ningshingche.app.ui.viewmodel.SettingsViewModel
+import com.ningshingche.app.util.ApkManager
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.roundToInt
+import kotlin.math.sin
+import kotlin.math.sqrt
+import com.ningshingche.app.ui.i18n.tNow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -122,12 +149,13 @@ fun SettingsScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "সেটিংস",
+                        text = t("সেটিংস"),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontFamily = Kalpurush,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 18.sp
+                            fontSize = textSize(18),
+                            lineHeight = leading(18)
                         )
                     )
                 },
@@ -138,7 +166,7 @@ fun SettingsScreen(
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "পেছনে",
+                            contentDescription = t("পেছনে"),
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
@@ -172,11 +200,12 @@ fun SettingsScreen(
                             modifier = Modifier.size(18.dp)
                         )
                         Text(
-                            text = "অ্যাকাউন্ট",
+                            text = t("অ্যাকাউন্ট"),
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
-                                fontSize = 13.sp,
+                                fontSize = textSize(13),
+                                lineHeight = leading(13),
                             )
                         )
                     }
@@ -223,10 +252,11 @@ fun SettingsScreen(
                                     }
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = signedIn.fullName.ifBlank { "পাঠক" },
+                                            text = signedIn.fullName.ifBlank { tNow("পাঠক") },
                                             style = MaterialTheme.typography.titleMedium.copy(
                                                 fontWeight = FontWeight.Bold,
-                                                fontSize = 15.sp
+                                                fontSize = textSize(15),
+                                                lineHeight = leading(15)
                                             )
                                         )
                                         if (signedIn.email.isNotBlank()) {
@@ -234,7 +264,8 @@ fun SettingsScreen(
                                                 text = signedIn.email,
                                                 style = MaterialTheme.typography.bodySmall.copy(
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    fontSize = 12.sp
+                                                    fontSize = textSize(12),
+                                                    lineHeight = leading(12)
                                                 )
                                             )
                                         }
@@ -253,14 +284,15 @@ fun SettingsScreen(
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("লগ আউট", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    Text(t("লগ আউট"), fontWeight = FontWeight.Bold, fontSize = textSize(13), lineHeight = leading(13))
                                 }
                             } else {
                                 Text(
-                                    text = "Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন। একবার সাইন-ইন করলে অ্যাপ বন্ধ করলেও সেশন থাকবে।",
+                                    text = t("Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন। একবার সাইন-ইন করলে অ্যাপ বন্ধ করলেও সেশন থাকবে।"),
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 12.sp
+                                        fontSize = textSize(12),
+                                        lineHeight = leading(12)
                                     )
                                 )
                                 if (!googleAuthMessage.isNullOrBlank()) {
@@ -290,6 +322,109 @@ fun SettingsScreen(
                 }
             }
 
+            // রঙের প্যালেট — what colour the app is painted with.
+            //
+            // It comes before the light/dark choice, because this is the question that
+            // decides what light and dark each mean: every palette carries both sides,
+            // and the one below only picks which side is on screen.
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ColorLens,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = t("রঙের প্যালেট"),
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = textSize(13),
+                                lineHeight = leading(13)
+                            )
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(18.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(
+                                text = t("যে রঙে অ্যাপটি পড়তে চান সেটি বেছে নিন — প্রতিটি প্যালেটে লাইট ও ডার্ক দুটি রূপ আছে।"),
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = textSize(12),
+                                    lineHeight = leading(12)
+                                )
+                            )
+
+                            val tokens = LocalEditorialTokens.current
+                            // The reader's own palette, built from the wheel — shown as the
+                            // sixth card so its swatches move as they turn it.
+                            val custom = remember(preferences.customHue, preferences.customSaturation) {
+                                EditorialPalettes.custom(preferences.customHue, preferences.customSaturation)
+                            }
+                            val choices = EditorialPalettes.presets + custom
+                            choices.chunked(3).forEach { row ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("palette_row"),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    row.forEach { spec ->
+                                        val side = if (tokens.isDark) spec.dark else spec.light
+                                        PaletteCard(
+                                            label = spec.label,
+                                            swatches = listOf(side.paper, side.accent, side.second),
+                                            isSelected = preferences.appPalette == spec.id,
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .testTag("palette_card_" + spec.id.name.lowercase()),
+                                            onClick = { viewModel.updateAppPalette(spec.id) }
+                                        )
+                                    }
+                                    // A short last row keeps its columns rather than stretching.
+                                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                                }
+                            }
+
+                            // What the chosen palette is for, in its own words.
+                            val chosen = choices.firstOrNull { it.id == preferences.appPalette }
+                            if (chosen != null) {
+                                Text(
+                                    text = chosen.note,
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = textSize(11.5),
+                                        lineHeight = leading(11.5)
+                                    )
+                                )
+                            }
+
+                            if (preferences.appPalette == AppPalette.CUSTOM) {
+                                PaletteWheelBlock(
+                                    hue = preferences.customHue,
+                                    saturation = preferences.customSaturation,
+                                    onWheelChange = { hue, strength -> viewModel.updateCustomWheel(hue, strength) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             // 1. App Theme Mode Selection (Dark / White / System)
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -304,11 +439,12 @@ fun SettingsScreen(
                             modifier = Modifier.size(18.dp)
                         )
                         Text(
-                            text = "অ্যাপ থিম নির্বাচন",
+                            text = t("অ্যাপ থিম নির্বাচন"),
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
-                                fontSize = 13.sp,
+                                fontSize = textSize(13),
+                                lineHeight = leading(13),
                             )
                         )
                     }
@@ -324,10 +460,11 @@ fun SettingsScreen(
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Text(
-                                text = "আপনার পছন্দের প্রদর্শন শৈলী নির্বাচন করুন:",
+                                text = t("আপনার পছন্দের প্রদর্শন শৈলী নির্বাচন করুন:"),
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 12.sp
+                                    fontSize = textSize(12),
+                                    lineHeight = leading(12)
                                 )
                             )
 
@@ -336,7 +473,7 @@ fun SettingsScreen(
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 ThemeModeCard(
-                                    title = "সাদা / লাইট",
+                                    title = t("সাদা / লাইট"),
                                     icon = Icons.Default.LightMode,
                                     isSelected = preferences.appThemeMode == AppThemeMode.LIGHT,
                                     modifier = Modifier.weight(1f),
@@ -344,7 +481,7 @@ fun SettingsScreen(
                                 )
 
                                 ThemeModeCard(
-                                    title = "ডার্ক থিম",
+                                    title = t("ডার্ক থিম"),
                                     icon = Icons.Default.DarkMode,
                                     isSelected = preferences.appThemeMode == AppThemeMode.DARK,
                                     modifier = Modifier.weight(1f),
@@ -352,7 +489,7 @@ fun SettingsScreen(
                                 )
 
                                 ThemeModeCard(
-                                    title = "সিস্টেম",
+                                    title = t("সিস্টেম"),
                                     icon = Icons.Default.BrightnessAuto,
                                     isSelected = preferences.appThemeMode == AppThemeMode.SYSTEM,
                                     modifier = Modifier.weight(1f),
@@ -382,7 +519,8 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
-                                fontSize = 13.sp
+                                fontSize = textSize(13),
+                                lineHeight = leading(13)
                             )
                         )
                     }
@@ -407,7 +545,8 @@ fun SettingsScreen(
                                 },
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 12.sp
+                                    fontSize = textSize(12),
+                                    lineHeight = leading(12)
                                 )
                             )
                             // One line showing the language in use; tapping it opens
@@ -440,12 +579,14 @@ fun SettingsScreen(
                                                 text = preferences.contentLanguage.displayName(),
                                                 fontFamily = Kalpurush,
                                                 fontWeight = FontWeight.Bold,
-                                                fontSize = 15.sp,
+                                                fontSize = textSize(15),
+                                                lineHeight = leading(15),
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
                                             Text(
                                                 text = t("অ্যাপের ভাষা — বদলাতে টিপুন"),
-                                                fontSize = 11.sp,
+                                                fontSize = textSize(11),
+                                                lineHeight = leading(11),
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
@@ -532,11 +673,12 @@ fun SettingsScreen(
                             modifier = Modifier.size(18.dp)
                         )
                         Text(
-                            text = "নিংশিং চে APK ডাউনলোড (সরাসরি লোকাল প্যাকেজ)",
+                            text = t("নিংশিং চে APK ডাউনলোড (সরাসরি লোকাল প্যাকেজ)"),
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
-                                fontSize = 13.sp,
+                                fontSize = textSize(13),
+                                lineHeight = leading(13),
                             )
                         )
                     }
@@ -576,22 +718,25 @@ fun SettingsScreen(
                                         style = MaterialTheme.typography.titleMedium.copy(
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface,
-                                            fontSize = 15.sp
+                                            fontSize = textSize(15),
+                                            lineHeight = leading(15)
                                         )
                                     )
                                     Text(
-                                        text = "সংস্করণ ${apkInfo.versionName} • সাইজ: ${apkInfo.sizeFormatted}",
+                                        text = t("সংস্করণ {1} • সাইজ: {2}", apkInfo.versionName, apkInfo.sizeFormatted),
                                         style = MaterialTheme.typography.bodySmall.copy(
                                             color = MaterialTheme.colorScheme.primary,
                                             fontWeight = FontWeight.SemiBold,
-                                            fontSize = 12.sp
+                                            fontSize = textSize(12),
+                                            lineHeight = leading(12)
                                         )
                                     )
                                     Text(
-                                        text = "ইনস্টল্ড ডিভাইস থেকে সরাসরি সংগৃহীত অফিশিয়াল প্যাকেজ",
+                                        text = t("ইনস্টল্ড ডিভাইস থেকে সরাসরি সংগৃহীত অফিশিয়াল প্যাকেজ"),
                                         style = MaterialTheme.typography.bodySmall.copy(
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            fontSize = 11.sp
+                                            fontSize = textSize(11),
+                                            lineHeight = leading(11)
                                         )
                                     )
                                 }
@@ -621,7 +766,8 @@ fun SettingsScreen(
                                             style = MaterialTheme.typography.bodySmall.copy(
                                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                                                 fontWeight = FontWeight.Medium,
-                                                fontSize = 12.sp
+                                                fontSize = textSize(12),
+                                                lineHeight = leading(12)
                                             )
                                         )
                                     }
@@ -641,10 +787,10 @@ fun SettingsScreen(
                                             isSavingApk = false
                                             result.onSuccess { msg ->
                                                 downloadResultMsg = msg
-                                                Toast.makeText(context, "APK সফলভাবে ডাউনলোড ফোল্ডারে সংরক্ষিত হয়েছে!", Toast.LENGTH_LONG).show()
+                                                Toast.makeText(context, tNow("APK সফলভাবে ডাউনলোড ফোল্ডারে সংরক্ষিত হয়েছে!"), Toast.LENGTH_LONG).show()
                                             }.onFailure { err ->
-                                                downloadResultMsg = "সংরক্ষণ ব্যর্থ: ${err.message}"
-                                                Toast.makeText(context, "APK সংরক্ষণ ব্যর্থ হয়েছে", Toast.LENGTH_SHORT).show()
+                                                downloadResultMsg = tNow("সংরক্ষণ ব্যর্থ: {1}", err.message)
+                                                Toast.makeText(context, tNow("APK সংরক্ষণ ব্যর্থ হয়েছে"), Toast.LENGTH_SHORT).show()
                                             }
                                         }
                                     },
@@ -665,7 +811,7 @@ fun SettingsScreen(
                                             modifier = Modifier.size(16.dp)
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text(text = "সংরক্ষণ হচ্ছে...", fontSize = 12.sp)
+                                        Text(text = t("সংরক্ষণ হচ্ছে..."), fontSize = textSize(12), lineHeight = leading(12))
                                     } else {
                                         Icon(
                                             imageVector = Icons.Default.Download,
@@ -674,9 +820,10 @@ fun SettingsScreen(
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            text = "APK সংরক্ষণ করুন",
+                                            text = t("APK সংরক্ষণ করুন"),
                                             fontWeight = FontWeight.Bold,
-                                            fontSize = 12.sp
+                                            fontSize = textSize(12),
+                                            lineHeight = leading(12)
                                         )
                                     }
                                 }
@@ -685,7 +832,7 @@ fun SettingsScreen(
                                     onClick = {
                                         val success = ApkManager.shareInstalledApk(context)
                                         if (!success) {
-                                            Toast.makeText(context, "APK শেয়ার প্রস্তুত করা সম্ভব হয়নি", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, tNow("APK শেয়ার প্রস্তুত করা সম্ভব হয়নি"), Toast.LENGTH_SHORT).show()
                                         }
                                     },
                                     shape = RoundedCornerShape(12.dp),
@@ -704,9 +851,10 @@ fun SettingsScreen(
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = "APK শেয়ার করুন",
+                                        text = t("APK শেয়ার করুন"),
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp
+                                        fontSize = textSize(12),
+                                        lineHeight = leading(12)
                                     )
                                 }
                             }
@@ -728,20 +876,21 @@ fun SettingsScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "নিংশিং চে — বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ",
+                            text = t("নিংশিং চে — বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ"),
                             style = MaterialTheme.typography.titleLarge.copy(
                                 fontFamily = Kalpurush,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                fontSize = 17.sp
+                                fontSize = textSize(17),
+                                lineHeight = leading(17)
                             )
                         )
                         Text(
-                            text = "বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, ইতিহাস, সংস্কৃতি ও ঐতিহ্যের একমাত্র প্রামাণ্য ও মুক্ত ডিজিটাল তথ্যকোষ ও আর্কাইভ।",
+                            text = t("বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, ইতিহাস, সংস্কৃতি ও ঐতিহ্যের একমাত্র প্রামাণ্য ও মুক্ত ডিজিটাল তথ্যকোষ ও আর্কাইভ।"),
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f),
-                                fontSize = 12.sp,
-                                lineHeight = 18.sp
+                                fontSize = textSize(12),
+                                lineHeight = leading(12)
                             )
                         )
 
@@ -763,7 +912,7 @@ fun SettingsScreen(
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
-                                text = "ningshingche.com ওয়েবসাইটে যান",
+                                text = t("ningshingche.com ওয়েবসাইটে যান"),
                                 style = MaterialTheme.typography.labelMedium.copy(
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Bold
@@ -790,11 +939,12 @@ fun SettingsScreen(
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "বিজ্ঞপ্তি ও আপডেট",
+                        text = t("বিজ্ঞপ্তি ও আপডেট"),
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary,
-                            fontSize = 12.sp
+                            fontSize = textSize(12),
+                            lineHeight = leading(12)
                         )
                     )
 
@@ -806,55 +956,55 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                             NotificationSwitchRow(
-                                title = "সব বিজ্ঞপ্তি",
-                                subtitle = "অ্যান্ড্রয়েড সিস্টেম নোটিফিকেশন চালু রাখুন",
+                                title = t("সব বিজ্ঞপ্তি"),
+                                subtitle = t("অ্যান্ড্রয়েড সিস্টেম নোটিফিকেশন চালু রাখুন"),
                                 checked = preferences.notificationsEnabled,
                                 onCheckedChange = enableAndAskOs { viewModel.toggleNotificationsEnabled(it) }
                             )
                             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                             NotificationSwitchRow(
-                                title = "নতুন প্রবন্ধ",
-                                subtitle = "নতুন প্রকাশিত প্রবন্ধ এলে জানান",
+                                title = t("নতুন প্রবন্ধ"),
+                                subtitle = t("নতুন প্রকাশিত প্রবন্ধ এলে জানান"),
                                 checked = preferences.notificationNewArticles,
                                 enabled = preferences.notificationsEnabled,
                                 onCheckedChange = enableAndAskOs { viewModel.toggleNewArticlesNotif(it) }
                             )
                             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                             NotificationSwitchRow(
-                                title = "নির্বাচিত প্রবন্ধ",
-                                subtitle = "ফিচার্ড ও সম্পাদকীয় পছন্দ",
+                                title = t("নির্বাচিত প্রবন্ধ"),
+                                subtitle = t("ফিচার্ড ও সম্পাদকীয় পছন্দ"),
                                 checked = preferences.notificationFeatured,
                                 enabled = preferences.notificationsEnabled,
                                 onCheckedChange = { viewModel.toggleFeaturedNotif(it) }
                             )
                             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                             NotificationSwitchRow(
-                                title = "নতুন ভিডিও",
-                                subtitle = "ভিডিও আর্কাইভে নতুন সংযোজন",
+                                title = t("নতুন ভিডিও"),
+                                subtitle = t("ভিডিও আর্কাইভে নতুন সংযোজন"),
                                 checked = preferences.notificationVideos,
                                 enabled = preferences.notificationsEnabled,
                                 onCheckedChange = { viewModel.toggleVideosNotif(it) }
                             )
                             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                             NotificationSwitchRow(
-                                title = "নতুন PDF বই",
-                                subtitle = "ডিজিটাল বই ও পত্রিকা প্রকাশিত হলে",
+                                title = t("নতুন PDF বই"),
+                                subtitle = t("ডিজিটাল বই ও পত্রিকা প্রকাশিত হলে"),
                                 checked = preferences.notificationPdfs,
                                 enabled = preferences.notificationsEnabled,
                                 onCheckedChange = { viewModel.togglePdfsNotif(it) }
                             )
                             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                             NotificationSwitchRow(
-                                title = "সিস্টেম আপডেট",
-                                subtitle = "অ্যাপ সংস্করণ ও সাইট হালনাগাদ",
+                                title = t("সিস্টেম আপডেট"),
+                                subtitle = t("অ্যাপ সংস্করণ ও সাইট হালনাগাদ"),
                                 checked = preferences.notificationSystem,
                                 enabled = preferences.notificationsEnabled,
                                 onCheckedChange = { viewModel.toggleSystemNotif(it) }
                             )
                             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                             NotificationSwitchRow(
-                                title = "অন্যান্য",
-                                subtitle = "গ্যালারি ও বাকি আপডেট",
+                                title = t("অন্যান্য"),
+                                subtitle = t("গ্যালারি ও বাকি আপডেট"),
                                 checked = preferences.notificationOther,
                                 enabled = preferences.notificationsEnabled,
                                 onCheckedChange = { viewModel.toggleOtherNotif(it) }
@@ -868,11 +1018,12 @@ fun SettingsScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "মেমরি ও অফলাইন ক্যাশ ব্যবস্থাপনা",
+                        text = t("মেমরি ও অফলাইন ক্যাশ ব্যবস্থাপনা"),
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary,
-                            fontSize = 12.sp
+                            fontSize = textSize(12),
+                            lineHeight = leading(12)
                         )
                     )
 
@@ -889,7 +1040,7 @@ fun SettingsScreen(
                                     .clickable {
                                         viewModel.clearCache()
                                         Toast
-                                            .makeText(context, "ক্যাশ খালি করা হয়েছে এবং তথ্য হালনাগাদ করা হয়েছে", Toast.LENGTH_SHORT)
+                                            .makeText(context, tNow("ক্যাশ খালি করা হয়েছে এবং তথ্য হালনাগাদ করা হয়েছে"), Toast.LENGTH_SHORT)
                                             .show()
                                     }
                                     .padding(16.dp),
@@ -907,17 +1058,18 @@ fun SettingsScreen(
                                     )
                                     Column {
                                         Text(
-                                            text = "অফলাইন ক্যাশ সিঙ্ক ও পরিষ্কার করুন",
+                                            text = t("অফলাইন ক্যাশ সিঙ্ক ও পরিষ্কার করুন"),
                                             style = MaterialTheme.typography.bodyMedium.copy(
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
                                         )
                                         Text(
-                                            text = "নতুন প্রবন্ধসমূহ পুনরায় সিঙ্ক করবে",
+                                            text = t("নতুন প্রবন্ধসমূহ পুনরায় সিঙ্ক করবে"),
                                             style = MaterialTheme.typography.bodySmall.copy(
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                fontSize = 11.sp
+                                                fontSize = textSize(11),
+                                                lineHeight = leading(11)
                                             )
                                         )
                                     }
@@ -932,7 +1084,7 @@ fun SettingsScreen(
                                     .clickable {
                                         viewModel.clearHistory()
                                         Toast
-                                            .makeText(context, "পঠন ইতিহাস মুছে ফেলা হয়েছে", Toast.LENGTH_SHORT)
+                                            .makeText(context, tNow("পঠন ইতিহাস মুছে ফেলা হয়েছে"), Toast.LENGTH_SHORT)
                                             .show()
                                     }
                                     .padding(16.dp),
@@ -950,17 +1102,18 @@ fun SettingsScreen(
                                     )
                                     Column {
                                         Text(
-                                            text = "পঠন ইতিহাস রিসেট করুন",
+                                            text = t("পঠন ইতিহাস রিসেট করুন"),
                                             style = MaterialTheme.typography.bodyMedium.copy(
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
                                         )
                                         Text(
-                                            text = "সাম্প্রতিক পঠিত তালিকা মুছে ফেলুন",
+                                            text = t("সাম্প্রতিক পঠিত তালিকা মুছে ফেলুন"),
                                             style = MaterialTheme.typography.bodySmall.copy(
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                fontSize = 11.sp
+                                                fontSize = textSize(11),
+                                                lineHeight = leading(11)
                                             )
                                         )
                                     }
@@ -981,16 +1134,17 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = "সংস্করণ ১.০.০ (অফিশিয়াল সংস্করণ)",
+                        text = t("সংস্করণ ১.০.০ (অফিশিয়াল সংস্করণ)"),
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     )
                     Text(
-                        text = "কপিরাইট © নিংশিং চে • সর্বস্বত্ব সংরক্ষিত",
+                        text = t("কপিরাইট © নিংশিং চে • সর্বস্বত্ব সংরক্ষিত"),
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                            fontSize = 10.sp
+                            fontSize = textSize(10),
+                            lineHeight = leading(10)
                         )
                     )
                 }
@@ -1020,14 +1174,16 @@ private fun NotificationSwitchRow(
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 14.sp
+                    fontSize = textSize(14),
+                    lineHeight = leading(14)
                 )
             )
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 11.sp
+                    fontSize = textSize(11),
+                    lineHeight = leading(11)
                 )
             )
         }
@@ -1056,7 +1212,7 @@ private fun ThemeModeCard(
     Surface(
         shape = RoundedCornerShape(14.dp),
         color = previewBg,
-        border = BorderStroke(if (isSelected) 2.dp else 1.dp, if (isSelected) androidx.compose.ui.graphics.Color(0xFFFF8C00) else MaterialTheme.colorScheme.outline),
+        border = BorderStroke(if (isSelected) 2.dp else 1.dp, if (isSelected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outline),
         modifier = modifier
             .clip(RoundedCornerShape(14.dp))
             .clickable { onClick() }
@@ -1076,8 +1232,257 @@ private fun ThemeModeCard(
                 text = title,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                 color = previewFg,
-                fontSize = 12.sp
+                fontSize = textSize(12),
+                lineHeight = leading(12)
             )
+        }
+    }
+}
+
+
+// ---------------------------------------------------------------------------
+// Palette picker
+// ---------------------------------------------------------------------------
+
+/** One palette in the picker: its three colours and its name. */
+@Composable
+private fun PaletteCard(
+    label: String,
+    swatches: List<Color>,
+    isSelected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(
+            if (isSelected) 2.dp else 1.dp,
+            if (isSelected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outline
+        ),
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .clickable { onClick() }
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 12.dp, horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                swatches.forEach { colour ->
+                    Box(
+                        modifier = Modifier
+                            .size(15.dp)
+                            .clip(CircleShape)
+                            .background(colour)
+                            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                    )
+                }
+            }
+            Text(
+                text = label,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = textSize(11.5),
+                lineHeight = leading(11.5),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+/** How big the wheel is drawn, and how thick the hue ring is. */
+private val PALETTE_WHEEL_SIZE = 176.dp
+private val PALETTE_WHEEL_RING = 22.dp
+
+/**
+ * The wheel, plus the two previews that say what it means.
+ *
+ * Hue is the angle and strength is the distance from the middle, so one finger
+ * answers both — and the colour under the finger is the colour the marker names,
+ * because the ring's sweep starts where `atan2` does (3 o'clock, clockwise).
+ *
+ * A drag does not write to storage on every pixel: the position is local while the
+ * finger moves, and lands once it has been still for a moment.
+ */
+@Composable
+private fun PaletteWheelBlock(
+    hue: Int,
+    saturation: Int,
+    onWheelChange: (Int, Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var localHue by remember(hue) { mutableIntStateOf(hue) }
+    var localStrength by remember(saturation) { mutableIntStateOf(saturation) }
+
+    LaunchedEffect(localHue, localStrength) {
+        if (localHue != hue || localStrength != saturation) {
+            delay(260)
+            onWheelChange(localHue, localStrength)
+        }
+    }
+
+    val preview = remember(localHue, localStrength) {
+        EditorialPalettes.custom(localHue, localStrength)
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        PaletteWheel(
+            hue = localHue,
+            saturation = localStrength,
+            onChange = { h, s -> localHue = h; localStrength = s }
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            PalettePreviewCard(t("লাইট"), preview.light, Modifier.weight(1f))
+            PalettePreviewCard(t("ডার্ক"), preview.dark, Modifier.weight(1f))
+        }
+        Text(
+            text = t("চাকা ঘুরিয়ে রঙ, কেন্দ্র থেকে দূরে টেনে গাঢ়তা — দুটোই এক আঙুলে।"),
+            style = MaterialTheme.typography.bodySmall.copy(
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = textSize(11),
+                lineHeight = leading(11)
+            ),
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun PaletteWheel(
+    hue: Int,
+    saturation: Int,
+    onChange: (Int, Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val density = LocalDensity.current
+    val ringPx = with(density) { PALETTE_WHEEL_RING.toPx() }
+    val sidePx = with(density) { PALETTE_WHEEL_SIZE.toPx() }
+    val midRadius = (sidePx - ringPx) / 2f
+    val strength = saturation.coerceIn(0, 100) / 100f
+
+    Canvas(
+        modifier = modifier
+            .size(PALETTE_WHEEL_SIZE)
+            .testTag("palette_wheel")
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull() ?: continue
+                        val dx = change.position.x - sidePx / 2f
+                        val dy = change.position.y - sidePx / 2f
+                        val degrees = (Math.toDegrees(atan2(dy.toDouble(), dx.toDouble())).toFloat() + 360f) % 360f
+                        val distance = sqrt(dx * dx + dy * dy)
+                        val reach = ((distance - ringPx / 2f) / midRadius).coerceIn(0f, 1f)
+                        onChange(degrees.toInt(), (reach * 100f).roundToInt())
+                        change.consume()
+                    }
+                }
+            }
+    ) {
+        // The hue ring: a full sweep, one colour every 15°.
+        drawArc(
+            brush = Brush.sweepGradient(List(25) { step -> Color.hsl((step * 15f) % 360f, 1f, 0.5f) }),
+            startAngle = 0f,
+            sweepAngle = 360f,
+            useCenter = false,
+            topLeft = Offset(ringPx / 2f, ringPx / 2f),
+            size = Size(sidePx - ringPx, sidePx - ringPx),
+            style = Stroke(width = ringPx)
+        )
+        // The strength, as a disc that grows from the middle.
+        drawCircle(
+            color = Color.hsl(hue.toFloat(), strength, 0.5f).copy(alpha = 0.22f),
+            radius = (midRadius - ringPx / 2f) * strength,
+            center = Offset(sidePx / 2f, sidePx / 2f)
+        )
+        // Where the finger left it.
+        val radians = Math.toRadians(hue.toDouble())
+        val marker = Offset(
+            sidePx / 2f + cos(radians).toFloat() * midRadius,
+            sidePx / 2f + sin(radians).toFloat() * midRadius
+        )
+        drawCircle(color = Color.White, radius = ringPx * 0.44f, center = marker)
+        drawCircle(
+            color = Color.hsl(hue.toFloat(), strength.coerceAtLeast(0.35f), 0.45f),
+            radius = ringPx * 0.30f,
+            center = marker
+        )
+    }
+}
+
+/** A palette's side, as the reader will meet it: paper, ink, a rule and an accent. */
+@Composable
+private fun PalettePreviewCard(label: String, side: PaletteSide, modifier: Modifier = Modifier) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = side.paper,
+        border = BorderStroke(1.dp, side.ruleStrong),
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier.padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .clip(CircleShape)
+                        .background(side.accent)
+                )
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .clip(CircleShape)
+                        .background(side.second)
+                )
+                Text(
+                    text = label,
+                    color = side.ink,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = textSize(11.5),
+                    lineHeight = leading(11.5)
+                )
+            }
+            Text(text = t("পাঠ্য লেখা"), color = side.inkSoft, fontSize = textSize(11), lineHeight = leading(11))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(side.rule)
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(side.accent)
+                    .padding(vertical = 4.dp)
+            ) {
+                Text(
+                    text = t("অ্যাকসেন্ট"),
+                    color = side.onAccent,
+                    fontSize = textSize(10.5),
+                    lineHeight = leading(10.5),
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
         }
     }
 }

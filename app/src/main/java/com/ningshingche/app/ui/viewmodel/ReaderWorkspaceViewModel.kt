@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
+import com.ningshingche.app.ui.i18n.tNow
 
 data class ReaderMetrics(
     val totalArticles: Int = 0,
@@ -36,13 +37,73 @@ data class ReaderMetrics(
     /** Article views, as the database counts them. */
     val articleViews: Long = 0L,
     /** Plays of the reader's songs, as the database counts them. */
-    val musicViews: Long = 0L
+    val musicViews: Long = 0L,
+    /** Views of the threads the reader started. */
+    val forumViews: Long = 0L,
+    /** Different people, where [totalViews] counts visits: one reader who came back is both. */
+    val visitors: Long = 0L,
+    /** Of the views, how many came from a signed-in reader and how many from a guest. */
+    val registeredViews: Long = 0L,
+    val guestViews: Long = 0L,
+    /** Minutes of the reader's songs that were really listened to. */
+    val minutesListened: Long = 0L
 ) {
-    val totalViews: Long get() = articleViews + musicViews
+    val totalViews: Long get() = articleViews + musicViews + forumViews
 }
 
 /** Days of view history the dashboard chart asks the database for. */
 private const val VIEW_SERIES_DAYS = 30
+
+/**
+ * How many forum items the dashboard shows at a time, and how far the app will
+ * grow that window.
+ *
+ * `forum_activity` takes a limit and no offset, so "load more" is the same API
+ * call asked for a bigger page: five items, then ten, then fifteen. The ceiling
+ * is the repository's own (`portalRepository.forumActivity` coerces to 50), and
+ * the button goes away when the counts say everything has been read.
+ */
+private const val FORUM_ACTIVITY_PAGE = 5
+private const val FORUM_ACTIVITY_MAX = 50
+
+/**
+ * Where the reader should be taken after a submission has gone through.
+ *
+ * The screens that submit ask the dashboard to land on its content tab; this is
+ * the note they leave for it, with the row to highlight. It carries the time it
+ * was written because a note is only good for the trip it was left for — a
+ * signal from an hour ago must not drag the reader out of wherever they are.
+ */
+data class ReaderSubmission(
+    val kind: String,
+    val id: String,
+    val title: String = "",
+    val at: Long = System.currentTimeMillis()
+) {
+    fun isFresh(now: Long = System.currentTimeMillis()): Boolean = now - at in 0..SUBMISSION_FRESH_MS
+
+    /**
+     * What the dashboard says when it lands on a fresh submission.
+     *
+     * The composer screen used to show this and then go away; the reader has to
+     * hear it on the screen they are looking at, so the words travel with the
+     * note. Blank when there is nothing to confirm.
+     */
+    val confirmation: String
+        get() = when (kind) {
+            KIND_ARTICLE -> tNow("লেখা জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর প্রকাশিত হবে।")
+            KIND_SONG -> tNow("গান জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর যুক্ত হবে।")
+            else -> ""
+        }
+
+    companion object {
+        const val KIND_ARTICLE = "article"
+        const val KIND_SONG = "song"
+
+        /** How long a landing note is worth acting on. */
+        const val SUBMISSION_FRESH_MS = 3L * 60L * 1000L
+    }
+}
 
 class ReaderWorkspaceViewModel(
     private val googleAuthRepository: GoogleAuthRepository,
@@ -81,6 +142,20 @@ class ReaderWorkspaceViewModel(
     private val _forumActivity = MutableStateFlow<ForumActivity?>(null)
     val forumActivity: StateFlow<ForumActivity?> = _forumActivity.asStateFlow()
 
+    /** Whether the database has more forum work than the page on screen holds. */
+    private val _forumHasMore = MutableStateFlow(false)
+    val forumHasMore: StateFlow<Boolean> = _forumHasMore.asStateFlow()
+
+    private val _forumLoadingMore = MutableStateFlow(false)
+    val forumLoadingMore: StateFlow<Boolean> = _forumLoadingMore.asStateFlow()
+
+    /** How far the forum window has been grown; a page at a time, up to the RPC's ceiling. */
+    private var forumLimit: Int = FORUM_ACTIVITY_PAGE
+
+    /** What has just been submitted, for the dashboard to open on. */
+    private val _submission = MutableStateFlow<ReaderSubmission?>(null)
+    val submission: StateFlow<ReaderSubmission?> = _submission.asStateFlow()
+
     private val _viewSeries = MutableStateFlow<List<ViewDay>>(emptyList())
     val viewSeries: StateFlow<List<ViewDay>> = _viewSeries.asStateFlow()
 
@@ -112,13 +187,16 @@ class ReaderWorkspaceViewModel(
             // The view counter is the database's number, not the app's guess:
             // `user_view_totals` sums the counts on the blogs this reader's
             // submissions became plus the plays of the tracks they uploaded.
-            val viewTotals = supabaseClient.userViewTotals(user.id).getOrNull()
+            // `userViewTotals` answers with the totals or with null, not with a
+            // Result, so there is no `getOrNull()` to unwrap.
+            val viewTotals = supabaseClient.userViewTotals(user.id)
             val series = supabaseClient.userViewSeries(user.id, VIEW_SERIES_DAYS)
                 .getOrDefault(_viewSeries.value)
             val score = portalRepository.contributorPoints(user.id).getOrNull()
             // The reader's own forum work: three counts and the two lists, in one
             // call, read from the same function their public page uses.
-            val forum = portalRepository.forumActivity(user.id).getOrNull()
+            val forum = portalRepository.forumActivity(user.id, limit = forumLimit).getOrNull()
+            if (forum != null) _forumHasMore.value = forum.hasMoreThan(forumLimit)
             _articles.value = articles
             _tracks.value = tracks
             _comments.value = comments
@@ -132,7 +210,12 @@ class ReaderWorkspaceViewModel(
                 comments = comments.size,
                 songs = songs,
                 articleViews = viewTotals?.articleViews ?: 0L,
-                musicViews = viewTotals?.musicViews ?: 0L
+                musicViews = viewTotals?.musicViews ?: 0L,
+                forumViews = viewTotals?.forumViews ?: 0L,
+                visitors = viewTotals?.visitors ?: 0L,
+                registeredViews = viewTotals?.registeredViews ?: 0L,
+                guestViews = viewTotals?.guestViews ?: 0L,
+                minutesListened = viewTotals?.minutesListened ?: 0L
             )
             _viewSeries.value = series
             _contributorScore.value = score
@@ -142,6 +225,65 @@ class ReaderWorkspaceViewModel(
             refreshInbox(user.id, articles, comments, notifySystem = true, markSeen = false)
             _isLoading.value = false
         }
+    }
+
+    /**
+     * Only the view figures — for a screen that shows them and nothing else.
+     *
+     * `refresh()` gathers everything a reader owns, which the dashboard wants and
+     * a profile page does not: it needs one number, its parts, and who read them.
+     * The totals come from the same call the dashboard's ভিউ section uses, so the
+     * profile and the dashboard cannot show two different figures for one reader.
+     * The other counts on [metrics] are left exactly as they were — this adds to
+     * them rather than replacing what another screen has already loaded.
+     */
+    fun refreshViews() {
+        val user = currentUser.value ?: return
+        viewModelScope.launch {
+            val totals = supabaseClient.userViewTotals(user.id) ?: return@launch
+            _metrics.value = _metrics.value.copy(
+                articleViews = totals.articleViews,
+                musicViews = totals.musicViews,
+                forumViews = totals.forumViews,
+                visitors = totals.visitors,
+                registeredViews = totals.registeredViews,
+                guestViews = totals.guestViews,
+                minutesListened = totals.minutesListened
+            )
+        }
+    }
+
+    /**
+     * Five more items of forum work, from the database.
+     *
+     * The RPC takes a limit and no offset, so this asks for a bigger page rather
+     * than a second one: `forum_activity(p_limit := 10)` after `p_limit := 5`.
+     * It stops at the repository's own ceiling, where [forumHasMore] goes false
+     * and the button in the dashboard disappears.
+     */
+    fun loadMoreForumActivity() {
+        val user = currentUser.value ?: return
+        if (_forumLoadingMore.value) return
+        val next = (forumLimit + FORUM_ACTIVITY_PAGE).coerceAtMost(FORUM_ACTIVITY_MAX)
+        if (next <= forumLimit) {
+            _forumHasMore.value = false
+            return
+        }
+        forumLimit = next
+        viewModelScope.launch {
+            _forumLoadingMore.value = true
+            portalRepository.forumActivity(user.id, limit = forumLimit)
+                .onSuccess { forum ->
+                    _forumActivity.value = forum
+                    _forumHasMore.value = forum.hasMoreThan(forumLimit)
+                }
+            _forumLoadingMore.value = false
+        }
+    }
+
+    /** The dashboard has landed on what was submitted; the note is spent. */
+    fun clearSubmission() {
+        _submission.value = null
     }
 
     fun refreshInbox(markSeen: Boolean = false) {
@@ -254,7 +396,7 @@ class ReaderWorkspaceViewModel(
 
     fun sendAdminMessage(body: String) {
         if (body.isBlank()) {
-            _message.value = "বার্তা লিখুন।"
+            _message.value = tNow("বার্তা লিখুন।")
             return
         }
         viewModelScope.launch {
@@ -268,7 +410,7 @@ class ReaderWorkspaceViewModel(
                     _adminMessages.value = merged
                 }
                 .onFailure { error ->
-                    _message.value = error.message ?: "বার্তা পাঠানো যায়নি।"
+                    _message.value = error.message ?: tNow("বার্তা পাঠানো যায়নি।")
                 }
             _isSaving.value = false
         }
@@ -280,27 +422,27 @@ class ReaderWorkspaceViewModel(
 
     fun saveProfile(updated: UserProfile) {
         if (updated.displayFirstName.isBlank() || updated.displayLastName.isBlank()) {
-            _message.value = "নামের প্রথম ও শেষ অংশ পূরণ করুন।"
+            _message.value = tNow("নামের প্রথম ও শেষ অংশ পূরণ করুন।")
             return
         }
         if (updated.about.isBlank()) {
-            _message.value = "নিজের সম্পর্কে সংক্ষিপ্ত পরিচিতি লিখুন।"
+            _message.value = tNow("নিজের সম্পর্কে সংক্ষিপ্ত পরিচিতি লিখুন।")
             return
         }
         if (updated.phone.isBlank()) {
-            _message.value = "ফোন নম্বর দিন।"
+            _message.value = tNow("ফোন নম্বর দিন।")
             return
         }
         if (updated.address.isBlank()) {
-            _message.value = "ঠিকানা দিন।"
+            _message.value = tNow("ঠিকানা দিন।")
             return
         }
         if (updated.facebookId.isBlank()) {
-            _message.value = "Facebook আইডি দিন।"
+            _message.value = tNow("Facebook আইডি দিন।")
             return
         }
         if (updated.avatarUrl.isBlank()) {
-            _message.value = "প্রোফাইল ছবি আপলোড করুন।"
+            _message.value = tNow("প্রোফাইল ছবি আপলোড করুন।")
             return
         }
         viewModelScope.launch {
@@ -308,9 +450,9 @@ class ReaderWorkspaceViewModel(
             _message.value = null
             val result = supabaseClient.updateReaderProfile(updated)
             result.onSuccess {
-                _message.value = "প্রোফাইল সংরক্ষিত হয়েছে।"
+                _message.value = tNow("প্রোফাইল সংরক্ষিত হয়েছে।")
             }.onFailure { error ->
-                _message.value = error.message ?: "প্রোফাইল সংরক্ষণ যায়নি।"
+                _message.value = error.message ?: tNow("প্রোফাইল সংরক্ষণ যায়নি।")
             }
             _isSaving.value = false
         }
@@ -326,10 +468,10 @@ class ReaderWorkspaceViewModel(
                 val next = user.copy(avatarUrl = image.displayUrl.ifBlank { image.url }, imgbbDeleteUrl = image.deleteUrl)
                 val result = supabaseClient.updateReaderProfile(next)
                 result.onSuccess {
-                    _message.value = "প্রোফাইল ছবি আপডেট হয়েছে।"
-                }.onFailure { _message.value = it.message ?: "ছবি সংরক্ষণ যায়নি।" }
+                    _message.value = tNow("প্রোফাইল ছবি আপডেট হয়েছে।")
+                }.onFailure { _message.value = it.message ?: tNow("ছবি সংরক্ষণ যায়নি।") }
             }.onFailure {
-                _message.value = it.message ?: "ছবি আপলোড যায়নি।"
+                _message.value = it.message ?: tNow("ছবি আপলোড যায়নি।")
             }
             _avatarUploading.value = false
         }
@@ -338,7 +480,7 @@ class ReaderWorkspaceViewModel(
     fun submitArticle(title: String, content: String, thumbnailUri: Uri?, context: Context) {
         val user = currentUser.value ?: return
         if (!user.isProfileComplete) {
-            _message.value = "নতুন প্রবন্ধ জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।"
+            _message.value = tNow("নতুন প্রবন্ধ জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।")
             return
         }
         val plain = content.replace(Regex("<[^>]*>"), " ")
@@ -346,7 +488,7 @@ class ReaderWorkspaceViewModel(
             .replace("&amp;", "&", ignoreCase = true)
             .trim()
         if (title.isBlank() || plain.isBlank()) {
-            _message.value = "শিরোনাম ও লেখা আবশ্যক।"
+            _message.value = tNow("শিরোনাম ও লেখা আবশ্যক।")
             return
         }
         viewModelScope.launch {
@@ -358,7 +500,7 @@ class ReaderWorkspaceViewModel(
                 val upload = ImgBbUploader.uploadFromUri(context, thumbnailUri, "article_${System.currentTimeMillis()}")
                 val image = upload.getOrElse {
                     _isSaving.value = false
-                    _message.value = it.message ?: "ছবি আপলোড যায়নি।"
+                    _message.value = it.message ?: tNow("ছবি আপলোড যায়নি।")
                     return@launch
                 }
                 thumbnail = image.displayUrl.ifBlank { image.url }
@@ -384,10 +526,17 @@ class ReaderWorkspaceViewModel(
             )
             val result = supabaseClient.submitReaderArticle(record)
             result.onSuccess {
-                _message.value = "লেখা জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর প্রকাশিত হবে।"
+                _message.value = tNow("লেখা জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর প্রকাশিত হবে।")
+                // The note the dashboard lands on: the content tab, with the row
+                // the reader has just written highlighted.
+                _submission.value = ReaderSubmission(
+                    kind = ReaderSubmission.KIND_ARTICLE,
+                    id = record.id,
+                    title = record.title
+                )
                 refresh()
             }.onFailure {
-                _message.value = it.message ?: "লেখা জমা যায়নি।"
+                _message.value = it.message ?: tNow("লেখা জমা যায়নি।")
             }
             _isSaving.value = false
         }
@@ -404,15 +553,15 @@ class ReaderWorkspaceViewModel(
     ) {
         val user = currentUser.value ?: return
         if (!user.isProfileComplete) {
-            _message.value = "নতুন গান জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।"
+            _message.value = tNow("নতুন গান জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।")
             return
         }
         if (title.isBlank()) {
-            _message.value = "শিরোনাম আবশ্যক।"
+            _message.value = tNow("শিরোনাম আবশ্যক।")
             return
         }
         if (audioUri == null) {
-            _message.value = "এমপি৩ ফাইল নির্বাচন করুন।"
+            _message.value = tNow("এমপি৩ ফাইল নির্বাচন করুন।")
             return
         }
         viewModelScope.launch {
@@ -420,7 +569,7 @@ class ReaderWorkspaceViewModel(
             _message.value = null
             val audio = uploadSong(context, user.id, audioUri).getOrElse {
                 _isSaving.value = false
-                _message.value = it.message ?: "অডিও আপলোড যায়নি।"
+                _message.value = it.message ?: tNow("অডিও আপলোড যায়নি।")
                 return@launch
             }
             var coverUrl = ""
@@ -428,7 +577,7 @@ class ReaderWorkspaceViewModel(
                 val upload = ImgBbUploader.uploadFromUri(context, coverUri, "music_${System.currentTimeMillis()}")
                 val image = upload.getOrElse {
                     _isSaving.value = false
-                    _message.value = it.message ?: "ছবি আপলোড যায়নি।"
+                    _message.value = it.message ?: tNow("ছবি আপলোড যায়নি।")
                     return@launch
                 }
                 coverUrl = image.displayUrl.ifBlank { image.url }
@@ -453,10 +602,17 @@ class ReaderWorkspaceViewModel(
                 fileSizeMb = audio.sizeBytes / 1_000_000.0
             )
             result.onSuccess {
-                _message.value = "গান জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর যুক্ত হবে।"
+                _message.value = tNow("গান জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর যুক্ত হবে।")
+                // A song's row id is made by the database, so the note carries
+                // what the app knows: the tab to land on and what it was called.
+                _submission.value = ReaderSubmission(
+                    kind = ReaderSubmission.KIND_SONG,
+                    id = "",
+                    title = title.trim()
+                )
                 refresh()
             }.onFailure {
-                _message.value = it.message ?: "গান জমা যায়নি।"
+                _message.value = it.message ?: tNow("গান জমা যায়নি।")
             }
             _isSaving.value = false
         }

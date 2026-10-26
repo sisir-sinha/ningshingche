@@ -21,13 +21,68 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..', '..');
 const APP = path.join(ROOT, 'app', 'src', 'main', 'java', 'com', 'ningshingche', 'app');
-const read = (...parts) => fs.readFileSync(path.join(APP, ...parts), 'utf8');
+// The app asks the language table for its copy now — `t("…")`, or `tNow("…")`
+// where no composable may run — so these sources are read with that call lifted
+// off: `tNow("মোটা")` reads as `"মোটা"`, and if the call filled slots, the
+// arguments stay where they were. An assertion about a string does not care
+// whether the call site asks for a translation, and this keeps every existing
+// anchor honest rather than loosened: the string still has to be there, in that
+// place, in that shape.
+function unwrap(text) {
+  const opener = /(?<![A-Za-z0-9_.])(?:t|tNow)\(\s*(?=")/g;
+  let out = '';
+  let i = 0;
+  while (i < text.length) {
+    opener.lastIndex = i;
+    const match = opener.exec(text);
+    if (!match) { out += text.slice(i); break; }
+    out += text.slice(i, match.index);
+    let j = match.index + match[0].length;
+    const literalStart = j;
+    j += 1;
+    while (j < text.length) {
+      if (text[j] === '\\') { j += 2; continue; }
+      if (text[j] === '"') { j += 1; break; }
+      j += 1;
+    }
+    const literal = text.slice(literalStart, j);
+    // Skip the rest of the call: the closing paren of the one that wraps it.
+    let depth = 0;
+    let rest = '';
+    while (j < text.length) {
+      const ch = text[j];
+      if (ch === '"') {
+        let k = j + 1;
+        while (k < text.length && text[k] !== '"') { if (text[k] === '\\') k += 1; k += 1; }
+        rest += text.slice(j, k + 1);
+        j = k + 1;
+        continue;
+      }
+      if (ch === '(') depth += 1;
+      else if (ch === ')') {
+        if (depth === 0) { j += 1; break; }
+        depth -= 1;
+      }
+      rest += ch;
+      j += 1;
+    }
+    // One argument (the string itself) leaves nothing behind; a filled slot
+    // keeps its arguments, minus the parens that only existed for the call.
+    out += rest.trim() ? literal + rest : literal;
+    i = j;
+  }
+  return out;
+}
+const read = (...parts) => unwrap(fs.readFileSync(path.join(APP, ...parts), 'utf8'));
 const readBackend = (...parts) => fs.readFileSync(path.join(ROOT, 'backend', ...parts), 'utf8');
 
 const FORUM_SCREENS = read('ui', 'screens', 'ForumScreens.kt');
 const FORUM_EDITOR = read('ui', 'components', 'HtmlContentEditor.kt');
 const DRAFT_STORE = read('data', 'local', 'ForumDraftStore.kt');
 const PORTAL_MODELS = read('data', 'portal', 'PortalModels.kt');
+// The forum's HTML knowledge — what a body's words are, and what its files are —
+// lives in one place of its own since the fifth pass.
+const FORUM_HTML = read('data', 'portal', 'ForumHtml.kt');
 const PORTAL_DTOS = read('data', 'portal', 'PortalDtos.kt');
 const PORTAL_API = read('data', 'portal', 'PortalApi.kt');
 const PORTAL_REPOSITORY = read('data', 'portal', 'PortalRepository.kt');
@@ -41,6 +96,9 @@ const APP_MODULE = read('NinghsingCheApp.kt');
 const WORKSPACE = read('ui', 'viewmodel', 'ReaderWorkspaceViewModel.kt');
 const MIGRATION = readBackend('supabase', 'migrations', '030_forum_answers.sql');
 const RUN_SH = readBackend('tests', 'sql', 'run.sh');
+// The paging function the public profile reads its lists from (migration 033).
+const PROFILE_PAGING_SQL = readBackend(
+  'supabase', 'migrations', '033_profile_paging.sql');
 
 /** The body of a data class or an object, for the few that carry derived rules. */
 function typeBodyOf(source, name) {
@@ -106,7 +164,7 @@ test('বিভাগসমূহ is a rail that scrolls, not a page of cards', 
     );
     assert.match(rail, /horizontalScroll\(rememberScrollState\(\)\)/,
       'and scrolls sideways rather than down the page');
-    assert.match(rail, /loaded\.categories\.forEach/,
+    assert.match(rail, /categories\.forEach/,
       'one chip per room, from the overview the database sent');
   });
 
@@ -178,8 +236,13 @@ test('সাম্প্রতিক আলোচনা has its three filters', 
       'sampled once, at insert');
     assert.match(PORTAL_DTOS, /@Json\(name = "is_official"\) val isOfficial: Boolean\? = null/,
       'the app reads the badge');
-    assert.match(FORUM_SCREENS, /private fun OfficialBadge\(\)/,
+    // Re-anchored for the batch after this one: the owner took the word off the
+    // badge. What is left is one mark — the tick — used on the card's cover and
+    // in the thread's own row, rather than a text badge and an icon of it.
+    assert.match(FORUM_SCREENS, /private fun VerifiedMark\(onImage: Boolean = false/,
       'and shows it');
+    assert.ok(!FORUM_SCREENS.includes('ThumbnailOfficialBadge'),
+      'one mark for both surfaces, so the two cannot drift apart');
   });
 
   await t.test('each filter is a chip with its own name', () => {
@@ -234,15 +297,23 @@ test('a new thread can carry a cover, and its body has a toolbar', async (t) => 
   });
 
   await t.test('the toolbar has the five the owner asked for, and the rest is gone', () => {
+    // Re-anchored: a formatter button is passed whether its format is on at the
+    // caret, so its call is no longer one line — the labels are read off the
+    // flattened source, which is the same assertion in a shape that survives it.
+    // A wrapped call puts a line break where the label used to follow the bracket,
+    // so both kinds of whitespace are squashed before the label is looked for.
+    const flat = FORUM_EDITOR.replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
     for (const button of ['মোটা', 'বাঁকা', 'নিচে দাগ', 'তালিকা', 'ছবি যোগ']) {
-      assert.ok(FORUM_EDITOR.includes(`ToolIcon("${button}"`), `${button} is in the toolbar`);
+      assert.ok(flat.includes(`ToolIcon("${button}"`), `${button} is in the toolbar`);
     }
-    assert.match(FORUM_EDITOR, /Icons\.Default\.FormatListBulleted\) \{ run\("insertUnorderedList"\) \}/,
+    // Re-anchored for the AutoMirrored icon (icons 1.7 deprecates the filled one)
+    // and for the active flag the list button is now told.
+    assert.match(flat, /Icons\.AutoMirrored\.Filled\.FormatListBulleted, compact, "insertUnorderedList" in activeFormats\) \{ run\("insertUnorderedList"\) \}/,
       'the list button inserts a list');
     const compact = FORUM_EDITOR.slice(FORUM_EDITOR.indexOf('if (!compact) {'));
     assert.match(compact, /if \(!compact\)/, 'the article-only controls are conditional');
     for (const control of ['মোটা', 'বাঁকা', 'নিচে দাগ']) {
-      assert.ok(FORUM_EDITOR.includes(`ToolIcon("${control}"`), `${control} stays in both`);
+      assert.ok(flat.includes(`ToolIcon("${control}"`), `${control} stays in both`);
     }
   });
 
@@ -285,8 +356,8 @@ test('both composers remember what was typed until it posts', async (t) => {
   await t.test('the reply box is remembered per thread', () => {
     const thread = bodyOf(FORUM_SCREENS, 'ForumThreadScreen');
     assert.match(thread, /draftStore\.reply\(discussionId\)/, 'read per thread');
-    assert.match(thread, /draftStore\.saveReply\(discussionId, ForumDraftStore\.ReplyDraft\(replyBody, replyTarget\)\)/,
-      'saved with the answer it was answering');
+    assert.match(thread, /draftStore\.saveReply\(\s*discussionId,\s*ForumDraftStore\.ReplyDraft\(replyBody, replyTarget, attachments\)\s*\)/,
+      'saved with the answer it was answering, and with its files');
     assert.match(thread, /draftStore\.clearReply\(discussionId\)/);
     assert.match(DRAFT_STORE, /fun reply\(discussionId: String\)/, 'the key is the thread');
   });
@@ -350,24 +421,41 @@ test('a new thread and a new answer reach the bell', async (t) => {
 // 6. reactions
 // ---------------------------------------------------------------------------
 
-test('a long press offers লাইক, অপছন্দ and একমত', async (t) => {
-  await t.test('the gesture is a long press on the answer itself', () => {
-    assert.match(FORUM_SCREENS, /combinedClickable\(\s*onLongClick = \{ onReact\(answer\) \}/,
-      'the answer card');
-    assert.match(FORUM_SCREENS, /combinedClickable\(onLongClick = \{ onReact\(reply\) \}/,
-      'and a reply inside it');
-    assert.match(FORUM_SCREENS, /@OptIn\(ExperimentalFoundationApi::class\)/,
-      'the long press is opted into, as the rest of the app does');
+test('one tap on a reaction counts it', async (t) => {
+  await t.test('the gesture is a tap on the reaction itself', () => {
+    // This reverses what this file asserted in the first pass. The popup the long
+    // press used to raise is gone: the owner's ninth correction was that
+    // "reactions must not open a modal — one tap counts it, plain and simple".
+    //
+    // A long press came back in the ninth batch, for a different job: on the
+    // reader's own answer it opens সম্পাদনা and মুছে ফেলুন. It never counts a
+    // reaction, and it is never offered on anyone else's answer.
+    assert.ok(!/onLongClick = \{ onReact/.test(FORUM_SCREENS),
+      'no card reacts to a long press');
+    assert.match(FORUM_SCREENS, /onLongClick = if \(answer\.isMine\)/,
+      'the long press belongs to the author of the answer');
+    assert.match(FORUM_SCREENS, /onClick = onCardClick/,
+      'a tap on the card is a tap on the card');
+    const row = bodyOf(FORUM_SCREENS, 'ForumReactionRow');
+    for (const kind of ['REACTION_LIKE', 'REACTION_AGREE', 'REACTION_DISLIKE']) {
+      assert.ok(row.includes(`onReact(ForumReply.${kind})`), `${kind} is sent by its own icon`);
+    }
+    // The parameter is on the signature, which `bodyOf` does not return.
+    const signature = FORUM_SCREENS.slice(
+      FORUM_SCREENS.indexOf('private fun ForumReactionRow('),
+      FORUM_SCREENS.indexOf('private fun ForumReactionCount(')
+    );
+    assert.match(signature, /onReact: \(String\) -> Unit/, 'and each icon sends its kind straight out');
   });
 
-  await t.test('the popup is the three reactions and nothing else', () => {
-    const dialog = bodyOf(FORUM_SCREENS, 'ForumReactionDialog');
-    for (const kind of [FORUM_SCREENS.includes('forum_react_like'),
-      FORUM_SCREENS.includes('forum_react_dislike'), FORUM_SCREENS.includes('forum_react_agree')]) {
-      assert.ok(kind, 'each of the three is reachable');
-    }
-    assert.match(dialog, /ReactionChoice\(/);
-    assert.ok(!/상/.test(dialog), 'and nothing else is offered');
+  await t.test('there is nothing left to dismiss', () => {
+    assert.ok(!FORUM_SCREENS.includes('ForumReactionDialog'), 'the popup is deleted');
+    assert.ok(!FORUM_SCREENS.includes('ReactionChoice'), 'with its three choices');
+    assert.ok(!/reactionTarget/.test(FORUM_SCREENS), 'and the state that held the target');
+    assert.ok(!/import androidx\.compose\.ui\.window\.Dialog/.test(FORUM_SCREENS),
+      'and the dialog import');
+    assert.match(FORUM_SCREENS, /val reactTo: \(ForumReply, String\) -> Unit = \{ reply, kind ->\s*\n\s*scope\.launch \{/,
+      'the handler goes straight to the call');
   });
 
   await t.test('the kinds are the three words the database knows', () => {
@@ -415,14 +503,24 @@ test('a long body folds behind a plain "আরও দেখুন"', async (t) =
     const line = body.slice(body.indexOf('if (canExpand)'), body.indexOf('if (canExpand)') + 700);
     assert.ok(!/Surface\(|border\(|background\(/.test(line),
       'no surface, no border, no fill around it');
-    assert.match(line, /fontSize = 12\.sp/, 'and small enough not to shout');
+    assert.match(line, /fontSize = textSize\(13\.5\)/, 'and small enough not to shout');
   });
 
-  await t.test('the fold is decided before anything is measured', () => {
-    assert.match(PORTAL_MODELS, /val isLong: Boolean get\(\) = body\.length > 240 \|\| body\.contains\("<img"/,
+  await t.test('the fold is decided before anything is measured, at a hundred', () => {
+    // The length is the length of the words: a picture used to make a body "long"
+    // on the strength of its markup alone, and a post with one picture and one line
+    // was folded behind a control it did not need. The number itself is the owner's
+    // sixth correction: a hundred characters, which is where the ellipsis is now
+    // written, not two hundred and forty.
+    assert.match(PORTAL_MODELS, /internal const val FORUM_FOLD_CHARS = 100/,
+      'one number for the whole app');
+    assert.match(PORTAL_MODELS,
+      /val isLong: Boolean get\(\) = forumBodyText\(body\)\.length > FORUM_FOLD_CHARS/,
       'a length, so a short answer never grows a control it does not need');
-    assert.match(FORUM_SCREENS, /private const val FORUM_FOLD_CHARS = 240/,
+    assert.match(FORUM_SCREENS, /import com\.ningshingche\.app\.data\.portal\.FORUM_FOLD_CHARS/,
       'and the opening post uses the same rule');
+    assert.match(FORUM_SCREENS, /private const val FORUM_FOLD_LINES = 3/,
+      'three folded lines, which is about a hundred characters of Bengali');
   });
 
   await t.test('open, it is the article renderer — the one that can draw a picture', () => {
@@ -453,17 +551,19 @@ test('answers nest one step, newest first, and fold behind a control', async (t)
     assert.match(thread, /fun repliesUnder\(answerId: String\)/);
     assert.match(FORUM_SCREENS, /val shown = if \(showAll\) replies else replies\.takeLast\(1\)/,
       'and the rest are behind a tap');
-    assert.match(FORUM_SCREENS, /"সব উত্তর দেখুন \(\$\{toBengaliNumeral\(replies\.size\)\}\)"/,
-      'which counts them');
+    assert.match(FORUM_SCREENS, /"সব উত্তর দেখুন \(\{1\}\)",\s*toBengaliNumeral\(replies\.size\)/,
+      'which counts them, as a slot a translator can move');
   });
 
   await t.test('the indentation is one step, and it is measured once', () => {
     const nested = bodyOf(FORUM_SCREENS, 'ForumNestedReply');
-    assert.match(nested, /padding\(start = EditorialSpace\.md\)/, 'one step in');
-    const steps = (nested.match(/padding\(start =/g) || []).length;
-    assert.equal(steps, 1, 'and never a second one, whatever the argument does');
-    assert.ok(!/ForumNestedReply\(/.test(nested),
-      'a nested answer does not draw nested answers of its own');
+    const card = bodyOf(FORUM_SCREENS, 'ForumAnswerCard');
+    assert.match(card, /padding\(start = FORUM_REPLY_INDENT\)/,
+      'one step in, from the answer that owns the replies');
+    assert.match(FORUM_SCREENS, /private val FORUM_REPLY_INDENT = 22\.dp/, 'and it is measured once');
+    assert.ok(!/padding\(start =/.test(nested),
+      'the reply inside the step never steps in again');
+    assert.ok(!/ForumNestedReply\(/.test(nested), 'and it never draws answers of its own');
   });
 });
 
@@ -482,8 +582,10 @@ test('the reply box is an editor, not a one-line field', async (t) => {
   });
 
   await t.test('what is counted is the text, not the markup', () => {
-    assert.match(FORUM_SCREENS, /private fun forumPlainText\(html: String\): String =/,
+    assert.match(FORUM_HTML, /fun forumBodyText\(html: String\): String =/,
       'one way to ask what the reader typed');
+    assert.match(FORUM_HTML, /fun forumBodyMarkup\(html: String\): String =/,
+      'and one way to ask what to draw, with the files taken out of it');
     assert.match(FORUM_SCREENS, /val bodyProblem = ForumText\.bodyProblem\(forumPlainText\(body\)\)/,
       'the length the database will judge is the length of the text');
     assert.match(FORUM_SCREENS, /ForumText\.replyProblem\(forumPlainText\(body\)\) == null/,
@@ -493,9 +595,18 @@ test('the reply box is an editor, not a one-line field', async (t) => {
   });
 
   await t.test('the draft note and the target line are on the composer', () => {
-    assert.match(FORUM_SCREENS, /"খসড়া স্বয়ংক্রিয়ভাবে সংরক্ষিত"/,
-      'the reader is told the draft is kept');
-    assert.match(FORUM_SCREENS, /"\$targetName কে উত্তর"/, 'and who they are answering');
+    // The note under the box went with the second pass, which made the composer
+    // a strip at the bottom of the thread; what it promised is still true, and
+    // the reply list's own checks hold the draft to it.
+    assert.match(FORUM_SCREENS, /draftStore\.saveReply\(/,
+      'the reader is never told the draft is lost, because it is not');
+    // Re-anchored for the ninth batch: the line above the box says one of three
+    // things now — who is being answered, that an answer is being changed, or
+    // nothing at all.
+    assert.match(FORUM_SCREENS, /targetName != null -> "\{1\} কে উত্তর", targetName/,
+      'and who they are answering, in the order their language wants');
+    assert.match(FORUM_SCREENS, /editing -> "উত্তর সম্পাদনা"/,
+      'or that an existing answer is being changed');
     assert.match(FORUM_SCREENS, /testTag\("forum_reply_target_clear"\)/, 'with a way to take it back');
   });
 });
@@ -518,7 +629,7 @@ test('উত্তরসমূহ has its own filter and its authors have pages'
 
   await t.test('a picture and a name open the reader\'s public page', () => {
     const author = bodyOf(FORUM_SCREENS, 'ForumAuthorRow');
-    assert.match(author, /clickableRow\(onClick\)/, 'the whole block is the target');
+    assert.match(author, /clickable\(onClick = onClick\)/, 'the whole block is the target');
     assert.match(author, /testTag\("forum_author_\$name"\)/);
     assert.match(NAV_HOST,
       /onAuthorClick = \{ id -> navController\.navigate\(ReaderRoute\.publicProfile\(id\)\) \}/,
@@ -553,34 +664,49 @@ test('the extras the owner asked for alongside the ten', async (t) => {
       'which opens the forum');
   });
 
-  await t.test('the bell replaces the magnifier on the forum, and only there', () => {
+  await t.test('the forum\'s bar is the forum\'s, and carries no bell', () => {
+    // The owner first asked for the bell here and then asked for it gone; the
+    // third pass is what stands, and the third pass's own file checks it in
+    // detail. What matters here is that the search did not go with it.
     const scaffold = bodyOf(FORUM_SCREENS, 'ForumScaffold');
-    assert.match(scaffold, /Icons\.Default\.Notifications/, 'the forum\'s top bar has the bell');
-    assert.ok(!/Icons\.Default\.Search/.test(scaffold),
-      'and no magnifier — the owner asked for the bell instead');
-    assert.match(scaffold, /forum_notifications/, 'reachable by name');
-    assert.match(scaffold, /ForumUnreadBadge\(/, 'with the unread count');
+    assert.ok(!/Notifications/.test(scaffold), 'no bell on the forum');
+    assert.match(scaffold, /forum_refresh/, 'a refresh instead, which a forum needs more');
   });
 
-  await t.test('the search is not deleted — it is a field on the page', () => {
+  await t.test('the search is not deleted — it is an icon that opens a smaller field', () => {
     assert.match(FORUM_SCREENS, /testTag\("forum_search"\)/, 'the forum is still searched');
-    assert.match(FORUM_SCREENS, /placeholder = \{ Text\("আলোচনা খুঁজুন", fontFamily = Kalpurush\) \}/);
+    assert.match(FORUM_SCREENS,
+      /placeholder = \{ Text\("আলোচনা খুঁজুন", fontFamily = Kalpurush, fontSize = textSize\(13\),\s*lineHeight = leading\(13\)\) \}/,
+      'in the forum page size, not a size above it');
+    assert.match(FORUM_SCREENS, /testTag\("forum_search_toggle"\)/, 'behind a magnifier in the bar');
     assert.match(NAV_HOST, /search = \{ term -> app\.portalRepository\.forumSearch\(term\) \}/,
       'through the RPC that already existed');
   });
 
   await t.test('the forum\'s work is on the dashboard and on the public page', () => {
-    assert.match(WORKSPACE, /val forum = portalRepository\.forumActivity\(user\.id\)\.getOrNull\(\)/,
+    // Re-anchored for the paged section: the dashboard asks for a window it can
+    // grow — five items, then "load more" — through the same call.
+    assert.match(WORKSPACE, /val forum = portalRepository\.forumActivity\(user\.id, limit = forumLimit\)\.getOrNull\(\).*/,
       'the dashboard reads it with everything else it reads');
     assert.match(WORKSPACE, /_forumActivity\.value = forum/);
     assert.match(DASHBOARD, /ForumCard\(\s*activity = forumActivity,/,
       'and shows it in a card of its own');
     assert.match(FORUM_SCREENS, /fun ForumCard\(/);
     assert.match(FORUM_SCREENS, /fun ForumActivityBlock\(/, 'which the public page shares');
-    assert.match(PUBLIC_PROFILE, /loadForumActivity = \{ userId -> app\.portalRepository\.forumActivity\(userId\) \}|\"আলোচনা" to \(forumActivity\?\.total \?: 0\)/,
-      'the public page asks for it');
-    assert.match(NAV_HOST, /loadForumActivity = \{ userId -> app\.portalRepository\.forumActivity\(userId\) \}/,
-      'and is handed the way to get it');
+    // Re-anchored for the paged profile: the public page no longer takes the whole
+    // activity in one call — it takes four totals and one page of five at a time,
+    // which is the owner's first correction.
+    assert.match(NAV_HOST, /loadTotals = \{ userId -> app\.portalRepository\.profileTotals\(userId\) \}/,
+      'the public page is handed its totals');
+    assert.match(NAV_HOST, /loadPage = \{ userId, kind, offset ->/,
+      'and the way to ask for one page');
+    assert.ok(!/loadForumActivity = \{ userId/.test(NAV_HOST),
+      'and the whole-activity call is gone from the profile route');
+    assert.match(PROFILE_PAGING_SQL, /create or replace function public\.profile_items\(/,
+      'through a function of its own');
+    assert.match(PROFILE_PAGING_SQL,
+      /grant execute on function public\.profile_items\(uuid, text, integer, integer\) to anon, authenticated/,
+      'which is public: a profile is readable by anyone');
     assert.match(MIGRATION, /create or replace function public\.forum_activity\(/);
     assert.match(MIGRATION, /grant execute on function public\.forum_activity\(uuid, integer\) to anon, authenticated/,
       'the function is public: a profile is readable by anyone');

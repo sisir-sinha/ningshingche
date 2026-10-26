@@ -1,6 +1,7 @@
 package com.ningshingche.app.data.local
 
 import android.content.Context
+import com.ningshingche.app.data.portal.ForumAttachment
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -36,11 +37,14 @@ class ForumDraftStore(private val context: Context) {
         val title: String = "",
         val body: String = "",
         val coverImageUrl: String = "",
-        val coverDeleteUrl: String = ""
+        val coverDeleteUrl: String = "",
+        /** Files attached to the post, which never enter the editor's HTML. */
+        val attachments: List<ForumAttachment> = emptyList()
     ) {
         /** True when there is nothing worth coming back for. */
         val isEmpty: Boolean
-            get() = title.isBlank() && bodyIsEmpty(body) && coverImageUrl.isBlank()
+            get() = title.isBlank() && bodyIsEmpty(body) &&
+                coverImageUrl.isBlank() && attachments.isEmpty()
 
         companion object {
             /**
@@ -57,10 +61,11 @@ class ForumDraftStore(private val context: Context) {
         }
     }
 
-    /** One reply box: the text, and which answer it was answering. */
+    /** One reply box: the text, the files, and which answer it was answering. */
     data class ReplyDraft(
         val body: String = "",
-        val parentId: String = ""
+        val parentId: String = "",
+        val attachments: List<ForumAttachment> = emptyList()
     ) {
         val isEmpty: Boolean get() = ComposerDraft.bodyIsEmpty(body)
     }
@@ -81,7 +86,9 @@ class ForumDraftStore(private val context: Context) {
                 title = json.optString("title", ""),
                 body = json.optString("body", ""),
                 coverImageUrl = json.optString("coverImageUrl", ""),
-                coverDeleteUrl = json.optString("coverDeleteUrl", "")
+                coverDeleteUrl = json.optString("coverDeleteUrl", ""),
+                attachments = json.optJSONArray("attachments").toAttachments()
+                    .ifEmpty { json.optJSONArray("images").toStringList().map(::attachmentFromUrl) }
             ).takeUnless { it.isEmpty }
         }.getOrNull()
     }
@@ -98,6 +105,7 @@ class ForumDraftStore(private val context: Context) {
             .put("body", draft.body)
             .put("coverImageUrl", draft.coverImageUrl)
             .put("coverDeleteUrl", draft.coverDeleteUrl)
+            .put("attachments", draft.attachments.toJsonArray())
             .toString()
         context.forumDrafts.edit { it[Keys.COMPOSER] = json }
     }
@@ -120,7 +128,9 @@ class ForumDraftStore(private val context: Context) {
                 val json = JSONObject(raw)
                 ReplyDraft(
                     body = json.optString("body", ""),
-                    parentId = json.optString("parentId", "")
+                    parentId = json.optString("parentId", ""),
+                    attachments = json.optJSONArray("attachments").toAttachments()
+                        .ifEmpty { json.optJSONArray("images").toStringList().map(::attachmentFromUrl) }
                 ).takeUnless { it.isEmpty }
             }.getOrNull()
         }
@@ -136,6 +146,7 @@ class ForumDraftStore(private val context: Context) {
         val json = JSONObject()
             .put("body", draft.body)
             .put("parentId", draft.parentId)
+            .put("attachments", draft.attachments.toJsonArray())
             .toString()
         context.forumDrafts.edit { it[Keys.reply(id)] = json }
     }
@@ -148,4 +159,50 @@ class ForumDraftStore(private val context: Context) {
 
     private suspend fun read(key: Preferences.Key<String>): String? =
         context.forumDrafts.data.first()[key]
+
+    /** A missing or malformed list of files is an empty one, never a crash. */
+    private fun org.json.JSONArray?.toStringList(): List<String> {
+        val array = this ?: return emptyList()
+        return (0 until array.length()).mapNotNull { index ->
+            array.optString(index, "").takeIf { it.isNotBlank() }
+        }
+    }
+
+    /** One file, with everything a chip needs to say what it is. */
+    private fun List<ForumAttachment>.toJsonArray(): org.json.JSONArray {
+        val array = org.json.JSONArray()
+        forEach { attachment ->
+            if (attachment.url.isBlank()) return@forEach
+            array.put(
+                JSONObject()
+                    .put("url", attachment.url)
+                    .put("name", attachment.name)
+                    .put("mimeType", attachment.mimeType)
+                    .put("sizeBytes", attachment.sizeBytes)
+            )
+        }
+        return array
+    }
+
+    private fun org.json.JSONArray?.toAttachments(): List<ForumAttachment> {
+        val array = this ?: return emptyList()
+        return (0 until array.length()).mapNotNull { index ->
+            val item = array.optJSONObject(index) ?: return@mapNotNull null
+            val url = item.optString("url", "")
+            if (url.isBlank()) return@mapNotNull null
+            ForumAttachment(
+                url = url,
+                name = item.optString("name", ""),
+                mimeType = item.optString("mimeType", ""),
+                sizeBytes = item.optLong("sizeBytes", 0L)
+            )
+        }
+    }
+
+    /**
+     * A draft written before the app took PDFs stored its pictures as bare URLs.
+     * It is read back as what it is, so an upgrade does not lose the draft.
+     */
+    private fun attachmentFromUrl(url: String): ForumAttachment =
+        ForumAttachment.fromReference(url, "")
 }

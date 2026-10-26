@@ -27,11 +27,9 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import kotlin.math.PI
 import kotlin.math.sin
-
-/** The blue of the playing indicator, taken from the artwork the portal uses for it. */
-val PlayingWaveBlue = Color(0xFF0005FF)
 
 /**
  * The bar heights, tallest in the middle.
@@ -67,23 +65,37 @@ private const val WaveFloor = 0.35f
 fun PlayingWaveBars(
     modifier: Modifier = Modifier,
     animated: Boolean = true,
-    color: Color = PlayingWaveBlue,
+    color: Color? = null,
     barCount: Int = WaveEnvelope.size,
     barWidth: Dp = 3.dp,
     barGap: Dp = 2.dp,
     height: Dp = 22.dp
 ) {
-    val transition = rememberInfiniteTransition(label = "playing_wave")
-    val phase by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = WavePeriodMs, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "wave_phase"
-    )
-    val sweep = if (animated) phase else 0.2f
+    // The wave draws on a near-white chip over artwork, so its ink is the palette's
+    // accent at its darkest — [EditorialTokens.accentDeep], the same colour as the play
+    // badge it replaces. Read here rather than captured in a top-level val, because the
+    // accent now depends on the palette the reader chose.
+    val ink = color ?: LocalEditorialTokens.current.accentDeep
+    // Built only when there is something to animate. An infinite transition that
+    // nobody reads still runs: it asks for a frame every frame, for as long as the
+    // composable is on screen — a paused player would keep the app's clock busy
+    // drawing a wave that is not moving. When it is not playing, the bars are one
+    // still frame.
+    val sweep = if (animated) {
+        val transition = rememberInfiniteTransition(label = "playing_wave")
+        val phase by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = WavePeriodMs, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "wave_phase"
+        )
+        phase
+    } else {
+        0.2f
+    }
 
     Row(
         modifier = modifier.height(height),
@@ -100,7 +112,7 @@ fun PlayingWaveBars(
                     .width(barWidth)
                     .height((height * level).coerceAtLeast(2.dp))
                     .clip(WaveNeedleShape)
-                    .background(color)
+                    .background(ink)
             )
         }
     }

@@ -15,10 +15,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ningshingche.app.data.model.AppThemeMode
+import com.ningshingche.app.ui.editorial.EditorialPalettes
 import com.ningshingche.app.data.model.ReaderPreferences
 import com.ningshingche.app.notifications.routeFromLaunchIntent
 import com.ningshingche.app.ui.editorial.EditorialTheme
 import com.ningshingche.app.ui.i18n.LocalTranslations
+import com.ningshingche.app.ui.i18n.Translations
 import com.ningshingche.app.ui.i18n.TranslationTable
 import com.ningshingche.app.ui.reader.EditorialReaderApp
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -63,20 +65,39 @@ class MainActivity : ComponentActivity() {
                 AppThemeMode.DARK -> true
             }
 
-            // Interface language: the cached table shows immediately, and a
-            // refresh runs whenever the reader switches language, so a language
-            // file edited in the dashboard arrives without an app update.
+            // The palette the reader picked in Settings, resolved once here and handed
+            // to every screen through EditorialTheme. A preset is looked up by name; the
+            // custom one is built from the wheel's hue and strength, which is why those
+            // two numbers travel with the choice.
+            val palette = EditorialPalettes.of(
+                preferences.appPalette,
+                preferences.customHue,
+                preferences.customSaturation
+            )
+
+            // Interface language: the table shows immediately — the copy that
+            // came with the app on a first run, the published one after that —
+            // and a refresh runs whenever the reader switches language, so a
+            // language file edited in the dashboard arrives without an app
+            // update. Swapping is therefore instant and works offline.
             val language = preferences.contentLanguage
             val strings by app.translations.strings(language)
                 .collectAsStateWithLifecycle()
             val table = TranslationTable(language = language, strings = strings)
+
+            // Two ways to the same table. The composition local is for screens —
+            // reading it is what makes them redraw when the reader swaps the
+            // language. The static install is for the code a composable cannot
+            // reach: click handlers, coroutines and the view models that build
+            // the message a screen shows later. Both carry the same object.
+            Translations.install(table)
 
             // The table reaches every screen from here, so no screen has to read
             // preferences or the repository itself.
             CompositionLocalProvider(
                 LocalTranslations provides table
             ) {
-                EditorialTheme(darkTheme = darkTheme) {
+                EditorialTheme(palette = palette, darkTheme = darkTheme) {
                     if (stored == null) return@EditorialTheme // first frame only
                     // The reader opens on the splash; a first install goes from
                     // there into the three-step flow (language, sign-in,

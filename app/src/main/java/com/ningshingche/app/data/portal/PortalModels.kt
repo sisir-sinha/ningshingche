@@ -281,7 +281,12 @@ data class ForumDiscussion(
     val replies: Int,
     val createdAt: String,
     val lastActivityAt: String,
-    /** ImgBB cover, blank when the thread has none. */
+    /**
+     * ImgBB cover. Blank when the reader attached none — which no longer means
+     * the thread has no picture: the app draws a stand-in from the thread's id
+     * and the title's first letter ([com.ningshingche.app.ui.screens.ForumCover]),
+     * so every card and every thread carries a cover.
+     */
     val coverImageUrl: String = "",
     /** Opened by the NingshingChe admin — the সাম্প্রতিক filter's third option. */
     val isOfficial: Boolean = false
@@ -289,6 +294,7 @@ data class ForumDiscussion(
     /** A discussion nobody has answered reads differently on a card. */
     val hasReplies: Boolean get() = replies > 0
 
+    /** Whether the reader attached a picture. Every thread is drawn with one. */
     val hasCover: Boolean get() = coverImageUrl.isNotBlank()
 }
 
@@ -299,6 +305,17 @@ data class ForumDiscussion(
  * one level of indentation — migration 030 folds a reply-to-a-reply back onto
  * its own answer — so a non-null parent always points at a top-level answer.
  */
+/**
+ * How many characters a post may run to before a card folds it behind "আরও দেখুন".
+ *
+ * The owner's rule, and a *character* count rather than a measurement: a hundred
+ * characters of Bengali is about two lines on a phone, which is where a card stops
+ * being something a reader takes in at a glance. The same number folds a thread's
+ * opening post, an answer and a reply — one rule, so no screen can disagree with
+ * another about what "too long" means.
+ */
+internal const val FORUM_FOLD_CHARS = 100
+
 data class ForumReply(
     val id: String,
     val discussionId: String,
@@ -312,26 +329,88 @@ data class ForumReply(
     val dislikes: Int = 0,
     val agrees: Int = 0,
     /** `like`, `dislike`, `agree`, or blank when the reader has not reacted. */
-    val myReaction: String = ""
+    val myReaction: String = "",
+    /** The dashboard wrote this one: the app marks it as the admin's. */
+    val isOfficial: Boolean = false,
+    /** This reader wrote it. What a long press offers depends on it. */
+    val isMine: Boolean = false
 ) {
     val isTopLevel: Boolean get() = parentId.isBlank()
 
     /** What the "top answers" filter sorts on. A dislike is shown, never subtracted. */
     val reactionScore: Int get() = likes + agrees
 
-    val hasReactions: Boolean get() = likes + dislikes + agrees > 0
+    /** The three reactions, in the order the row draws them. */
+    val reactions: List<String>
+        get() = listOf(REACTION_LIKE, REACTION_AGREE, REACTION_DISLIKE)
 
     /**
      * Whether a body is long enough to fold. The threshold is a length, not a
      * measurement: a card that has to be measured before it can decide would
      * push a "see more" onto every short answer that happens to wrap.
+     *
+     * The length is the length of the *words*. A post with a picture in it used
+     * to fold on the markup alone — which hid a short answer behind a "see more"
+     * for the sake of a tag, and the folded copy drew the picture as the one
+     * character HtmlCompat keeps for images (U+FFFC, "obj" to a reader).
      */
-    val isLong: Boolean get() = body.length > 240 || body.contains("<img", ignoreCase = true)
+    val isLong: Boolean get() = forumBodyText(body).length > FORUM_FOLD_CHARS
 
     companion object {
         const val REACTION_LIKE = "like"
         const val REACTION_DISLIKE = "dislike"
         const val REACTION_AGREE = "agree"
+    }
+}
+
+/**
+ * One file attached to a post: a picture, or a document.
+ *
+ * The app never draws a raw URL for one of these. A picture becomes a small
+ * preview, a PDF becomes its icon and its file name — and a tap on either opens
+ * the viewer, which shows the whole thing and offers the download.
+ *
+ * [sizeBytes] and [mimeType] are what the uploader knew about the file; a file
+ * that came back from the database is rebuilt from its URL and its label alone,
+ * which is why both have to survive being empty.
+ */
+data class ForumAttachment(
+    val url: String,
+    val name: String = "",
+    val mimeType: String = "",
+    val sizeBytes: Long = 0L
+) {
+    val isImage: Boolean get() = mimeType.startsWith("image/") || (!isPdf && mimeType.isBlank())
+
+    val isPdf: Boolean get() = mimeType == MIME_PDF || isPdfReference(url, name)
+
+    /** What a chip shows: the file's own name, or something honest instead. */
+    val label: String
+        get() = name.trim().ifBlank { if (isPdf) "সংযুক্তি.pdf" else "সংযুক্তি" }
+
+    /** The name a downloaded copy is saved under. */
+    val downloadName: String
+        get() {
+            val clean = label.substringAfterLast('/').trim()
+            return if (clean.contains('.')) clean else "$clean${if (isPdf) ".pdf" else ".jpg"}"
+        }
+
+    val mime: String get() = if (mimeType.isNotBlank()) mimeType else if (isPdf) MIME_PDF else "image/jpeg"
+
+    companion object {
+        const val MIME_PDF = "application/pdf"
+
+        /** A file described by a URL and a label, as a stored post describes it. */
+        fun fromReference(url: String, name: String): ForumAttachment {
+            val cleanUrl = url.trim()
+            val label = name.trim()
+            val pdf = isPdfReference(cleanUrl, label)
+            return ForumAttachment(
+                url = cleanUrl,
+                name = label,
+                mimeType = if (pdf) MIME_PDF else "image/jpeg"
+            )
+        }
     }
 }
 
@@ -359,6 +438,16 @@ data class ForumActivity(
     val hasAnything: Boolean get() = threads.isNotEmpty() || answers.isNotEmpty()
 
     val total: Int get() = discussions + replies
+
+    /**
+     * Whether the database holds more than the window that was asked for.
+     *
+     * `forum_activity` takes a limit and no offset, so the two lists that come
+     * back are trimmed to the limit while the counters are the whole truth —
+     * which is what tells a screen whether to offer a "load more".
+     */
+    fun hasMoreThan(limit: Int): Boolean =
+        discussions > threads.size || replies > answers.size
 }
 
 data class ForumActivityThread(
@@ -382,6 +471,77 @@ data class ForumActivityAnswer(
     val agrees: Int,
     val createdAt: String
 )
+
+/**
+ * One page of one list, and how many there are in all.
+ *
+ * [total] is the database's count for the whole list, not the size of [items] —
+ * that is what lets a page say "৫" beside a tab and offer "আরও দেখুন" without
+ * having loaded the rest. [offset] is where this page started, so a screen that
+ * has stitched two pages together knows what to ask for next.
+ */
+data class Paged<T>(
+    val items: List<T>,
+    val total: Int,
+    val offset: Int = 0
+) {
+    /** How many rows the screen holds once this page has been added to it. */
+    val loaded: Int get() = offset + items.size
+
+    val hasMore: Boolean get() = loaded < total
+
+    /** True when the list is empty and the database says that is the whole truth. */
+    val isEmpty: Boolean get() = items.isEmpty() && total == 0
+
+    companion object {
+        val EMPTY: Paged<Nothing> get() = Paged(emptyList(), 0)
+    }
+}
+
+/**
+ * One row of a paged profile list, in the shape of the kind it belongs to.
+ *
+ * The database answers all four kinds through one function, so the app has one
+ * page type and this says which of the four a row is — the tab that asked for it
+ * already knows, and a `when` over these is exhaustive by construction.
+ */
+sealed interface ProfileItem {
+    /** Stable for the list, so a LazyColumn can key on it. */
+    val key: String
+
+    data class Article(val article: PublicArticle) : ProfileItem {
+        override val key: String get() = "article-${article.id}"
+    }
+
+    data class Song(val song: MusicTrack) : ProfileItem {
+        override val key: String get() = "song-${song.id}"
+    }
+
+    data class Thread(val thread: ForumActivityThread) : ProfileItem {
+        override val key: String get() = "thread-${thread.id}"
+    }
+
+    data class Answer(val answer: ForumActivityAnswer) : ProfileItem {
+        override val key: String get() = "answer-${answer.id}"
+    }
+}
+
+/** The four totals the profile's tabs are labelled with (migration 033). */
+data class ProfileTotals(
+    val articles: Int = 0,
+    val songs: Int = 0,
+    val threads: Int = 0,
+    val answers: Int = 0
+) {
+    companion object {
+        /** The kinds `profile_items` answers with, in the order the page shows them. */
+        const val ARTICLES = "articles"
+        const val SONGS = "songs"
+        const val THREADS = "threads"
+        const val ANSWERS = "answers"
+        const val COUNTS = "counts"
+    }
+}
 
 /**
  * The forum home: the rooms, and the discussions the reader asked to see.
@@ -445,11 +605,20 @@ data class ForumThread(
         else -> answers.sortedBy { it.createdAt }
     }
 
-    /** With [reply] folded in — a post, or a reaction the reader just made. */
+    /** With [reply] folded in — a post, a reaction, or an answer just edited. */
     fun with(reply: ForumReply): ForumThread {
         val replaced = replies.map { if (it.id == reply.id) reply else it }
         return copy(replies = if (replaced.any { it.id == reply.id }) replaced else replaced + reply)
     }
+
+    /**
+     * Without one answer — what the reader sees the instant their own answer is
+     * removed, before the thread is read again. The database has already folded
+     * any answers written under it onto the answer it answered; this only takes
+     * the removed row off the screen.
+     */
+    fun without(replyId: String): ForumThread =
+        copy(replies = replies.filterNot { it.id == replyId })
 
     companion object {
         /** Newest first, the way a conversation is usually read. */
@@ -510,7 +679,9 @@ internal fun ForumReplyDto.toModel() = ForumReply(
         ForumReply.REACTION_LIKE, ForumReply.REACTION_DISLIKE, ForumReply.REACTION_AGREE ->
             myReaction.orEmpty().trim()
         else -> ""
-    }
+    },
+    isOfficial = isOfficial == true,
+    isMine = isMine == true
 )
 
 /** The reaction the popup just set, as the model the card redraws from. */
@@ -557,14 +728,97 @@ internal fun ForumActivityReplyDto.toModel() = ForumActivityAnswer(
     createdAt = createdAt.orEmpty()
 )
 
-internal fun ForumOverviewDto.toModel() = ForumOverview(
-    categories = categories.orEmpty().map { it.toModel() },
-    latest = latest.orEmpty().map { it.toModel() },
-    totalDiscussions = (totalDiscussions ?: 0).coerceAtLeast(0),
-    totalReplies = (totalReplies ?: 0).coerceAtLeast(0),
-    order = order.orEmpty().ifBlank { ForumOverview.ORDER_RECENT },
-    officialCount = (officialCount ?: 0).coerceAtLeast(0)
+internal fun ProfileItemsDto.toTotals() = ProfileTotals(
+    articles = (totals?.articles ?: 0).coerceAtLeast(0),
+    songs = (totals?.songs ?: 0).coerceAtLeast(0),
+    threads = (totals?.threads ?: 0).coerceAtLeast(0),
+    answers = (totals?.answers ?: 0).coerceAtLeast(0)
 )
+
+internal fun ProfileItemsDto.toPage(offset: Int): Paged<ProfileItemDto> =
+    Paged(
+        items = items.orEmpty(),
+        total = (total ?: items.orEmpty().size).coerceAtLeast(0),
+        offset = offset
+    )
+
+/** The same article shape the profile always drew, from either image column. */
+internal fun ProfileItemDto.toArticle() = PublicArticle(
+    id = id.orEmpty(),
+    title = title.orEmpty().ifBlank { "শিরোনামহীন" },
+    slug = slug.orEmpty(),
+    thumbnailUrl = image.orEmpty().ifBlank { thumbnail.orEmpty() },
+    categoryTitle = categoryTitle.orEmpty(),
+    viewsCount = (viewsCount ?: 0L).coerceAtLeast(0L),
+    publishedAt = publishedDate.orEmpty().ifBlank { createdAt.orEmpty() }
+)
+
+internal fun ProfileItemDto.toSong(uploaderId: String, uploaderName: String) = MusicTrack(
+    id = id.orEmpty(),
+    title = title.orEmpty().trim(),
+    artist = artist.orEmpty().trim(),
+    album = album.orEmpty().trim(),
+    genre = genre.orEmpty().trim(),
+    description = "",
+    thumbnailUrl = thumbnailUrl.orEmpty(),
+    audioUrl = audioUrl.orEmpty(),
+    storagePath = fileStoragePath.orEmpty().trim(),
+    durationSeconds = (durationSeconds ?: 0).coerceAtLeast(0),
+    fileSizeMb = 0.0,
+    createdAt = createdAt.orEmpty(),
+    loveCount = (loveCount ?: 0).coerceAtLeast(0),
+    viewsCount = (viewsCount ?: 0L).coerceAtLeast(0L),
+    uploaderId = uploaderId,
+    uploaderName = uploaderName
+)
+
+internal fun ProfileItemDto.toActivityThread() = ForumActivityThread(
+    id = id.orEmpty(),
+    title = title.orEmpty().trim().ifBlank { "শিরোনামহীন আলোচনা" },
+    excerpt = excerpt.orEmpty().trim(),
+    categorySlug = categorySlug.orEmpty(),
+    categoryTitle = categoryTitle.orEmpty().ifBlank { "আলোচনা" },
+    views = (viewsCount ?: 0L).coerceAtLeast(0L),
+    replies = (repliesCount ?: 0).coerceAtLeast(0),
+    createdAt = createdAt.orEmpty()
+)
+
+internal fun ProfileItemDto.toActivityAnswer() = ForumActivityAnswer(
+    id = id.orEmpty(),
+    discussionId = discussionId.orEmpty(),
+    discussionTitle = discussionTitle.orEmpty().trim().ifBlank { "আলোচনা" },
+    // The excerpt the database sent; a row from an older function still has the
+    // body, and a card shows words either way.
+    excerpt = excerpt.orEmpty().ifBlank { forumBodyText(body.orEmpty()) }.trim(),
+    likes = (likeCount ?: 0).coerceAtLeast(0),
+    dislikes = (dislikeCount ?: 0).coerceAtLeast(0),
+    agrees = (agreeCount ?: 0).coerceAtLeast(0),
+    createdAt = createdAt.orEmpty()
+)
+
+internal fun ForumOverviewDto.toModel(): ForumOverview {
+    val wanted = order.orEmpty().ifBlank { ForumOverview.ORDER_RECENT }
+    val rows = latest.orEmpty().map { it.toModel() }
+    return ForumOverview(
+        categories = categories.orEmpty().map { it.toModel() },
+        // **জনপ্রিয় is most answered first, then most read.** The database orders
+        // it that way (030), and the same rule is applied here so the tab cannot
+        // show a "popular" list in any other order: whichever way the rows
+        // arrive, the first card on that tab is the most answered thread.
+        latest = if (wanted == ForumOverview.ORDER_POPULAR) {
+            rows.sortedWith(
+                compareByDescending<ForumDiscussion> { it.replies }
+                    .thenByDescending { it.views }
+            )
+        } else {
+            rows
+        },
+        totalDiscussions = (totalDiscussions ?: 0).coerceAtLeast(0),
+        totalReplies = (totalReplies ?: 0).coerceAtLeast(0),
+        order = wanted,
+        officialCount = (officialCount ?: 0).coerceAtLeast(0)
+    )
+}
 
 internal fun ForumCategoryPageDto.toModel(): ForumCategoryPage? {
     val room = category?.toModel() ?: return null
@@ -618,7 +872,7 @@ sealed class PortalError(message: String, cause: Throwable? = null) : Exception(
         }
     }
 
-    /** A table or column is missing — `schema.sql` or migration 003 has not run. */
+    /** A table or column is missing — the database has not had the base schema and its migrations run. */
     class SchemaMissing(override val message: String) : PortalError(message)
 
     /** Successful request, empty result. */
@@ -865,10 +1119,27 @@ data class PublicProfile(
     val monthPoints: Int = 0,
     val articleViews: Long,
     val musicViews: Long,
+    /** Views of the threads they started — counted since 029, shown since 037. */
+    val forumViews: Long = 0L,
+    /**
+     * The total the database sent (037), or null when the database is older than
+     * [totalViews]'s arithmetic and only sent the two.
+     */
+    val serverTotalViews: Long? = null,
+    /** Different people. Zero on a database without 036, which is honest. */
+    val visitors: Long = 0L,
+    /** Minutes of their songs that were really listened to. */
+    val minutesListened: Long = 0L,
     val articles: List<PublicArticle>,
     val songs: List<MusicTrack>
 ) {
-    val totalViews: Long get() = articleViews + musicViews
+    /**
+     * Everything counted: articles, songs and threads. The server adds the three
+     * up (037) so this page and the app's dashboard cannot disagree; the sum is
+     * here only for a database that has not been given 037 yet, where the forum
+     * count is not in the reply and [forumViews] stays ০.
+     */
+    val totalViews: Long get() = serverTotalViews ?: (articleViews + musicViews + forumViews)
 
     /** First line of the address, trimmed — a card is not a mailing label. */
     val shortAddress: String
@@ -904,25 +1175,43 @@ data class PublicArticle(
 /** One point of the dashboard's views-over-time chart. */
 data class ViewDay(
     val day: String,
-    val views: Long
+    val views: Long,
+    val visitors: Long = 0L,
+    val minutesListened: Long = 0L
 )
 
 /** The reader's own view totals, as the database has them. */
 data class ViewTotals(
     val articleViews: Long,
-    val musicViews: Long
+    val musicViews: Long,
+    /** Views of the threads the reader started, counted the same way. */
+    val forumViews: Long = 0L,
+    /** Different people who read, watched or listened — not the same as views. */
+    val visitors: Long = 0L,
+    /** Of the views, how many came from a signed-in reader and how many from a guest. */
+    val registeredViews: Long = 0L,
+    val guestViews: Long = 0L,
+    /** Minutes of the reader's songs that were actually listened to. */
+    val minutesListened: Long = 0L
 ) {
-    val total: Long get() = articleViews + musicViews
+    val total: Long get() = articleViews + musicViews + forumViews
 }
 
 internal fun ViewTotalsDto.toModel(): ViewTotals = ViewTotals(
     articleViews = (articleViews ?: 0L).coerceAtLeast(0L),
-    musicViews = (musicViews ?: 0L).coerceAtLeast(0L)
+    musicViews = (musicViews ?: 0L).coerceAtLeast(0L),
+    forumViews = (forumViews ?: 0L).coerceAtLeast(0L),
+    visitors = (visitors ?: 0L).coerceAtLeast(0L),
+    registeredViews = (registeredViews ?: 0L).coerceAtLeast(0L),
+    guestViews = (guestViews ?: 0L).coerceAtLeast(0L),
+    minutesListened = (minutesListened ?: 0L).coerceAtLeast(0L)
 )
 
 internal fun ViewDayDto.toModel(): ViewDay = ViewDay(
     day = day,
-    views = (views ?: 0L).coerceAtLeast(0L)
+    views = (views ?: 0L).coerceAtLeast(0L),
+    visitors = (visitors ?: 0L).coerceAtLeast(0L),
+    minutesListened = (minutesListened ?: 0L).coerceAtLeast(0L)
 )
 
 internal fun PublicProfileDto.toModel(): PublicProfile {
@@ -939,6 +1228,10 @@ internal fun PublicProfileDto.toModel(): PublicProfile {
     joinedAt = joinedAt.orEmpty(),
     articleViews = (articleViews ?: 0L).coerceAtLeast(0L),
     musicViews = (musicViews ?: 0L).coerceAtLeast(0L),
+    forumViews = (forumViews ?: 0L).coerceAtLeast(0L),
+    serverTotalViews = totalViews?.coerceAtLeast(0L),
+    visitors = (visitors ?: 0L).coerceAtLeast(0L),
+    minutesListened = (minutesListened ?: 0L).coerceAtLeast(0L),
     articles = articles.orEmpty().map { row ->
         PublicArticle(
             id = row.id,
@@ -1052,7 +1345,19 @@ internal fun ContributorDto.toModel(): Contributor = Contributor(
 
 internal fun ContributorBoardDto.toModel(): ContributorBoard = ContributorBoard(
     monthKey = monthKey.orEmpty(),
-    contributors = contributors.orEmpty().map { it.toModel() }
+    // Best first, and decided here as well as in the database. A board is a
+    // ranking: a list of readers that is not in the order of the thing it ranks
+    // them by is not a board, and it was reading as one (the rows arrived in the
+    // order the database happened to hold them — see 035). Sorting here means the
+    // page is in order whatever the server sends; the database sorts too, so the
+    // two agree rather than one correcting the other.
+    contributors = contributors.orEmpty()
+        .map { it.toModel() }
+        .sortedWith(
+            compareByDescending<Contributor> { it.points }
+                .thenByDescending { it.stats.articles }
+                .thenByDescending { it.stats.songs }
+        )
 )
 
 internal fun ContributorScoreDto.toModel(): ContributorScore = ContributorScore(

@@ -78,7 +78,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.ningshingche.app.data.portal.ArticleSummary
@@ -92,6 +91,13 @@ import com.ningshingche.app.data.portal.excerptOf
 import com.ningshingche.app.data.portal.stripHtml
 import java.text.SimpleDateFormat
 import java.util.Locale
+import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
+import com.ningshingche.app.util.DateFormats
+import com.ningshingche.app.util.bengaliDigits
+import com.ningshingche.app.util.toBengaliDigits
 
 /**
  * Reusable building blocks for the modern-editorial reader.
@@ -240,18 +246,85 @@ fun rememberShimmerBrush(): Brush {
 /**
  * Formats `2025-06-17` as `১৭ জুন, ২০২৫`.
  *
- * Uses `SimpleDateFormat` rather than `java.time` on purpose: `minSdk` is 24 and
- * this module does not enable core library desugaring, so `java.time.*` would
- * throw `NoClassDefFoundError` on Android 7.
+ * The formatter comes from [DateFormats], which builds each pattern once per
+ * thread; the result is kept per timestamp, because a card's date does not change
+ * while the reader scrolls past it. (And it is `SimpleDateFormat` rather than
+ * `java.time` on purpose: `minSdk` is 24 and this module does not enable core
+ * library desugaring, so `java.time.*` would throw `NoClassDefFoundError` on
+ * Android 7.)
  */
-fun formatBengaliDate(iso: String): String {
-    if (iso.isBlank()) return ""
-    return runCatching {
-        val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(iso.take(10))
-            ?: return iso.take(10)
-        SimpleDateFormat("d MMMM, yyyy", Locale("bn", "BD")).format(parsed)
+fun formatBengaliDate(iso: String): String = memoisedDate(iso) {
+    if (iso.isBlank()) return@memoisedDate ""
+    runCatching {
+        val parsed = DateFormats.of("yyyy-MM-dd").parse(iso.take(10))
+            ?: return@memoisedDate iso.take(10)
+        DateFormats.of("d MMMM, yyyy", Locale("bn", "BD")).format(parsed)
     }.getOrDefault(iso.take(10))
 }
+
+/**
+ * Formats a timestamp as `১২ সেপ্টেম্বর, ৩:৪৫ অপরাহ্ণ`.
+ *
+ * The companion to [formatBengaliDate] for the places where a date alone says too
+ * little — an answer in a thread is read within the hour it was written, and "১২
+ * সেপ্টেম্বর" would not tell the reader whether it is the answer above or the one
+ * below. The stored value is UTC (Supabase writes `timestamptz`), so it is parsed
+ * as UTC and rendered in the phone's own zone: the reader sees the clock on their
+ * wall, not the database's.
+ *
+ * Like [formatBengaliDate], the formatter is cached and the answer remembered; the
+ * same reason applies, `minSdk` is 24 and this module does not enable core library
+ * desugaring.
+ */
+fun formatBengaliDateTime(iso: String): String = memoisedDate(iso) {
+    if (iso.isBlank()) return@memoisedDate ""
+    runCatching {
+        val parsed = DateFormats.of("yyyy-MM-dd'T'HH:mm:ss", utc = true).parse(iso.take(19)) ?: return@memoisedDate ""
+        val date = DateFormats.of("d MMMM", Locale("bn", "BD")).format(parsed)
+        val clock = DateFormats.of("h:mm").format(parsed)
+        val hour = DateFormats.of("H").format(parsed).toIntOrNull() ?: 0
+        bengaliDigits("$date, $clock ${if (hour < 12) "পূর্বাহ্ণ" else "অপরাহ্ণ"}")
+    }.getOrDefault("")
+}
+
+/**
+ * The same date, formatted once.
+ *
+ * These are called from list rows — a card's date, an answer's clock — and a row
+ * is re-drawn whenever anything above it changes. Re-formatting an unchanged
+ * timestamp on every frame of a scroll is work that cannot show anything new, so
+ * the last few hundred answers are kept keyed by their own text. The cache is
+ * small on purpose: a screen shows tens of dates, a scroll touches hundreds, and
+ * an unbounded map here would be a leak with a friendly face.
+ */
+private fun memoisedDate(iso: String, format: () -> String): String {
+    if (iso.isEmpty()) return ""
+    cachedDates[iso]?.let { return it }
+    val formatted = format()
+    if (cachedDates.size > DATE_CACHE_MAX) cachedDates.clear()
+    cachedDates[iso] = formatted
+    return formatted
+}
+
+/** Results of [memoisedDate]; a few hundred timestamps, replaced wholesale when full. */
+private val cachedDates = java.util.concurrent.ConcurrentHashMap<String, String>(512)
+private const val DATE_CACHE_MAX = 512
+
+/**
+ * The date formatters, one set per thread.
+ *
+ * `SimpleDateFormat` is not thread-safe, so each thread keeps its own — and
+ * building one is not cheap: the pattern is compiled and the locale's month and
+ * weekday names are loaded. Constructing two of them per row (`formatBengaliDate`
+ * built three) put that cost inside the scroll, where it was paid again for every
+ * visible row on every pass.
+ *
+ * `java.time` would do this without the ceremony, but `minSdk` is 24 and this
+ * module does not enable core library desugaring, so it would throw on Android 7.
+ */
+
+/** Every digit of [text] in Bengali numerals — dates and clocks included. */
+
 
 @Composable
 fun Byline(
@@ -266,7 +339,7 @@ fun Byline(
         if (!category.isNullOrBlank()) add(category)
         val date = formatBengaliDate(publishedDate)
         if (date.isNotBlank()) add(date)
-        if (readingTimeMinutes > 0) add("$readingTimeMinutes মিনিট")
+        if (readingTimeMinutes > 0) add(tNow("{1} মিনিট", readingTimeMinutes))
     }
     if (parts.isEmpty()) return
     Text(
@@ -349,10 +422,10 @@ fun HeroArticleCard(
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                Color(0x33000000),
-                                Color(0x11000000),
-                                Color(0x99100C09),
-                                Color(0xF5100C09)
+                                Color(0x330B0E14),
+                                Color(0x110B0E14),
+                                Color(0x990B0E14),
+                                Color(0xF50B0E14)
                             )
                         )
                     )
@@ -373,7 +446,8 @@ fun HeroArticleCard(
                             style = EditorialType.Eyebrow.copy(
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp
+                                fontSize = textSize(11),
+                                lineHeight = leading(11)
                             ),
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                         )
@@ -382,8 +456,8 @@ fun HeroArticleCard(
                 Text(
                     text = article.title,
                     style = EditorialType.Headline.copy(
-                        fontSize = 19.sp,
-                        lineHeight = 27.sp,
+                        fontSize = textSize(19),
+                        lineHeight = leading(19),
                         fontWeight = FontWeight.Bold
                     ),
                     color = Color.White,
@@ -411,7 +485,7 @@ fun HeroArticleCard(
                     }
                     if (article.readingTimeMinutes > 0) {
                         Text(
-                            text = "•  ${article.readingTimeMinutes} মি.",
+                            text = "•  " + t("{1} মি.", article.readingTimeMinutes),
                             style = EditorialType.Caption,
                             color = Color.White.copy(alpha = 0.75f)
                         )
@@ -534,7 +608,7 @@ fun ArticleRow(
                 ) {
                     Icon(
                         imageVector = if (saved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                        contentDescription = if (saved) "সংরক্ষণ বাতিল করুন" else "সংরক্ষণ করুন",
+                        contentDescription = if (saved) t("সংরক্ষণ বাতিল করুন") else t("সংরক্ষণ করুন"),
                         tint = if (saved) LocalEditorialTokens.current.accent else LocalEditorialTokens.current.inkMuted,
                         modifier = Modifier.size(20.dp)
                     )
@@ -632,14 +706,14 @@ fun AiAssistantHomeBanner(
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (tokens.isDark) Color(0xFF261814) else Color(0xFFFBF4EC)
+            containerColor = tokens.surfaceVariant
         ),
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = EditorialSpace.gutter, vertical = EditorialSpace.xs)
             .border(
                 1.dp,
-                if (tokens.isDark) Color(0xFF4A2F25) else Color(0xFFE8D3C1),
+                tokens.ruleStrong,
                 RoundedCornerShape(16.dp)
             )
     ) {
@@ -669,17 +743,18 @@ fun AiAssistantHomeBanner(
                 }
                 Column(Modifier.weight(1f)) {
                     Text(
-                        text = "নিংশিং চে AI সহকারী",
+                        text = t("নিংশিং চে AI সহকারী"),
                         fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
+                        fontSize = textSize(16),
+                        lineHeight = leading(16),
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, সংস্কৃতি ও ইতিহাসের যে কোনো প্রশ্ন করুন",
+                        text = t("বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, সংস্কৃতি ও ইতিহাসের যে কোনো প্রশ্ন করুন"),
                         fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-                        fontSize = 12.sp,
-                        lineHeight = 17.sp,
+                        fontSize = textSize(12),
+                        lineHeight = textSize(17),
                         color = tokens.inkSoft
                     )
                 }
@@ -692,21 +767,22 @@ fun AiAssistantHomeBanner(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                listOf("সুদেষ্ণা সিংহ", "মিংকৌ প্রথা", "বিষু উৎসব").forEach { tag ->
+                listOf(t("সুদেষ্ণা সিংহ"), t("মিংকৌ প্রথা"), t("বিষু উৎসব")).forEach { tag ->
                     Surface(
                         onClick = { onPromptClick(tag) },
                         shape = RoundedCornerShape(16.dp),
-                        color = if (tokens.isDark) Color(0xFF38231C) else Color(0xFFFFFFFF),
+                        color = if (tokens.isDark) tokens.surface else Color.White,
                         border = androidx.compose.foundation.BorderStroke(
                             1.dp,
-                            if (tokens.isDark) Color(0xFF5A392F) else Color(0xFFE2CEBC)
+                            if (tokens.isDark) tokens.rule else tokens.ruleStrong
                         ),
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(
                             text = tag,
                             fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-                            fontSize = 11.sp,
+                            fontSize = textSize(11),
+                            lineHeight = leading(11),
                             fontWeight = FontWeight.Medium,
                             color = tokens.accent,
                             maxLines = 1,
@@ -731,9 +807,10 @@ fun AiAssistantHomeBanner(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "AI সহকারীকে জিজ্ঞাসা করুন",
+                    text = t("AI সহকারীকে জিজ্ঞাসা করুন"),
                     fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-                    fontSize = 13.sp,
+                    fontSize = textSize(13),
+                    lineHeight = leading(13),
                     fontWeight = FontWeight.Bold,
                     color = tokens.accent
                 )
@@ -751,15 +828,15 @@ fun AiAssistantHomeBanner(
 
 private fun getFallbackCategoryImage(slug: String, title: String): String {
     return when {
-        slug.contains("history") || title.contains("ইতিহাস") ->
+        slug.contains("history") || title.contains(tNow("ইতিহাস")) ->
             "https://images.unsplash.com/photo-1461360370896-922624d12aa1?w=600&auto=format&fit=crop&q=80"
-        slug.contains("literature") || title.contains("সাহিত্য") ->
+        slug.contains("literature") || title.contains(tNow("সাহিত্য")) ->
             "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?w=600&auto=format&fit=crop&q=80"
-        slug.contains("culture") || title.contains("সংস্কৃতি") ->
+        slug.contains("culture") || title.contains(tNow("সংস্কৃতি")) ->
             "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=600&auto=format&fit=crop&q=80"
-        slug.contains("social") || title.contains("সমাজ") ->
+        slug.contains("social") || title.contains(tNow("সমাজ")) ->
             "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&auto=format&fit=crop&q=80"
-        slug.contains("play") || title.contains("নাটক") ->
+        slug.contains("play") || title.contains(tNow("নাটক")) ->
             "https://images.unsplash.com/photo-1507676184212-d03ab07a01bf?w=600&auto=format&fit=crop&q=80"
         else ->
             "https://images.unsplash.com/photo-1455390582262-044cdead277a?w=600&auto=format&fit=crop&q=80"
@@ -774,16 +851,17 @@ fun CategoryVisualCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val tokens = LocalEditorialTokens.current
     Card(
         onClick = onClick,
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = LocalEditorialTokens.current.surfaceSunken),
-modifier = modifier
-                .width(180.dp)
-                .height(100.dp)
+        colors = CardDefaults.cardColors(containerColor = tokens.surfaceSunken),
+        modifier = modifier
+            .width(180.dp)
+            .height(100.dp)
             .then(
-                if (isSelected) Modifier.border(2.dp, LocalEditorialTokens.current.accent, RoundedCornerShape(14.dp))
-                else Modifier.border(1.dp, LocalEditorialTokens.current.rule, RoundedCornerShape(14.dp))
+                if (isSelected) Modifier.border(2.dp, tokens.accent, RoundedCornerShape(14.dp))
+                else Modifier.border(1.dp, tokens.rule, RoundedCornerShape(14.dp))
             )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -800,9 +878,9 @@ modifier = modifier
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                Color(0x33000000),
-                                Color(0x881A120B),
-                                Color(0xFA140D08)
+                                Color(0x330B0E14),
+                                Color(0x880B0E14),
+                                Color(0xFA0B0E14)
                             )
                         )
                     )
@@ -827,8 +905,8 @@ modifier = modifier
                         text = category.title,
                         fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
-                        lineHeight = 20.sp,
+                        fontSize = textSize(15),
+                        lineHeight = textSize(20),
                         color = Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -838,9 +916,9 @@ modifier = modifier
                     Text(
                         text = category.subTitle,
                         fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-                        fontSize = 11.sp,
-                        lineHeight = 14.sp,
-                        color = Color(0xFFFFD59E),
+                        fontSize = textSize(11),
+                        lineHeight = textSize(14),
+                        color = tokens.accentOverArt,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(top = 1.dp)
@@ -862,7 +940,7 @@ fun CategoryRail(
     if (categories.isEmpty()) return
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(
-            title = "বিষয় ও বিভাগসমূহ",
+            title = t("বিষয় ও বিভাগসমূহ"),
             actionLabel = if (onSeeAll != null) "সব" else null,
             onAction = onSeeAll
         )
@@ -936,9 +1014,10 @@ fun GalleryModalDialog(
                             color = tokens.accentSoft
                         ) {
                             Text(
-                                text = items[pagerState.currentPage].category.ifBlank { "ছবি ঘর" },
+                                text = items[pagerState.currentPage].category.ifBlank { tNow("ছবি ঘর") },
                                 fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-                                fontSize = 12.sp,
+                                fontSize = textSize(12),
+                                lineHeight = leading(12),
                                 fontWeight = FontWeight.Bold,
                                 color = tokens.accent,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
@@ -946,9 +1025,10 @@ fun GalleryModalDialog(
                         }
                         if (items.size > 1) {
                             Text(
-                                text = "${bengaliDigits(pagerState.currentPage + 1)} / ${bengaliDigits(items.size)}",
+                                text = "${toBengaliDigits(pagerState.currentPage + 1)} / ${toBengaliDigits(items.size)}",
                                 fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-                                fontSize = 12.sp,
+                                fontSize = textSize(12),
+                                lineHeight = leading(12),
                                 color = tokens.inkMuted,
                                 modifier = Modifier.padding(start = 10.dp, top = 4.dp)
                             )
@@ -958,7 +1038,7 @@ fun GalleryModalDialog(
                     IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "বন্ধ করুন",
+                            contentDescription = t("বন্ধ করুন"),
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
@@ -1001,7 +1081,7 @@ fun GalleryModalDialog(
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "আগের ছবি",
+                                contentDescription = t("আগের ছবি"),
                                 tint = if (pagerState.currentPage > 0) Color.White
                                 else Color.White.copy(alpha = 0.25f)
                             )
@@ -1019,7 +1099,7 @@ fun GalleryModalDialog(
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                contentDescription = "পরের ছবি",
+                                contentDescription = t("পরের ছবি"),
                                 tint = if (pagerState.currentPage < items.lastIndex) Color.White
                                 else Color.White.copy(alpha = 0.25f)
                             )
@@ -1037,8 +1117,8 @@ fun GalleryModalDialog(
                         text = items[pagerState.currentPage].title,
                         fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        lineHeight = 25.sp,
+                        fontSize = textSize(18),
+                        lineHeight = leading(18),
                         color = MaterialTheme.colorScheme.onSurface
                     )
 
@@ -1048,8 +1128,8 @@ fun GalleryModalDialog(
                         Text(
                             text = description,
                             fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-                            fontSize = 14.sp,
-                            lineHeight = 22.sp,
+                            fontSize = textSize(14),
+                            lineHeight = leading(14),
                             color = tokens.inkSoft,
                             maxLines = 3,
                             overflow = TextOverflow.Ellipsis
@@ -1094,7 +1174,7 @@ fun GalleryModalDialog(
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                text = "শেয়ার করুন",
+                                text = t("শেয়ার করুন"),
                                 fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
                                 fontWeight = FontWeight.Bold,
                                 color = tokens.accent
@@ -1108,12 +1188,7 @@ fun GalleryModalDialog(
 }
 
 /** `12` -> `১২`, so the page counter matches the Bengali UI. */
-private fun bengaliDigits(value: Int): String {
-    val bengali = charArrayOf('০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯')
-    return value.toString().map { ch ->
-        if (ch in '0'..'9') bengali[ch - '0'] else ch
-    }.joinToString("")
-}
+
 
 @Composable
 fun ArticleRail(
@@ -1147,7 +1222,7 @@ fun AuthorRail(
 ) {
     if (authors.isEmpty()) return
     Column(modifier = Modifier.fillMaxWidth()) {
-        SectionHeader(title = "লেখক")
+        SectionHeader(title = t("লেখক"))
         LazyRow(
             contentPadding = PaddingValues(horizontal = EditorialSpace.gutter),
             horizontalArrangement = Arrangement.spacedBy(EditorialSpace.md)
@@ -1199,10 +1274,7 @@ fun AuthorChip(author: AuthorRef, onClick: () -> Unit) {
                 )
                 if (isVerified) {
                     Spacer(Modifier.width(4.dp))
-                    com.ningshingche.app.ui.components.VerifiedBadge(
-                        size = 14.dp,
-                        animated = false
-                    )
+                    com.ningshingche.app.ui.components.VerifiedBadge(size = 14.dp)
                 }
             }
             Text(
@@ -1246,7 +1318,7 @@ fun GalleryGrid(
     }
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        SectionHeader(title = "ছবি ঘর")
+        SectionHeader(title = t("ছবি ঘর"))
         HorizontalPager(
             state = pagerState,
             contentPadding = PaddingValues(horizontal = EditorialSpace.gutter),
@@ -1282,7 +1354,7 @@ fun GalleryGrid(
                             .matchParentSize()
                             .background(
                                 Brush.verticalGradient(
-                                    listOf(Color.Transparent, Color(0xCC140D08), Color(0xF2140D08))
+                                    listOf(Color.Transparent, Color(0xCC0B0E14), Color(0xF20B0E14))
                                 )
                             )
                     )
@@ -1350,7 +1422,7 @@ fun PdfRail(
     if (books.isEmpty()) return
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(
-            title = "বই ও সাময়িকী",
+            title = t("বই ও সাময়িকী"),
             actionLabel = if (onSeeAll != null) "সব" else null,
             onAction = onSeeAll
         )
@@ -1408,7 +1480,7 @@ fun VideoRail(
     if (videos.isEmpty()) return
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(
-            title = "ভিডিও",
+            title = t("ভিডিও"),
             actionLabel = if (onSeeAll != null) "সব" else null,
             onAction = onSeeAll
         )
@@ -1436,7 +1508,7 @@ fun VideoRail(
                             )
                             Surface(
                                 shape = RoundedCornerShape(EditorialShape.chip),
-                                color = Color(0xCC1A1512),
+                                color = Color(0xCC131722),
                                 modifier = Modifier
                                     .align(Alignment.TopStart)
                                     .padding(EditorialSpace.xs)
@@ -1476,7 +1548,7 @@ fun MusicRail(
     if (tracks.isEmpty()) return
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(
-            title = "সঙ্গীত",
+            title = t("সঙ্গীত"),
             actionLabel = if (onSeeAll != null) "সব" else null,
             onAction = onSeeAll
         )
@@ -1514,7 +1586,7 @@ fun MusicRail(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.PlayArrow,
-                                    contentDescription = "চালান",
+                                    contentDescription = t("চালান"),
                                     tint = Color.White,
                                     modifier = Modifier.padding(8.dp)
                                 )
@@ -1628,7 +1700,7 @@ fun ErrorState(
     EmptyState(
         message = message,
         modifier = modifier,
-        actionLabel = "আবার চেষ্টা করুন",
+        actionLabel = t("আবার চেষ্টা করুন"),
         onAction = onRetry
     )
 }

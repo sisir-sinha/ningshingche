@@ -71,13 +71,15 @@ import com.ningshingche.app.ui.editorial.Hairline
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.editorial.toBengaliNumeral
 import com.ningshingche.app.ui.theme.Kalpurush
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 
 @Composable
 internal fun MusicSearchField(
     value: String,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
-    placeholder: String = "গান, শিল্পী, অ্যালবাম, ধরন…"
+    placeholder: String = tNow("গান, শিল্পী, অ্যালবাম, ধরন…")
 ) {
     OutlinedTextField(
         value = value,
@@ -87,7 +89,7 @@ internal fun MusicSearchField(
         trailingIcon = {
             if (value.isNotEmpty()) {
                 IconButton(onClick = { onValueChange("") }) {
-                    Icon(Icons.Default.Close, contentDescription = "মুছুন")
+                    Icon(Icons.Default.Close, contentDescription = t("মুছুন"))
                 }
             }
         },
@@ -206,7 +208,7 @@ private fun MusicShelfCard(shelf: MusicShelf, onClick: () -> Unit) {
                 fontFamily = Kalpurush
             )
             Text(
-                text = "${shelf.trackCount}টি গান",
+                text = t("{1}টি গান", shelf.trackCount),
                 style = EditorialType.Caption,
                 color = tokens.inkMuted,
                 maxLines = 1
@@ -281,7 +283,7 @@ internal fun MusicCatalogCard(
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.PlayArrow,
-                                contentDescription = "চালান",
+                                contentDescription = t("চালান"),
                                 tint = Color.White,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -337,7 +339,7 @@ internal fun MusicCatalogCard(
                 // they wrote.
                 if (track.uploaderName.isNotBlank()) {
                     Text(
-                        text = "আপলোডার: ${track.uploaderName}",
+                        text = t("আপলোডার: {1}", track.uploaderName),
                         style = EditorialType.Caption,
                         color = if (track.uploaderId.isNotBlank()) tokens.accent else tokens.inkMuted,
                         maxLines = 1,
@@ -361,7 +363,7 @@ internal fun MusicCatalogCard(
                             modifier = Modifier.size(13.dp)
                         )
                         Text(
-                            text = "${toBengaliNumeral(track.viewsCount)} বার শোনা",
+                            text = t("{1} বার শোনা", toBengaliNumeral(track.viewsCount)),
                             style = EditorialType.Caption,
                             color = tokens.inkMuted
                         )
@@ -375,7 +377,7 @@ internal fun MusicCatalogCard(
                 IconButton(onClick = { player.toggleLikeFor(track) }) {
                     Icon(
                         imageVector = if (loved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        contentDescription = "পছন্দ",
+                        contentDescription = t("পছন্দ"),
                         tint = if (loved) Color(0xFFE53935) else tokens.inkMuted
                     )
                 }
@@ -414,9 +416,9 @@ fun MusicEntityScreen(
         MusicCatalogIndex.shelf(kind, name, tracks)
     }
     val heading = when (kind) {
-        MusicShelfKind.Genre -> "ধরন"
-        MusicShelfKind.Artist -> "শিল্পী"
-        MusicShelfKind.Album -> "অ্যালবাম"
+        MusicShelfKind.Genre -> t("ধরন")
+        MusicShelfKind.Artist -> t("শিল্পী")
+        MusicShelfKind.Album -> t("অ্যালবাম")
     }
 
     Scaffold(
@@ -432,7 +434,7 @@ fun MusicEntityScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "পেছনে")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t("পেছনে"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -457,7 +459,7 @@ fun MusicEntityScreen(
                 modifier = Modifier.padding(padding)
             )
             matched.isEmpty() -> EmptyState(
-                message = "এই $heading-এ কোনো গান নেই।",
+                message = t("এই {1}-এ কোনো গান নেই।", heading),
                 modifier = Modifier.padding(padding)
             )
             else -> {
@@ -488,7 +490,7 @@ fun MusicEntityScreen(
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = heading + " · ${matched.size}টি গান",
+                                text = heading + t("· {1}টি গান", matched.size),
                                 style = EditorialType.Caption,
                                 color = LocalEditorialTokens.current.inkMuted,
                                 modifier = Modifier.padding(top = 4.dp)
@@ -508,7 +510,7 @@ fun MusicEntityScreen(
                             }) {
                                 Icon(Icons.Default.PlayArrow, contentDescription = null)
                                 Spacer(Modifier.width(8.dp))
-                                Text("সব চালান", fontFamily = Kalpurush)
+                                Text(t("সব চালান"), fontFamily = Kalpurush)
                             }
                             Spacer(Modifier.height(EditorialSpace.md))
                             Hairline()

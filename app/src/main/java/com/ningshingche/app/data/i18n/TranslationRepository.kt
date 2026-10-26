@@ -26,8 +26,22 @@ import java.util.concurrent.TimeUnit
  * the UI. Keys are the Bengali strings written in the app, so a language file
  * only has to translate what it knows — anything absent stays Bengali.
  *
- * Order of business: the cached table is available immediately (offline first),
- * then a refresh replaces it when the server copy is newer.
+ * Order of business, and it is the whole point of this class: the table in force
+ * is available immediately (offline first), then a refresh replaces it if the
+ * server has something newer. Three places a table can come from, in the order
+ * they win:
+ *
+ *   1. the file published from the dashboard — an editor's rewording reaches the
+ *      app without an update;
+ *   2. the file packaged in the app, `assets/i18n/<code>.csv`, which is a copy of
+ *      the committed translation; this is what makes the language swap work on a
+ *      fresh install, offline, before anybody has pressed Save;
+ *   3. nothing at all — every lookup misses and the app shows the Bengali it was
+ *      compiled with. That is a language, not a hole.
+ *
+ * An empty row is only ever "nobody has published this language": it never
+ * blanks a table the app already has. Bengali has no packaged copy on purpose —
+ * its file is the identity, and the compiled strings are already it.
  *
  * Bengali is fetched like the other languages. Its file is empty until an editor
  * rewrites a word on the dashboard's Languages page, and until then every lookup
@@ -47,13 +61,17 @@ class TranslationRepository(context: Context) {
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    /** The parsed table for [language]; fills itself from cache, then the network. */
+    /** The parsed table for [language]; fills itself from disk, then the network. */
     fun strings(language: ContentLanguage): StateFlow<Map<String, String>> {
         val flow = flows.getOrPut(language) { MutableStateFlow<Map<String, String>>(emptyMap()) }
         if (loaded.putIfAbsent(language, true) == null) {
             scope.launch {
-                val cached = readCache(language)
-                if (cached.isNotEmpty()) flow.value = cached
+                // A published copy on disk is the newest thing the app has seen;
+                // failing that, the copy that came with the app. Either way the
+                // table is in place before the request goes out, so the swap is
+                // instant and survives being offline.
+                val base = readCache(language).ifEmpty { packaged(language) }
+                if (base.isNotEmpty()) flow.value = base
                 refresh(language)
             }
         }
@@ -62,13 +80,30 @@ class TranslationRepository(context: Context) {
         return flow
     }
 
-    /** Forces a fetch — used by the language switch and the Settings refresh. */
-    suspend fun refresh(language: ContentLanguage): Result<Map<String, String>> =
-        fetch(language).onSuccess { table ->
-            flows.getOrPut(language) { MutableStateFlow<Map<String, String>>(emptyMap()) }.value = table
+    /**
+     * Forces a fetch — used by the language switch and the Settings refresh.
+     *
+     * Returns the table the app is using afterwards. A row whose CSV is still
+     * blank is a successful request with nothing to apply: the app keeps the
+     * table it already has, and falls back to the packaged copy if it somehow
+     * has none.
+     */
+    suspend fun refresh(language: ContentLanguage): Result<Map<String, String>> {
+        val flow = flows.getOrPut(language) { MutableStateFlow<Map<String, String>>(emptyMap()) }
+        val fetched = fetch(language)
+        val published = fetched.getOrNull()
+        when {
+            // Something was actually published for this language: it wins.
+            published != null && published.csv.isNotBlank() -> {
+                writeCache(language, published.csv)
+                flow.value = published.table
+            }
+            flow.value.isEmpty() -> flow.value = packaged(language)
         }
+        return fetched.map { flow.value }
+    }
 
-    private suspend fun fetch(language: ContentLanguage): Result<Map<String, String>> =
+    private suspend fun fetch(language: ContentLanguage): Result<Published> =
         withContext(Dispatchers.IO) {
             val url = "${SupabaseConfig.restBaseUrl}/app_language_files" +
                 "?select=csv&lang=eq.${language.code()}"
@@ -85,13 +120,9 @@ class TranslationRepository(context: Context) {
                     }
                     val body = response.body?.string().orEmpty()
                     val csv = JSONArray(body).optJSONObject(0)?.optString("csv").orEmpty()
-                    if (csv.isBlank()) {
-                        // The row exists but nobody has published a file yet.
-                        return@withContext Result.success(emptyMap())
-                    }
-                    val table = parseCsv(csv)
-                    writeCache(language, csv)
-                    Result.success(table)
+                    // The row exists but nobody has published a file yet: hand
+                    // back the blank so the caller leaves the table alone.
+                    Result.success(Published(csv, if (csv.isBlank()) emptyMap() else parseCsv(csv)))
                 }
             } catch (error: Exception) {
                 Result.failure(error)
@@ -105,6 +136,24 @@ class TranslationRepository(context: Context) {
     }
 
     private val memory = ConcurrentHashMap<ContentLanguage, Map<String, String>>()
+    private val packagedCopies = ConcurrentHashMap<ContentLanguage, Map<String, String>>()
+
+    /**
+     * The translations that travelled with the app, read once per language from
+     * `assets/i18n/<code>.csv`. Bengali has no file: it is the identity column,
+     * and every Bengali string is already compiled into the app.
+     */
+    private fun packaged(language: ContentLanguage): Map<String, String> =
+        packagedCopies.getOrPut(language) {
+            runCatching {
+                appContext.assets.open("$ASSET_DIR/${language.code()}.csv").use { stream ->
+                    parseCsv(stream.readBytes().toString(Charsets.UTF_8))
+                }
+            }.getOrDefault(emptyMap())
+        }
+
+    /** A language file as the server has it: the CSV it holds, and its table. */
+    private class Published(val csv: String, val table: Map<String, String>)
 
     private fun readCache(language: ContentLanguage): Map<String, String> {
         memory[language]?.let { return it }
@@ -124,6 +173,7 @@ class TranslationRepository(context: Context) {
 
     companion object {
         private const val CACHE_DIR = "i18n"
+        private const val ASSET_DIR = "i18n"
 
         /**
          * `key,value` CSV with quoted fields, as written by the dashboard.

@@ -45,20 +45,23 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ningshingche.app.ui.components.GoogleSignInButton
 import com.ningshingche.app.ui.components.NingshingCheBrandLogo
+import com.ningshingche.app.ui.theme.textSize
+import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.SettingsViewModel
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 
 @Composable
 fun WelcomeLoginScreen(
     viewModel: SettingsViewModel,
     onSignedIn: () -> Unit,
     onSkip: () -> Unit = onSignedIn,
-    skipLabel: String = "সাইন-ইন ছাড়া এগিয়ে যান"
+    skipLabel: String = tNow("সাইন-ইন ছাড়া এগিয়ে যান")
 ) {
     val context = LocalContext.current
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
@@ -82,24 +85,27 @@ fun WelcomeLoginScreen(
         NingshingCheBrandLogo(size = 88.dp)
         Spacer(Modifier.height(20.dp))
         Text(
-            text = "নিংশিং চে",
+            text = t("নিংশিং চে"),
             fontFamily = Kalpurush,
             fontWeight = FontWeight.Bold,
-            fontSize = 30.sp,
+            fontSize = textSize(30),
+            lineHeight = leading(30),
             color = MaterialTheme.colorScheme.onBackground
         )
         Text(
-            text = "স্বাগতম। Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন।",
+            text = t("স্বাগতম। Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন।"),
             fontFamily = Kalpurush,
-            fontSize = 15.sp,
+            fontSize = textSize(15),
+            lineHeight = leading(15),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
         )
         Text(
-            text = "প্রথমবার খুললে সাইন-ইন প্রয়োজন। তারপর বিজ্ঞপ্তি চালু করতে পারবেন।",
+            text = t("প্রথমবার খুললে সাইন-ইন প্রয়োজন। তারপর বিজ্ঞপ্তি চালু করতে পারবেন।"),
             fontFamily = Kalpurush,
-            fontSize = 13.sp,
+            fontSize = textSize(13),
+            lineHeight = leading(13),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(bottom = 28.dp)
@@ -139,7 +145,8 @@ fun WelcomeLoginScreen(
             Text(
                 text = skipLabel,
                 fontFamily = Kalpurush,
-                fontSize = 14.sp,
+                fontSize = textSize(14),
+                lineHeight = leading(14),
                 color = MaterialTheme.colorScheme.primary
             )
         }
@@ -150,7 +157,7 @@ fun WelcomeLoginScreen(
 fun WelcomeNotificationsScreen(
     viewModel: SettingsViewModel,
     onFinished: () -> Unit,
-    finishLabel: String = "বিজ্ঞপ্তি চালু করুন"
+    finishLabel: String = tNow("বিজ্ঞপ্তি চালু করুন")
 ) {
     val context = LocalContext.current
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -201,17 +208,19 @@ fun WelcomeNotificationsScreen(
         }
         Spacer(Modifier.height(20.dp))
         Text(
-            text = "বিজ্ঞপ্তি চালু করুন",
+            text = t("বিজ্ঞপ্তি চালু করুন"),
             fontFamily = Kalpurush,
             fontWeight = FontWeight.Bold,
-            fontSize = 26.sp,
+            fontSize = textSize(26),
+            lineHeight = leading(26),
             color = MaterialTheme.colorScheme.onBackground,
             textAlign = TextAlign.Center
         )
         Text(
-            text = "নতুন কিছু প্রকাশিত হলে অ্যান্ড্রয়েড নোটিফিকেশনে জানানো হবে।",
+            text = t("নতুন কিছু প্রকাশিত হলে অ্যান্ড্রয়েড নোটিফিকেশনে জানানো হবে।"),
             fontFamily = Kalpurush,
-            fontSize = 14.sp,
+            fontSize = textSize(14),
+            lineHeight = leading(14),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp, bottom = 24.dp)
@@ -227,10 +236,10 @@ fun WelcomeNotificationsScreen(
                 modifier = Modifier.padding(18.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                NoticeRow(Icons.Default.Article, "নতুন প্রবন্ধ")
-                NoticeRow(Icons.Default.Videocam, "নতুন ভিডিও")
-                NoticeRow(Icons.Default.MenuBook, "নতুন PDF বই")
-                NoticeRow(Icons.Default.SystemUpdate, "সিস্টেম আপডেট")
+                NoticeRow(Icons.Default.Article, t("নতুন প্রবন্ধ"))
+                NoticeRow(Icons.Default.Videocam, t("নতুন ভিডিও"))
+                NoticeRow(Icons.Default.MenuBook, t("নতুন PDF বই"))
+                NoticeRow(Icons.Default.SystemUpdate, t("সিস্টেম আপডেট"))
             }
         }
 
@@ -252,7 +261,8 @@ fun WelcomeNotificationsScreen(
                 text = finishLabel,
                 fontFamily = Kalpurush,
                 fontWeight = FontWeight.Bold,
-                fontSize = 16.sp
+                fontSize = textSize(16),
+                lineHeight = leading(16)
             )
         }
 
@@ -263,9 +273,10 @@ fun WelcomeNotificationsScreen(
             modifier = Modifier.testTag("welcome_skip_notifications_button")
         ) {
             Text(
-                text = "এখন নয়",
+                text = t("এখন নয়"),
                 fontFamily = Kalpurush,
-                fontSize = 14.sp,
+                fontSize = textSize(14),
+                lineHeight = leading(14),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -285,7 +296,8 @@ private fun NoticeRow(icon: ImageVector, label: String) {
         Text(
             text = label,
             fontFamily = Kalpurush,
-            fontSize = 15.sp,
+            fontSize = textSize(15),
+            lineHeight = leading(15),
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurface
         )

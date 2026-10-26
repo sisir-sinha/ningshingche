@@ -12,6 +12,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.ningshingche.app.MainActivity
 import com.ningshingche.app.R
+import com.ningshingche.app.ui.i18n.tNow
 
 /**
  * Thin wrapper around Android's [NotificationManager]. Channels are created
@@ -43,23 +44,23 @@ class AppNotificationManager(private val context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         val channels = listOf(
-            NotificationChannel(CHANNEL_ARTICLES, "নতুন প্রবন্ধ", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "নতুন ও নির্বাচিত প্রবন্ধ প্রকাশিত হলে"
+            NotificationChannel(CHANNEL_ARTICLES, tNow("নতুন প্রবন্ধ"), NotificationManager.IMPORTANCE_HIGH).apply {
+                description = tNow("নতুন ও নির্বাচিত প্রবন্ধ প্রকাশিত হলে")
             },
-            NotificationChannel(CHANNEL_VIDEOS, "নতুন ভিডিও", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                description = "নতুন ভিডিও যোগ হলে"
+            NotificationChannel(CHANNEL_VIDEOS, tNow("নতুন ভিডিও"), NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = tNow("নতুন ভিডিও যোগ হলে")
             },
-            NotificationChannel(CHANNEL_PDFS, "নতুন PDF বই", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                description = "নতুন PDF বই প্রকাশিত হলে"
+            NotificationChannel(CHANNEL_PDFS, tNow("নতুন PDF বই"), NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = tNow("নতুন PDF বই প্রকাশিত হলে")
             },
-            NotificationChannel(CHANNEL_SYSTEM, "সিস্টেম আপডেট", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "অ্যাপ ও সাইট হালনাগাদ"
+            NotificationChannel(CHANNEL_SYSTEM, tNow("সিস্টেম আপডেট"), NotificationManager.IMPORTANCE_HIGH).apply {
+                description = tNow("অ্যাপ ও সাইট হালনাগাদ")
             },
-            NotificationChannel(CHANNEL_GENERAL, "অন্যান্য", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                description = "গ্যালারি ও অন্যান্য আপডেট"
+            NotificationChannel(CHANNEL_GENERAL, tNow("অন্যান্য"), NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = tNow("গ্যালারি ও অন্যান্য আপডেট")
             },
-            NotificationChannel(CHANNEL_MESSAGES, "অ্যাডমিন বার্তা", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "অ্যাডমিন নতুন বার্তা পাঠালে"
+            NotificationChannel(CHANNEL_MESSAGES, tNow("অ্যাডমিন বার্তা"), NotificationManager.IMPORTANCE_HIGH).apply {
+                description = tNow("অ্যাডমিন নতুন বার্তা পাঠালে")
             }
         )
         manager.createNotificationChannels(channels)

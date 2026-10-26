@@ -25,7 +25,11 @@ const TABLES = {
   galleries: 'galleries', books: 'pdf_books', submissions: 'submitted_blogs', videos: 'videos',
   music: 'music_tracks', settings: 'settings', profiles: 'profiles',
   notifications: 'user_notifications', messages: 'admin_messages',
-  languageFiles: 'app_language_files'
+  languageFiles: 'app_language_files',
+  // The forum, which config.js has carried since 029: the dashboard's overview reads
+  // the threads and answers, which is how a database without 029 raises the banner.
+  forum: 'forum_discussions', forumReplies: 'forum_replies', forumCategories: 'forum_categories',
+  forumReactions: 'forum_reactions'
 };
 
 const PROBED = Object.values(TABLES);
@@ -49,6 +53,13 @@ const SCHEMA = {
   user_notifications: ['id', 'user_id', 'title'],
   admin_messages: ['id', 'sender_id', 'body'],
   app_language_files: ['lang', 'label', 'csv', 'row_count', 'updated_at'],
+  forum_discussions: ['id', 'title', 'status', 'category_id', 'user_id', 'views_count', 'replies_count',
+    'is_official', 'created_at', 'last_reply_at', 'author_name'],
+  forum_replies: ['id', 'discussion_id', 'user_id', 'status', 'parent_id', 'author_name', 'is_official', 'created_at'],
+  forum_categories: ['id', 'slug', 'title'],
+  // Keyed on (reply_id, reactor_key): no `id` column, which is why the probe carries
+  // its own column list for it.
+  forum_reactions: ['reply_id', 'reactor_key', 'user_id', 'kind', 'created_at'],
   blog_tag_counts: ['tag_key', 'issue_year', 'total'] // optional view, migration 013
 };
 
@@ -93,6 +104,15 @@ function setup({ drop = {}, fail = {}, legacy = false, tagView = true } = {}) {
   vm.createContext(sandbox);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../assets/js/api.js'), 'utf8'), sandbox);
   return { NC: sandbox.NC, calls, probe: (options) => sandbox.NC.api.schemaProbe(options) };
+}
+
+/** The real config.js, loaded in a sandbox: tables and their database names. */
+function loadConfig() {
+  const sandbox = { window: {} };
+  sandbox.window.window = sandbox.window;
+  vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../assets/js/config.js'), 'utf8'), sandbox);
+  return sandbox.window.NC_CONFIG;
 }
 
 const probeCall = (calls, table) => calls.filter((call) => call.table === table);
@@ -167,6 +187,133 @@ test('missing tables are reported with the schema file, not a migration', async 
   assert.match(issue.message, /1 required database table is missing/);
   assert.match(issue.message, /`authors`/);
   assert.match(issue.message, /backend\/supabase\/schema\.sql/);
+});
+
+test('every key the dashboard passes to the API is a table it knows', () => {
+  // The bug this guards, in full: assets/js/dashboard.js asked for a key called
+  // `forumAnswers`. config.tables has no such key (it has `forumReplies`), and
+  // NC.api.tableName falls back to the key itself — so the request went to
+  // /rest/v1/forumAnswers, PostgREST answered 404 PGRST205 ("Could not find the table
+  // 'public.forumAnswers' in the schema cache"), isSchemaMissing fired, and the overview
+  // raised "Database setup is required. Run backend/supabase/schema.sql" on every load,
+  // whatever the database actually contained. The forum page's reactions did the same
+  // with `forumReactions`, which is `forum_reactions`.
+  const config = loadConfig();
+  const known = Object.keys(config.tables);
+  const verbs = 'list|count|getById|insert|insertMany|update|upsert|remove|removeWhere';
+  const literal = new RegExp(`NC\\.api\\.(?:${verbs})\\(\\s*'([A-Za-z_]+)'`, 'g');
+  const offenders = [];
+  const dir = path.join(__dirname, '../assets/js');
+  for (const file of fs.readdirSync(dir).filter((name) => name.endsWith('.js'))) {
+    const text = fs.readFileSync(path.join(dir, file), 'utf8');
+    for (const match of text.matchAll(literal)) {
+      if (!known.includes(match[1])) offenders.push(`${file}: ${match[1]}`);
+    }
+  }
+  assert.deepEqual(offenders, [],
+    'a key with no entry in config.tables asks PostgREST for a table name that cannot exist');
+
+  // The overview's own entity list, which is where the banner came from.
+  const dashboard = fs.readFileSync(path.join(__dirname, '../assets/js/dashboard.js'), 'utf8');
+  const overview = /const allEntities = \[([\s\S]*?)\n    \];/.exec(dashboard);
+  assert.ok(overview, 'the overview still builds its entity list');
+  const keys = Array.from(overview[1].matchAll(/\['(\w+)',/g), (m) => m[1]);
+  assert.ok(keys.length >= 12, `the overview reads its twelve sources (${keys.length})`);
+  for (const key of keys) {
+    assert.ok(known.includes(key), `the overview reads \`${key}\`, which config.tables must know`);
+  }
+  assert.ok(keys.includes('forumReplies'), 'the answers read uses the key the config carries');
+  assert.ok(!/forumAnswers/.test(dashboard), 'and the phantom key is gone');
+});
+
+test('the two forum tables the config was missing are mapped and probed', async () => {
+  const { NC, calls, probe } = setup();
+  const config = loadConfig();
+  assert.equal(config.tables.forumReplies, 'forum_replies');
+  assert.equal(config.tables.forumReactions, 'forum_reactions',
+    'reactions resolve to the table migration 030 creates');
+  // The probe must ask forum_reactions for columns that exist: it is keyed on
+  // (reply_id, reactor_key), so the default `id` would be a 42703 — a healthy database
+  // reporting a missing column, which is the same trap in a different costume.
+  const result = await probe();
+  assert.equal(result.ok, true, 'the forum tables do not raise the banner');
+  assert.deepEqual(empty(result.missing) ? [] : keys(result.missing), []);
+  assert.deepEqual(empty(result.mismatched) ? [] : keys(result.mismatched), []);
+  assert.equal(probeCall(calls, 'forum_reactions')[0].select,
+    'reply_id,reactor_key,kind,user_id,created_at');
+  assert.ok(NC.api.schemaBanner(result) === null, 'and the banner stays away');
+});
+
+test('the setup check page asks about every table the config knows', () => {
+  const config = loadConfig();
+  const page = fs.readFileSync(path.join(__dirname, '../setup.html'), 'utf8');
+  for (const [key, table] of Object.entries(config.tables)) {
+    assert.ok(page.includes(`'${key}', '${table}'`),
+      `the check page should list ${key} -> ${table}`);
+  }
+});
+
+test('the hint names the table and the migration that adds it, not schema.sql', () => {
+  // The dashboard's overview does not run the probe; it learns which tables are missing
+  // from its own failed reads and knows them by key. Its banner used to be one hardcoded
+  // sentence — run backend/supabase/schema.sql — which is impossible advice when the
+  // missing table is music_tracks (014) or profiles (005), and which is why an editor
+  // could run schema.sql, reload, and meet the same banner again.
+  const { NC } = setup();
+  const hint = NC.api.schemaHint(['music']);
+  assert.equal(hint.title, 'Database setup required');
+  assert.match(hint.message, /`music_tracks`/, 'the table by its database name');
+  assert.match(hint.message, /014_music_tracks\.sql/, 'and the file that adds it');
+  assert.match(hint.message, /schema\.sql builds the base tables only/,
+    'while saying where the rest of them live');
+
+  // A table the base schema really does create still points at the base schema.
+  const base = NC.api.schemaHint(['authors']);
+  assert.match(base.message, /backend\/supabase\/schema\.sql/);
+  assert.doesNotMatch(base.message, /migrations\/005/);
+
+  // Several at once: every table named, every file named once.
+  const many = NC.api.schemaHint(['profiles', 'notifications', 'messages', 'forum']);
+  for (const name of ['profiles', 'user_notifications', 'admin_messages', 'forum_discussions']) {
+    assert.match(many.message, new RegExp('`' + name + '`'), `${name} should be named`);
+  }
+  for (const file of ['005_reader_profiles.sql', '007_user_inbox.sql', '029_forum.sql']) {
+    assert.match(many.message, new RegExp(file.replace('.', '\\.')));
+  }
+  assert.equal((many.message.match(/007_user_inbox\.sql/g) || []).length, 1,
+    'two tables from one file is still one file to run');
+  assert.equal(NC.api.schemaHint([]), null, 'nothing missing, nothing to say');
+  assert.equal(
+    NC.api.schemaHint(['music'], { purpose: 'so this page can load real data' })
+      .message.includes('so this page can load real data'),
+    true, 'the caller can say what the tables are for');
+});
+
+test('a failed save sends the editor to the check, not to schema.sql', () => {
+  // userMessage is what every failed save and every failed page load says. Its
+  // missing-table line was the overview banner's sentence — run schema.sql — which is
+  // the advice that trapped an editor in a loop.
+  const { NC } = setup();
+  const missing = new NC.api.ApiError('Could not find the table in the schema cache',
+    { status: 404, code: 'PGRST205' });
+  const text = NC.api.userMessage(missing);
+  assert.match(text, /Run check/, 'the check names the table and the file');
+  assert.match(text, /migrations\//, 'and where the rest of the files are');
+  assert.doesNotMatch(text, /Run backend\/supabase\/schema\.sql first/,
+    'never the sentence that cannot be followed');
+
+  const api = fs.readFileSync(path.join(__dirname, '../assets/js/api.js'), 'utf8');
+  assert.doesNotMatch(api, /not installed yet\. Run backend\/supabase\/schema\.sql first/,
+    'and it does not come back');
+});
+
+test('the overview banner is built from the hint, and no longer hardcodes schema.sql', () => {
+  const dashboard = fs.readFileSync(path.join(__dirname, '../assets/js/dashboard.js'), 'utf8');
+  assert.match(dashboard, /NC\.api\.schemaHint\(missingTables\.map\(\(item\) => item\.key\)/,
+    'the banner asks what is missing');
+  assert.doesNotMatch(dashboard, /Run backend\/supabase\/schema\.sql in the Supabase SQL Editor/,
+    'the sentence that could not be followed is gone');
+  assert.match(dashboard, /item\.error\?\.isSchemaMissing/, 'only a missing table raises it');
 });
 
 test('a legacy login asks for the access-control migration', async () => {

@@ -222,6 +222,24 @@
     return true;
   }
 
+  /**
+   * Delete by column rather than by `id`. For rows that have no `id` column of
+   * their own — `forum_reactions` is keyed by (reply_id, reactor_key) — and for
+   * the dashboard's "remove every one of these" actions, where the filter is the
+   * whole row set rather than a single key.
+   */
+  async function removeWhere(keyOrName, filters = {}) {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') params.set(key, filterExpression(value));
+    });
+    if (![...params.keys()].length) throw new ApiError('Refusing to delete without a filter.');
+    await request(`${restBase}/${tableName(keyOrName)}?${params}`, {
+      method: 'DELETE', headers: { Prefer: 'return=minimal' }
+    });
+    return true;
+  }
+
   async function rpc(functionName, payload = {}, options = {}) {
     const { data } = await request(`${restBase}/rpc/${functionName}`, {
       method: 'POST',
@@ -367,7 +385,8 @@
       ['submissions', 'Submit Blogs', 'file-pen', ['title', 'writer_name', 'content_title']],
       ['videos', 'Videos', 'video', ['title', 'description']],
       ['music', 'Music', 'music', ['title', 'artist', 'album']],
-      ['profiles', 'Registered users', 'user-group', ['name', 'email', 'phone', 'first_name', 'last_name']]
+      ['profiles', 'Registered users', 'user-group', ['name', 'email', 'phone', 'first_name', 'last_name']],
+      ['forum', 'Forum', 'comment-dots', ['title', 'body']]
     ];
     const accessible = definitions.filter(([table]) => {
       if (table === 'profiles') return NC.auth?.canAccess?.('registered-users');
@@ -390,12 +409,36 @@
   const PROBE_COLUMNS = {
     blogs: 'id,imgbb_delete_url,image_meta,inline_media,pdf_file_provider,pdf_storage_path,pdf_file_size_mb',
     submissions: 'id,inline_media',
-    languageFiles: 'lang,label,csv,row_count'
+    languageFiles: 'lang,label,csv,row_count',
+    // The forum is checked for the columns the page itself uses — moderating, in
+    // 030, and writing, in 032 — so a database short of either says so instead of
+    // half-loading a page.
+    forum: 'id,status,replies_count,last_reply_at,is_official,author_name',
+    forumReplies: 'id,status,parent_id,author_name,is_official',
+    // Keyed on (reply_id, reactor_key): there is no `id` column here, and asking for
+    // one is the mistake that once made a healthy database report a missing column.
+    forumReactions: 'reply_id,reactor_key,kind,user_id,created_at',
+    forumCategories: 'id,slug,title'
   };
 
-  /** The file that adds each probed table, or the columns it is checked for. */
+  /**
+   * The file that adds each probed table, or the columns it is checked for. A
+   * table built by more than one migration lists them in order — the forum is
+   * 029's tables, 030's columns, and 032's signature — because naming one file
+   * for a column another one adds is how a banner sends someone to the wrong SQL.
+   */
   const PROBE_FILES = {
     languageFiles: 'backend/supabase/migrations/023_app_language_files.sql',
+    // The overview reads these too, and none of them exists in schema.sql: the base
+    // file is nine tables, and everything the app grew afterwards is a migration.
+    profiles: 'backend/supabase/migrations/005_reader_profiles.sql',
+    music: 'backend/supabase/migrations/014_music_tracks.sql',
+    notifications: 'backend/supabase/migrations/007_user_inbox.sql',
+    messages: 'backend/supabase/migrations/007_user_inbox.sql',
+    forum: ['backend/supabase/migrations/029_forum.sql', 'backend/supabase/migrations/030_forum_answers.sql', 'backend/supabase/migrations/032_forum_editorial.sql', 'backend/supabase/migrations/034_forum_reply_edit.sql'],
+    forumReplies: ['backend/supabase/migrations/029_forum.sql', 'backend/supabase/migrations/030_forum_answers.sql', 'backend/supabase/migrations/032_forum_editorial.sql', 'backend/supabase/migrations/034_forum_reply_edit.sql'],
+    forumCategories: 'backend/supabase/migrations/029_forum.sql',
+    forumReactions: ['backend/supabase/migrations/030_forum_answers.sql', 'backend/supabase/migrations/032_forum_editorial.sql'],
     blogs: 'backend/supabase/migrations/003_blog_media_uploads.sql',
     submissions: 'backend/supabase/migrations/003_blog_media_uploads.sql'
   };
@@ -423,20 +466,52 @@
   }
 
   /**
+   * The same message, asked for by table key rather than by a probe.
+   *
+   * The dashboard's overview does not run the probe: it learns which tables are
+   * missing from its own failed reads, and it knows them by key. The sentence it used
+   * to print was one hardcoded line — run backend/supabase/schema.sql — which cannot
+   * work when the missing table is `music_tracks` (014) or `profiles` (005), and which
+   * is why an editor could run schema.sql, reload, and meet the very same banner.
+   * This names the table that is missing and the file that adds it.
+   */
+  function schemaHint(keys, options = {}) {
+    const list = (Array.isArray(keys) ? keys : [keys]).filter(Boolean);
+    if (!list.length) return null;
+    return schemaBanner({
+      ok: false,
+      missing: list.map((key) => ({ key, table: tables[key] || key })),
+      mismatched: [],
+      accessControlMissing: false
+    }, options);
+  }
+
+  /**
    * What to tell the editor about a probe: which tables, which columns, and the one
    * file that fixes it. The banner used to blame migration 003 whatever had failed,
    * which sent people looking for Blog media columns when the problem was elsewhere.
    * Returns null when there is nothing worth showing.
    */
-  function schemaBanner(probe) {
+  function schemaBanner(probe, options = {}) {
     if (!probe || probe.ok) return null;
     const names = (items) => items.map((item) => `\`${item.table}\``).join(', ');
-    const files = (items) => [...new Set(items.map((item) => PROBE_FILES[item.key] || 'backend/supabase/schema.sql'))];
+    const files = (items) => [...new Set(items.flatMap((item) => {
+      const value = PROBE_FILES[item.key] || 'backend/supabase/schema.sql';
+      return Array.isArray(value) ? value : [value];
+    }))];
+    // A migration in the list means the base file is not the whole answer, and saying
+    // otherwise sends the editor round a loop: schema.sql is nine tables, and the ones
+    // added since are the numbered files beside it.
+    const since = (list) => (list.some((file) => file.includes('/migrations/'))
+      ? ' backend/supabase/schema.sql builds the base tables only; the numbered files in backend/supabase/migrations/ add everything else, in number order.'
+      : '');
+    const purpose = options.purpose || 'before using CRUD features';
     if (probe.missing.length) {
       const count = probe.missing.length;
+      const list = files(probe.missing);
       return {
         title: 'Database setup required',
-        message: `${count} required database table${count === 1 ? ' is' : 's are'} missing (${names(probe.missing)}). Run ${files(probe.missing).join(' and ')} before using CRUD features.`
+        message: `${count} required database table${count === 1 ? ' is' : 's are'} missing (${names(probe.missing)}). Run ${list.join(' and ')} ${purpose}.${since(list)}`
       };
     }
     if (probe.mismatched.length) {
@@ -595,8 +670,11 @@
 
   function userMessage(error, fallback = 'The operation could not be completed.') {
     if (!error) return fallback;
-    if (error.isSchemaMissing) return 'The Supabase tables are not installed yet. Run backend/supabase/schema.sql first.';
-    if (error.isSchemaMismatch) return 'A column this screen needs is missing from the database. Run the matching file in backend/supabase/migrations/ — 003 adds the Blog media columns.';
+    // Not "run schema.sql": eight of the tables this dashboard reads are built by the
+    // numbered migrations, so an editor who followed that line and reloaded met the
+    // same error. The check names the table and the file; say so instead.
+    if (error.isSchemaMissing) return 'The Supabase tables are not installed yet. Open Settings → Authentication & database → Run check: it names the missing table and the file that adds it. backend/supabase/schema.sql builds the base tables; the rest are the numbered files in backend/supabase/migrations/.';
+    if (error.isSchemaMismatch) return 'A column this screen needs is missing from the database. Open Settings → Authentication & database → Run check: it names the table and the file that adds the column (the numbered files in backend/supabase/migrations/).';
     if (error.code === '23505') return 'A record with this unique value already exists.';
     if (error.code === '23503') return 'This record is still used by related content and cannot be deleted.';
     if (error.code === '42501' || error.status === 401 || error.status === 403) return 'You do not have permission to perform this action. Sign in again or review the RLS policies.';
@@ -605,8 +683,8 @@
   }
 
   NC.api = Object.freeze({
-    ApiError, request, list, getById, count, insert, insertMany, update, upsert, remove,
-    rpc, slugExists, searchAll, schemaProbe, schemaBanner, uploadPdf, uploadAudio, deleteStorageObject,
+    ApiError, request, list, getById, count, insert, insertMany, update, upsert, remove, removeWhere,
+    rpc, slugExists, searchAll, schemaProbe, schemaBanner, schemaHint, uploadPdf, uploadAudio, deleteStorageObject,
     storagePublicUrl, attemptImgBBDelete, userMessage, tableName,
     tagIndex, issueYears, blogsByIssue, blogsByTag, tagEndpointsAvailable, probeTagEndpoints, arrayLiteral
   });

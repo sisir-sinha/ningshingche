@@ -36,7 +36,11 @@ Three components share one Supabase project (`slcpvmpsynkqdozvlsii`):
   the source text and is compiled in; the other two are `key,value` CSVs stored one row per
   language in `public.app_language_files` (migration 023), edited from the dashboard's **Languages**
   page (a grid of `#`, `bpy`, `bn`, `en`, all editable, where the Bengali column is also the key the
-  app looks strings up by) and served as a plain PostgREST select. `TranslationRepository` fetches the chosen language,
+  app looks strings up by) and served as a plain PostgREST select. The page fills its empty cells
+  from the templates committed in `backend/assets/lang/` (`i18n/build_language_templates.py`), so a
+  language translated in the repository shows up in the dashboard without being typed again, and it
+  shows what has actually been published — a language whose row holds no rows is one the app still
+  renders in Bengali. `TranslationRepository` fetches the chosen language,
   caches the CSV under `filesDir/i18n/` and republishes it through `LocalTranslations`; the key list
   itself comes from `i18n/strings_inventory.csv`. Missing translations fall back to Bengali, so the
   app is never half-broken. The question is asked once, on first launch
@@ -286,11 +290,29 @@ authors_directory, social_activities.
   post. Public read, signed-in write, through the RPCs; the drawer's **ফোরাম** row replaced
   **সামাজিক কার্যকলাপ** (a hard-coded gallery grid the home page already draws, whose screen and
   state were removed with the row), and the account menu carries **ফোরাম** as well. The reader's
-  own forum work shows on their dashboard and on their public page's third tab.
+  own forum work shows on their dashboard and on their public page's third tab. The thread's bottom
+  bar is one button — উত্তর যোগ করুন — until it is tapped, and the reply box then grows out of the
+  bottom of the screen (a 96 dp editor that grows to 240 dp and rises with the keyboard; Back closes
+  the keyboard, then the box, then the screen). Reactions are icons on the card and one tap counts —
+  there is no popup and no long press — a body folds at a hundred characters in one shared constant,
+  and a reply is indented inside its answer behind a drawn line.
+
+  Files are attachments, never text: the paperclip on the row under the box takes up to five
+  pictures and PDFs (ImgBB for a picture, the Catbox-compatible host for a document), each previewed
+  beside it with a cross to take it back, and all of them appended to the post by
+  `forumWithAttachments` as it is sent. A posted body is read in two parts — `forumBodyMarkup` for
+  the words, `forumBodyImages`/`forumBodyDocs` for the files, which are drawn as previews (a picture
+  as a thumbnail, a PDF as its icon and its name) instead of the `obj` HtmlCompat puts in place of an
+  image it cannot draw. A tap opens the file in `AttachmentViewer` — large, pinch-zoomable for a
+  picture and drawn by the app's PDF library for a document, with a download button in the corner.
+  Drafts keep the files as well as the words, and everything is cleared once the post has gone
+  through.
 - **Public profile** (`PublicProfileScreen.kt`, route `user/{userId}`): name, designation,
   short address, a statistics card (total views, lifetime points, this month's points) and
-  two tabs — articles and songs — each ordered by views and dated. One request,
-  `public_profile` (028).
+  three tabs — articles, songs and আলোচনা (which splits into this reader's আলোচনা and their
+  উত্তর). Each list is **five rows at a time**: `profile_items` (033) returns one window and a
+  total, the screen draws it and আরও দেখুন asks for the next window at the offset it has
+  reached. The identity card stays the `public_profile` request (028).
 
 ### 4.5 Signed-in user workspace (`ReaderWorkspaceViewModel` + `UserDashboardScreen`)
 

@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.ningshingche.app.data.model.AppPalette
 import com.ningshingche.app.data.model.AppThemeMode
 import com.ningshingche.app.data.model.ContentLanguage
 import com.ningshingche.app.data.model.PdfFitMode
@@ -32,6 +33,9 @@ class UserPreferencesRepository(private val context: Context) {
         val LINE_SPACING = floatPreferencesKey("line_spacing")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val APP_THEME_MODE = stringPreferencesKey("app_theme_mode")
+        val APP_PALETTE = stringPreferencesKey("app_palette")
+        val CUSTOM_HUE = intPreferencesKey("custom_hue")
+        val CUSTOM_SATURATION = intPreferencesKey("custom_saturation")
         val CONTENT_LANGUAGE = stringPreferencesKey("content_language")
         val LANGUAGE_CHOSEN = booleanPreferencesKey("language_chosen")
         val TTS_SPEED = floatPreferencesKey("tts_speed")
@@ -71,13 +75,23 @@ class UserPreferencesRepository(private val context: Context) {
         } catch (_: Exception) {
             ReaderThemeMode.PAPER
         }
-        // Default is System (follows the device dark-mode setting).
-        val appThemeModeStr = preferences[Keys.APP_THEME_MODE] ?: AppThemeMode.SYSTEM.name
+        // Default is Dark. A reader who wants the phone's own setting, or daylight,
+        // asks for it in Settings; DARK is what this app is designed around.
+        val appThemeModeStr = preferences[Keys.APP_THEME_MODE] ?: AppThemeMode.DARK.name
         val appThemeMode = try {
             AppThemeMode.valueOf(appThemeModeStr)
         } catch (_: Exception) {
-            AppThemeMode.SYSTEM
+            AppThemeMode.DARK
         }
+        // Default is the app's own palette, নীলা-কালি.
+        val appPaletteStr = preferences[Keys.APP_PALETTE] ?: AppPalette.INDIGO.name
+        val appPalette = try {
+            AppPalette.valueOf(appPaletteStr)
+        } catch (_: Exception) {
+            AppPalette.INDIGO
+        }
+        val customHue = preferences[Keys.CUSTOM_HUE] ?: AppPalette.DEFAULT_CUSTOM_HUE
+        val customSaturation = preferences[Keys.CUSTOM_SATURATION] ?: AppPalette.DEFAULT_CUSTOM_SATURATION
         // Default is Bengali: the interface as originally written.
         val languageChosen = preferences[Keys.LANGUAGE_CHOSEN] ?: false
         val contentLanguageStr = preferences[Keys.CONTENT_LANGUAGE] ?: ContentLanguage.BENGALI.name
@@ -101,6 +115,9 @@ class UserPreferencesRepository(private val context: Context) {
             lineSpacingMultiplier = lineSpacing,
             themeMode = themeMode,
             appThemeMode = appThemeMode,
+            appPalette = appPalette,
+            customHue = customHue,
+            customSaturation = customSaturation,
             contentLanguage = contentLanguage,
             languageChosen = languageChosen,
             ttsSpeed = ttsSpeed,
@@ -121,6 +138,25 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun updateAppThemeMode(mode: AppThemeMode) {
         context.dataStore.edit { preferences ->
             preferences[Keys.APP_THEME_MODE] = mode.name
+        }
+    }
+
+    /** The palette the whole app paints with, from the Settings picker. */
+    suspend fun updateAppPalette(palette: AppPalette) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.APP_PALETTE] = palette.name
+        }
+    }
+
+    /**
+     * The custom palette's position on the wheel: hue in degrees, strength in percent.
+     * Written together because they are one answer — a hue with the old strength is
+     * not a state the reader ever asked for.
+     */
+    suspend fun updateCustomWheel(hue: Int, saturation: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.CUSTOM_HUE] = hue
+            preferences[Keys.CUSTOM_SATURATION] = saturation
         }
     }
 

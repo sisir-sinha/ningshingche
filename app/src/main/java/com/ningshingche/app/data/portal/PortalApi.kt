@@ -122,15 +122,35 @@ interface PortalApi {
         @Body body: Map<String, String>
     ): Response<PublicProfileDto?>
 
+    /**
+     * One page of one public-profile list (migration 033 RPC): five items at a
+     * time, with the total for that kind. `kind = "counts"` asks for the four
+     * totals alone, which is how the page labels its tabs before it has loaded
+     * anything.
+     */
+    @POST("rpc/profile_items")
+    suspend fun profileItems(
+        @Body body: Map<String, String>
+    ): Response<ProfileItemsDto?>
+
     // ------------------------------------------------------------------ views
 
     /**
-     * Counts one view of an article or a song and answers with the new total
-     * (migration 025 RPC). Safe for guests: the function identifies them by a
-     * device-derived pseudonym, and counts the same viewer once a day.
+     * Records one visit of an article, a song or a forum thread, and answers with
+     * the item's new public total (migration 036 RPC, which is 025's `record_content_view`
+     * with the visit rule and the listening time added).
+     *
+     * One view per viewer per visit: the same reader re-opening the item inside
+     * thirty minutes adds nothing, and outside it counts once. Safe for guests —
+     * the function identifies them by a device-derived pseudonym — and it records
+     * whether the visitor was registered or anonymous either way.
+     *
+     * For a song, `p_seconds` is how much was *heard* since the last report, and
+     * the database counts the play only once enough of the track has been
+     * listened to. Everything else sends no seconds.
      */
-    @POST("rpc/record_content_view")
-    suspend fun recordContentView(
+    @POST("rpc/content_view_record")
+    suspend fun contentViewRecord(
         @Body body: Map<String, String>
     ): Response<Long?>
 
@@ -220,6 +240,25 @@ interface PortalApi {
     suspend fun forumReply(
         @Body body: Map<String, String>
     ): Response<ForumReplyDto?>
+
+    /**
+     * Change one of the reader's own answers (migration 034). The database decides
+     * who the author is; the app only ever sends the id and the new body.
+     */
+    @POST("rpc/forum_edit_reply")
+    suspend fun forumEditReply(
+        @Body body: Map<String, String>
+    ): Response<ForumReplyDto?>
+
+    /**
+     * Take one of the reader's own answers out of the thread. The answer is
+     * removed rather than deleted, and answers written under it are folded onto the
+     * answer it answered, which is what the response says happened.
+     */
+    @POST("rpc/forum_delete_reply")
+    suspend fun forumDeleteReply(
+        @Body body: Map<String, String>
+    ): Response<ForumReplyDeletionDto?>
 
     /** Like, dislike or agree with one answer; the same tap takes it back. */
     @POST("rpc/forum_react")

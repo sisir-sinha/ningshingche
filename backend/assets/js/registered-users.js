@@ -2081,7 +2081,7 @@
         table.innerHTML = NC.components.emptyState({
           icon: 'fa-trophy',
           title: 'The board is unavailable',
-          description: NC.api.userMessage(error, 'Run supabase/migrations/026_contributors.sql and 027_contributor_board_dashboard.sql, then reload.')
+          description: NC.api.userMessage(error, 'Run supabase/migrations/026_contributors.sql, 027_contributor_board_dashboard.sql and 035_contributor_order.sql, then reload.')
         });
       }
     };
