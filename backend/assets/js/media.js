@@ -57,6 +57,39 @@
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"><rect width="400" height="400" rx="24" fill="${bg}"/><text x="200" y="170" text-anchor="middle" font-family="Arial,sans-serif" font-size="52" fill="${fg}">♪</text><text x="200" y="225" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" fill="${fg}" font-weight="700">${label}</text></svg>`;
     return `data:image/svg+xml,${encodeURIComponent(svg)}`;
   }
+  // Palette for random backgrounds — bg/fg pairs with good contrast
+  const PLACEHOLDER_PALETTE = Object.freeze([
+    { bg: '#ede9ff', fg: '#7c3aed' }, { bg: '#e0f2fe', fg: '#0369a1' }, { bg: '#fef3c7', fg: '#b45309' },
+    { bg: '#dcfce7', fg: '#15803d' }, { bg: '#ffe4e6', fg: '#be123c' }, { bg: '#ccfbf1', fg: '#0f766e' },
+    { bg: '#fce7f3', fg: '#be185d' }, { bg: '#fef9c3', fg: '#a16207' }, { bg: '#e0e7ff', fg: '#4338ca' },
+    { bg: '#ffedd5', fg: '#c2410c' }, { bg: '#d1fae5', fg: '#065f46' }, { bg: '#ede9fe', fg: '#6d28d9' }
+  ]);
+  function randomPalette() {
+    return PLACEHOLDER_PALETTE[Math.floor(Math.random() * PLACEHOLDER_PALETTE.length)];
+  }
+  function wrapSvgText(text, maxCharsPerLine = 18) {
+    const words = String(text || '').trim().split(/\s+/);
+    const lines = [];
+    let line = '';
+    words.forEach((w) => {
+      const test = line ? `${line} ${w}` : w;
+      if (test.length > maxCharsPerLine && line) { lines.push(line); line = w; }
+      else line = test;
+    });
+    if (line) lines.push(line);
+    return lines.slice(0, 3); // max 3 lines
+  }
+  function placeholderWithText(rawText, fallbackLabel, kind) {
+    const label = (String(rawText || '').trim() || fallbackLabel).slice(0, 48);
+    const palette = randomPalette();
+    // Build centered multi-line text
+    const lines = wrapSvgText(label, 16);
+    const lineHeight = 22;
+    const startY = 215 - ((lines.length - 1) * lineHeight) / 2;
+    const texts = lines.map((ln, i) => `<text x="200" y="${startY + i * lineHeight}" text-anchor="middle" font-family="Arial,sans-serif" font-size="${ln.length > 20 ? 14 : 17}" fill="${palette.fg}" font-weight="700">${escapeHTML(ln)}</text>`).join('');
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"><rect width="400" height="400" rx="24" fill="${palette.bg}"/><text x="200" y="165" text-anchor="middle" font-family="Arial,sans-serif" font-size="48" fill="${palette.fg}">♪</text>${texts}</svg>`;
+    return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+  }
   const DEFAULT_PLACEHOLDERS = Object.freeze({
     cover: placeholderDataUri('No Cover', '#ede9ff', '#7c3aed'),
     thumbnail: placeholderDataUri('No Cover', '#ede9ff', '#7c3aed'),
@@ -131,7 +164,7 @@
     const errorNode = qs('[data-upload-error]', element);
     const dropZone = qs('.drop-zone', element);
     const placeholderEl = qs('[data-upload-placeholder]', element);
-    const placeholderUrl = options.placeholder || element.dataset.placeholder || '';
+    let placeholderUrl = options.placeholder || element.dataset.placeholder || '';
     let value = normalizeInitial(options.initial);
     let uploading = false;
 
@@ -280,6 +313,8 @@
     return Object.freeze({
       getValue: () => ({ ...value }),
       setValue: (next) => { const previous = value; value = normalizeInitial(next); setError(''); render(); emit(previous); },
+      setPlaceholder: (newUrl) => { placeholderUrl = newUrl || ''; element.dataset.placeholder = newUrl || ''; render(); },
+      getPlaceholder: () => placeholderUrl,
       isUploading: () => uploading,
       validate: () => {
         if (options.required && !safeExternalUrl(value.url)) { setError(`${options.label || 'Image'} is required.`); return false; }
@@ -607,7 +642,8 @@
     uploadImage, imageUploaderHTML, mountImageUploader,
     pdfUploaderHTML, mountPdfUploader, detectVideoProvider, videoPreviewHTML,
     audioUploaderHTML, mountAudioUploader,
-    placeholderDataUri, placeholders: DEFAULT_PLACEHOLDERS,
-    placeholderFor: (kind) => DEFAULT_PLACEHOLDERS[kind] || DEFAULT_PLACEHOLDERS.generic
+    placeholderDataUri, placeholders: DEFAULT_PLACEHOLDERS, placeholderPalette: PLACEHOLDER_PALETTE,
+    placeholderFor: (kind) => DEFAULT_PLACEHOLDERS[kind] || DEFAULT_PLACEHOLDERS.generic,
+    placeholderWithText, randomPalette
   });
 })(window.NC);

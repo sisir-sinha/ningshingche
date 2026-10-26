@@ -1,7 +1,7 @@
 (function (NC) {
   'use strict';
 
-  const { escapeHTML, formatDate, formData, validateFields, debounce, safeImage, safeExternalUrl, isValidUrl } = NC.utils;
+  const { escapeHTML, formatDate, formData, validateFields, debounce, safeImage } = NC.utils;
   const state = new NC.crud.ListState('music', { searchFields: ['title', 'bn_title', 'artist', 'bn_artist', 'album', 'bn_album', 'genre', 'description', 'video_link'], sortKey: 'created_at' });
   const GENRES = [
     'লোকগীতি', 'প্রেম', 'বিরহ', 'নৃত্য', 'পালা-কীর্তন', 'ভজন',
@@ -12,10 +12,9 @@
   ];
   let root;
 
-  // Placeholder URLs — use NC.media placeholders if available, else fallback to placehold.co
-  function getPlaceholder(kind) {
+  // ---------- Dynamic placeholder helpers ----------
+  function getStaticPlaceholder(kind) {
     if (NC.media && NC.media.placeholderFor) return NC.media.placeholderFor(kind);
-    // fallback external placeholder (works when online)
     const map = {
       cover: 'https://placehold.co/400x400/EDE9FF/7C3AED?text=No+Cover',
       thumbnail: 'https://placehold.co/400x400/EDE9FF/7C3AED?text=No+Cover',
@@ -24,21 +23,189 @@
     };
     return map[kind] || map.cover;
   }
+  // Use dynamic text + random color when NC.media available, else static fallback
+  function dynamicPlaceholder(text, fallback, kind) {
+    const label = String(text || '').trim() || fallback;
+    if (NC.media && NC.media.placeholderWithText) {
+      try { return NC.media.placeholderWithText(label, fallback, kind); } catch (_) {}
+    }
+    return getStaticPlaceholder(kind);
+  }
+  function coverPlaceholder(record, liveTitle) {
+    // liveTitle overrides record value when typing (for live preview)
+    if (liveTitle !== undefined) return dynamicPlaceholder(liveTitle, 'No Cover', 'cover');
+    const txt = (record && (record.bn_title || record.title)) || 'No Cover';
+    return dynamicPlaceholder(txt, 'No Cover', 'cover');
+  }
+  function artistPlaceholder(record, liveName) {
+    if (liveName !== undefined) return dynamicPlaceholder(liveName, 'No Artist', 'artist');
+    const txt = (record && (record.bn_artist || record.artist)) || 'No Artist';
+    return dynamicPlaceholder(txt, 'No Artist', 'artist');
+  }
+  function albumPlaceholder(record, liveName) {
+    if (liveName !== undefined) return dynamicPlaceholder(liveName, 'No Album', 'album');
+    const txt = (record && (record.bn_album || record.album)) || 'No Album';
+    return dynamicPlaceholder(txt, 'No Album', 'album');
+  }
+  // Legacy static for fallback where needed
   const PLACEHOLDERS = {
-    cover: getPlaceholder('cover'),
-    thumbnail: getPlaceholder('thumbnail'),
-    artist: getPlaceholder('artist'),
-    album: getPlaceholder('album')
+    cover: getStaticPlaceholder('cover'),
+    thumbnail: getStaticPlaceholder('thumbnail'),
+    artist: getStaticPlaceholder('artist'),
+    album: getStaticPlaceholder('album')
   };
 
   function resolveCover(record) {
-    return safeImage(record.thumbnail_url) || PLACEHOLDERS.cover;
+    return safeImage(record.thumbnail_url) || coverPlaceholder(record);
   }
   function resolveArtistImage(record) {
-    return safeImage(record.artist_image) || safeImage(record.thumbnail_url) || PLACEHOLDERS.artist;
+    return safeImage(record.artist_image) || safeImage(record.thumbnail_url) || artistPlaceholder(record);
   }
   function resolveAlbumImage(record) {
-    return safeImage(record.album_image) || safeImage(record.thumbnail_url) || PLACEHOLDERS.album;
+    return safeImage(record.album_image) || safeImage(record.thumbnail_url) || albumPlaceholder(record);
+  }
+
+  // ---------- Build distinct artist/album indexes from existing records ----------
+  function buildArtistIndex() {
+    const map = new Map(); // lower -> { artist, bn_artist }
+    (state.records || []).forEach((r) => {
+      const name = String(r.artist || '').trim();
+      if (!name) return;
+      const key = name.toLowerCase();
+      if (!map.has(key)) map.set(key, { artist: name, bn_artist: String(r.bn_artist || '').trim() });
+      else {
+        // prefer non-empty bn if current is empty
+        const cur = map.get(key);
+        if (!cur.bn_artist && r.bn_artist) cur.bn_artist = String(r.bn_artist || '').trim();
+      }
+    });
+    return map;
+  }
+  function buildAlbumIndex() {
+    const map = new Map();
+    (state.records || []).forEach((r) => {
+      const name = String(r.album || '').trim();
+      if (!name) return;
+      const key = name.toLowerCase();
+      if (!map.has(key)) map.set(key, { album: name, bn_album: String(r.bn_album || '').trim() });
+      else {
+        const cur = map.get(key);
+        if (!cur.bn_album && r.bn_album) cur.bn_album = String(r.bn_album || '').trim();
+      }
+    });
+    return map;
+  }
+
+  // ---------- Single-value combobox (Artist / Album) ----------
+  function mountSingleCombobox(container, opts) {
+    const box = container.querySelector(opts.comboSelector);
+    if (!box) return { getValue: () => '', setValue: () => {} };
+    const hidden = box.querySelector(opts.hiddenSelector);
+    const shell = box.querySelector(opts.shellSelector);
+    const input = box.querySelector(opts.inputSelector);
+    const menu = box.querySelector(opts.menuSelector);
+    const items = opts.items || [];
+    const onSelect = opts.onSelect || (() => {});
+    let active = -1;
+
+    function allItems() { return items; }
+
+    function filtered() {
+      const needle = String(input.value || '').trim().toLowerCase();
+      if (!needle) return allItems().slice(0, 12);
+      return allItems().filter((it) => it.toLowerCase().includes(needle)).slice(0, 12);
+    }
+
+    function syncHiddenFromInput() {
+      hidden.value = String(input.value || '').trim();
+    }
+
+    function selectValue(val) {
+      input.value = val;
+      hidden.value = val;
+      menu.classList.add('hidden');
+      shell.classList.remove('is-open');
+      active = -1;
+      onSelect(val);
+      // update placeholder live if callback provided for live text
+      if (opts.onLiveChange) opts.onLiveChange(val);
+    }
+
+    function renderMenu() {
+      const options = filtered();
+      if (!options.length) {
+        // show "create" option if typed text not in list
+        const typed = String(input.value || '').trim();
+        if (typed && !items.some((it) => it.toLowerCase() === typed.toLowerCase())) {
+          menu.innerHTML = `<button type="button" class="combo-option" data-create="${escapeHTML(typed)}">Create "${escapeHTML(typed)}"</button>`;
+          menu.classList.remove('hidden');
+          shell.classList.add('is-open');
+          menu.querySelectorAll('.combo-option').forEach((btn) => {
+            btn.addEventListener('mousedown', (e) => e.preventDefault());
+            btn.addEventListener('click', () => selectValue(typed));
+          });
+          return;
+        }
+        menu.classList.add('hidden');
+        menu.innerHTML = '';
+        shell.classList.remove('is-open');
+        return;
+      }
+      menu.innerHTML = options.map((item, idx) =>
+        `<button type="button" class="combo-option${idx === active ? ' is-active' : ''}" role="option" data-value="${escapeHTML(item)}">${escapeHTML(item)}</button>`
+      ).join('');
+      menu.classList.remove('hidden');
+      shell.classList.add('is-open');
+      menu.querySelectorAll('.combo-option').forEach((btn) => {
+        btn.addEventListener('mousedown', (e) => e.preventDefault());
+        btn.addEventListener('click', () => selectValue(btn.dataset.value || btn.textContent || ''));
+      });
+    }
+
+    input.addEventListener('focus', renderMenu);
+    input.addEventListener('input', () => { syncHiddenFromInput(); active = -1; renderMenu(); if (opts.onLiveChange) opts.onLiveChange(input.value); });
+    input.addEventListener('change', syncHiddenFromInput);
+    input.addEventListener('keydown', (e) => {
+      const options = filtered();
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        if (active >= 0 && options[active]) { e.preventDefault(); selectValue(options[active]); return; }
+        // if typing exact match, select it
+        const typed = String(input.value || '').trim();
+        if (typed && options.some((it) => it.toLowerCase() === typed.toLowerCase())) {
+          e.preventDefault();
+          const match = options.find((it) => it.toLowerCase() === typed.toLowerCase());
+          if (match) { selectValue(match); return; }
+        }
+        // allow Tab to commit typed value as new
+        if (e.key === 'Tab' && typed) { hidden.value = typed; menu.classList.add('hidden'); shell.classList.remove('is-open'); }
+        return;
+      }
+      if (e.key === 'ArrowDown') { e.preventDefault(); active = Math.min(active + 1, options.length - 1); renderMenu(); }
+      if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(active - 1, 0); renderMenu(); }
+      if (e.key === 'Escape') { menu.classList.add('hidden'); shell.classList.remove('is-open'); }
+    });
+    input.addEventListener('blur', () => {
+      window.setTimeout(() => {
+        // commit current input to hidden if not empty
+        syncHiddenFromInput();
+        menu.classList.add('hidden');
+        shell.classList.remove('is-open');
+      }, 150);
+    });
+    shell.addEventListener('click', () => input.focus());
+
+    // set initial
+    if (opts.initial) {
+      input.value = opts.initial;
+      hidden.value = opts.initial;
+    }
+
+    return {
+      getValue() { syncHiddenFromInput(); return hidden.value; },
+      setValue(v) { input.value = v; hidden.value = v; },
+      focus() { input.focus(); },
+      refresh() { renderMenu(); }
+    };
   }
 
   function parseGenres(value) {
@@ -191,7 +358,6 @@
 
   function normalizeJsonRecord(raw) {
     if (!raw || typeof raw !== 'object') return null;
-    // accept both snake_case and camelCase + khallik legacy fields
     const title = textVal(raw.title || raw.name || raw.track || raw.song_name || raw.song);
     const bn_title = textVal(raw.bn_title || raw.bnTitle || raw.title_bn || raw.titleBn || raw.bengali_title || raw.bangla_title || raw.banglaTitle);
     const artist = textVal(raw.artist || raw.singer || raw.artist_name || raw.artistName || raw.performer);
@@ -207,33 +373,16 @@
     const album_image = textVal(raw.album_image || raw.albumImage || raw.album_img || raw.album_cover);
     const audio_url = textVal(raw.audio_url || raw.audioUrl || raw.file_path || raw.filePath || raw.audio || raw.url || raw.link || raw.mp3 || raw.file || raw.source || raw.audio_link);
     const file_provider = audio_url ? (audio_url.includes('supabase') || raw.file_storage_path ? 'supabase-storage' : 'url') : 'url';
-
-    // Only require title + audio_url
     if (!title || !audio_url) return null;
-
     return {
-      title,
-      bn_title,
-      artist,
-      bn_artist,
-      album,
-      bn_album,
-      genre,
-      description,
-      lyrics,
-      video_link,
-      thumbnail_url: thumbnail_url || PLACEHOLDERS.cover,
-      artist_image: artist_image || '',
-      artist_description: textVal(raw.artist_description || raw.artistDescription || raw.artist_bio || ''),
-      album_image: album_image || '',
-      album_description: textVal(raw.album_description || raw.albumDescription || raw.album_bio || ''),
-      audio_url,
-      file_provider,
-      file_storage_path: textVal(raw.file_storage_path || raw.fileStoragePath || ''),
+      title, bn_title, artist, bn_artist, album, bn_album, genre, description, lyrics, video_link,
+      thumbnail_url: thumbnail_url || coverPlaceholder({ bn_title: bn_title || title, title }, bn_title || title),
+      artist_image: artist_image || '', artist_description: textVal(raw.artist_description || raw.artistDescription || raw.artist_bio || ''),
+      album_image: album_image || '', album_description: textVal(raw.album_description || raw.albumDescription || raw.album_bio || ''),
+      audio_url, file_provider, file_storage_path: textVal(raw.file_storage_path || raw.fileStoragePath || ''),
       file_size_mb: Number(raw.file_size_mb || raw.fileSizeMb || 0) || 0,
       duration_seconds: Number(raw.duration_seconds || raw.durationSeconds || raw.duration || 0) || 0,
-      imgbb_delete_url: textVal(raw.imgbb_delete_url || ''),
-      image_meta: raw.image_meta || {}
+      imgbb_delete_url: textVal(raw.imgbb_delete_url || ''), image_meta: raw.image_meta || {}
     };
   }
 
@@ -248,10 +397,8 @@
     else if (Array.isArray(parsed.tracks)) arr = parsed.tracks;
     else if (Array.isArray(parsed.songs)) arr = parsed.songs;
     else if (parsed && typeof parsed === 'object') {
-      // single object -> wrap
       if (parsed.title || parsed.audio_url || parsed.file_path) arr = [parsed];
       else {
-        // maybe keyed object: { "song1": {...}, "song2": {...} }
         const values = Object.values(parsed);
         if (values.length && typeof values[0] === 'object') arr = values;
         else throw new Error('JSON must be an array of songs or an object with a data/tracks/songs array.');
@@ -266,9 +413,7 @@
     let validPayloads = [];
     let invalidCount = 0;
     const modal = NC.components.openModal({
-      title: 'Import music from JSON',
-      eyebrow: 'Bulk upload',
-      size: 'xl',
+      title: 'Import music from JSON', eyebrow: 'Bulk upload', size: 'xl',
       description: 'Upload a JSON file with an array of songs. Each needs at least a title and an audio_url (or file_path). Fields like bn_title, bn_artist, bn_album, thumbnail_url, artist_image, album_image are optional — placeholders are shown when missing.',
       content: `
         <div class="import-wizard">
@@ -303,126 +448,50 @@
         const actions = modalRoot.querySelector('[data-json-actions]');
         const importBtn = modalRoot.querySelector('[data-json-import]');
         const hint = modalRoot.querySelector('[data-json-hint]');
-
         function downloadTemplate() {
-          const sample = [
-            {
-              title: 'Example Song',
-              bn_title: 'উদাহরণ গান',
-              artist: 'Example Artist',
-              bn_artist: 'উদাহরণ শিল্পী',
-              album: 'Example Album',
-              bn_album: 'উদাহরণ অ্যালবাম',
-              audio_url: 'https://example.com/song.mp3',
-              thumbnail_url: 'https://example.com/cover.jpg',
-              artist_image: 'https://example.com/artist.jpg',
-              album_image: 'https://example.com/album.jpg',
-              genre: 'ভজন, লোকগীতি',
-              description: 'Optional description',
-              lyrics: 'Optional lyrics',
-              video_link: 'https://youtube.com/watch?v=...'
-            }
-          ];
+          const sample = [{
+              title: 'Example Song', bn_title: 'উদাহরণ গান', artist: 'Example Artist', bn_artist: 'উদাহরণ শিল্পী', album: 'Example Album', bn_album: 'উদাহরণ অ্যালবাম',
+              audio_url: 'https://example.com/song.mp3', thumbnail_url: 'https://example.com/cover.jpg', artist_image: 'https://example.com/artist.jpg', album_image: 'https://example.com/album.jpg', genre: 'ভজন, লোকগীতি', description: 'Optional', lyrics: 'Optional', video_link: 'https://youtube.com/watch?v=...'
+            }];
           const blob = new Blob([JSON.stringify(sample, null, 2)], { type: 'application/json' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url; a.download = 'music-template.json'; a.click();
-          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'music-template.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
         }
         modalRoot.querySelector('[data-json-template-download]')?.addEventListener('click', downloadTemplate);
-
         function renderPreview() {
-          if (!jsonRecords.length) {
-            preview.classList.add('hidden');
-            status.classList.add('hidden');
-            actions.classList.add('hidden');
-            return;
-          }
-          preview.classList.remove('hidden');
-          status.classList.remove('hidden');
-          status.className = `notice ${invalidCount ? 'notice-warning' : 'notice-success'}`;
+          if (!jsonRecords.length) { preview.classList.add('hidden'); status.classList.add('hidden'); actions.classList.add('hidden'); return; }
+          preview.classList.remove('hidden'); status.classList.remove('hidden'); status.className = `notice ${invalidCount ? 'notice-warning' : 'notice-success'}`;
           status.innerHTML = `<i class="fa-regular fa-circle-info" aria-hidden="true"></i><p><strong>${validPayloads.length} valid</strong> · ${invalidCount} invalid/skipped · ${jsonRecords.length} total. Placeholders will be used for missing images.</p>`;
-
           const rows = validPayloads.slice(0, 100).map((payload, idx) => {
-            const thumb = safeImage(payload.thumbnail_url) || PLACEHOLDERS.cover;
+            const thumb = safeImage(payload.thumbnail_url) || coverPlaceholder(payload);
             const bnInfo = payload.bn_title ? ` <small style="color:var(--muted-foreground)">(${escapeHTML(payload.bn_title)})</small>` : '';
-            return `<tr>
-              <td>${idx + 1}</td>
-              <td><div class="video-cell"><img src="${escapeHTML(thumb)}" alt="" style="width:32px;height:32px;object-fit:cover;border-radius:6px;" onerror="this.style.display='none'"><div><strong>${escapeHTML(payload.title)}</strong>${bnInfo}<small>${escapeHTML([payload.artist, payload.bn_artist].filter(Boolean).join(' · ') || payload.album || '')}</small></div></div></td>
-              <td>${escapeHTML(payload.audio_url.slice(0, 48))}${payload.audio_url.length > 48 ? '…' : ''}</td>
-              <td><span class="import-status is-valid"><i class="fa-solid fa-circle-check"></i>Ready</span></td>
-            </tr>`;
+            return `<tr><td>${idx + 1}</td><td><div class="video-cell"><img src="${escapeHTML(thumb)}" alt="" style="width:32px;height:32px;object-fit:cover;border-radius:6px;" onerror="this.style.display='none'"><div><strong>${escapeHTML(payload.title)}</strong>${bnInfo}<small>${escapeHTML([payload.artist, payload.bn_artist].filter(Boolean).join(' · ') || payload.album || '')}</small></div></div></td><td>${escapeHTML(payload.audio_url.slice(0, 48))}${payload.audio_url.length > 48 ? '…' : ''}</td><td><span class="import-status is-valid"><i class="fa-solid fa-circle-check"></i>Ready</span></td></tr>`;
           }).join('');
           const invalidRows = invalidCount ? `<tr><td colspan="4" class="text-center text-muted-foreground">${invalidCount} record(s) skipped (missing title or audio_url)</td></tr>` : '';
           output.innerHTML = `<div class="import-preview-wrap"><table class="data-table import-preview-table"><thead><tr><th>#</th><th>Track</th><th>Audio</th><th>Status</th></tr></thead><tbody>${rows}${invalidRows}</tbody></table></div>${jsonRecords.length > 100 ? `<p class="field-hint mt-2">Showing first 100 of ${jsonRecords.length}.</p>` : ''}`;
           hint.textContent = `${validPayloads.length} ready to import · Missing images will show placeholders`;
-          actions.classList.remove('hidden');
-          importBtn.innerHTML = `<i class="fa-regular fa-file-import" aria-hidden="true"></i>Import ${validPayloads.length} songs`;
-          importBtn.disabled = validPayloads.length === 0;
+          actions.classList.remove('hidden'); importBtn.innerHTML = `<i class="fa-regular fa-file-import" aria-hidden="true"></i>Import ${validPayloads.length} songs`; importBtn.disabled = validPayloads.length === 0;
         }
-
         async function processFile(file) {
-          if (!file) return;
-          output.innerHTML = `<div class="import-loading"><i class="fa-regular fa-spinner-third fa-spin" aria-hidden="true"></i><p>Reading JSON…</p></div>`;
+          if (!file) return; output.innerHTML = `<div class="import-loading"><i class="fa-regular fa-spinner-third fa-spin" aria-hidden="true"></i><p>Reading JSON…</p></div>`;
           try {
-            const text = await file.text();
-            jsonRecords = parseJsonImportFile(text);
-            validPayloads = [];
-            invalidCount = 0;
-            jsonRecords.forEach((raw) => {
-              const norm = normalizeJsonRecord(raw);
-              if (norm) validPayloads.push(norm);
-              else invalidCount += 1;
-            });
-            renderPreview();
-            if (!validPayloads.length) NC.components.toast('No valid songs found. Each needs title + audio_url/file_path.', 'error');
-            else NC.components.toast(`${validPayloads.length} valid songs detected.`, 'success');
-          } catch (e) {
-            output.innerHTML = `<div class="import-error"><i class="fa-solid fa-file-circle-exclamation"></i><h3>Could not read JSON</h3><p>${escapeHTML(e.message)}</p></div>`;
-            NC.components.toast(e.message, 'error');
-          } finally {
-            input.value = '';
-          }
+            const text = await file.text(); jsonRecords = parseJsonImportFile(text); validPayloads = []; invalidCount = 0;
+            jsonRecords.forEach((raw) => { const norm = normalizeJsonRecord(raw); if (norm) validPayloads.push(norm); else invalidCount += 1; });
+            renderPreview(); if (!validPayloads.length) NC.components.toast('No valid songs found. Each needs title + audio_url/file_path.', 'error'); else NC.components.toast(`${validPayloads.length} valid songs detected.`, 'success');
+          } catch (e) { output.innerHTML = `<div class="import-error"><i class="fa-solid fa-file-circle-exclamation"></i><h3>Could not read JSON</h3><p>${escapeHTML(e.message)}</p></div>`; NC.components.toast(e.message, 'error'); } finally { input.value = ''; }
         }
-
-        input.addEventListener('change', () => processFile(input.files?.[0]));
-        dropZone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
-        ['dragenter', 'dragover'].forEach((n) => dropZone.addEventListener(n, (e) => { e.preventDefault(); dropZone.classList.add('is-dragging'); }));
-        ['dragleave', 'drop'].forEach((n) => dropZone.addEventListener(n, (e) => { e.preventDefault(); dropZone.classList.remove('is-dragging'); }));
-        dropZone.addEventListener('drop', (e) => processFile(e.dataTransfer?.files?.[0]));
-
+        input.addEventListener('change', () => processFile(input.files?.[0])); dropZone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } }); ['dragenter', 'dragover'].forEach((n) => dropZone.addEventListener(n, (e) => { e.preventDefault(); dropZone.classList.add('is-dragging'); })); ['dragleave', 'drop'].forEach((n) => dropZone.addEventListener(n, (e) => { e.preventDefault(); dropZone.classList.remove('is-dragging'); })); dropZone.addEventListener('drop', (e) => processFile(e.dataTransfer?.files?.[0]));
         importBtn.addEventListener('click', async () => {
-          if (!validPayloads.length) return;
-          importBtn.disabled = true;
+          if (!validPayloads.length) return; importBtn.disabled = true;
           output.innerHTML = `<div class="import-progress-panel"><div><i class="fa-regular fa-spinner-third fa-spin"></i><span><strong>Importing ${validPayloads.length} songs…</strong><small data-json-progress-label>0 of ${validPayloads.length}</small></span></div><div class="upload-progress"><div class="upload-progress-track"><span data-json-progress-bar></span></div><span data-json-progress-percent>0%</span></div></div>`;
-          const bar = output.querySelector('[data-json-progress-bar]');
-          const pct = output.querySelector('[data-json-progress-percent]');
-          const label = output.querySelector('[data-json-progress-label]');
-          let cursor = 0, completed = 0, imported = 0, failed = 0;
-          const results = [];
-          async function worker() {
-            while (cursor < validPayloads.length) {
-              const item = validPayloads[cursor]; cursor += 1;
-              try {
-                const rec = await NC.api.insert('music', item);
-                results.push({ status: 'imported', item, rec }); imported += 1;
-              } catch (err) {
-                results.push({ status: 'failed', item, err }); failed += 1;
-              }
-              completed += 1;
-              const p = Math.round((completed / validPayloads.length) * 100);
-              bar.style.width = p + '%'; pct.textContent = p + '%';
-              label.textContent = `${completed} of ${validPayloads.length} · ${imported} imported${failed ? ` · ${failed} failed` : ''}`;
-            }
-          }
+          const bar = output.querySelector('[data-json-progress-bar]'); const pct = output.querySelector('[data-json-progress-percent]'); const label = output.querySelector('[data-json-progress-label]');
+          let cursor = 0, completed = 0, imported = 0, failed = 0; const results = [];
+          async function worker() { while (cursor < validPayloads.length) { const item = validPayloads[cursor]; cursor += 1; try { const rec = await NC.api.insert('music', item); results.push({ status: 'imported', item, rec }); imported += 1; } catch (err) { results.push({ status: 'failed', item, err }); failed += 1; } completed += 1; const p = Math.round((completed / validPayloads.length) * 100); bar.style.width = p + '%'; pct.textContent = p + '%'; label.textContent = `${completed} of ${validPayloads.length} · ${imported} imported${failed ? ` · ${failed} failed` : ''}`; } }
           await Promise.all(Array.from({ length: Math.min(4, validPayloads.length) }, worker));
-          output.innerHTML = `<div class="import-complete ${failed ? 'has-failures' : ''}"><span><i class="fa-solid ${failed ? 'fa-triangle-exclamation' : 'fa-circle-check'}"></i></span><div><h3>${failed ? 'Completed with errors' : 'Import completed'}</h3><p>${imported} imported · ${failed} failed · ${invalidCount} skipped.</p></div></div>`;
-          if (imported) { NC.components.toast(`${imported} songs imported.`, 'success'); await load(); }
-          if (failed) NC.components.toast(`${failed} failed to import.`, 'error');
+          output.innerHTML = `<div class="import-complete ${failed ? 'has-failures' : ''}"><span><i class="fa-solid ${failed ? 'fa-triangle-exclamation' : 'fa-circle-check'}\"></i></span><div><h3>${failed ? 'Completed with errors' : 'Import completed'}</h3><p>${imported} imported · ${failed} failed · ${invalidCount} skipped.</p></div></div>`;
+          if (imported) { NC.components.toast(`${imported} songs imported.`, 'success'); await load(); } if (failed) NC.components.toast(`${failed} failed to import.`, 'error');
         });
       }
-    });
-    return modal;
+    }); return modal;
   }
 
   function renderList() {
@@ -438,11 +507,10 @@
     const body = rows.map((record) => {
       const thumbnail = resolveCover(record);
       const subtitleParts = [record.artist, record.bn_artist, record.album, record.bn_album].filter(Boolean);
-      // Show bn_title as secondary if present
       const displayTitle = record.bn_title ? `${record.title} · ${record.bn_title}` : record.title;
       return `
         <tr>
-          <td data-label="Track"><div class="video-cell"><img src="${escapeHTML(thumbnail)}" alt="" loading="lazy" referrerpolicy="no-referrer" style="width:44px;height:44px;object-fit:cover;border-radius:8px;background:var(--surface-subtle)" onerror="this.src='${PLACEHOLDERS.cover}'"><div><strong>${escapeHTML(displayTitle)}</strong><small>${escapeHTML(subtitleParts.join(' · ') || record.description || '')}</small></div></div></td>
+          <td data-label="Track"><div class="video-cell"><img src="${escapeHTML(thumbnail)}" alt="" loading="lazy" referrerpolicy="no-referrer" style="width:44px;height:44px;object-fit:cover;border-radius:8px;background:var(--surface-subtle)" onerror="this.src='${getStaticPlaceholder('cover')}'"><div><strong>${escapeHTML(displayTitle)}</strong><small>${escapeHTML(subtitleParts.join(' · ') || record.description || '')}</small></div></div></td>
           <td data-label="Genre">${genreBadges(record.genre)}</td>
           <td data-label="Length">${escapeHTML(durationLabel(record.duration_seconds))}</td>
           <td data-label="Added">${escapeHTML(formatDate(record.created_at))}</td>
@@ -475,19 +543,18 @@
     const albumImg = resolveAlbumImage(record);
     NC.components.openModal({
       title: record.bn_title ? `${record.title} · ${record.bn_title}` : record.title,
-      eyebrow: [record.artist, record.bn_artist, record.album, record.bn_album].filter(Boolean).join(' · ') || 'Music',
-      size: 'lg',
+      eyebrow: [record.artist, record.bn_artist, record.album, record.bn_album].filter(Boolean).join(' · ') || 'Music', size: 'lg',
       content: `
         <div class="grid gap-4">
           <div class="flex gap-4 items-start flex-wrap">
-            <img src="${escapeHTML(cover)}" alt="Cover" style="width:120px;height:120px;object-fit:cover;border-radius:16px;" referrerpolicy="no-referrer" onerror="this.src='${PLACEHOLDERS.cover}'">
+            <img src="${escapeHTML(cover)}" alt="Cover" style="width:120px;height:120px;object-fit:cover;border-radius:16px;" referrerpolicy="no-referrer" onerror="this.src='${getStaticPlaceholder('cover')}'">
             <div class="grid gap-3">
               <div class="flex gap-2 items-center flex-wrap">
-                <img src="${escapeHTML(artistImg)}" alt="Artist" style="width:48px;height:48px;object-fit:cover;border-radius:50%;border:1px solid var(--border)" referrerpolicy="no-referrer" onerror="this.src='${PLACEHOLDERS.artist}'">
+                <img src="${escapeHTML(artistImg)}" alt="Artist" style="width:48px;height:48px;object-fit:cover;border-radius:50%;border:1px solid var(--border)" referrerpolicy="no-referrer" onerror="this.src='${getStaticPlaceholder('artist')}'">
                 <div><strong>${escapeHTML(record.artist || 'Unknown artist')}</strong>${record.bn_artist ? `<small style="display:block;color:var(--muted-foreground)">${escapeHTML(record.bn_artist)}</small>` : ''}</div>
               </div>
               <div class="flex gap-2 items-center flex-wrap">
-                <img src="${escapeHTML(albumImg)}" alt="Album" style="width:48px;height:48px;object-fit:cover;border-radius:8px;border:1px solid var(--border)" referrerpolicy="no-referrer" onerror="this.src='${PLACEHOLDERS.album}'">
+                <img src="${escapeHTML(albumImg)}" alt="Album" style="width:48px;height:48px;object-fit:cover;border-radius:8px;border:1px solid var(--border)" referrerpolicy="no-referrer" onerror="this.src='${getStaticPlaceholder('album')}'">
                 <div><strong>${escapeHTML(record.album || 'Unknown album')}</strong>${record.bn_album ? `<small style="display:block;color:var(--muted-foreground)">${escapeHTML(record.bn_album)}</small>` : ''}</div>
               </div>
             </div>
@@ -509,20 +576,48 @@
   }
 
   function openForm(record = null) {
+    // Build distinct lists for comboboxes
+    const artistMap = buildArtistIndex();
+    const albumMap = buildAlbumIndex();
+    const distinctArtists = Array.from(artistMap.values()).map(v => v.artist).sort((a,b)=>a.localeCompare(b));
+    const distinctAlbums = Array.from(albumMap.values()).map(v => v.album).sort((a,b)=>a.localeCompare(b));
+
     NC.components.openModal({
       title: record ? 'Edit track' : 'Add track', eyebrow: 'Music library', size: 'xl',
       description: 'Upload an MP3 to Supabase Storage so the app streams a lasting public URL. Add Bangla titles for bilingual display; placeholders are shown when images are left empty.',
       content: `<form id="music-form" class="form-stack" novalidate>
         <div class="form-grid-2">
           <div class="field"><label class="field-label" for="track-title">Title <span aria-hidden="true">*</span></label><input class="form-input" id="track-title" name="title" value="${escapeHTML(record?.title || '')}" autofocus><p class="field-error hidden" data-field-error="title"></p></div>
-          <div class="field"><label class="field-label" for="track-bn-title">Bangla Title (bn_title)</label><input class="form-input" id="track-bn-title" name="bn_title" value="${escapeHTML(record?.bn_title || '')}" placeholder="বাংলা শিরোনাম"><p class="field-hint">Appears with the English title in the app.</p></div>
+          <div class="field"><label class="field-label" for="track-bn-title">Bangla Title (bn_title)</label><input class="form-input" id="track-bn-title" name="bn_title" value="${escapeHTML(record?.bn_title || '')}" placeholder="বাংলা শিরোনাম"><p class="field-hint">Appears with English title; also shown in cover placeholder.</p></div>
         </div>
+        <!-- Artist combobox + BN -->
         <div class="form-grid-2">
-          <div class="field"><label class="field-label" for="track-artist">Artist</label><input class="form-input" id="track-artist" name="artist" value="${escapeHTML(record?.artist || '')}"></div>
+          <div class="field">
+            <label class="field-label" for="track-artist-query">Artist</label>
+            <div class="combo-box" data-artist-combo>
+              <input type="hidden" name="artist" data-artist-value value="${escapeHTML(record?.artist || '')}">
+              <div class="combo-box-shell" data-artist-shell>
+                <input class="combo-query" id="track-artist-query" type="text" autocomplete="off" placeholder="Type or select artist…" value="${escapeHTML(record?.artist || '')}">
+              </div>
+              <div class="combo-menu hidden" data-artist-menu role="listbox"></div>
+            </div>
+            <span class="field-hint">Choose existing or type new. Selecting auto-fills Bangla artist.</span>
+          </div>
           <div class="field"><label class="field-label" for="track-bn-artist">Bangla Artist (bn_artist)</label><input class="form-input" id="track-bn-artist" name="bn_artist" value="${escapeHTML(record?.bn_artist || '')}" placeholder="বাংলা শিল্পী"></div>
         </div>
+        <!-- Album combobox + BN -->
         <div class="form-grid-2">
-          <div class="field"><label class="field-label" for="track-album">Album</label><input class="form-input" id="track-album" name="album" value="${escapeHTML(record?.album || '')}"></div>
+          <div class="field">
+            <label class="field-label" for="track-album-query">Album</label>
+            <div class="combo-box" data-album-combo>
+              <input type="hidden" name="album" data-album-value value="${escapeHTML(record?.album || '')}">
+              <div class="combo-box-shell" data-album-shell>
+                <input class="combo-query" id="track-album-query" type="text" autocomplete="off" placeholder="Type or select album…" value="${escapeHTML(record?.album || '')}">
+              </div>
+              <div class="combo-menu hidden" data-album-menu role="listbox"></div>
+            </div>
+            <span class="field-hint">Choose existing or type new. Selecting auto-fills Bangla album.</span>
+          </div>
           <div class="field"><label class="field-label" for="track-bn-album">Bangla Album (bn_album)</label><input class="form-input" id="track-bn-album" name="bn_album" value="${escapeHTML(record?.bn_album || '')}" placeholder="বাংলা অ্যালবাম"></div>
         </div>
         <div class="field">
@@ -540,10 +635,10 @@
           </div>
           <span class="field-hint">Use the select or type. Comma or Tab creates a chip. Multiple genres are allowed.</span>
         </div>
-        ${NC.media.imageUploaderHTML({ id: 'track-cover', label: 'Cover / thumbnail', hint: 'Square artwork looks best in the mini player and notification. Placeholder shown if empty.', placeholder: PLACEHOLDERS.cover })}
-        ${NC.media.imageUploaderHTML({ id: 'track-artist-image', label: 'Artist image', hint: 'Shown on the artist page in the app. Falls back to cover if empty; placeholder if both empty.', placeholder: PLACEHOLDERS.artist })}
+        ${NC.media.imageUploaderHTML({ id: 'track-cover', label: 'Cover / thumbnail', hint: 'Square artwork looks best in mini player. Placeholder shows Bangla title with random color if empty.', placeholder: coverPlaceholder(record || { bn_title: '', title: '' }) })}
+        ${NC.media.imageUploaderHTML({ id: 'track-artist-image', label: 'Artist image', hint: 'Shown on artist page. Placeholder shows Bangla artist with random color if empty.', placeholder: artistPlaceholder(record || { bn_artist: '', artist: '' }) })}
         <div class="field"><label class="field-label" for="track-artist-description">Artist description</label><textarea class="form-textarea min-h-28" id="track-artist-description" name="artist_description" placeholder="Short bio for the artist page.">${escapeHTML(record?.artist_description || '')}</textarea></div>
-        ${NC.media.imageUploaderHTML({ id: 'track-album-image', label: 'Album image', hint: 'Shown on the album page in the app. Falls back to cover if empty; placeholder if both empty.', placeholder: PLACEHOLDERS.album })}
+        ${NC.media.imageUploaderHTML({ id: 'track-album-image', label: 'Album image', hint: 'Shown on album page. Placeholder shows Bangla album with random color if empty.', placeholder: albumPlaceholder(record || { bn_album: '', album: '' }) })}
         <div class="field"><label class="field-label" for="track-album-description">Album description</label><textarea class="form-textarea min-h-28" id="track-album-description" name="album_description" placeholder="Notes for the album page.">${escapeHTML(record?.album_description || '')}</textarea></div>
         ${NC.media.audioUploaderHTML({ id: 'track-audio', label: 'MP3 file' })}
         <div class="field"><label class="field-label" for="track-video">Video link</label><input class="form-input" type="url" id="track-video" name="video_link" value="${escapeHTML(record?.video_link || '')}" placeholder="YouTube, Facebook, Veome Video Link Here"><p class="field-error hidden" data-field-error="video_link"></p><span class="field-hint">Optional. YouTube, Facebook, or Vimeo. Paste a URL to preview it below.</span></div>
@@ -554,18 +649,82 @@
       footer: `<button type="button" class="btn btn-secondary" data-modal-close>Cancel</button><button type="submit" form="music-form" class="btn btn-primary" data-save-track><i class="fa-regular fa-floppy-disk" aria-hidden="true"></i>${record ? 'Save changes' : 'Add track'}</button>`,
       onOpen: (modalRoot) => {
         const form = modalRoot.querySelector('#music-form');
+        // Dynamic placeholders that update live
+        const initialCoverPh = coverPlaceholder(record || { bn_title: form.querySelector('#track-bn-title')?.value || '', title: form.querySelector('#track-title')?.value || '' });
+        const initialArtistPh = artistPlaceholder(record || { bn_artist: form.querySelector('#track-bn-artist')?.value || '', artist: form.querySelector('#track-artist-query')?.value || '' });
+        const initialAlbumPh = albumPlaceholder(record || { bn_album: form.querySelector('#track-bn-album')?.value || '', album: form.querySelector('#track-album-query')?.value || '' });
+
         const cover = NC.media.mountImageUploader(modalRoot.querySelector('#track-cover'), {
           initial: record ? { url: record.thumbnail_url, delete_url: record.imgbb_delete_url, ...record.image_meta } : null,
-          placeholder: PLACEHOLDERS.cover
+          placeholder: initialCoverPh
         });
         const artistImage = NC.media.mountImageUploader(modalRoot.querySelector('#track-artist-image'), {
           initial: record?.artist_image ? { url: record.artist_image } : null,
-          placeholder: PLACEHOLDERS.artist
+          placeholder: initialArtistPh
         });
         const albumImage = NC.media.mountImageUploader(modalRoot.querySelector('#track-album-image'), {
           initial: record?.album_image ? { url: record.album_image } : null,
-          placeholder: PLACEHOLDERS.album
+          placeholder: initialAlbumPh
         });
+
+        // Live placeholder updates when BN fields change (only if no real image)
+        function updateCoverPlaceholder() {
+          if (cover.getValue().url) return; // real image present, don't override
+          const bn = form.querySelector('#track-bn-title')?.value || '';
+          const en = form.querySelector('#track-title')?.value || '';
+          const label = bn || en || 'No Cover';
+          cover.setPlaceholder(dynamicPlaceholder(label, 'No Cover', 'cover'));
+        }
+        function updateArtistPlaceholder() {
+          if (artistImage.getValue().url) return;
+          const bn = form.querySelector('#track-bn-artist')?.value || '';
+          const en = form.querySelector('#track-artist-query')?.value || '';
+          const label = bn || en || 'No Artist';
+          artistImage.setPlaceholder(dynamicPlaceholder(label, 'No Artist', 'artist'));
+        }
+        function updateAlbumPlaceholder() {
+          if (albumImage.getValue().url) return;
+          const bn = form.querySelector('#track-bn-album')?.value || '';
+          const en = form.querySelector('#track-album-query')?.value || '';
+          const label = bn || en || 'No Album';
+          albumImage.setPlaceholder(dynamicPlaceholder(label, 'No Album', 'album'));
+        }
+        form.querySelector('#track-title')?.addEventListener('input', debounce(updateCoverPlaceholder, 250));
+        form.querySelector('#track-bn-title')?.addEventListener('input', debounce(updateCoverPlaceholder, 250));
+        form.querySelector('#track-bn-artist')?.addEventListener('input', debounce(updateArtistPlaceholder, 250));
+        form.querySelector('#track-bn-album')?.addEventListener('input', debounce(updateAlbumPlaceholder, 250));
+
+        // Artist combobox: selecting fills bn_artist
+        const artistCombo = mountSingleCombobox(modalRoot, {
+          comboSelector: '[data-artist-combo]', hiddenSelector: '[data-artist-value]', shellSelector: '[data-artist-shell]', inputSelector: '.combo-query', menuSelector: '[data-artist-menu]',
+          items: distinctArtists, initial: record?.artist || '',
+          onSelect: (val) => {
+            const key = val.toLowerCase();
+            const found = artistMap.get(key);
+            if (found && found.bn_artist) {
+              const bnInput = form.querySelector('#track-bn-artist');
+              if (bnInput && !bnInput.value.trim()) bnInput.value = found.bn_artist;
+              else if (bnInput) bnInput.value = found.bn_artist; // always fill as requested
+            }
+            updateArtistPlaceholder();
+          },
+          onLiveChange: () => updateArtistPlaceholder()
+        });
+        const albumCombo = mountSingleCombobox(modalRoot, {
+          comboSelector: '[data-album-combo]', hiddenSelector: '[data-album-value]', shellSelector: '[data-album-shell]', inputSelector: '.combo-query', menuSelector: '[data-album-menu]',
+          items: distinctAlbums, initial: record?.album || '',
+          onSelect: (val) => {
+            const key = val.toLowerCase();
+            const found = albumMap.get(key);
+            if (found && found.bn_album) {
+              const bnInput = form.querySelector('#track-bn-album');
+              if (bnInput) bnInput.value = found.bn_album;
+            }
+            updateAlbumPlaceholder();
+          },
+          onLiveChange: () => updateAlbumPlaceholder()
+        });
+
         const audio = NC.media.mountAudioUploader(modalRoot, {
           initial: record ? { url: record.audio_url, path: record.file_storage_path, provider: record.file_provider, size: Number(record.file_size_mb || 0) * 1024 * 1024, duration_seconds: record.duration_seconds } : null
         });
@@ -582,6 +741,7 @@
         form.addEventListener('submit', async (event) => {
           event.preventDefault();
           const data = formData(form);
+          // artist/album come from hidden combo values, but formData already has them as 'artist'/'album'
           const audioValue = audio.getValue();
           const videoLink = (data.video_link || '').trim();
           const errors = {
@@ -596,44 +756,23 @@
           const image = cover.getValue();
           try {
             await NC.crud.save('music', record?.id, {
-              title: data.title,
-              bn_title: data.bn_title || '',
-              artist: data.artist || '',
-              bn_artist: data.bn_artist || '',
-              album: data.album || '',
-              bn_album: data.bn_album || '',
+              title: data.title, bn_title: data.bn_title || '',
+              artist: data.artist || '', bn_artist: data.bn_artist || '',
+              album: data.album || '', bn_album: data.bn_album || '',
               genre: genres.getValue() || data.genre || '',
-              description: data.description || '',
-              lyrics: data.lyrics || '',
-              video_link: videoLink,
-              artist_image: artistImage.getValue().url || '',
-              artist_description: data.artist_description || '',
-              album_image: albumImage.getValue().url || '',
-              album_description: data.album_description || '',
-              thumbnail_url: image.url || '',
-              imgbb_delete_url: image.delete_url || '',
-              image_meta: {
-                display_url: image.display_url || image.url || '',
-                filename: image.filename || '',
-                size: Number(image.size || 0),
-                mime: image.mime || '',
-                provider: image.provider || (image.url ? 'url' : ''),
-                uploaded_at: image.uploaded_at || null
-              },
-              audio_url: audioValue.url,
-              file_provider: audioValue.provider || 'url',
-              file_storage_path: audioValue.path || '',
-              file_size_mb: audioValue.size ? Number((audioValue.size / 1024 / 1024).toFixed(2)) : Number(record?.file_size_mb || 0),
-              duration_seconds: audioValue.duration || Number(record?.duration_seconds || 0)
+              description: data.description || '', lyrics: data.lyrics || '', video_link: videoLink,
+              artist_image: artistImage.getValue().url || '', artist_description: data.artist_description || '',
+              album_image: albumImage.getValue().url || '', album_description: data.album_description || '',
+              thumbnail_url: image.url || '', imgbb_delete_url: image.delete_url || '',
+              image_meta: { display_url: image.display_url || image.url || '', filename: image.filename || '', size: Number(image.size || 0), mime: image.mime || '', provider: image.provider || (image.url ? 'url' : ''), uploaded_at: image.uploaded_at || null },
+              audio_url: audioValue.url, file_provider: audioValue.provider || 'url', file_storage_path: audioValue.path || '', file_size_mb: audioValue.size ? Number((audioValue.size / 1024 / 1024).toFixed(2)) : Number(record?.file_size_mb || 0), duration_seconds: audioValue.duration || Number(record?.duration_seconds || 0)
             });
             if (record?.file_storage_path && record.file_storage_path !== audioValue.path) {
               const result = await NC.api.deleteStorageObject(NC_CONFIG.supabase.musicBucket, record.file_storage_path);
               if (!result.ok) NC.components.toast('The track was saved, but the old audio file could not be removed from storage.', 'warning');
             }
             NC.components.toast(`Track ${record ? 'updated' : 'added'} successfully.`, 'success'); NC.components.closeModal(); await load();
-          } catch (error) {
-            console.error(error); NC.components.toast(NC.api.userMessage(error, 'Unable to save the track.'), 'error');
-          } finally { NC.utils.setButtonLoading(button, false); }
+          } catch (error) { console.error(error); NC.components.toast(NC.api.userMessage(error, 'Unable to save the track.'), 'error'); } finally { NC.utils.setButtonLoading(button, false); }
         });
       }
     });
@@ -642,10 +781,7 @@
   async function remove(record) {
     try {
       const deleted = await NC.crud.deleteRecord({
-        table: 'music',
-        record,
-        label: 'track',
-        remoteDeleteUrls: [record.imgbb_delete_url],
+        table: 'music', record, label: 'track', remoteDeleteUrls: [record.imgbb_delete_url],
         storageObjects: record.file_storage_path ? [{ bucket: NC_CONFIG.supabase.musicBucket, path: record.file_storage_path }] : []
       });
       if (deleted) await load();
@@ -666,7 +802,7 @@
 
   function render(container, context = {}) {
     root = container;
-    root.innerHTML = `${NC.components.pageHeader({ eyebrow: 'Multimedia', title: 'Music', description: 'Upload MP3 tracks for the in-app player, mini bar, and notification controls. Now with Bangla titles and bulk JSON import.', breadcrumb: [{ label: 'Music' }], actions: `<button type="button" class="btn btn-secondary" data-import-json><i class="fa-regular fa-file-code" aria-hidden="true"></i>Import JSON</button><button type="button" class="btn btn-primary" data-add-track><i class="fa-regular fa-plus" aria-hidden="true"></i>Add track</button>` })}<section class="surface"><div class="list-toolbar"><label class="search-field"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><span class="sr-only">Search music</span><input type="search" placeholder="Search tracks (title, Bangla, artist, album)…" data-music-search></label><span class="field-hint" style="margin-left:auto">Placeholders shown when cover/artist/album images are empty</span></div><div data-music-content>${NC.components.skeleton(7, 5)}</div></section>`;
+    root.innerHTML = `${NC.components.pageHeader({ eyebrow: 'Multimedia', title: 'Music', description: 'Upload MP3 tracks for the in-app player. Artist & Album are searchable comboboxes; placeholders show Bangla names with random colors.', breadcrumb: [{ label: 'Music' }], actions: `<button type="button" class="btn btn-secondary" data-import-json><i class="fa-regular fa-file-code" aria-hidden="true"></i>Import JSON</button><button type="button" class="btn btn-primary" data-add-track><i class="fa-regular fa-plus" aria-hidden="true"></i>Add track</button>` })}<section class="surface"><div class="list-toolbar"><label class="search-field"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><span class="sr-only">Search music</span><input type="search" placeholder="Search tracks (title, Bangla, artist, album)…" data-music-search></label><span class="field-hint" style="margin-left:auto">Placeholders = Bangla title/artist/album · random color</span></div><div data-music-content>${NC.components.skeleton(7, 5)}</div></section>`;
     root.querySelector('[data-add-track]').addEventListener('click', () => openForm());
     root.querySelector('[data-import-json]').addEventListener('click', () => openJsonImport());
     root.querySelector('[data-music-search]').addEventListener('input', debounce((event) => { state.setQuery(event.target.value); renderList(); }, 220));
