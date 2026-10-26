@@ -52,9 +52,24 @@
     });
   }
 
-  function imageUploaderHTML({ id = uuid(), label = 'Image', hint = 'Upload to ImgBB or paste a direct image URL.', required = false } = {}) {
+  // --- Placeholder helpers (used when no image is supplied) ---
+  function placeholderDataUri(label, bg, fg) {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"><rect width="400" height="400" rx="24" fill="${bg}"/><text x="200" y="170" text-anchor="middle" font-family="Arial,sans-serif" font-size="52" fill="${fg}">♪</text><text x="200" y="225" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" fill="${fg}" font-weight="700">${label}</text></svg>`;
+    return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+  }
+  const DEFAULT_PLACEHOLDERS = Object.freeze({
+    cover: placeholderDataUri('No Cover', '#ede9ff', '#7c3aed'),
+    thumbnail: placeholderDataUri('No Cover', '#ede9ff', '#7c3aed'),
+    artist: placeholderDataUri('No Artist', '#e0f2fe', '#0369a1'),
+    album: placeholderDataUri('No Album', '#fef3c7', '#b45309'),
+    generic: placeholderDataUri('No Image', '#f1f5f9', '#64748b')
+  });
+
+  function imageUploaderHTML({ id = uuid(), label = 'Image', hint = 'Upload to ImgBB or paste a direct image URL.', required = false, placeholder = '' } = {}) {
+    const placeholderAttr = placeholder ? ` data-placeholder="${escapeHTML(placeholder)}"` : '';
+    const placeholderImg = placeholder ? `<img class="hidden" data-upload-placeholder alt="Placeholder" referrerpolicy="no-referrer" src="${escapeHTML(placeholder)}">` : '';
     return `
-      <div class="image-uploader" data-image-uploader id="${escapeHTML(id)}">
+      <div class="image-uploader" data-image-uploader id="${escapeHTML(id)}"${placeholderAttr}>
         <div class="field-heading">
           <label class="field-label" for="${escapeHTML(id)}-url">${escapeHTML(label)}${required ? '<span aria-hidden="true"> *</span>' : ''}</label>
           <span class="field-hint">${escapeHTML(hint)}</span>
@@ -66,6 +81,7 @@
               <span>No image</span>
             </div>
             <img class="hidden" data-upload-image alt="Image preview" referrerpolicy="no-referrer">
+            ${placeholderImg}
             <div class="uploader-overlay hidden" data-upload-overlay>
               <i class="fa-regular fa-spinner-third fa-spin" aria-hidden="true"></i>
               <span data-upload-state>Uploading…</span>
@@ -114,6 +130,8 @@
     const actions = qs('[data-upload-actions]', element);
     const errorNode = qs('[data-upload-error]', element);
     const dropZone = qs('.drop-zone', element);
+    const placeholderEl = qs('[data-upload-placeholder]', element);
+    const placeholderUrl = options.placeholder || element.dataset.placeholder || '';
     let value = normalizeInitial(options.initial);
     let uploading = false;
 
@@ -140,14 +158,40 @@
     function render() {
       const url = safeExternalUrl(value.display_url || value.url);
       urlInput.value = value.url || '';
-      image.classList.toggle('hidden', !url);
-      empty.classList.toggle('hidden', Boolean(url));
-      actions.classList.toggle('hidden', !url);
-      if (url) image.src = url;
+      const hasUrl = Boolean(url);
+      const placeholder = placeholderUrl && !hasUrl ? placeholderUrl : '';
+      image.classList.toggle('hidden', !hasUrl);
+      if (placeholderEl) {
+        placeholderEl.classList.toggle('hidden', hasUrl || !placeholder);
+        if (placeholder) placeholderEl.src = placeholder;
+        // also treat placeholder as visible preview — hide empty when placeholder shown
+        empty.classList.toggle('hidden', hasUrl || Boolean(placeholder));
+      } else {
+        empty.classList.toggle('hidden', hasUrl);
+      }
+      actions.classList.toggle('hidden', !hasUrl);
+      if (hasUrl) image.src = url;
+      // style placeholder as muted preview so users know it's fallback
+      if (placeholderEl) {
+        placeholderEl.style.opacity = '0.95';
+        placeholderEl.style.objectFit = 'cover';
+      }
       meta.classList.toggle('hidden', !(value.filename || value.size || value.provider));
       if (!meta.classList.contains('hidden')) {
         const details = [value.filename, value.size ? bytes(value.size) : '', value.provider === 'imgbb' ? 'ImgBB' : 'Direct URL'].filter(Boolean);
         meta.innerHTML = `<i class="fa-regular fa-circle-info" aria-hidden="true"></i><span>${details.map(escapeHTML).join(' · ')}</span>`;
+      }
+      // hint when placeholder is active
+      if (!hasUrl && placeholder && !element.querySelector('[data-placeholder-hint]')) {
+        const hint = document.createElement('div');
+        hint.setAttribute('data-placeholder-hint', '');
+        hint.className = 'field-hint mt-1';
+        hint.textContent = 'Placeholder shown — add an image to replace it.';
+        // insert after preview? append to controls for visibility
+        const controls = element.querySelector('.uploader-controls');
+        if (controls && !controls.querySelector('[data-placeholder-hint]')) controls.appendChild(hint);
+      } else if (hasUrl) {
+        element.querySelector('[data-placeholder-hint]')?.remove();
       }
     }
 
@@ -562,6 +606,8 @@
   NC.media = Object.freeze({
     uploadImage, imageUploaderHTML, mountImageUploader,
     pdfUploaderHTML, mountPdfUploader, detectVideoProvider, videoPreviewHTML,
-    audioUploaderHTML, mountAudioUploader
+    audioUploaderHTML, mountAudioUploader,
+    placeholderDataUri, placeholders: DEFAULT_PLACEHOLDERS,
+    placeholderFor: (kind) => DEFAULT_PLACEHOLDERS[kind] || DEFAULT_PLACEHOLDERS.generic
   });
 })(window.NC);
