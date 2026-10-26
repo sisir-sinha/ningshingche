@@ -67,16 +67,19 @@
 
   // ---------- Build distinct artist/album indexes from existing records ----------
   function buildArtistIndex() {
-    const map = new Map(); // lower -> { artist, bn_artist }
+    const map = new Map(); // lower -> { artist, bn_artist, artist_image, artist_description }
     (state.records || []).forEach((r) => {
       const name = String(r.artist || '').trim();
       if (!name) return;
       const key = name.toLowerCase();
-      if (!map.has(key)) map.set(key, { artist: name, bn_artist: String(r.bn_artist || '').trim() });
+      const img = String(r.artist_image || '').trim() || String(r.thumbnail_url || '').trim();
+      const desc = String(r.artist_description || '').trim();
+      if (!map.has(key)) map.set(key, { artist: name, bn_artist: String(r.bn_artist || '').trim(), artist_image: img, artist_description: desc });
       else {
-        // prefer non-empty bn if current is empty
         const cur = map.get(key);
         if (!cur.bn_artist && r.bn_artist) cur.bn_artist = String(r.bn_artist || '').trim();
+        if (!cur.artist_image && img) cur.artist_image = img;
+        if (!cur.artist_description && desc) cur.artist_description = desc;
       }
     });
     return map;
@@ -87,10 +90,14 @@
       const name = String(r.album || '').trim();
       if (!name) return;
       const key = name.toLowerCase();
-      if (!map.has(key)) map.set(key, { album: name, bn_album: String(r.bn_album || '').trim() });
+      const img = String(r.album_image || '').trim() || String(r.thumbnail_url || '').trim();
+      const desc = String(r.album_description || '').trim();
+      if (!map.has(key)) map.set(key, { album: name, bn_album: String(r.bn_album || '').trim(), album_image: img, album_description: desc });
       else {
         const cur = map.get(key);
         if (!cur.bn_album && r.bn_album) cur.bn_album = String(r.bn_album || '').trim();
+        if (!cur.album_image && img) cur.album_image = img;
+        if (!cur.album_description && desc) cur.album_description = desc;
       }
     });
     return map;
@@ -694,17 +701,27 @@
         form.querySelector('#track-bn-artist')?.addEventListener('input', debounce(updateArtistPlaceholder, 250));
         form.querySelector('#track-bn-album')?.addEventListener('input', debounce(updateAlbumPlaceholder, 250));
 
-        // Artist combobox: selecting fills bn_artist
+        // Artist combobox: selecting fills bn_artist + existing image
         const artistCombo = mountSingleCombobox(modalRoot, {
           comboSelector: '[data-artist-combo]', hiddenSelector: '[data-artist-value]', shellSelector: '[data-artist-shell]', inputSelector: '.combo-query', menuSelector: '[data-artist-menu]',
           items: distinctArtists, initial: record?.artist || '',
           onSelect: (val) => {
             const key = val.toLowerCase();
             const found = artistMap.get(key);
-            if (found && found.bn_artist) {
-              const bnInput = form.querySelector('#track-bn-artist');
-              if (bnInput && !bnInput.value.trim()) bnInput.value = found.bn_artist;
-              else if (bnInput) bnInput.value = found.bn_artist; // always fill as requested
+            if (found) {
+              if (found.bn_artist) {
+                const bnInput = form.querySelector('#track-bn-artist');
+                if (bnInput) bnInput.value = found.bn_artist;
+              }
+              // Auto place existing artist image if available and current field is empty (placeholder)
+              if (found.artist_image && !artistImage.getValue().url) {
+                artistImage.setValue({ url: found.artist_image });
+                NC.components.toast(`Artist image auto-filled from “${val}”.`, 'info');
+              }
+              if (found.artist_description) {
+                const desc = form.querySelector('#track-artist-description');
+                if (desc && !String(desc.value || '').trim()) desc.value = found.artist_description;
+              }
             }
             updateArtistPlaceholder();
           },
@@ -716,9 +733,19 @@
           onSelect: (val) => {
             const key = val.toLowerCase();
             const found = albumMap.get(key);
-            if (found && found.bn_album) {
-              const bnInput = form.querySelector('#track-bn-album');
-              if (bnInput) bnInput.value = found.bn_album;
+            if (found) {
+              if (found.bn_album) {
+                const bnInput = form.querySelector('#track-bn-album');
+                if (bnInput) bnInput.value = found.bn_album;
+              }
+              if (found.album_image && !albumImage.getValue().url) {
+                albumImage.setValue({ url: found.album_image });
+                NC.components.toast(`Album image auto-filled from “${val}”.`, 'info');
+              }
+              if (found.album_description) {
+                const desc = form.querySelector('#track-album-description');
+                if (desc && !String(desc.value || '').trim()) desc.value = found.album_description;
+              }
             }
             updateAlbumPlaceholder();
           },
