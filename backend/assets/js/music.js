@@ -362,6 +362,18 @@
 
   // ---------- JSON import helpers ----------
   function textVal(v) { return v == null ? '' : String(v).trim(); }
+  function normKey(v) { return String(v || '').trim().toLowerCase().replace(/\s+/g, ' '); }
+  function dupKeyForPayload(p) {
+    // Primary: normalized audio_url; fallback: title|artist|album combo
+    const audio = normKey(p.audio_url);
+    if (audio) return `audio:${audio}`;
+    return `meta:${normKey(p.title)}|${normKey(p.artist)}|${normKey(p.album)}`;
+  }
+  function dupKeyForRecord(r) {
+    const audio = normKey(r.audio_url);
+    if (audio) return `audio:${audio}`;
+    return `meta:${normKey(r.title)}|${normKey(r.artist)}|${normKey(r.album)}`;
+  }
 
   function normalizeJsonRecord(raw) {
     if (!raw || typeof raw !== 'object') return null;
@@ -419,6 +431,8 @@
     let jsonRecords = [];
     let validPayloads = [];
     let invalidCount = 0;
+    let duplicateCount = 0;
+    let existingKeySet = new Set(); // filled on first file process
     const modal = NC.components.openModal({
       title: 'Import music from JSON', eyebrow: 'Bulk upload', size: 'xl',
       description: 'Upload a JSON file with an array of songs. Each needs at least a title and an audio_url (or file_path). Fields like bn_title, bn_artist, bn_album, thumbnail_url, artist_image, album_image are optional — placeholders are shown when missing.',
@@ -466,24 +480,59 @@
         modalRoot.querySelector('[data-json-template-download]')?.addEventListener('click', downloadTemplate);
         function renderPreview() {
           if (!jsonRecords.length) { preview.classList.add('hidden'); status.classList.add('hidden'); actions.classList.add('hidden'); return; }
-          preview.classList.remove('hidden'); status.classList.remove('hidden'); status.className = `notice ${invalidCount ? 'notice-warning' : 'notice-success'}`;
-          status.innerHTML = `<i class="fa-regular fa-circle-info" aria-hidden="true"></i><p><strong>${validPayloads.length} valid</strong> · ${invalidCount} invalid/skipped · ${jsonRecords.length} total. Placeholders will be used for missing images.</p>`;
+          preview.classList.remove('hidden'); status.classList.remove('hidden');
+          const hasIssues = invalidCount || duplicateCount;
+          status.className = `notice ${hasIssues ? 'notice-warning' : 'notice-success'}`;
+          status.innerHTML = `<i class="fa-regular fa-circle-info" aria-hidden="true"></i><p><strong>${validPayloads.length} valid</strong> · ${duplicateCount} duplicate(s) skipped · ${invalidCount} invalid · ${jsonRecords.length} total. Duplicates by audio_url or title/artist/album will be skipped. Placeholders for missing images.</p>`;
           const rows = validPayloads.slice(0, 100).map((payload, idx) => {
             const thumb = safeImage(payload.thumbnail_url) || coverPlaceholder(payload);
             const bnInfo = payload.bn_title ? ` <small style="color:var(--muted-foreground)">(${escapeHTML(payload.bn_title)})</small>` : '';
             return `<tr><td>${idx + 1}</td><td><div class="video-cell"><img src="${escapeHTML(thumb)}" alt="" style="width:32px;height:32px;object-fit:cover;border-radius:6px;" onerror="this.style.display='none'"><div><strong>${escapeHTML(payload.title)}</strong>${bnInfo}<small>${escapeHTML([payload.artist, payload.bn_artist].filter(Boolean).join(' · ') || payload.album || '')}</small></div></div></td><td>${escapeHTML(payload.audio_url.slice(0, 48))}${payload.audio_url.length > 48 ? '…' : ''}</td><td><span class="import-status is-valid"><i class="fa-solid fa-circle-check"></i>Ready</span></td></tr>`;
           }).join('');
-          const invalidRows = invalidCount ? `<tr><td colspan="4" class="text-center text-muted-foreground">${invalidCount} record(s) skipped (missing title or audio_url)</td></tr>` : '';
-          output.innerHTML = `<div class="import-preview-wrap"><table class="data-table import-preview-table"><thead><tr><th>#</th><th>Track</th><th>Audio</th><th>Status</th></tr></thead><tbody>${rows}${invalidRows}</tbody></table></div>${jsonRecords.length > 100 ? `<p class="field-hint mt-2">Showing first 100 of ${jsonRecords.length}.</p>` : ''}`;
-          hint.textContent = `${validPayloads.length} ready to import · Missing images will show placeholders`;
+          const extraRows = [];
+          if (duplicateCount) extraRows.push(`<tr><td colspan="4" class="text-center text-amber-600"><i class="fa-regular fa-forward" aria-hidden="true"></i> ${duplicateCount} duplicate(s) will be skipped (already in library or duplicate within file)</td></tr>`);
+          if (invalidCount) extraRows.push(`<tr><td colspan="4" class="text-center text-muted-foreground">${invalidCount} invalid record(s) skipped (missing title or audio_url)</td></tr>`);
+          output.innerHTML = `<div class="import-preview-wrap"><table class="data-table import-preview-table"><thead><tr><th>#</th><th>Track</th><th>Audio</th><th>Status</th></tr></thead><tbody>${rows}${extraRows.join('')}</tbody></table></div>${jsonRecords.length > 100 ? `<p class="field-hint mt-2">Showing first 100 of ${jsonRecords.length}.</p>` : ''}`;
+          hint.textContent = `${validPayloads.length} ready to import · ${duplicateCount} duplicate(s) skipped · Missing images = placeholders`;
           actions.classList.remove('hidden'); importBtn.innerHTML = `<i class="fa-regular fa-file-import" aria-hidden="true"></i>Import ${validPayloads.length} songs`; importBtn.disabled = validPayloads.length === 0;
         }
         async function processFile(file) {
           if (!file) return; output.innerHTML = `<div class="import-loading"><i class="fa-regular fa-spinner-third fa-spin" aria-hidden="true"></i><p>Reading JSON…</p></div>`;
           try {
-            const text = await file.text(); jsonRecords = parseJsonImportFile(text); validPayloads = []; invalidCount = 0;
-            jsonRecords.forEach((raw) => { const norm = normalizeJsonRecord(raw); if (norm) validPayloads.push(norm); else invalidCount += 1; });
-            renderPreview(); if (!validPayloads.length) NC.components.toast('No valid songs found. Each needs title + audio_url/file_path.', 'error'); else NC.components.toast(`${validPayloads.length} valid songs detected.`, 'success');
+            const text = await file.text(); jsonRecords = parseJsonImportFile(text);
+            validPayloads = []; invalidCount = 0; duplicateCount = 0;
+            // Build existing duplicate keys (from current library)
+            try {
+              if (existingKeySet.size === 0) {
+                // Prefer in-memory state.records if already loaded, else fetch
+                let existing = state.records && state.records.length ? state.records : [];
+                if (!existing.length) {
+                  const res = await NC.api.list('music', { select: 'audio_url,title,artist,album', limit: 2000 });
+                  existing = res.data || [];
+                }
+                existing.forEach((rec) => existingKeySet.add(dupKeyForRecord(rec)));
+              }
+            } catch (e) { console.warn('Could not load existing music for duplicate check, will treat all as new:', e); }
+            const seenInFile = new Set();
+            jsonRecords.forEach((raw) => {
+              const norm = normalizeJsonRecord(raw);
+              if (!norm) { invalidCount += 1; return; }
+              const key = dupKeyForPayload(norm);
+              if (existingKeySet.has(key) || seenInFile.has(key)) { duplicateCount += 1; return; }
+              seenInFile.add(key);
+              // Also consider fallback combo key as duplicate if audio key differs but meta matches
+              // To catch duplicates where audio_url differs only by encoding, we check both forms
+              // Already dupKeyForPayload uses audio_url primary, so it's sufficient
+              validPayloads.push(norm);
+            });
+            renderPreview();
+            if (!validPayloads.length) {
+              if (duplicateCount) NC.components.toast(`${duplicateCount} duplicate(s) skipped — nothing new to import.`, 'warning');
+              else NC.components.toast('No valid songs found. Each needs title + audio_url/file_path.', 'error');
+            } else {
+              const msg = duplicateCount ? `${validPayloads.length} new songs ready (${duplicateCount} duplicate(s) will be skipped).` : `${validPayloads.length} valid songs detected.`;
+              NC.components.toast(msg, duplicateCount ? 'warning' : 'success');
+            }
           } catch (e) { output.innerHTML = `<div class="import-error"><i class="fa-solid fa-file-circle-exclamation"></i><h3>Could not read JSON</h3><p>${escapeHTML(e.message)}</p></div>`; NC.components.toast(e.message, 'error'); } finally { input.value = ''; }
         }
         input.addEventListener('change', () => processFile(input.files?.[0])); dropZone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } }); ['dragenter', 'dragover'].forEach((n) => dropZone.addEventListener(n, (e) => { e.preventDefault(); dropZone.classList.add('is-dragging'); })); ['dragleave', 'drop'].forEach((n) => dropZone.addEventListener(n, (e) => { e.preventDefault(); dropZone.classList.remove('is-dragging'); })); dropZone.addEventListener('drop', (e) => processFile(e.dataTransfer?.files?.[0]));
@@ -494,8 +543,11 @@
           let cursor = 0, completed = 0, imported = 0, failed = 0; const results = [];
           async function worker() { while (cursor < validPayloads.length) { const item = validPayloads[cursor]; cursor += 1; try { const rec = await NC.api.insert('music', item); results.push({ status: 'imported', item, rec }); imported += 1; } catch (err) { results.push({ status: 'failed', item, err }); failed += 1; } completed += 1; const p = Math.round((completed / validPayloads.length) * 100); bar.style.width = p + '%'; pct.textContent = p + '%'; label.textContent = `${completed} of ${validPayloads.length} · ${imported} imported${failed ? ` · ${failed} failed` : ''}`; } }
           await Promise.all(Array.from({ length: Math.min(4, validPayloads.length) }, worker));
-          output.innerHTML = `<div class="import-complete ${failed ? 'has-failures' : ''}"><span><i class="fa-solid ${failed ? 'fa-triangle-exclamation' : 'fa-circle-check'}\"></i></span><div><h3>${failed ? 'Completed with errors' : 'Import completed'}</h3><p>${imported} imported · ${failed} failed · ${invalidCount} skipped.</p></div></div>`;
-          if (imported) { NC.components.toast(`${imported} songs imported.`, 'success'); await load(); } if (failed) NC.components.toast(`${failed} failed to import.`, 'error');
+          existingKeySet = new Set([...existingKeySet, ...validPayloads.slice(0, imported).map(dupKeyForPayload)]);
+          const totalSkipped = duplicateCount + invalidCount;
+          output.innerHTML = `<div class="import-complete ${failed ? 'has-failures' : ''}"><span><i class="fa-solid ${failed ? 'fa-triangle-exclamation' : 'fa-circle-check'}\"></i></span><div><h3>${failed ? 'Completed with errors' : 'Import completed'}</h3><p>${imported} imported · ${failed} failed · ${duplicateCount} duplicate(s) skipped · ${invalidCount} invalid skipped.</p></div></div>`;
+          if (imported) { NC.components.toast(`${imported} songs imported${duplicateCount ? `, ${duplicateCount} duplicate(s) skipped` : ''}.`, 'success'); await load(); } if (failed) NC.components.toast(`${failed} failed to import.`, 'error');
+          if (!imported && duplicateCount) NC.components.toast(`All ${duplicateCount} song(s) were duplicates — nothing imported.`, 'warning');
         });
       }
     }); return modal;
