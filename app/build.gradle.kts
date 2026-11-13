@@ -1,4 +1,6 @@
 import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
+import java.io.FileInputStream
+import java.util.Properties
 
 plugins {
   alias(libs.plugins.android.application)
@@ -8,6 +10,38 @@ plugins {
   alias(libs.plugins.secrets)
   alias(libs.plugins.google.services)
 }
+
+/**
+ * Where the upload key lives, and why it is not in this file.
+ *
+ * A keystore and its passwords are a Play Console credential: whoever holds them
+ * can sign an APK that Google accepts as the next update to this app. They were
+ * briefly committed here, in a public repository, which meant they had to be
+ * treated as stolen and replaced — so the file is gone, and the build reads the
+ * values from somewhere that is not git:
+ *
+ *   1. `key.properties` at the repo root (git-ignored; copy the .example), or
+ *   2. the environment: KEYSTORE_PATH, STORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD,
+ *      which is what a CI runner should set.
+ *
+ * Neither present is a normal state: `assembleDebug` still works, and a release
+ * build fails loudly below rather than shipping an unsigned APK that would only
+ * be refused by Play much later.
+ */
+val keystoreProperties = Properties().apply {
+  val file = rootProject.file("key.properties")
+  if (file.exists()) FileInputStream(file).use { load(it) }
+}
+
+/** Environment first (CI), then key.properties (a workstation). */
+fun signingValue(env: String, key: String): String? =
+  System.getenv(env)?.takeIf { it.isNotBlank() } ?: keystoreProperties.getProperty(key)?.takeIf { it.isNotBlank() }
+
+val releaseStorePath: String? = signingValue("KEYSTORE_PATH", "storeFile")
+val releaseStoreFile = releaseStorePath?.let { rootProject.file(it) }?.takeIf { it.exists() }
+val releaseStorePassword = signingValue("STORE_PASSWORD", "storePassword")
+val releaseKeyAlias = signingValue("KEY_ALIAS", "keyAlias")
+val releaseKeyPassword = signingValue("KEY_PASSWORD", "keyPassword")
 
 android {
   namespace = "com.ningshingche.app"
@@ -29,12 +63,16 @@ android {
   }
 
   signingConfigs {
-    create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      storeFile = file(keystorePath)
-      storePassword = System.getenv("STORE_PASSWORD")
-      keyAlias = "upload"
-      keyPassword = System.getenv("KEY_PASSWORD")
+    // Only when the key is actually on this machine, so a checkout without it
+    // fails at the release task (below) instead of at configuration time, which
+    // would also break `assembleDebug`.
+    if (releaseStoreFile != null) {
+      create("release") {
+        storeFile = releaseStoreFile
+        storePassword = releaseStorePassword
+        keyAlias = releaseKeyAlias
+        keyPassword = releaseKeyPassword
+      }
     }
     val customDebugKey = file("${rootDir}/debug.keystore")
     if (customDebugKey.exists()) {
@@ -53,7 +91,10 @@ android {
       isMinifyEnabled = true
       isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.getByName("release")
+      // Set below, only if the key is here; the task-graph check at the end of
+      // this file makes a release build without one fail with instructions
+      // rather than produce an unsigned APK.
+      signingConfigs.findByName("release")?.let { signingConfig = it }
     }
     debug {
       signingConfigs.findByName("debugConfig")?.let { signingConfig = it }
@@ -62,8 +103,16 @@ android {
 
   packaging {
     jniLibs {
-      // Compress Pdfium/ExoPlayer .so files so the sideload APK is smaller.
-      useLegacyPackaging = true
+      // Uncompressed, which is what Play wants from here on.
+      //
+      // This was `true` to make the sideload APK smaller — but the app no longer
+      // distributes its own APK (that was the first audit blocker), and compressed
+      // libraries are the one packaging choice that can undercut the 16 KB
+      // work: Play checks that native libraries are aligned for 16 KB pages, and
+      // the guaranteed way to ship that is the modern layout, where AGP 8.5.1+
+      // stores each .so uncompressed and aligns it. We are on AGP 9.1.1, so this
+      // is the default behaviour rather than something to remember.
+      useLegacyPackaging = false
     }
     resources {
       excludes += setOf(
@@ -166,4 +215,26 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.tooling)
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
+}
+
+/**
+ * A release build with no key is a build that cannot go to Play.
+ *
+ * Without this, `assembleRelease` happily produces an unsigned APK and the problem
+ * surfaces at the upload — or worse, at install. Checked against the task graph so
+ * `assembleDebug` and every other task stay untouched on a machine that has no key.
+ */
+gradle.taskGraph.whenReady {
+  val buildingRelease = allTasks.any { task ->
+    (task.name.startsWith("assemble") || task.name.startsWith("bundle")) &&
+      task.name.contains("Release", ignoreCase = true)
+  }
+  if (buildingRelease && signingConfigs.findByName("release") == null) {
+    throw GradleException(
+      "This release build has no signing key. Create key.properties at the repository " +
+        "root (copy key.properties.example) pointing storeFile at your .jks, or set " +
+        "KEYSTORE_PATH, STORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD in the environment. " +
+        "The file is git-ignored on purpose: a committed keystore has to be replaced."
+    )
+  }
 }

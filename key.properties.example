@@ -1,0 +1,13 @@
+# Copy to key.properties (git-ignored) and fill in your own upload key.
+#
+#   keytool -genkeypair -v -keystore upload.jks -alias upload \
+#           -keyalg RSA -keysize 4096 -validity 10000
+#
+# Keep the .jks and this file OUT of git. A keystore in a public repository is a
+# stolen keystore: it has to be replaced, and any Play upload it signed treated as
+# untrusted. The build also accepts KEYSTORE_PATH, STORE_PASSWORD, KEY_ALIAS and
+# KEY_PASSWORD from the environment, which is what a CI runner should use.
+storeFile=upload.jks
+storePassword=change-me
+keyAlias=upload
+keyPassword=change-me
