@@ -196,8 +196,26 @@ class NinghsingCheAiAssistant(
         return runCatching { BuildConfig.OPENROUTER_API_KEY }.getOrNull().orEmpty()
     }
 
-    private fun isKeyConfigured(key: String): Boolean =
-        key.isNotBlank() && !key.startsWith("AIzaSyDummy") && !key.startsWith("sk-or-v1-dummy")
+    /**
+     * Whether a key is real, rather than the placeholder a build without a `.env`
+     * ships.
+     *
+     * The secrets plugin falls back to `.env.example`, whose values read
+     * `MY_GEMINI_API_KEY` and `MY_OPENROUTER_API_KEY`. Those are not blank, so the
+     * old check (which only knew two dummy prefixes) called them configured and the
+     * assistant spent a round trip discovering that Gemini does not accept the word
+     * "MY_GEMINI_API_KEY" as a key. A key that is obviously a placeholder is the
+     * same state as no key: answer from the archive.
+     */
+    private fun isKeyConfigured(key: String): Boolean {
+        val trimmed = key.trim()
+        if (trimmed.length < 20) return false
+        val placeholders = listOf("MY_", "YOUR_", "DUMMY", "PLACEHOLDER", "XXXX")
+        if (placeholders.any { trimmed.contains(it, ignoreCase = true) }) return false
+        // Gemini keys are `AIza…`, OpenRouter's `sk-or-…`; anything else is a value
+        // somebody pasted into the wrong slot, which is also not a key.
+        return trimmed.startsWith("AIza") || trimmed.startsWith("sk-or-")
+    }
 
     private fun buildContextPrompt(
         query: String,

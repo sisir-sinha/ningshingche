@@ -426,8 +426,16 @@ unavailable. I probed the live project: `rpc/dashboard_login` **exists** (HTTP 2
   under `files/datastore`).
 - `backend/setup.html` is public and names every table + the migration that creates it. Harmless,
   but it is a free map of the schema.
-- `codemagic.yaml` is 0 bytes, and there is no `.env` in the repo — a release built here compiles
-  with the `MY_GEMINI_API_KEY` placeholder, so the AI tab ships **disabled**. Decide deliberately.
+- ~~`codemagic.yaml` is 0 bytes, and there is no `.env` in the repo — a release built here compiles
+  with the `MY_GEMINI_API_KEY` placeholder, so the AI tab ships **disabled**. Decide deliberately.~~
+  **Partially fixed:** the placeholder is now recognised as "no key" (`isKeyConfigured` checks the
+  `AIza…` / `sk-or-…` shapes and rejects `MY_`, `YOUR_`, `DUMMY`, `PLACEHOLDER`, `XXXX`), so a build
+  without a `.env` answers from the archive instead of spending a request on a key Gemini rejects.
+  **Still yours to decide:** whether the published APK carries a real key (AI answers with an LLM)
+  or not (answers are archive-grounded and deterministic). Either way the Console Generative-AI
+  declaration and the privacy-policy line stay as they are — the app still has the feature.
+- ~~`backend/setup.html` is public and names every table + the migration that creates it.~~
+  Both `index.html` and `setup.html` now carry `<meta name="robots" content="noindex, nofollow">`.
 - The ImgBB key (`576f6549…`) is a client key by design, but it is rate-limited per key: a
   scraped key burns your image quota. Consider an Edge Function proxy.
 
