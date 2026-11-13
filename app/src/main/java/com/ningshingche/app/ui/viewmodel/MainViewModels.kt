@@ -322,6 +322,54 @@ class SettingsViewModel(
         }
     }
 
+    // ------------------------------------------------------ account deletion
+    //
+    // Required by Google Play's User Data policy: an app that lets a person create
+    // an account has to let them delete it, and deleting has to mean the account and
+    // its data, not a hidden row. The work happens in one RPC (migration 039); this
+    // only reports progress and the outcome to the settings screen.
+
+    private val _deletingAccount = MutableStateFlow(false)
+    val deletingAccount: StateFlow<Boolean> = _deletingAccount.asStateFlow()
+
+    private val _accountDeletionError = MutableStateFlow<String?>(null)
+    val accountDeletionError: StateFlow<String?> = _accountDeletionError.asStateFlow()
+
+    private val _accountDeleted = MutableStateFlow(false)
+    val accountDeleted: StateFlow<Boolean> = _accountDeleted.asStateFlow()
+
+    fun deleteAccount() {
+        if (_deletingAccount.value) return
+        viewModelScope.launch {
+            _deletingAccount.value = true
+            _accountDeletionError.value = null
+            try {
+                supabaseClient.deleteMyAccount()
+                    .onSuccess {
+                        _accountDeleted.value = true
+                        // The repository keeps the profile cache; clearing it stops a
+                        // deleted name reappearing on the next screen.
+                        googleAuthRepository.signOut()
+                    }
+                    .onFailure { error ->
+                        _accountDeletionError.value = error.message
+                            ?: "The account could not be deleted."
+                    }
+            } finally {
+                _deletingAccount.value = false
+            }
+        }
+    }
+
+    /** Called once the confirmation for a completed deletion has been shown. */
+    fun acknowledgeAccountDeletion() {
+        _accountDeleted.value = false
+    }
+
+    fun clearAccountDeletionError() {
+        _accountDeletionError.value = null
+    }
+
 
     fun updateAppThemeMode(mode: AppThemeMode) {
         viewModelScope.launch {

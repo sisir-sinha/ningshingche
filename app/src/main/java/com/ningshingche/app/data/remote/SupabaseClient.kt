@@ -222,6 +222,49 @@ class SupabaseClient(private val context: Context) {
      * Native Google ID-token grant. The ID token is sent only to Supabase Auth
      * and is never logged or shown in the UI.
      */
+    /**
+     * Deletes the signed-in reader's account and its data (migration 039).
+     *
+     * Google Play's User Data policy requires an in-app path to delete an account,
+     * and deactivating is explicitly not enough — the rows have to go. The database
+     * decides whose account that is: the RPC acts on `auth.uid()`, so the only thing
+     * this call can ever delete is the caller's own account.
+     *
+     * The session is cleared locally afterwards either way, because a failure here
+     * usually means the token was already invalid and the reader is in a state where
+     * signing out is the honest outcome.
+     */
+    suspend fun deleteMyAccount(): Result<Boolean> = withContext(Dispatchers.IO) {
+        val token = authToken
+        if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null) {
+            return@withContext Result.failure(
+                IllegalStateException("Sign in first — an account can only be deleted by its owner.")
+            )
+        }
+        try {
+            val request = createUserAuthedRequestBuilder("${SupabaseConfig.restBaseUrl}/rpc/delete_my_account")
+                .post("{}".toRequestBody(jsonMediaType))
+                .build()
+            val response = httpClient.newCall(request).execute()
+            val body = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                val message = when {
+                    body.contains("Could not find the function", ignoreCase = true) ->
+                        "Account deletion is not installed on the server yet. Please contact the editors."
+                    response.code == 42501 ||
+                        body.contains("Sign in to delete", ignoreCase = true) ->
+                        "Your session has expired. Sign in again and retry."
+                    else -> "The account could not be deleted (HTTP ${response.code})."
+                }
+                return@withContext Result.failure(IllegalStateException(message))
+            }
+            signOut()
+            Result.success(true)
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
+    }
+
     suspend fun signInWithGoogleIdToken(idToken: String, rawNonce: String): Result<UserProfile> =
         withContext(Dispatchers.IO) {
             try {

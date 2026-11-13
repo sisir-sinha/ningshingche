@@ -2,13 +2,7 @@ key,value
 AI বিশ্লেষণ ও উত্তর প্রস্তুত করা হচ্ছে...,Preparing the AI analysis and answer...
 AI সহকারী লুকান,Hide the AI assistant
 AI সহকারীকে জিজ্ঞাসা করুন,Ask the AI assistant
-APK শেয়ার করুন,Share the APK
-APK শেয়ার প্রস্তুত করা সম্ভব হয়নি,Could not prepare the APK to share
-APK সংরক্ষণ করুন,Save the APK
-APK সংরক্ষণ ব্যর্থ হয়েছে,Saving the APK failed
-APK সফলভাবে ডাউনলোড ফোল্ডারে সংরক্ষিত হয়েছে!,APK saved to the Downloads folder!
 Choose your language · লাউখোল,Choose your language · লাউখোল
-Downloads/Ningshingche/{1} ফোল্ডারে সফলভাবে সংরক্ষিত হয়েছে!,Saved to the Downloads/Ningshingche/{1} folder!
 Downloads/Ningshingche_PDFs/{1} ফোল্ডারে সংরক্ষিত হয়েছে!,Saved to the Downloads/Ningshingche_PDFs/{1} folder!
 Downloads/{1}/{2} ফোল্ডারে সংরক্ষিত হয়েছে!,Saved to the Downloads/{1}/{2} folder!
 Facebook আইডি / লিংক,Facebook ID / link
@@ -105,6 +99,8 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 অবদানকারীর তালিকা ও আপনার নিজের পয়েন্ট দেখতে সাইন ইন করুন।,Sign in to see the contributor list and your own points.
 অ্যাকসেন্ট,Accent
 অ্যাকাউন্ট,Account
+অ্যাকাউন্ট মুছুন,Delete account
+অ্যাকাউন্ট মুছে ফেলুন?,Delete your account?
 অ্যাডমিন,Admin
 অ্যাডমিন নতুন বার্তা পাঠালে,When an admin sends a new message
 অ্যাডমিন বার্তা,Admin message
@@ -114,6 +110,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 অ্যান্ড্রয়েড সিস্টেম নোটিফিকেশন চালু রাখুন,Keep Android system notifications on
 অ্যাপ আপডেট হয়েছে,App updated
 অ্যাপ ও সাইট হালনাগাদ,App and site updates
+অ্যাপ ছাড়া অনুরোধ করুন (ওয়েব পেজ),Request deletion without the app (web page)
 অ্যাপ থিম নির্বাচন,Choose the app theme
 অ্যাপ শেয়ার করুন,Share the app
 অ্যাপ সংস্করণ ও সাইট হালনাগাদ,App version and site updates
@@ -130,6 +127,8 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 আধুনিক,Modern
 আধুনিক যুগে মণিপুরি ইঞ্চৌঘরের ঐতিহ্য কীভাবে সংরক্ষিত হচ্ছে?,How is the tradition of the Manipuri ইঞ্চৌঘর kept alive in the modern age?
 আধ্যাত্মিক,Spiritual
+আপনার অ্যাকাউন্ট ও সংশ্লিষ্ট তথ্য মুছে ফেলা হয়েছে।,Your account and its associated data have been deleted.
+"আপনার অ্যাকাউন্ট, প্রোফাইল, পয়েন্ট, সংরক্ষিত তালিকা, মন্তব্য ও ফোরামের উত্তর স্থায়ীভাবে মুছে যাবে। এটি ফেরানো যাবে না।","Your account, profile, points, saved lists, comments and forum answers will be permanently deleted. This cannot be undone."
 আপনার উত্তর,Your answer
 আপনার কোনো মন্তব্য পাওয়া যায়নি।,No comment of yours was found.
 আপনার নাম *,Your name *
@@ -176,7 +175,6 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 ইঞ্চৌঘর,ইঞ্চৌঘর
 ইঞ্চৌঘরের স্থাপত্যরীতিতে বাঁশ ও কাঠের ব্যবহার কীভাবে হয়?,How are bamboo and wood used in the building style of the ইঞ্চৌঘর?
 ইতিহাস,History
-ইনস্টল্ড ডিভাইস থেকে সরাসরি সংগৃহীত অফিশিয়াল প্যাকেজ,Official package taken straight from the installed device
 ইন্টারনেট সংযোগ নেই।,There is no internet connection.
 ইন্টারনেট সংযোগ নেই। সংরক্ষিত আর্কাইভ দেখানো হচ্ছে।,There is no internet connection. Showing the saved archive.
 ইন্টারনেট সংযোগ যাচাই করে আবার চেষ্টা করুন। আপনার মন্তব্য মুছে ফেলা হয়নি।,Check the internet connection and try again. Your comment has not been deleted.
@@ -380,7 +378,6 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 ডার্ক থিম,Dark theme
 ডিজিটাল গ্রন্থাগার,Digital library
 ডিজিটাল বই ও পত্রিকা প্রকাশিত হলে,When a digital book or magazine is published
-ডিভাইসে সফলভাবে ডাউনলোড হয়েছে: {1},Downloaded to the device: {1}
 ডিসে,Dec
 ডিসেম্বর,December
 ডেটাবেজ আপডেট প্রয়োজন।,A database update is needed.
@@ -445,8 +442,6 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 নামের শেষ অংশ,Last part of the name
 নিংশিং চে,Ningshing Che
 নিংশিং চে AI সহকারী,Ningshing Che AI assistant
-নিংশিং চে APK ডাউনলোড (সরাসরি লোকাল প্যাকেজ),Ningshing Che APK download (direct local package)
-নিংশিং চে APK ফাইল পাঠান / শেয়ার করুন,Send / share the Ningshing Che APK file
 নিংশিং চে PDF {1},Ningshing Che PDF {1}
 নিংশিং চে {1},Ningshing Che {1}
 নিংশিং চে অ্যাপ শেয়ার করুন,Share the Ningshing Che app
@@ -460,7 +455,6 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 নিংশিং চে মুদ্রিত সংখ্যা ও স্মারকপত্র,Ningshing Che print issues and memorial volumes
 নিংশিং চে লেখক,Ningshing Che writer
 নিংশিং চে — {1},Ningshing Che — {1}
-নিংশিং চে — বিষ্ণুপ্রিয়া মণিপুরি ডিজিটাল তথ্যকোষ ও আর্কাইভ অ্যান্ড্রয়েড অ্যাপ (সংস্করণ {1})। ইনস্টল করতে সরাসরি এই APK ফাইলটি ব্যবহার করুন।,Ningshing Che — the Bishnupriya Manipuri digital encyclopedia and archive Android app (version {1}). Use this APK file directly to install it.
 নিংশিং চে — বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ,Ningshing Che — Bishnupriya Manipuri encyclopedia
 নিংশিং চে — বিষ্ণুপ্রিয়া মণিপুরি সাহিত্য ও সংস্কৃতি পোর্টাল https://ningshingche.com,Ningshing Che — Bishnupriya Manipuri literature and culture portal https://ningshingche.com
 নিংশিং চে-তে {1} সালে প্রকাশিত প্রবন্ধ ও সংখ্যা।,Articles and issues published in Ningshing Che in {1}.
@@ -489,6 +483,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 নির্বাচিত ফাইলটি কোনো বৈধ ছবি নয় (Not an image). Type: {1},The chosen file is not a valid image (not an image). Type: {1}
 নির্বাচিত লেখা,Featured writing
 নিশীথ,Nishith
+নিশ্চিত করতে “{1}” লিখুন,Type “{1}” to confirm
 নীলা-কালি,Nila-kali
 নুয়া লেখা,New writing
 নৃত্য,Dance
@@ -546,6 +541,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 পৌরাণিক কাহিনী,Mythological tales
 পৌরাণিক-কাহিনী,Mythological tales
 প্রকাশিত,Published
+প্রকাশিত লেখা বা গান সংরক্ষণাগারে “লেখক মুছে ফেলা হয়েছে” নামে থাকতে পারে।,Articles or songs already published may remain in the archive under “deleted author”.
 প্রকাশিত হলে লিংকটি কাজ করবে।,The link works once it is published.
 প্রতিক্রিয়া,Reaction
 প্রত্যাখ্যাত,Rejected
@@ -837,15 +833,12 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 সংযুক্তি.pdf,attachment.pdf
 সংরক্ষণ করুন,Save
 সংরক্ষণ বাতিল করুন,Cancel the save
-সংরক্ষণ ব্যর্থ: {1},Save failed: {1}
 সংরক্ষণ যায়নি ({1})। লিংক মেয়াদ শেষ হতে পারে।,Could not save ({1}). The link may have expired.
 সংরক্ষণ সরানো হয়েছে,The save was removed
-সংরক্ষণ হচ্ছে...,Saving...
 সংরক্ষিত,Saved
 সংরক্ষিত তথ্য লোড হচ্ছে...,Loading the saved data...
 সংরক্ষিত তালিকার মধ্যে খুঁজুন...,Search within the saved list...
 সংরক্ষিত প্রবন্ধ,Saved articles
-সংস্করণ {1} • সাইজ: {2},Version {1} • size: {2}
 সংস্করণ ১.০.০ (অফিশিয়াল সংস্করণ),Version 1.0.0 (official release)
 সংস্কৃতি,Culture
 সংস্কৃতি ও উৎসব,Culture and festivals

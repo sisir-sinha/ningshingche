@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ExitToApp
@@ -49,6 +50,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -64,9 +66,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -101,6 +105,7 @@ import com.ningshingche.app.ui.components.GoogleSignInButton
 import com.ningshingche.app.ui.editorial.EditorialPalettes
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.editorial.PaletteSide
+import com.ningshingche.app.ui.editorial.SiteContact
 import com.ningshingche.app.ui.i18n.LocalTranslations
 import com.ningshingche.app.ui.i18n.t
 import com.ningshingche.app.ui.theme.textSize
@@ -128,6 +133,10 @@ fun SettingsScreen(
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
     val googleAuthInProgress by viewModel.googleAuthInProgress.collectAsStateWithLifecycle()
     val googleAuthMessage by viewModel.googleAuthMessage.collectAsStateWithLifecycle()
+    // Play requires an in-app path to delete an account; the dialog below is it.
+    val deletingAccount by viewModel.deletingAccount.collectAsStateWithLifecycle()
+    val accountDeletionError by viewModel.accountDeletionError.collectAsStateWithLifecycle()
+    val accountDeleted by viewModel.accountDeleted.collectAsStateWithLifecycle()
     // How many strings the current language file translates, shown so the
     // reader knows what to expect from a half-finished translation.
     val translations = LocalTranslations.current
@@ -136,8 +145,90 @@ fun SettingsScreen(
         ActivityResultContracts.RequestPermission()
     ) { }
 
-    var isSavingApk by remember { mutableStateOf(false) }
-    var downloadResultMsg by remember { mutableStateOf<String?>(null) }
+    // Account deletion (migration 039). Two gates, on purpose: the reader must open
+    // the dialog and then type the word, because this cannot be undone and support
+    // cannot restore it.
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var deleteConfirmText by remember { mutableStateOf("") }
+    // The word to retype, translated: a Hindi or English reader confirms in
+    // their own language and the comparison still matches what the label says.
+    val deleteKeyword = t("মুছুন")
+
+    LaunchedEffect(accountDeleted) {
+        if (accountDeleted) {
+            showDeleteDialog = false
+            deleteConfirmText = ""
+            Toast.makeText(
+                context,
+                tNow("আপনার অ্যাকাউন্ট ও সংশ্লিষ্ট তথ্য মুছে ফেলা হয়েছে।"),
+                Toast.LENGTH_LONG
+            ).show()
+            viewModel.acknowledgeAccountDeletion()
+        }
+    }
+
+    LaunchedEffect(accountDeletionError) {
+        val message = accountDeletionError
+        if (!message.isNullOrBlank()) {
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            viewModel.clearAccountDeletionError()
+        }
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { if (!deletingAccount) { showDeleteDialog = false; deleteConfirmText = "" } },
+            title = { Text(t("অ্যাকাউন্ট মুছে ফেলুন?"), fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        tNow(
+                            "আপনার অ্যাকাউন্ট, প্রোফাইল, পয়েন্ট, সংরক্ষিত তালিকা, মন্তব্য ও ফোরামের উত্তর স্থায়ীভাবে মুছে যাবে। এটি ফেরানো যাবে না।"
+                        ),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        tNow("প্রকাশিত লেখা বা গান সংরক্ষণাগারে “লেখক মুছে ফেলা হয়েছে” নামে থাকতে পারে।"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = deleteConfirmText,
+                        onValueChange = { deleteConfirmText = it },
+                        label = { Text(tNow("নিশ্চিত করতে “{1}” লিখুন", deleteKeyword)) },
+                        singleLine = true,
+                        enabled = !deletingAccount,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("settings_delete_account_confirm_field")
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { viewModel.deleteAccount() },
+                    enabled = !deletingAccount && deleteConfirmText.trim() == deleteKeyword,
+                    modifier = Modifier.testTag("settings_delete_account_confirm")
+                ) {
+                    if (deletingAccount) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Text(
+                        t("মুছে ফেলুন"),
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDeleteDialog = false; deleteConfirmText = "" },
+                    enabled = !deletingAccount
+                ) { Text(t("বাতিল")) }
+            }
+        )
+    }
 
     // Sticky default header: a Material top app bar that stays pinned while the
     // list below scrolls and respects the status-bar inset.
@@ -282,6 +373,56 @@ fun SettingsScreen(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(t("লগ আউট"), fontWeight = FontWeight.Bold, fontSize = textSize(13), lineHeight = leading(13))
+                                }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                TextButton(
+                                    onClick = { deleteConfirmText = ""; showDeleteDialog = true },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("settings_delete_account_button")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.DeleteOutline,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        t("অ্যাকাউন্ট মুছুন"),
+                                        color = MaterialTheme.colorScheme.error,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = textSize(13),
+                                        lineHeight = leading(13)
+                                    )
+                                }
+                                // Play asks for a web route as well as the in-app one, so a
+                                // reader who has already uninstalled the app — or whose
+                                // Google account is gone — can still ask.
+                                TextButton(
+                                    onClick = {
+                                        runCatching {
+                                            context.startActivity(
+                                                Intent(
+                                                    Intent.ACTION_VIEW,
+                                                    Uri.parse(SiteContact.ACCOUNT_DELETION_URL)
+                                                )
+                                            )
+                                        }
+                                    },
+                                    modifier = Modifier.testTag("settings_delete_account_web")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        t("অ্যাপ ছাড়া অনুরোধ করুন (ওয়েব পেজ)"),
+                                        fontSize = textSize(12),
+                                        lineHeight = leading(12)
+                                    )
                                 }
                             } else {
                                 Text(
