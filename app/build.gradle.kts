@@ -12,36 +12,83 @@ plugins {
 }
 
 /**
- * Where the upload key lives, and why it is not in this file.
+ * The Play upload key: where it is, and why it is not in this file.
  *
- * A keystore and its passwords are a Play Console credential: whoever holds them
- * can sign an APK that Google accepts as the next update to this app. They were
- * briefly committed here, in a public repository, which meant they had to be
- * treated as stolen and replaced — so the file is gone, and the build reads the
- * values from somewhere that is not git:
+ * A keystore and its passwords are a publishing credential — whoever holds them can
+ * sign an APK that Google Play accepts as the next update to com.ningshingche.app.
+ * They belong in exactly two places, neither of them git:
  *
- *   1. `key.properties` at the repo root (git-ignored; copy the .example), or
- *   2. the environment: KEYSTORE_PATH, STORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD,
- *      which is what a CI runner should set.
+ *   1. `key.properties` at the **root of the repository** (this file's sibling two
+ *      directories up), git-ignored; copy `key.properties.example` to start one.
+ *   2. the environment — KEYSTORE_PATH, STORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD —
+ *      which is what a CI runner should use instead of a file on disk.
  *
- * Neither present is a normal state: `assembleDebug` still works, and a release
- * build fails loudly below rather than shipping an unsigned APK that would only
- * be refused by Play much later.
+ * ## Two path traps, both of which produced the "file not found" and the
+ * ## "unresolved reference" errors this build hit
+ *
+ * `rootDir` is the **root project** directory — the one holding `settings.gradle.kts`
+ * — even when it is read from this module's build script. It is *not* `app/`.
+ * `projectDir` is `app/`. So `rootDir.resolve("key.properties")` is
+ * `/workspaces/ningshingche/key.properties`, which is where the file is, and
+ * `rootDir.parentFile.resolve(...)` is `/workspaces/key.properties`, which does not
+ * exist. That `parentFile` was the bug: the properties file was silently skipped,
+ * every value came back null, and the failure surfaced much later inside
+ * BundleToolRunnable as a signing exception rather than as "the file is missing".
+ *
+ * `file(...)` and `rootProject.file(...)` resolve relative paths against the
+ * *module* directory, so `file("my-upload-key.jks")` means `app/my-upload-key.jks`.
+ * Anything read here is resolved against `rootDir` explicitly instead.
+ *
+ * `rootProject` is not referenced at all: it is the same object as `rootDir`'s
+ * project, and avoiding one receiver keeps the script free of the scope problem
+ * that produced "Unresolved reference 'rootProject'" in the earlier attempt. Every
+ * declaration below sits *after* the `plugins { }` block for the same reason — in
+ * Kotlin DSL, the plugin block has to be the first thing in the file apart from
+ * imports.
  */
+val keyPropertiesFile = rootDir.resolve("key.properties")
+
 val keystoreProperties = Properties().apply {
-  val file = rootProject.file("key.properties")
-  if (file.exists()) FileInputStream(file).use { load(it) }
+  if (keyPropertiesFile.exists()) {
+    keyPropertiesFile.inputStream().use { load(it) }
+  }
 }
 
-/** Environment first (CI), then key.properties (a workstation). */
-fun signingValue(env: String, key: String): String? =
-  System.getenv(env)?.takeIf { it.isNotBlank() } ?: keystoreProperties.getProperty(key)?.takeIf { it.isNotBlank() }
+/**
+ * A value from `key.properties`, or from the environment for CI.
+ *
+ * The file wins on a workstation so that a stale `STORE_PASSWORD` in a shell cannot
+ * quietly sign with the wrong key; the environment is the fallback a pipeline uses
+ * because it has no file to keep.
+ */
+fun signingValue(propertyKey: String, environmentVariable: String): String? =
+  keystoreProperties.getProperty(propertyKey)?.takeIf { it.isNotBlank() }
+    ?: System.getenv(environmentVariable)?.takeIf { it.isNotBlank() }
 
-val releaseStorePath: String? = signingValue("KEYSTORE_PATH", "storeFile")
-val releaseStoreFile = releaseStorePath?.let { rootProject.file(it) }?.takeIf { it.exists() }
-val releaseStorePassword = signingValue("STORE_PASSWORD", "storePassword")
-val releaseKeyAlias = signingValue("KEY_ALIAS", "keyAlias")
-val releaseKeyPassword = signingValue("KEY_PASSWORD", "keyPassword")
+val releaseStorePath: String? = signingValue("storeFile", "KEYSTORE_PATH")
+val releaseStoreFile = releaseStorePath?.let { rootDir.resolve(it) }
+val releaseStorePassword: String? = signingValue("storePassword", "STORE_PASSWORD")
+val releaseKeyAlias: String? = signingValue("keyAlias", "KEY_ALIAS")
+val releaseKeyPassword: String? = signingValue("keyPassword", "KEY_PASSWORD")
+
+/**
+ * What is missing, named by key and never by value.
+ *
+ * Read once, so the message can list everything that needs fixing in one run
+ * instead of one build per key. Passwords are never printed, not even their length.
+ */
+val missingSigningValues: List<String> = buildList {
+  if (releaseStorePath == null) add("storeFile")
+  if (releaseStorePassword == null) add("storePassword")
+  if (releaseKeyAlias == null) add("keyAlias")
+  if (releaseKeyPassword == null) add("keyPassword")
+}
+
+val keystoreFileMissing: Boolean = releaseStoreFile != null && !releaseStoreFile.exists()
+
+/** True only when a release build could actually be signed. */
+val releaseSigningReady: Boolean =
+  missingSigningValues.isEmpty() && !keystoreFileMissing && releaseStoreFile != null
 
 android {
   namespace = "com.ningshingche.app"
@@ -63,18 +110,20 @@ android {
   }
 
   signingConfigs {
-    // Only when the key is actually on this machine, so a checkout without it
-    // fails at the release task (below) instead of at configuration time, which
-    // would also break `assembleDebug`.
-    if (releaseStoreFile != null) {
+    // Created only when the key is really on this machine. A checkout without one
+    // must still configure and run `assembleDebug`; the release tasks report what
+    // is missing (see the check at the end of this file).
+    if (releaseSigningReady) {
       create("release") {
         storeFile = releaseStoreFile
         storePassword = releaseStorePassword
         keyAlias = releaseKeyAlias
         keyPassword = releaseKeyPassword
+        // PKCS12 stores one key with one password; the modern default for both
+        // schemes is what Play wants, so v1/v2 are left at AGP's default.
       }
     }
-    val customDebugKey = file("${rootDir}/debug.keystore")
+    val customDebugKey = rootDir.resolve("debug.keystore")
     if (customDebugKey.exists()) {
       create("debugConfig") {
         storeFile = customDebugKey
@@ -220,27 +269,43 @@ dependencies {
 /**
  * A release build with no key is a build that cannot go to Play.
  *
- * Without a check, `assembleRelease` produces an unsigned APK and the problem
- * surfaces at the upload — or at install. This fails the two release tasks alone,
- * so `assembleDebug` and everything else still run on a machine with no key.
+ * Without a check, `assembleRelease` produces an unsigned bundle and the problem
+ * surfaces at the upload. This fails the two release tasks alone, so `assembleDebug`
+ * and everything else still run on a machine that has no key.
  *
  * Written as `doFirst` on the tasks rather than the usual `gradle.taskGraph.whenReady`,
  * because this project builds with the configuration cache on (gradle.properties):
- * the task graph is not a thing a configuration-cached build may read, so the
- * conventional hook would turn a missing key into a cache problem and hide the
+ * the task graph is not something a configuration-cached build may read, so the
+ * conventional hook would turn a missing key into a cache error and hide the very
  * message it exists to show.
  */
-val releaseKeyPresent = releaseStoreFile != null
 tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.configureEach {
-  val keyPresent = releaseKeyPresent
+  val ready = releaseSigningReady
+  val missing = missingSigningValues
+  val storePath = releaseStorePath
+  val storeThere = !keystoreFileMissing
+  val storeAbs = releaseStoreFile?.absolutePath
   doFirst {
-    if (!keyPresent) {
-      throw GradleException(
-        "This release build has no signing key. Create key.properties at the repository " +
-          "root (copy key.properties.example) pointing storeFile at your .jks, or set " +
-          "KEYSTORE_PATH, STORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD in the environment. " +
-          "The file is git-ignored on purpose: a committed keystore has to be replaced."
-      )
+    if (!ready) {
+      val where = keyPropertiesFile.absolutePath
+      val lines = buildList {
+        add("This release build cannot be signed.")
+        if (missing.isNotEmpty()) {
+          add("")
+          add("key.properties at $where is missing: ${missing.joinToString(", ")}")
+          if (!keyPropertiesFile.exists()) add("(that file does not exist yet — copy key.properties.example)")
+        }
+        if (!storeThere) {
+          add("")
+          add("The keystore named by storeFile is not there: $storeAbs")
+          add("(storeFile is resolved against the repository root, not against app/)")
+        }
+        add("")
+        add("Fix: put the four values in key.properties at the repository root, or set")
+        add("KEYSTORE_PATH, STORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD in the environment.")
+        add("The file is git-ignored on purpose: a committed keystore has to be replaced.")
+      }
+      throw GradleException(lines.joinToString("\n"))
     }
   }
 }
