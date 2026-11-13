@@ -242,7 +242,10 @@ class SupabaseClient(private val context: Context) {
             )
         }
         try {
-            val request = createUserAuthedRequestBuilder("${SupabaseConfig.restBaseUrl}/rpc/delete_my_account")
+            val request = createUserAuthedRequestBuilder(
+                "${SupabaseConfig.restBaseUrl}/rpc/delete_my_account",
+                token
+            )
                 .post("{}".toRequestBody(jsonMediaType))
                 .build()
             val response = httpClient.newCall(request).execute()
