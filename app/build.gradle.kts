@@ -267,6 +267,47 @@ dependencies {
 }
 
 /**
+ * The same check, earlier: a release build asked for on the command line fails
+ * during configuration, before twenty minutes of Kotlin and R8.
+ *
+ * `gradle.startParameter` is configuration-cache safe (it is an input to
+ * configuration, unlike the task graph), and `key.properties` is read above, so a
+ * cached configuration is invalidated the moment the file appears or changes.
+ */
+val requestedReleaseBuild: Boolean = gradle.startParameter.taskNames.any { name ->
+  val task = name.substringAfterLast(':').substringBeforeLast(' ').trim()
+  task == "bundleRelease" || task == "assembleRelease" || task == "packageReleaseBundle"
+}
+
+/** The message both checks share — keys only, never values. */
+fun releaseSigningProblem(): String {
+  val lines = mutableListOf("This release build cannot be signed.")
+  if (missingSigningValues.isNotEmpty()) {
+    lines += ""
+    lines += "key.properties at ${keyPropertiesFile.absolutePath} is missing: " +
+      missingSigningValues.joinToString(", ")
+    if (!keyPropertiesFile.exists()) {
+      lines += "(that file does not exist yet - copy key.properties.example at the repository root)"
+    }
+  }
+  if (keystoreFileMissing) {
+    lines += ""
+    lines += "The keystore named by storeFile is not there: ${releaseStoreFile?.absolutePath}"
+    lines += "(storeFile is resolved against the repository root, not against app/)"
+  }
+  lines += ""
+  lines += "Fix: put storeFile, storePassword, keyAlias and keyPassword in key.properties at"
+  lines += "the repository root, or set KEYSTORE_PATH, STORE_PASSWORD, KEY_ALIAS and"
+  lines += "KEY_PASSWORD in the environment. The file is git-ignored on purpose: a"
+  lines += "committed keystore has to be replaced."
+  return lines.joinToString("\n")
+}
+
+if (requestedReleaseBuild && !releaseSigningReady) {
+  throw GradleException(releaseSigningProblem())
+}
+
+/**
  * A release build with no key is a build that cannot go to Play.
  *
  * Without a check, `assembleRelease` produces an unsigned bundle and the problem
@@ -281,31 +322,10 @@ dependencies {
  */
 tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.configureEach {
   val ready = releaseSigningReady
-  val missing = missingSigningValues
-  val storePath = releaseStorePath
-  val storeThere = !keystoreFileMissing
-  val storeAbs = releaseStoreFile?.absolutePath
   doFirst {
-    if (!ready) {
-      val where = keyPropertiesFile.absolutePath
-      val lines = buildList {
-        add("This release build cannot be signed.")
-        if (missing.isNotEmpty()) {
-          add("")
-          add("key.properties at $where is missing: ${missing.joinToString(", ")}")
-          if (!keyPropertiesFile.exists()) add("(that file does not exist yet — copy key.properties.example)")
-        }
-        if (!storeThere) {
-          add("")
-          add("The keystore named by storeFile is not there: $storeAbs")
-          add("(storeFile is resolved against the repository root, not against app/)")
-        }
-        add("")
-        add("Fix: put the four values in key.properties at the repository root, or set")
-        add("KEYSTORE_PATH, STORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD in the environment.")
-        add("The file is git-ignored on purpose: a committed keystore has to be replaced.")
-      }
-      throw GradleException(lines.joinToString("\n"))
-    }
+    // Belt and braces: a task name the check above could not see (an abbreviation,
+    // or a release build reached through another task) still stops here rather
+    // than producing an unsigned bundle.
+    if (!ready) throw GradleException(releaseSigningProblem())
   }
 }

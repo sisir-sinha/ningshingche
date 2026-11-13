@@ -151,12 +151,23 @@ test('the values are validated, and the messages do not leak them', async (t) =>
   });
 
   await t.test('a release build without a key stops with instructions', () => {
-    assert.match(BUILD, /it\.name == "assembleRelease" \|\| it\.name == "bundleRelease"/);
-    assert.match(BUILD, /throw GradleException\(/, 'it fails, it does not warn');
-    assert.match(BUILD, /key\.properties at \$\{?where/,
+    assert.match(BUILD_CODE, /it\.name == "assembleRelease" \|\| it\.name == "bundleRelease"/);
+    assert.match(BUILD_CODE, /throw GradleException\(/, 'it fails, it does not warn');
+    assert.match(BUILD_CODE, /key\.properties at \$\{keyPropertiesFile\.absolutePath\}/,
       'and it names the file it looked for');
     assert.ok(!/gradle\.taskGraph/.test(BUILD_CODE),
       'the task graph is unreadable under the configuration cache this project enables');
+  });
+
+  await t.test('and it stops before the compile, not after it', () => {
+    // Verified by running it: with key.properties absent, `./gradlew
+    // :app:bundleRelease` fails in about twenty seconds. The first version of this
+    // check lived in `doFirst`, which only runs once every dependency — twenty
+    // minutes of Kotlin and R8 — has finished.
+    assert.match(BUILD_CODE, /gradle\.startParameter\.taskNames/,
+      'the requested tasks are read at configuration time');
+    assert.match(BUILD_CODE, /if \(requestedReleaseBuild && !releaseSigningReady\) \{\s*throw GradleException/,
+      'and a release request without a key throws there');
   });
 
   await t.test('nothing is printed that a password could hide in', () => {
