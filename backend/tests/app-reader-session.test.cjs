@@ -175,16 +175,19 @@ test('a refusal is answered in the app\'s words, not the database\'s', async (t)
   });
 
   await t.test('the build that carries the fix can be told apart', () => {
-    // The absolute numbers are not the point — that they only ever move forward
-    // is: a report can say which build the phone is running, and 1.0 is the
-    // build that was refused. 1.2 is the forum and the new profile.
-    const versionName = /versionName = "(\d+)\.(\d+)(?:\.(\d+))?"/.exec(BUILD_GRADLE);
+    // Re-anchored for the first Play release. This used to demand a versionName
+    // past 1.0, because 1.0 was a build the store had already refused; the
+    // release audit then reset the name to "1.0" deliberately, since "v1.0" is
+    // what the store listing and the owner's announcement say. What still has to
+    // hold — and is the actual point of the check — is that the build can be told
+    // apart from every earlier upload: the version code moves, monotonically, and
+    // Settings reads it out. The name is the release's own choice, not a number
+    // this test gets to pick.
     const versionCode = /versionCode = (\d+)/.exec(BUILD_GRADLE);
+    const versionName = /versionName = "([^"]+)"/.exec(BUILD_GRADLE);
     assert.ok(versionName && versionCode, 'the build declares its version');
-    const [major, minor] = [Number(versionName[1]), Number(versionName[2])];
-    assert.ok(major > 1 || (major === 1 && minor >= 1),
-      `the app version moved past the build that was refused (1.0), and is now ${versionName[0]}`);
-    assert.ok(Number(versionCode[1]) >= 2,
-      'and so did the version code, which is what Settings reads out');
+    assert.equal(versionName[1], '1.0', 'the name the listing and the announcement use');
+    assert.ok(Number(versionCode[1]) >= 35,
+      `the version code moved past the last upload (34), and is now ${versionCode[1]}`);
   });
 });

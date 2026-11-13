@@ -1044,6 +1044,75 @@ class PortalRepository(
      * (someone else's answer, an editorial one, one already gone) arrives as a
      * failure with the reason in it.
      */
+    // ------------------------------------------------------- content safety
+    //
+    // Two of the four things Play's UGC policy asks for. Reporting sends either the
+    // session or the device id, because a guest reads the forum and can see
+    // something wrong in it; blocking is signed-in only and private.
+
+    /** Content types the database accepts (migration 040). */
+    private val REPORTABLE_TYPES = setOf(
+        "discussion", "reply", "comment", "profile", "music", "ai_output"
+    )
+
+    private val REPORT_REASONS = setOf(
+        "harassment", "hate", "sexual", "violence", "spam",
+        "copyright", "misinformation", "other"
+    )
+
+    /**
+     * Files one report against a piece of content.
+     *
+     * The app never sends the reported person's name — only their id when it knows
+     * it — so a report cannot be used to work out who wrote an anonymous comment.
+     */
+    suspend fun reportContent(
+        contentType: String,
+        contentId: String,
+        reason: String,
+        note: String = "",
+        reportedUserId: String = ""
+    ): Result<Boolean> = withContext(Dispatchers.IO) {
+        val type = contentType.trim().lowercase()
+        val id = contentId.trim()
+        if (type !in REPORTABLE_TYPES) return@withContext Result.failure(PortalError.Unknown())
+        if (id.isBlank()) return@withContext Result.failure(PortalError.NotFound)
+        val why = reason.trim().lowercase().takeIf { it in REPORT_REASONS } ?: "other"
+        callOne {
+            api.reportContent(
+                mapOf(
+                    "p_content_type" to type,
+                    "p_content_id" to id,
+                    "p_reason" to why,
+                    "p_note" to note.trim(),
+                    "p_reported_user" to reportedUserId.trim(),
+                    "p_device_id" to guestViewerId
+                ).withoutBlanks()
+            )
+        }
+    }
+
+    /** Hides one author's writing from this reader, everywhere the app filters. */
+    suspend fun blockUser(userId: String): Result<Boolean> = withContext(Dispatchers.IO) {
+        val clean = userId.trim()
+        if (clean.isBlank()) return@withContext Result.failure(PortalError.NotFound)
+        callOne { api.blockUser(mapOf("p_user_id" to clean)) }
+    }
+
+    suspend fun unblockUser(userId: String): Result<Boolean> = withContext(Dispatchers.IO) {
+        val clean = userId.trim()
+        if (clean.isBlank()) return@withContext Result.failure(PortalError.NotFound)
+        callOne { api.unblockUser(mapOf("p_user_id" to clean)) }
+    }
+
+    /** The ids this reader has blocked; empty for a guest or when none are. */
+    suspend fun blockedUserIds(): Result<Set<String>> = withContext(Dispatchers.IO) {
+        runCatching { api.myBlockedUsers() }.mapCatching { response ->
+            if (!response.isSuccessful) return@mapCatching emptySet()
+            response.body().orEmpty().map { it.trim() }.filter { it.isNotBlank() }.toSet()
+        }.recoverCatching { emptySet() }
+    }
+
     suspend fun deleteForumReply(replyId: String): Result<Boolean> =
         withContext(Dispatchers.IO) {
             val clean = replyId.trim()

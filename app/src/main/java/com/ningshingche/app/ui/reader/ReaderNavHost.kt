@@ -31,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavType
@@ -41,6 +42,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.ningshingche.app.NinghsingCheApp
+import com.ningshingche.app.data.model.ReaderPreferences
+import com.ningshingche.app.ui.components.TERMS_VERSION
 import com.ningshingche.app.data.model.AppThemeMode
 import com.ningshingche.app.data.portal.IssueTags
 import com.ningshingche.app.data.remote.SubmittedBlogRecord
@@ -537,6 +540,8 @@ fun EditorialReaderApp(
                 )
             ) { entry ->
                 val articleId = entry.arguments?.getString("articleId").orEmpty()
+                val articlePrefs by app.preferencesRepository.readerPreferences
+                    .collectAsStateWithLifecycle(initialValue = ReaderPreferences())
                 val articleViewModel: ArticleViewModel = viewModel(factory = portalFactory)
                 LaunchedEffect(articleId) { articleViewModel.load(articleId) }
                 ArticleScreen(
@@ -544,6 +549,9 @@ fun EditorialReaderApp(
                     onBackClick = { navController.popBackStack() },
                     onRelatedClick = { navController.navigate(ReaderRoute.article(it)) },
                     scrollToComments = entry.arguments?.getString("focus") == "comments",
+                    // A comment is UGC too: the same acceptance the forum asks for.
+                    termsAccepted = articlePrefs.termsAccepted,
+                    onAcceptTerms = { app.preferencesRepository.acceptTerms(TERMS_VERSION) },
                     onCategoryClick = { categorySlug ->
                         if (categorySlug.isNotBlank()) navController.navigate(ReaderRoute.category(categorySlug))
                     },
@@ -572,6 +580,8 @@ fun EditorialReaderApp(
                 )
             ) { entry ->
                 val articleId = entry.arguments?.getString("articleId").orEmpty()
+                val articlePrefs by app.preferencesRepository.readerPreferences
+                    .collectAsStateWithLifecycle(initialValue = ReaderPreferences())
                 val articleViewModel: ArticleViewModel = viewModel(factory = portalFactory)
                 LaunchedEffect(articleId) { articleViewModel.load(articleId) }
                 ArticleScreen(
@@ -579,6 +589,9 @@ fun EditorialReaderApp(
                     onBackClick = { navController.popBackStack() },
                     onRelatedClick = { navController.navigate(ReaderRoute.article(it)) },
                     scrollToComments = entry.arguments?.getString("focus") == "comments",
+                    // A comment is UGC too: the same acceptance the forum asks for.
+                    termsAccepted = articlePrefs.termsAccepted,
+                    onAcceptTerms = { app.preferencesRepository.acceptTerms(TERMS_VERSION) },
                     onCategoryClick = { categorySlug ->
                         if (categorySlug.isNotBlank()) {
                             navController.navigate(ReaderRoute.category(categorySlug))
@@ -667,6 +680,15 @@ fun EditorialReaderApp(
                     onArticleClick = { navController.navigate(ReaderRoute.article(it)) },
                     onMenuClick = {
                         coroutineScope.launch { drawerState.open() }
+                    },
+                    // Play's Generative AI policy: a reader must be able to flag an
+                    // answer from the answer. Same queue as the forum's reports.
+                    reportAnswer = { messageId, reason ->
+                        app.portalRepository.reportContent(
+                            contentType = "ai_output",
+                            contentId = messageId,
+                            reason = reason
+                        )
                     }
                 )
             }
@@ -693,7 +715,14 @@ fun EditorialReaderApp(
                     onMenuClick = {
                         coroutineScope.launch { drawerState.open() }
                     },
-                    initialQuestion = question
+                    initialQuestion = question,
+                    reportAnswer = { messageId, reason ->
+                        app.portalRepository.reportContent(
+                            contentType = "ai_output",
+                            contentId = messageId,
+                            reason = reason
+                        )
+                    }
                 )
             }
 
@@ -1126,6 +1155,8 @@ fun EditorialReaderApp(
                 route = ReaderRoute.ForumThread,
                 arguments = listOf(navArgument("discussionId") { type = NavType.StringType })
             ) { entry ->
+                val forumPrefs by app.preferencesRepository.readerPreferences
+                    .collectAsStateWithLifecycle(initialValue = ReaderPreferences())
                 ForumThreadScreen(
                     discussionId = entry.arguments?.getString("discussionId").orEmpty(),
                     isSignedIn = isSignedIn,
@@ -1140,6 +1171,28 @@ fun EditorialReaderApp(
                         app.portalRepository.editForumReply(replyId, body)
                     },
                     deleteReply = { replyId -> app.portalRepository.deleteForumReply(replyId) },
+                    // Play's UGC policy, the two controls it asks for: report the
+                    // thing, block the person. Both are one RPC; the author id is
+                    // only ever the one the row already carries.
+                    reportContent = { type, id, authorId, reason ->
+                        app.portalRepository.reportContent(
+                            contentType = type,
+                            contentId = id,
+                            reason = reason,
+                            reportedUserId = authorId
+                        )
+                    },
+                    blockAuthor = { authorId -> app.portalRepository.blockUser(authorId) },
+                    // Play's UGC policy: the terms are accepted before the first
+                    // post, and the acceptance is stored with the version read so a
+                    // rewritten terms page can ask again.
+                    // Read here rather than passed down from the activity: the
+                    // forum is the only destination that needs it, and the flow is
+                    // cheap to collect.
+                    termsAccepted = forumPrefs.termsAccepted,
+                    onAcceptTerms = {
+                        app.preferencesRepository.acceptTerms(TERMS_VERSION)
+                    },
                     draftStore = app.forumDraftStore,
                     onBackClick = { navController.popBackStack() },
                     onSignInClick = { navController.navigate(ReaderRoute.Login) },

@@ -193,7 +193,17 @@ data class ReaderPreferences(
     val notificationPdfs: Boolean = true,
     val notificationSystem: Boolean = true,
     val notificationOther: Boolean = true,
-    val onboardingComplete: Boolean = false
+    val onboardingComplete: Boolean = false,
+    /**
+     * True once the reader has accepted the terms of use (backend/terms.html).
+     *
+     * Play's User Generated Content policy asks that the terms be accepted *before*
+     * anyone can create or upload content, so this gates the composer rather than
+     * the app: reading never needs it, posting always does.
+     */
+    val termsAccepted: Boolean = false,
+    /** The terms version that was accepted, so a rewrite can be asked about again. */
+    val termsAcceptedVersion: String = ""
 )
 
 data class ArticleCitation(

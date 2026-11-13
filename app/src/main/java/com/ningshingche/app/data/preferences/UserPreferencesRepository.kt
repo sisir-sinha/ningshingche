@@ -47,6 +47,8 @@ class UserPreferencesRepository(private val context: Context) {
         val NOTIF_SYSTEM = booleanPreferencesKey("notif_system")
         val NOTIF_OTHER = booleanPreferencesKey("notif_other")
         val ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")
+        val TERMS_ACCEPTED = booleanPreferencesKey("terms_accepted")
+        val TERMS_VERSION = stringPreferencesKey("terms_version")
         val PDF_BOOK_VIEW = booleanPreferencesKey("pdf_book_view")
         val PDF_NIGHT = booleanPreferencesKey("pdf_night")
         val PDF_SNAP = booleanPreferencesKey("pdf_snap")
@@ -109,6 +111,8 @@ class UserPreferencesRepository(private val context: Context) {
         val notifSystem = preferences[Keys.NOTIF_SYSTEM] ?: true
         val notifOther = preferences[Keys.NOTIF_OTHER] ?: true
         val onboardingComplete = preferences[Keys.ONBOARDING_COMPLETE] ?: false
+        val termsAccepted = preferences[Keys.TERMS_ACCEPTED] ?: false
+        val termsVersion = preferences[Keys.TERMS_VERSION] ?: ""
 
         ReaderPreferences(
             fontSizeSp = fontSize,
@@ -128,7 +132,9 @@ class UserPreferencesRepository(private val context: Context) {
             notificationPdfs = notifPdfs,
             notificationSystem = notifSystem,
             notificationOther = notifOther,
-            onboardingComplete = onboardingComplete
+            onboardingComplete = onboardingComplete,
+            termsAccepted = termsAccepted,
+            termsAcceptedVersion = termsVersion
         )
     }
 
@@ -219,6 +225,19 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun markOnboardingComplete() {
         context.dataStore.edit { preferences ->
             preferences[Keys.ONBOARDING_COMPLETE] = true
+        }
+    }
+
+    /**
+     * Records that the reader accepted the terms, and which version they read.
+     *
+     * The version is what makes a rewrite askable: bumping TERMS_VERSION in the app
+     * re-opens the question for everybody, without a second flag per revision.
+     */
+    suspend fun acceptTerms(version: String) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.TERMS_ACCEPTED] = true
+            preferences[Keys.TERMS_VERSION] = version
         }
     }
 

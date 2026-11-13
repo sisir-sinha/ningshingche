@@ -266,6 +266,35 @@ interface PortalApi {
         @Body body: Map<String, String>
     ): Response<ForumReactionDto?>
 
+    // ------------------------------------------------------- content safety
+    //
+    // Play's UGC policy: the app has to be able to report a piece of content and
+    // block a person. Reporting is open to guests (a guest can read the forum), so
+    // it carries a device id instead of a session; blocking is a signed-in action.
+
+    /** Files one report (migration 040). Answers true even for a duplicate. */
+    @POST("rpc/report_content")
+    suspend fun reportContent(
+        @Body body: Map<String, String>
+    ): Response<Boolean?>
+
+    /** Blocks one author, privately and one-directionally (migration 040). */
+    @POST("rpc/block_user")
+    suspend fun blockUser(
+        @Body body: Map<String, String>
+    ): Response<Boolean?>
+
+    @POST("rpc/unblock_user")
+    suspend fun unblockUser(
+        @Body body: Map<String, String>
+    ): Response<Boolean?>
+
+    /** Every author this reader has blocked, for the app to hide their answers. */
+    @POST("rpc/my_blocked_users")
+    suspend fun myBlockedUsers(
+        @Body body: Map<String, String> = emptyMap()
+    ): Response<List<String>?>
+
     /** One reader's forum work — their dashboard card and their public page. */
     @POST("rpc/forum_activity")
     suspend fun forumActivity(

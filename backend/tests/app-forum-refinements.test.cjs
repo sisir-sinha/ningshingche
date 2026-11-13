@@ -366,8 +366,10 @@ test('reactions are icons on the card, and one tap counts', async (t) => {
     // on the reader's own answer, and it never counts a reaction.
     assert.ok(!/onLongClick = \{ onReact/.test(FORUM_SCREENS),
       'nothing reacts to a long press any more');
-    assert.match(FORUM_SCREENS, /onLongClick = if \(answer\.isMine\)/,
-      'the long press belongs to the author of the answer');
+    assert.match(FORUM_SCREENS, /onLongClick = \{\s*if \(answer\.isMine\) replyActions\.onLongPress\(answer\)/,
+      'the long press belongs to the author of the answer, and to a reporter');
+    assert.match(FORUM_SCREENS, /else replyActions\.onReport\(answer\)/,
+      'with the report sheet on anyone else\'s');
     assert.ok(!/reactionTarget/.test(FORUM_SCREENS), 'and the screen keeps no reaction to open');
     assert.ok(!/import androidx\.compose\.ui\.window\.Dialog/.test(FORUM_SCREENS),
       'the dialog import went with it');

@@ -72,7 +72,15 @@ test('a visit is thirty minutes, named in one place', () => {
   // Re-anchored: 037 (the profile's total) is newer and builds on this file, so
   // what matters is that 036 is in the run and comes before it.
   assert.ok(migrations.includes('036_view_logic.sql'), '036 is in the migrations');
-  assert.equal(migrations[migrations.length - 1], '037_profile_views.sql', '037 is the newest migration');
+  // Re-anchored again, the same way: 039 (the deletion) and 040 (content safety)
+  // came after 037. What this rule needs is that 037 is in the run and the run is
+  // ordered — not that 037 happens to be the last file, which is a fact about the
+  // day it was written rather than about the view window.
+  assert.ok(migrations.includes('037_profile_views.sql'), '037 is in the migrations');
+  assert.ok(
+    migrations.every((name, i) => i === 0 || name > migrations[i - 1]),
+    'and the migrations sort in the order they were run'
+  );
   assert.ok(migrations.indexOf('036_view_logic.sql') < migrations.indexOf('037_profile_views.sql'),
     'and 036 is the file 037 reads its numbers from');
 });

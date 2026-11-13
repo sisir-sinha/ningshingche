@@ -133,6 +133,7 @@ import com.ningshingche.app.data.portal.permalinkOf
 import com.ningshingche.app.data.remote.AuthorProfiles
 import com.ningshingche.app.ui.components.DialogImeAdjustResize
 import com.ningshingche.app.ui.components.MarkdownFormattedText
+import com.ningshingche.app.ui.components.TermsConsentDialog
 import com.ningshingche.app.ui.components.VerifiedBadge
 import com.ningshingche.app.ui.components.rememberBookmarkStateFor
 import com.ningshingche.app.ui.components.keyboardAvoidingPadding
@@ -193,6 +194,14 @@ fun ArticleScreen(
     onAuthorClick: (String) -> Unit = { },
     onTagClick: (String) -> Unit = { },
     scrollToComments: Boolean = false,
+    /**
+     * Play's UGC policy: the terms are accepted before anything is written. A
+     * comment is UGC like a forum answer, so the same gate stands in front of the
+     * comment form — and behind it, because a form that submits is the moment the
+     * promise is made.
+     */
+    termsAccepted: Boolean = false,
+    onAcceptTerms: (suspend () -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsState()
@@ -203,6 +212,10 @@ fun ArticleScreen(
     var lineSpacingMultiplier by remember { mutableFloatStateOf(APP_LEADING) }
     var showFontSizeSheet by remember { mutableStateOf(false) }
     var showAiSheet by remember { mutableStateOf(false) }
+    // Terms, once per install, on the way into the comment form.
+    val scope = rememberCoroutineScope()
+    var termsOk by remember(termsAccepted) { mutableStateOf(termsAccepted) }
+    var termsPrompt by remember { mutableStateOf(false) }
 
     var ttsPlayState by remember { mutableStateOf(TtsPlayState.IDLE) }
     var ttsErrorMessage by remember { mutableStateOf<String?>(null) }
@@ -431,7 +444,9 @@ fun ArticleScreen(
                                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                             } catch (_: Exception) { }
                         },
-                        onPostComment = viewModel::postComment,
+                        onPostComment = {
+                            if (termsOk) viewModel.postComment() else termsPrompt = true
+                        },
                         commentForm = viewModel.commentForm.collectAsState().value,
                         onCommentFormChange = viewModel::updateCommentForm,
                         commentStatus = viewModel.commentStatus.collectAsState().value,
@@ -474,6 +489,21 @@ fun ArticleScreen(
                 }
             }
         }
+    }
+
+    if (termsPrompt) {
+        TermsConsentDialog(
+            onAccept = {
+                termsOk = true
+                termsPrompt = false
+                val accept = onAcceptTerms
+                if (accept != null) scope.launch { accept() }
+                // Agreeing to the rules and asking to post is one gesture: the
+                // comment the reader wrote goes in rather than being withheld.
+                viewModel.postComment()
+            },
+            onDismiss = { termsPrompt = false }
+        )
     }
 }
 

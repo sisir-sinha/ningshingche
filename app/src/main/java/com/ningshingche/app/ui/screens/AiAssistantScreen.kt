@@ -68,6 +68,8 @@ import com.ningshingche.app.data.model.AiChatMessage
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
+import com.ningshingche.app.ui.components.ContentReportDialog
+import com.ningshingche.app.ui.components.ContentSafetyRow
 import com.ningshingche.app.ui.components.MarkdownFormattedText
 import com.ningshingche.app.ui.components.AiAssistantSkeletonLayout
 import com.ningshingche.app.ui.components.AiSourceCitationCard
@@ -86,9 +88,22 @@ fun AiAssistantScreen(
     onBackClick: () -> Unit,
     onArticleClick: (String) -> Unit,
     onMenuClick: () -> Unit = {},
-    initialQuestion: String = ""
+    initialQuestion: String = "",
+    /**
+     * Play's Generative AI policy: the reader has to be able to report an answer
+     * they think is offensive or unsafe, from the answer itself, without leaving
+     * the app (migration 040 stores it as `ai_output`).
+     *
+     * A parameter rather than a call into the view model so the screen keeps no
+     * network knowledge of its own — the same shape the forum screen uses.
+     */
+    reportAnswer: suspend (messageId: String, reason: String) -> Result<Boolean> = { _, _ ->
+        Result.failure(IllegalStateException("Reporting is not wired on this screen."))
+    }
 ) {
     val messages by viewModel.messages.collectAsStateWithLifecycle()
+    // Which answer the reader tapped the flag on; null closes the sheet.
+    var reportTarget by remember { mutableStateOf<AiChatMessage?>(null) }
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
 
     // The skeleton is a first impression, not a tax on every visit. It used to
@@ -262,6 +277,11 @@ fun AiAssistantScreen(
                     onSuggestedQuestionClick = { q ->
                         focusManager.clearFocus()
                         viewModel.sendQuestion(q)
+                    },
+                    onReport = if (message.isUser) null else {
+                        {
+                            reportTarget = message
+                        }
                     }
                 )
             }
@@ -415,6 +435,17 @@ fun AiAssistantScreen(
             }
         }
     }
+
+    // The flag on an answer opens this. Reporting an AI answer is a Play
+    // requirement of its own (Generative AI policy), separate from the forum's,
+    // and it reaches the same queue so an editor reviews both in one place.
+    reportTarget?.let { target ->
+        ContentReportDialog(
+            title = t("এই উত্তরটি রিপোর্ট করুন"),
+            onReport = { reason -> reportAnswer(target.id, reason) },
+            onDismiss = { reportTarget = null }
+        )
+    }
 }
 
 @Composable
@@ -423,7 +454,9 @@ fun ChatMessageItem(
     shouldAnimate: Boolean = false,
     onAnimationFinished: () -> Unit = {},
     onCitationClick: (String) -> Unit,
-    onSuggestedQuestionClick: (String) -> Unit = {}
+    onSuggestedQuestionClick: (String) -> Unit = {},
+    /** Set on the assistant's answers: the flag that reports this one. */
+    onReport: (() -> Unit)? = null
 ) {
     if (message.isUser) {
         Row(
@@ -496,6 +529,14 @@ fun ChatMessageItem(
                             baseTextColor = MaterialTheme.colorScheme.onSurface
                         )
                     }
+                }
+
+                // The report control sits on the answer, not in a menu: Play's
+                // Generative AI policy asks for a flag the reader can reach
+                // without leaving the conversation, and that is where a wrong or
+                // offensive answer is actually noticed.
+                if (onReport != null && (!shouldAnimate || visibleText.length >= message.text.length)) {
+                    ContentSafetyRow(onReport = onReport)
                 }
 
                 // Interactive Related Questions Section (placed before References)

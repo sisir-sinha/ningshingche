@@ -429,11 +429,18 @@ test('one tap on a reaction counts it', async (t) => {
     //
     // A long press came back in the ninth batch, for a different job: on the
     // reader's own answer it opens সম্পাদনা and মুছে ফেলুন. It never counts a
-    // reaction, and it is never offered on anyone else's answer.
+    // reaction.
+    //
+    // It is now also the report gesture on somebody else's answer — Play's UGC
+    // policy asks for the report to sit on the content (migration 040), and a long
+    // press is the one gesture this card already teaches. The author keeps the two
+    // destructive actions; a reader gets the complaint.
     assert.ok(!/onLongClick = \{ onReact/.test(FORUM_SCREENS),
       'no card reacts to a long press');
-    assert.match(FORUM_SCREENS, /onLongClick = if \(answer\.isMine\)/,
-      'the long press belongs to the author of the answer');
+    assert.match(FORUM_SCREENS, /onLongClick = \{\s*if \(answer\.isMine\) replyActions\.onLongPress\(answer\)/,
+      'the author\'s long press still opens their own actions');
+    assert.match(FORUM_SCREENS, /else replyActions\.onReport\(answer\)/,
+      'and anyone else\'s opens the report sheet');
     assert.match(FORUM_SCREENS, /onClick = onCardClick/,
       'a tap on the card is a tap on the card');
     const row = bodyOf(FORUM_SCREENS, 'ForumReactionRow');

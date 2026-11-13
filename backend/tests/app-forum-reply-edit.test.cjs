@@ -268,12 +268,17 @@ test('the app can change and remove one of its reader\'s answers', async (t) => 
 test('the long tap is the author\'s, and it opens two actions', async (t) => {
   await t.test('the card offers it only on the reader\'s own answer', () => {
     const card = screen('ForumAnswerCard');
-    assert.match(card, /\.combinedClickable\(\s*\n\s*onLongClick = if \(answer\.isMine\) \{/,
-      'the long press is answered by what the database said was ours');
+    // The author's actions are still gated on what the database said was ours;
+    // anyone else's long press is the report sheet (migration 040, Play's UGC
+    // policy), never edit or delete.
+    assert.match(card, /onLongClick = \{\s*if \(answer\.isMine\) replyActions\.onLongPress\(answer\)/,
+      'the author\'s long press is answered by what the database said was ours');
+    assert.match(card, /else replyActions\.onReport\(answer\)/,
+      'and the other branch is a complaint, not an edit');
     assert.match(card, /onClick = onCardClick/,
       'and a tap on the card is still only a tap');
     const nested = screen('ForumNestedReply');
-    assert.match(nested, /onLongClick = if \(reply\.isMine\) \{/,
+    assert.match(nested, /onLongClick = \{ if \(reply\.isMine\) onLongPress\(\) else onReport\(\) \}/,
       'a reply is the same answer, one indent down');
     assert.ok(!/onLongClick = \{ onReact/.test(FORUM_SCREENS),
       'and nothing reacts from a long press');

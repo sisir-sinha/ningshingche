@@ -36,6 +36,30 @@ dead link to another developer's package.
 
 ---
 
+## Remediation status
+
+*Updated as each step lands. "Code" means written, tested and pushed; "you" means an action that can
+only be taken in the Supabase dashboard, in Play Console, or on the host.*
+
+| # | Code | What is left for you |
+|---|------|----------------------|
+| 1 | ✅ `06d67bd` — APK section and `ApkManager` removed, Play link behind `PLAY_LISTING_LIVE` | — |
+| 2 | ❌ open — see §2 | Replace the PDF engine (or ship the Play delivery path) before **1 Feb 2027**; uploads already risk the 16 KB check |
+| 3 | ✅ `e6a9ddf` — in-app deletion + `delete_my_account()`, `account-deletion.html` | Run `039_account_deletion.sql`, put the deletion URL in the Data safety form |
+| 4 | ✅ report/block (migration `040`) + terms gate on every composer | Run `040_content_safety.sql`, redeploy Pages, moderate `content_reports` |
+| 5 | ✅ `9164c80` — `privacy.html`, `terms.html` | Mirror both on `ningshingche.com`; the Console field must point there |
+| 6 | ✅ in-app flag on every AI answer (type `ai_output`) | **App content → Generative AI** declaration; add the Gemini disclosure to Data safety |
+| 7 | ✅ `06d67bd` | Flip `PLAY_LISTING_LIVE` to `true` once the listing exists |
+| 8 | — | Console: `mediaPlayback` declaration + demo video |
+| 9 | — | Data safety form (§9 has the table) |
+| 10 | ✅ client-side keys stubbed to a placeholder | Move the AI call behind an Edge Function (§6, secondary) |
+| 11 | — | Rights check on the music, PDFs and uploaded audio |
+| 12 | ✅ `versionCode 35` / `versionName "1.0"` | — |
+
+Test suite: `cd backend && node --test tests/` → **576 pass, 0 fail**.
+
+---
+
 ## 🔴 1. The app distributes its own APK (Device & Network Abuse)
 
 **Where**
@@ -153,7 +177,7 @@ Deactivating or hiding the row does **not** count as deletion.
 
 ---
 
-## 🔴 4. User-generated content with no reporting, no blocking, no terms gate
+## ✅ 4. User-generated content with no reporting, no blocking, no terms gate — **done**
 
 The app is a publishing platform, not a reader:
 
@@ -186,6 +210,31 @@ screen. `grep -riE "moderat"` finds only comments; `grep "রিপোর্ট|
 - Dashboard: a "Reports" queue so a human actually actions them (Play asks what happens next).
 - Published moderation policy page; link it in Settings and from the report sheet.
 
+**What was built**
+
+| Piece | Where |
+|---|---|
+| `content_reports`, `user_blocks`, 8 reason codes, RLS, `report_content` / `block_user` / `unblock_user` / `my_blocked_users` | `backend/supabase/migrations/040_content_safety.sql` |
+| Report sheet + block row, success state, `report_*` test tags | `ui/components/ContentSafetySheet.kt` |
+| Long press on a thread or an answer: your own → সম্পাদনা / মুছে ফেলুন, anyone else's → রিপোর্ট করুন | `ui/screens/ForumScreens.kt` |
+| Report on every AI answer, filed as type `ai_output` | `ui/screens/AiAssistantScreen.kt` |
+| Terms gate, shown once per install, in front of the forum composer **and** the article comment form | `ui/components/TermsConsentDialog.kt`, `ReaderPreferences.termsAccepted` |
+| Terms version stored with the acceptance, so a rewrite can ask again | `TERMS_VERSION = "2026-10-26"` |
+
+Decisions worth knowing:
+
+- **Guests can report.** The RPC takes a device id when there is no session, and a duplicate report
+  returns success silently — a reporter is never told their report did not count.
+- **Reports never auto-hide content.** An editor triages `content_reports` from the dashboard
+  (`open → reviewing → actioned / dismissed`). Play asks what happens *after* a report; this is the
+  answer, and it is a human.
+- **Blocks are private and one-directional**: a reader hides an author from their own view; nobody
+  is told they were blocked.
+- **Blog comments are not reportable yet** — `CommentItem` carries no author id, so there is no one
+  to attribute a report to. They are pre-moderated (`Unpublish` until approved), which is the
+  mitigation Play accepts in the meantime; the next migration should add the author id and turn
+  reportability on.
+
 ---
 
 ## 🔴 5. There is no privacy policy — the link opens the homepage
@@ -211,7 +260,7 @@ deletion, contact `ningshingche@gmail.com`. Point both constants at them.
 
 ---
 
-## 🔴 6. Generative AI without an in-app report button
+## ✅ 6. Generative AI — in-app report button **done**, Console declaration still open
 
 `data/ai/NinghsingCheAiAssistant.kt` calls Gemini (`BuildConfig.GEMINI_API_KEY`) or OpenRouter
 directly from the device; `ui/screens/AiAssistantScreen.kt` renders Markdown answers.

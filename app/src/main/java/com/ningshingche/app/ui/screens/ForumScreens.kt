@@ -143,6 +143,9 @@ import com.ningshingche.app.data.portal.PortalError
 import com.ningshingche.app.data.remote.ForumAttachmentUploader
 import com.ningshingche.app.data.remote.ImgBbUploader
 import com.ningshingche.app.ui.components.AttachmentViewer
+import com.ningshingche.app.ui.components.ContentReportDialog
+import com.ningshingche.app.ui.components.ContentSafetyRow
+import com.ningshingche.app.ui.components.TermsConsentDialog
 import com.ningshingche.app.ui.components.HtmlContentEditor
 import com.ningshingche.app.ui.components.HtmlEditorController
 import com.ningshingche.app.ui.components.PortalAsyncImage
@@ -989,6 +992,26 @@ fun ForumThreadScreen(
     editReply: suspend (String, String) -> Result<ForumReply>,
     /** Take one of the reader's own answers out of the thread (migration 034). */
     deleteReply: suspend (String) -> Result<Boolean>,
+    /**
+     * Play's UGC policy: report a piece of content (migration 040).
+     *
+     * `type` is `discussion` or `reply`, `id` the row, `reason` one of the codes the
+     * database accepts, and `authorId` the person the app believes wrote it — blank
+     * for an anonymous comment, which a thread never has.
+     */
+    reportContent: suspend (type: String, id: String, authorId: String, reason: String) -> Result<Boolean>,
+    /** Play's UGC policy: block one author, privately (migration 040). */
+    blockAuthor: suspend (String) -> Result<Boolean>,
+    /**
+     * Play's UGC policy again: terms accepted *before* anything is posted. The
+     * screen asks the first time the composer is opened and remembers the answer
+     * for the session; the app stores it (ReaderPreferences.termsAccepted).
+     */
+    termsAccepted: Boolean = false,
+    // Nullable rather than a lambda default: an empty lambda in a parameter
+    // list puts a brace before the body, and everything that reads this screen's
+    // body would find that instead of the screen. The caller always supplies it.
+    onAcceptTerms: (suspend () -> Unit)? = null,
     draftStore: ForumDraftStore,
     onSignInClick: () -> Unit,
     onAuthorClick: (String) -> Unit,
@@ -1034,15 +1057,36 @@ fun ForumThreadScreen(
 
     var viewerAttachment by remember { mutableStateOf<ForumAttachment?>(null) }
 
+    // Report and block (migration 040). The target is whichever answer the reader
+    // pressed and held; null means the sheet is closed. The thread itself is
+    // reportable from its own header.
+    var reportTarget by remember { mutableStateOf<ForumReply?>(null) }
+    var reportThread by remember { mutableStateOf(false) }
+
+    // Terms, once per install: a reader who never posts never sees the dialog, and
+    // one who does is shown what is not allowed before the box opens.
+    var termsOk by remember(termsAccepted) { mutableStateOf(termsAccepted) }
+    var termsPrompt by remember { mutableStateOf(false) }
+    var pendingParent by remember { mutableStateOf("") }
+
     // Opening the box: the animation takes this long, and the keyboard is asked
-    // for after it, so the two movements do not fight each other.
+    // for after it, so the two movements do not fight each other. Opening it fresh
+    // always drops whatever edit was in it — unless the terms are still a question,
+    // in which case the box waits and the answer carries on into it.
     val openComposer: (String) -> Unit = { parentId ->
-        editing = null
-        replyBody = ""
-        attachments = emptyList()
-        editor.clear()
-        if (parentId.isNotBlank()) replyTarget = parentId
-        composerOpen = true
+        if (termsOk) {
+            editing = null
+            replyBody = ""
+            attachments = emptyList()
+            editor.clear()
+            if (parentId.isNotBlank()) replyTarget = parentId
+            composerOpen = true
+        } else {
+            // Held here rather than dropped: accepting the terms goes straight on
+            // into the composer the reader asked for.
+            pendingParent = parentId
+            termsPrompt = true
+        }
     }
 
     /**
@@ -1277,6 +1321,7 @@ fun ForumThreadScreen(
         openId = actionsOpen,
         confirmId = confirmDelete,
         onLongPress = { reply -> actionsOpen = if (actionsOpen == reply.id) "" else reply.id },
+        onReport = { reply -> reportTarget = reply },
         onEdit = { reply -> startEditing(reply) },
         onDelete = { reply -> confirmDelete = reply.id },
         onConfirmDelete = { reply -> removeAnswer(reply) },
@@ -1416,6 +1461,14 @@ fun ForumThreadScreen(
 
                     item {
                         Column {
+                            // The thread's own report control sits with its heading
+                            // rather than in a menu: Play's UGC policy asks for the
+                            // report to be reachable from the content, and the
+                            // opening post is content.
+                            ContentSafetyRow(
+                                onReport = { reportThread = true },
+                                modifier = Modifier.padding(horizontal = EditorialSpace.gutter)
+                            )
                             ForumSectionTitle(
                                 title = tNow("উত্তরসমূহ"),
                                 count = loaded.answers.size,
@@ -1468,6 +1521,67 @@ fun ForumThreadScreen(
         AttachmentViewer(
             attachment = file,
             onDismiss = { viewerAttachment = null }
+        )
+    }
+
+    // Play's UGC policy: report the answer the reader pressed and held, and offer
+    // to block whoever wrote it. The block row is left out on the reader's own
+    // answer — blocking yourself is not a thing — and the sheet stays up to say
+    // what happened rather than closing on tap.
+    reportTarget?.let { target ->
+        val signedIn = isSignedIn
+        ContentReportDialog(
+            title = t("এই উত্তরটি রিপোর্ট করুন"),
+            onReport = { reason ->
+                reportContent("reply", target.id, target.authorId, reason)
+            },
+            onBlock = if (signedIn && !target.isMine && target.authorId.isNotBlank()) {
+                {
+                    // The blocked answer stays on screen until the thread is
+                    // loaded again: a card vanishing under the reader's finger
+                    // while the sheet is open reads as a bug, not as a block.
+                    blockAuthor(target.authorId)
+                }
+            } else {
+                null
+            },
+            onDismiss = { reportTarget = null }
+        )
+    }
+
+    // The terms gate, on the way into the composer.
+    if (termsPrompt) {
+        TermsConsentDialog(
+            onAccept = {
+                termsOk = true
+                termsPrompt = false
+                val parent = pendingParent
+                pendingParent = ""
+                val accept = onAcceptTerms
+                if (accept != null) scope.launch { accept() }
+                openComposer(parent)
+            },
+            onDismiss = {
+                termsPrompt = false
+                pendingParent = ""
+            }
+        )
+    }
+
+    // The thread itself, which is content too.
+    if (reportThread) {
+        val loaded = thread
+        ContentReportDialog(
+            title = t("এই আলোচনাটি রিপোর্ট করুন"),
+            onReport = { reason ->
+                reportContent("discussion", loaded?.discussion?.id.orEmpty(), loaded?.discussion?.authorId.orEmpty(), reason)
+            },
+            onBlock = if (isSignedIn && !loaded?.discussion?.authorId.isNullOrBlank()) {
+                { blockAuthor(loaded?.discussion?.authorId.orEmpty()) }
+            } else {
+                null
+            },
+            onDismiss = { reportThread = false }
         )
     }
 }
@@ -1543,14 +1657,16 @@ private fun ForumAnswerCard(
             .clip(RoundedCornerShape(EditorialShape.card))
             // A tap on the card is a tap on the card: it puts the keyboard away
             // and nothing else. Reactions belong to their own icons — one tap
-            // there is a count — and the long press belongs to the author: it
-            // shows সম্পাদনা and মুছে ফেলুন on an answer that is theirs, and it does
-            // nothing at all on anyone else's.
+            // there is a count.
+            //
+            // The long press belongs to whoever is reading: on your own answer it
+            // shows সম্পাদনা and মুছে ফেলুন, and on anyone else's it opens the report
+            // sheet — which is the control Play's UGC policy asks for, on the
+            // content itself rather than buried in a menu.
             .combinedClickable(
-                onLongClick = if (answer.isMine) {
-                    { replyActions.onLongPress(answer) }
-                } else {
-                    null
+                onLongClick = {
+                    if (answer.isMine) replyActions.onLongPress(answer)
+                    else replyActions.onReport(answer)
                 },
                 onClick = onCardClick
             )
@@ -1682,7 +1798,8 @@ private fun ForumAnswerCard(
                             onEdit = { replyActions.onEdit(nested) },
                             onDelete = { replyActions.onDelete(nested) },
                             onConfirmDelete = { replyActions.onConfirmDelete(nested) },
-                            onCancelActions = replyActions.onCancel
+                            onCancelActions = replyActions.onCancel,
+                            onReport = { replyActions.onReport(nested) }
                         )
                     }
                 }
@@ -1711,7 +1828,8 @@ private fun ForumNestedReply(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onConfirmDelete: () -> Unit,
-    onCancelActions: () -> Unit
+    onCancelActions: () -> Unit,
+    onReport: () -> Unit
 ) {
     val tokens = LocalEditorialTokens.current
     Surface(
@@ -1721,11 +1839,7 @@ private fun ForumNestedReply(
             .fillMaxWidth()
             .clip(RoundedCornerShape(EditorialShape.thumb))
             .combinedClickable(
-                onLongClick = if (reply.isMine) {
-                    { onLongPress() }
-                } else {
-                    null
-                },
+                onLongClick = { if (reply.isMine) onLongPress() else onReport() },
                 onClick = onCardClick
             )
             .testTag("forum_reply_${reply.id}")
@@ -1808,7 +1922,12 @@ private data class ForumReplyActions(
     val onEdit: (ForumReply) -> Unit = {},
     val onDelete: (ForumReply) -> Unit = {},
     val onConfirmDelete: (ForumReply) -> Unit = {},
-    val onCancel: () -> Unit = {}
+    val onCancel: () -> Unit = {},
+    /**
+     * Someone else's answer: a long press asks why it is wrong (migration 040).
+     * Blank when the screen has nothing to report to — the forum home, a preview.
+     */
+    val onReport: (ForumReply) -> Unit = {}
 ) {
     companion object {
         val NONE = ForumReplyActions()
