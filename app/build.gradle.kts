@@ -220,21 +220,27 @@ dependencies {
 /**
  * A release build with no key is a build that cannot go to Play.
  *
- * Without this, `assembleRelease` happily produces an unsigned APK and the problem
- * surfaces at the upload — or worse, at install. Checked against the task graph so
- * `assembleDebug` and every other task stay untouched on a machine that has no key.
+ * Without a check, `assembleRelease` produces an unsigned APK and the problem
+ * surfaces at the upload — or at install. This fails the two release tasks alone,
+ * so `assembleDebug` and everything else still run on a machine with no key.
+ *
+ * Written as `doFirst` on the tasks rather than the usual `gradle.taskGraph.whenReady`,
+ * because this project builds with the configuration cache on (gradle.properties):
+ * the task graph is not a thing a configuration-cached build may read, so the
+ * conventional hook would turn a missing key into a cache problem and hide the
+ * message it exists to show.
  */
-gradle.taskGraph.whenReady {
-  val buildingRelease = allTasks.any { task ->
-    (task.name.startsWith("assemble") || task.name.startsWith("bundle")) &&
-      task.name.contains("Release", ignoreCase = true)
-  }
-  if (buildingRelease && signingConfigs.findByName("release") == null) {
-    throw GradleException(
-      "This release build has no signing key. Create key.properties at the repository " +
-        "root (copy key.properties.example) pointing storeFile at your .jks, or set " +
-        "KEYSTORE_PATH, STORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD in the environment. " +
-        "The file is git-ignored on purpose: a committed keystore has to be replaced."
-    )
+val releaseKeyPresent = releaseStoreFile != null
+tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.configureEach {
+  val keyPresent = releaseKeyPresent
+  doFirst {
+    if (!keyPresent) {
+      throw GradleException(
+        "This release build has no signing key. Create key.properties at the repository " +
+          "root (copy key.properties.example) pointing storeFile at your .jks, or set " +
+          "KEYSTORE_PATH, STORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD in the environment. " +
+          "The file is git-ignored on purpose: a committed keystore has to be replaced."
+      )
+    }
   }
 }
