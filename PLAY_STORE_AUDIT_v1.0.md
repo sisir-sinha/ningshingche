@@ -44,7 +44,7 @@ only be taken in the Supabase dashboard, in Play Console, or on the host.*
 | # | Code | What is left for you |
 |---|------|----------------------|
 | 1 | ✅ `06d67bd` — APK section and `ApkManager` removed, Play link behind `PLAY_LISTING_LIVE` | — |
-| 2 | ❌ open — see §2 | Replace the PDF engine (or ship the Play delivery path) before **1 Feb 2027**; uploads already risk the 16 KB check |
+| 2 | ✅ `androidPdfViewer = "3.2.0-beta06"` from `io.github.oothp` (natives verified 0x4000) | — |
 | 3 | ✅ `e6a9ddf` — in-app deletion + `delete_my_account()`, `account-deletion.html` | Run `039_account_deletion.sql`, put the deletion URL in the Data safety form |
 | 4 | ✅ report/block (migration `040`) + terms gate on every composer | Run `040_content_safety.sql`, redeploy Pages, moderate `content_reports` |
 | 5 | ✅ `9164c80` — `privacy.html`, `terms.html` | Mirror both on `ningshingche.com`; the Console field must point there |
@@ -98,7 +98,7 @@ Sideload builds can keep this behind a product flavour (`sideloadRelease`) that 
 
 ---
 
-## 🔴 2. Native libraries are 4 KB aligned — the 16 KB page-size block
+## ✅ 2. Native libraries are 4 KB aligned — the 16 KB page-size block — **fixed**
 
 **Where:** `gradle/libs.versions.toml`
 
@@ -140,6 +140,37 @@ viewer — it would need its own viewer port (which is what `androidx.pdf` alrea
 
 Whatever you choose, also delete the now-dead keep rules in `app/proguard-rules.pro`
 (`com.shockwave.**`, `com.github.barteksc.**`) if the library goes.
+
+**What was done (chosen over all three: none was needed)**
+
+There is a fourth way, and it is a two-line change. `io.github.oothp` publishes a fork of
+*both* libraries — the viewer and the pdfium engine — with the natives rebuilt:
+
+```toml
+androidPdfViewer = "3.2.0-beta06"
+android-pdf-viewer = { group = "io.github.oothp", name = "android-pdf-viewer", version.ref = "androidPdfViewer" }
+```
+
+Verified rather than assumed, by extracting the artifact the same way the original finding was
+made:
+
+| Check | Result |
+|---|---|
+| `jni/arm64-v8a/lib*.so` — all five files | `PT_LOAD p_align = 0x4000` ✅ |
+| `jni/armeabi-v7a/*` | `0x1000` — fine, the rule is 64-bit only |
+| Classes of the engine | `com.shockwave.pdfium.*` — unchanged |
+| Classes of the viewer | `com.github.barteksc.pdfviewer.*` — unchanged |
+| Every method this app calls (`fromFile`, `swipeHorizontal`, `pageSnap`, `nightMode`, `pageFitPolicy`, `spacing`, `scrollHandle`, `jumpTo`, …) | present ✅ |
+| `minSdk` of the fork | 21 (app is 24) ✅ |
+
+So no Kotlin changed, no UI was lost, and the reader keeps its book view, page snapping and night
+mode. The x86/x86_64 natives the fork also ships are stripped by `abiFilters`. A test
+(`backend/tests/native-libraries.test.cjs`) now fails if the coordinate drifts back to `com.github.mhiew`,
+because a silent "version upgrade" there would only surface as a Play upload rejection.
+
+**Risk to watch:** the fork is one maintainer's repository. If it disappears, the audit's options
+A–C are the fallbacks; the version is pinned, so the build keeps working from the Maven cache in
+the meantime.
 
 ---
 

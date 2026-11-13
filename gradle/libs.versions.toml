@@ -43,7 +43,15 @@ googleServices = "4.5.0"
 credentials = "1.5.0"
 googleid = "1.1.1"
 media3 = "1.5.1"
-androidPdfViewer = "3.2.0-beta.3"
+# The PDF reader. Upstream `com.github.mhiew` stopped at 3.2.0-beta.3, and the
+# pdfium it pulls (com.github.mhiew:pdfium-android:1.9.2, May 2022) is built with
+# 4 KB ELF alignment — Play rejects that for 64-bit code since Nov 2025, because
+# Android 15+ devices may use 16 KB memory pages. `io.github.oothp` is a fork of
+# the same two libraries with the natives rebuilt (verified with readelf: every
+# PT_LOAD in arm64-v8a/lib*.so is p_align 0x4000), and it keeps both packages —
+# com.github.barteksc.pdfviewer and com.shockwave.pdfium — so the reader code
+# does not change. Bump the version here, not the two coordinates separately.
+androidPdfViewer = "3.2.0-beta06"
 
 
 [libraries]
@@ -105,8 +113,11 @@ androidx-credentials-play-services = { group = "androidx.credentials", name = "c
 googleid = { group = "com.google.android.libraries.identity.googleid", name = "googleid", version.ref = "googleid" }
 androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
 androidx-media3-session = { group = "androidx.media3", name = "media3-session", version.ref = "media3" }
-# Maven Central fork of https://github.com/DImuthuUpe/AndroidPdfViewer (JCenter gone)
-android-pdf-viewer = { group = "com.github.mhiew", name = "android-pdf-viewer", version.ref = "androidPdfViewer" }
+# Fork of https://github.com/DImuthuUpe/AndroidPdfViewer that keeps the JCenter-gone
+# library alive AND rebuilds pdfium for 16 KB pages (see the version note above).
+# It brings io.github.oothp:pdfium-android transitively; nothing else in the tree
+# ships .so files.
+android-pdf-viewer = { group = "io.github.oothp", name = "android-pdf-viewer", version.ref = "androidPdfViewer" }
 
 
 [plugins]
