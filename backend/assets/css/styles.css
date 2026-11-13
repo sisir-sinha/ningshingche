@@ -412,6 +412,16 @@ kbd { display: inline-flex; min-height: 23px; align-items: center; gap: 3px; bor
 .surface-header h2 { margin: 0; font-family: Georgia, serif; font-size: 1.22rem; font-weight: 650; }
 .surface-header p:not(.eyebrow) { margin: 4px 0 0; color: var(--muted-foreground); font-size: .76rem; }
 .list-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 19px; }
+/* The reports queue's four counters (assets/js/reports.js): open, reviewing,
+   actioned, dismissed. Buttons, because each one is also the filter — a number
+   nobody can tap is a number an editor retypes into a dropdown. */
+.report-stats { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+.report-stat { display: flex; min-width: 108px; flex: 1 1 0; flex-direction: column; gap: 2px; border: 1px solid var(--border); border-radius: var(--radius-sm, 10px); padding: 11px 13px; background: var(--surface); text-align: left; cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+.report-stat:hover { border-color: var(--border-strong, var(--border)); }
+.report-stat.is-active { border-color: var(--accent, var(--info)); background: var(--info-soft); }
+.report-stat-value { font-size: 1.15rem; font-weight: 760; line-height: 1.1; }
+.report-stat-label { color: var(--faint); font-size: .66rem; text-transform: uppercase; letter-spacing: .08em; }
+
 .search-field { position: relative; display: block; flex: 1 1 260px; max-width: 560px; }
 .search-field > i { position: absolute; top: 50%; left: 13px; transform: translateY(-50%); color: var(--faint); }
 .search-field input { width: 100%; min-height: 43px; border: 1px solid var(--border); border-radius: 11px; padding: 9px 12px 9px 39px; background: var(--surface-subtle); color: var(--foreground); }

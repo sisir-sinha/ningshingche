@@ -147,7 +147,9 @@ order by expected.name;</pre>
       'migrations/029_forum.sql, then 030, 032, 034'],
     ['forumCategories', 'forum_categories', 'id,slug,title', 'migrations/029_forum.sql'],
     ['forumReactions', 'forum_reactions', 'reply_id,reactor_key,kind,user_id,created_at',
-      'migrations/030_forum_answers.sql']
+      'migrations/030_forum_answers.sql'],
+    ['contentReports', 'content_reports', 'content_type,content_id,reason,status,created_at',
+      'migrations/040_content_safety.sql']
   ];
 
   // fetchAnalytics()'s entity list in assets/js/dashboard.js.

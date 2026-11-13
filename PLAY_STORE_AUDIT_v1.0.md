@@ -220,6 +220,7 @@ screen. `grep -riE "moderat"` finds only comments; `grep "রিপোর্ট|
 | Report on every AI answer, filed as type `ai_output` | `ui/screens/AiAssistantScreen.kt` |
 | Terms gate, shown once per install, in front of the forum composer **and** the article comment form | `ui/components/TermsConsentDialog.kt`, `ReaderPreferences.termsAccepted` |
 | Terms version stored with the acceptance, so a rewrite can ask again | `TERMS_VERSION = "2026-10-26"` |
+| The queue a human works: four counters as filters, reason and content labels in words, a decision per report | `backend/assets/js/reports.js` (menu **Reports**, borrows the Forum permission) |
 
 Decisions worth knowing:
 

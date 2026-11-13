@@ -83,7 +83,11 @@
       // which is a table that cannot exist — the message and the banner that came
       // back were about a missing database, not a missing key.
       forumReactions: 'forum_reactions',
-      forumCategories: 'forum_categories'
+      forumCategories: 'forum_categories',
+      // What readers report from the app (migration 040), and whether anyone has
+      // read it. Read and updated by the dashboard only, gated on the Forum
+      // permission — a reporter never sees their own report come back.
+      contentReports: 'content_reports'
     }),
 
     // The migration that first taught the database each menu key. A key the
@@ -115,6 +119,11 @@
       // Reader-written, reader-answered, and moderated here: the forum sits with
       // Comments rather than under a menu of its own.
       { id: 'forum', label: 'Forum', icon: 'fa-comment-dots', group: 'content' },
+      // The queue behind the app's report button (migration 040). It borrows the
+      // Forum permission rather than claiming a key of its own: whoever can
+      // moderate the forum is who should triage its reports, and a new key would
+      // have to be added to the database's allow-list before it could be granted.
+      { id: 'reports', label: 'Reports', icon: 'fa-flag', group: 'content', permission: 'forum' },
       { id: 'galleries', label: 'Galleries', icon: 'fa-images', group: 'content' },
       { id: 'books', label: 'PDF Books', icon: 'fa-books', group: 'content' },
       { id: 'submissions', label: 'Submit Blogs', icon: 'fa-file-pen', group: 'content' },
