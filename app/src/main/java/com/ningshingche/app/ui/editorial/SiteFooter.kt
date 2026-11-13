@@ -58,8 +58,14 @@ object SiteContact {
     const val PHONE_URI = "tel:+8809638781890"
     const val EMAIL = "ningshingche@gmail.com"
     const val SUBMIT_URL = "https://ningshingche.com/blog_submission"
-    const val PRIVACY_URL = "https://ningshingche.com/"
-    const val TERMS_URL = "https://ningshingche.com/"
+    // Real pages, not the homepage. Play requires a privacy policy that loads
+    // without the app and states what this app actually does; a bare homepage is a
+    // standard rejection. These live in backend/ and are published with the
+    // dashboard on GitHub Pages; mirror them to ningshingche.com/privacy and
+    // ningshingche.com/terms when the site is edited, and switch the host here.
+    const val PRIVACY_URL = "https://sisir-sinha.github.io/ningshingche/privacy.html"
+    const val TERMS_URL = "https://sisir-sinha.github.io/ningshingche/terms.html"
+    const val ACCOUNT_DELETION_URL = "https://sisir-sinha.github.io/ningshingche/account-deletion.html"
     const val SITEMAP_URL = "https://ningshingche.com/"
     const val FACEBOOK_URL = "https://www.facebook.com/ningshingche/"
     const val WHATSAPP_URL = "https://whatsapp.com/channel/0029Vab82QgKwqSLmgh9Ma2N"

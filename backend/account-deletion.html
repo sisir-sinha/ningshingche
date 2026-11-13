@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>অ্যাকাউন্ট মুছে ফেলা — নিংশিং চে | Delete your account — Ningshing Che</title>
+<!--
+  The web resource Google Play's User Data policy requires: a page that loads
+  without the app, names the app as the listing does, and actually lets a person
+  file a deletion request.
+
+  It does three things, in this order:
+    1. tells the reader they can delete from inside the app (Settings -> account);
+    2. posts a request to the `request_account_deletion` RPC, which files it in the
+       editors' queue (migration 039);
+    3. falls back to a mailto: link prefilled with the same details if the RPC is
+       not installed yet or the network refuses — the request must never be a dead
+       end, because a reviewer will open this page and try it.
+
+  Keys below are the publishable browser key: it grants exactly the anonymous role
+  RLS already allows, and the RPC is the only write it needs.
+-->
+<style>
+  :root{--ink:#14161c;--soft:#3d4453;--muted:#6b7385;--rule:#dfe3ec;--paper:#f6f7fa;--card:#fff;--accent:#2f4b8f;--accent-soft:#eef2fb;--ok:#1e7a54;--ok-soft:#eaf6f0;--bad:#b4232a;--bad-soft:#fdeced}
+  *{box-sizing:border-box}
+  body{margin:0;padding:30px 16px 60px;background:var(--paper);color:var(--ink);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans Bengali",Arial,sans-serif}
+  main{max-width:760px;margin:0 auto}
+  header{border-bottom:2px solid var(--accent);padding-bottom:18px;margin-bottom:26px}
+  h1{margin:0 0 6px;font-size:26px;line-height:1.3}
+  .sub{margin:0;color:var(--muted);font-size:14px}
+  section{background:var(--card);border:1px solid var(--rule);border-radius:14px;padding:22px 24px;margin:0 0 16px}
+  h2{margin:0 0 12px;font-size:18px}
+  p,li{color:var(--soft)}
+  p{margin:0 0 10px}
+  ul,ol{margin:0 0 12px;padding-left:22px}
+  li{margin:0 0 6px}
+  label{display:block;font-size:14px;font-weight:600;margin:14px 0 6px;color:var(--ink)}
+  input,textarea,select{width:100%;padding:11px 12px;border:1px solid var(--rule);border-radius:10px;
+       font:inherit;font-size:15px;color:var(--ink);background:#fff}
+  input:focus,textarea:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+  textarea{min-height:88px;resize:vertical}
+  button{margin-top:18px;width:100%;padding:14px 18px;border:0;border-radius:12px;background:var(--accent);
+       color:#fff;font:inherit;font-weight:700;font-size:16px;cursor:pointer}
+  button:disabled{opacity:.6;cursor:progress}
+  .status{margin-top:14px;padding:14px 16px;border-radius:10px;font-size:15px;display:none}
+  .status.show{display:block}
+  .status.ok{background:var(--ok-soft);border-left:4px solid var(--ok);color:#12553a}
+  .status.bad{background:var(--bad-soft);border-left:4px solid var(--bad);color:#7d1a1f}
+  .note{background:var(--accent-soft);border-left:4px solid var(--accent);border-radius:8px;padding:14px 16px;margin:14px 0}
+  .note p:last-child{margin:0}
+  code{background:var(--accent-soft);padding:1px 5px;border-radius:4px;font-size:13px}
+  a{color:var(--accent)}
+  footer{text-align:center;color:var(--muted);font-size:13px;margin-top:26px}
+  details{margin-top:12px}
+  summary{cursor:pointer;font-weight:600;color:var(--accent);font-size:15px}
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <h1>অ্যাকাউন্ট মুছে ফেলা</h1>
+  <p class="sub">নিংশিং চে (Ningshing Che) · <code>com.ningshingche.app</code></p>
+</header>
+
+<section>
+  <h2>অ্যাপ থেকেই মুছে ফেলুন (দ্রুততম)</h2>
+  <ol>
+    <li>অ্যাপ খুলুন এবং সাইন-ইন করুন;</li>
+    <li><strong>সেটিংস → অ্যাকাউন্ট → অ্যাকাউন্ট মুছুন</strong>;</li>
+    <li>নিশ্চিত করতে <code>মুছুন</code> লিখুন, তারপর নিশ্চিত করুন।</li>
+  </ol>
+  <p>মুছে ফেলার সাথে সাথে আপনার অ্যাকাউন্ট, প্রোফাইল, পয়েন্ট, সংরক্ষিত তালিকা, মন্তব্য ও ফোরামের উত্তর মুছে যাবে।</p>
+
+  <h2>অ্যাপ ছাড়া অনুরোধ করুন</h2>
+  <p>অ্যাপ ইনস্টল না থাকলে বা সাইন-ইন করতে না পারলে নিচের ফর্মটি ব্যবহার করুন। আমরা ৩০ দিনের মধ্যে অ্যাকাউন্ট ও সংশ্লিষ্ট ব্যক্তিগত তথ্য মুছে ফেলি এবং ইমেইলে নিশ্চিত করি।</p>
+
+  <form id="delete-form" novalidate>
+    <label for="email">অ্যাকাউন্টের ইমেইল ঠিকানা *</label>
+    <input id="email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
+
+    <label for="google">অ্যাকাউন্টে ব্যবহৃত Google ইমেইল (যদি আলাদা হয়)</label>
+    <input id="google" name="google" type="email" autocomplete="email" placeholder="name@gmail.com">
+
+    <label for="reason">কারণ (ঐচ্ছিক)</label>
+    <select id="reason" name="reason">
+      <option value="no-longer-use">আর ব্যবহার করি না</option>
+      <option value="privacy">গোপনীয়তার উদ্বেগ</option>
+      <option value="too-many-emails">অতিরিক্ত বার্তা</option>
+      <option value="other">অন্যান্য</option>
+    </select>
+
+    <label for="note">অতিরিক্ত কিছু (ঐচ্ছিক)</label>
+    <textarea id="note" name="note" maxlength="500" placeholder="আপনি যা বলতে চান…"></textarea>
+
+    <button id="submit-btn" type="submit">মুছে ফেলার অনুরোধ পাঠান</button>
+    <div id="status" class="status" role="status" aria-live="polite"></div>
+  </form>
+
+  <details>
+    <summary>ইমেইলে অনুরোধ করতে চান?</summary>
+    <div class="note">
+      <p><a id="mailto-link" href="mailto:ningshingche@gmail.com?subject=Account%20deletion%20request%20%E2%80%94%20Ningshing%20Che">ningshingche@gmail.com</a> — এ ঠিকানা লিখে পাঠান। বিষয়: “Account deletion request”. ফোন: <a href="tel:+8809638781890">+880 9638-781890</a>।</p>
+    </div>
+  </details>
+</section>
+
+<section>
+  <h2>What is deleted, what is kept — in English</h2>
+  <p><strong>Deleted:</strong> your account record, sign-in identity, profile and avatar, contributor points, saved lists, notification inbox, direct messages to editors, your comments, your forum threads and replies, and your uploaded avatars/covers.</p>
+  <p><strong>Kept, anonymously:</strong> articles, songs or books you published that are now part of the archive stay published but are attributed to "deleted author" — removing them would break citations elsewhere. Material kept for a legal obligation (for example the record of a copyright complaint) is retained only as long as the law requires, and you are told if that applies to you.</p>
+  <p><strong>Timeline:</strong> requests are actioned within 30 days and confirmed by email. Most are done in a few days.</p>
+</section>
+
+<footer>নিংশিং চে · Ningshing Che · <a href="privacy.html">গোপনীয়তা / Privacy</a> · <a href="terms.html">শর্তাবলী / Terms</a></footer>
+
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  // Publishable browser key: the same one the dashboard uses. It can only reach
+  // what RLS opens to `anon`, and `request_account_deletion` is the one write it
+  // needs here.
+  var SUPABASE_URL = 'https://slcpvmpsynkqdozvlsii.supabase.co';
+  var SUPABASE_KEY = 'sb_publishable_jqJACnQHmCMcGjt0kG6Sug_ddknIbAA';
+
+  var form = document.getElementById('delete-form');
+  var statusBox = document.getElementById('status');
+  var button = document.getElementById('submit-btn');
+  var mailLink = document.getElementById('mailto-link');
+
+  function say(kind, html) {
+    statusBox.className = 'status show ' + kind;
+    statusBox.innerHTML = html;
+  }
+
+  function describe() {
+    return {
+      email: (document.getElementById('email').value || '').trim(),
+      google: (document.getElementById('google').value || '').trim(),
+      reason: document.getElementById('reason').value,
+      note: (document.getElementById('note').value || '').trim()
+    };
+  }
+
+  function fallbackMail(d) {
+    var body = [
+      'App: Ningshing Che (com.ningshingche.app)',
+      'Account email: ' + d.email,
+      d.google ? 'Google sign-in email: ' + d.google : '',
+      'Reason: ' + d.reason,
+      d.note ? 'Note: ' + d.note : '',
+      '',
+      'Please delete my Ningshing Che account and its associated data.'
+    ].filter(Boolean).join('\n');
+    mailLink.href = 'mailto:ningshingche@gmail.com'
+      + '?subject=' + encodeURIComponent('Account deletion request — Ningshing Che')
+      + '&body=' + encodeURIComponent(body);
+    mailLink.textContent = 'ningshingche@gmail.com — এই লিংকে ক্লিক করে ইমেইলটি পাঠান';
+  }
+
+  form.addEventListener('submit', async function (event) {
+    event.preventDefault();
+    var d = describe();
+
+    if (!d.email || d.email.indexOf('@') < 1) {
+      say('bad', 'একটি সঠিক ইমেইল ঠিকানা দিন।');
+      document.getElementById('email').focus();
+      return;
+    }
+
+    fallbackMail(d);
+    button.disabled = true;
+
+    try {
+      var response = await fetch(SUPABASE_URL + '/rest/v1/rpc/request_account_deletion', {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          p_email: d.email,
+          p_google_email: d.google || null,
+          p_reason: d.reason,
+          p_note: d.note || null
+        })
+      });
+
+      if (response.ok) {
+        say('ok', '<strong>অনুরোধ জমা হয়েছে।</strong><br>' + d.email +
+          ' থেকে আসা অনুরোধ ৩০ দিনের মধ্যে সম্পন্ন হবে এবং ইমেইলে নিশ্চিত করা হবে।');
+        form.reset();
+      } else {
+        say('bad', '<strong>অনলাইনে জমা নেওয়া যায়নি।</strong><br>নিচের ইমেইল ঠিকানায় সরাসরি লিখুন — আমরা হাতে হাতে নিয়ে নেব: <br><a href="' + mailLink.href + '">' + mailLink.textContent + '</a>');
+      }
+    } catch (error) {
+      say('bad', '<strong>সংযোগ পাওয়া যায়নি।</strong><br>ইমেইলে অনুরোধ করুন: <a href="' +
+        mailLink.href + '">ningshingche@gmail.com</a>');
+    } finally {
+      button.disabled = false;
+    }
+  });
+})();
+</script>
+</body>
+</html>
