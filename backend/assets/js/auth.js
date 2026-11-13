@@ -101,40 +101,19 @@
     return session;
   }
 
-  async function legacyLogin(username, password, remember) {
-    const normalizedUsername = String(username || '').trim().toLocaleLowerCase();
-    const passwordDigest = await NC.utils.sha256(String(password || ''));
-    const valid = normalizedUsername === NC_CONFIG.auth.username.toLocaleLowerCase()
-      && passwordDigest === NC_CONFIG.auth.passwordHash;
-    if (!valid) {
-      await new Promise((resolve) => window.setTimeout(resolve, 350));
-      throw new Error('The username or password is incorrect.');
-    }
-
-    const now = Date.now();
-    const duration = remember
-      ? NC_CONFIG.app.rememberedSessionDays * 24 * 60 * 60 * 1000
-      : NC_CONFIG.app.sessionHours * 60 * 60 * 1000;
-    const permissions = NC_CONFIG.routes.map((route) => route.id);
-    const session = {
-      version: 1,
-      id: NC.utils.uuid(),
-      mode: LEGACY_MODE,
-      user: normalizeUser({
-        username: normalizedUsername,
-        name: NC_CONFIG.auth.displayName,
-        role: 'Super Admin',
-        role_slug: 'super-admin',
-        permissions
-      }),
-      // Compatibility only until migration 004 is installed. The production
-      // session flow never stores or sends this discoverable demo digest.
-      dashboardToken: await NC.utils.sha256(`${normalizedUsername}:${password}`),
-      issuedAt: now,
-      expiresAt: now + duration
-    };
-    setSession(session, remember);
-    return session;
+  /**
+   * There used to be a demo login here: a fixed username and the SHA-256 of a fixed
+   * password shipped in config.js. That file is served from a public static host, so
+   * the digest was effectively a published super-admin credential. It is gone.
+   *
+   * If dashboard_login is missing the dashboard now says so plainly rather than
+   * logging anyone in locally.
+   */
+  function legacyLogin() {
+    throw new Error(
+      'The login service is not installed yet. Apply the dashboard access-control '
+      + 'migration (backend/supabase/migrations) and sign in again.'
+    );
   }
 
   async function login(username, password, remember = false) {

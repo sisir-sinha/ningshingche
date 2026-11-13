@@ -40,7 +40,6 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="ningshingche.com" />
-                <data android:scheme="http" android:host="ningshingche.com" />
             </intent-filter>
         </activity>
 

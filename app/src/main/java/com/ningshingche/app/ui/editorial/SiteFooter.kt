@@ -64,8 +64,18 @@ object SiteContact {
     const val FACEBOOK_URL = "https://www.facebook.com/ningshingche/"
     const val WHATSAPP_URL = "https://whatsapp.com/channel/0029Vab82QgKwqSLmgh9Ma2N"
     const val YOUTUBE_URL = "https://www.youtube.com/@ningshingche"
+    /**
+     * The app's own Play listing. It must stay pointed at this applicationId: the
+     * previous value (`com.shakilsoftltd.ningshingche`) belonged to a different
+     * package and answered 404, which is both a broken button and a listing that
+     * would send readers to someone else's app.
+     *
+     * Until the listing is live the footer hides the button (see [isPlayListingLive]);
+     * publish first, then flip this to true.
+     */
     const val PLAY_STORE_URL =
-        "https://play.google.com/store/apps/details?id=com.shakilsoftltd.ningshingche"
+        "https://play.google.com/store/apps/details?id=com.ningshingche.app"
+    const val PLAY_LISTING_LIVE = false
     const val DEVELOPER_URL = "https://kehem.com/"
     val DEVELOPER_NAME: String get() = tNow("কেহেম আইটি")
 
@@ -203,6 +213,9 @@ fun EditorialFooter(
         FooterDivider()
 
         // --- Download -----------------------------------------------------
+        // Hidden until the Play listing exists: a button that opens a 404 reads as a
+        // broken app to a reviewer and as a dead end to a reader.
+        if (SiteContact.PLAY_LISTING_LIVE) {
         FooterHeading(t("সর্বশেষ আপডেট পেতে আমাদের অ্যাপটি ডাউনলোড করুন"))
         Spacer(Modifier.height(12.dp))
         Surface(
@@ -230,6 +243,7 @@ fun EditorialFooter(
                     color = Color.White
                 )
             }
+        }
         }
 
         Spacer(Modifier.height(18.dp))

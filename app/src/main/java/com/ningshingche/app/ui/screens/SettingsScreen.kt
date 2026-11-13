@@ -41,7 +41,6 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ExitToApp
-import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.ColorLens
@@ -108,7 +107,6 @@ import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.SettingsViewModel
-import com.ningshingche.app.util.ApkManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.atan2
@@ -138,7 +136,6 @@ fun SettingsScreen(
         ActivityResultContracts.RequestPermission()
     ) { }
 
-    val apkInfo = remember(context) { ApkManager.getInstalledApkInfo(context) }
     var isSavingApk by remember { mutableStateOf(false) }
     var downloadResultMsg by remember { mutableStateOf<String?>(null) }
 
@@ -653,210 +650,6 @@ fun SettingsScreen(
                                 Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(8.dp))
                                 Text(t("অনুবাদ হালনাগাদ করুন"), fontFamily = Kalpurush, fontWeight = FontWeight.SemiBold)
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 2. Download Ningshingche APK (Direct Local APK from Installed Device)
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.FileDownload,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Text(
-                            text = t("নিংশিং চে APK ডাউনলোড (সরাসরি লোকাল প্যাকেজ)"),
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontSize = textSize(13),
-                                lineHeight = leading(13),
-                            )
-                        )
-                    }
-
-                    Surface(
-                        shape = RoundedCornerShape(18.dp),
-                        color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(48.dp)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            imageVector = Icons.Default.Android,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onPrimary,
-                                            modifier = Modifier.size(28.dp)
-                                        )
-                                    }
-                                }
-
-                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                    Text(
-                                        text = "Ningshingche Android App",
-                                        style = MaterialTheme.typography.titleMedium.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            fontSize = textSize(15),
-                                            lineHeight = leading(15)
-                                        )
-                                    )
-                                    Text(
-                                        text = t("সংস্করণ {1} • সাইজ: {2}", apkInfo.versionName, apkInfo.sizeFormatted),
-                                        style = MaterialTheme.typography.bodySmall.copy(
-                                            color = MaterialTheme.colorScheme.primary,
-                                            fontWeight = FontWeight.SemiBold,
-                                            fontSize = textSize(12),
-                                            lineHeight = leading(12)
-                                        )
-                                    )
-                                    Text(
-                                        text = t("ইনস্টল্ড ডিভাইস থেকে সরাসরি সংগৃহীত অফিশিয়াল প্যাকেজ"),
-                                        style = MaterialTheme.typography.bodySmall.copy(
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            fontSize = textSize(11),
-                                            lineHeight = leading(11)
-                                        )
-                                    )
-                                }
-                            }
-
-                            // Download status message banner
-                            if (downloadResultMsg != null) {
-                                Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = MaterialTheme.colorScheme.primaryContainer,
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(10.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.CheckCircle,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Text(
-                                            text = downloadResultMsg.orEmpty(),
-                                            style = MaterialTheme.typography.bodySmall.copy(
-                                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                fontWeight = FontWeight.Medium,
-                                                fontSize = textSize(12),
-                                                lineHeight = leading(12)
-                                            )
-                                        )
-                                    }
-                                }
-                            }
-
-                            // Action buttons
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Button(
-                                    onClick = {
-                                        coroutineScope.launch {
-                                            isSavingApk = true
-                                            val result = ApkManager.saveApkToDownloads(context)
-                                            isSavingApk = false
-                                            result.onSuccess { msg ->
-                                                downloadResultMsg = msg
-                                                Toast.makeText(context, tNow("APK সফলভাবে ডাউনলোড ফোল্ডারে সংরক্ষিত হয়েছে!"), Toast.LENGTH_LONG).show()
-                                            }.onFailure { err ->
-                                                downloadResultMsg = tNow("সংরক্ষণ ব্যর্থ: {1}", err.message)
-                                                Toast.makeText(context, tNow("APK সংরক্ষণ ব্যর্থ হয়েছে"), Toast.LENGTH_SHORT).show()
-                                            }
-                                        }
-                                    },
-                                    enabled = !isSavingApk,
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.primary,
-                                        contentColor = MaterialTheme.colorScheme.onPrimary
-                                    ),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .testTag("settings_download_apk_button")
-                                ) {
-                                    if (isSavingApk) {
-                                        CircularProgressIndicator(
-                                            color = MaterialTheme.colorScheme.onPrimary,
-                                            strokeWidth = 2.dp,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(text = t("সংরক্ষণ হচ্ছে..."), fontSize = textSize(12), lineHeight = leading(12))
-                                    } else {
-                                        Icon(
-                                            imageVector = Icons.Default.Download,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = t("APK সংরক্ষণ করুন"),
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = textSize(12),
-                                            lineHeight = leading(12)
-                                        )
-                                    }
-                                }
-
-                                OutlinedButton(
-                                    onClick = {
-                                        val success = ApkManager.shareInstalledApk(context)
-                                        if (!success) {
-                                            Toast.makeText(context, tNow("APK শেয়ার প্রস্তুত করা সম্ভব হয়নি"), Toast.LENGTH_SHORT).show()
-                                        }
-                                    },
-                                    shape = RoundedCornerShape(12.dp),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        contentColor = MaterialTheme.colorScheme.primary
-                                    ),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .testTag("settings_share_apk_button")
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Share,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = t("APK শেয়ার করুন"),
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = textSize(12),
-                                        lineHeight = leading(12)
-                                    )
-                                }
                             }
                         }
                     }

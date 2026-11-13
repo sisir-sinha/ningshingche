@@ -14,7 +14,7 @@
     app: Object.freeze({
       name: 'Ningshing Che',
       subtitle: 'Editorial Command Center',
-      version: '1.0',
+      version: '1.1',
       websiteUrl: 'https://ningshingche.com',
       locale: 'en-BD',
       timeZone: 'Asia/Dhaka',
@@ -47,11 +47,12 @@
       ])
     }),
 
-    // Migration-only fallback. Once migration 004 installs dashboard_login,
-    // credentials and roles come exclusively from Supabase.
+    // Display fallback only. Credentials are NOT kept here: this file is served
+    // from a public GitHub Pages site, so anything in it is world-readable. Every
+    // login goes through the dashboard_login RPC (migration 004), which hashes and
+    // compares server-side. If that RPC is missing the dashboard now fails closed
+    // (see auth.js) instead of falling back to a credential baked into this file.
     auth: Object.freeze({
-      username: 'admin',
-      passwordHash: '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9',
       displayName: 'Chief Editor',
       role: 'Super Admin'
     }),
