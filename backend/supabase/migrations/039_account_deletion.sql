@@ -185,6 +185,11 @@ end;
 $$;
 
 revoke all on function public.delete_my_account() from public;
+-- `from public` alone is not enough on Supabase: its default privileges grant
+-- EXECUTE on new functions to anon explicitly, and only an explicit revoke takes
+-- that back. The body refuses a caller with no session anyway, but a function that
+-- can delete an account should not be reachable from the guest role at all.
+revoke all on function public.delete_my_account() from anon;
 grant execute on function public.delete_my_account() to authenticated;
 
 -- The dashboard's own readers list has to keep working after a reader leaves:
