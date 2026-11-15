@@ -286,9 +286,11 @@ dependencies {
  * configuration, unlike the task graph), and `key.properties` is read above, so a
  * cached configuration is invalidated the moment the file appears or changes.
  */
-val requestedReleaseBuild: Boolean = gradle.startParameter.taskNames.any { name ->
-  val task = name.substringAfterLast(':').substringBeforeLast(' ').trim()
-  task == "bundleRelease" || task == "assembleRelease" || task == "packageReleaseBundle"
+val requestedReleaseBuild: Boolean = gradle.startParameter.taskNames.any { raw ->
+  val task = raw.substringAfterLast(':').substringBefore(' ').trim().lowercase()
+  // Anything that names the release variant, plus the three bare commands that
+  // assemble every variant (`build` and `assemble` include Release).
+  task.contains("release") || task == "build" || task == "assemble" || task == "bundle"
 }
 
 /** The message both checks share — keys only, never values. */
@@ -319,25 +321,23 @@ if (requestedReleaseBuild && !releaseSigningReady) {
   throw GradleException(releaseSigningProblem())
 }
 
-/**
- * A release build with no key is a build that cannot go to Play.
+/*
+ * And nothing else.
  *
- * Without a check, `assembleRelease` produces an unsigned bundle and the problem
- * surfaces at the upload. This fails the two release tasks alone, so `assembleDebug`
- * and everything else still run on a machine that has no key.
+ * The obvious next step — a `doFirst { }` on bundleRelease that repeats this check
+ * when the task actually runs — cannot live in this script. The configuration cache
+ * serializes task state, and a lambda declared in a build script captures the script
+ * object, which is not serializable. It failed exactly so:
  *
- * Written as `doFirst` on the tasks rather than the usual `gradle.taskGraph.whenReady`,
- * because this project builds with the configuration cache on (gradle.properties):
- * the task graph is not something a configuration-cached build may read, so the
- * conventional hook would turn a missing key into a cache error and hide the very
- * message it exists to show.
+ *   Task `:app:bundleRelease` of type `org.gradle.api.DefaultTask`:
+ *   cannot serialize Gradle script object references
+ *
+ * `gradle.taskGraph` is no better: the task graph is not readable from a
+ * configuration-cached build at all. So the check is here, where `startParameter`
+ * is a supported input, and it runs before a single task.
+ *
+ * One gap is worth naming: a task *abbreviation* (`./gradlew bR`) is not in
+ * `taskNames` in any form this can match, so such a build would sign nothing and
+ * produce an unsigned .aab. That is a build Play Console refuses at upload, with a
+ * message of its own — a visible failure, not a silent one. Type the task name out.
  */
-tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.configureEach {
-  val ready = releaseSigningReady
-  doFirst {
-    // Belt and braces: a task name the check above could not see (an abbreviation,
-    // or a release build reached through another task) still stops here rather
-    // than producing an unsigned bundle.
-    if (!ready) throw GradleException(releaseSigningProblem())
-  }
-}

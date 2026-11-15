@@ -151,23 +151,46 @@ test('the values are validated, and the messages do not leak them', async (t) =>
   });
 
   await t.test('a release build without a key stops with instructions', () => {
-    assert.match(BUILD_CODE, /it\.name == "assembleRelease" \|\| it\.name == "bundleRelease"/);
     assert.match(BUILD_CODE, /throw GradleException\(/, 'it fails, it does not warn');
     assert.match(BUILD_CODE, /key\.properties at \$\{keyPropertiesFile\.absolutePath\}/,
       'and it names the file it looked for');
-    assert.ok(!/gradle\.taskGraph/.test(BUILD_CODE),
-      'the task graph is unreadable under the configuration cache this project enables');
   });
 
   await t.test('and it stops before the compile, not after it', () => {
     // Verified by running it: with key.properties absent, `./gradlew
-    // :app:bundleRelease` fails in about twenty seconds. The first version of this
-    // check lived in `doFirst`, which only runs once every dependency — twenty
-    // minutes of Kotlin and R8 — has finished.
+    // :app:bundleRelease` fails in about twenty seconds, long before Kotlin or R8.
     assert.match(BUILD_CODE, /gradle\.startParameter\.taskNames/,
       'the requested tasks are read at configuration time');
-    assert.match(BUILD_CODE, /if \(requestedReleaseBuild && !releaseSigningReady\) \{\s*throw GradleException/,
+    assert.match(BUILD_CODE,
+      /if \(requestedReleaseBuild && !releaseSigningReady\) \{\s*throw GradleException/,
       'and a release request without a key throws there');
+  });
+
+  await t.test('no task action lives in this script', () => {
+    // This is the regression that cost a build. The first version of the check
+    // above repeated itself in `doFirst { }` on bundleRelease; the configuration
+    // cache then refused to store the graph, with
+    //
+    //   Task `:app:bundleRelease` of type `org.gradle.api.DefaultTask`:
+    //   cannot serialize Gradle script object references
+    //
+    // because a lambda declared in a build script captures the script object.
+    // gradle.properties enables the configuration cache, so any action here is a
+    // build failure waiting for the next release.
+    for (const action of ['doFirst', 'doLast', 'onlyIf', 'taskGraph']) {
+      assert.ok(!new RegExp(`\\b${action}\\b`).test(BUILD_CODE),
+        `${action} in a build script breaks the configuration cache this project enables`);
+    }
+  });
+
+  await t.test('and the task names it watches include the bare commands', () => {
+    // `build` and `assemble` build every variant, Release included; a guard that
+    // only knew the two fully-qualified release task names would let those two
+    // produce an unsigned bundle.
+    assert.match(BUILD_CODE, /task\.contains\("release"\)/);
+    assert.match(BUILD_CODE, /task == "build" \|\| task == "assemble" \|\| task == "bundle"/);
+    assert.match(BUILD_CODE, /\.lowercase\(\)/,
+      'compared case-insensitively, so bundleRelease and BundleRelease both count');
   });
 
   await t.test('nothing is printed that a password could hide in', () => {
