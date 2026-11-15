@@ -237,6 +237,22 @@ test('the project it was changed inside still works', async (t) => {
       'getByName would break every debug build on a machine without the key');
   });
 
+  await t.test('the release build asks for native debug symbols', () => {
+    // Play's "This App Bundle contains native code, and you've not uploaded debug
+    // symbols" is a warning, not a blocker — but it is free to fix, and it decides
+    // how readable a native crash is when the app is in other people's hands.
+    // AGP's NdkOptions.DebugSymbolLevel is NONE | SYMBOL_TABLE | FULL, parsed
+    // case-insensitively through HelpfulEnumConverter.
+    const release = BUILD_CODE.slice(BUILD_CODE.indexOf('buildTypes {'),
+      BUILD_CODE.indexOf('packaging {'));
+    const level = /debugSymbolLevel\s*=\s*"([A-Za-z_]+)"/.exec(release);
+    assert.ok(level, 'the release build type sets debugSymbolLevel');
+    assert.ok(['NONE', 'SYMBOL_TABLE', 'FULL'].includes(level[1].toUpperCase()),
+      `${level[1]} is not a value AGP accepts`);
+    assert.notEqual(level[1].toUpperCase(), 'NONE',
+      'NONE is the default that produced the warning in the first place');
+  });
+
   await t.test('and debug keeps its own signing', () => {
     assert.match(BUILD, /rootDir\.resolve\("debug\.keystore"\)/);
     assert.match(BUILD, /create\("debugConfig"\)/);
