@@ -98,7 +98,7 @@ android {
     applicationId = "com.ningshingche.app"
     minSdk = 24
     targetSdk = 36
-    versionCode = 35
+    versionCode = 36
     versionName = "1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -136,19 +136,30 @@ android {
 
   buildTypes {
     release {
-      isCrunchPngs = true
-      isMinifyEnabled = true
-      isShrinkResources = true
-      proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      // Set below, only if the key is here; the task-graph check at the end of
-      // this file makes a release build without one fail with instructions
-      // rather than produce an unsigned APK.
-      signingConfigs.findByName("release")?.let { signingConfig = it }
+        isCrunchPngs = true
+        isMinifyEnabled = true
+        isShrinkResources = true
+
+        proguardFiles(
+            getDefaultProguardFile("proguard-android-optimize.txt"),
+            "proguard-rules.pro"
+        )
+
+        ndk {
+            debugSymbolLevel = "SYMBOL_TABLE"
+        }
+
+        signingConfigs.findByName("release")?.let {
+            signingConfig = it
+        }
     }
+
     debug {
-      signingConfigs.findByName("debugConfig")?.let { signingConfig = it }
+        signingConfigs.findByName("debugConfig")?.let {
+            signingConfig = it
+        }
     }
-  }
+}
 
   packaging {
     jniLibs {
@@ -187,6 +198,7 @@ android {
     includeInApk = false
     includeInBundle = true
   }
+
 }
 
 // Configure the Secrets Gradle Plugin to use .env and .env.example files
