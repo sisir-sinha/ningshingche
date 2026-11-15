@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.ningshingche.app.data.ai.NinghsingCheAiAssistant
 import com.ningshingche.app.data.local.ArticleAiChatStore
+import com.ningshingche.app.data.auth.EmailAuthMessages
 import com.ningshingche.app.data.auth.GoogleAuthException
 import com.ningshingche.app.data.auth.GoogleAuthMapper
 import com.ningshingche.app.NinghsingCheApp
@@ -319,6 +320,113 @@ class SettingsViewModel(
         viewModelScope.launch {
             googleAuthRepository.signOut()
             _googleAuthMessage.value = null
+        }
+    }
+
+    // ----------------------------------------------------- email and password
+    //
+    // The same screen serves three jobs: signing in, creating an account, and
+    // recovering a forgotten password. The recovery flow has three steps and one
+    // trap — verifying the code *starts a session*, so without [passwordResetActive]
+    // the screen would see a user and navigate into the app before the reader has
+    // chosen a new password. The flag holds the navigation back until the password
+    // is saved, or the reader cancels.
+
+    private val _emailAuthInProgress = MutableStateFlow(false)
+    val emailAuthInProgress: StateFlow<Boolean> = _emailAuthInProgress.asStateFlow()
+
+    private val _emailAuthMessage = MutableStateFlow<String?>(null)
+    val emailAuthMessage: StateFlow<String?> = _emailAuthMessage.asStateFlow()
+
+    /** True once the recovery code is accepted, until a new password is saved. */
+    private val _passwordResetActive = MutableStateFlow(false)
+    val passwordResetActive: StateFlow<Boolean> = _passwordResetActive.asStateFlow()
+
+    /** True once the code has been requested, so the screen can ask for it. */
+    private val _resetCodeSent = MutableStateFlow(false)
+    val resetCodeSent: StateFlow<Boolean> = _resetCodeSent.asStateFlow()
+
+    fun clearEmailAuthMessage() {
+        _emailAuthMessage.value = null
+    }
+
+    fun signInWithEmail(email: String, password: String) {
+        runEmailAuth { supabaseClient.signInWithEmail(email, password) }
+    }
+
+    fun signUpWithEmail(email: String, password: String) {
+        runEmailAuth { supabaseClient.signUpWithEmail(email, password) }
+    }
+
+    fun sendResetCode(email: String) {
+        if (_emailAuthInProgress.value) return
+        viewModelScope.launch {
+            _emailAuthInProgress.value = true
+            _emailAuthMessage.value = null
+            try {
+                supabaseClient.sendPasswordResetCode(email)
+                    .onSuccess { _resetCodeSent.value = true }
+                    .onFailure { _emailAuthMessage.value = EmailAuthMessages.userMessage(it) }
+            } finally {
+                _emailAuthInProgress.value = false
+            }
+        }
+    }
+
+    fun verifyResetCode(email: String, code: String) {
+        if (_emailAuthInProgress.value) return
+        viewModelScope.launch {
+            _emailAuthInProgress.value = true
+            _emailAuthMessage.value = null
+            try {
+                supabaseClient.verifyPasswordResetCode(email, code)
+                    .onSuccess { _passwordResetActive.value = true }
+                    .onFailure { _emailAuthMessage.value = EmailAuthMessages.userMessage(it) }
+            } finally {
+                _emailAuthInProgress.value = false
+            }
+        }
+    }
+
+    fun saveNewPassword(newPassword: String) {
+        if (_emailAuthInProgress.value) return
+        viewModelScope.launch {
+            _emailAuthInProgress.value = true
+            _emailAuthMessage.value = null
+            try {
+                supabaseClient.updatePassword(newPassword)
+                    .onSuccess {
+                        _passwordResetActive.value = false
+                        _resetCodeSent.value = false
+                    }
+                    .onFailure { _emailAuthMessage.value = EmailAuthMessages.userMessage(it) }
+            } finally {
+                _emailAuthInProgress.value = false
+            }
+        }
+    }
+
+    fun cancelPasswordReset() {
+        _passwordResetActive.value = false
+        _resetCodeSent.value = false
+        _emailAuthMessage.value = null
+        // A cancelled recovery may have left a session behind; drop it so the reader
+        // is back to being a guest unless they choose to sign in.
+        supabaseClient.signOut()
+    }
+
+    private fun runEmailAuth(block: suspend () -> Result<UserProfile>) {
+        if (_emailAuthInProgress.value) return
+        viewModelScope.launch {
+            _emailAuthInProgress.value = true
+            _emailAuthMessage.value = null
+            try {
+                block()
+                    .onSuccess { profile -> supabaseClient.upsertReaderProfile(profile) }
+                    .onFailure { _emailAuthMessage.value = EmailAuthMessages.userMessage(it) }
+            } finally {
+                _emailAuthInProgress.value = false
+            }
         }
     }
 

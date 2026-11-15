@@ -7,7 +7,6 @@ Downloads/Ningshingche_PDFs/{1} ফোল্ডারে সংরক্ষি�
 Downloads/{1}/{2} ফোল্ডারে সংরক্ষিত হয়েছে!,Saved to the Downloads/{1}/{2} folder!
 Facebook আইডি / লিংক,Facebook ID / link
 Facebook আইডি দিন।,Enter your Facebook ID.
-Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন,Sign in with your Google account
 Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন। একবার সাইন-ইন করলে অ্যাপ বন্ধ করলেও সেশন থাকবে।,"Sign in with your Google account. Once you sign in, the session stays even after the app is closed."
 Google ও Supabase-এ Web Client ID মিলছে না। Dashboard → Authentication → Google-এ Web Client ID দিন।,The Web Client ID does not match between Google and Supabase. Add the Web Client ID in Dashboard → Authentication → Google.
 Google কনসোলে এই অ্যাপের প্যাকেজ নাম (com.ningshingche.app) ও সাইনিং SHA-1 মিলছে না। Debug ও Release দুই SHA-1 Android OAuth ক্লায়েন্টে যোগ করুন।,The package name (com.ningshingche.app) and the signing SHA-1 of this app do not match in the Google Console. Add both the Debug and Release SHA-1 to the Android OAuth client.
@@ -73,12 +72,15 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 অডিও ফাইল পড়া যায়নি।,Could not read the audio file.
 অডিওতে ফিরুন,Back to the audio
 অতিথি ভিউ,Guest views
+অথবা,or
 অনুবাদ হালনাগাদ করুন,Update the translations
 অনুমোদনের পর আপনার মন্তব্য এখানে প্রকাশিত হবে।,Your comment appears here after approval.
 অনুমোদিত,Approved
 অনুমোদিত ({1}),Approved ({1})
 অনুসন্ধান,Search
 অনুসন্ধানের ফল,Search results
+অনেকবার চেষ্টা করা হয়েছে। কিছুক্ষণ পরে আবার চেষ্টা করুন।,Too many attempts. Try again in a little while.
+অন্তত {1} অক্ষর,At least {1} characters
 "অন্তত দুই অক্ষর লিখুন। শিরোনাম, উপশিরোনাম, লেখক, ট্যাগ ও লেখার ভেতরে খোঁজা হয়।","Type at least two letters. Titles, subtitles, authors, tags and the writing itself are searched."
 অন্বেষণ,Explore
 অন্বেষণ ও সংগ্রহ,Explore and collect
@@ -100,6 +102,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 অশ্লীল বা যৌন স্পষ্ট,Sexual or explicit content
 অ্যাকসেন্ট,Accent
 অ্যাকাউন্ট,Account
+অ্যাকাউন্ট খুলুন,Create an account
 অ্যাকাউন্ট মুছুন,Delete account
 অ্যাকাউন্ট মুছে ফেলুন?,Delete your account?
 অ্যাডমিন,Admin
@@ -119,6 +122,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 অ্যাপের ভাষা — বদলাতে টিপুন,App language — tap to change
 অ্যালবাম,Album
 আগস্ট,August
+আগেই অ্যাকাউন্ট আছে? সাইন ইন করুন,Already have an account? Sign in
 আগের কাজ,Earlier work
 আগের গান,Earlier songs
 আগের ছবি,Earlier photos
@@ -146,6 +150,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 আপলোডার: {1},Uploader: {1}
 আবার,Again
 আবার চেষ্টা করুন,Try again
+আবার লিখুন,Type it again
 আমাদের অনুসরণ করুন,Follow us
 আমাদের সম্পর্কে,About us
 আমার ড্যাশবোর্ড,My dashboard
@@ -179,14 +184,19 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 ইতিহাস,History
 ইন্টারনেট সংযোগ নেই।,There is no internet connection.
 ইন্টারনেট সংযোগ নেই। সংরক্ষিত আর্কাইভ দেখানো হচ্ছে।,There is no internet connection. Showing the saved archive.
+ইন্টারনেট সংযোগ পাওয়া যাচ্ছে না। আবার চেষ্টা করুন।,No internet connection. Try again.
 ইন্টারনেট সংযোগ যাচাই করে আবার চেষ্টা করুন। আপনার মন্তব্য মুছে ফেলা হয়নি।,Check the internet connection and try again. Your comment has not been deleted.
 ইন্টারফেসের ভাষা। অনুবাদ না থাকা লেখা বাংলাতেই থাকবে ({1}টি অনুবাদ লোড হয়েছে)।,Interface language. Anything without a translation stays in Bengali ({1} translations loaded).
 ইন্টারফেসের ভাষা। বাংলা মূল ভাষা; অন্য ভাষা বাছলে অনুবাদ ডাউনলোড হবে।,Interface language. Bengali is the source language; picking another language downloads its translation.
 ইমার,Imar
 ইমার ঠারর এলা,Songs of the mother tongue
 ইমার-ঠারর-এলা,Imar-tharar-ela
+ইমেইল,Email
 ইমেইল (ঐচ্ছিক),Email (optional)
 ইমেইল (পরিবর্তন করা যায় না),Email (cannot be changed)
+ইমেইল বা Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন,Sign in with email or your Google account
+ইমেইল বা পাসওয়ার্ড মিলছে না। আবার চেষ্টা করুন।,The email or password does not match. Try again.
+ইমেইলটি এখনো নিশ্চিত হয়নি। মেইলের লিংকটি খুলে আবার চেষ্টা করুন।,That email is not confirmed yet. Open the link in the message and try again.
 উচ্চতা,Height
 উত্তর,Answer
 উত্তর কপি করা হয়েছে,Answer copied
@@ -208,6 +218,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 এই {1}-এ কোনো গান নেই।,There are no songs in this {1}.
 এই অডিও ফর্ম্যাট সাপোর্টেড নয়। এমপি৩ নির্বাচন করুন।,This audio format is not supported. Choose MP3.
 এই আলোচনাটি রিপোর্ট করুন,Report this discussion
+এই ইমেইলে আগেই অ্যাকাউন্ট আছে। সাইন ইন করুন।,An account already exists for this email. Sign in.
 এই উত্তরটি রিপোর্ট করুন,Report this answer
 এই গানের অডিও ফাইল নেই।,This song has no audio file.
 এই গানের লিরিক এখনো যোগ করা হয়নি।,The lyrics of this song have not been added yet.
@@ -280,10 +291,14 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 কম দেখান,Show less
 কমা বা ট্যাব চাপলে চিপ হবে,Press comma or Tab to make a chip
 কার্যক্রম,Activity
+কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।,Something went wrong. Try again.
 কিছু ভুল মনে হলে তার পাশের ⋯ মেনু বা রিপোর্ট বোতাম দিয়ে জানাতে পারবেন। সম্পাদক তা দেখে ব্যবস্থা নেবেন।,"If something looks wrong, you can tell us with the report button or the ⋯ menu beside it. An editor reads every report and acts on it."
 কী সমস্যা?,What is wrong?
 কুমেই,Kumei
 কেহেম আইটি,Kehem IT
+কোড পাঠান,Send the code
+কোড যাচাই করুন,Verify the code
+কোডটি মিলছে না। মেইলে আসা ৬ সংখ্যার কোডটি দিন।,That code does not match. Enter the 6-digit code from the message.
 কোন মন্তব্য,No comment
 কোনো অ্যালবাম নেই।,No album yet.
 কোনো অ্যালবাম মেলেনি।,No album matched.
@@ -433,6 +448,8 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 নতুন গান,New song
 নতুন গান জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।,Complete your profile first to submit a new song.
 নতুন ছবি,New photos
+নতুন পাসওয়ার্ড,New password
+নতুন পাসওয়ার্ড দিন,Enter a new password
 নতুন প্রকাশিত প্রবন্ধ এলে জানান,Tell me when a new article is published
 নতুন প্রবন্ধ,New article
 নতুন প্রবন্ধ জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।,Complete your profile first to submit a new article.
@@ -440,6 +457,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 নতুন প্লেলিস্ট,New playlist
 নতুন ভিডিও,New videos
 নতুন ভিডিও যোগ হলে,When a new video is added
+নতুন? অ্যাকাউন্ট খুলুন,New here? Create an account
 নভে,Nov
 নভেম্বর,November
 "নমস্কার! আমি এই নিবন্ধের এআই সহায়িকা।  📌 **""{1}""** নিবন্ধটির যেকোনো তথ্য, বিশ্লেষণ বা মূল ভাব সম্পর্কে জানতে নিচের দ্রুত প্রশ্ন বেছে নিন অথবা নিচে আপনার প্রশ্ন লিখুন।","Hello! I am this article's AI assistant.  📌 To know anything about the article **""{1}""** — its information, analysis or main idea — pick a quick question below, or write your own question here."
@@ -532,6 +550,11 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 পাতা স্ন্যাপ,Page snap
 পাতার ফাঁক  ·  {1} dp,Page gap  ·  {1} dp
 পালা-কীর্তন,Pala-kirtan
+পাসওয়ার্ড,Password
+পাসওয়ার্ড অন্তত {1} অক্ষরের হতে হবে।,The password must be at least {1} characters.
+পাসওয়ার্ড আবার লিখুন,Type the password again
+পাসওয়ার্ড ভুলে গেছেন?,Forgot your password?
+পাসওয়ার্ড সংরক্ষণ করুন,Save the password
 পিডিএফ খালি এসেছে।,The PDF came through empty.
 পিডিএফ খুলুন,Open the PDF
 পিডিএফ খোলা যায়নি।,The PDF could not be opened.
@@ -761,6 +784,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 মূল বিষয়,Main points
 মূল লেখা,Original writing
 মে,May
+মেইলে আসা কোডটি দিন,Enter the code from the message
 মেনু,Menu
 মেমরি ও অফলাইন ক্যাশ ব্যবস্থাপনা,Memory and offline cache management
 মোট {1} · শেষ {2} দিনে {3},Total {1} · in the last {2} days {3}
@@ -869,6 +893,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 সকল কন্টেন্ট তৈরি ও সম্পাদনার অনুমতি,Permission to create and edit all content
 "সকল ক্ষমতা, সেটিংস ও মুছে ফেলার পূর্ণ নিয়ন্ত্রণ","Full control of every power, the settings and deletion"
 সঙ্গীত,Music
+সঠিক ইমেইল ঠিকানা লিখুন।,Enter a correct email address.
 সঠিক ইমেইল দিন অথবা ঐচ্ছিক ঘরটি খালি রাখুন।,"Enter a correct email, or leave the optional field empty."
 সব,All
 সব উত্তর দেখুন ({1}),See all the answers ({1})
@@ -905,6 +930,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 সাইন ইন করা নেই।,You are not signed in.
 সাইন ইন করা নেই। আবার প্রবেশ করুন।,You are not signed in. Sign in again.
 সাইন ইন করুন,Sign in
+সাইন ইনে ফিরুন,Back to sign in
 সাইন-ইন ছাড়া এগিয়ে যান,Continue without signing in
 সাইন-ইন ছাড়া পরবর্তী,Next without signing in
 সাদা / লাইট,White / light
@@ -929,6 +955,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 সেপ্টেম্বর,September
 সেপ্টেম্বর মাস,The month of September
 সেরা অবদানকারী,Top contributor
+সেশন শেষ হয়ে গেছে। আবার সাইন ইন করুন।,The session has ended. Sign in again.
 সেশনের মেয়াদ শেষ হয়েছে। আবার প্রবেশ করুন।,The session has ended. Sign in again.
 স্ক্রল,Scroll
 স্ক্রল দৃশ্য  ·  চিমটি করে জুম,Scroll view  ·  pinch to zoom
@@ -955,6 +982,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 ১৯৯৬ সালের ১৬ মার্চের ভাষা আন্দোলনের পটভূমি কী ছিল?,What was the background of the language movement of 16 March 1996?
 ১–{1},1–{1}
 ৩টি প্রবন্ধ · ৫টি গান · ৯২০ পয়েন্ট,3 articles · 5 songs · 920 points
+৬ সংখ্যার কোড,6-digit code
 — শেষ —,— End —
 ❓ প্রশ্নোত্তর বিশ্লেষণ,❓ Question-and-answer analysis
 🎯 লেখকের বক্তব্য,🎯 The author's statement
