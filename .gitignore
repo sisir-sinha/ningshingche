@@ -31,3 +31,7 @@ __pycache__/
 key.properties
 *.jks
 *.keystore
+
+# Local build/inspection tooling: not source, and bundletool alone is 31 MB.
+bundletool.jar
+*.pem
