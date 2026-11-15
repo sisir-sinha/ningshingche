@@ -202,8 +202,16 @@ test('the project it was changed inside still works', async (t) => {
   });
 
   await t.test('the release build type only takes a config that exists', () => {
-    assert.match(BUILD, /signingConfigs\.findByName\("release"\)\?\.let \{ signingConfig = it \}/,
-      'a machine without the key must still configure the project');
+    // `getByName("release")` throws at configuration time when the key is not on
+    // the machine, which would make a plain `assembleDebug` impossible for anyone
+    // who is not the release manager. `findByName` returns null instead.
+    // Asserted on the call rather than on the lambda's layout: this line was
+    // reformatted once already, and one-liner versus block is not what is being
+    // protected here.
+    assert.match(BUILD_CODE, /signingConfigs\.findByName\("release"\)\?\.let\s*\{/);
+    assert.match(BUILD_CODE, /signingConfig = it/, 'and the found config is the one used');
+    assert.ok(!/signingConfigs\.getByName\("release"\)/.test(BUILD_CODE),
+      'getByName would break every debug build on a machine without the key');
   });
 
   await t.test('and debug keeps its own signing', () => {
