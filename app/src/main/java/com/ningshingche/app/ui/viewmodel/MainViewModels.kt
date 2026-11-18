@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.ningshingche.app.data.ai.NinghsingCheAiAssistant
 import com.ningshingche.app.data.local.ArticleAiChatStore
+import com.ningshingche.app.data.auth.EmailAuthException
 import com.ningshingche.app.data.auth.EmailAuthMessages
 import com.ningshingche.app.data.auth.GoogleAuthException
 import com.ningshingche.app.data.auth.GoogleAuthMapper
@@ -354,8 +355,59 @@ class SettingsViewModel(
         runEmailAuth { supabaseClient.signInWithEmail(email, password) }
     }
 
-    fun signUpWithEmail(email: String, password: String) {
-        runEmailAuth { supabaseClient.signUpWithEmail(email, password) }
+    /**
+     * Creates an account and signs the reader straight in.
+     *
+     * `signUpWithEmail` returns a session when the project does not require an
+     * email confirmation, and the view model saves it — so a reader who has just
+     * registered never sees the sign-in form. The profile they typed travels in the
+     * same request as `user_metadata`, and [runEmailAuth] upserts it into
+     * `public.profiles` on success, so the name and picture are on the account the
+     * moment it exists.
+     */
+    fun signUpWithEmail(
+        firstName: String,
+        lastName: String,
+        email: String,
+        password: String,
+        avatarUrl: String = "",
+        avatarDeleteUrl: String = ""
+    ) {
+        if (_emailAuthInProgress.value) return
+        viewModelScope.launch {
+            _emailAuthInProgress.value = true
+            _emailAuthMessage.value = null
+            try {
+                // A taken address is the one failure a reader can act on before
+                // waiting for the network round trip of a full sign-up.
+                when (supabaseClient.isEmailRegistered(email)) {
+                    true -> {
+                        _emailAuthMessage.value = EmailAuthMessages.userMessage(
+                            EmailAuthException.AlreadyRegistered()
+                        )
+                        return@launch
+                    }
+                    else -> Unit // free, or the server could not say: let signup decide
+                }
+                supabaseClient
+                    .signUpWithEmail(email, password, firstName, lastName, avatarUrl)
+                    .onSuccess { profile ->
+                        val completed = profile.copy(
+                            firstName = firstName.trim(),
+                            lastName = lastName.trim(),
+                            fullName = listOf(firstName.trim(), lastName.trim())
+                                .filter { it.isNotBlank() }.joinToString(" ")
+                                .ifBlank { profile.fullName },
+                            avatarUrl = avatarUrl.ifBlank { profile.avatarUrl },
+                            imgbbDeleteUrl = avatarDeleteUrl.ifBlank { profile.imgbbDeleteUrl }
+                        )
+                        supabaseClient.upsertReaderProfile(completed)
+                    }
+                    .onFailure { _emailAuthMessage.value = EmailAuthMessages.userMessage(it) }
+            } finally {
+                _emailAuthInProgress.value = false
+            }
+        }
     }
 
     fun sendResetCode(email: String) {

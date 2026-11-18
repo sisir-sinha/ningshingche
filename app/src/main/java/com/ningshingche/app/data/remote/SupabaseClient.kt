@@ -457,18 +457,89 @@ class SupabaseClient(private val context: Context) {
     }
 
     /**
+     * Whether an address already has an account.
+     *
+     * Three answers, and the third is the reason this is not a boolean: a failed
+     * request is *not* proof that the address is free, and refusing a sign-up
+     * because a lookup happened to fail would be worse than letting the server
+     * decide. `null` means "could not tell" — the caller goes ahead, and Supabase's
+     * own duplicate rule produces [EmailAuthException.AlreadyRegistered] if it is
+     * taken anyway.
+     *
+     * ## Why this is not just a `select`
+     *
+     * `auth.users` is not readable with the publishable key; the table is behind
+     * RLS and only the service role can read it. What *is* callable from the app is
+     * the admin endpoint for a single address:
+     *
+     *     GET /auth/v1/admin/users?email=<address>
+     *
+     * and it wants the service role key, which must never ship inside an APK.
+     *
+     * So the check that ships is the one Supabase already performs for free:
+     * `POST /signup` with the address and a throwaway password answers
+     * `user_already_exists` when the address is taken, and — with confirmation off —
+     * creates the account when it is not. That is not a side effect we want during
+     * a typo, so this probe is used only for the friendly message *before* the form
+     * is submitted, and it sends the address with no other field set.
+     *
+     * Returns true when taken, false when free, null when the server could not say.
+     */
+    suspend fun isEmailRegistered(email: String): Boolean? = withContext(Dispatchers.IO) {
+        if (EmailAuthRules.emailProblem(email) != null) return@withContext null
+        val payload = JSONObject().put("email", EmailAuthRules.cleanEmail(email)).toString()
+        val request = createAuthRequestBuilder("${SupabaseConfig.authBaseUrl}/signup")
+            .post(payload.toRequestBody(jsonMediaType))
+            .build()
+        try {
+            httpClient.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (response.isSuccessful) return@withContext false
+                when (val error = emailAuthError(response.code, body)) {
+                    is EmailAuthException.AlreadyRegistered -> true
+                    // A 422 about a missing password means the address is unknown and
+                    // the endpoint wanted more fields — i.e. not registered.
+                    is EmailAuthException.WeakPassword -> false
+                    else -> if (error is EmailAuthException.Failed) null else false
+                }
+            }
+        } catch (error: IOException) {
+            null
+        }
+    }
+
+    /**
      * Creates an account. With email confirmation switched off on the project this
      * returns a session and the reader is straight in; with it on, the call
      * succeeds but carries no token, and [EmailAuthException.NotConfirmed] tells the
      * screen to say "check your email" rather than pretending nothing happened.
      */
-    suspend fun signUpWithEmail(email: String, password: String): Result<UserProfile> =
+    suspend fun signUpWithEmail(
+        email: String,
+        password: String,
+        firstName: String = "",
+        lastName: String = "",
+        avatarUrl: String = ""
+    ): Result<UserProfile> =
         withContext(Dispatchers.IO) {
             EmailAuthRules.emailProblem(email)?.let { return@withContext Result.failure(it) }
             EmailAuthRules.passwordProblem(password)?.let { return@withContext Result.failure(it) }
             val payload = JSONObject().apply {
                 put("email", EmailAuthRules.cleanEmail(email))
                 put("password", password)
+                // The profile the reader just typed. Supabase keeps it on the user
+                // record as `user_metadata`, which is where profileFromAuthUser()
+                // already reads given_name / family_name / avatar_url from, so a new
+                // account arrives with a name and a picture instead of "পাঠক".
+                if (firstName.isNotBlank() || lastName.isNotBlank()) {
+                    put("data", JSONObject().apply {
+                        put("full_name", listOf(firstName.trim(), lastName.trim())
+                            .filter { it.isNotBlank() }.joinToString(" "))
+                        put("given_name", firstName.trim())
+                        put("family_name", lastName.trim())
+                        if (avatarUrl.isNotBlank()) put("avatar_url", avatarUrl)
+                    })
+                }
             }.toString()
             postAuthForSession("${SupabaseConfig.authBaseUrl}/signup", payload)
         }

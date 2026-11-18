@@ -6,7 +6,7 @@ bengali,bishnupriya,kind,uses,slots,screens
 আলোচনা,,ui,12,0,"ForumScreens.kt, PortalModels.kt, PublicProfileScreen.kt, UserDashboardScreen.kt"
 সাহিত্য,,ui,11,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 ইতিহাস,,ui,10,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
-পাঠক,,ui,9,0,"ArticleCommentForm.kt, ArticleRepository.kt, GoogleAuthMapper.kt, NingshingCheWebsiteClient.kt, PublicProfileScreen.kt, SettingsScreen.kt, UserDashboardScreen.kt"
+পাঠক,,ui,10,0,"ArticleCommentForm.kt, ArticleRepository.kt, GoogleAuthMapper.kt, NingshingCheWebsiteClient.kt, PublicProfileScreen.kt, SettingsScreen.kt, SupabaseClient.kt, UserDashboardScreen.kt"
 গান,,ui,8,0,"ListScreens.kt, NewMusicScreen.kt, PublicProfileScreen.kt, UserDashboardCharts.kt, UserDashboardScreen.kt"
 বন্ধ করুন,,ui,8,0,"ArticleScreen.kt, AttachmentViewer.kt, EditorialComponents.kt, HtmlArticleRenderer.kt, MusicPlayer.kt, UserDashboardScreen.kt, VideoPlayer.kt"
 লেখক,,ui,8,0,"EditorialComponents.kt, ListScreens.kt, NinghsingCheContentData.kt, PortalDrawer.kt, PortalPages.kt, SupabaseModels.kt"
@@ -37,6 +37,8 @@ bengali,bishnupriya,kind,uses,slots,screens
 আবার চেষ্টা করুন,,ui,4,0,"AttachmentViewer.kt, EditorialComponents.kt, HomeScreen.kt, PdfViewerScreen.kt"
 আমার সম্পর্কে,,ui,4,0,"PortalDrawer.kt, PortalPages.kt"
 গান {1},,ui,4,0,"ContributorScreen.kt, PublicProfileScreen.kt, UserProfileScreen.kt"
+ছবি,,ui,4,0,"AttachmentViewer.kt, MarkdownText.kt, RegisterForm.kt, UserDashboardScreen.kt"
+ছবি আপলোড যায়নি।,,ui,4,0,"ReaderWorkspaceViewModel.kt, RegisterForm.kt"
 ড. প্রদীপ সিংহ,,content,4,0,NinghsingCheContentData.kt
 ডাউনলোড,,ui,4,0,"AttachmentViewer.kt, MusicPlayer.kt, PdfArchiveScreen.kt, PdfViewerScreen.kt"
 নতুন PDF বই,,ui,4,0,"AppNotificationManager.kt, ContentNotice.kt, SettingsScreen.kt, WelcomeOnboardingScreen.kt"
@@ -57,6 +59,7 @@ Google সাইন-ইন সময় শেষ হয়েছে। আব�
 {1} টি প্রবন্ধ,,ui,3,0,ListScreens.kt
 {1}টি গান,,ui,3,0,"MusicBrowseScreens.kt, MusicScreen.kt"
 {1}টি প্রবন্ধ,,ui,3,0,"ExploreScreen.kt, PortalPages.kt"
+অন্তত {1} অক্ষর,,ui,3,0,"EmailAuthForm.kt, RegisterForm.kt"
 অন্যান্য,,ui,3,0,"AppNotificationManager.kt, ContentSafetySheet.kt, SettingsScreen.kt"
 অপেক্ষমাণ,,ui,3,0,"UserDashboardCharts.kt, UserDashboardScreen.kt"
 অ্যাকাউন্ট,,ui,3,0,"AccountHeaderButton.kt, SettingsScreen.kt"
@@ -67,8 +70,6 @@ Google সাইন-ইন সময় শেষ হয়েছে। আব�
 কভার ছবি,,ui,3,0,"ForumScreens.kt, NewArticleScreen.kt, NewMusicScreen.kt"
 গবেষণা ও ভাষা আন্দোলন,,content,3,0,NinghsingCheContentData.kt
 ঘর,,ui,3,0,"NinghsingCheAiAssistant.kt, PortalDrawer.kt, UserDashboardScreen.kt"
-ছবি,,ui,3,0,"AttachmentViewer.kt, MarkdownText.kt, UserDashboardScreen.kt"
-ছবি আপলোড যায়নি।,,ui,3,0,ReaderWorkspaceViewModel.kt
 তালিকা,,ui,3,0,"HtmlContentEditor.kt, MusicPlayer.kt"
 তালিকা আনা যায়নি।,,ui,3,0,"ContributorScreen.kt, HomeScreen.kt"
 ধরন,,ui,3,0,"MusicBrowseScreens.kt, MusicPlayer.kt, MusicScreen.kt"
@@ -79,6 +80,7 @@ Google সাইন-ইন সময় শেষ হয়েছে। আব�
 পাঠান,,ui,3,0,"ArticleScreen.kt, ForumScreens.kt, UserDashboardScreen.kt"
 পিডিএফ খোলা যায়নি।,,ui,3,0,"MainViewModels.kt, PdfViewerScreen.kt"
 পৌ,,ui,3,0,"EditorialComponents.kt, NingshingCheWebsiteClient.kt"
+প্রোফাইল ছবি,,ui,3,0,"RegisterForm.kt, UserDashboardScreen.kt, UserProfileScreen.kt"
 ফিচার্ড,,ui,3,0,"ExploreScreen.kt, HomeScreen.kt, PortalDrawer.kt"
 বার্তা,,ui,3,0,UserDashboardScreen.kt
 বিভাগসমূহ,,ui,3,0,"PortalDrawer.kt, ReaderNavHost.kt, Screen.kt"
@@ -119,14 +121,17 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 অনুমোদিত,,ui,2,0,ForumScreens.kt
 অপছন্দ,,ui,2,0,"ForumScreens.kt, PublicProfileScreen.kt"
 অফলাইন,,ui,2,0,MusicScreen.kt
+অ্যাকাউন্ট খুলুন,,ui,2,0,"EmailAuthForm.kt, RegisterForm.kt"
 অ্যাডমিন,,ui,2,0,"ForumScreens.kt, UserDashboardScreen.kt"
 আগস্ট,,ui,2,0,"ContributorScreen.kt, UserDashboardCharts.kt"
+আগেই অ্যাকাউন্ট আছে? সাইন ইন করুন,,ui,2,0,"EmailAuthForm.kt, RegisterForm.kt"
 আপনার সেশনের মেয়াদ শেষ হয়েছে। আবার সাইন ইন করলে তালিকা ও পয়েন্ট দেখা যাবে।,,ui,2,0,"ContributorScreen.kt, PortalModels.kt"
 আপনি,,ui,2,0,"ContributorScreen.kt, UserDashboardScreen.kt"
 আলোচনা {1},,ui,2,0,"PublicProfileScreen.kt, UserProfileScreen.kt"
 আলোচনা খুঁজুন,,ui,2,0,ForumScreens.kt
 আলোচনা খোলা যায়নি।,,ui,2,0,ForumScreens.kt
 আলোচনা ভিউ,,ui,2,0,UserDashboardScreen.kt
+ইমেইল,,ui,2,0,"EmailAuthForm.kt, RegisterForm.kt"
 এই উত্তরটি রিপোর্ট করুন,,ui,2,0,"AiAssistantScreen.kt, ForumScreens.kt"
 এই মাসের পয়েন্ট,,ui,2,0,PublicProfileScreen.kt
 একমত,,ui,2,0,"ForumScreens.kt, PublicProfileScreen.kt"
@@ -168,6 +173,8 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 পছন্দের গান,,ui,2,0,"MusicLibraryStore.kt, MusicScreen.kt"
 পরের গান,,ui,2,0,MusicPlayer.kt
 পাঠক {1},,ui,2,0,"PublicProfileScreen.kt, UserProfileScreen.kt"
+পাসওয়ার্ড,,ui,2,0,"EmailAuthForm.kt, RegisterForm.kt"
+পাসওয়ার্ড আবার লিখুন,,ui,2,0,"EmailAuthForm.kt, RegisterForm.kt"
 পাসওয়ার্ড ভুলে গেছেন?,,ui,2,0,EmailAuthForm.kt
 পিডিএফটি খোলা যায়নি।,,ui,2,0,AttachmentViewer.kt
 পৌরাণিক,,ui,2,0,NingshingCheWebsiteClient.kt
@@ -177,7 +184,6 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 প্রবন্ধ প্রকাশিত হয়েছে,,ui,2,0,"ContentUpdateNotifier.kt, InboxModels.kt"
 প্রবন্ধ ভিউ,,ui,2,0,UserDashboardScreen.kt
 প্রোফাইল,,ui,2,0,"AccountHeaderButton.kt, UserProfileScreen.kt"
-প্রোফাইল ছবি,,ui,2,0,"UserDashboardScreen.kt, UserProfileScreen.kt"
 প্রোফাইল সম্পাদনা,,ui,2,0,UserDashboardScreen.kt
 প্রোফাইলে যান,,ui,2,0,"NewArticleScreen.kt, NewMusicScreen.kt"
 প্লেলিস্টে যোগ করুন,,ui,2,0,MusicPlayer.kt
@@ -223,6 +229,7 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 সংরক্ষিত,,ui,2,0,"BookmarksScreen.kt, PortalDrawer.kt"
 সংস্কৃতি ও উৎসব,,ui,2,0,SupabaseModels.kt
 সকল PDF,,ui,2,0,"ArticleRepository.kt, NinghsingCheContentData.kt"
+সঠিক ইমেইল ঠিকানা লিখুন।,,ui,2,0,"EmailAuth.kt, RegisterForm.kt"
 সব সংরক্ষিত,,ui,2,0,"Entities.kt, Models.kt"
 সমাজ,,ui,2,0,"EditorialComponents.kt, NingshingCheWebsiteClient.kt"
 সম্পাদক,,ui,2,0,"NingshingCheWebsiteClient.kt, SupabaseModels.kt"
@@ -302,7 +309,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 অনুমোদিত ({1}),,ui,1,0,ForumScreens.kt
 অনুসন্ধানের ফল,,ui,1,0,ForumScreens.kt
 অনেকবার চেষ্টা করা হয়েছে। কিছুক্ষণ পরে আবার চেষ্টা করুন।,,ui,1,0,EmailAuth.kt
-অন্তত {1} অক্ষর,,ui,1,0,EmailAuthForm.kt
 "অন্তত দুই অক্ষর লিখুন। শিরোনাম, উপশিরোনাম, লেখক, ট্যাগ ও লেখার ভেতরে খোঁজা হয়।",,ui,1,0,ListScreens.kt
 অন্বেষণ,,ui,1,0,PortalDrawer.kt
 অন্য অ্যাপে খুলুন,,ui,1,0,PdfViewerScreen.kt
@@ -320,8 +326,9 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 অরুন,,content,1,0,AuthorProfiles.kt
 অর্চনা,,content,1,0,AuthorProfiles.kt
 অশ্লীল বা যৌন স্পষ্ট,,ui,1,0,ContentSafetySheet.kt
+"অস্থায়ী ইমেইল ঠিকানা দিয়ে অ্যাকাউন্ট খোলা যায় না। Gmail, Yahoo, Outlook বা নিজের ডোমেইনের ঠিকানা দিন।",,ui,1,0,EmailAuth.kt
+"অস্থায়ী ইমেইল দিয়ে অ্যাকাউন্ট খোলা যায় না। Gmail, Yahoo বা নিজের ডোমেইন ব্যবহার করুন।",,ui,1,0,RegisterForm.kt
 অ্যাকসেন্ট,,ui,1,0,SettingsScreen.kt
-অ্যাকাউন্ট খুলুন,,ui,1,0,EmailAuthForm.kt
 অ্যাকাউন্ট মুছুন,,ui,1,0,SettingsScreen.kt
 অ্যাকাউন্ট মুছে ফেলুন?,,ui,1,0,SettingsScreen.kt
 অ্যাডমিন নতুন বার্তা পাঠালে,,ui,1,0,AppNotificationManager.kt
@@ -337,7 +344,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 অ্যাপ সংস্করণ ও সাইট হালনাগাদ,,ui,1,0,SettingsScreen.kt
 অ্যাপে MP3 সংরক্ষণ,,ui,1,0,MusicPlayer.kt
 অ্যাপের ভাষা — বদলাতে টিপুন,,ui,1,0,SettingsScreen.kt
-আগেই অ্যাকাউন্ট আছে? সাইন ইন করুন,,ui,1,0,EmailAuthForm.kt
 আগের কাজ,,ui,1,0,HtmlContentEditor.kt
 আগের গান,,ui,1,0,MusicPlayer.kt
 আগের ছবি,,ui,1,0,EditorialComponents.kt
@@ -402,7 +408,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 ইমার,,ui,1,0,NingshingCheWebsiteClient.kt
 ইমার ঠারর এলা,,ui,1,0,NingshingCheWebsiteClient.kt
 ইমার-ঠারর-এলা,,ui,1,0,EditorialComponents.kt
-ইমেইল,,ui,1,0,EmailAuthForm.kt
 ইমেইল (ঐচ্ছিক),,ui,1,0,ArticleCommentForm.kt
 ইমেইল (পরিবর্তন করা যায় না),,ui,1,0,UserProfileScreen.kt
 ইমেইল বা Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন,,ui,1,0,LoginScreen.kt
@@ -567,6 +572,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 ছবি ImgBB-তে আপলোড হবে; না দিলেও আলোচনা খোলা যাবে।,,ui,1,0,ForumScreens.kt
 ছবি আপডেট,,ui,1,0,UserProfileScreen.kt
 ছবি আপলোড হচ্ছে…,,ui,1,0,HtmlContentEditor.kt
+ছবি বদলাতে চাপুন,,ui,1,0,RegisterForm.kt
 ছবি বদলান,,ui,1,0,ForumScreens.kt
 ছবি বা পিডিএফ,,ui,1,0,UserDashboardScreen.kt
 ছবি যোগ,,ui,1,0,HtmlContentEditor.kt
@@ -636,6 +642,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 দিপা,,content,1,0,AuthorProfiles.kt
 "দুঃখিত, উত্তর তৈরি করতে সমস্যা হয়েছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।",,ui,1,0,ArticleScreen.kt
 "দুঃখিত, তথ্য সংগ্রহে একটি ত্রুটি দেখা দিয়েছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।",,ui,1,0,MainViewModels.kt
+দুটি পাসওয়ার্ড মিলছে না।,,ui,1,0,RegisterForm.kt
 দুবার ট্যাপে জুম,,ui,1,0,PdfViewerScreen.kt
 দৃশ্য,,ui,1,0,PdfViewerScreen.kt
 দেখা হয়েছে,,ui,1,0,UserDashboardScreen.kt
@@ -646,6 +653,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 ধরন / ক্যাটাগরি,,ui,1,0,GenreCombobox.kt
 ধ্রুমেল,,ui,1,0,MusicGenres.kt
 নতুন PDF বই প্রকাশিত হলে,,ui,1,0,AppNotificationManager.kt
+নতুন অ্যাকাউন্ট খুলুন,,ui,1,0,WelcomeOnboardingScreen.kt
 নতুন উত্তর,,ui,1,0,ForumScreens.kt
 নতুন ও নির্বাচিত প্রবন্ধ প্রকাশিত হলে,,ui,1,0,AppNotificationManager.kt
 নতুন কিছু প্রকাশিত হলে অ্যান্ড্রয়েড নোটিফিকেশনে জানানো হবে।,,ui,1,0,WelcomeOnboardingScreen.kt
@@ -741,6 +749,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 পড়া যায় সবার — লেখা যায় নিজের নামে।,,ui,1,0,ForumScreens.kt
 পড়ার মতো কোনো লেখা পাওয়া যায়নি।,,ui,1,0,ArticleTtsPlayer.kt
 পড়ে শোনানোর সময় ত্রুটি হয়েছে।,,ui,1,0,ArticleTtsPlayer.kt
+পদবি,,ui,1,0,RegisterForm.kt
 পদবি / পরিচয় (ঐচ্ছিক),,ui,1,0,UserProfileScreen.kt
 পয়েন্টের হিসাব এখনো পাওয়া যায়নি।,,ui,1,0,UserDashboardScreen.kt
 পরবর্তী,,ui,1,0,FirstRunFlow.kt
@@ -760,9 +769,9 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 পাতা স্ন্যাপ,,ui,1,0,PdfViewerScreen.kt
 পাতার ফাঁক  ·  {1} dp,,ui,1,0,PdfViewerScreen.kt
 পালা-কীর্তন,,ui,1,0,MusicGenres.kt
-পাসওয়ার্ড,,ui,1,0,EmailAuthForm.kt
 পাসওয়ার্ড অন্তত {1} অক্ষরের হতে হবে।,,ui,1,1,EmailAuth.kt
-পাসওয়ার্ড আবার লিখুন,,ui,1,0,EmailAuthForm.kt
+পাসওয়ার্ড দেখুন,,ui,1,0,RegisterForm.kt
+পাসওয়ার্ড লুকান,,ui,1,0,RegisterForm.kt
 পাসওয়ার্ড সংরক্ষণ করুন,,ui,1,0,EmailAuthForm.kt
 পিডিএফ খালি এসেছে।,,ui,1,0,PdfHelper.kt
 পিডিএফ খুলুন,,ui,1,0,PdfHelper.kt
@@ -791,6 +800,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 প্রতিষ্ঠা,,content,1,0,NinghsingCheContentData.kt
 প্রতিষ্ঠা ১ম সংখ্যা (২০১৪),,content,1,0,NinghsingCheContentData.kt
 প্রতিষ্ঠাতা সম্পাদক মণ্ডলী,,content,1,0,NinghsingCheContentData.kt
+প্রথম নাম,,ui,1,0,RegisterForm.kt
 প্রথম মন্তব্যটি আপনিই লিখুন।,,ui,1,0,ArticleScreen.kt
 প্রথম সংখ্যা,,content,1,0,NinghsingCheContentData.kt
 প্রথমবার খুললে সাইন-ইন প্রয়োজন। তারপর বিজ্ঞপ্তি চালু করতে পারবেন।,,ui,1,0,WelcomeOnboardingScreen.kt
@@ -816,6 +826,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 প্রেম,,ui,1,0,MusicGenres.kt
 প্রোফাইল অসম্পূর্ণ। নতুন প্রবন্ধ বা গান জমা দিতে আগে প্রোফাইল পূরণ করুন।,,ui,1,0,UserDashboardScreen.kt
 প্রোফাইল ছবি (ImgBB),,ui,1,0,UserProfileScreen.kt
+প্রোফাইল ছবি (ঐচ্ছিক),,ui,1,0,RegisterForm.kt
 প্রোফাইল ছবি আপডেট হয়েছে।,,ui,1,0,ReaderWorkspaceViewModel.kt
 প্রোফাইল ছবি আপলোড করুন।,,ui,1,0,ReaderWorkspaceViewModel.kt
 প্রোফাইল লোড হয়নি।,,ui,1,0,PublicProfileScreen.kt
@@ -1086,7 +1097,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 সংস্কৃতির আলোয় পথচলা…,,ui,1,0,SplashScreen.kt
 সকল কন্টেন্ট তৈরি ও সম্পাদনার অনুমতি,,ui,1,0,SupabaseModels.kt
 "সকল ক্ষমতা, সেটিংস ও মুছে ফেলার পূর্ণ নিয়ন্ত্রণ",,ui,1,0,SupabaseModels.kt
-সঠিক ইমেইল ঠিকানা লিখুন।,,ui,1,0,EmailAuth.kt
 সঠিক ইমেইল দিন অথবা ঐচ্ছিক ঘরটি খালি রাখুন।,,ui,1,0,ReaderViewModels.kt
 সতীর্থ,,content,1,0,AuthorProfiles.kt
 সব উত্তর দেখুন ({1}),,ui,1,0,ForumScreens.kt
@@ -1153,7 +1163,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 স্প্যাম বা বিজ্ঞাপন,,ui,1,0,ContentSafetySheet.kt
 "স্প্যাম, বিজ্ঞাপন বা ভুয়া তথ্য ছড়ানো যাবে না।",,ui,1,0,TermsConsentDialog.kt
 স্বপন,,content,1,0,AuthorProfiles.kt
-স্বাগতম। Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন।,,ui,1,0,WelcomeOnboardingScreen.kt
+স্বাগতম। অ্যাকাউন্ট খুলুন অথবা Google দিয়ে প্রবেশ করুন।,,ui,1,0,WelcomeOnboardingScreen.kt
 স্বাভাবিক আকারে ফিরতে দুই আঙুল টেনে ছোট করুন,,ui,1,0,AttachmentViewer.kt
 স্মারক,,ui,1,0,NingshingCheWebsiteClient.kt
 স্মারক ও উৎসব,,ui,1,0,NingshingCheWebsiteClient.kt

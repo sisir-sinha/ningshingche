@@ -100,6 +100,8 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 অবদান পয়েন্ট,Contribution points
 অবদানকারীর তালিকা ও আপনার নিজের পয়েন্ট দেখতে সাইন ইন করুন।,Sign in to see the contributor list and your own points.
 অশ্লীল বা যৌন স্পষ্ট,Sexual or explicit content
+"অস্থায়ী ইমেইল ঠিকানা দিয়ে অ্যাকাউন্ট খোলা যায় না। Gmail, Yahoo, Outlook বা নিজের ডোমেইনের ঠিকানা দিন।","A temporary email address cannot be used for an account. Use Gmail, Yahoo, Outlook, or a domain of your own."
+"অস্থায়ী ইমেইল দিয়ে অ্যাকাউন্ট খোলা যায় না। Gmail, Yahoo বা নিজের ডোমেইন ব্যবহার করুন।","A temporary email cannot be used for an account. Use Gmail, Yahoo, or a domain of your own."
 অ্যাকসেন্ট,Accent
 অ্যাকাউন্ট,Account
 অ্যাকাউন্ট খুলুন,Create an account
@@ -360,6 +362,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 ছবি আপলোড হচ্ছে…,Uploading the photo…
 ছবি আপলোড হয়নি।,The photo was not uploaded.
 ছবি ঘর,Photo gallery
+ছবি বদলাতে চাপুন,Tap to change the photo
 ছবি বদলান,Change the photo
 ছবি বা পিডিএফ,Photo or PDF
 ছবি যোগ,Add a photo
@@ -429,6 +432,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 থিম: সিস্টেম (স্বয়ংক্রিয়),Theme: System (automatic)
 "দুঃখিত, উত্তর তৈরি করতে সমস্যা হয়েছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।","Sorry, there was a problem preparing the answer. Please try again."
 "দুঃখিত, তথ্য সংগ্রহে একটি ত্রুটি দেখা দিয়েছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।","Sorry, an error came up while gathering the information. Please try again."
+দুটি পাসওয়ার্ড মিলছে না।,The two passwords do not match.
 দুবার ট্যাপে জুম,Double-tap to zoom
 দৃশ্য,View
 দেখা হয়েছে,Seen
@@ -441,6 +445,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 ন,N
 নতুন PDF বই,New PDF books
 নতুন PDF বই প্রকাশিত হলে,When a new PDF book is published
+নতুন অ্যাকাউন্ট খুলুন,Create a new account
 নতুন আলোচনা,New discussion
 নতুন উত্তর,New answer
 নতুন ও নির্বাচিত প্রবন্ধ প্রকাশিত হলে,When a new or featured article is published
@@ -527,6 +532,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 পড়া যায় সবার — লেখা যায় নিজের নামে।,Everyone can read — you write in your own name.
 পড়ার মতো কোনো লেখা পাওয়া যায়নি।,No writing worth reading was found.
 পড়ে শোনানোর সময় ত্রুটি হয়েছে।,There was an error while reading it out.
+পদবি,Last name
 পদবি / পরিচয় (ঐচ্ছিক),Title / identity (optional)
 পয়েন্ট,Points
 পয়েন্টের হিসাব এখনো পাওয়া যায়নি।,The points total could not be fetched yet.
@@ -553,7 +559,9 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 পাসওয়ার্ড,Password
 পাসওয়ার্ড অন্তত {1} অক্ষরের হতে হবে।,The password must be at least {1} characters.
 পাসওয়ার্ড আবার লিখুন,Type the password again
+পাসওয়ার্ড দেখুন,Show password
 পাসওয়ার্ড ভুলে গেছেন?,Forgot your password?
+পাসওয়ার্ড লুকান,Hide password
 পাসওয়ার্ড সংরক্ষণ করুন,Save the password
 পিডিএফ খালি এসেছে।,The PDF came through empty.
 পিডিএফ খুলুন,Open the PDF
@@ -583,6 +591,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 প্রকাশিত হলে লিংকটি কাজ করবে।,The link works once it is published.
 প্রতিক্রিয়া,Reaction
 প্রত্যাখ্যাত,Rejected
+প্রথম নাম,First name
 প্রথম মন্তব্যটি আপনিই লিখুন।,Be the first to write a comment.
 প্রথমবার খুললে সাইন-ইন প্রয়োজন। তারপর বিজ্ঞপ্তি চালু করতে পারবেন।,Signing in is needed the first time you open it. After that you can turn on notifications.
 প্রধান প্রশাসক,Chief admin
@@ -611,6 +620,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 প্রোফাইল অসম্পূর্ণ। নতুন প্রবন্ধ বা গান জমা দিতে আগে প্রোফাইল পূরণ করুন।,The profile is incomplete. Fill it in before submitting a new article or song.
 প্রোফাইল ছবি,Profile photo
 প্রোফাইল ছবি (ImgBB),Profile photo (ImgBB)
+প্রোফাইল ছবি (ঐচ্ছিক),Profile photo (optional)
 প্রোফাইল ছবি আপডেট হয়েছে।,The profile photo was updated.
 প্রোফাইল ছবি আপলোড করুন।,Upload a profile photo.
 প্রোফাইল লোড হয়নি।,The profile did not load.
@@ -963,7 +973,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 স্ক্রিন জ্বালিয়ে রাখুন,Keep the screen on
 স্প্যাম বা বিজ্ঞাপন,Spam or advertising
 "স্প্যাম, বিজ্ঞাপন বা ভুয়া তথ্য ছড়ানো যাবে না।","No spam, no advertising, and no spreading false information."
-স্বাগতম। Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন।,Welcome. Sign in with your Google account.
+স্বাগতম। অ্যাকাউন্ট খুলুন অথবা Google দিয়ে প্রবেশ করুন।,"Welcome. Create an account, or sign in with Google."
 স্বাভাবিক আকারে ফিরতে দুই আঙুল টেনে ছোট করুন,Pinch in with two fingers to go back to the normal size
 স্মারক,Memorial
 স্মারক ও উৎসব,Memorial and festival
