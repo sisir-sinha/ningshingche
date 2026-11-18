@@ -200,6 +200,9 @@ end;
 $$;
 
 revoke all on function public.block_user(uuid) from public;
+-- Supabase grants EXECUTE on new functions to anon by default; `from public`
+-- does not remove it. These three are signed-in-only, so take it back explicitly.
+revoke all on function public.block_user(uuid) from anon;
 grant execute on function public.block_user(uuid) to authenticated;
 
 create or replace function public.unblock_user(p_user_id uuid)
@@ -223,6 +226,7 @@ end;
 $$;
 
 revoke all on function public.unblock_user(uuid) from public;
+revoke all on function public.unblock_user(uuid) from anon;
 grant execute on function public.unblock_user(uuid) to authenticated;
 
 -- The ids the app hides, in one call at startup. An array, not a table: there are
@@ -240,6 +244,7 @@ as $$
 $$;
 
 revoke all on function public.my_blocked_users() from public;
+revoke all on function public.my_blocked_users() from anon;
 grant execute on function public.my_blocked_users() to authenticated;
 
 comment on table public.content_reports is

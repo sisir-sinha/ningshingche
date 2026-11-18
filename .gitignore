@@ -26,3 +26,12 @@ backend/tests/screenshots/
 # Node dependencies used only by the optional jsdom-backed dashboard tests
 node_modules/
 __pycache__/
+
+# The Play signing key. Never in git: a committed keystore has to be replaced.
+key.properties
+*.jks
+*.keystore
+
+# Local build/inspection tooling: not source, and bundletool alone is 31 MB.
+bundletool.jar
+*.pem

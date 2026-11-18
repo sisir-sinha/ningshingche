@@ -37,6 +37,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -48,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ningshingche.app.ui.components.GoogleSignInButton
+import com.ningshingche.app.ui.components.RegisterForm
 import com.ningshingche.app.ui.components.NingshingCheBrandLogo
 import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.leading
@@ -67,9 +71,18 @@ fun WelcomeLoginScreen(
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
     val inProgress by viewModel.googleAuthInProgress.collectAsStateWithLifecycle()
     val message by viewModel.googleAuthMessage.collectAsStateWithLifecycle()
+    val emailInProgress by viewModel.emailAuthInProgress.collectAsStateWithLifecycle()
+    val emailMessage by viewModel.emailAuthMessage.collectAsStateWithLifecycle()
+    val passwordResetActive by viewModel.passwordResetActive.collectAsStateWithLifecycle()
 
-    LaunchedEffect(currentUser?.id) {
-        if (currentUser != null) onSignedIn()
+    // false = the Google-or-skip step this screen has always been; true = the
+    // registration form. Signing in with an existing email lives on the login
+    // screen, reached from Settings, because a new install is far more likely to
+    // be a new reader than a returning one.
+    var registering by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(currentUser?.id, passwordResetActive) {
+        if (currentUser != null && !passwordResetActive) onSignedIn()
     }
 
     Column(
@@ -93,7 +106,7 @@ fun WelcomeLoginScreen(
             color = MaterialTheme.colorScheme.onBackground
         )
         Text(
-            text = t("স্বাগতম। Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন।"),
+            text = t("স্বাগতম। অ্যাকাউন্ট খুলুন অথবা Google দিয়ে প্রবেশ করুন।"),
             fontFamily = Kalpurush,
             fontSize = textSize(15),
             lineHeight = leading(15),
@@ -130,25 +143,77 @@ fun WelcomeLoginScreen(
             }
         }
 
-        GoogleSignInButton(
-            isLoading = inProgress,
-            enabled = !inProgress,
-            onClick = { viewModel.signInWithGoogle(context) }
-        )
-
-        Spacer(Modifier.height(14.dp))
-
-        TextButton(
-            onClick = onSkip,
-            modifier = Modifier.testTag("welcome_login_skip_button")
-        ) {
-            Text(
-                text = skipLabel,
-                fontFamily = Kalpurush,
-                fontSize = textSize(14),
-                lineHeight = leading(14),
-                color = MaterialTheme.colorScheme.primary
+        if (registering) {
+            RegisterForm(
+                inProgress = emailInProgress,
+                message = emailMessage,
+                onRegister = { firstName, lastName, email, password, avatarUrl, avatarDeleteUrl ->
+                    viewModel.signUpWithEmail(
+                        firstName = firstName,
+                        lastName = lastName,
+                        email = email,
+                        password = password,
+                        avatarUrl = avatarUrl,
+                        avatarDeleteUrl = avatarDeleteUrl
+                    )
+                },
+                onSwitchToSignIn = { registering = false }
             )
+
+            Spacer(Modifier.height(10.dp))
+
+            TextButton(
+                onClick = onSkip,
+                modifier = Modifier.testTag("welcome_login_skip_button")
+            ) {
+                Text(
+                    text = skipLabel,
+                    fontFamily = Kalpurush,
+                    fontSize = textSize(14),
+                    lineHeight = leading(14),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        } else {
+            Button(
+                onClick = { registering = true },
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .testTag("welcome_register_button")
+            ) {
+                Text(
+                    text = t("নতুন অ্যাকাউন্ট খুলুন"),
+                    fontFamily = Kalpurush,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = textSize(15),
+                    lineHeight = leading(15)
+                )
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            GoogleSignInButton(
+                isLoading = inProgress,
+                enabled = !inProgress,
+                onClick = { viewModel.signInWithGoogle(context) }
+            )
+
+            Spacer(Modifier.height(14.dp))
+
+            TextButton(
+                onClick = onSkip,
+                modifier = Modifier.testTag("welcome_login_skip_button")
+            ) {
+                Text(
+                    text = skipLabel,
+                    fontFamily = Kalpurush,
+                    fontSize = textSize(14),
+                    lineHeight = leading(14),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
     }
 }

@@ -1,6 +1,8 @@
 package com.ningshingche.app.data.remote
 
 import android.content.Context
+import com.ningshingche.app.data.auth.EmailAuthException
+import com.ningshingche.app.data.auth.EmailAuthRules
 import com.ningshingche.app.data.auth.GoogleAuthException
 import com.ningshingche.app.data.portal.ViewDay
 import com.ningshingche.app.data.portal.ViewTotals
@@ -340,6 +342,280 @@ class SupabaseClient(private val context: Context) {
                     "Supabase-এ Google সাইন-ইন চালু নেই। Authentication → Providers → Google চালু করুন।"
                 )
             else -> GoogleAuthException.Failed("Supabase authentication failed.")
+        }
+    }
+
+    // ------------------------------------------------------- email and password
+    //
+    // A second way in, sharing nothing with the Google grant except the session it
+    // produces. Every call below validates locally first, then posts to `/auth/v1`
+    // and maps Supabase's error envelope to an [EmailAuthException] the view model
+    // can turn into Bengali.
+    //
+    // The password is never logged, never put in a URL, and never kept: it goes
+    // into the request body and out of scope.
+
+    /**
+     * Saves the session carried by an `/auth/v1` response and returns the profile.
+     *
+     * Returns null when the response has no usable access token — which for
+     * sign-up means the project is asking for email confirmation, not that
+     * anything failed.
+     */
+    private fun saveSessionFromAuthJson(json: JSONObject): UserProfile? {
+        val token = json.optString("access_token", "")
+        if (!GoogleAuthMapper.isSupabaseJwt(token)) return null
+        val userObj = json.optJSONObject("user") ?: return null
+        val profile = GoogleAuthMapper.profileFromAuthUser(userObj)
+        val refresh = json.optString("refresh_token", "")
+        val expiresAt = System.currentTimeMillis() +
+            json.optLong("expires_in", 3600L) * 1000L - 30_000L
+        saveSession(token, profile, refresh.ifBlank { null }, expiresAt)
+        return profile
+    }
+
+    /** Turns Supabase's `{ "code": …, "msg": … }` envelope into a typed failure. */
+    private fun emailAuthError(status: Int, body: String): EmailAuthException {
+        val parsed = runCatching { JSONObject(body) }.getOrNull()
+        val code = parsed?.optString("error_code").orEmpty()
+            .ifBlank { parsed?.optString("code").orEmpty() }
+        val detail = listOf(
+            code,
+            parsed?.optString("msg").orEmpty(),
+            parsed?.optString("error_description").orEmpty(),
+            parsed?.optString("message").orEmpty(),
+            parsed?.optString("error").orEmpty(),
+            body
+        ).joinToString(" ")
+        return when {
+            status == 429 || detail.contains("rate limit", ignoreCase = true) ->
+                EmailAuthException.RateLimited()
+            detail.contains("user_already_exists", ignoreCase = true) ||
+                detail.contains("already registered", ignoreCase = true) ->
+                EmailAuthException.AlreadyRegistered()
+            detail.contains("invalid_credentials", ignoreCase = true) ||
+                detail.contains("invalid login credentials", ignoreCase = true) ->
+                EmailAuthException.WrongCredentials()
+            detail.contains("email_not_confirmed", ignoreCase = true) ->
+                EmailAuthException.NotConfirmed()
+            detail.contains("weak_password", ignoreCase = true) ->
+                EmailAuthException.WeakPassword()
+            detail.contains("otp_expired", ignoreCase = true) ||
+                detail.contains("token has expired", ignoreCase = true) ||
+                detail.contains("invalid otp", ignoreCase = true) ->
+                EmailAuthException.InvalidCode()
+            detail.contains("validation_failed", ignoreCase = true) ||
+                detail.contains("invalid format", ignoreCase = true) ->
+                EmailAuthException.InvalidEmail()
+            status >= 500 -> EmailAuthException.Network()
+            else -> EmailAuthException.Failed("auth_failed")
+        }
+    }
+
+    /** A `POST` whose body is the point; success means "the code was accepted". */
+    private fun postAuthNoSession(url: String, payload: String): Result<Unit> {
+        val request = createAuthRequestBuilder(url)
+            .post(payload.toRequestBody(jsonMediaType))
+            .build()
+        return try {
+            httpClient.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (response.isSuccessful) {
+                    Result.success(Unit)
+                } else {
+                    Result.failure(emailAuthError(response.code, body))
+                }
+            }
+        } catch (error: IOException) {
+            Result.failure(EmailAuthException.Network())
+        }
+    }
+
+    /** A `POST` that hands back a session. */
+    private fun postAuthForSession(url: String, payload: String): Result<UserProfile> {
+        val request = createAuthRequestBuilder(url)
+            .post(payload.toRequestBody(jsonMediaType))
+            .build()
+        return try {
+            httpClient.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) {
+                    Result.failure(emailAuthError(response.code, body))
+                } else {
+                    val json = runCatching { JSONObject(body) }.getOrNull() ?: JSONObject()
+                    val profile = saveSessionFromAuthJson(json)
+                    if (profile != null) {
+                        Result.success(profile)
+                    } else {
+                        Result.failure(EmailAuthException.NotConfirmed())
+                    }
+                }
+            }
+        } catch (error: IOException) {
+            Result.failure(EmailAuthException.Network())
+        }
+    }
+
+    /**
+     * Whether an address already has an account.
+     *
+     * Three answers, and the third is the reason this is not a boolean: a failed
+     * request is *not* proof that the address is free, and refusing a sign-up
+     * because a lookup happened to fail would be worse than letting the server
+     * decide. `null` means "could not tell" — the caller goes ahead, and Supabase's
+     * own duplicate rule produces [EmailAuthException.AlreadyRegistered] if it is
+     * taken anyway.
+     *
+     * ## Why this is not just a `select`
+     *
+     * `auth.users` is not readable with the publishable key; the table is behind
+     * RLS and only the service role can read it. What *is* callable from the app is
+     * the admin endpoint for a single address:
+     *
+     *     GET /auth/v1/admin/users?email=<address>
+     *
+     * and it wants the service role key, which must never ship inside an APK.
+     *
+     * So the check that ships is the one Supabase already performs for free:
+     * `POST /signup` with the address and a throwaway password answers
+     * `user_already_exists` when the address is taken, and — with confirmation off —
+     * creates the account when it is not. That is not a side effect we want during
+     * a typo, so this probe is used only for the friendly message *before* the form
+     * is submitted, and it sends the address with no other field set.
+     *
+     * Returns true when taken, false when free, null when the server could not say.
+     */
+    suspend fun isEmailRegistered(email: String): Boolean? = withContext(Dispatchers.IO) {
+        if (EmailAuthRules.emailProblem(email) != null) return@withContext null
+        val payload = JSONObject().put("email", EmailAuthRules.cleanEmail(email)).toString()
+        val request = createAuthRequestBuilder("${SupabaseConfig.authBaseUrl}/signup")
+            .post(payload.toRequestBody(jsonMediaType))
+            .build()
+        try {
+            httpClient.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (response.isSuccessful) return@withContext false
+                when (val error = emailAuthError(response.code, body)) {
+                    is EmailAuthException.AlreadyRegistered -> true
+                    // A 422 about a missing password means the address is unknown and
+                    // the endpoint wanted more fields — i.e. not registered.
+                    is EmailAuthException.WeakPassword -> false
+                    else -> if (error is EmailAuthException.Failed) null else false
+                }
+            }
+        } catch (error: IOException) {
+            null
+        }
+    }
+
+    /**
+     * Creates an account. With email confirmation switched off on the project this
+     * returns a session and the reader is straight in; with it on, the call
+     * succeeds but carries no token, and [EmailAuthException.NotConfirmed] tells the
+     * screen to say "check your email" rather than pretending nothing happened.
+     */
+    suspend fun signUpWithEmail(
+        email: String,
+        password: String,
+        firstName: String = "",
+        lastName: String = "",
+        avatarUrl: String = ""
+    ): Result<UserProfile> =
+        withContext(Dispatchers.IO) {
+            EmailAuthRules.emailProblem(email)?.let { return@withContext Result.failure(it) }
+            EmailAuthRules.passwordProblem(password)?.let { return@withContext Result.failure(it) }
+            val payload = JSONObject().apply {
+                put("email", EmailAuthRules.cleanEmail(email))
+                put("password", password)
+                // The profile the reader just typed. Supabase keeps it on the user
+                // record as `user_metadata`, which is where profileFromAuthUser()
+                // already reads given_name / family_name / avatar_url from, so a new
+                // account arrives with a name and a picture instead of "পাঠক".
+                if (firstName.isNotBlank() || lastName.isNotBlank()) {
+                    put("data", JSONObject().apply {
+                        put("full_name", listOf(firstName.trim(), lastName.trim())
+                            .filter { it.isNotBlank() }.joinToString(" "))
+                        put("given_name", firstName.trim())
+                        put("family_name", lastName.trim())
+                        if (avatarUrl.isNotBlank()) put("avatar_url", avatarUrl)
+                    })
+                }
+            }.toString()
+            postAuthForSession("${SupabaseConfig.authBaseUrl}/signup", payload)
+        }
+
+    /**
+     * Signs in with an existing address. The password is checked for emptiness
+     * only — a reader whose password predates the eight-character rule still has
+     * to get in.
+     */
+    suspend fun signInWithEmail(email: String, password: String): Result<UserProfile> =
+        withContext(Dispatchers.IO) {
+            EmailAuthRules.emailProblem(email)?.let { return@withContext Result.failure(it) }
+            if (password.isEmpty()) {
+                return@withContext Result.failure(EmailAuthException.WrongCredentials())
+            }
+            val payload = JSONObject().apply {
+                put("email", EmailAuthRules.cleanEmail(email))
+                put("password", password)
+            }.toString()
+            postAuthForSession(
+                "${SupabaseConfig.authBaseUrl}/token?grant_type=password",
+                payload
+            )
+        }
+
+    /**
+     * Sends the six-digit recovery code. Supabase answers 200 whether or not the
+     * address has an account, on purpose — so this cannot be used to find out
+     * which addresses are registered, and the screen must not claim an account
+     * exists.
+     */
+    suspend fun sendPasswordResetCode(email: String): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            EmailAuthRules.emailProblem(email)?.let { return@withContext Result.failure(it) }
+            val payload = JSONObject().put("email", EmailAuthRules.cleanEmail(email)).toString()
+            postAuthNoSession("${SupabaseConfig.authBaseUrl}/recover", payload)
+        }
+
+    /**
+     * Exchanges the code for a session. The session is what proves ownership; the
+     * old password is never needed and never asked for.
+     */
+    suspend fun verifyPasswordResetCode(email: String, code: String): Result<UserProfile> =
+        withContext(Dispatchers.IO) {
+            EmailAuthRules.emailProblem(email)?.let { return@withContext Result.failure(it) }
+            EmailAuthRules.codeProblem(code)?.let { return@withContext Result.failure(it) }
+            val payload = JSONObject().apply {
+                put("type", "recovery")
+                put("email", EmailAuthRules.cleanEmail(email))
+                put("token", EmailAuthRules.cleanCode(code))
+            }.toString()
+            postAuthForSession("${SupabaseConfig.authBaseUrl}/verify", payload)
+        }
+
+    /** Sets a new password for the signed-in reader — the last step of recovery. */
+    suspend fun updatePassword(newPassword: String): Result<Unit> = withContext(Dispatchers.IO) {
+        val token = authToken
+        if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null) {
+            return@withContext Result.failure(EmailAuthException.NoSession())
+        }
+        EmailAuthRules.passwordProblem(newPassword)?.let { return@withContext Result.failure(it) }
+        val payload = JSONObject().put("password", newPassword).toString()
+        val request = createAuthRequestBuilder("${SupabaseConfig.authBaseUrl}/user", token)
+            .put(payload.toRequestBody(jsonMediaType))
+            .build()
+        try {
+            httpClient.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (response.isSuccessful) {
+                    Result.success(Unit)
+                } else {
+                    Result.failure(emailAuthError(response.code, body))
+                }
+            }
+        } catch (error: IOException) {
+            Result.failure(EmailAuthException.Network())
         }
     }
 

@@ -63,7 +63,7 @@
 <!-- ============================== BANGLA ============================== -->
 <section id="bn">
   <h2>১. সংক্ষেপে</h2>
-  <p>নিংশিং চে একটি বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ ও পাঠকক্ষ। অ্যাপটি পড়ার জন্য অ্যাকাউন্ট ছাড়াই ব্যবহার করা যায়। লগইন করা হয় শুধু তখনই, যখন আপনি মন্তব্য, ফোরামে উত্তর, লেখা, গান বা বই জমা দিতে চান।</p>
+  <p>নিংশিং চে একটি বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ ও পাঠকক্ষ। অ্যাপটি পড়ার জন্য অ্যাকাউন্ট ছাড়াই ব্যবহার করা যায়। লগইন করা হয় শুধু তখনই, যখন আপনি মন্তব্য, ফোরামে উত্তর, লেখা, গান বা বই জমা দিতে চান। সাইন-ইন করা যায় <strong>Google</strong> দিয়ে অথবা <strong>ইমেইল ও পাসওয়ার্ড</strong> দিয়ে।</p>
   <p>আমরা আপনার লেখা বা ছবি <strong>বিক্রি করি না</strong>, বিজ্ঞাপন দেখাই না, এবং আপনার তথ্য কোনো ডেটা-ব্রোকারের কাছে দিই না।</p>
 
   <h2>২. আমরা কী সংগ্রহ করি</h2>
@@ -71,6 +71,7 @@
     <thead><tr><th>তথ্য</th><th>কখন</th><th>কোথায় যায়</th></tr></thead>
     <tbody>
       <tr><td>নাম, ইমেইল, প্রোফাইল ছবি</td><td>Google দিয়ে সাইন-ইন করলে</td><td>Supabase (আমাদের ডেটাবেস)</td></tr>
+      <tr><td>ইমেইল ও পাসওয়ার্ড</td><td>ইমেইল দিয়ে অ্যাকাউন্ট খুললে বা সাইন-ইন করলে</td><td>Supabase — পাসওয়ার্ড সংরক্ষিত হয় <strong>হ্যাশ</strong> করে; আমরা তা পড়তে পারি না</td></tr>
       <tr><td>আপনার জমা দেওয়া লেখা, মন্তব্য, ফোরাম পোস্ট, গান, PDF</td><td>আপনি পোস্ট বা আপলোড করলে</td><td>Supabase</td></tr>
       <tr><td>ছবি (অ্যাভাটার, কভার, থাম্বনেইল, সংযুক্তি)</td><td>আপনি ছবি আপলোড করলে</td><td><strong>ImgBB</strong> (তৃতীয় পক্ষের ইমেজ হোস্ট) এবং Supabase-এ শুধু তার লিংক</td></tr>
       <tr><td>আপনি যা পড়েন, শোনেন বা লাইক করেন</td><td>কনটেন্ট ব্যবহার করলে</td><td>Supabase (দেখা ও লাইকের সংখ্যা)</td></tr>
@@ -92,7 +93,7 @@
 
   <h2>৪. তৃতীয় পক্ষ</h2>
   <ul>
-    <li><strong>Supabase</strong> — ডেটাবেস, লগইন ও ফাইল সংরক্ষণ</li>
+    <li><strong>Supabase</strong> — ডেটাবেস, লগইন (Google ও ইমেইল/পাসওয়ার্ড দুটোই), এবং ফাইল সংরক্ষণ</li>
     <li><strong>Google</strong> — সাইন-ইন, এবং AI ট্যাবে Gemini ব্যবহার করলে প্রশ্ন প্রক্রিয়াকরণ</li>
     <li><strong>OpenRouter</strong> — Gemini উপলব্ধ না থাকলে বিকল্প AI প্রদানকারী</li>
     <li><strong>ImgBB</strong> — আপলোড করা ছবি হোস্ট করা</li>
@@ -133,11 +134,11 @@
   <p class="sub">Applies to the Android app <strong>Ningshing Che</strong> (<code>com.ningshingche.app</code>). Last updated 26 October 2026.</p>
 
   <h2>The short version</h2>
-  <p>Ningshing Che is a cultural archive and reading room. You can read everything without an account. You sign in only to comment, reply in the forum, or submit an article, song or book. We do not sell your data, do not show ads, and do not share information with data brokers.</p>
+  <p>Ningshing Che is a cultural archive and reading room. You can read everything without an account. You sign in only to comment, reply in the forum, or submit an article, song or book — with Google, or with an email address and a password. We do not sell your data, do not show ads, and do not share information with data brokers.</p>
 
   <h2>What we collect</h2>
   <ul>
-    <li><strong>Account data</strong> — name, email address and profile photo from Google Sign-In, held in Supabase, our database provider.</li>
+    <li><strong>Account data</strong> — your email address, held in Supabase, our database provider. If you sign in with Google we also receive your name and profile photo. If you create an account with a password, Supabase stores that password only as a <strong>hash</strong> (bcrypt) — neither we nor anyone at Ningshing Che can read it.</li>
     <li><strong>Content you post</strong> — comments, forum threads and replies, submitted articles, music and PDFs, stored in Supabase.</li>
     <li><strong>Images</strong> — avatars, article covers, music covers, forum covers and attachments are uploaded to <strong>ImgBB</strong>; we store the resulting link.</li>
     <li><strong>Usage</strong> — which articles, songs and threads you open, and the likes you give, so the counters work.</li>
@@ -152,7 +153,7 @@
 
   <h2>Third parties</h2>
   <ul>
-    <li><strong>Supabase</strong> — database, authentication, file storage.</li>
+    <li><strong>Supabase</strong> — database, authentication (Google Sign-In and email/password alike), file storage.</li>
     <li><strong>Google</strong> — Sign-In, and Gemini when the AI assistant is used.</li>
     <li><strong>OpenRouter</strong> — alternative AI provider when Gemini is unavailable.</li>
     <li><strong>ImgBB</strong> — hosts uploaded images.</li>

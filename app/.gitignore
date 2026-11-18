@@ -1,1 +1,25 @@
-/build
+# Android signing credentials
+key.properties
+*.jks
+*.keystore
+upload.jks
+
+# Local Android configuration
+local.properties
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# Build outputs
+.gradle/
+**/build/
+
+# IDE files
+.idea/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db

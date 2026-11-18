@@ -23,6 +23,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,6 +35,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ningshingche.app.ui.components.EmailAuthSection
+import com.ningshingche.app.ui.components.RegisterForm
 import com.ningshingche.app.ui.components.GoogleSignInButton
 import com.ningshingche.app.ui.components.NingshingCheBrandLogo
 import com.ningshingche.app.ui.theme.textSize
@@ -51,9 +56,21 @@ fun LoginScreen(
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
     val inProgress by viewModel.googleAuthInProgress.collectAsStateWithLifecycle()
     val message by viewModel.googleAuthMessage.collectAsStateWithLifecycle()
+    val emailInProgress by viewModel.emailAuthInProgress.collectAsStateWithLifecycle()
+    val emailMessage by viewModel.emailAuthMessage.collectAsStateWithLifecycle()
+    val resetCodeSent by viewModel.resetCodeSent.collectAsStateWithLifecycle()
+    val passwordResetActive by viewModel.passwordResetActive.collectAsStateWithLifecycle()
 
-    LaunchedEffect(currentUser?.id) {
-        if (currentUser != null) onSignedIn()
+    // Registration needs names and a picture, so it is the full form rather than a
+    // third mode of the sign-in section. Reached from Settings → sign in, and from
+    // the first-run screen, which opens its own copy directly.
+    var registering by rememberSaveable { mutableStateOf(false) }
+
+    // Step two of password recovery signs the reader in, so a non-null user is not
+    // by itself a reason to leave this screen: until the new password is saved,
+    // navigating away would leave the old one working and the new one unset.
+    LaunchedEffect(currentUser?.id, passwordResetActive) {
+        if (currentUser != null && !passwordResetActive) onSignedIn()
     }
 
     Scaffold(
@@ -91,7 +108,7 @@ fun LoginScreen(
                 color = MaterialTheme.colorScheme.onBackground
             )
             Text(
-                text = t("Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন"),
+                text = t("ইমেইল বা Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন"),
                 fontFamily = Kalpurush,
                 fontSize = textSize(14),
                 lineHeight = leading(14),
@@ -119,11 +136,57 @@ fun LoginScreen(
                 }
             }
 
-            GoogleSignInButton(
-                isLoading = inProgress,
-                enabled = !inProgress,
-                onClick = { viewModel.signInWithGoogle(context) }
-            )
+            if (registering) {
+                RegisterForm(
+                    inProgress = emailInProgress,
+                    message = emailMessage,
+                    onRegister = { firstName, lastName, email, password, avatarUrl, avatarDeleteUrl ->
+                        viewModel.signUpWithEmail(
+                            firstName = firstName,
+                            lastName = lastName,
+                            email = email,
+                            password = password,
+                            avatarUrl = avatarUrl,
+                            avatarDeleteUrl = avatarDeleteUrl
+                        )
+                    },
+                    onSwitchToSignIn = { registering = false }
+                )
+                Spacer(Modifier.height(10.dp))
+                GoogleSignInButton(
+                    isLoading = inProgress,
+                    enabled = !inProgress,
+                    onClick = { viewModel.signInWithGoogle(context) }
+                )
+            } else {
+                EmailAuthSection(
+                    inProgress = emailInProgress,
+                    message = emailMessage,
+                    resetCodeSent = resetCodeSent,
+                    passwordResetActive = passwordResetActive,
+                    onSignIn = { email, password -> viewModel.signInWithEmail(email, password) },
+                    onSendResetCode = { email -> viewModel.sendResetCode(email) },
+                    onVerifyResetCode = { email, code -> viewModel.verifyResetCode(email, code) },
+                    onSaveNewPassword = { password -> viewModel.saveNewPassword(password) },
+                    onCancelReset = { viewModel.cancelPasswordReset() },
+                    onOpenRegistration = { registering = true }
+                )
+
+                Text(
+                    text = t("অথবা"),
+                    fontFamily = Kalpurush,
+                    fontSize = textSize(13),
+                    lineHeight = leading(13),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 14.dp)
+                )
+
+                GoogleSignInButton(
+                    isLoading = inProgress,
+                    enabled = !inProgress,
+                    onClick = { viewModel.signInWithGoogle(context) }
+                )
+            }
         }
     }
 }
