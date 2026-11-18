@@ -57,18 +57,17 @@ fun EmailAuthSection(
     resetCodeSent: Boolean,
     passwordResetActive: Boolean,
     onSignIn: (String, String) -> Unit,
-    onSignUp: (String, String) -> Unit,
     onSendResetCode: (String) -> Unit,
     onVerifyResetCode: (String, String) -> Unit,
     onSaveNewPassword: (String) -> Unit,
-    onCancelReset: () -> Unit
+    onCancelReset: () -> Unit,
+    onOpenRegistration: () -> Unit
 ) {
-    var signUpMode by rememberSaveable { mutableStateOf(false) }
     var recovering by rememberSaveable { mutableStateOf(false) }
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
-    var confirmPassword by rememberSaveable { mutableStateOf("") }
     var code by rememberSaveable { mutableStateOf("") }
+    var confirmPassword by rememberSaveable { mutableStateOf("") }
 
     val editable = !inProgress
 
@@ -203,67 +202,41 @@ fun EmailAuthSection(
                     enabled = editable,
                     tag = "email_password"
                 )
-                if (signUpMode) {
-                    Spacer(Modifier.height(10.dp))
-                    PasswordField(
-                        value = confirmPassword,
-                        onValueChange = { confirmPassword = it },
-                        label = t("পাসওয়ার্ড আবার লিখুন"),
-                        enabled = editable,
-                        tag = "email_password_confirm"
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = t("অন্তত {1} অক্ষর", MIN_PASSWORD),
-                        fontFamily = Kalpurush,
-                        fontSize = textSize(12),
-                        lineHeight = leading(12),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
                 Spacer(Modifier.height(14.dp))
                 SubmitButton(
-                    label = if (signUpMode) t("অ্যাকাউন্ট খুলুন") else t("সাইন ইন করুন"),
+                    label = t("সাইন ইন করুন"),
                     inProgress = inProgress,
-                    enabled = editable &&
-                        email.isNotBlank() &&
-                        password.isNotEmpty() &&
-                        (!signUpMode || (password.length >= MIN_PASSWORD && password == confirmPassword)),
-                    tag = if (signUpMode) "email_sign_up" else "email_sign_in",
-                    onClick = {
-                        if (signUpMode) onSignUp(email, password) else onSignIn(email, password)
-                    }
+                    enabled = editable && email.isNotBlank() && password.isNotEmpty(),
+                    tag = "email_sign_in",
+                    onClick = { onSignIn(email, password) }
                 )
+                // Registration is a different form, with names and a picture, and it
+                // lives on the first-run screen where a new reader meets it. A second
+                // signup here would be a poorer copy that has to be kept in step.
                 TextButton(
-                    onClick = {
-                        signUpMode = !signUpMode
-                        confirmPassword = ""
-                    },
+                    onClick = onOpenRegistration,
                     enabled = editable,
-                    modifier = Modifier.testTag("email_toggle_mode")
+                    modifier = Modifier.testTag("email_open_registration")
                 ) {
                     Text(
-                        text = if (signUpMode) t("আগেই অ্যাকাউন্ট আছে? সাইন ইন করুন")
-                        else t("নতুন? অ্যাকাউন্ট খুলুন"),
+                        text = t("নতুন? অ্যাকাউন্ট খুলুন"),
                         fontFamily = Kalpurush,
                         fontSize = textSize(13),
                         lineHeight = leading(13)
                     )
                 }
-                if (!signUpMode) {
-                    TextButton(
-                        onClick = { recovering = true },
-                        enabled = editable,
-                        modifier = Modifier.testTag("email_forgot_password")
-                    ) {
-                        Text(
-                            text = t("পাসওয়ার্ড ভুলে গেছেন?"),
-                            fontFamily = Kalpurush,
-                            fontSize = textSize(13),
-                            lineHeight = leading(13),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                TextButton(
+                    onClick = { recovering = true },
+                    enabled = editable,
+                    modifier = Modifier.testTag("email_forgot_password")
+                ) {
+                    Text(
+                        text = t("পাসওয়ার্ড ভুলে গেছেন?"),
+                        fontFamily = Kalpurush,
+                        fontSize = textSize(13),
+                        lineHeight = leading(13),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }

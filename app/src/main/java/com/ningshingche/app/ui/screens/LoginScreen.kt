@@ -23,6 +23,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,6 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ningshingche.app.ui.components.EmailAuthSection
+import com.ningshingche.app.ui.components.RegisterForm
 import com.ningshingche.app.ui.components.GoogleSignInButton
 import com.ningshingche.app.ui.components.NingshingCheBrandLogo
 import com.ningshingche.app.ui.theme.textSize
@@ -56,6 +60,11 @@ fun LoginScreen(
     val emailMessage by viewModel.emailAuthMessage.collectAsStateWithLifecycle()
     val resetCodeSent by viewModel.resetCodeSent.collectAsStateWithLifecycle()
     val passwordResetActive by viewModel.passwordResetActive.collectAsStateWithLifecycle()
+
+    // Registration needs names and a picture, so it is the full form rather than a
+    // third mode of the sign-in section. Reached from Settings → sign in, and from
+    // the first-run screen, which opens its own copy directly.
+    var registering by rememberSaveable { mutableStateOf(false) }
 
     // Step two of password recovery signs the reader in, so a non-null user is not
     // by itself a reason to leave this screen: until the new password is saved,
@@ -127,33 +136,57 @@ fun LoginScreen(
                 }
             }
 
-            EmailAuthSection(
-                inProgress = emailInProgress,
-                message = emailMessage,
-                resetCodeSent = resetCodeSent,
-                passwordResetActive = passwordResetActive,
-                onSignIn = { email, password -> viewModel.signInWithEmail(email, password) },
-                onSignUp = { email, password -> viewModel.signUpWithEmail(email, password) },
-                onSendResetCode = { email -> viewModel.sendResetCode(email) },
-                onVerifyResetCode = { email, code -> viewModel.verifyResetCode(email, code) },
-                onSaveNewPassword = { password -> viewModel.saveNewPassword(password) },
-                onCancelReset = { viewModel.cancelPasswordReset() }
-            )
+            if (registering) {
+                RegisterForm(
+                    inProgress = emailInProgress,
+                    message = emailMessage,
+                    onRegister = { firstName, lastName, email, password, avatarUrl, avatarDeleteUrl ->
+                        viewModel.signUpWithEmail(
+                            firstName = firstName,
+                            lastName = lastName,
+                            email = email,
+                            password = password,
+                            avatarUrl = avatarUrl,
+                            avatarDeleteUrl = avatarDeleteUrl
+                        )
+                    },
+                    onSwitchToSignIn = { registering = false }
+                )
+                Spacer(Modifier.height(10.dp))
+                GoogleSignInButton(
+                    isLoading = inProgress,
+                    enabled = !inProgress,
+                    onClick = { viewModel.signInWithGoogle(context) }
+                )
+            } else {
+                EmailAuthSection(
+                    inProgress = emailInProgress,
+                    message = emailMessage,
+                    resetCodeSent = resetCodeSent,
+                    passwordResetActive = passwordResetActive,
+                    onSignIn = { email, password -> viewModel.signInWithEmail(email, password) },
+                    onSendResetCode = { email -> viewModel.sendResetCode(email) },
+                    onVerifyResetCode = { email, code -> viewModel.verifyResetCode(email, code) },
+                    onSaveNewPassword = { password -> viewModel.saveNewPassword(password) },
+                    onCancelReset = { viewModel.cancelPasswordReset() },
+                    onOpenRegistration = { registering = true }
+                )
 
-            Text(
-                text = t("অথবা"),
-                fontFamily = Kalpurush,
-                fontSize = textSize(13),
-                lineHeight = leading(13),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(vertical = 14.dp)
-            )
+                Text(
+                    text = t("অথবা"),
+                    fontFamily = Kalpurush,
+                    fontSize = textSize(13),
+                    lineHeight = leading(13),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 14.dp)
+                )
 
-            GoogleSignInButton(
-                isLoading = inProgress,
-                enabled = !inProgress,
-                onClick = { viewModel.signInWithGoogle(context) }
-            )
+                GoogleSignInButton(
+                    isLoading = inProgress,
+                    enabled = !inProgress,
+                    onClick = { viewModel.signInWithGoogle(context) }
+                )
+            }
         }
     }
 }

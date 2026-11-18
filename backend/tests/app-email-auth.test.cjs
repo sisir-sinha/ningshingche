@@ -185,11 +185,16 @@ test('creating an account asks for the password twice', () => {
   // A typo in a masked field is unrecoverable — there is no "show password" on
   // the sign-in screen, and the account would be created against a password
   // nobody knows.
-  assert.match(FORM, /"email_password_confirm"/, 'the second field exists');
-  assert.match(FORM, /password == confirmPassword/, 'and the submit is refused until they match');
-  // It has to be required in both places a password is created, not only on screen.
-  assert.match(FORM, /password\.length >= MIN_PASSWORD && password == confirmPassword/,
-    'sign-up is refused below the minimum length');
+  // Registration moved to its own form (RegisterForm.kt) so an account can ask for
+  // names and a picture; the sign-in section hands off rather than duplicating it.
+  assert.match(FORM, /testTag\("email_open_registration"\)/, 'no way to reach registration');
+  assert.match(FORM, /onClick = onOpenRegistration/, 'and the hand-off is not wired');
+  const register = fs.readFileSync(
+    path.join(APP, 'ui', 'components', 'RegisterForm.kt'), 'utf8');
+  assert.match(register, /"register_password_confirm"/, 'the second field exists');
+  assert.match(register, /password == confirmPassword/, 'and the submit waits for a match');
+  assert.match(register, /password\.length >= EmailAuthRules\.MIN_PASSWORD/,
+    'registration is refused below the minimum length');
 });
 
 test('every failed call becomes a sentence in Bengali', () => {

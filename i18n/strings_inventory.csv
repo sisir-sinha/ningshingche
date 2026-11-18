@@ -59,7 +59,6 @@ Google সাইন-ইন সময় শেষ হয়েছে। আব�
 {1} টি প্রবন্ধ,,ui,3,0,ListScreens.kt
 {1}টি গান,,ui,3,0,"MusicBrowseScreens.kt, MusicScreen.kt"
 {1}টি প্রবন্ধ,,ui,3,0,"ExploreScreen.kt, PortalPages.kt"
-অন্তত {1} অক্ষর,,ui,3,0,"EmailAuthForm.kt, RegisterForm.kt"
 অন্যান্য,,ui,3,0,"AppNotificationManager.kt, ContentSafetySheet.kt, SettingsScreen.kt"
 অপেক্ষমাণ,,ui,3,0,"UserDashboardCharts.kt, UserDashboardScreen.kt"
 অ্যাকাউন্ট,,ui,3,0,"AccountHeaderButton.kt, SettingsScreen.kt"
@@ -119,12 +118,11 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 অক্ষরের আকার,,ui,2,0,ArticleScreen.kt
 অতিথি ভিউ,,ui,2,0,UserDashboardScreen.kt
 অনুমোদিত,,ui,2,0,ForumScreens.kt
+অন্তত {1} অক্ষর,,ui,2,0,RegisterForm.kt
 অপছন্দ,,ui,2,0,"ForumScreens.kt, PublicProfileScreen.kt"
 অফলাইন,,ui,2,0,MusicScreen.kt
-অ্যাকাউন্ট খুলুন,,ui,2,0,"EmailAuthForm.kt, RegisterForm.kt"
 অ্যাডমিন,,ui,2,0,"ForumScreens.kt, UserDashboardScreen.kt"
 আগস্ট,,ui,2,0,"ContributorScreen.kt, UserDashboardCharts.kt"
-আগেই অ্যাকাউন্ট আছে? সাইন ইন করুন,,ui,2,0,"EmailAuthForm.kt, RegisterForm.kt"
 আপনার সেশনের মেয়াদ শেষ হয়েছে। আবার সাইন ইন করলে তালিকা ও পয়েন্ট দেখা যাবে।,,ui,2,0,"ContributorScreen.kt, PortalModels.kt"
 আপনি,,ui,2,0,"ContributorScreen.kt, UserDashboardScreen.kt"
 আলোচনা {1},,ui,2,0,"PublicProfileScreen.kt, UserProfileScreen.kt"
@@ -174,7 +172,6 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 পরের গান,,ui,2,0,MusicPlayer.kt
 পাঠক {1},,ui,2,0,"PublicProfileScreen.kt, UserProfileScreen.kt"
 পাসওয়ার্ড,,ui,2,0,"EmailAuthForm.kt, RegisterForm.kt"
-পাসওয়ার্ড আবার লিখুন,,ui,2,0,"EmailAuthForm.kt, RegisterForm.kt"
 পাসওয়ার্ড ভুলে গেছেন?,,ui,2,0,EmailAuthForm.kt
 পিডিএফটি খোলা যায়নি।,,ui,2,0,AttachmentViewer.kt
 পৌরাণিক,,ui,2,0,NingshingCheWebsiteClient.kt
@@ -329,6 +326,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 "অস্থায়ী ইমেইল ঠিকানা দিয়ে অ্যাকাউন্ট খোলা যায় না। Gmail, Yahoo, Outlook বা নিজের ডোমেইনের ঠিকানা দিন।",,ui,1,0,EmailAuth.kt
 "অস্থায়ী ইমেইল দিয়ে অ্যাকাউন্ট খোলা যায় না। Gmail, Yahoo বা নিজের ডোমেইন ব্যবহার করুন।",,ui,1,0,RegisterForm.kt
 অ্যাকসেন্ট,,ui,1,0,SettingsScreen.kt
+অ্যাকাউন্ট খুলুন,,ui,1,0,RegisterForm.kt
 অ্যাকাউন্ট মুছুন,,ui,1,0,SettingsScreen.kt
 অ্যাকাউন্ট মুছে ফেলুন?,,ui,1,0,SettingsScreen.kt
 অ্যাডমিন নতুন বার্তা পাঠালে,,ui,1,0,AppNotificationManager.kt
@@ -344,6 +342,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 অ্যাপ সংস্করণ ও সাইট হালনাগাদ,,ui,1,0,SettingsScreen.kt
 অ্যাপে MP3 সংরক্ষণ,,ui,1,0,MusicPlayer.kt
 অ্যাপের ভাষা — বদলাতে টিপুন,,ui,1,0,SettingsScreen.kt
+আগেই অ্যাকাউন্ট আছে? সাইন ইন করুন,,ui,1,0,RegisterForm.kt
 আগের কাজ,,ui,1,0,HtmlContentEditor.kt
 আগের গান,,ui,1,0,MusicPlayer.kt
 আগের ছবি,,ui,1,0,EditorialComponents.kt
@@ -770,6 +769,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 পাতার ফাঁক  ·  {1} dp,,ui,1,0,PdfViewerScreen.kt
 পালা-কীর্তন,,ui,1,0,MusicGenres.kt
 পাসওয়ার্ড অন্তত {1} অক্ষরের হতে হবে।,,ui,1,1,EmailAuth.kt
+পাসওয়ার্ড আবার লিখুন,,ui,1,0,RegisterForm.kt
 পাসওয়ার্ড দেখুন,,ui,1,0,RegisterForm.kt
 পাসওয়ার্ড লুকান,,ui,1,0,RegisterForm.kt
 পাসওয়ার্ড সংরক্ষণ করুন,,ui,1,0,EmailAuthForm.kt
