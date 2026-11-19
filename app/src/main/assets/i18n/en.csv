@@ -16,7 +16,7 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 Google সাইন-ইন সময় শেষ হয়েছে। আবার চেষ্টা করুন।,The Google sign-in timed out. Try again.
 HTML লেখা,Write HTML
 ImgBB API Key পাওয়া যায়নি। সেটিংস বা এনভায়রনমেন্ট কনফিগারেশন চেক করুন।,ImgBB API key not found. Check the settings or the environment configuration.
-ImgBB আপলোড ব্যর্থ হয়েছে: {1},ImgBB upload failed: {1}
+ImgBB আপলোড ব্যর্থ হয়েছে: {1},ImgBB upload failed: {1}
 ImgBB ত্রুটি: {1},ImgBB error: {1}
 PDF আর্কাইভ,PDF archive
 PDF প্রকাশনা শেয়ার করুন,Share the PDF publication
@@ -222,6 +222,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 এই আলোচনাটি রিপোর্ট করুন,Report this discussion
 এই ইমেইলে আগেই অ্যাকাউন্ট আছে। সাইন ইন করুন।,An account already exists for this email. Sign in.
 এই উত্তরটি রিপোর্ট করুন,Report this answer
+এই কী-টি ইমেজবিবি ব্লক করেছে (অ্যাকাউন্ট নিষিদ্ধ)। api.imgbb.com থেকে নতুন কী নিয়ে .env-এ দিন।,This key has been blocked by ImgBB (the account is banned). Get a new key at api.imgbb.com and put it in .env.
 এই গানের অডিও ফাইল নেই।,This song has no audio file.
 এই গানের লিরিক এখনো যোগ করা হয়নি।,The lyrics of this song have not been added yet.
 এই ডিভাইসে কোনো Google অ্যাকাউন্ট পাওয়া যায়নি। একটি Google অ্যাকাউন্ট যোগ করে আবার চেষ্টা করুন।,No Google account was found on this device. Add a Google account and try again.

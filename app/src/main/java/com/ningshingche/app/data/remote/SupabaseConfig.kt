@@ -6,7 +6,21 @@ object SupabaseConfig {
     // Configured Supabase credentials with fallback to injected BuildConfig
     const val DEFAULT_SUPABASE_URL = "https://slcpvmpsynkqdozvlsii.supabase.co"
     const val DEFAULT_PUBLISHABLE_KEY = "sb_publishable_jqJACnQHmCMcGjt0kG6Sug_ddknIbAA"
-    const val DEFAULT_IMGBB_API_KEY = "576f654932a2b7398e765cf27d8c73d4"
+    /**
+     * Deliberately empty.
+     *
+     * This used to hold a real ImgBB key, committed to a public repository and
+     * compiled into every APK. One key, used by everyone who cloned the project,
+     * is the pattern ImgBB's abuse detection blocks — and it did: uploads now
+     * answer `code 103, "You have been forbidden to use this website"`, which is
+     * a blocked account rather than a wrong key.
+     *
+     * The key belongs in `.env` (git-ignored) or the build environment, which
+     * `supabaseKey()` reads through `BuildConfig`. With none set, image upload is
+     * simply unavailable and the app says so, instead of shipping a secret that
+     * cannot work.
+     */
+    const val DEFAULT_IMGBB_API_KEY = ""
 
     val supabaseUrl: String
         get() = try {

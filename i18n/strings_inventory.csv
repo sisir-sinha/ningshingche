@@ -250,7 +250,7 @@ Google কনসোলে এই অ্যাপের প্যাকেজ ন
 Google দিয়ে চালিয়ে যান,,ui,1,0,GoogleSignInButton.kt
 HTML লেখা,,ui,1,0,HtmlContentEditor.kt
 ImgBB API Key পাওয়া যায়নি। সেটিংস বা এনভায়রনমেন্ট কনফিগারেশন চেক করুন।,,ui,1,0,ImgBbUploader.kt
-ImgBB আপলোড ব্যর্থ হয়েছে: {1},,ui,1,1,ImgBbUploader.kt
+ImgBB আপলোড ব্যর্থ হয়েছে: {1},,ui,1,1,ImgBbUploader.kt
 ImgBB ত্রুটি: {1},,ui,1,1,ImgBbUploader.kt
 PDF আর্কাইভ,,ui,1,0,PortalDrawer.kt
 PDF প্রকাশনা শেয়ার করুন,,ui,1,0,PdfHelper.kt
@@ -434,6 +434,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 এই অডিও ফর্ম্যাট সাপোর্টেড নয়। এমপি৩ নির্বাচন করুন।,,ui,1,0,SupabaseClient.kt
 এই আলোচনাটি রিপোর্ট করুন,,ui,1,0,ForumScreens.kt
 এই ইমেইলে আগেই অ্যাকাউন্ট আছে। সাইন ইন করুন।,,ui,1,0,EmailAuth.kt
+এই কী-টি ইমেজবিবি ব্লক করেছে (অ্যাকাউন্ট নিষিদ্ধ)। api.imgbb.com থেকে নতুন কী নিয়ে .env-এ দিন।,,ui,1,0,ImgBbUploader.kt
 এই গানের লিরিক এখনো যোগ করা হয়নি।,,ui,1,0,MusicPlayer.kt
 এই ডিভাইসে কোনো Google অ্যাকাউন্ট পাওয়া যায়নি। একটি Google অ্যাকাউন্ট যোগ করে আবার চেষ্টা করুন।,,ui,1,0,GoogleAuthMapper.kt
 এই ডিভাইসে সংরক্ষিত MP3,,ui,1,0,MusicScreen.kt

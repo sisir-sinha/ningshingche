@@ -126,7 +126,16 @@ object ImgBbUploader {
                 } catch (_: Exception) {
                     "HTTP ${response.code}: $responseBody"
                 }
-                return@withContext Result.failure(Exception("ImgBB আপলোড ব্যর্থ হয়েছে: $errorMsg"))
+                // 103 is not a malformed key — the key is recognised and the account
+                // behind it is blocked. Calling that "invalid key" sends the owner
+                // looking in the wrong place, which is exactly what happened here.
+                val blocked = runCatching {
+                    JSONObject(responseBody).optJSONObject("error")?.optInt("code", 0)
+                }.getOrNull() == 103
+                val friendly = if (blocked) {
+                    "এই কী-টি ইমেজবিবি ব্লক করেছে (অ্যাকাউন্ট নিষিদ্ধ)। api.imgbb.com থেকে নতুন কী নিয়ে .env-এ দিন।"
+                } else errorMsg
+                return@withContext Result.failure(Exception("ImgBB আপলোড ব্যর্থ হয়েছে: $friendly"))
             }
 
             val json = JSONObject(responseBody)
