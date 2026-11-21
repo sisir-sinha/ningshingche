@@ -1,6 +1,7 @@
 package com.ningshingche.app.data.remote
 
 import android.content.Context
+import com.ningshingche.app.ui.components.TERMS_VERSION
 import com.ningshingche.app.data.auth.EmailAuthException
 import com.ningshingche.app.data.auth.EmailAuthRules
 import com.ningshingche.app.data.auth.GoogleAuthException
@@ -828,9 +829,9 @@ class SupabaseClient(private val context: Context) {
             ?: return@withContext Result.failure(ReaderSessionRequiredException())
         try {
             val request = createUserAuthedRequestBuilder(
-                "${SupabaseConfig.restBaseUrl}/rpc/accept_current_terms",
+                "${SupabaseConfig.restBaseUrl}/rpc/accept_terms_version",
                 jwt
-            ).post("{}".toRequestBody(jsonMediaType)).build()
+            ).post(JSONObject().put("p_terms_version", TERMS_VERSION).toString().toRequestBody(jsonMediaType)).build()
             httpClient.newCall(request).execute().use { response ->
                 val body = response.body?.string().orEmpty()
                 if (!response.isSuccessful) {
@@ -843,7 +844,7 @@ class SupabaseClient(private val context: Context) {
                     )
                 }
                 val record = TermsAcceptanceRecord.fromJson(JSONObject(body))
-                if (record.termsVersion.isBlank() || record.acceptedAt.isBlank()) {
+                if (record.termsVersion != TERMS_VERSION || record.acceptedAt.isBlank()) {
                     Result.failure(IOException("terms_acceptance_invalid_response"))
                 } else {
                     Result.success(record)

@@ -10,7 +10,7 @@
   Play's User Generated Content policy asks for terms that (a) must be accepted
   before someone can post, and (b) actually define what is prohibited. This page is
   the public copy; the in-app gate (TermsGate in FirstRunFlow.kt) links here and
-  records acceptance in DataStore before the first post.
+  records article acceptance on the account; DataStore is only a local UI cache.
 
   Self-contained by design: no external CSS, script or font.
 -->
@@ -47,13 +47,13 @@
 
 <header>
   <h1>ব্যবহারের শর্তাবলী</h1>
-  <p class="sub">নিংশিং চে (Ningshing Che) · অ্যান্ড্রয়েড অ্যাপ <code>com.ningshingche.app</code> · সর্বশেষ হালনাগাদ: ২৬ অক্টোবর ২০২৬</p>
+  <p class="sub">নিংশিং চে (Ningshing Che) · অ্যান্ড্রয়েড অ্যাপ <code>com.ningshingche.app</code> · সর্বশেষ হালনাগাদ: ২১ নভেম্বর ২০২৬</p>
   <div class="lang"><a href="#bn">বাংলা</a><a href="#en">English</a></div>
 </header>
 
 <section id="bn">
   <h2>১. সম্মতি</h2>
-  <p>নিংশিং চে অ্যাপ ব্যবহার করে, এবং বিশেষ করে কিছু পোস্ট করে, আপনি এই শর্তাবলীতে সম্মত হচ্ছেন। আপনি যদি সম্মত না হন, পোস্ট না করে শুধু পড়ার মধ্যে থাকতে পারেন — পড়ার জন্য কোনো শর্ত নেই।</p>
+  <p>কোনো প্রবন্ধ জমা দেওয়ার আগে আপনাকে বর্তমান শর্তাবলি পড়ে স্পষ্টভাবে সম্মতি দিতে হবে। শুধু অ্যাপ ব্যবহার করা বা এই পৃষ্ঠা খোলা সম্মতি নয়। আপনি সম্মত না হলে পোস্ট না করে পড়তে পারেন। শর্তে গুরুত্বপূর্ণ পরিবর্তন হলে আবার সম্মতি চাওয়া হবে।</p>
 
   <h2>২. আপনার অ্যাকাউন্ট</h2>
   <p>লগইন করা যায় Google দিয়ে অথবা ইমেইল ও পাসওয়ার্ড দিয়ে। আপনার পাসওয়ার্ড গোপন রাখার দায়িত্ব আপনার। আপনার অ্যাকাউন্টে যা ঘটে তার দায়িত্ব আপনার। একাধিক ব্যক্তি বা প্রতিষ্ঠানের নাম ব্যবহার করে বিভ্রান্তি তৈরি করবেন না।</p>
@@ -81,7 +81,7 @@
   <p>মন্তব্য ও পাঠকের জমা দেওয়া লেখা সম্পাদক অনুমোদনের পরে প্রকাশিত হয়। সম্পাদক যেকোনো সময় যেকোনো কনটেন্ট প্রকাশ না করা, সম্পাদনা করা বা সরিয়ে ফেলার অধিকার রাখেন — কারণ জানানোর বাধ্যবাধকতা নেই।</p>
 
   <h2>৬. রিপোর্ট ও ব্লক</h2>
-  <p>কোনো পোস্ট আপত্তিকর মনে হলে তার <strong>⋯ মেনু → রিপোর্ট</strong> ব্যবহার করুন; কোনো ব্যবহারকারীকে আটকাতে <strong>ব্লক</strong> করুন। রিপোর্ট সম্পাদকের ড্যাশবোর্ডে যায় এবং ৪৮ ঘণ্টার মধ্যে দেখা হয়। জরুরি ক্ষেত্রে: <a href="mailto:ningshingche@gmail.com">ningshingche@gmail.com</a>।</p>
+  <p>উপলব্ধ রিপোর্ট নিয়ন্ত্রণ দিয়ে আপত্তিকর বিষয় জানাতে পারেন। রিপোর্ট সম্পাদকীয় পর্যালোচনার জন্য পাঠানো হয়; একটি রিপোর্ট নিজে থেকেই কনটেন্ট সরায় না। অ্যাপের কিছু ফোরাম নিয়ন্ত্রণে ব্যবহারকারীকে ব্লক করা যায়; ব্লকের প্রভাব সব জায়গায় এক নয়। উদ্বেগ বা জরুরি ক্ষেত্রে: <a href="mailto:ningshingche@gmail.com">ningshingche@gmail.com</a>।</p>
 
   <h2>৭. এআই সহকারী</h2>
   <p>AI-এর উত্তর ভুল, অসম্পূর্ণ বা পক্ষপাতদুষ্ট হতে পারে। এটি কোনো আইনি, চিকিৎসা বা আর্থিক পরামর্শ নয়। আপত্তিকর উত্তরে প্রতিটি উত্তরের পাশের পতাকা আইকন দিয়ে রিপোর্ট করুন।</p>
@@ -89,7 +89,9 @@
   <h2>৮. দায়সীমা</h2>
   <p>অ্যাপটি "যেমন আছে" অবস্থায় দেওয়া হয়। সংরক্ষণাগারের তথ্য ঐতিহাসিক ও সাংস্কৃতিক উদ্দেশ্যে; সম্পূর্ণ নির্ভুলতার নিশ্চয়তা নেই। ক্ষতির জন্য আমাদের দায় বাংলাদেশের আইনের অনুমোদিত সীমার মধ্যে সীমিত।</p>
 
-  <h2>৯. পরিবর্তন ও যোগাযোগ</h2>
+  <h2>৯. অ্যাকাউন্ট মুছে ফেলা</h2>
+  <p>অ্যাকাউন্ট মুছে ফেলা ও প্রকাশিত সংরক্ষণাগারের তথ্য ধরে রাখার বিষয়ে <a href="account-deletion.html">অ্যাকাউন্ট মুছে ফেলার পৃষ্ঠা</a> দেখুন।</p>
+  <h2>১০. পরিবর্তন ও যোগাযোগ</h2>
   <p>শর্ত বদলালে এই পৃষ্ঠায় জানানো হবে। প্রশ্ন: <a href="mailto:ningshingche@gmail.com">ningshingche@gmail.com</a> · নিংশিং চে, তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট।</p>
 </section>
 
@@ -97,16 +99,16 @@
 
 <section id="en">
   <h1 style="font-size:22px;margin-bottom:2px">Terms of Use</h1>
-  <p class="sub">Applies to the Android app <strong>Ningshing Che</strong> (<code>com.ningshingche.app</code>). Last updated 26 October 2026.</p>
+  <p class="sub">Applies to the Android app <strong>Ningshing Che</strong> (<code>com.ningshingche.app</code>). Last updated 21 November 2026.</p>
 
   <h2>1. Agreement</h2>
-  <p>By using the app — and in particular by posting or uploading — you agree to these terms. If you do not agree, you may keep reading without ever posting; reading requires no agreement.</p>
+  <p>Before submitting an article, you must read and explicitly accept the current terms. Using the app or opening this page is not acceptance. You may read without posting if you decline. Material changes require renewed acceptance.</p>
 
   <h2>2. Your account</h2>
   <p>You can sign in with Google, or with an email address and a password. Keeping your password secret is your responsibility. You are responsible for activity on your account. Do not impersonate a person or organisation.</p>
 
   <h2>3. Prohibited content and behaviour</h2>
-  <p>Editors will remove the following, and repeat offenders lose posting access:</p>
+  <p>Editors will remove the following, and repeat offenders may lose access:</p>
   <ul>
     <li>Hate speech, racism, or attacks on any ethnic, religious or social group;</li>
     <li>Harassment, threats, bullying, or publishing someone's private information without consent;</li>
@@ -125,7 +127,7 @@
   <p>Comments and reader submissions are published after editorial approval. Editors may decline, edit or remove any content at any time, with or without notice.</p>
 
   <h2>6. Reporting and blocking</h2>
-  <p>Use <strong>⋯ → Report</strong> on anything objectionable and <strong>Block</strong> to stop seeing a person's posts. Reports reach the editors' dashboard and are reviewed within 48 hours. Urgent matters: <a href="mailto:ningshingche@gmail.com">ningshingche@gmail.com</a>.</p>
+  <p>Use the available report controls to flag objectionable material. Reports go to editors for human review; a report does not automatically remove content. Some forum controls offer blocking, but its effect is not yet consistent across every screen. For concerns or urgent matters: <a href="mailto:ningshingche@gmail.com">ningshingche@gmail.com</a>.</p>
 
   <h2>7. AI assistant</h2>
   <p>AI answers can be wrong, incomplete or biased, and are not legal, medical or financial advice. Use the flag icon beside an answer to report offensive output.</p>
@@ -133,7 +135,9 @@
   <h2>8. Liability</h2>
   <p>The app is provided "as is". Archive material is presented for historical and cultural purposes without a warranty of accuracy. Our liability is limited to the extent permitted by the laws of Bangladesh.</p>
 
-  <h2>9. Contact</h2>
+  <h2>9. Account deletion</h2>
+  <p>See the <a href="account-deletion.html">account deletion page</a> for deletion and published-archive retention details.</p>
+  <h2>10. Changes and contact</h2>
   <p><a href="mailto:ningshingche@gmail.com">ningshingche@gmail.com</a> · Ningshing Che, Tilakpur, Kamalganj, Moulvibazar, Sylhet, Bangladesh.</p>
 </section>
 

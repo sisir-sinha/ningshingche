@@ -37,6 +37,7 @@
   let filterValues = { status: 'open', content_type: 'all', reason: 'all' };
 
   const CONTENT_TYPES = [
+    { value: 'article', label: 'Article' },
     { value: 'discussion', label: 'Forum thread' },
     { value: 'reply', label: 'Forum answer' },
     { value: 'comment', label: 'Blog comment' },
@@ -53,6 +54,7 @@
     { value: 'spam', label: 'Spam' },
     { value: 'copyright', label: 'Copyright' },
     { value: 'misinformation', label: 'Misinformation' },
+    { value: 'impersonation', label: 'Impersonation' },
     { value: 'other', label: 'Other' }
   ];
 
@@ -139,6 +141,9 @@
    * look up first.
    */
   function openLink(record) {
+    if (record.content_type === 'article' && NC.auth.canAccess('blogs')) {
+      return { route: 'blogs', params: { action: 'view', id: record.content_id }, label: 'Open the article' };
+    }
     if (record.content_type === 'discussion') {
       return { route: 'forum', params: { action: 'view', id: record.content_id }, label: 'Open the thread' };
     }
@@ -287,7 +292,8 @@
         handled_by: editor,
         updated_at: new Date().toISOString()
       });
-      const rows = state.records.map((item) => (item.id === record.id ? { ...item, ...(updated || {}), status, handled_by: editor } : item));
+      if (!updated) throw new Error('The report was not updated. Refresh and try again.');
+      const rows = state.records.map((item) => (item.id === record.id ? { ...item, ...updated } : item));
       state.setRecords(rows);
       renderList();
       NC.components.toast(

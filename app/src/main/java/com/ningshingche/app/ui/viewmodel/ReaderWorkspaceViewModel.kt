@@ -226,7 +226,15 @@ class ReaderWorkspaceViewModel(
         _message.value = null
         return supabaseClient.acceptCurrentTerms().fold(
             onSuccess = { accepted ->
-                preferencesRepository.acceptTerms(accepted.termsVersion)
+                // The server acceptance is authoritative. A local cache failure must
+                // not turn a successful consent into a duplicate request or a stuck UI.
+                try {
+                    preferencesRepository.acceptTerms(accepted.termsVersion)
+                } catch (cancel: kotlinx.coroutines.CancellationException) {
+                    throw cancel
+                } catch (_: java.io.IOException) {
+                    // The next server check restores this UI state.
+                }
                 _termsAcceptance.value = TermsAcceptanceState.ACCEPTED
                 true
             },
@@ -545,6 +553,10 @@ class ReaderWorkspaceViewModel(
         }
     }
 
+    // Keep the same id for a retry of the same draft after an ambiguous network failure.
+    private var pendingArticleKey: String? = null
+    private var pendingArticleId: String? = null
+
     fun submitArticle(title: String, content: String, thumbnailUri: Uri?, context: Context) {
         if (_isSaving.value) return
         val user = currentUser.value ?: return
@@ -560,8 +572,16 @@ class ReaderWorkspaceViewModel(
             _message.value = tNow("শিরোনাম ও লেখা আবশ্যক।")
             return
         }
+        val requestKey = listOf(user.id, title.trim(), content.trim(), thumbnailUri?.toString().orEmpty()).joinToString("\u0000")
+        if (pendingArticleKey != requestKey) {
+            pendingArticleKey = requestKey
+            pendingArticleId = UUID.randomUUID().toString()
+        }
+        val requestId = requireNotNull(pendingArticleId)
+        // Set before launching, so two taps in the same event loop cannot race.
+        _isSaving.value = true
         viewModelScope.launch {
-            _isSaving.value = true
+            try {
             _message.value = null
             var thumbnail = ""
             var deleteUrl = ""
@@ -576,7 +596,7 @@ class ReaderWorkspaceViewModel(
                 deleteUrl = image.deleteUrl
             }
             val record = SubmittedBlogRecord(
-                id = UUID.randomUUID().toString(),
+                id = requestId,
                 title = title.trim(),
                 designation = user.designation,
                 address = user.address,
@@ -595,6 +615,8 @@ class ReaderWorkspaceViewModel(
             )
             val result = supabaseClient.submitReaderArticle(record)
             result.onSuccess {
+                pendingArticleKey = null
+                pendingArticleId = null
                 _message.value = tNow("লেখা জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর প্রকাশিত হবে।")
                 // The note the dashboard lands on: the content tab, with the row
                 // the reader has just written highlighted.
@@ -617,7 +639,9 @@ class ReaderWorkspaceViewModel(
                     else -> tNow("লেখা জমা যায়নি। ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন।")
                 }
             }
-            _isSaving.value = false
+            } finally {
+                _isSaving.value = false
+            }
         }
     }
 

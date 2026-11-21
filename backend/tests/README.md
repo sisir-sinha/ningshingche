@@ -86,3 +86,23 @@ node filters.browser.cjs          # NC_OFFLINE=1 stubs the CDN libraries
 ```
 
 Fixture-only (every `*.supabase.co` request is intercepted; PATCH/POST to `submitted_blogs` are recorded in memory). It drives the real pages and asserts: the `.form-select` chevron is rendered; Blogs issue/author/tag filters, chips, deep links (`?issue=২০২৪`, `?tag=…`, `?filter=Draft`), and the editor's issue picker; Comments blog-author and commenter filters; six Chart.js instances on the Registered users dashboard; the Articles user filter, full-page editor save (PATCH payload), *Add article* (POST payload with the chosen profile), and the approval modal; Messages user/unread filters; `NC.api.blogsByIssue/ blogsByTag` over both the migration-013 RPC path and the `tags=ov` fallback; and no horizontal overflow at 375 px. Screenshots are written to `tests/screenshots/` (git-ignored).
+
+## UGC migration fixture (disposable PostgreSQL only)
+
+`sql/ugc-fixture-setup.sql` supplies simplified `auth` and dashboard identities;
+`sql/ugc-fixture-checks.sql` exercises migrations 040–042 against them.
+**Never run either file against production or a shared Supabase project.** Use a
+fresh isolated local PostgreSQL cluster (the setup creates global test roles):
+
+```sh
+createdb nc_ugc_fixture
+psql -X -v ON_ERROR_STOP=1 -d nc_ugc_fixture -f backend/tests/sql/ugc-fixture-setup.sql
+for n in 040_content_safety 041_terms_acceptance_and_secure_article_submission 042_ugc_consent_reporting_audit; do
+  psql -X -v ON_ERROR_STOP=1 -d nc_ugc_fixture -f "backend/supabase/migrations/$n.sql"
+done
+psql -X -v ON_ERROR_STOP=1 -d nc_ugc_fixture -f backend/tests/sql/ugc-fixture-checks.sql
+```
+
+The fixture checks SQL execution, version gating, ownership, report attribution,
+deduplication, RLS visibility, block RPCs, and server-attributed report status
+changes. It does not replace staging tests against real Supabase authentication.

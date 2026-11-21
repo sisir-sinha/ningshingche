@@ -125,7 +125,8 @@ import com.ningshingche.app.ui.i18n.tNow
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    onBlockedUsers: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -373,6 +374,9 @@ fun SettingsScreen(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(t("লগ আউট"), fontWeight = FontWeight.Bold, fontSize = textSize(13), lineHeight = leading(13))
+                                }
+                                TextButton(onClick = onBlockedUsers, modifier = Modifier.fillMaxWidth().testTag("settings_blocked_users")) {
+                                    Text(t("ব্লক করা ব্যবহারকারী"), fontFamily = Kalpurush)
                                 }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                                 TextButton(

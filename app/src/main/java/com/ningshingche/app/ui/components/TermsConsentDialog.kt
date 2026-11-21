@@ -31,7 +31,7 @@ import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.textSize
 
 /** Bump in an additive migration when a material Terms update takes effect. */
-const val TERMS_VERSION = "2026-10-26"
+const val TERMS_VERSION = "2026-11-21"
 
 /** Public, no-login copy. The corresponding database value is migration-owned. */
 const val TERMS_OF_USE_URL = "https://sisir-sinha.github.io/ningshingche/terms-of-use/"

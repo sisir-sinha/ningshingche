@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -71,6 +72,7 @@ private val REPORT_REASON_CODES = listOf(
     "spam",
     "copyright",
     "misinformation",
+    "impersonation",
     "other"
 )
 
@@ -89,6 +91,7 @@ private fun reasonLabel(code: String): String = when (code) {
     "spam" -> t("স্প্যাম বা বিজ্ঞাপন")
     "copyright" -> t("কপিরাইট লঙ্ঘন")
     "misinformation" -> t("মিথ্যা তথ্য")
+    "impersonation" -> t("অন্যের পরিচয়ে প্রতারণা")
     else -> t("অন্যান্য")
 }
 
@@ -105,16 +108,45 @@ fun ContentReportDialog(
     title: String,
     onReport: suspend (String) -> Result<Boolean>,
     onBlock: (suspend () -> Result<Boolean>)? = null,
+    onReportWithNote: (suspend (String, String) -> Result<Boolean>)? = null,
     onDismiss: () -> Unit
 ) {
     var selected by remember { mutableStateOf(REPORT_REASON_CODES.first()) }
+    var note by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var sent by remember { mutableStateOf(false) }
     var blocked by remember { mutableStateOf(false) }
+    var confirmBlock by remember { mutableStateOf(false) }
     // Both actions are network calls, so they run in the composition's scope rather
     // than inside an onClick, which is not a suspend context.
     val scope = rememberCoroutineScope()
+
+    if (confirmBlock && onBlock != null) {
+        AlertDialog(
+            onDismissRequest = { if (!busy) confirmBlock = false },
+            title = { Text(t("এই লেখককে ব্লক করুন"), fontFamily = Kalpurush) },
+            text = { Text(t("ব্লক করা হলেও এখনো সব জায়গায় এই ব্যবহারকারীর কনটেন্ট লুকানো হয় না। আপনি কি নিশ্চিত?"), fontFamily = Kalpurush) },
+            confirmButton = {
+                TextButton(enabled = !busy, onClick = {
+                    if (!busy) {
+                        busy = true
+                        error = null
+                        scope.launch {
+                            onBlock.invoke()
+                                .onSuccess { success ->
+                                    if (success) blocked = true else error = tNow("ব্লক করা যায়নি। আবার চেষ্টা করুন।")
+                                }
+                                .onFailure { error = tNow("ব্লক করা যায়নি। আবার চেষ্টা করুন।") }
+                            busy = false
+                            confirmBlock = false
+                        }
+                    }
+                }) { Text(t("ব্লক করুন"), fontFamily = Kalpurush) }
+            },
+            dismissButton = { TextButton(enabled = !busy, onClick = { confirmBlock = false }) { Text(t("বাতিল")) } }
+        )
+    }
 
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
@@ -140,7 +172,7 @@ fun ContentReportDialog(
             if (sent) {
                 Text(
                     text = t(
-                        "সম্পাদক রিপোর্টটি দেখবেন। জরুরি হলে ningshingche@gmail.com এ জানাতে পারেন।"
+                        "আপনার রিপোর্টটি জমা হয়েছে। আমাদের মডারেশন টিম বিষয়টি পর্যালোচনা করবে।"
                     ),
                     fontFamily = Kalpurush,
                     fontSize = textSize(14),
@@ -199,6 +231,15 @@ fun ContentReportDialog(
                             }
                         }
                     }
+                    if (onReportWithNote != null) {
+                        OutlinedTextField(
+                            value = note,
+                            onValueChange = { note = it.take(1000) },
+                            label = { Text(t("বিস্তারিত (ঐচ্ছিক)"), fontFamily = Kalpurush) },
+                            enabled = !busy,
+                            modifier = Modifier.fillMaxWidth().testTag("report_note")
+                        )
+                    }
                     if (!error.isNullOrBlank()) {
                         Spacer(Modifier.height(4.dp))
                         Text(
@@ -211,21 +252,7 @@ fun ContentReportDialog(
                     if (onBlock != null && !blocked) {
                         Spacer(Modifier.height(6.dp))
                         TextButton(
-                            onClick = {
-                                if (busy) return@TextButton
-                                busy = true
-                                error = null
-                                scope.launch {
-                                    // Blocking is its own promise: it happens now, it is
-                                    // private, and the person is never told.
-                                    onBlock.invoke()
-                                        .onSuccess { blocked = true }
-                                        .onFailure {
-                                            error = tNow("ব্লক করা যায়নি। আবার চেষ্টা করুন।")
-                                        }
-                                    busy = false
-                                }
-                            },
+                            onClick = { confirmBlock = true },
                             modifier = Modifier.testTag("report_block_author")
                         ) {
                             Icon(
@@ -244,7 +271,7 @@ fun ContentReportDialog(
                     }
                     if (blocked) {
                         Text(
-                            text = t("এই লেখককে ব্লক করা হয়েছে। তাঁর লেখা আর দেখাবে না।"),
+                            text = t("ব্লক সংরক্ষিত হয়েছে।"),
                             fontFamily = Kalpurush,
                             fontSize = textSize(12),
                             lineHeight = leading(12),
@@ -274,8 +301,11 @@ fun ContentReportDialog(
                         error = null
                         val chosen = selected
                         scope.launch {
-                            onReport(chosen)
-                                .onSuccess { sent = true }
+                            val result = if (onReportWithNote != null) onReportWithNote(chosen, note.trim()) else onReport(chosen)
+                            result
+                                .onSuccess { accepted ->
+                                    if (accepted) sent = true else error = tNow("রিপোর্ট পাঠানো যায়নি। আবার চেষ্টা করুন।")
+                                }
                                 .onFailure {
                                     error = tNow("রিপোর্ট পাঠানো যায়নি। আবার চেষ্টা করুন।")
                                 }

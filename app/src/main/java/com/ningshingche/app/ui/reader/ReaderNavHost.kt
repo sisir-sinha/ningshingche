@@ -114,6 +114,7 @@ object ReaderRoute {
     const val AiAssistant = "ai_assistant"
     const val AiAssistantPattern = "ai_assistant?q={q}"
     const val Settings = "settings"
+    const val BlockedUsers = "blocked_users"
     const val Login = "login"
     const val FirstRun = "first_run"
     // A registered reader's public page: their songs and published articles.
@@ -553,6 +554,9 @@ fun EditorialReaderApp(
                     termsAccepted = articlePrefs.termsAccepted &&
                         articlePrefs.termsAcceptedVersion == TERMS_VERSION,
                     onAcceptTerms = { app.preferencesRepository.acceptTerms(TERMS_VERSION) },
+                    reportArticle = if (isSignedIn) { { id, reason, note ->
+                        app.portalRepository.reportContent("article", id, reason, note)
+                    } } else null,
                     onCategoryClick = { categorySlug ->
                         if (categorySlug.isNotBlank()) navController.navigate(ReaderRoute.category(categorySlug))
                     },
@@ -594,6 +598,9 @@ fun EditorialReaderApp(
                     termsAccepted = articlePrefs.termsAccepted &&
                         articlePrefs.termsAcceptedVersion == TERMS_VERSION,
                     onAcceptTerms = { app.preferencesRepository.acceptTerms(TERMS_VERSION) },
+                    reportArticle = if (isSignedIn) { { id, reason, note ->
+                        app.portalRepository.reportContent("article", id, reason, note)
+                    } } else null,
                     onCategoryClick = { categorySlug ->
                         if (categorySlug.isNotBlank()) {
                             navController.navigate(ReaderRoute.category(categorySlug))
@@ -728,12 +735,20 @@ fun EditorialReaderApp(
                 )
             }
 
+            composable(ReaderRoute.BlockedUsers) {
+                com.ningshingche.app.ui.screens.BlockedUsersScreen(
+                    repository = app.portalRepository,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
             // Settings Screen
             composable(ReaderRoute.Settings, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
                 val settingsViewModel: SettingsViewModel = viewModel(factory = mainFactory)
                 SettingsScreen(
                     viewModel = settingsViewModel,
-                    onBackClick = { navController.popBackStack() }
+                    onBackClick = { navController.popBackStack() },
+                    onBlockedUsers = { navController.navigate(ReaderRoute.BlockedUsers) }
                 )
             }
 
@@ -807,7 +822,13 @@ fun EditorialReaderApp(
                     },
                     onBackClick = { navController.popBackStack() },
                     onArticleClick = { articleId -> navController.navigate(ReaderRoute.article(articleId)) },
-                    onDiscussionClick = { id -> navController.navigate(ReaderRoute.forumThread(id)) }
+                    onDiscussionClick = { id -> navController.navigate(ReaderRoute.forumThread(id)) },
+                    reportUser = if (isSignedIn && currentUser?.id != entry.arguments?.getString("userId")) {
+                        { id, reason, note -> app.portalRepository.reportContent("profile", id, reason, note) }
+                    } else null,
+                    blockUser = if (isSignedIn && currentUser?.id != entry.arguments?.getString("userId")) {
+                        { id -> app.portalRepository.blockUser(id) }
+                    } else null
                 )
             }
 

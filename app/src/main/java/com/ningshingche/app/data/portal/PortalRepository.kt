@@ -1052,12 +1052,12 @@ class PortalRepository(
 
     /** Content types the database accepts (migration 040). */
     private val REPORTABLE_TYPES = setOf(
-        "discussion", "reply", "comment", "profile", "music", "ai_output"
+        "discussion", "reply", "comment", "profile", "music", "ai_output", "article"
     )
 
     private val REPORT_REASONS = setOf(
         "harassment", "hate", "sexual", "violence", "spam",
-        "copyright", "misinformation", "other"
+        "copyright", "misinformation", "impersonation", "other"
     )
 
     /**
@@ -1107,10 +1107,11 @@ class PortalRepository(
 
     /** The ids this reader has blocked; empty for a guest or when none are. */
     suspend fun blockedUserIds(): Result<Set<String>> = withContext(Dispatchers.IO) {
-        runCatching { api.myBlockedUsers() }.mapCatching { response ->
-            if (!response.isSuccessful) return@mapCatching emptySet()
+        runCatching {
+            val response = api.myBlockedUsers()
+            if (!response.isSuccessful) throw httpError(response.code(), response)
             response.body().orEmpty().map { it.trim() }.filter { it.isNotBlank() }.toSet()
-        }.recoverCatching { emptySet() }
+        }.recoverCatching { throw it.toPortalError() }
     }
 
     suspend fun deleteForumReply(replyId: String): Result<Boolean> =

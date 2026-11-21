@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Article
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Place
@@ -74,6 +75,7 @@ import com.ningshingche.app.data.portal.forumBodyText
 import com.ningshingche.app.data.portal.PortalError
 import com.ningshingche.app.data.portal.PublicArticle
 import com.ningshingche.app.data.portal.PublicProfile
+import com.ningshingche.app.ui.components.ContentReportDialog
 import com.ningshingche.app.ui.components.LocalMusicController
 import com.ningshingche.app.ui.components.PortalAsyncImage
 import com.ningshingche.app.ui.editorial.EditorialImage
@@ -120,8 +122,11 @@ fun PublicProfileScreen(
     },
     onBackClick: () -> Unit,
     onArticleClick: (String) -> Unit,
-    onDiscussionClick: (String) -> Unit = {}
+    onDiscussionClick: (String) -> Unit = {},
+    reportUser: (suspend (String, String, String) -> Result<Boolean>)? = null,
+    blockUser: (suspend (String) -> Result<Boolean>)? = null
 ) {
+    var showReport by remember(userId) { mutableStateOf(false) }
     var profile by remember(userId) { mutableStateOf<PublicProfile?>(null) }
     var error by remember(userId) { mutableStateOf<String?>(null) }
     var loading by remember(userId) { mutableStateOf(true) }
@@ -212,6 +217,16 @@ fun PublicProfileScreen(
         }
     }
 
+    if (showReport && reportUser != null) {
+        ContentReportDialog(
+            title = t("ব্যবহারকারী রিপোর্ট করুন"),
+            onReport = { reason -> reportUser(userId, reason, "") },
+            onReportWithNote = { reason, note -> reportUser(userId, reason, note) },
+            onBlock = if (blockUser != null) { { blockUser(userId) } } else null,
+            onDismiss = { showReport = false }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -229,6 +244,13 @@ fun PublicProfileScreen(
                 navigationIcon = {
                     IconButton(onClick = onBackClick, modifier = Modifier.testTag("public_profile_back")) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tNow("পেছনে"))
+                    }
+                },
+                actions = {
+                    if (reportUser != null && profile != null) {
+                        IconButton(onClick = { showReport = true }) {
+                            Icon(Icons.Default.Flag, contentDescription = tNow("ব্যবহারকারী রিপোর্ট করুন"))
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

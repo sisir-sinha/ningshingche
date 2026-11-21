@@ -57,6 +57,7 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Comment
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PictureAsPdf
@@ -133,6 +134,7 @@ import com.ningshingche.app.data.portal.permalinkOf
 import com.ningshingche.app.data.remote.AuthorProfiles
 import com.ningshingche.app.ui.components.DialogImeAdjustResize
 import com.ningshingche.app.ui.components.MarkdownFormattedText
+import com.ningshingche.app.ui.components.ContentReportDialog
 import com.ningshingche.app.ui.components.TermsConsentDialog
 import com.ningshingche.app.ui.components.VerifiedBadge
 import com.ningshingche.app.ui.components.rememberBookmarkStateFor
@@ -202,6 +204,7 @@ fun ArticleScreen(
      */
     termsAccepted: Boolean = false,
     onAcceptTerms: (suspend () -> Unit)? = null,
+    reportArticle: (suspend (String, String, String) -> Result<Boolean>)? = null,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsState()
@@ -212,6 +215,7 @@ fun ArticleScreen(
     var lineSpacingMultiplier by remember { mutableFloatStateOf(APP_LEADING) }
     var showFontSizeSheet by remember { mutableStateOf(false) }
     var showAiSheet by remember { mutableStateOf(false) }
+    var showArticleReport by remember { mutableStateOf(false) }
     // Terms, once per install, on the way into the comment form.
     val scope = rememberCoroutineScope()
     var termsOk by remember(termsAccepted) { mutableStateOf(termsAccepted) }
@@ -330,6 +334,12 @@ fun ArticleScreen(
                                     contentDescription = if (bookmarkState.first) tNow("সংরক্ষণ বাতিল করুন") else tNow("সংরক্ষণ করুন"),
                                     tint = if (bookmarkState.first) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                 )
+                            }
+                        }
+
+                        if (reportArticle != null && readyArticle != null) {
+                            IconButton(onClick = { showArticleReport = true }) {
+                                Icon(Icons.Default.Flag, contentDescription = tNow("প্রবন্ধ রিপোর্ট করুন"))
                             }
                         }
 
@@ -489,6 +499,16 @@ fun ArticleScreen(
                 }
             }
         }
+    }
+
+    val reportTarget = (state as? ArticleUiState.Ready)?.article?.id
+    if (showArticleReport && reportTarget != null && reportArticle != null) {
+        ContentReportDialog(
+            title = t("প্রবন্ধ রিপোর্ট করুন"),
+            onReport = { reason -> reportArticle(reportTarget, reason, "") },
+            onReportWithNote = { reason, note -> reportArticle(reportTarget, reason, note) },
+            onDismiss = { showArticleReport = false }
+        )
     }
 
     if (termsPrompt) {

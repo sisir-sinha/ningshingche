@@ -89,6 +89,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 অন্য শব্দ দিয়ে খুঁজুন বা বিভাগ ফিল্টার বদলান।,Search with another word or change the category filter.
 অন্য শব্দে চেষ্টা করুন,Try another word
 অন্যান্য,Others
+অন্যের পরিচয়ে প্রতারণা,Impersonation
 অপছন্দ,Dislike
 অপছন্দ {1} ·,Dislike {1} ·
 অপেক্ষমাণ,Pending
@@ -144,6 +145,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 আপনার পয়েন্ট,Your points
 আপনার মন্তব্য সফলভাবে প্রকাশিত হয়েছে!,Your comment was published!
 আপনার মূল্যবান মন্তব্য *,Your valuable comment *
+আপনার রিপোর্টটি জমা হয়েছে। আমাদের মডারেশন টিম বিষয়টি পর্যালোচনা করবে।,Your report has been submitted. Our moderation team will review it.
 আপনার সংরক্ষিত প্লেলিস্ট,Your saved playlist
 আপনার সেশনের মেয়াদ শেষ হয়েছে। আবার সাইন ইন করলে তালিকা ও পয়েন্ট দেখা যাবে।,Your session has ended. Sign in again to see the list and the points.
 আপনি,You
@@ -247,7 +249,6 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 এই ব্যবহারকারীর পাতা পাওয়া যায়নি।,This user's page was not found.
 এই মাসে এখনো কেউ পয়েন্ট নেয়নি।,Nobody has scored a point this month yet.
 এই মাসের পয়েন্ট,This month's points
-এই লেখককে ব্লক করা হয়েছে। তাঁর লেখা আর দেখাবে না।,This author is blocked. Their writing will no longer appear.
 এই লেখককে ব্লক করুন,Block this author
 এক পাতায় একটি পৃষ্ঠা। বাঁদিকে/ডানদিকে সোয়াইপ করলে পাতা উল্টে।,One page at a time. Swipe left or right to turn the page.
 একটি আলোচনায় সর্বোচ্চ {1}টি ফাইল যুক্ত করা যাবে।,At most {1} files can be added to one discussion.
@@ -294,6 +295,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 কভার ছবি সরান,Remove the cover photo
 কম দেখান,Show less
 কমা বা ট্যাব চাপলে চিপ হবে,Press comma or Tab to make a chip
+কাউকে ব্লক করা নেই।,No blocked users.
 কার্যক্রম,Activity
 কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।,Something went wrong. Try again.
 কী সমস্যা?,What is wrong?
@@ -423,6 +425,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 তালিকা,List
 তালিকা আনা যায়নি।,Could not load the list.
 তালিকা পড়তে ডেটাবেস আপডেট দরকার — 033_profile_paging.sql চালান।,A database update is needed to read the list — run 033_profile_paging.sql.
+তালিকা লোড হয়নি। আবার চেষ্টা করুন।,Could not load the list. Try again.
 তালিকাটি লোড হয়নি।,The list did not load.
 "তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট","Tilakpur, Kamalganj, Moulvibazar, Sylhet"
 তৈরি,Create
@@ -604,6 +607,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 প্রবন্ধ বিশ্লেষণ,Article analysis
 প্রবন্ধ ভিউ,Article views
 প্রবন্ধ যোগ,Add an article
+প্রবন্ধ রিপোর্ট করুন,Report article
 প্রবন্ধ সংরক্ষণ হয়েছে,The article was saved
 প্রবন্ধটি পাওয়া যায়নি।,The article was not found.
 প্রবন্ধের অবস্থা,Article status
@@ -737,12 +741,21 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 বিষ্ণুপ্রিয়া মণিপুরিদের অন্যান্য প্রধান সামাজিক ও ধর্মীয় উৎসব কী কী?,What other main social and religious festivals do the Bishnupriya Manipuris have?
 বিষ্ণুপ্রিয়া মণিপুরী,Bishnupriya Manipuri
 বিষ্ণুপ্রিয়া মণিপুরী / Bishnupriya Manipuri,Bishnupriya Manipuri
+বিস্তারিত (ঐচ্ছিক),Details (optional)
+ব্যবহারকারী রিপোর্ট করুন,Report user
 ব্যবহারকারীর পাতা,User page
 ব্যবহারকারীর প্রশ্ন / নির্দেশ: {1},User question / instruction: {1}
 ব্যবহারকারীর প্রশ্ন: {1},User question: {1}
 ব্যবহারের শর্তাবলি,Terms of Use
 ব্রাউজারে খুলুন,Open in the browser
+ব্লক করা ব্যবহারকারী,Blocked users
 ব্লক করা যায়নি। আবার চেষ্টা করুন।,Could not block. Please try again.
+ব্লক করা হলেও এখনো সব জায়গায় এই ব্যবহারকারীর কনটেন্ট লুকানো হয় না। আপনি কি নিশ্চিত?,Blocking does not yet hide this user’s content everywhere. Are you sure?
+ব্লক করুন,Block
+ব্লক খুলুন,Unblock
+ব্লক খুলুন?,Unblock user?
+ব্লক খোলা যায়নি। আবার চেষ্টা করুন।,Could not unblock. Try again.
+ব্লক সংরক্ষিত হয়েছে।,Block saved.
 ভজন,Bhajan
 ভয়েস ইঞ্জিন প্রস্তুত করা যায়নি।,The voice engine could not be prepared.
 ভয়েস থামান,Stop the voice
@@ -924,7 +937,6 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 সম্পর্কিত জিজ্ঞাসা:,Related questions:
 সম্পর্কিত প্রশ্ন:,Related questions:
 সম্পাদক,Editor
-সম্পাদক রিপোর্টটি দেখবেন। জরুরি হলে ningshingche@gmail.com এ জানাতে পারেন।,"An editor will review the report. For anything urgent, write to ningshingche@gmail.com."
 সম্পাদকীয়,Editorial
 সম্পাদকীয়,Editorial
 সম্পাদনা,Edit
