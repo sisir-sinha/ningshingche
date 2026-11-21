@@ -189,6 +189,7 @@ class ReaderWorkspaceViewModel(
 
     private val _termsAcceptance = MutableStateFlow(TermsAcceptanceState.UNKNOWN)
     val termsAcceptance: StateFlow<TermsAcceptanceState> = _termsAcceptance.asStateFlow()
+    private var termsOwnerId: String? = null
 
     /**
      * Synchronizes the local UI cache with the account-level database record.
@@ -196,35 +197,36 @@ class ReaderWorkspaceViewModel(
      * performs the same check again and is the final authority.
      */
     fun refreshTermsAcceptance() {
-        if (_termsAcceptance.value == TermsAcceptanceState.CHECKING ||
-            _termsAcceptance.value == TermsAcceptanceState.ACCEPTING
-        ) return
-        if (currentUser.value == null) {
+        val requestedFor = currentUser.value?.id
+        if (requestedFor == null) {
+            termsOwnerId = null
             _termsAcceptance.value = TermsAcceptanceState.ERROR
             return
         }
+        if (termsOwnerId == requestedFor &&
+            (_termsAcceptance.value == TermsAcceptanceState.CHECKING ||
+             _termsAcceptance.value == TermsAcceptanceState.ACCEPTING)) return
+        termsOwnerId = requestedFor
+        _termsAcceptance.value = TermsAcceptanceState.CHECKING
         viewModelScope.launch {
-            _termsAcceptance.value = TermsAcceptanceState.CHECKING
-            supabaseClient.hasAcceptedCurrentTerms()
-                .onSuccess { accepted ->
-                    _termsAcceptance.value = if (accepted) {
-                        TermsAcceptanceState.ACCEPTED
-                    } else {
-                        TermsAcceptanceState.REQUIRED
-                    }
-                }
-                .onFailure {
-                    _termsAcceptance.value = TermsAcceptanceState.ERROR
-                }
+            val result = supabaseClient.hasAcceptedCurrentTerms()
+            if (termsOwnerId != requestedFor || currentUser.value?.id != requestedFor) return@launch
+            result.onSuccess { accepted ->
+                _termsAcceptance.value = if (accepted) TermsAcceptanceState.ACCEPTED else TermsAcceptanceState.REQUIRED
+            }.onFailure { _termsAcceptance.value = TermsAcceptanceState.ERROR }
         }
     }
 
     /** Records explicit server-side acceptance, then updates DataStore as a cache. */
     suspend fun acceptCurrentTerms(): Boolean {
-        if (_termsAcceptance.value == TermsAcceptanceState.ACCEPTING) return false
+        val requestedFor = currentUser.value?.id ?: return false
+        if (termsOwnerId == requestedFor && _termsAcceptance.value == TermsAcceptanceState.ACCEPTING) return false
+        termsOwnerId = requestedFor
         _termsAcceptance.value = TermsAcceptanceState.ACCEPTING
         _message.value = null
-        return supabaseClient.acceptCurrentTerms().fold(
+        val result = supabaseClient.acceptCurrentTerms()
+        if (termsOwnerId != requestedFor || currentUser.value?.id != requestedFor) return false
+        return result.fold(
             onSuccess = { accepted ->
                 // The server acceptance is authoritative. A local cache failure must
                 // not turn a successful consent into a duplicate request or a stuck UI.
@@ -235,6 +237,7 @@ class ReaderWorkspaceViewModel(
                 } catch (_: java.io.IOException) {
                     // The next server check restores this UI state.
                 }
+                if (termsOwnerId != requestedFor || currentUser.value?.id != requestedFor) return@fold false
                 _termsAcceptance.value = TermsAcceptanceState.ACCEPTED
                 true
             },
@@ -667,6 +670,10 @@ class ReaderWorkspaceViewModel(
             _message.value = tNow("এমপি৩ ফাইল নির্বাচন করুন।")
             return
         }
+        if (termsOwnerId != user.id || _termsAcceptance.value != TermsAcceptanceState.ACCEPTED) {
+            _message.value = tNow("জমা দেওয়ার আগে বর্তমান ব্যবহারের শর্তাবলিতে সম্মতি দিন।")
+            return
+        }
         viewModelScope.launch {
             _isSaving.value = true
             _message.value = null
@@ -752,6 +759,8 @@ class ReaderWorkspaceViewModel(
     fun signOut() {
         viewModelScope.launch {
             googleAuthRepository.signOut()
+            termsOwnerId = null
+            _termsAcceptance.value = TermsAcceptanceState.UNKNOWN
             _articles.value = emptyList()
             _tracks.value = emptyList()
             _comments.value = emptyList()

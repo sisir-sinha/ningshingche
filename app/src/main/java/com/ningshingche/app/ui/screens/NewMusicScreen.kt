@@ -46,6 +46,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,8 +64,11 @@ import com.ningshingche.app.data.remote.SatoruUploadClient
 import com.ningshingche.app.ui.editorial.toBengaliNumeral
 import com.ningshingche.app.ui.i18n.t
 import com.ningshingche.app.ui.components.GenreCombobox
+import com.ningshingche.app.ui.components.TermsConsentDialog
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.ReaderWorkspaceViewModel
+import com.ningshingche.app.ui.viewmodel.TermsAcceptanceState
+import kotlinx.coroutines.launch
 import com.ningshingche.app.ui.i18n.tNow
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -79,6 +84,10 @@ fun NewMusicScreen(
     val user by viewModel.currentUser.collectAsStateWithLifecycle()
     val saving by viewModel.isSaving.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
+    val termsState by viewModel.termsAcceptance.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    val currentConsentKey by rememberUpdatedState(user?.id)
+    var showTerms by remember(user?.id) { mutableStateOf(false) }
     var title by remember { mutableStateOf("") }
     var artist by remember { mutableStateOf("") }
     var album by remember { mutableStateOf("") }
@@ -88,6 +97,10 @@ fun NewMusicScreen(
     var audioSize by remember { mutableStateOf(0L) }
     var cover by remember { mutableStateOf<Uri?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(user?.id) {
+        if (user != null) viewModel.refreshTermsAcceptance()
+    }
 
     LaunchedEffect(message) {
         val text = message ?: return@LaunchedEffect
@@ -242,17 +255,13 @@ fun NewMusicScreen(
             }
             Button(
                 onClick = {
-                    viewModel.submitMusic(
-                        title = title,
-                        artist = artist,
-                        album = album,
-                        genre = MusicGenres.join(genres),
-                        audioUri = audio,
-                        coverUri = cover,
-                        context = context
-                    )
+                    if (title.isNotBlank() && audio != null && termsState != TermsAcceptanceState.ACCEPTED) {
+                        showTerms = true
+                    } else {
+                        viewModel.submitMusic(title, artist, album, MusicGenres.join(genres), audio, cover, context)
+                    }
                 },
-                enabled = !saving,
+                enabled = !saving && termsState != TermsAcceptanceState.ACCEPTING,
                 modifier = Modifier.fillMaxWidth().height(48.dp).testTag("music_submit")
             ) {
                 if (saving) {
@@ -263,6 +272,23 @@ fun NewMusicScreen(
             }
             Spacer(Modifier.height(24.dp))
         }
+    }
+    if (showTerms) {
+        TermsConsentDialog(
+            accepting = termsState == TermsAcceptanceState.ACCEPTING,
+            onAccept = {
+                val requestedFor = user?.id
+                scope.launch {
+                    val accepted = viewModel.acceptCurrentTerms()
+                    if (currentConsentKey != requestedFor) return@launch
+                    if (accepted) {
+                        showTerms = false
+                        viewModel.submitMusic(title, artist, album, MusicGenres.join(genres), audio, cover, context)
+                    }
+                }
+            },
+            onDismiss = { showTerms = false }
+        )
     }
 }
 

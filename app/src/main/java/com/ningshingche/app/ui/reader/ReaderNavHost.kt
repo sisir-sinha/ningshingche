@@ -551,9 +551,13 @@ fun EditorialReaderApp(
                     onRelatedClick = { navController.navigate(ReaderRoute.article(it)) },
                     scrollToComments = entry.arguments?.getString("focus") == "comments",
                     // A comment is UGC too: the same acceptance the forum asks for.
-                    termsAccepted = articlePrefs.termsAccepted &&
+                    termsAccepted = !isSignedIn && articlePrefs.termsAccepted &&
                         articlePrefs.termsAcceptedVersion == TERMS_VERSION,
-                    onAcceptTerms = { app.preferencesRepository.acceptTerms(TERMS_VERSION) },
+                    consentKey = currentUser?.id.orEmpty(),
+                    onAcceptTerms = {
+                        if (isSignedIn) workspaceViewModel.acceptCurrentTerms()
+                        else { app.preferencesRepository.acceptTerms(TERMS_VERSION); true }
+                    },
                     reportArticle = if (isSignedIn) { { id, reason, note ->
                         app.portalRepository.reportContent("article", id, reason, note)
                     } } else null,
@@ -595,9 +599,13 @@ fun EditorialReaderApp(
                     onRelatedClick = { navController.navigate(ReaderRoute.article(it)) },
                     scrollToComments = entry.arguments?.getString("focus") == "comments",
                     // A comment is UGC too: the same acceptance the forum asks for.
-                    termsAccepted = articlePrefs.termsAccepted &&
+                    termsAccepted = !isSignedIn && articlePrefs.termsAccepted &&
                         articlePrefs.termsAcceptedVersion == TERMS_VERSION,
-                    onAcceptTerms = { app.preferencesRepository.acceptTerms(TERMS_VERSION) },
+                    consentKey = currentUser?.id.orEmpty(),
+                    onAcceptTerms = {
+                        if (isSignedIn) workspaceViewModel.acceptCurrentTerms()
+                        else { app.preferencesRepository.acceptTerms(TERMS_VERSION); true }
+                    },
                     reportArticle = if (isSignedIn) { { id, reason, note ->
                         app.portalRepository.reportContent("article", id, reason, note)
                     } } else null,
@@ -1212,10 +1220,12 @@ fun EditorialReaderApp(
                     // Read here rather than passed down from the activity: the
                     // forum is the only destination that needs it, and the flow is
                     // cheap to collect.
-                    termsAccepted = forumPrefs.termsAccepted &&
+                    termsAccepted = !isSignedIn && forumPrefs.termsAccepted &&
                         forumPrefs.termsAcceptedVersion == TERMS_VERSION,
+                    consentKey = currentUser?.id.orEmpty(),
                     onAcceptTerms = {
-                        app.preferencesRepository.acceptTerms(TERMS_VERSION)
+                        if (isSignedIn) workspaceViewModel.acceptCurrentTerms()
+                        else { app.preferencesRepository.acceptTerms(TERMS_VERSION); true }
                     },
                     draftStore = app.forumDraftStore,
                     onBackClick = { navController.popBackStack() },
@@ -1236,6 +1246,8 @@ fun EditorialReaderApp(
             ) { entry ->
                 NewDiscussionScreen(
                     preselectSlug = entry.arguments?.getString("room").orEmpty(),
+                    consentKey = currentUser?.id.orEmpty(),
+                    onAcceptTerms = { workspaceViewModel.acceptCurrentTerms() },
                     // Asked for when the composer opens, not at app start.
                     loadCategories = { slug ->
                         app.portalRepository.forumOverview(limit = 1).map { it.categories }

@@ -91,6 +91,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
@@ -1011,7 +1012,8 @@ fun ForumThreadScreen(
     // Nullable rather than a lambda default: an empty lambda in a parameter
     // list puts a brace before the body, and everything that reads this screen's
     // body would find that instead of the screen. The caller always supplies it.
-    onAcceptTerms: (suspend () -> Unit)? = null,
+    onAcceptTerms: (suspend () -> Boolean)? = null,
+    consentKey: String = "",
     draftStore: ForumDraftStore,
     onSignInClick: () -> Unit,
     onAuthorClick: (String) -> Unit,
@@ -1065,9 +1067,12 @@ fun ForumThreadScreen(
 
     // Terms, once per install: a reader who never posts never sees the dialog, and
     // one who does is shown what is not allowed before the box opens.
-    var termsOk by remember(termsAccepted) { mutableStateOf(termsAccepted) }
-    var termsPrompt by remember { mutableStateOf(false) }
-    var pendingParent by remember { mutableStateOf("") }
+    val currentConsentKey by rememberUpdatedState(consentKey)
+    var termsOk by remember(termsAccepted, consentKey) { mutableStateOf(termsAccepted) }
+    var termsPrompt by remember(consentKey) { mutableStateOf(false) }
+    var termsBusy by remember(consentKey) { mutableStateOf(false) }
+    var termsError by remember(consentKey) { mutableStateOf<String?>(null) }
+    var pendingParent by remember(consentKey) { mutableStateOf("") }
 
     // Opening the box: the animation takes this long, and the keyboard is asked
     // for after it, so the two movements do not fight each other. Opening it fresh
@@ -1552,14 +1557,30 @@ fun ForumThreadScreen(
     // The terms gate, on the way into the composer.
     if (termsPrompt) {
         TermsConsentDialog(
+            accepting = termsBusy,
+            error = termsError,
             onAccept = {
-                termsOk = true
-                termsPrompt = false
-                val parent = pendingParent
-                pendingParent = ""
-                val accept = onAcceptTerms
-                if (accept != null) scope.launch { accept() }
-                openComposer(parent)
+                if (!termsBusy) {
+                    termsBusy = true
+                    termsError = null
+                    val requestedFor = consentKey
+                    scope.launch {
+                        val accepted = try { onAcceptTerms?.invoke() == true }
+                        catch (cancel: kotlinx.coroutines.CancellationException) { throw cancel }
+                        catch (_: Exception) { false }
+                        if (currentConsentKey != requestedFor) return@launch
+                        termsBusy = false
+                        if (accepted) {
+                            termsOk = true
+                            termsPrompt = false
+                            val parent = pendingParent
+                            pendingParent = ""
+                            openComposer(parent)
+                        } else {
+                            termsError = tNow("শর্তাবলিতে সম্মতি সংরক্ষণ করা যায়নি। ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন।")
+                        }
+                    }
+                }
             },
             onDismiss = {
                 termsPrompt = false
@@ -2406,6 +2427,8 @@ private fun HomeForumRow(
 fun NewDiscussionScreen(
     preselectSlug: String,
     isSignedIn: Boolean,
+    consentKey: String = "",
+    onAcceptTerms: suspend () -> Boolean,
     loadCategories: suspend (String) -> Result<List<ForumCategory>>,
     draftStore: ForumDraftStore,
     post: suspend (String, String, String, String, String) -> Result<ForumThread>,
@@ -2433,6 +2456,11 @@ fun NewDiscussionScreen(
 
     var posting by remember { mutableStateOf(false) }
     var postError by remember { mutableStateOf<String?>(null) }
+    val currentConsentKey by rememberUpdatedState(consentKey)
+    var termsOk by remember(consentKey) { mutableStateOf(false) }
+    var termsPrompt by remember(consentKey) { mutableStateOf(false) }
+    var termsBusy by remember(consentKey) { mutableStateOf(false) }
+    var termsError by remember(consentKey) { mutableStateOf<String?>(null) }
     var restored by remember { mutableStateOf(false) }
 
     LaunchedEffect(preselectSlug) {
@@ -2679,7 +2707,9 @@ fun NewDiscussionScreen(
             item {
                 Button(
                     onClick = {
-                        scope.launch {
+                        if (!termsOk) {
+                            termsPrompt = true
+                        } else scope.launch {
                             posting = true
                             postError = null
                             // The files ride with the body, on their way out — and
@@ -2751,6 +2781,33 @@ fun NewDiscussionScreen(
                 )
             }
         }
+    }
+    if (termsPrompt) {
+        TermsConsentDialog(
+            accepting = termsBusy,
+            error = termsError,
+            onAccept = {
+                if (!termsBusy) {
+                    termsBusy = true
+                    termsError = null
+                    val requestedFor = consentKey
+                    scope.launch {
+                        val accepted = try { onAcceptTerms() }
+                        catch (cancel: kotlinx.coroutines.CancellationException) { throw cancel }
+                        catch (_: Exception) { false }
+                        if (currentConsentKey != requestedFor) return@launch
+                        termsBusy = false
+                        if (accepted) {
+                            termsOk = true
+                            termsPrompt = false
+                        } else {
+                            termsError = tNow("শর্তাবলিতে সম্মতি সংরক্ষণ করা যায়নি। ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন।")
+                        }
+                    }
+                }
+            },
+            onDismiss = { termsPrompt = false }
+        )
     }
 }
 

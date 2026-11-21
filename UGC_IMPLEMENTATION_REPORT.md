@@ -1,5 +1,20 @@
 # UGC implementation report
 
+## Phase 2 update — 2026-11-21
+
+**PARTIAL — not production or closed-testing ready.** Phase 2 adds additive
+migrations 044–046 for super-admin account decisions/appeals, authenticated UGC
+insert guards, report evidence, and moderation policy recommendations, alongside
+limited dashboard and consent UX. Existing 043 remains intact. The full scope,
+limitations, test evidence, file list and deployment blockers are recorded in
+`ADVANCED_MODERATION_IMPLEMENTATION_REPORT.md`. No migration has been applied to
+Supabase. Blocking, guest server consent, Android appeals/notifications, full
+moderation, retention and real staging/device validation remain incomplete.
+
+The GitHub Pages Terms URL returned HTTP 200 on this check; the custom domain
+returned HTTP 404. These supersede the earlier pre-deployment URL status below.
+
+
 ## Current continuation — 2026-11-21
 
 **PARTIAL — requires additional fixes; not closed-testing-ready.** The historical

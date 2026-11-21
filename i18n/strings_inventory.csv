@@ -14,10 +14,10 @@ bengali,bishnupriya,kind,uses,slots,screens
 প্রবন্ধ,,ui,7,0,"NinghsingCheContentData.kt, PublicProfileScreen.kt, UserDashboardCharts.kt, UserDashboardScreen.kt"
 বাতিল,,ui,7,0,"BlockedUsersScreen.kt, ContentSafetySheet.kt, ForumScreens.kt, MusicScreen.kt, SettingsScreen.kt, TermsConsentDialog.kt"
 মন্তব্য,,ui,7,0,"ArticleScreen.kt, UserDashboardCharts.kt, UserDashboardScreen.kt"
+সাইন ইন করুন,,ui,7,0,"ContentSafetySheet.kt, ContributorScreen.kt, EmailAuthForm.kt, ForumScreens.kt, HomeScreen.kt"
 মুছুন,,ui,6,0,"BookmarksScreen.kt, ForumScreens.kt, ListScreens.kt, MusicBrowseScreens.kt, MusicScreen.kt, SettingsScreen.kt"
 সংস্কৃতি,,ui,6,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 সমাজ ও সংস্কৃতি,,ui,6,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
-সাইন ইন করুন,,ui,6,0,"ContributorScreen.kt, EmailAuthForm.kt, ForumScreens.kt, HomeScreen.kt"
 অধ্যাপক বারীন্দ্র কুমার সিংহ,,content,5,0,NinghsingCheContentData.kt
 আবার চেষ্টা করুন,,ui,5,0,"AttachmentViewer.kt, BlockedUsersScreen.kt, EditorialComponents.kt, HomeScreen.kt, PdfViewerScreen.kt"
 উত্তর,,ui,5,0,"ForumScreens.kt, PublicProfileScreen.kt, UserDashboardScreen.kt"
@@ -51,6 +51,7 @@ bengali,bishnupriya,kind,uses,slots,screens
 ফোরাম,,ui,4,0,"AccountHeaderButton.kt, ForumScreens.kt, PortalDrawer.kt, UserDashboardScreen.kt"
 বার্ষিক সংখ্যা,,ui,4,0,"NinghsingCheContentData.kt, PortalDrawer.kt, ReaderNavHost.kt, Screen.kt"
 ভিডিও,,ui,4,0,"EditorialComponents.kt, MusicPlayer.kt, VideosScreen.kt"
+শর্তাবলিতে সম্মতি সংরক্ষণ করা যায়নি। ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন।,,ui,4,0,"ArticleScreen.kt, ForumScreens.kt, ReaderWorkspaceViewModel.kt"
 শিল্পী,,ui,4,0,"MusicBrowseScreens.kt, MusicPlayer.kt, MusicScreen.kt, NewMusicScreen.kt"
 সম্পাদকীয়,,ui,4,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 সাধারণ,,ui,4,0,"ArticleRepository.kt, NinghsingCheAiAssistant.kt, PortalModels.kt"
@@ -502,6 +503,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 ঐতিহ্যবাহী ইঞ্চৌঘরের বিভিন্ন অংশের নাম ও সামাজিক তাৎপর্য কী?,,ui,1,0,NinghsingCheAiAssistant.kt
 "ঐতিহ্যবাহী মণিপুরি সমাজব্যবস্থা, লোকাচার, নৃত্যকলা, রাসলীলা, পোশাক-পরিচ্ছদ ও লোকসংগীত।",,content,1,0,NinghsingCheContentData.kt
 ওয়েবসাইট (ঐচ্ছিক),,ui,1,0,UserProfileScreen.kt
+কনটেন্ট জমা দেওয়ার আগে অনুগ্রহ করে আমাদের ব্যবহারের শর্তাবলি এবং কমিউনিটি নির্দেশিকা পড়ুন।,,ui,1,0,TermsConsentDialog.kt
 কন্টেন্ট,,ui,1,0,UserDashboardScreen.kt
 কপি করুন,,ui,1,0,ArticleScreen.kt
 কপিরাইট © নিংশিং চে • সর্বস্বত্ব সংরক্ষিত,,ui,1,0,SettingsScreen.kt
@@ -597,6 +599,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 ছেড়ে দিলে ছোট হয়ে যাবে,,ui,1,0,MusicPlayer.kt
 জনপ্রিয়,,ui,1,0,ForumScreens.kt
 জনপ্রিয় ও নির্বাচিত,,ui,1,0,Screen.kt
+জমা দেওয়ার আগে বর্তমান ব্যবহারের শর্তাবলিতে সম্মতি দিন।,,ui,1,0,ReaderWorkspaceViewModel.kt
 জানু,,ui,1,0,UserDashboardCharts.kt
 জানুয়ারি,,ui,1,0,ContributorScreen.kt
 জিজ্ঞাসা করুন,,ui,1,0,AiAssistantScreen.kt
@@ -817,7 +820,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 প্রবন্ধ ও গান খুঁজুন...,,ui,1,0,ListScreens.kt
 প্রবন্ধ জমা দেওয়ার আগে বর্তমান ব্যবহারের শর্তাবলিতে সম্মতি দিন।,,ui,1,0,ReaderWorkspaceViewModel.kt
 প্রবন্ধ তালিকা লোড হয়নি ({1}),,ui,1,1,SupabaseClient.kt
-প্রবন্ধ প্রকাশের জন্য জমা দেওয়ার আগে অনুগ্রহ করে আমাদের ব্যবহারের শর্তাবলি এবং কমিউনিটি নির্দেশিকা পড়ুন।,,ui,1,0,TermsConsentDialog.kt
 প্রবন্ধ বিশ্লেষণ,,ui,1,0,UserDashboardScreen.kt
 প্রবন্ধ যোগ,,ui,1,0,UserDashboardScreen.kt
 প্রবন্ধ সংরক্ষণ হয়েছে,,ui,1,0,MainViewModels.kt
@@ -1068,7 +1070,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 লোকতাক হ্রদ,,content,1,0,NinghsingCheContentData.kt
 লোকসংস্কৃতি,,content,1,0,NinghsingCheContentData.kt
 লোকসাহিত্য গবেষণা সংস্করণ (২০২২),,content,1,0,NinghsingCheContentData.kt
-শর্তাবলিতে সম্মতি সংরক্ষণ করা যায়নি। ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন।,,ui,1,0,ReaderWorkspaceViewModel.kt
 শর্তাবলী,,ui,1,0,SiteFooter.kt
 শহীদ,,ui,1,0,NinghsingCheAiAssistant.kt
 শহীদ সুদেষ্ণা সিংহ ছাড়া আর কারা ভাষা আন্দোলনে ভূমিকা রেখেছিলেন?,,ui,1,0,NinghsingCheAiAssistant.kt

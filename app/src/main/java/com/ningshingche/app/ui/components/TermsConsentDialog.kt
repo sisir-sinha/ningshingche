@@ -48,7 +48,8 @@ const val TERMS_OF_USE_URL = "https://sisir-sinha.github.io/ningshingche/terms-o
 fun TermsConsentDialog(
     onAccept: () -> Unit,
     onDismiss: () -> Unit,
-    accepting: Boolean = false
+    accepting: Boolean = false,
+    error: String? = null
 ) {
     var checked by remember { mutableStateOf(false) }
     val uriHandler = LocalUriHandler.current
@@ -70,7 +71,7 @@ fun TermsConsentDialog(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    text = t("প্রবন্ধ প্রকাশের জন্য জমা দেওয়ার আগে অনুগ্রহ করে আমাদের ব্যবহারের শর্তাবলি এবং কমিউনিটি নির্দেশিকা পড়ুন।"),
+                    text = t("কনটেন্ট জমা দেওয়ার আগে অনুগ্রহ করে আমাদের ব্যবহারের শর্তাবলি এবং কমিউনিটি নির্দেশিকা পড়ুন।"),
                     fontFamily = Kalpurush,
                     fontSize = textSize(13.5),
                     lineHeight = leading(13.5),
@@ -90,6 +91,10 @@ fun TermsConsentDialog(
                         fontSize = textSize(13),
                         lineHeight = leading(13)
                     )
+                }
+
+                if (!error.isNullOrBlank()) {
+                    Text(error, fontFamily = Kalpurush, color = MaterialTheme.colorScheme.error)
                 }
 
                 TextButton(

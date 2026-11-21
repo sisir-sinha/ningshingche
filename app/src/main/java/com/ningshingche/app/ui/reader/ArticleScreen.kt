@@ -106,6 +106,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -203,7 +204,8 @@ fun ArticleScreen(
      * promise is made.
      */
     termsAccepted: Boolean = false,
-    onAcceptTerms: (suspend () -> Unit)? = null,
+    onAcceptTerms: (suspend () -> Boolean)? = null,
+    consentKey: String = "",
     reportArticle: (suspend (String, String, String) -> Result<Boolean>)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -218,8 +220,11 @@ fun ArticleScreen(
     var showArticleReport by remember { mutableStateOf(false) }
     // Terms, once per install, on the way into the comment form.
     val scope = rememberCoroutineScope()
-    var termsOk by remember(termsAccepted) { mutableStateOf(termsAccepted) }
-    var termsPrompt by remember { mutableStateOf(false) }
+    val currentConsentKey by rememberUpdatedState(consentKey)
+    var termsOk by remember(termsAccepted, consentKey) { mutableStateOf(termsAccepted) }
+    var termsPrompt by remember(consentKey) { mutableStateOf(false) }
+    var termsBusy by remember(consentKey) { mutableStateOf(false) }
+    var termsError by remember(consentKey) { mutableStateOf<String?>(null) }
 
     var ttsPlayState by remember { mutableStateOf(TtsPlayState.IDLE) }
     var ttsErrorMessage by remember { mutableStateOf<String?>(null) }
@@ -513,14 +518,28 @@ fun ArticleScreen(
 
     if (termsPrompt) {
         TermsConsentDialog(
+            accepting = termsBusy,
+            error = termsError,
             onAccept = {
-                termsOk = true
-                termsPrompt = false
-                val accept = onAcceptTerms
-                if (accept != null) scope.launch { accept() }
-                // Agreeing to the rules and asking to post is one gesture: the
-                // comment the reader wrote goes in rather than being withheld.
-                viewModel.postComment()
+                if (!termsBusy) {
+                    termsBusy = true
+                    termsError = null
+                    val requestedFor = consentKey
+                    scope.launch {
+                        val accepted = try { onAcceptTerms?.invoke() == true }
+                        catch (cancel: kotlinx.coroutines.CancellationException) { throw cancel }
+                        catch (_: Exception) { false }
+                        if (currentConsentKey != requestedFor) return@launch
+                        termsBusy = false
+                        if (accepted) {
+                            termsOk = true
+                            termsPrompt = false
+                            viewModel.postComment()
+                        } else {
+                            termsError = tNow("শর্তাবলিতে সম্মতি সংরক্ষণ করা যায়নি। ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন।")
+                        }
+                    }
+                }
             },
             onDismiss = { termsPrompt = false }
         )

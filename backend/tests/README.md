@@ -116,3 +116,14 @@ checks create synthetic rows and perform writes. The 043 migration was also
 reapplied locally after checks; do not reapply 042 after 043 without restoring
 043 because 042 re-grants UPDATE. For real staging use the separately reviewed
 [staging runbook](UGC_STAGING_RUNBOOK.md), not these fixture setup files.
+
+## Phase 2 isolated fixture (044–046)
+
+Run `bash backend/tests/sql/run-ugc-phase2.sh` from the repository root. It
+creates and deletes its own local PostgreSQL cluster in a private temporary
+socket directory, disables TCP, applies the previous disposable fixture and
+040–046 in order, tests 043/044/045/046, and reapplies 044–046. It requires
+PostgreSQL binaries and a non-root account. It never connects to Supabase. The
+fixture has mocked `auth.uid()` and dashboard sessions, simplified tables, and
+cannot prove real Supabase RLS, triggers, deployed schema, clients or concurrency.
+Never use the fixture SQL against a production or staging project.
