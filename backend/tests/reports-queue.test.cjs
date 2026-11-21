@@ -79,21 +79,20 @@ test('a report is read, decided, and written down', async (t) => {
     );
   });
 
-  await t.test('every decision names who made it', () => {
-    assert.match(REPORTS, /handled_by: editor,/,
-      'the update carries the editor');
-    assert.match(REPORTS, /const editor = String\(user\.name \|\| user\.username/,
-      'taken from the dashboard sign-in, not a constant');
+  await t.test('decisions use a server-attributed and reasoned RPC', () => {
+    const migration = read('supabase', 'migrations', '043_report_validation_and_decisions.sql');
+    assert.match(REPORTS, /NC\.api\.rpc\('dashboard_moderate_report'/);
+    assert.match(REPORTS, /p_reason: reason/);
+    assert.doesNotMatch(REPORTS, /handled_by: editor/);
+    assert.match(migration, /actor uuid := public\.dashboard_current_user_id\(\)/);
+    assert.match(migration, /decision_reason/);
+    assert.match(migration, /revoke update on public\.content_reports/);
   });
 
-  await t.test('nothing is deleted from the queue', () => {
-    // A report is a claim, not a verdict. Removing the content is a separate act
-    // on the page where it lives; a one-tap delete here would be a silencing
-    // tool, and the two steps should not be one gesture.
+  await t.test('content is unpublished deliberately, not deleted', () => {
     assert.ok(!/NC\.api\.delete(Record)?\(/.test(REPORTS), 'no delete call');
-    assert.ok(!/\.remove\(/.test(REPORTS), 'and no remove helper');
-    assert.match(REPORTS, /this page never deletes anything/,
-      'the modal says so where an editor will read it');
+    assert.match(REPORTS, /Unpublish content &amp; resolve/);
+    assert.match(REPORTS, /window\.prompt/);
   });
 
   await t.test('the default view is the work, not the archive', () => {

@@ -5,24 +5,10 @@
  * or an AI answer (migration 040). That is only half of the policy: the other half
  * is that *someone reads it*. This page is that someone.
  *
- * Three decisions are worth knowing before reading the code:
- *
- *  - **Nothing is removed from here by a button.** A report is a claim, not a
- *    verdict; the queue moves a claim through `open → reviewing → actioned /
- *    dismissed`, and removing the content is a separate, deliberate act on the
- *    Forum, Comments, Music or Users page. A one-tap "delete the reported thing"
- *    is a silencing tool, and reviewers get it wrong often enough that the two
- *    steps should not be the same gesture.
- *
- *  - **Every change writes `handled_by`.** Play's reviewers, and an owner reading
- *    their own queue six months later, both ask who decided. The name is the
- *    dashboard sign-in, which is the only identity this page has.
- *
- *  - **The page borrows the Forum permission** (`permission: 'forum'` in
- *    config.js) instead of claiming a new menu key: `dashboard_save_role` drops a
- *    key that `dashboard_valid_permissions()` does not list, and a role that can
- *    already moderate the forum is exactly the role that should triage its
- *    reports. It is the same arrangement Languages uses to ride on Settings.
+ * Reviewers open reports before deciding. The server authenticates the dashboard
+ * session, records decision reasons and actor IDs, and can transactionally
+ * unpublish supported content without deleting it. Article and comment actions
+ * also require their respective dashboard permissions.
  */
 (function (NC) {
   'use strict';
@@ -226,6 +212,7 @@
         if (action === 'review') setStatus(record, 'reviewing');
         if (action === 'actioned') setStatus(record, 'actioned');
         if (action === 'dismissed') setStatus(record, 'dismissed');
+        if (action === 'remove') setStatus(record, 'remove');
       });
     });
     NC.crud.bindPagination(root, state, renderList);
@@ -243,7 +230,8 @@
       ['Reporter', record.reporter_user_id || (record.reporter_device ? 'Guest · ' + record.reporter_device : 'Unknown')],
       ['Received', formatDateTime(record.created_at)],
       ['Last changed', formatDateTime(record.updated_at)],
-      ['Handled by', record.handled_by || 'Nobody yet']
+      ['Handled by', record.handled_by || 'Nobody yet'],
+      ['Decision reason', record.decision_reason || '—']
     ];
     NC.components.openModal({
       title: 'Report · ' + contentLabel(record.content_type),
@@ -254,7 +242,7 @@
             : (record.status === 'reviewing'
               ? 'Someone is looking at this. Mark it actioned once the content is dealt with, or dismissed if it breaks no rule.'
               : (record.status === 'actioned'
-                ? 'This report was acted on. The content itself is removed from its own page — this page never deletes anything.'
+                ? 'This report was actioned. Check the decision reason and audit for what happened; content is never deleted automatically.'
                 : 'This report was dismissed as not breaking the rules.')),
           record.status === 'dismissed' ? 'info' : (record.status === 'actioned' ? 'success' : 'warning')
         )}
@@ -265,6 +253,7 @@
         <button type="button" class="btn btn-secondary" data-modal-close>Close</button>
         ${record.status === 'open' ? '<button type="button" class="btn btn-primary" data-report-set="reviewing">Start reviewing</button>' : ''}
         ${record.status === 'reviewing' ? '<button type="button" class="btn btn-secondary" data-report-set="dismissed">Dismiss</button><button type="button" class="btn btn-primary" data-report-set="actioned">Mark actioned</button>' : ''}
+        ${record.status === 'reviewing' && ['article', 'comment', 'discussion', 'reply'].includes(record.content_type) ? '<button type="button" class="btn btn-danger" data-report-set="remove">Unpublish content &amp; resolve</button>' : ''}
       `
     });
     const footer = document.querySelector('.modal-footer') || document;
@@ -276,32 +265,32 @@
     });
   }
 
-  /**
-   * The one write this page makes. `handled_by` is the dashboard sign-in name, so a
-   * decision can be traced back to a person rather than to "the dashboard".
-   */
+  // Reasons and the moderator identity are enforced by the server. Cancelling a
+  // prompt performs no write; unpublishing and its audit are one transaction.
   async function setStatus(record, status) {
-    // `NC.state.session.user` is the sign-in the dashboard already keeps; the
-    // configured display name is the fallback for a legacy password-only login,
-    // which has no user row to read a name from.
-    const user = NC.state?.session?.user || {};
-    const editor = String(user.name || user.username || NC_CONFIG.auth?.displayName || 'Editor').trim();
+    const actions = { reviewing: 'review', dismissed: 'dismiss', actioned: 'resolve', remove: 'remove' };
+    const action = actions[status];
+    if (!action) return;
+    let reason = '';
+    if (action !== 'review') {
+      const answer = window.prompt(action === 'remove'
+        ? 'Reason for unpublishing this content (required):'
+        : 'Reason for this decision (required):');
+      if (answer === null) return;
+      reason = answer.trim();
+      if (reason.length < 3 || reason.length > 1000) {
+        NC.components.toast('Enter a reason of 3–1000 characters.', 'error');
+        return;
+      }
+    }
     try {
-      const updated = await NC.api.update('contentReports', record.id, {
-        status,
-        handled_by: editor,
-        updated_at: new Date().toISOString()
+      const updated = await NC.api.rpc('dashboard_moderate_report', {
+        p_report_id: record.id, p_action: action, p_reason: reason
       });
       if (!updated) throw new Error('The report was not updated. Refresh and try again.');
-      const rows = state.records.map((item) => (item.id === record.id ? { ...item, ...updated } : item));
-      state.setRecords(rows);
+      state.setRecords(state.records.map((item) => (item.id === record.id ? { ...item, ...updated } : item)));
       renderList();
-      NC.components.toast(
-        status === 'reviewing' ? 'This report is yours now — it moved to Reviewing.'
-          : (status === 'actioned' ? 'Marked actioned. Remove the content from its own page.'
-            : 'Dismissed. The content stays where it is.'),
-        status === 'actioned' ? 'success' : 'info'
-      );
+      NC.components.toast(action === 'remove' ? 'Content unpublished and report resolved.' : 'Report updated.', 'info');
     } catch (error) {
       console.error(error);
       NC.components.toast(NC.api.userMessage(error, 'The report could not be updated.'), 'error');

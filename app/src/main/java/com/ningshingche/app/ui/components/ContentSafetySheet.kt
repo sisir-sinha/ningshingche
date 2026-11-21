@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.ningshingche.app.data.portal.PortalError
 import com.ningshingche.app.ui.i18n.t
 import com.ningshingche.app.ui.i18n.tNow
 import com.ningshingche.app.ui.theme.Kalpurush
@@ -306,8 +307,12 @@ fun ContentReportDialog(
                                 .onSuccess { accepted ->
                                     if (accepted) sent = true else error = tNow("রিপোর্ট পাঠানো যায়নি। আবার চেষ্টা করুন।")
                                 }
-                                .onFailure {
-                                    error = tNow("রিপোর্ট পাঠানো যায়নি। আবার চেষ্টা করুন।")
+                                .onFailure { failure ->
+                                    error = if (failure is PortalError.SignedOut) {
+                                        tNow("সাইন ইন করুন")
+                                    } else {
+                                        tNow("রিপোর্ট পাঠানো যায়নি। আবার চেষ্টা করুন।")
+                                    }
                                 }
                             busy = false
                         }

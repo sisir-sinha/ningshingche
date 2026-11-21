@@ -106,3 +106,13 @@ psql -X -v ON_ERROR_STOP=1 -d nc_ugc_fixture -f backend/tests/sql/ugc-fixture-ch
 The fixture checks SQL execution, version gating, ownership, report attribution,
 deduplication, RLS visibility, block RPCs, and server-attributed report status
 changes. It does not replace staging tests against real Supabase authentication.
+
+### 043 continuation fixture
+
+After the 040–042 checks above in the same disposable database, apply
+`sql/ugc-043-setup.sql`, then `../supabase/migrations/043_report_validation_and_decisions.sql`
+(the path is relative to `backend/tests`), then `sql/ugc-043-checks.sql`. The
+checks create synthetic rows and perform writes. The 043 migration was also
+reapplied locally after checks; do not reapply 042 after 043 without restoring
+043 because 042 re-grants UPDATE. For real staging use the separately reviewed
+[staging runbook](UGC_STAGING_RUNBOOK.md), not these fixture setup files.

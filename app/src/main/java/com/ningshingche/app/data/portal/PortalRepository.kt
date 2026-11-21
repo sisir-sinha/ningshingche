@@ -1046,9 +1046,8 @@ class PortalRepository(
      */
     // ------------------------------------------------------- content safety
     //
-    // Two of the four things Play's UGC policy asks for. Reporting sends either the
-    // session or the device id, because a guest reads the forum and can see
-    // something wrong in it; blocking is signed-in only and private.
+    // Reporting and blocking use the authenticated reader session; the server
+    // does not trust a client-supplied device id or reported-user attribution.
 
     /** Content types the database accepts (migration 040). */
     private val REPORTABLE_TYPES = setOf(
@@ -1085,8 +1084,7 @@ class PortalRepository(
                     "p_content_id" to id,
                     "p_reason" to why,
                     "p_note" to note.trim(),
-                    "p_reported_user" to reportedUserId.trim(),
-                    "p_device_id" to guestViewerId
+                    "p_reported_user" to reportedUserId.trim()
                 ).withoutBlanks()
             )
         }

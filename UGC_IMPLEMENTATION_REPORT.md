@@ -1,5 +1,80 @@
 # UGC implementation report
 
+## Current continuation — 2026-11-21
+
+**PARTIAL — requires additional fixes; not closed-testing-ready.** The historical
+baseline below documents the earlier commit, not the final state after migration
+043. Where it differs, this continuation section supersedes it. Nothing here was
+pushed, applied to Supabase, or deployed.
+
+| Area | Status | Current evidence and limitations |
+|---|---|---|
+| Account Terms and article submission | PARTIAL | 041/042 retain server-derived, version-bound acceptance and Pending article submission. Fixture passed; real Supabase and Android not verified. Authenticated comments, forum, replies and music are still not server Terms-gated. Anonymous comments retain their existing contract but do not yet have the requested server-verifiable guest consent design. |
+| Blocks | PARTIAL | Existing private block/unblock and UI retained. Blocking does not comprehensively filter reads, caches, notifications, interactions or direct navigation; forum SECURITY DEFINER reads need specific attention. |
+| Reports | PARTIAL | New 043 requires a signed-in JWT for every type, validates reasons/lengths and existing accessible database targets, derives authors, rejects self-reporting where attributed, serializes per-account duplicate/quota checks, and caps new reports at 30 per rolling 24 hours. Legacy guest reporting is disabled rather than trusting spoofable device IDs; app shows a sign-in error. The AI answer has no server record: its supplied ID cannot be verified and carries no answer text, so AI reporting is not fully hardened or reviewable. Some music visibility limitations depend on actual schema. Existing reports are retained without retroactive corrections. |
+| Human moderation | PARTIAL | 043 adds an authorized dashboard RPC with review, dismissal, resolution and reason-required transactional unpublish of article, comment, discussion and reply; it records authenticated staff UUID, target, prior/new status, reason and server timestamp. Separate article/comment permissions required. Other editorial-page writes, pending rejection, warnings/restrictions and all approval actions are not comprehensively audited. No reliable staff-reader identity mapping/self-approval prevention exists. Profile, music and AI removal are unsupported. |
+| Real Supabase/staging | NOT RUN | Only a simplified, disposable PostgreSQL 17 fixture with mocked identities. See `backend/tests/UGC_STAGING_RUNBOOK.md`; no staging credentials or authorized staging project were available. |
+| Local PostgreSQL tests | PASS | Fresh fixture applied 040–042, passed previous checks, applied 043, tested report targets, impersonated owner, duplicate, invalid target/reason, guest and direct update denial, unauthorized moderator, reason enforcement, article-independent discussion unpublish/audit, status transition and sequential 30/day cap; 043 reapplied. It is not a real schema or real JWT test; concurrency and every content branch remain unverified. |
+| Dashboard/Node regression | PASS | Full Node/jsdom suite: 677 tests passed, 0 failed, 0 skipped (source and mock tests; not real browser or Supabase end-to-end). |
+| Android debug and unit tests | BLOCKED | The pre-existing worktree mode change makes `./gradlew` fail permission denied; preserved as requested. Running via `bash ./gradlew` failed because the current environment has Java 11 and Gradle 9.3.1 requires Java 17+. Android SDK is not present. The earlier environment with JDK/SDK reached Kotlin compilation but failed with a 512 MB heap OOM; no APK or unit test pass. |
+| Android release and devices | BLOCKED | Earlier release AAB failed the existing signing guard: original signing configuration absent. No keys changed or created. Device/emulator tests NOT RUN. |
+| Terms URLs | FAIL | Independently rechecked `https://ningshingche.com/terms-of-use/` and `https://sisir-sinha.github.io/ningshingche/terms-of-use/`: both HTTP 404. The workflow builds `backend/` as Pages root; custom-domain hosting is independent. Responsive/accessibility verification in a real browser NOT RUN. |
+| Localization | PARTIAL | Five Bengali/English/Bishnupriya CSVs each have 1,016 unique keys, no duplicates, and matching key sets. Bengali fallback in Bishnupriya remains pending native-speaker review; equality is not translation quality. |
+| Secret hygiene | PARTIAL | No values printed. Earlier exposed ImgBB credential remains in Git history; rotation is required. The PATs previously supplied must be revoked/rotated. Broad import-file scan hits were not matched by narrower GitHub PAT or quoted credential-assignment patterns; this is not proof those files or history contain no secrets. No history rewrite or force push. |
+| Push / deployment | BLOCKED | Previous local commit `f568deb` push was rejected for authentication; current environment has no configured remote or persisted credentials. No deployment or production write. |
+
+### Continuation files
+
+- `backend/supabase/migrations/043_report_validation_and_decisions.sql`: additive
+  reporting validation, reasoned decision RPC, audited unpublish actions and
+  removal of direct report-update grants. No automatic deletion.
+- `backend/assets/js/reports.js`: calls the RPC, asks for a reason, offers
+  explicit unpublish in the opened report and shows decision reason.
+- `app/src/main/java/com/ningshingche/app/data/portal/PortalRepository.kt` and
+  `app/src/main/java/com/ningshingche/app/ui/components/ContentSafetySheet.kt`:
+  no report device ID; sign-in refusal shown with existing localized text.
+- `backend/tests/sql/ugc-043-setup.sql`, `ugc-043-checks.sql`: disposable tests.
+- `backend/tests/reports-queue.test.cjs`, `backend/tests/README.md`: updated
+  server-attributed decision assertions and fixture instructions.
+- `backend/tests/UGC_STAGING_RUNBOOK.md`: operator-only staging checklist.
+- `UGC_IMPLEMENTATION_REPORT.md`: this continuation. The pre-existing mode-only
+  `gradlew` modification is not part of the commit.
+
+### Migration and release cautions
+
+Apply 043 **only after** verifying prerequisites and actual schema in disposable
+staging. The old dashboard's direct PATCH no longer works after 043; release the
+matching dashboard in coordination. Older guest clients will no longer be able to
+report; anonymous commenting is not changed by 043. 042's old consent RPC revocation
+also requires coordinated app rollout. Reapplying 042 after 043 restores direct
+report update grants, so do not do that; if testing, 043 must be re-applied last.
+No production reset, content deletion, automatic moderation, signing-key change,
+or history rewrite was performed. Real role grants, policies, JWT sessions,
+trigger behavior and all branches require staging and device validation before
+any production change.
+
+### Required next actions
+
+1. Complete server Terms enforcement for every UGC path and design explicit,
+   secure guest comment consent without silently breaking anonymous commenting.
+2. Implement comprehensive account-specific block filtering, cache invalidation,
+   direct navigation and interactions, including SECURITY DEFINER forum paths.
+3. Complete and test AI report validation/review, live concurrency and target
+   checks; implement the missing moderation actions/audit and a proven identity
+   mapping that prevents self-approval.
+4. Run the staging runbook with authorized disposable Supabase identities; do not
+   share secrets in chat. Provide secure authenticated Git access/remote out of
+   band and retry the required push; rotate the exposed ImgBB key and PATs.
+5. Deploy and independently verify both Terms URLs; review accessibility,
+   responsiveness and native translations. Run the full Android build and device
+   regression with JDK 17+, Android SDK, sufficient RAM and the original signing
+   configuration. Google Play compliance has not been established.
+
+---
+
+## Historical baseline (before continuation / 043)
+
+
 ## A. Executive summary
 
 This is a **partial implementation**, not a Google Play compliance certification.
