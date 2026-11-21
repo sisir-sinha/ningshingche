@@ -17,7 +17,10 @@ import com.ningshingche.app.data.portal.ContributorScore
 import com.ningshingche.app.data.portal.ForumActivity
 import com.ningshingche.app.data.portal.PortalRepository
 import com.ningshingche.app.data.portal.ViewDay
+import com.ningshingche.app.data.preferences.UserPreferencesRepository
+import com.ningshingche.app.data.remote.ReaderSessionRequiredException
 import com.ningshingche.app.data.remote.SupabaseClient
+import com.ningshingche.app.data.remote.TermsAcceptanceRequiredException
 import com.ningshingche.app.data.remote.UserNotificationRecord
 import com.ningshingche.app.data.remote.UserProfile
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -105,10 +108,20 @@ data class ReaderSubmission(
     }
 }
 
+enum class TermsAcceptanceState {
+    UNKNOWN,
+    CHECKING,
+    REQUIRED,
+    ACCEPTING,
+    ACCEPTED,
+    ERROR
+}
+
 class ReaderWorkspaceViewModel(
     private val googleAuthRepository: GoogleAuthRepository,
     private val supabaseClient: SupabaseClient,
-    private val portalRepository: PortalRepository
+    private val portalRepository: PortalRepository,
+    private val preferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
 
     val currentUser: StateFlow<UserProfile?> = googleAuthRepository.currentUser
@@ -173,6 +186,61 @@ class ReaderWorkspaceViewModel(
 
     private val _avatarUploading = MutableStateFlow(false)
     val avatarUploading: StateFlow<Boolean> = _avatarUploading.asStateFlow()
+
+    private val _termsAcceptance = MutableStateFlow(TermsAcceptanceState.UNKNOWN)
+    val termsAcceptance: StateFlow<TermsAcceptanceState> = _termsAcceptance.asStateFlow()
+
+    /**
+     * Synchronizes the local UI cache with the account-level database record.
+     * A failed check never turns into permission to submit: the submission RPC
+     * performs the same check again and is the final authority.
+     */
+    fun refreshTermsAcceptance() {
+        if (_termsAcceptance.value == TermsAcceptanceState.CHECKING ||
+            _termsAcceptance.value == TermsAcceptanceState.ACCEPTING
+        ) return
+        if (currentUser.value == null) {
+            _termsAcceptance.value = TermsAcceptanceState.ERROR
+            return
+        }
+        viewModelScope.launch {
+            _termsAcceptance.value = TermsAcceptanceState.CHECKING
+            supabaseClient.hasAcceptedCurrentTerms()
+                .onSuccess { accepted ->
+                    _termsAcceptance.value = if (accepted) {
+                        TermsAcceptanceState.ACCEPTED
+                    } else {
+                        TermsAcceptanceState.REQUIRED
+                    }
+                }
+                .onFailure {
+                    _termsAcceptance.value = TermsAcceptanceState.ERROR
+                }
+        }
+    }
+
+    /** Records explicit server-side acceptance, then updates DataStore as a cache. */
+    suspend fun acceptCurrentTerms(): Boolean {
+        if (_termsAcceptance.value == TermsAcceptanceState.ACCEPTING) return false
+        _termsAcceptance.value = TermsAcceptanceState.ACCEPTING
+        _message.value = null
+        return supabaseClient.acceptCurrentTerms().fold(
+            onSuccess = { accepted ->
+                preferencesRepository.acceptTerms(accepted.termsVersion)
+                _termsAcceptance.value = TermsAcceptanceState.ACCEPTED
+                true
+            },
+            onFailure = { failure ->
+                _termsAcceptance.value = TermsAcceptanceState.ERROR
+                _message.value = if (failure is ReaderSessionRequiredException) {
+                    tNow("সেশন শেষ হয়েছে। আবার সাইন ইন করুন।")
+                } else {
+                    tNow("শর্তাবলিতে সম্মতি সংরক্ষণ করা যায়নি। ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন।")
+                }
+                false
+            }
+        )
+    }
 
     fun refresh() {
         val user = currentUser.value ?: return
@@ -478,6 +546,7 @@ class ReaderWorkspaceViewModel(
     }
 
     fun submitArticle(title: String, content: String, thumbnailUri: Uri?, context: Context) {
+        if (_isSaving.value) return
         val user = currentUser.value ?: return
         if (!user.isProfileComplete) {
             _message.value = tNow("নতুন প্রবন্ধ জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।")
@@ -535,8 +604,18 @@ class ReaderWorkspaceViewModel(
                     title = record.title
                 )
                 refresh()
-            }.onFailure {
-                _message.value = it.message ?: tNow("লেখা জমা যায়নি।")
+            }.onFailure { failure ->
+                _message.value = when (failure) {
+                    is TermsAcceptanceRequiredException -> {
+                        _termsAcceptance.value = TermsAcceptanceState.REQUIRED
+                        tNow("প্রবন্ধ জমা দেওয়ার আগে বর্তমান ব্যবহারের শর্তাবলিতে সম্মতি দিন।")
+                    }
+                    is ReaderSessionRequiredException ->
+                        tNow("সেশন শেষ হয়েছে। আবার সাইন ইন করুন।")
+                    is IllegalStateException ->
+                        tNow("নতুন প্রবন্ধ জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।")
+                    else -> tNow("লেখা জমা যায়নি। ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন।")
+                }
             }
             _isSaving.value = false
         }

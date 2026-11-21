@@ -158,6 +158,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 আমার ড্যাশবোর্ড,My dashboard
 আমার সম্পর্কে,About me
 আমি নিংশিং চে AI...,I am the Ningshing Che AI...
+আমি ব্যবহারের শর্তাবলি এবং কমিউনিটি নির্দেশিকা পড়েছি এবং সম্মত হচ্ছি।,I have read and agree to the Terms of Use and Community Guidelines.
 আরও,More
 আরও {1} টি উত্তর — সব উত্তর দেখুন চাপুন,{1} more answers — tap to see all the answers
 আরও দেখুন,See more
@@ -295,7 +296,6 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 কমা বা ট্যাব চাপলে চিপ হবে,Press comma or Tab to make a chip
 কার্যক্রম,Activity
 কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।,Something went wrong. Try again.
-কিছু ভুল মনে হলে তার পাশের ⋯ মেনু বা রিপোর্ট বোতাম দিয়ে জানাতে পারবেন। সম্পাদক তা দেখে ব্যবস্থা নেবেন।,"If something looks wrong, you can tell us with the report button or the ⋯ menu beside it. An editor reads every report and acts on it."
 কী সমস্যা?,What is wrong?
 কুমেই,Kumei
 কেহেম আইটি,Kehem IT
@@ -481,7 +481,6 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 নিংশিং চে PDF {1},Ningshing Che PDF {1}
 নিংশিং চে {1},Ningshing Che {1}
 নিংশিং চে অ্যাপ শেয়ার করুন,Share the Ningshing Che app
-"নিংশিং চে একটি সাংস্কৃতিক সংরক্ষণাগার। এখানে লেখা, ছবি, গান বা বই জমা করলে নিচের নিয়মগুলো মেনে চলার কথা আপনি স্বীকার করছেন।","Ningshing Che is a cultural archive. By posting writing, pictures, songs or books here, you agree to follow the rules below."
 নিংশিং চে ডিজিটাল আর্কাইভে এ বিষয়ে আর কী কী তথ্য আছে?,What else does the Ningshing Che digital archive have on this subject?
 "নিংশিং চে তথ্যকোষে প্রকাশিত লেখক। {1} এর রচনাসমূহ ইতিহাস, সাহিত্য ও সংস্কৃতি বিষয়ে পাওয়া যায়।","An author published in the Ningshing Che encyclopedia. {1}'s works are on history, literature and culture."
 নিংশিং চে তথ্যকোষের লেখক ও গবেষকবৃন্দ,Writers and researchers of the Ningshing Che encyclopedia
@@ -538,7 +537,6 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 পয়েন্ট,Points
 পয়েন্টের হিসাব এখনো পাওয়া যায়নি।,The points total could not be fetched yet.
 পরবর্তী,Next
-পরে,Not now
 পরে সেটিংস থেকে ভাষা বদলাতে পারবেন।,You can change the language later in the settings.
 পরের গান,Next song
 পরের ছবি,Next photo
@@ -582,7 +580,6 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 পৃষ্ঠায় যান,Go to the page
 পেছনে,Back
 পেস্ট,Paste
-পোস্ট করার আগে,Before you post
 পৌ,পৌ
 পৌরাণিক,Mythological
 পৌরাণিক কাহিনী,Mythological tales
@@ -600,8 +597,10 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 প্রবন্ধ {1},Article {1}
 প্রবন্ধ {1} ·,Article {1} ·
 প্রবন্ধ ও গান খুঁজুন...,Search articles and songs...
+প্রবন্ধ জমা দেওয়ার আগে বর্তমান ব্যবহারের শর্তাবলিতে সম্মতি দিন।,Accept the current Terms of Use before submitting an article.
 প্রবন্ধ তালিকা লোড হয়নি ({1}),The article list did not load ({1})
 প্রবন্ধ প্রকাশিত হয়েছে,The article is published
+প্রবন্ধ প্রকাশের জন্য জমা দেওয়ার আগে অনুগ্রহ করে আমাদের ব্যবহারের শর্তাবলি এবং কমিউনিটি নির্দেশিকা পড়ুন।,"Before submitting an article for publication, please read our Terms of Use and Community Guidelines."
 প্রবন্ধ বিশ্লেষণ,Article analysis
 প্রবন্ধ ভিউ,Article views
 প্রবন্ধ যোগ,Add an article
@@ -741,6 +740,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 ব্যবহারকারীর পাতা,User page
 ব্যবহারকারীর প্রশ্ন / নির্দেশ: {1},User question / instruction: {1}
 ব্যবহারকারীর প্রশ্ন: {1},User question: {1}
+ব্যবহারের শর্তাবলি,Terms of Use
 ব্রাউজারে খুলুন,Open in the browser
 ব্লক করা যায়নি। আবার চেষ্টা করুন।,Could not block. Please try again.
 ভজন,Bhajan
@@ -843,8 +843,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 লেখকবৃন্দ,Writers
 লেখকের রচনাবলী,The author's works
 লেখা জমা না হওয়া পর্যন্ত এখানে সংরক্ষিত থাকে — ফিরে এলে যা লিখেছিলেন তাই পাবেন।,It stays saved here until the writing is submitted — come back and you get back what you wrote.
-লেখা জমা যায়নি ({1})। প্রোফাইল সম্পূর্ণ করে আবার চেষ্টা করুন।,The writing could not be submitted ({1}). Complete your profile and try again.
-লেখা জমা যায়নি।,The writing could not be submitted.
+লেখা জমা যায়নি। ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন।,The article could not be submitted. Check your internet connection and try again.
 লেখা জমা হয়েছে,Writing submitted
 লেখা জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর প্রকাশিত হবে।,The writing is submitted. It is published after editorial review.
 লেখা জমাদান,Submit writing
@@ -854,6 +853,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 লেখা সম্পাদকীয় পর্যালোচনার পর প্রকাশিত হবে। শিরোনাম ও মূল লেখা জমা দেওয়া পর্যন্ত সংরক্ষিত থাকবে।,The writing is published after editorial review. The title and the body stay saved until they are submitted.
 লোকগীতি,Folk songs
 লোড হচ্ছে…,Loading…
+শর্তাবলিতে সম্মতি সংরক্ষণ করা যায়নি। ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন।,Your Terms acceptance could not be saved. Check your internet connection and try again.
 শর্তাবলী,Terms
 শহীদ,Martyr
 শহীদ সুদেষ্ণা সিংহ ছাড়া আর কারা ভাষা আন্দোলনে ভূমিকা রেখেছিলেন?,"Besides Shaheed Sudeshna Singha, who else played a part in the language movement?"
@@ -929,7 +929,9 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 সম্পাদকীয়,Editorial
 সম্পাদনা,Edit
 সম্পাদনা সংরক্ষণ হয়নি।,The edit was not saved.
-সম্মত আছি,I agree
+সম্পূর্ণ ব্যবহারের শর্তাবলি পড়ুন,Read the full Terms of Use
+সম্মত ও চালিয়ে যান,Agree and continue
+সম্মতি দিলেও প্রবন্ধটি সঙ্গে সঙ্গে প্রকাশিত হবে না; সম্পাদকীয় অনুমোদন প্রয়োজন।,Accepting does not publish the article immediately; editorial approval is still required.
 সরাত,Sarat
 সরান,Remove
 সর্বশেষ আপডেট পেতে আমাদের অ্যাপটি ডাউনলোড করুন,Download our app to get the latest updates
@@ -967,13 +969,14 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 সেপ্টেম্বর মাস,The month of September
 সেরা অবদানকারী,Top contributor
 সেশন শেষ হয়ে গেছে। আবার সাইন ইন করুন।,The session has ended. Sign in again.
+সেশন শেষ হয়েছে। আবার সাইন ইন করুন।,Your session has expired. Sign in again.
 সেশনের মেয়াদ শেষ হয়েছে। আবার প্রবেশ করুন।,The session has ended. Sign in again.
 স্ক্রল,Scroll
 স্ক্রল দৃশ্য  ·  চিমটি করে জুম,Scroll view  ·  pinch to zoom
 স্ক্রল হ্যান্ডেল,Scroll handle
 স্ক্রিন জ্বালিয়ে রাখুন,Keep the screen on
 স্প্যাম বা বিজ্ঞাপন,Spam or advertising
-"স্প্যাম, বিজ্ঞাপন বা ভুয়া তথ্য ছড়ানো যাবে না।","No spam, no advertising, and no spreading false information."
+"স্প্যাম, বিজ্ঞাপন, ছদ্মবেশ বা প্রতারণামূলক তথ্য ছড়ানো যাবে না।","Do not post spam, advertising, impersonation, or deceptive information."
 স্বাগতম। অ্যাকাউন্ট খুলুন অথবা Google দিয়ে প্রবেশ করুন।,"Welcome. Create an account, or sign in with Google."
 স্বাভাবিক আকারে ফিরতে দুই আঙুল টেনে ছোট করুন,Pinch in with two fingers to go back to the normal size
 স্মারক,Memorial

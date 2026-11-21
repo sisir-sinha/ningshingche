@@ -450,6 +450,26 @@ data class PdfBookRecord(
     }
 }
 
+data class TermsAcceptanceRecord(
+    val termsVersion: String,
+    val termsUrl: String,
+    val acceptedAt: String
+) {
+    companion object {
+        fun fromJson(json: JSONObject): TermsAcceptanceRecord = TermsAcceptanceRecord(
+            termsVersion = json.optString("terms_version", ""),
+            termsUrl = json.optString("terms_url", ""),
+            acceptedAt = json.optString("accepted_at", "")
+        )
+    }
+}
+
+/** Raised when PostgreSQL refuses a UGC write until the current Terms are accepted. */
+class TermsAcceptanceRequiredException : Exception()
+
+/** Raised when a user-specific operation has no valid Supabase Auth session. */
+class ReaderSessionRequiredException : Exception()
+
 data class SubmittedBlogRecord(
     val id: String = UUID.randomUUID().toString(),
     val title: String,

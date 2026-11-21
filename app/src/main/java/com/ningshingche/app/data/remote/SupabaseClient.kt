@@ -790,30 +790,116 @@ class SupabaseClient(private val context: Context) {
             }
         }
 
-    suspend fun submitReaderArticle(sub: SubmittedBlogRecord): Result<SubmittedBlogRecord> =
-        withContext(Dispatchers.IO) {
-            try {
-                val url = "${SupabaseConfig.restBaseUrl}/submitted_blogs"
-                val payload = sub.toJson()
-                payload.put("status", "Pending")
-                val request = createBaseRequestBuilder(url)
-                    .addHeader("Prefer", "return=representation")
-                    .post(payload.toString().toRequestBody(jsonMediaType))
-                    .build()
-                val response = httpClient.newCall(request).execute()
+    /**
+     * Whether the signed-in account has accepted the database's current Terms.
+     *
+     * This is deliberately not inferred from DataStore. The local preference is a
+     * UI cache; PostgreSQL is the compliance record shared by every device.
+     */
+    suspend fun hasAcceptedCurrentTerms(): Result<Boolean> = withContext(Dispatchers.IO) {
+        val jwt = sessionUserJwt()
+            ?: return@withContext Result.failure(ReaderSessionRequiredException())
+        try {
+            val request = createUserAuthedRequestBuilder(
+                "${SupabaseConfig.restBaseUrl}/rpc/has_accepted_current_terms",
+                jwt
+            ).post("{}".toRequestBody(jsonMediaType)).build()
+            httpClient.newCall(request).execute().use { response ->
                 val body = response.body?.string().orEmpty()
                 if (!response.isSuccessful) {
                     return@withContext Result.failure(
-                        Exception("লেখা জমা যায়নি (${response.code})। প্রোফাইল সম্পূর্ণ করে আবার চেষ্টা করুন।")
+                        if (response.code == 401 || response.code == 403) {
+                            ReaderSessionRequiredException()
+                        } else {
+                            IOException("terms_check_failed")
+                        }
                     )
                 }
-                if (body.startsWith("[")) {
-                    val array = JSONArray(body)
-                    if (array.length() > 0) {
-                        return@withContext Result.success(SubmittedBlogRecord.fromJson(array.getJSONObject(0)))
-                    }
+                Result.success(body.trim().equals("true", ignoreCase = true))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /** Records explicit acceptance with server time, version and URL. */
+    suspend fun acceptCurrentTerms(): Result<TermsAcceptanceRecord> = withContext(Dispatchers.IO) {
+        val jwt = sessionUserJwt()
+            ?: return@withContext Result.failure(ReaderSessionRequiredException())
+        try {
+            val request = createUserAuthedRequestBuilder(
+                "${SupabaseConfig.restBaseUrl}/rpc/accept_current_terms",
+                jwt
+            ).post("{}".toRequestBody(jsonMediaType)).build()
+            httpClient.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) {
+                    return@withContext Result.failure(
+                        if (response.code == 401 || response.code == 403) {
+                            ReaderSessionRequiredException()
+                        } else {
+                            IOException("terms_acceptance_failed")
+                        }
+                    )
                 }
-                Result.success(sub)
+                val record = TermsAcceptanceRecord.fromJson(JSONObject(body))
+                if (record.termsVersion.isBlank() || record.acceptedAt.isBlank()) {
+                    Result.failure(IOException("terms_acceptance_invalid_response"))
+                } else {
+                    Result.success(record)
+                }
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Submits through the Terms-gated RPC. Identity and Pending status are assigned
+     * by PostgreSQL; Android sends only the article and its idempotency id.
+     */
+    suspend fun submitReaderArticle(sub: SubmittedBlogRecord): Result<SubmittedBlogRecord> =
+        withContext(Dispatchers.IO) {
+            val jwt = sessionUserJwt()
+                ?: return@withContext Result.failure(ReaderSessionRequiredException())
+            try {
+                val url = "${SupabaseConfig.restBaseUrl}/rpc/submit_reader_article"
+                val payload = JSONObject().apply {
+                    put("p_id", sub.id)
+                    put("p_title", sub.title)
+                    put("p_content", sub.content)
+                    put("p_thumbnail", sub.thumbnail)
+                    put("p_imgbb_delete_url", sub.imgbbDeleteUrl)
+                }
+                val request = createUserAuthedRequestBuilder(url, jwt)
+                    .addHeader("Prefer", "return=representation")
+                    .post(payload.toString().toRequestBody(jsonMediaType))
+                    .build()
+                httpClient.newCall(request).execute().use { response ->
+                    val body = response.body?.string().orEmpty()
+                    if (!response.isSuccessful) {
+                        val failure = when {
+                            body.contains("terms_acceptance_required", ignoreCase = true) ||
+                                body.contains("Accept the current Terms", ignoreCase = true) ->
+                                TermsAcceptanceRequiredException()
+                            response.code == 401 || response.code == 403 ->
+                                ReaderSessionRequiredException()
+                            body.contains("profile_required", ignoreCase = true) ->
+                                IllegalStateException("profile_required")
+                            else -> IOException("article_submission_failed")
+                        }
+                        return@withContext Result.failure(failure)
+                    }
+                    if (body.startsWith("[")) {
+                        val array = JSONArray(body)
+                        if (array.length() > 0) {
+                            return@withContext Result.success(
+                                SubmittedBlogRecord.fromJson(array.getJSONObject(0))
+                            )
+                        }
+                    }
+                    Result.failure(IOException("article_submission_empty_response"))
+                }
             } catch (e: Exception) {
                 Result.failure(e)
             }

@@ -550,7 +550,8 @@ fun EditorialReaderApp(
                     onRelatedClick = { navController.navigate(ReaderRoute.article(it)) },
                     scrollToComments = entry.arguments?.getString("focus") == "comments",
                     // A comment is UGC too: the same acceptance the forum asks for.
-                    termsAccepted = articlePrefs.termsAccepted,
+                    termsAccepted = articlePrefs.termsAccepted &&
+                        articlePrefs.termsAcceptedVersion == TERMS_VERSION,
                     onAcceptTerms = { app.preferencesRepository.acceptTerms(TERMS_VERSION) },
                     onCategoryClick = { categorySlug ->
                         if (categorySlug.isNotBlank()) navController.navigate(ReaderRoute.category(categorySlug))
@@ -590,7 +591,8 @@ fun EditorialReaderApp(
                     onRelatedClick = { navController.navigate(ReaderRoute.article(it)) },
                     scrollToComments = entry.arguments?.getString("focus") == "comments",
                     // A comment is UGC too: the same acceptance the forum asks for.
-                    termsAccepted = articlePrefs.termsAccepted,
+                    termsAccepted = articlePrefs.termsAccepted &&
+                        articlePrefs.termsAcceptedVersion == TERMS_VERSION,
                     onAcceptTerms = { app.preferencesRepository.acceptTerms(TERMS_VERSION) },
                     onCategoryClick = { categorySlug ->
                         if (categorySlug.isNotBlank()) {
@@ -1189,7 +1191,8 @@ fun EditorialReaderApp(
                     // Read here rather than passed down from the activity: the
                     // forum is the only destination that needs it, and the flow is
                     // cheap to collect.
-                    termsAccepted = forumPrefs.termsAccepted,
+                    termsAccepted = forumPrefs.termsAccepted &&
+                        forumPrefs.termsAcceptedVersion == TERMS_VERSION,
                     onAcceptTerms = {
                         app.preferencesRepository.acceptTerms(TERMS_VERSION)
                     },
