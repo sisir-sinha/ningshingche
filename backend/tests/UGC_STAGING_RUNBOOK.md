@@ -65,3 +65,60 @@ they create simplified auth objects and roles.
 Record PASS, PARTIAL, FAIL, BLOCKED or NOT RUN for each item, with exact versions,
 role and timestamp, and treat incomplete paths as release blockers. Validate the
 custom domain and Pages URL independently with HTTP 200 after deployment.
+
+## Phase 3 addendum (2026-11-21; supersedes the old 044-unaware notes)
+
+**NOT RUN on Supabase.** 044–049 remain undeployed and are **not release-ready**.
+The old step 3's statement that no forum/music/comment insert gate exists predates
+044. 044 enforces current account Terms and posting restrictions on its covered
+inserts, but deliberately permits anonymous comments without server-verifiable
+consent; signed-in JWT propagation, edit coverage and old-client behavior still
+need real integration testing. No claim of full UGC coverage follows from 044.
+
+Before any authorized disposable staging experiment, inventory the effective
+functions/views/policies, status constraints, dashboard session roles, historical
+migrations 029–036 and 040–043, and representative synthetic pre-existing rows.
+Review and apply 044, 045, 046, 047, 048, 049 in numeric order; coordinate client
+and dashboard versions and stop on incompatibility. Never apply the fixture SQL
+in Supabase. Check `pgrst` schema refresh and effective grants after each step.
+
+* 044: test own and forged identities, stale/current consent and every insert;
+  authorized staff exemptions, `suspend` meaning **posting restriction, not login
+  suspension**, scopes/expiry/lift, race/idempotency and accepted appeal with no
+  implicit lift. Verify legitimate staff and account-deletion operations.
+* 045/048: report synthetic content then edit it; ensure bounded historical
+  evidence is staff-only. A successful staff evidence read must atomically record
+  the real dashboard actor and report in 048; unauthorized reads and no-evidence
+  results must not expose snapshots. Check RLS, sequence privileges, transaction
+  rollback and concurrent reads. This audit has no staff-facing viewer or approved
+  retention/deletion policy. Test privacy, retention and deletion with counsel;
+  do not invent a retention period or purge records.
+* 046: check versioned, audited settings and permissions. Policy values are
+  advisory, not enforcement or unified reason/appeal validation.
+* 047: with separate A/B JWTs, check published/unpublished and blocked/unblocked
+  rows through direct REST and every forum definer RPC, pagination/search and
+  detail links; verify replies to a thread or parent blocked in **either**
+  direction fail, while authorized staff and own content work. Test reaction,
+  analytics/counts, activity and notifications separately: these are not fully
+  filtered by 047. Test account switches and cached UI data. Non-forum paths are
+  not covered. Never call this complete blocking.
+* 049: stale/current Terms and active/expired/lifted restrictions for reader
+  discussion title/body/cover and reply body edits via direct REST and the 034
+  definer RPC; test staff edits, counter updates, moderation, and account deletion.
+  This does not cover all UGC/profile/AI edits or non-JWT privileged code paths.
+* Verify approval with a missing/erroring RPC produces no client fallback writes.
+  004's RPC still needs server-side eligibility, repeat/concurrency protection,
+  audited decisions and a trustworthy staff-reader mapping for self-approval.
+  Reject and other editorial paths remain direct/unified audit incomplete.
+
+Rollback must be rehearsed on disposable staging and independently reviewed:
+047's named restrictive policies and reply trigger can be removed and its two
+views restored from the matching effective pre-047 definitions (032) only after
+backup and dependency/grant review; this intentionally removes protections. 048
+can restore the 045 `dashboard_report_evidence` function while **retaining** its
+audit table/data. 049's named triggers can be disabled/removed without deleting
+rows, restoring the previous edit behavior. Never blindly drop evidence, audit,
+consent, content, action or appeal data. Rollback of 044–046 requires a separately
+reviewed compatibility/security plan and preservation of their records. Record
+who approved the plan, before/after definitions and results securely; no production
+rollback, migration or credential action has been performed here.

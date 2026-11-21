@@ -236,3 +236,14 @@ production data. No database reset is needed or authorized.
 **Requires additional fixes.** The core blocking and moderation requirements
 are incomplete, other UGC is not server Terms-gated, the required public URL is
 currently unavailable, and Android builds/runtime have not been validated.
+
+## Phase 3 continuation — 2026-11-21
+
+See `PHASE3_FINAL_IMPLEMENTATION_REPORT.md` for the complete current status. In
+addition to 040–046, undeployed 047–049 add partial forum block visibility/reply
+interaction filtering, evidence access audit, and selected forum-edit consent and
+restriction checks. Dashboard article approval no longer uses a non-atomic REST
+fallback. These do **not** complete cross-surface blocking, guest consent,
+moderation, self-approval prevention, or Play readiness. No live migration or
+production change was made. The expanded isolated PostgreSQL fixture passes; it
+is not a real Supabase, Android-device or rollout test.

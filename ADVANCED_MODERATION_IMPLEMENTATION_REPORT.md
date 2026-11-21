@@ -80,3 +80,15 @@ has not been independently assessed.
    with original signing material. Publish the custom Terms route and verify it.
 5. Revoke/rotate the PAT and ImgBB key previously exposed in chat/history. No
    secrets should be posted to chat, committed, or written to repository URLs.
+
+## Phase 3 continuation — 2026-11-21
+
+Undeployed 047–049 add partial forum visibility and reply-interaction safeguards,
+transactional staff evidence-read auditing, and selected reader forum-edit guards.
+The dashboard no longer falls back to multi-request article conversion when its
+approval RPC fails. Existing 043/044 decision/audit boundaries and all documented
+limitations remain; in particular this is not comprehensive moderation, identity
+mapping, retention, notifications, appeals UX or block enforcement. The isolated
+fixture passed; no live Supabase deployment has occurred. Detailed verification,
+remaining work and rollback guidance are in `PHASE3_FINAL_IMPLEMENTATION_REPORT.md`
+and `backend/tests/UGC_STAGING_RUNBOOK.md`.

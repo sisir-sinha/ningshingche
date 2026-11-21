@@ -4,7 +4,6 @@
   const { escapeHTML, formatDateTime, formData, validateFields, debounce, slugify, safeImage, safeExternalUrl } = NC.utils;
   const state = new NC.crud.ListState('submissions', { searchFields: ['title', 'writer_name', 'designation', 'content_title', 'writer_email'], sortKey: 'created_at' });
   let root;
-  let authors = [];
   let categories = [];
   let submissionEditor = null;
 
@@ -228,13 +227,8 @@
           const button = modalRoot.querySelector('[data-confirm-approval]'); NC.utils.setButtonLoading(button, true, 'Converting…');
           try {
             if (await NC.api.slugExists(data.slug)) { validateFields(form, { slug: 'This blog slug is already in use.' }); return; }
-            let converted;
-            try {
-              converted = await NC.api.rpc('approve_submission', { p_submission_id: record.id, p_category_id: data.category_id, p_status: data.status, p_slug: data.slug });
-            } catch (rpcError) {
-              if (![404, 400].includes(rpcError.status) && rpcError.code !== 'PGRST202') throw rpcError;
-              converted = await fallbackApproval(record, data);
-            }
+            // Never fall back to multiple REST writes: the RPC is the atomic conversion boundary.
+            const converted = await NC.api.rpc('approve_submission', { p_submission_id: record.id, p_category_id: data.category_id, p_status: data.status, p_slug: data.slug });
             const blog = Array.isArray(converted) ? converted[0] : converted;
             NC.components.toast(data.status === 'Publish' ? 'Submission approved and blog published.' : 'Submission approved and converted to a draft.', 'success');
             NC.components.closeModal(); await load();
@@ -244,35 +238,6 @@
         });
       }
     });
-  }
-
-  async function fallbackApproval(record, data) {
-    let author = authors.find((item) => item.title.trim().toLocaleLowerCase() === record.writer_name.trim().toLocaleLowerCase());
-    if (!author) {
-      author = await NC.api.insert('authors', {
-        title: record.writer_name, designation: record.writer_designation || '', image: record.writer_profile_image || '',
-        imgbb_delete_url: record.writer_profile_delete_url || '', image_meta: record.writer_profile_meta || {},
-        description: '', is_verified: false, location: record.address || ''
-      });
-      authors.push(author);
-    }
-    const category = categories.find((item) => item.id === data.category_id);
-    const blog = await NC.api.insert('blogs', {
-      title: record.title,
-      sub_title: record.content_title || '',
-      image: record.thumbnail || '',
-      imgbb_delete_url: record.imgbb_delete_url || '',
-      image_meta: record.thumbnail_meta || {},
-      content: record.content,
-      inline_media: Array.isArray(record.inline_media) ? record.inline_media : [],
-      category_id: data.category_id, category_title: category?.title || '', category_slug: category?.slug || '',
-      author_id: author.id, author_name: author.title, author_image: author.image || '', status: data.status,
-      slug: data.slug, tags: [], is_slider: false, is_feature: false, is_special_article: false,
-      seo_title: '', seo_description: '', video_link: '', pdf_book_link: '',
-      published_date: data.status === 'Publish' ? new Date().toISOString().slice(0, 10) : null
-    });
-    await NC.api.update('submissions', record.id, { status: 'Approved', reviewed_at: new Date().toISOString(), converted_blog_id: blog.id });
-    return blog;
   }
 
   async function reject(record) {
@@ -302,13 +267,12 @@
   async function load(context = {}) {
     const content = root.querySelector('[data-submissions-content]'); if (content) content.innerHTML = NC.components.skeleton(7, 5);
     try {
-      const [submissionsResult, authorsResult, categoriesResult] = await Promise.all([
+      const [submissionsResult, categoriesResult] = await Promise.all([
         NC.api.list('submissions', { select: '*', order: 'created_at.desc', limit: 3000 }),
-        NC.api.list('authors', { select: '*', order: 'title.asc', limit: 2000 }),
         NC.api.list('categories', { select: '*', order: 'title.asc', limit: 1000 })
       ]);
       if (NC.crud.isStaleNavigation(context)) return;
-      authors = authorsResult.data; categories = categoriesResult.data; state.setRecords(submissionsResult.data); renderList();
+      categories = categoriesResult.data; state.setRecords(submissionsResult.data); renderList();
       const action = context.params?.get('action'), id = context.params?.get('id');
       if (action === 'new') openForm();
       if (id) { const record = state.records.find((item) => item.id === id); if (record && action === 'view') openView(record); if (record && action === 'edit') openForm(record); }

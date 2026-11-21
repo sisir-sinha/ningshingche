@@ -32,8 +32,18 @@ for file in \
   "$HERE/ugc-046-checks.sql" \
   "$MIG/046_moderation_policy_catalog.sql" \
   "$MIG/044_account_moderation_and_ugc_guards.sql" \
-  "$MIG/045_report_evidence.sql"; do
+  "$MIG/045_report_evidence.sql" \
+  "$HERE/ugc-047-setup.sql" \
+  "$MIG/047_forum_visibility_and_interaction.sql" \
+  "$HERE/ugc-047-checks.sql" \
+  "$MIG/047_forum_visibility_and_interaction.sql" \
+  "$MIG/048_evidence_access_audit.sql" \
+  "$HERE/ugc-048-checks.sql" \
+  "$MIG/048_evidence_access_audit.sql" \
+  "$MIG/049_forum_edit_guards.sql" \
+  "$HERE/ugc-049-checks.sql" \
+  "$MIG/049_forum_edit_guards.sql"; do
   printf 'Testing %s\n' "$(basename "$file")"
   psql -X -q -v ON_ERROR_STOP=1 -f "$file" > /dev/null
 done
-echo 'PASS: disposable Phase 2 PostgreSQL fixture (not Supabase)'
+echo 'PASS: disposable Phase 2–3 PostgreSQL fixture (not Supabase)'
