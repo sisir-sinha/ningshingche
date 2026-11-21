@@ -5,7 +5,7 @@
 **PARTIAL — requires additional fixes; not closed-testing-ready.** The historical
 baseline below documents the earlier commit, not the final state after migration
 043. Where it differs, this continuation section supersedes it. Nothing here was
-pushed, applied to Supabase, or deployed.
+applied to Supabase or confirmed deployed. Commits through `fd20f0b` were pushed to GitHub `main`; the Pages workflow may run automatically, but its outcome has not been verified.
 
 | Area | Status | Current evidence and limitations |
 |---|---|---|
@@ -21,7 +21,7 @@ pushed, applied to Supabase, or deployed.
 | Terms URLs | FAIL | Independently rechecked `https://ningshingche.com/terms-of-use/` and `https://sisir-sinha.github.io/ningshingche/terms-of-use/`: both HTTP 404. The workflow builds `backend/` as Pages root; custom-domain hosting is independent. Responsive/accessibility verification in a real browser NOT RUN. |
 | Localization | PARTIAL | Five Bengali/English/Bishnupriya CSVs each have 1,016 unique keys, no duplicates, and matching key sets. Bengali fallback in Bishnupriya remains pending native-speaker review; equality is not translation quality. |
 | Secret hygiene | PARTIAL | No values printed. Earlier exposed ImgBB credential remains in Git history; rotation is required. The PATs previously supplied must be revoked/rotated. Broad import-file scan hits were not matched by narrower GitHub PAT or quoted credential-assignment patterns; this is not proof those files or history contain no secrets. No history rewrite or force push. |
-| Push / deployment | BLOCKED | Previous local commit `f568deb` push was rejected for authentication; current environment has no configured remote or persisted credentials. No deployment or production write. |
+| Push / deployment | PARTIAL | Commits through `fd20f0b` were pushed to GitHub `main`. GitHub Pages may deploy from that push; deployment and public HTTP status after the push have not been verified. No database migrations were applied. |
 
 ### Continuation files
 
@@ -63,8 +63,7 @@ any production change.
    checks; implement the missing moderation actions/audit and a proven identity
    mapping that prevents self-approval.
 4. Run the staging runbook with authorized disposable Supabase identities; do not
-   share secrets in chat. Provide secure authenticated Git access/remote out of
-   band and retry the required push; rotate the exposed ImgBB key and PATs.
+   share secrets in chat. Rotate the exposed ImgBB key and all PATs shared in chat.
 5. Deploy and independently verify both Terms URLs; review accessibility,
    responsiveness and native translations. Run the full Android build and device
    regression with JDK 17+, Android SDK, sufficient RAM and the original signing
