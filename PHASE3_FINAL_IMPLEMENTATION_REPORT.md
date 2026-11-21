@@ -140,8 +140,9 @@ Never reuse an exposed token or overwrite original signing files.
 
 ## Git and delivery
 
-Implementation commits: `26f50bb`, `25d2dcf`, `0c2296d`, `2a3b32a`. The repo has
-no configured remote; `git push origin main` failed because `origin` does not
-exist. The earlier Phase 2 commit `fa075a1` was pushed, but these new commits are
-local only until an authorized remote/credentials are configured. No secret was
-used or exposed for this push attempt. The unrelated `gradlew` mode change remains.
+After workspace restoration the Phase 3 changes were consolidated on the existing
+GitHub Phase 2 commit `fa075a1` as `9507b6d`. That commit was pushed to GitHub
+`main` and the remote tip was independently checked on 2026-11-21. Production
+migrations were not run: the owner identified the project as live production and
+has not verified a restorable backup. The unrelated `gradlew` mode change remains
+uncommitted. Any later documentation-only commit follows `9507b6d` in Git history.
