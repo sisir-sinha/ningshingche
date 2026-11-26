@@ -20,47 +20,54 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AutoStories
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.ningshingche.app.R
 import com.ningshingche.app.data.model.PdfDocument
-import com.ningshingche.app.ui.theme.BrandGoldLight
-import com.ningshingche.app.ui.theme.BrandIndigo
-import com.ningshingche.app.ui.theme.BrandIndigoDeep
-import com.ningshingche.app.ui.theme.BrandOnGold
-import com.ningshingche.app.ui.theme.textSize
-import com.ningshingche.app.ui.theme.leading
-import com.ningshingche.app.ui.theme.Kalpurush
-import com.ningshingche.app.ui.theme.PanelChip
-import com.ningshingche.app.ui.theme.PanelDeep
-import com.ningshingche.app.ui.theme.PanelInk
-import com.ningshingche.app.ui.theme.PanelInkMuted
+import com.ningshingche.app.ui.components.PortalAsyncImage
+import com.ningshingche.app.ui.editorial.EditorialShape
+import com.ningshingche.app.ui.editorial.EditorialSpace
+import com.ningshingche.app.ui.editorial.EditorialType
+import com.ningshingche.app.ui.editorial.LocalEditorialTokens
+import com.ningshingche.app.ui.i18n.t
+import com.ningshingche.app.ui.i18n.tNow
 import com.ningshingche.app.ui.viewmodel.PdfArchiveViewModel
 import com.ningshingche.app.util.PdfHelper
 import kotlinx.coroutines.launch
-import com.ningshingche.app.ui.i18n.t
-import com.ningshingche.app.ui.i18n.tNow
 
 @Composable
 fun PdfArchiveScreen(
@@ -70,240 +77,147 @@ fun PdfArchiveScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val pdfs by viewModel.filteredPdfs.collectAsState()
-    val categories by viewModel.categories.collectAsState()
-    val selectedCategoryId by viewModel.selectedCategoryId.collectAsState()
-    val shelves = remember(pdfs) { pdfs.chunked(3).ifEmpty { listOf(emptyList()) } }
+    val books by viewModel.pdfDocuments.collectAsState()
+    var query by rememberSaveable { mutableStateOf("") }
+    val sections = remember(books, query) { librarySections(books, query) }
+    val tokens = LocalEditorialTokens.current
+    val keyboard = LocalSoftwareKeyboardController.current
 
-    val libraryBg = Brush.verticalGradient(
-        listOf(BrandIndigo, BrandIndigoDeep, PanelDeep)
-    )
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(libraryBg)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(BrandIndigo)
-                .statusBarsPadding()
-                .padding(bottom = 10.dp)
+    Column(Modifier.fillMaxSize().background(tokens.paper)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(end = EditorialSpace.gutter),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(end = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onNavigateBack) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = t("পেছনে"),
-                        tint = PanelInk
-                    )
-                }
-                Icon(
-                    Icons.Default.AutoStories,
-                    contentDescription = null,
-                    tint = BrandGoldLight,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        t("ডিজিটাল গ্রন্থাগার"),
-                        fontFamily = Kalpurush,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = textSize(20),
-                        lineHeight = leading(20),
-                        color = PanelInk,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        t("নিংশিং চে মুদ্রিত সংখ্যা ও স্মারকপত্র"),
-                        fontFamily = Kalpurush,
-                        color = PanelInkMuted,
-                        fontSize = textSize(12),
-                        lineHeight = leading(12),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+            IconButton(onClick = onNavigateBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t("পেছনে"), tint = tokens.ink)
             }
-            if (categories.isNotEmpty()) {
-                LazyRow(
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(categories, key = { it.id }) { category ->
-                        val selected = category.id == selectedCategoryId
-                        Text(
-                            text = category.name,
-                            fontFamily = Kalpurush,
-                            fontSize = textSize(13),
-                            lineHeight = leading(13),
-                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                            color = if (selected) BrandOnGold else PanelInk,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(if (selected) BrandGoldLight else PanelChip)
-                                .clickable { viewModel.selectCategory(category.id) }
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
-                        )
-                    }
-                }
-            }
+            Text(t("ডিজিটাল গ্রন্থাগার"), style = EditorialType.Headline, color = tokens.ink,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(bottom = 28.dp)
-        ) {
-        shelves.forEachIndexed { index, row ->
-            item {
-                LibraryShelf(
-                    books = row,
-                    shelfLabel = if (index == 0) t("মূল তাক") else t("তাক {1}", index + 1),
-                    onOpen = onOpenPdf,
-                    onDownload = { doc ->
+        TextField(
+            value = query,
+            onValueChange = { query = it },
+            modifier = Modifier.fillMaxWidth().padding(horizontal = EditorialSpace.gutter)
+                .padding(top = EditorialSpace.xs, bottom = EditorialSpace.sm).testTag("library_search"),
+            singleLine = true,
+            textStyle = EditorialType.Body,
+            placeholder = { Text(t("বই খুঁজুন..."), style = EditorialType.Body, color = tokens.inkMuted) },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = tokens.inkMuted) },
+            trailingIcon = {
+                if (query.isNotEmpty()) IconButton(onClick = { query = "" }) {
+                    Icon(Icons.Default.Close, contentDescription = t("মুছুন"), tint = tokens.inkMuted)
+                }
+            },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
+            shape = RoundedCornerShape(EditorialShape.card),
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = tokens.surfaceSunken,
+                unfocusedContainerColor = tokens.surfaceSunken,
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent
+            )
+        )
+        if (sections.isEmpty()) {
+            Text(
+                if (query.isBlank()) t("এখনো কোনো বই নেই।") else t("কোনো বই পাওয়া যায়নি।"),
+                style = EditorialType.Body, color = tokens.inkMuted,
+                modifier = Modifier.padding(EditorialSpace.gutter).testTag("library_empty")
+            )
+        } else {
+            LazyColumn(
+                modifier = Modifier.weight(1f).testTag("library_sections"),
+                contentPadding = PaddingValues(bottom = EditorialSpace.xl),
+                verticalArrangement = Arrangement.spacedBy(EditorialSpace.sm)
+            ) {
+                items(sections, key = { it.key }) { section ->
+                    LibrarySectionRow(section, onOpenPdf) { doc ->
                         scope.launch {
                             Toast.makeText(context, tNow("ডাউনলোড হচ্ছে..."), Toast.LENGTH_SHORT).show()
-                            val msg = PdfHelper.savePdfToDownloads(context, doc).getOrElse { tNow("ডাউনলোড হয়নি") }
-                            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                            val message = PdfHelper.savePdfToDownloads(context, doc)
+                                .getOrElse { tNow("ডাউনলোড হয়নি") }
+                            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                         }
                     }
-                )
+                }
             }
-        }
         }
     }
 }
 
 @Composable
-private fun LibraryShelf(
-    books: List<PdfDocument>,
-    shelfLabel: String,
-    onOpen: (String) -> Unit,
-    onDownload: (PdfDocument) -> Unit
-) {
-    Column(Modifier.padding(bottom = 8.dp)) {
-        Text(
-            shelfLabel,
-            fontFamily = Kalpurush,
-            color = BrandGoldLight,
-            fontSize = textSize(13),
-            lineHeight = leading(13),
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
-        )
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
+internal fun LibrarySectionRow(section: LibrarySection, onOpen: (String) -> Unit, onDownload: (PdfDocument) -> Unit) {
+    var expanded by rememberSaveable(section.key) { mutableStateOf(false) }
+    val tokens = LocalEditorialTokens.current
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = EditorialSpace.gutter)
+                .padding(top = EditorialSpace.md, bottom = EditorialSpace.sm),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            items(books, key = { it.id }) { book ->
+            if (section.isNingshingChe) {
+                Icon(painterResource(R.drawable.ic_verified_badge), contentDescription = t("যাচাইকৃত"),
+                    tint = Color.Unspecified, modifier = Modifier.size(18.dp).testTag("library_official_badge"))
+                Spacer(Modifier.width(6.dp))
+            }
+            Text(
+                if (section.title.isBlank()) t("অন্যান্য") else section.title,
+                style = EditorialType.Headline, color = tokens.ink,
+                maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f)
+            )
+            if (section.books.size > LIBRARY_PREVIEW_COUNT) {
+                Row(
+                    modifier = Modifier.clip(RoundedCornerShape(EditorialShape.chip))
+                        .clickable { expanded = !expanded }.padding(start = 8.dp, top = 8.dp, bottom = 8.dp)
+                        .testTag("library_more_${section.key}"),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(if (expanded) t("কম দেখান") else t("আরও দেখুন"),
+                        style = EditorialType.Subtitle, color = tokens.accent, maxLines = 1)
+                    if (!expanded) Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null,
+                        tint = tokens.accent, modifier = Modifier.padding(start = 4.dp).size(16.dp))
+                }
+            }
+        }
+        val visible = if (expanded) section.books else section.books.take(LIBRARY_PREVIEW_COUNT)
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = EditorialSpace.gutter),
+            horizontalArrangement = Arrangement.spacedBy(EditorialSpace.md),
+            modifier = Modifier.testTag("library_row_${section.key}")
+        ) {
+            items(visible, key = { it.id }) { book ->
                 LibraryBook(book, onOpen = { onOpen(book.id) }, onDownload = { onDownload(book) })
             }
         }
-        Box(
-            Modifier
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-                .fillMaxWidth()
-                .height(14.dp)
-                .clip(RoundedCornerShape(3.dp))
-                .background(Brush.verticalGradient(listOf(BrandIndigo, BrandIndigoDeep, PanelDeep)))
-        )
     }
 }
 
 @Composable
-private fun LibraryBook(
-    book: PdfDocument,
-    onOpen: () -> Unit,
-    onDownload: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .width(148.dp)
-            .clickable(onClick = onOpen),
-        horizontalAlignment = Alignment.CenterHorizontally
+private fun LibraryBook(book: PdfDocument, onOpen: () -> Unit, onDownload: () -> Unit) {
+    val tokens = LocalEditorialTokens.current
+    Card(
+        onClick = onOpen,
+        shape = RoundedCornerShape(EditorialShape.card),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.width(148.dp).testTag("library_book_${book.id}")
     ) {
-        Box(
-            modifier = Modifier
-                .width(132.dp)
-                .height(176.dp)
-                .shadow(10.dp, RoundedCornerShape(4.dp))
-                .clip(RoundedCornerShape(4.dp))
-                .background(BrandIndigo)
-        ) {
-            com.ningshingche.app.ui.components.PortalAsyncImage(
-                url = book.coverImageUrl,
-                contentDescription = book.title,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
+        Column {
+            PortalAsyncImage(
+                url = book.coverImageUrl, contentDescription = book.title, contentScale = ContentScale.FillBounds,
+                modifier = Modifier.fillMaxWidth().height(190.dp).padding(EditorialSpace.sm)
+                    .clip(RoundedCornerShape(EditorialShape.thumb))
             )
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(Color.Transparent, Color(0xCC0B0E14))
-                        )
-                    )
-            )
-            Box(
-                Modifier
-                    .align(Alignment.CenterStart)
-                    .width(8.dp)
-                    .height(176.dp)
-                    .background(Brush.horizontalGradient(listOf(Color(0x660B0E14), Color.Transparent)))
-            )
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(8.dp)
-            ) {
-                Text(
-                    if (book.year > 0) "${book.year}" else "PDF",
-                    color = BrandGoldLight,
-                    fontFamily = Kalpurush,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = textSize(12),
-                    lineHeight = leading(12)
-                )
-                Text(
-                    book.title,
-                    color = PanelInk,
-                    fontFamily = Kalpurush,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = textSize(13),
-                    lineHeight = leading(13),
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
-                )
+            Column(Modifier.padding(horizontal = EditorialSpace.md)) {
+                Text(book.title, style = EditorialType.Subtitle, color = tokens.ink,
+                    maxLines = 2, minLines = 2, overflow = TextOverflow.Ellipsis)
+                if (book.edition.isNotBlank()) Text(book.edition, style = EditorialType.Caption,
+                    color = tokens.inkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-        }
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(BrandGoldLight)
-                    .clickable(onClick = onOpen)
-                    .padding(horizontal = 10.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Default.MenuBook, null, tint = BrandOnGold, modifier = Modifier.size(12.dp))
-                Text(t(" পাকরিক"), color = BrandOnGold, fontFamily = Kalpurush, fontSize = textSize(12), lineHeight = leading(12), fontWeight = FontWeight.Bold)
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                IconButton(onClick = onDownload) {
+                    Icon(Icons.Default.Download, contentDescription = t("ডাউনলোড"), tint = tokens.accent)
+                }
             }
-            Icon(
-                Icons.Default.Download,
-                contentDescription = t("ডাউনলোড"),
-                tint = BrandGoldLight,
-                modifier = Modifier
-                    .size(20.dp)
-                    .clickable(onClick = onDownload)
-            )
         }
     }
 }

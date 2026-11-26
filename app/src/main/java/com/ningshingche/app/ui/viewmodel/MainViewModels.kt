@@ -637,6 +637,9 @@ class SettingsViewModel(
 class PdfArchiveViewModel(
     private val repository: ArticleRepository
 ) : ViewModel() {
+    // Keep the library grouped from the complete, live dashboard catalog.
+    val pdfDocuments = repository.pdfDocuments
+
     val categories: StateFlow<List<com.ningshingche.app.data.model.PdfCategory>> = repository.pdfCategories
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), repository.getPdfCategories())
 

@@ -34,6 +34,7 @@ OUT = ROOT / "i18n/strings_inventory.csv"
 # for completeness but is not part of the UI translation.
 CONTENT_FILES = frozenset({
     "NinghsingCheContentData.kt",
+    "LibrarySections.kt",  # Publication-title matching, not interface copy.
     "AuthorProfiles.kt",
     "SiteContact.kt",
 })

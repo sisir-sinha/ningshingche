@@ -583,8 +583,7 @@ test('the screens that still name the brand family import it from the theme', ()
   const screens = {
     'ui/components/MusicPlayer.kt': ['BrandIndigo', 'BrandGoldLight', 'PanelDeep'],
     'ui/components/AppToast.kt': ['BrandGoldLight'],
-    'ui/screens/PdfViewerScreen.kt': ['Panel', 'LocalEditorialTokens'],
-    'ui/screens/PdfArchiveScreen.kt': ['BrandIndigo', 'BrandIndigoDeep', 'PanelInk']
+    'ui/screens/PdfViewerScreen.kt': ['Panel', 'LocalEditorialTokens']
   };
   for (const [file, tokens] of Object.entries(screens)) {
     const source = read(...file.split('/'));
@@ -592,8 +591,8 @@ test('the screens that still name the brand family import it from the theme', ()
     assert.match(source, /import com\.ningshingche\.app\.ui\.(theme\.(Brand|Panel)|editorial\.LocalEditorialTokens)/,
       `${file} should import its colours`);
   }
-  // The two screens that were repainted read the theme, and no longer name the brand at all.
-  for (const file of ['ui/screens/SplashScreen.kt', 'ui/components/PortalDrawer.kt']) {
+  // These screens now use the reader's palette rather than a fixed brand background.
+  for (const file of ['ui/screens/SplashScreen.kt', 'ui/components/PortalDrawer.kt', 'ui/screens/PdfArchiveScreen.kt']) {
     const source = read(...file.split('/'));
     assert.match(source, /LocalEditorialTokens\.current/, `${file} reads the palette`);
     assert.ok(!/import com\.ningshingche\.app\.ui\.theme\.(Brand|Panel)/.test(source), `${file} no longer needs the brand family`);

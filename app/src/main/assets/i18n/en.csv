@@ -269,6 +269,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 এখনো কোনো প্রবন্ধ জমা দেননি।,You have not submitted an article yet.
 এখনো কোনো প্রবন্ধ প্রকাশিত হয়নি।,No article has been published yet.
 এখনো কোনো প্রবন্ধ বা গান জমা দেননি।,You have not submitted an article or a song yet.
+এখনো কোনো বই নেই।,There are no books yet.
 এখনো কোনো বার্ষিক সংখ্যা প্রকাশিত হয়নি।,No annual issue has been published yet.
 এখনো কোনো বিজ্ঞপ্তি নেই। প্রবন্ধ বা মন্তব্য প্রকাশিত হলে এখানে দেখাবে।,No notification yet. Article and comment news appears here.
 এখনো কোনো ভিডিও প্রকাশিত হয়নি।,No video has been published yet.
@@ -316,6 +317,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 কোনো ধরন মেলেনি।,No genre matched.
 কোনো ফলাফল নেই,No results
 কোনো ফিচার্ড প্রবন্ধ পাওয়া যায়নি।,No featured article was found.
+কোনো বই পাওয়া যায়নি।,No books found.
 কোনো বিভাগ পাওয়া যায়নি।,No category was found.
 কোনো মিল পাওয়া যায়নি,No match found
 কোনো লেখক পাওয়া যায়নি।,No author was found.
@@ -423,7 +425,6 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 তথ্য লোড করতে সমস্যা হয়েছে।,There was a problem loading the data.
 তথ্য লোড করতে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।,There was a problem loading the data. Please try again.
 তথ্যসূত্র ও গবেষণা প্রবন্ধ:,Sources and research articles:
-তাক {1},Shelf {1}
 তামকরিক,Tamkarik
 তালিকা,List
 তালিকা আনা যায়নি।,Could not load the list.
@@ -494,7 +495,6 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 নিংশিং চে পাঠকদের আলোচনা,Ningshing Che readers' discussions
 নিংশিং চে প্রকাশনা পর্ষদ,Ningshing Che publication board
 "নিংশিং চে বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, ইতিহাস ও সংস্কৃতির ডিজিটাল তথ্যকোষ। পোর্টালটি তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট থেকে পরিচালিত।","Ningshing Che is a digital encyclopedia of Bishnupriya Manipuri language, literature, history and culture. The portal is run from Tilakpur, Kamalganj, Moulvibazar, Sylhet."
-নিংশিং চে মুদ্রিত সংখ্যা ও স্মারকপত্র,Ningshing Che print issues and memorial volumes
 নিংশিং চে লেখক,Ningshing Che writer
 নিংশিং চে — {1},Ningshing Che — {1}
 নিংশিং চে — বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ,Ningshing Che — Bishnupriya Manipuri encyclopedia
@@ -551,7 +551,6 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 পর্যালোচনায়,Under review
 পর্যালোচিত,Reviewed
 পল্লী,Palli
-পাকরিক,Pakrik
 পাঠক,Reader
 পাঠক {1},Reader {1}
 পাঠকের সেটিংস,Reader settings
@@ -678,6 +677,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 ফ্রেমে মিল,Fit to frame
 বই,Books
 বই ও সাময়িকী,Books and periodicals
+বই খুঁজুন...,Search books...
 বই দৃশ্য  ·  সোয়াইপ করে পাতা উল্টান,Book view  ·  swipe to turn the page
 বইটি খোলা যায়নি,The book could not be opened
 বইটি খোলা যায়নি।,The book could not be opened.
@@ -808,7 +808,6 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 মুছুন,Clear
 মুছে ফেলবেন?,Delete it?
 মুছে ফেলুন,Delete
-মূল তাক,Main shelf
 মূল বিষয়,Main points
 মূল লেখা,Original writing
 মে,May
@@ -820,6 +819,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 মোট পয়েন্ট,Total points
 মোট ভিউ,Total views
 মোটা,Bold
+যাচাইকৃত,Verified
 যাচাইকৃত লেখক,Verified writer
 যান,Go
 যুব,Youth

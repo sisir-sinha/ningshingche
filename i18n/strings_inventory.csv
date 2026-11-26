@@ -1,8 +1,8 @@
 bengali,bishnupriya,kind,uses,slots,screens
-নিংশিং চে,,ui,21,0,"AiAssistantScreen.kt, ContentUpdateNotifier.kt, HomeScreen.kt, IssueTags.kt, LoginScreen.kt, MusicController.kt, MusicPlayer.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt, PortalDrawer.kt, PortalModels.kt, SplashScreen.kt, SupabaseModels.kt, WelcomeOnboardingScreen.kt"
+নিংশিং চে,,ui,23,0,"AiAssistantScreen.kt, ContentUpdateNotifier.kt, HomeScreen.kt, IssueTags.kt, LibrarySections.kt, LoginScreen.kt, MusicController.kt, MusicPlayer.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt, PortalDrawer.kt, PortalModels.kt, SplashScreen.kt, SupabaseModels.kt, WelcomeOnboardingScreen.kt"
 পেছনে,,ui,18,0,"ArticleScreen.kt, BlockedUsersScreen.kt, BookmarksScreen.kt, ContributorScreen.kt, ForumScreens.kt, ListScreens.kt, MusicBrowseScreens.kt, MusicScreen.kt, PdfArchiveScreen.kt, PdfViewerScreen.kt, PortalPages.kt, PublicProfileScreen.kt, SettingsScreen.kt, VideosScreen.kt"
 সব,,ui,15,0,"BookmarksScreen.kt, EditorialComponents.kt, HomeScreen.kt, MusicScreen.kt, PortalPages.kt, Type.kt, UserDashboardScreen.kt"
-আরও দেখুন,,ui,12,0,"ForumScreens.kt, PortalModels.kt, PortalRepository.kt, UserDashboardScreen.kt"
+আরও দেখুন,,ui,13,0,"ForumScreens.kt, PdfArchiveScreen.kt, PortalModels.kt, PortalRepository.kt, UserDashboardScreen.kt"
 আলোচনা,,ui,12,0,"ForumScreens.kt, PortalModels.kt, PublicProfileScreen.kt, UserDashboardScreen.kt"
 সাহিত্য,,ui,11,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 ইতিহাস,,ui,10,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
@@ -14,8 +14,8 @@ bengali,bishnupriya,kind,uses,slots,screens
 জীবনী,,ui,7,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 প্রবন্ধ,,ui,7,0,"NinghsingCheContentData.kt, PublicProfileScreen.kt, UserDashboardCharts.kt, UserDashboardScreen.kt"
 মন্তব্য,,ui,7,0,"ArticleScreen.kt, UserDashboardCharts.kt, UserDashboardScreen.kt"
+মুছুন,,ui,7,0,"BookmarksScreen.kt, ForumScreens.kt, ListScreens.kt, MusicBrowseScreens.kt, MusicScreen.kt, PdfArchiveScreen.kt, SettingsScreen.kt"
 সাইন ইন করুন,,ui,7,0,"ContentSafetySheet.kt, ContributorScreen.kt, EmailAuthForm.kt, ForumScreens.kt, HomeScreen.kt"
-মুছুন,,ui,6,0,"BookmarksScreen.kt, ForumScreens.kt, ListScreens.kt, MusicBrowseScreens.kt, MusicScreen.kt, SettingsScreen.kt"
 সংস্কৃতি,,ui,6,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 সমাজ ও সংস্কৃতি,,ui,6,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 অধ্যাপক বারীন্দ্র কুমার সিংহ,,content,5,0,NinghsingCheContentData.kt
@@ -36,6 +36,7 @@ bengali,bishnupriya,kind,uses,slots,screens
 সিস্টেম আপডেট,,ui,5,0,"AppNotificationManager.kt, ContentNotice.kt, SettingsScreen.kt, WelcomeOnboardingScreen.kt"
 অনুসন্ধান,,ui,4,0,"ExploreScreen.kt, HomeScreen.kt, ListScreens.kt, PortalDrawer.kt"
 অন্বেষণ ও সংগ্রহ,,ui,4,0,"ExploreScreen.kt, ReaderViewModels.kt, Screen.kt"
+অন্যান্য,,ui,4,0,"AppNotificationManager.kt, ContentSafetySheet.kt, PdfArchiveScreen.kt, SettingsScreen.kt"
 অ্যালবাম,,ui,4,0,"MusicBrowseScreens.kt, MusicPlayer.kt, MusicScreen.kt, NewMusicScreen.kt"
 আমার সম্পর্কে,,ui,4,0,"PortalDrawer.kt, PortalPages.kt"
 গান {1},,ui,4,0,"ContributorScreen.kt, PublicProfileScreen.kt, UserProfileScreen.kt"
@@ -61,7 +62,6 @@ Google সাইন-ইন সময় শেষ হয়েছে। আব�
 {1} টি প্রবন্ধ,,ui,3,0,ListScreens.kt
 {1}টি গান,,ui,3,0,"MusicBrowseScreens.kt, MusicScreen.kt"
 {1}টি প্রবন্ধ,,ui,3,0,"ExploreScreen.kt, PortalPages.kt"
-অন্যান্য,,ui,3,0,"AppNotificationManager.kt, ContentSafetySheet.kt, SettingsScreen.kt"
 অপেক্ষমাণ,,ui,3,0,"UserDashboardCharts.kt, UserDashboardScreen.kt"
 অ্যাকাউন্ট,,ui,3,0,"AccountHeaderButton.kt, SettingsScreen.kt"
 অ্যাডমিনের বার্তা,,ui,3,0,"ContentNotice.kt, ContentUpdateNotifier.kt"
@@ -144,6 +144,7 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 কভার ছবি নির্বাচন (ঐচ্ছিক),,ui,2,0,"NewArticleScreen.kt, NewMusicScreen.kt"
 কভার ছবি বদলান,,ui,2,0,"NewArticleScreen.kt, NewMusicScreen.kt"
 কভার ছবি সরান,,ui,2,0,"NewArticleScreen.kt, NewMusicScreen.kt"
+কম দেখান,,ui,2,0,"ForumScreens.kt, PdfArchiveScreen.kt"
 কমল সিংহ বিষ্ণুপ্রিয়া,,content,2,0,NinghsingCheContentData.kt
 কার্যক্রম,,ui,2,0,"UserDashboardCharts.kt, UserDashboardScreen.kt"
 কোনো লেখক পাওয়া যায়নি।,,ui,2,0,"ExploreScreen.kt, PortalPages.kt"
@@ -487,6 +488,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 এখনো কোনো প্রবন্ধ জমা দেননি।,,ui,1,0,UserDashboardScreen.kt
 এখনো কোনো প্রবন্ধ প্রকাশিত হয়নি।,,ui,1,0,HomeScreen.kt
 এখনো কোনো প্রবন্ধ বা গান জমা দেননি।,,ui,1,0,UserDashboardScreen.kt
+এখনো কোনো বই নেই।,,ui,1,0,PdfArchiveScreen.kt
 এখনো কোনো বার্ষিক সংখ্যা প্রকাশিত হয়নি।,,ui,1,0,ExploreScreen.kt
 এখনো কোনো বিজ্ঞপ্তি নেই। প্রবন্ধ বা মন্তব্য প্রকাশিত হলে এখানে দেখাবে।,,ui,1,0,UserDashboardScreen.kt
 এখনো কোনো ভিডিও প্রকাশিত হয়নি।,,ui,1,0,VideosScreen.kt
@@ -512,7 +514,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 কবি ও জীবনীকার,,content,1,0,NinghsingCheContentData.kt
 "কবিতা, লোকগাথা, নাটক ও প্রাচীন পাণ্ডুলিপি সংকলন।",,content,1,0,NinghsingCheContentData.kt
 কভার ছবি (ঐচ্ছিক),,ui,1,0,ForumScreens.kt
-কম দেখান,,ui,1,0,ForumScreens.kt
 কমা বা ট্যাব চাপলে চিপ হবে,,ui,1,0,GenreCombobox.kt
 "করোনাকালের স্মৃতিচারণ, লোকঔষধ ও মণিপুরি লোকগাথার প্রামাণ্য রূপ।",,content,1,0,NinghsingCheContentData.kt
 কাউকে ব্লক করা নেই।,,ui,1,0,BlockedUsersScreen.kt
@@ -537,6 +538,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 কোনো ধরন মেলেনি।,,ui,1,0,MusicScreen.kt
 কোনো ফলাফল নেই,,ui,1,0,ListScreens.kt
 কোনো ফিচার্ড প্রবন্ধ পাওয়া যায়নি।,,ui,1,0,PortalPages.kt
+কোনো বই পাওয়া যায়নি।,,ui,1,0,PdfArchiveScreen.kt
 কোনো বিভাগ পাওয়া যায়নি।,,ui,1,0,ExploreScreen.kt
 কোনো মিল পাওয়া যায়নি,,ui,1,0,BookmarksScreen.kt
 কোনো শিল্পী নেই।,,ui,1,0,MusicScreen.kt
@@ -640,7 +642,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 তথ্য লোড করতে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।,,ui,1,0,PortalModels.kt
 "তথ্যকোষের উদ্দেশ্য, পরিকল্পনা ও বিষ্ণুপ্রিয়া মণিপুরি সাহিত্যের পটভূমি সংক্রান্ত সামগ্রিক ভূমিকা।",,content,1,0,NinghsingCheContentData.kt
 তথ্যসূত্র ও গবেষণা প্রবন্ধ:,,ui,1,0,AiAssistantScreen.kt
-তাক {1},,ui,1,0,PdfArchiveScreen.kt
 তালিকা পড়তে ডেটাবেস আপডেট দরকার — 033_profile_paging.sql চালান।,,ui,1,0,PublicProfileScreen.kt
 তালিকা লোড হয়নি। আবার চেষ্টা করুন।,,ui,1,0,BlockedUsersScreen.kt
 তালিকাটি লোড হয়নি।,,ui,1,0,PublicProfileScreen.kt
@@ -704,7 +705,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 নিংশিং চে তথ্যকোষের লেখক ও গবেষকবৃন্দ,,ui,1,0,PortalPages.kt
 নিংশিং চে পাঠকদের আলোচনা,,ui,1,0,ForumScreens.kt
 "নিংশিং চে বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, ইতিহাস ও সংস্কৃতির ডিজিটাল তথ্যকোষ। পোর্টালটি তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট থেকে পরিচালিত।",,ui,1,0,PortalPages.kt
-নিংশিং চে মুদ্রিত সংখ্যা ও স্মারকপত্র,,ui,1,0,PdfArchiveScreen.kt
 নিংশিং চে সাহিত্য পর্ষদ,,content,1,0,NinghsingCheContentData.kt
 নিংশিং চে — {1},,ui,1,1,ArticleRepository.kt
 নিংশিং চে — অষ্টম বর্ষ (২০২১),,content,1,0,NinghsingCheContentData.kt
@@ -731,6 +731,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 নিংশিং চে-র সকল ডিজিটাল প্রকাশনা।,,ui,1,0,ArticleRepository.kt
 নিংশিং চে-র সকল প্রকাশিত ডিজিটাল ও মুদ্রিত পিডিএফ প্রকাশনা।,,content,1,0,NinghsingCheContentData.kt
 নিংশিং_চে_-_{1},,ui,1,1,NingshingCheWebsiteClient.kt
+নিংশিংচে,,content,1,0,LibrarySections.kt
 নিংশিংচে {1},,ui,1,1,IssueTags.kt
 নিংশিংচে-,,ui,1,0,IssueTags.kt
 নিংশিংচে-{1},,ui,1,1,IssueTags.kt
@@ -775,7 +776,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 পর্যালোচিত,,ui,1,0,UserDashboardScreen.kt
 পলাশ,,content,1,0,AuthorProfiles.kt
 পল্লী,,ui,1,0,MusicGenres.kt
-পাকরিক,,ui,1,0,PdfArchiveScreen.kt
 পাঠকের সেটিংস,,ui,1,0,PdfViewerScreen.kt
 পাঠানো হয়েছে,,ui,1,0,UserDashboardScreen.kt
 পাঠ্য লেখা,,ui,1,0,SettingsScreen.kt
@@ -883,6 +883,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 বংশনাম,,content,1,0,NinghsingCheContentData.kt
 বই,,ui,1,0,PdfViewerScreen.kt
 বই ও সাময়িকী,,ui,1,0,EditorialComponents.kt
+বই খুঁজুন...,,ui,1,0,PdfArchiveScreen.kt
 বই দৃশ্য  ·  সোয়াইপ করে পাতা উল্টান,,ui,1,0,PdfViewerScreen.kt
 বইটি খোলা যায়নি,,ui,1,0,PdfViewerScreen.kt
 বইটি খোলা যায়নি।,,ui,1,0,MainViewModels.kt
@@ -1014,7 +1015,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 মিনিট,,ui,1,0,UserDashboardScreen.kt
 মুছে ফেলবেন?,,ui,1,0,ForumScreens.kt
 মুদ্রিত সংখ্যা,,content,1,0,NinghsingCheContentData.kt
-মূল তাক,,ui,1,0,PdfArchiveScreen.kt
 মূল বিষয়,,ui,1,0,NinghsingCheAiAssistant.kt
 মূল লেখা,,ui,1,0,NewArticleScreen.kt
 মেইলে আসা কোডটি দিন,,ui,1,0,EmailAuthForm.kt
@@ -1025,6 +1025,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 মোট পয়েন্ট,,ui,1,0,PublicProfileScreen.kt
 মোটা,,ui,1,0,HtmlContentEditor.kt
 "মৌলভীবাজার, বাংলাদেশ",,content,1,0,NinghsingCheContentData.kt
+যাচাইকৃত,,ui,1,0,PdfArchiveScreen.kt
 যাচাইকৃত লেখক,,ui,1,0,VerifiedBadge.kt
 যান,,ui,1,0,PdfViewerScreen.kt
 যুব,,ui,1,0,NingshingCheWebsiteClient.kt
