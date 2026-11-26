@@ -332,7 +332,8 @@ fun Byline(
     publishedDate: String,
     readingTimeMinutes: Int,
     modifier: Modifier = Modifier,
-    category: String? = null
+    category: String? = null,
+    maxLines: Int = 1
 ) {
     val parts = buildList {
         if (authorName.isNotBlank()) add(authorName)
@@ -346,7 +347,7 @@ fun Byline(
         text = parts.joinToString("  ·  "),
         style = EditorialType.Caption,
         color = LocalEditorialTokens.current.inkMuted,
-        maxLines = 1,
+        maxLines = maxLines,
         overflow = TextOverflow.Ellipsis,
         modifier = modifier
     )
@@ -496,7 +497,7 @@ fun HeroArticleCard(
     }
 }
 
-/** Landscape card used in horizontal rails: thumbnail left, text right. */
+/** Featured rail card. Its height follows its text, including larger font scales. */
 @Composable
 fun RailArticleCard(
     article: ArticleSummary,
@@ -507,7 +508,7 @@ fun RailArticleCard(
         onClick = onClick,
         shape = RoundedCornerShape(EditorialShape.card),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = modifier.width(268.dp).height(260.dp)
+        modifier = modifier.width(268.dp)
     ) {
         Column {
             EditorialImage(
@@ -522,15 +523,14 @@ fun RailArticleCard(
                 Text(
                     text = article.title,
                     style = EditorialType.Title,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(Modifier.height(6.dp))
                 Byline(
                     authorName = article.authorName,
                     publishedDate = article.publishedDate,
-                    readingTimeMinutes = article.readingTimeMinutes
+                    readingTimeMinutes = article.readingTimeMinutes,
+                    maxLines = Int.MAX_VALUE
                 )
             }
         }
