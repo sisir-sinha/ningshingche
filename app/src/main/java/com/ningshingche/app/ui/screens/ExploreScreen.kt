@@ -67,7 +67,6 @@ import com.ningshingche.app.ui.components.ExploreSkeletonLayout
 import com.ningshingche.app.ui.components.PortalAsyncImage
 import com.ningshingche.app.ui.components.VerifiedBadge
 import com.ningshingche.app.ui.components.categoryIconFor
-import com.ningshingche.app.ui.editorial.AnimatedHamburgerIcon
 import com.ningshingche.app.ui.editorial.ArticleRow
 import com.ningshingche.app.ui.editorial.EmptyState
 import com.ningshingche.app.ui.editorial.ErrorState
@@ -102,7 +101,6 @@ fun ExploreScreen(
     viewModel: ExploreViewModel,
     initialTab: ExploreTab,
     tabRequest: Pair<Int, ExploreTab>? = null,
-    onMenuClick: () -> Unit,
     onSearchClick: () -> Unit,
     onArticleClick: (String) -> Unit,
     onCategoryClick: (String) -> Unit,
@@ -165,14 +163,6 @@ fun ExploreScreen(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(
-                            onClick = onMenuClick,
-                            modifier = Modifier.testTag("hamburger_menu_button")
-                        ) {
-                            AnimatedHamburgerIcon(tint = MaterialTheme.colorScheme.onSurface)
                         }
                     },
                     actions = {

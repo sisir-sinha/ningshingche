@@ -144,7 +144,7 @@ private val CoverVolumeDrag = 260.dp
 private val CoverMinimizeDrag = 190.dp
 
 @Composable
-fun MusicMiniPlayerBar(controller: MusicController) {
+fun MusicMiniPlayerBar(controller: MusicController, aboveBottomNavigation: Boolean = false) {
     val state by controller.state.collectAsState()
     if (!state.visible || state.expanded || state.track == null) return
     MiniMusicPlayer(
@@ -152,7 +152,8 @@ fun MusicMiniPlayerBar(controller: MusicController) {
         onExpand = controller::expand,
         onToggle = controller::togglePlayPause,
         onNext = controller::skipNext,
-        onDismiss = controller::dismiss
+        onDismiss = controller::dismiss,
+        aboveBottomNavigation = aboveBottomNavigation
     )
 }
 
@@ -184,7 +185,8 @@ private fun MiniMusicPlayer(
     onExpand: () -> Unit,
     onToggle: () -> Unit,
     onNext: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    aboveBottomNavigation: Boolean
 ) {
     val track = state.track ?: return
     val tokens = LocalEditorialTokens.current
@@ -196,13 +198,12 @@ private fun MiniMusicPlayer(
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 8.dp,
         shadowElevation = 12.dp,
-        // The system-bar inset is applied inside, on the column below. In front
-        // of the surface it pads the *background* as well, so the bar stops
-        // short of the bottom edge and the screen shows through under it — the
-        // empty strip below the controls.
+        // The bottom navigation owns the system inset when present. Otherwise
+        // the player applies it inside the surface so its background reaches
+        // the edge of the screen.
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.navigationBarsPadding()) {
+        Column(modifier = if (aboveBottomNavigation) Modifier else Modifier.navigationBarsPadding()) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()

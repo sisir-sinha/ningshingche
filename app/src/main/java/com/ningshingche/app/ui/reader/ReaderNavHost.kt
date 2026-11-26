@@ -13,10 +13,17 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
@@ -31,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
@@ -98,6 +106,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.unit.dp
 import com.ningshingche.app.ui.i18n.LocalTranslations
 import com.ningshingche.app.ui.i18n.tNow
+import com.ningshingche.app.ui.i18n.t
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
@@ -377,10 +386,29 @@ fun EditorialReaderApp(
         }
     }
 
-    // Swipe-to-open is enabled on every screen that shows the hamburger.
-    val drawerGesturesEnabled = currentRoute == ReaderRoute.Home ||
-        currentRoute == ReaderRoute.ExplorePattern ||
-        currentRoute == ReaderRoute.Explore
+    // A keyboard needs the space, and onboarding must finish before top-level navigation.
+    val keyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    val showBottomNavigation = navBackStackEntry != null &&
+        currentRoute != ReaderRoute.Splash && currentRoute != ReaderRoute.FirstRun && !keyboardVisible
+    // Keep existing edge-swipe behavior on the home/explore screens without
+    // stealing horizontal gestures from forum threads, players or editors.
+    val drawerGesturesEnabled = showBottomNavigation && (drawerState.isOpen ||
+        currentRoute == ReaderRoute.Home || currentRoute == ReaderRoute.ExplorePattern ||
+        currentRoute == ReaderRoute.Explore)
+
+    // Do not silently discard work if a bottom/drawer destination is chosen from an editor.
+    var pendingNavigation by remember { mutableStateOf<(() -> Unit)?>(null) }
+    fun requestNavigation(action: () -> Unit) {
+        if (currentRoute in setOf(ReaderRoute.NewArticle, ReaderRoute.NewMusic,
+                ReaderRoute.ForumNew, ReaderRoute.ForumNewPattern, ReaderRoute.UserProfile)) {
+            pendingNavigation = action
+        } else {
+            action()
+        }
+    }
+    fun requestTopLevel(route: String) {
+        if (currentRoute != route) requestNavigation { navigateTopLevel(route) }
+    }
 
     // Material3 measures the drawer sheet to learn where "closed" sits, and draws
     // it at offset 0 until that first measurement is in — which shows the panel for
@@ -412,13 +440,13 @@ fun EditorialReaderApp(
                 onNavigate = { route ->
                     coroutineScope.launch {
                         drawerState.close()
-                        navigateTopLevel(route)
+                        requestTopLevel(route)
                     }
                 },
                 onExploreTab = { tab ->
                     coroutineScope.launch {
                         drawerState.close()
-                        openExploreTab(tab)
+                        requestNavigation { openExploreTab(tab) }
                     }
                 },
                 onCycleTheme = onCycleTheme,
@@ -449,7 +477,10 @@ fun EditorialReaderApp(
         NavHost(
             navController = navController,
             startDestination = ReaderRoute.Splash,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f).then(
+                if (showBottomNavigation) Modifier.consumeWindowInsets(WindowInsets.navigationBars)
+                else Modifier
+            )
         ) {
             // Splash Screen
             composable(ReaderRoute.Splash, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
@@ -491,9 +522,6 @@ fun EditorialReaderApp(
                     onContributorClick = { navController.navigate(ReaderRoute.publicProfile(it)) },
                     onForumDiscussionClick = { id -> navController.navigate(ReaderRoute.forumThread(id)) },
                     onSeeAllForum = { navController.navigate(ReaderRoute.Forum) },
-                    onMenuClick = {
-                        coroutineScope.launch { drawerState.open() }
-                    },
                     onAiClick = {
                         navController.navigate(ReaderRoute.AiAssistant)
                     },
@@ -695,9 +723,6 @@ fun EditorialReaderApp(
                     viewModel = aiViewModel,
                     onBackClick = { navController.popBackStack() },
                     onArticleClick = { navController.navigate(ReaderRoute.article(it)) },
-                    onMenuClick = {
-                        coroutineScope.launch { drawerState.open() }
-                    },
                     // Play's Generative AI policy: a reader must be able to flag an
                     // answer from the answer. Same queue as the forum's reports.
                     reportAnswer = { messageId, reason ->
@@ -729,9 +754,6 @@ fun EditorialReaderApp(
                     viewModel = aiViewModel,
                     onBackClick = { navController.popBackStack() },
                     onArticleClick = { navController.navigate(ReaderRoute.article(it)) },
-                    onMenuClick = {
-                        coroutineScope.launch { drawerState.open() }
-                    },
                     initialQuestion = question,
                     reportAnswer = { messageId, reason ->
                         app.portalRepository.reportContent(
@@ -1001,7 +1023,6 @@ fun EditorialReaderApp(
                     viewModel = exploreViewModel,
                     initialTab = tab,
                     tabRequest = exploreTabRequest,
-                    onMenuClick = { coroutineScope.launch { drawerState.open() } },
                     onSearchClick = { navController.navigate(ReaderRoute.Search) },
                     onArticleClick = { navController.navigate(ReaderRoute.article(it)) },
                     onCategoryClick = { navController.navigate(ReaderRoute.category(it)) },
@@ -1276,18 +1297,38 @@ fun EditorialReaderApp(
             }
 
         }
-        MusicMiniPlayerBar(controller = app.musicController)
+        MusicMiniPlayerBar(controller = app.musicController, aboveBottomNavigation = showBottomNavigation)
+        if (showBottomNavigation) {
+            ReaderBottomNavigation(
+                currentRoute = currentRoute,
+                drawerOpen = drawerState.isOpen,
+                onMenu = { coroutineScope.launch { drawerState.open() } },
+                onHome = { requestTopLevel(ReaderRoute.Home) },
+                onMusic = { requestTopLevel(ReaderRoute.Music) },
+                onForum = { requestTopLevel(ReaderRoute.Forum) }
+            )
+        }
         }
         }
     }
     MusicFullPlayerOverlay(controller = app.musicController)
     AppToastHost(
         modifier = Modifier.padding(
-            // Clears the mini player, which is 52dp of content below the
-            // system navigation bar inset.
-            bottom = if (showMiniBar) 56.dp else 0.dp
+            // The host itself handles the system inset. Clear both fixed bars.
+            bottom = (if (showBottomNavigation) 80.dp else 0.dp) + (if (showMiniBar) 56.dp else 0.dp)
         )
     )
+    pendingNavigation?.let { action ->
+        AlertDialog(
+            onDismissRequest = { pendingNavigation = null },
+            title = { Text(t("এই পৃষ্ঠা ছাড়বেন?")) },
+            text = { Text(t("সংরক্ষণ না করা পরিবর্তন হারিয়ে যেতে পারে।")) },
+            confirmButton = {
+                TextButton(onClick = { pendingNavigation = null; action() }) { Text(t("পৃষ্ঠা ছাড়ুন")) }
+            },
+            dismissButton = { TextButton(onClick = { pendingNavigation = null }) { Text(t("বাতিল")) } }
+        )
+    }
     }
     }
 }

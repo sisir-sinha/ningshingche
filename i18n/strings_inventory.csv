@@ -9,10 +9,10 @@ bengali,bishnupriya,kind,uses,slots,screens
 পাঠক,,ui,10,0,"ArticleCommentForm.kt, ArticleRepository.kt, GoogleAuthMapper.kt, NingshingCheWebsiteClient.kt, PublicProfileScreen.kt, SettingsScreen.kt, SupabaseClient.kt, UserDashboardScreen.kt"
 গান,,ui,8,0,"ListScreens.kt, NewMusicScreen.kt, PublicProfileScreen.kt, UserDashboardCharts.kt, UserDashboardScreen.kt"
 বন্ধ করুন,,ui,8,0,"ArticleScreen.kt, AttachmentViewer.kt, EditorialComponents.kt, HtmlArticleRenderer.kt, MusicPlayer.kt, UserDashboardScreen.kt, VideoPlayer.kt"
+বাতিল,,ui,8,0,"BlockedUsersScreen.kt, ContentSafetySheet.kt, ForumScreens.kt, MusicScreen.kt, ReaderNavHost.kt, SettingsScreen.kt, TermsConsentDialog.kt"
 লেখক,,ui,8,0,"EditorialComponents.kt, ListScreens.kt, NinghsingCheContentData.kt, PortalDrawer.kt, PortalPages.kt, SupabaseModels.kt"
 জীবনী,,ui,7,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 প্রবন্ধ,,ui,7,0,"NinghsingCheContentData.kt, PublicProfileScreen.kt, UserDashboardCharts.kt, UserDashboardScreen.kt"
-বাতিল,,ui,7,0,"BlockedUsersScreen.kt, ContentSafetySheet.kt, ForumScreens.kt, MusicScreen.kt, SettingsScreen.kt, TermsConsentDialog.kt"
 মন্তব্য,,ui,7,0,"ArticleScreen.kt, UserDashboardCharts.kt, UserDashboardScreen.kt"
 সাইন ইন করুন,,ui,7,0,"ContentSafetySheet.kt, ContributorScreen.kt, EmailAuthForm.kt, ForumScreens.kt, HomeScreen.kt"
 মুছুন,,ui,6,0,"BookmarksScreen.kt, ForumScreens.kt, ListScreens.kt, MusicBrowseScreens.kt, MusicScreen.kt, SettingsScreen.kt"
@@ -27,6 +27,7 @@ bengali,bishnupriya,kind,uses,slots,screens
 নতুন প্রবন্ধ,,ui,5,0,"AppNotificationManager.kt, ContentNotice.kt, NewArticleScreen.kt, SettingsScreen.kt, WelcomeOnboardingScreen.kt"
 নতুন প্লেলিস্ট,,ui,5,0,"MusicLibraryStore.kt, MusicPlayer.kt, MusicScreen.kt"
 ফিরুন,,ui,5,0,"LoginScreen.kt, NewArticleScreen.kt, NewMusicScreen.kt, UserDashboardScreen.kt, UserProfileScreen.kt"
+ফোরাম,,ui,5,0,"AccountHeaderButton.kt, ForumScreens.kt, PortalDrawer.kt, ReaderBottomNavigation.kt, UserDashboardScreen.kt"
 বাংলাদেশ / ভারত,,ui,5,0,"ArticleRepository.kt, Models.kt, NingshingCheWebsiteClient.kt, SupabaseModels.kt"
 বার্ষিক ও উৎসব সংখ্যা,,ui,5,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 বিজ্ঞান ও প্রযুক্তি,,ui,5,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
@@ -38,6 +39,7 @@ bengali,bishnupriya,kind,uses,slots,screens
 অ্যালবাম,,ui,4,0,"MusicBrowseScreens.kt, MusicPlayer.kt, MusicScreen.kt, NewMusicScreen.kt"
 আমার সম্পর্কে,,ui,4,0,"PortalDrawer.kt, PortalPages.kt"
 গান {1},,ui,4,0,"ContributorScreen.kt, PublicProfileScreen.kt, UserProfileScreen.kt"
+ঘর,,ui,4,0,"NinghsingCheAiAssistant.kt, PortalDrawer.kt, ReaderBottomNavigation.kt, UserDashboardScreen.kt"
 ছবি,,ui,4,0,"AttachmentViewer.kt, MarkdownText.kt, RegisterForm.kt, UserDashboardScreen.kt"
 ছবি আপলোড যায়নি।,,ui,4,0,"ReaderWorkspaceViewModel.kt, RegisterForm.kt"
 ড. প্রদীপ সিংহ,,content,4,0,NinghsingCheContentData.kt
@@ -48,7 +50,6 @@ bengali,bishnupriya,kind,uses,slots,screens
 পর্যালোচনা,,ui,4,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 পৌরাণিক কাহিনী,,ui,4,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 প্রকাশিত,,ui,4,0,"UserDashboardCharts.kt, UserDashboardScreen.kt"
-ফোরাম,,ui,4,0,"AccountHeaderButton.kt, ForumScreens.kt, PortalDrawer.kt, UserDashboardScreen.kt"
 বার্ষিক সংখ্যা,,ui,4,0,"NinghsingCheContentData.kt, PortalDrawer.kt, ReaderNavHost.kt, Screen.kt"
 ভিডিও,,ui,4,0,"EditorialComponents.kt, MusicPlayer.kt, VideosScreen.kt"
 শর্তাবলিতে সম্মতি সংরক্ষণ করা যায়নি। ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন।,,ui,4,0,"ArticleScreen.kt, ForumScreens.kt, ReaderWorkspaceViewModel.kt"
@@ -69,7 +70,6 @@ Google সাইন-ইন সময় শেষ হয়েছে। আব�
 এই গানের অডিও ফাইল নেই।,,ui,3,0,"MusicController.kt, UserDashboardScreen.kt"
 কভার ছবি,,ui,3,0,"ForumScreens.kt, NewArticleScreen.kt, NewMusicScreen.kt"
 গবেষণা ও ভাষা আন্দোলন,,content,3,0,NinghsingCheContentData.kt
-ঘর,,ui,3,0,"NinghsingCheAiAssistant.kt, PortalDrawer.kt, UserDashboardScreen.kt"
 তালিকা,,ui,3,0,"HtmlContentEditor.kt, MusicPlayer.kt"
 তালিকা আনা যায়নি।,,ui,3,0,"ContributorScreen.kt, HomeScreen.kt"
 ধরন,,ui,3,0,"MusicBrowseScreens.kt, MusicPlayer.kt, MusicScreen.kt"
@@ -458,6 +458,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 এই নিবন্ধের একটি সংক্ষিপ্ত ও গোছানো সারসংক্ষেপ দিন।,,ui,1,0,ArticleScreen.kt
 এই নিবন্ধের মূল বার্তা বা সিদ্ধান্ত কী?,,ui,1,0,NinghsingCheAiAssistant.kt
 এই পাতা নিবন্ধিত পাঠকের জন্য,,ui,1,0,ContributorScreen.kt
+এই পৃষ্ঠা ছাড়বেন?,,ui,1,0,ReaderNavHost.kt
 এই প্রবন্ধে কোনো বিষয়বস্তু পাওয়া যায়নি।,,ui,1,0,HtmlArticleRenderer.kt
 এই বইয়ের পিডিএফ লিংক নেই।,,ui,1,0,MainViewModels.kt
 এই বিভাগ পাওয়া যায়নি।,,ui,1,0,ForumScreens.kt
@@ -799,6 +800,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 পূর্ণ আকারের ছবি,,ui,1,0,HtmlArticleRenderer.kt
 পৃষ্ঠা {1} / {2},,ui,1,0,PdfViewerScreen.kt
 পৃষ্ঠা খোলা যায়নি,,ui,1,0,NingshingCheWebsiteClient.kt
+পৃষ্ঠা ছাড়ুন,,ui,1,0,ReaderNavHost.kt
 পৃষ্ঠায় যান,,ui,1,0,PdfViewerScreen.kt
 পেস্ট,,ui,1,0,HtmlContentEditor.kt
 পৌরাণিক লোকগাথা: মণিপুরের লোকতাক হ্রদ ও সৃষ্টির আখ্যান,,content,1,0,NinghsingCheContentData.kt
@@ -1007,6 +1009,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 "মাতৃভাষার প্রথম নারী শহীদ সুদেষ্ণা সিংহের জীবন, আদর্শ ও ১৬ মার্চের আত্মদানের ইতিহাস।",,content,1,0,NinghsingCheContentData.kt
 মিংকৌ এবং মূল নামের মধ্যে সামাজিক পার্থক্য ও প্রয়োগ কী?,,ui,1,0,NinghsingCheAiAssistant.kt
 মিংকৌ প্রথা,,ui,1,0,EditorialComponents.kt
+মিউজিক,,ui,1,0,ReaderBottomNavigation.kt
 মিথ্যা তথ্য,,ui,1,0,ContentSafetySheet.kt
 মিনিট,,ui,1,0,UserDashboardScreen.kt
 মুছে ফেলবেন?,,ui,1,0,ForumScreens.kt
@@ -1015,7 +1018,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 মূল বিষয়,,ui,1,0,NinghsingCheAiAssistant.kt
 মূল লেখা,,ui,1,0,NewArticleScreen.kt
 মেইলে আসা কোডটি দিন,,ui,1,0,EmailAuthForm.kt
-মেনু,,ui,1,0,AiAssistantScreen.kt
+মেনু,,ui,1,0,ReaderBottomNavigation.kt
 মেমরি ও অফলাইন ক্যাশ ব্যবস্থাপনা,,ui,1,0,SettingsScreen.kt
 মোট {1} · শেষ {2} দিনে {3},,ui,1,0,UserDashboardCharts.kt
 মোট {1}টি জমা,,ui,1,0,UserDashboardCharts.kt
@@ -1105,6 +1108,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 সংযুক্তি সরান,,ui,1,0,ForumScreens.kt
 সংযুক্তি ২০০ এমবি-র বেশি হতে পারে না।,,ui,1,0,SatoruUploadClient.kt
 সংযুক্তি.pdf,,ui,1,0,PortalModels.kt
+সংরক্ষণ না করা পরিবর্তন হারিয়ে যেতে পারে।,,ui,1,0,ReaderNavHost.kt
 সংরক্ষণ যায়নি ({1})। লিংক মেয়াদ শেষ হতে পারে।,,ui,1,1,MusicLibraryStore.kt
 সংরক্ষিত তথ্য লোড হচ্ছে...,,ui,1,0,ArticleCommentForm.kt
 সংরক্ষিত তালিকার মধ্যে খুঁজুন...,,ui,1,0,BookmarksScreen.kt

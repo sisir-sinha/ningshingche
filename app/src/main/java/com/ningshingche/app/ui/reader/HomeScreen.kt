@@ -76,7 +76,6 @@ import com.ningshingche.app.ui.editorial.EditorialFooter
 import com.ningshingche.app.ui.components.AccountHeaderButton
 import com.ningshingche.app.ui.components.HomeSkeletonLayout
 import com.ningshingche.app.ui.editorial.AiAssistantHomeBanner
-import com.ningshingche.app.ui.editorial.AnimatedHamburgerIcon
 import com.ningshingche.app.ui.editorial.ArticleRail
 import com.ningshingche.app.ui.editorial.ArticleRow
 import com.ningshingche.app.ui.editorial.AuthorRail
@@ -134,7 +133,6 @@ fun HomeScreen(
     /** সাম্প্রতিক আলোচনা: the five newest threads, for a signed-in reader. */
     onForumDiscussionClick: (String) -> Unit = {},
     onSeeAllForum: () -> Unit = {},
-    onMenuClick: () -> Unit = {},
     onAiClick: () -> Unit = {},
     onAiPrompt: (String) -> Unit = {},
     onLoginClick: () -> Unit = {},
@@ -189,12 +187,6 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(start = 4.dp)
                     ) {
-                        IconButton(
-                            onClick = onMenuClick,
-                            modifier = Modifier.testTag("hamburger_menu_button")
-                        ) {
-                            AnimatedHamburgerIcon(tint = MaterialTheme.colorScheme.onSurface)
-                        }
                         // Brand wordmark (text, not the logo image). Tapping it
                         // scrolls the feed back to the top.
                         Text(

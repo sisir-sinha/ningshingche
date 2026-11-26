@@ -36,7 +36,6 @@ import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -87,7 +86,6 @@ fun AiAssistantScreen(
     viewModel: AiViewModel,
     onBackClick: () -> Unit,
     onArticleClick: (String) -> Unit,
-    onMenuClick: () -> Unit = {},
     initialQuestion: String = "",
     /**
      * Play's Generative AI policy: the reader has to be able to report an answer
@@ -169,7 +167,7 @@ fun AiAssistantScreen(
                 })
             }
     ) {
-        // Top Header: hamburger | brand logo | title | dismiss.
+        // Top header: brand logo, title and dismiss. The drawer lives in the bottom bar.
         Surface(
             color = MaterialTheme.colorScheme.surface,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
@@ -184,20 +182,6 @@ fun AiAssistantScreen(
                     .padding(horizontal = 8.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(
-                    onClick = {
-                        focusManager.clearFocus()
-                        onMenuClick()
-                    },
-                    modifier = Modifier.testTag("ai_menu_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Menu,
-                        contentDescription = t("মেনু"),
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
                 Image(
                     painter = painterResource(R.drawable.ic_ningshingche_logo),
                     contentDescription = t("নিংশিং চে"),
