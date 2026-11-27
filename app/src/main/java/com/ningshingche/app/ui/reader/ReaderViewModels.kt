@@ -654,6 +654,22 @@ class CategoryViewModel(
     fun loadMore() = paginator.loadMore()
 }
 
+/** Paged results for a topic tag, distinct from categories and annual issues. */
+class TagViewModel(
+    private val repository: PortalRepository,
+    val tag: String
+) : ViewModel() {
+    private val paginator = ArticlePaginator(viewModelScope) { limit, offset ->
+        repository.articlesByTag(tag, limit = limit, offset = offset)
+    }
+    val state: StateFlow<ListUiState> = paginator.state
+
+    init { load() }
+
+    fun load() = paginator.loadFirst()
+    fun loadMore() = paginator.loadMore()
+}
+
 class AuthorViewModel(
     private val repository: PortalRepository,
     private val authorId: String
@@ -953,6 +969,15 @@ class CategoryViewModelFactory(
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T =
         CategoryViewModel(repository, categorySlug) as T
+}
+
+class TagViewModelFactory(
+    private val repository: PortalRepository,
+    private val tag: String
+) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T =
+        TagViewModel(repository, tag) as T
 }
 
 class AuthorViewModelFactory(

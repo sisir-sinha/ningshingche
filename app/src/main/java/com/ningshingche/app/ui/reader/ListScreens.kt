@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ningshingche.app.data.portal.AuthorRef
 import com.ningshingche.app.data.portal.CategoryRef
+import com.ningshingche.app.data.portal.IssueTags
 import com.ningshingche.app.data.portal.stripHtml
 import com.ningshingche.app.ui.components.HtmlFormattedText
 import com.ningshingche.app.ui.components.VerifiedBadge
@@ -417,6 +418,46 @@ fun CategoryScreen(
                 Hairline()
             }
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tag results
+// ---------------------------------------------------------------------------
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TagScreen(
+    viewModel: TagViewModel,
+    onBackClick: () -> Unit,
+    onArticleClick: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val state by viewModel.state.collectAsState()
+    val label = "#${IssueTags.clean(viewModel.tag)}"
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            TopAppBar(
+                title = { Text(label, style = EditorialType.Title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t("পেছনে"))
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
+            )
+        }
+    ) { padding ->
+        ArticleList(
+            state = state,
+            onArticleClick = onArticleClick,
+            onLoadMore = viewModel::loadMore,
+            onRetry = viewModel::load,
+            modifier = Modifier.padding(padding)
+        )
     }
 }
 

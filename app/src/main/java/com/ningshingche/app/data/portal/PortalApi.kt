@@ -317,7 +317,9 @@ interface PortalApi {
     suspend fun blogFacets(
         @Query("select") select: String = FACET_COLUMNS,
         @Query("status") status: String = "eq.Publish",
-        @Query("limit") limit: Int = 1000
+        @Query("limit") limit: Int = 1000,
+        @Query("offset") offset: Int = 0,
+        @Query("order") order: String? = null
     ): Response<List<BlogFacetDto>>
 
     // ------------------------------------------------------------- categories

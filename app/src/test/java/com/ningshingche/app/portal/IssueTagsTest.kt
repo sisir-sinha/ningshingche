@@ -49,6 +49,7 @@ class IssueTagsTest {
         val tags = listOf("নিংশিং চে - ২০২৪", "৯ম সংখ্যা")
         assertTrue(IssueTags.matches(tags, "নিংশিং চে-২০২৪"))
         assertTrue(IssueTags.matches(tags, "৯ম  সংখ্যা"))
+        assertTrue(IssueTags.matches(tags, "  #৯ম সংখ্যা  "))
         assertTrue(IssueTags.matchesIssue(tags, 2024))
         assertFalse(IssueTags.matchesIssue(tags, 2023))
     }

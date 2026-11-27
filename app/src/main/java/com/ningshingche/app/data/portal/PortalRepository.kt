@@ -68,6 +68,7 @@ class PortalRepository(
     private val facetsCache = mutableMapOf<String, CacheEntry<List<BlogFacet>>>()
     private val issuesCache = mutableMapOf<String, CacheEntry<List<IssueSummary>>>()
     private val tagCountsCache = mutableMapOf<String, CacheEntry<List<TagCount>>>()
+    private val tagSpellingsCache = mutableMapOf<String, CacheEntry<List<String>>>()
     /**
      * One entry per forum room, keyed by slug. A thread's own counts come from
      * the thread call, so only the room list is cached — and it is dropped when
@@ -238,6 +239,67 @@ class PortalRepository(
                 callList { api.blogFacets() }.getOrThrow().map { it.toFacet() }
             }
         }
+
+    /** Published articles carrying this tag, not articles in a category of the same name. */
+    suspend fun articlesByTag(
+        tag: String,
+        limit: Int = PortalConfig.PAGE_SIZE,
+        offset: Int = 0
+    ): Result<Page<ArticleSummary>> = withContext(Dispatchers.IO) {
+        val key = IssueTags.keyOf(tag)
+        if (key.isBlank()) return@withContext Result.success(Page(emptyList(), total = 0))
+
+        if (tagEndpointsAvailable != false) {
+            val viaKeys = callPage {
+                api.blogs(
+                    status = "eq.Publish",
+                    tagKeys = "cs." + encodeArrayLiteral(listOf(key)),
+                    order = PortalApi.FEED_ORDER,
+                    limit = limit,
+                    offset = offset
+                )
+            }
+            if (viaKeys.isSuccess) {
+                tagEndpointsAvailable = true
+                return@withContext viaKeys.map { page -> page.mapItems { it.toSummary() } }
+            }
+            if (viaKeys.exceptionOrNull() !is PortalError.SchemaMissing) {
+                return@withContext viaKeys.map { page -> page.mapItems { it.toSummary() } }
+            }
+            tagEndpointsAvailable = false
+        }
+
+        // On older databases there is no normalised key column. Gather the raw
+        // spellings from every page of public facets, then let PostgREST do the
+        // exact filtering and paging. Preserve the tapped raw value as well.
+        val spellings = cached(key, tagSpellingsCache, TTL_REFERENCE, false) {
+            val matches = linkedSetOf<String>()
+            var scanOffset = 0
+            val scanSize = 200
+            while (true) {
+                val rows = callList {
+                    api.blogFacets(select = "id,tags", limit = scanSize, offset = scanOffset, order = "id.asc")
+                }.getOrThrow()
+                rows.forEach { row -> row.tags.orEmpty().forEach { raw ->
+                    if (IssueTags.keyOf(raw) == key) matches.add(raw)
+                } }
+                if (rows.size < scanSize) break
+                scanOffset += rows.size
+            }
+            matches.toList()
+        }
+        if (spellings.isFailure) return@withContext Result.failure(spellings.exceptionOrNull()!!)
+        val rawTags = (spellings.getOrThrow() + tag).distinct()
+        callPage {
+            api.blogs(
+                status = "eq.Publish",
+                tags = "ov." + encodeArrayLiteral(rawTags),
+                order = PortalApi.FEED_ORDER,
+                limit = limit,
+                offset = offset
+            )
+        }.map { page -> page.mapItems { it.toSummary() } }
+    }
 
     /**
      * Articles of one annual issue (`নিংশিং চে - YYYY` tag, any spelling).

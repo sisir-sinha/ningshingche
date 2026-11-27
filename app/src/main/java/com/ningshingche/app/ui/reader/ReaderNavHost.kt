@@ -117,6 +117,7 @@ object ReaderRoute {
     const val Search = "search"
     const val Article = "article/{articleId}"
     const val Category = "category/{categorySlug}"
+    const val Tag = "tag/{tag}"
     const val Author = "author/{authorId}"
     const val Settings = "settings"
     const val BlockedUsers = "blocked_users"
@@ -182,6 +183,7 @@ object ReaderRoute {
         return "user_dashboard?tab=$safeTab&focus=${encode(focus)}"
     }
     fun category(slug: String) = "category/${encode(slug)}"
+    fun tagResults(value: String) = "tag/${encode(value)}"
     fun author(id: String) = "author/${encode(id)}"
     fun pdfViewer(pdfId: String) = "pdf_viewer/${encode(pdfId)}"
     fun explore(tab: ExploreTab) = "explore?tab=${tab.key}"
@@ -192,12 +194,12 @@ object ReaderRoute {
 
     /**
      * Where a tapped tag should go: annual-issue tags (`নিংশিং চে - ২০২৩`, any
-     * spelling) open the issue list, a bare year too; anything else is treated
-     * as a category slug/title and opens the category list.
+     * spelling) open the issue list, a bare year too; other tags open their
+     * own article list rather than being mistaken for categories.
      */
     fun forTag(tag: String): String {
         IssueTags.parseYear(tag)?.let { return issue(it) }
-        return category(tag)
+        return tagResults(tag)
     }
 
     private fun encode(value: String) =
@@ -655,6 +657,26 @@ fun EditorialReaderApp(
                 )
                 CategoryScreen(
                     viewModel = categoryViewModel,
+                    onBackClick = { navController.popBackStack() },
+                    onArticleClick = { navController.navigate(ReaderRoute.article(it)) }
+                )
+            }
+
+            // Topic-tag articles (a tag is not necessarily a category).
+            composable(
+                enterTransition = navEnter,
+                exitTransition = navExit,
+                popEnterTransition = navPopEnter,
+                popExitTransition = navPopExit,
+                route = ReaderRoute.Tag,
+                arguments = listOf(navArgument("tag") { type = NavType.StringType })
+            ) { entry ->
+                val tag = entry.arguments?.getString("tag").orEmpty()
+                val tagViewModel: TagViewModel = viewModel(
+                    factory = TagViewModelFactory(app.portalRepository, tag)
+                )
+                TagScreen(
+                    viewModel = tagViewModel,
                     onBackClick = { navController.popBackStack() },
                     onArticleClick = { navController.navigate(ReaderRoute.article(it)) }
                 )

@@ -41,6 +41,7 @@ object IssueTags {
     /** Display form: NFC, trimmed, single spaces, no leading `#`. */
     fun clean(tag: String?): String =
         Normalizer.normalize(tag.orEmpty(), Normalizer.Form.NFC)
+            .trim()
             .trimStart('#')
             .replace(WHITESPACE, " ")
             .trim()
