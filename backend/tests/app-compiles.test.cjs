@@ -526,12 +526,11 @@ test('the missing-import checker finds one, and leaves its neighbours alone', ()
   }
 });
 
-test('the four symbols the owner\'s build could not resolve are there, by name', () => {
+test('the remaining symbols the owner\'s build could not resolve are there, by name', () => {
   // The build log, verbatim — the reason this file exists at all:
   //
   //   ArticleRepository.kt:508:52      Unresolved reference 'toBengaliDigits'
   //   HomeScreen.kt:77,257             Unresolved reference 'HomeSkeletonLayout'
-  //   AiAssistantScreen.kt:72,140      Unresolved reference 'AiAssistantSkeletonLayout'
   //   ExploreScreen.kt:66,209          Unresolved reference 'ExploreSkeletonLayout'
   //
   // Each of those is pinned by name here, so that if one is ever moved or removed
@@ -553,7 +552,6 @@ test('the four symbols the owner\'s build could not resolve are there, by name',
   assert.match(shimmer, /fun Modifier\.shimmerEffect\(/, 'the shimmer is here');
   for (const [name, parts] of [
     ['HomeSkeletonLayout', ['ui', 'reader', 'HomeScreen.kt']],
-    ['AiAssistantSkeletonLayout', ['ui', 'screens', 'AiAssistantScreen.kt']],
     ['ExploreSkeletonLayout', ['ui', 'screens', 'ExploreScreen.kt']],
   ]) {
     const screen = parts[parts.length - 1];

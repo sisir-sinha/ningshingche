@@ -207,6 +207,9 @@ secrets {
   propertiesFileName = ".env"
   defaultPropertiesFileName = ".env.example"
   ignoreList.add("FIREBASE_APPCHECK_DEBUG_TOKEN")
+  // Retired AI credentials must not be generated into new app builds.
+  ignoreList.add("GEMINI_API_KEY")
+  ignoreList.add("OPENROUTER_API_KEY")
 }
 
 googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }
@@ -243,7 +246,7 @@ dependencies {
   // implementation(libs.firebase.firestore)
 
   // Native Google Sign-In via Credential Manager → Supabase Auth (ID token).
-  // Firebase Auth is not used. Gemini is called over HTTP, not the Firebase AI SDK.
+  // Firebase Auth is not used.
   implementation(libs.androidx.credentials)
   implementation(libs.androidx.credentials.play.services)
   implementation(libs.googleid)

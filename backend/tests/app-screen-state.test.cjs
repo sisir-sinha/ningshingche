@@ -1,16 +1,9 @@
 /**
  * The owner's sixth read: "it reload the page and show the skeleton min for 0.5s".
  *
- * Two screens were named — the chat, and a forum thread — and the same two things
- * were wrong on both: the loading state belonged to the *screen's lifetime*
- * rather than to the data, so a screen that was rebuilt (leaving the thread for an
- * author's page and coming back, an activity being re-created, the assistant being
- * reopened) showed a skeleton or a spinner over content that was still in memory.
- *
- * The fix is the same shape on both: the state is hoisted out of the composition
- * — `rememberSaveable` for the assistant's one-second intro, a destination-scoped
- * `ViewModel` for the thread — and a loading state is only allowed to take the
- * screen when there is genuinely nothing to show.
+ * The forum thread loading state belongs to a destination-scoped ViewModel,
+ * and a loading state is only allowed to take the screen when there is genuinely
+ * nothing to show. The former assistant screen has since been removed.
  *
  * The second half of the thread test is a bug the same change fixes: the view used
  * to be counted once per *screen*, so a rebuilt screen counted the same reader
@@ -27,7 +20,6 @@ const APP = path.join(ROOT, 'app', 'src', 'main', 'java', 'com', 'ningshingche',
 const read = (...parts) => fs.readFileSync(path.join(APP, ...parts), 'utf8');
 
 const FORUM_SCREENS = read('ui', 'screens', 'ForumScreens.kt');
-const AI_SCREEN = read('ui', 'screens', 'AiAssistantScreen.kt');
 
 /** A declaration's body, from its opening brace to the one that closes it. */
 function bodyOf(source, name) {
@@ -47,27 +39,6 @@ function bodyOf(source, name) {
 }
 
 const screen = (name) => bodyOf(FORUM_SCREENS, name);
-
-// ---------------------------------------------------------------------------
-// 1. The assistant: the skeleton is a first impression, not a tax
-// ---------------------------------------------------------------------------
-
-test('the assistant does not replay its skeleton on every visit', async (t) => {
-  await t.test('the flag survives a rebuild instead of starting true again', () => {
-    assert.match(AI_SCREEN, /var introShown by rememberSaveable \{ mutableStateOf\(false\) \}/,
-      'held outside the composition, like the question that was already asked');
-    assert.ok(!/var isSkeletonLoading by remember \{ mutableStateOf\(true\) \}/.test(AI_SCREEN),
-      'and not a fresh `true` every time the screen is composed');
-  });
-
-  await t.test('and it never covers a conversation that is already there', () => {
-    assert.match(AI_SCREEN, /val showSkeleton = !introShown && messages\.isEmpty\(\)/);
-    assert.match(AI_SCREEN, /if \(showSkeleton\) \{\s*AiAssistantSkeletonLayout\(\)\s*return\s*\}/,
-      'the skeleton is asked for by that one condition');
-    assert.match(AI_SCREEN, /delay\(1000L\)[\s\S]{0,60}introShown = true/,
-      'the second is still the owner\'s second, and it still ends');
-  });
-});
 
 // ---------------------------------------------------------------------------
 // 2. The thread: nothing flashes over answers that are still in memory

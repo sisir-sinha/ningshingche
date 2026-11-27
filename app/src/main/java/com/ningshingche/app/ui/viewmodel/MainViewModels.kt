@@ -4,8 +4,6 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.ningshingche.app.data.ai.NinghsingCheAiAssistant
-import com.ningshingche.app.data.local.ArticleAiChatStore
 import com.ningshingche.app.data.auth.EmailAuthException
 import com.ningshingche.app.data.auth.EmailAuthMessages
 import com.ningshingche.app.data.auth.GoogleAuthException
@@ -14,7 +12,6 @@ import com.ningshingche.app.NinghsingCheApp
 import com.ningshingche.app.data.auth.GoogleAuthRepository
 import com.ningshingche.app.data.remote.SupabaseClient
 import com.ningshingche.app.data.remote.UserProfile
-import com.ningshingche.app.data.model.AiChatMessage
 import com.ningshingche.app.data.i18n.TranslationRepository
 import com.ningshingche.app.data.model.AppPalette
 import com.ningshingche.app.data.model.AppThemeMode
@@ -46,7 +43,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.util.UUID
 import com.ningshingche.app.ui.i18n.tNow
 
 // Home ViewModel
@@ -186,91 +182,6 @@ class BookmarksViewModel(
             com.ningshingche.app.ui.components.AppToasts.undo(tNow("সংরক্ষণ সরানো হয়েছে")) {
                 removeBookmark(articleId, announce = false)
             }
-        }
-    }
-}
-
-// AI Assistant ViewModel
-class AiViewModel(
-    private val aiAssistant: NinghsingCheAiAssistant,
-    private val chatStore: ArticleAiChatStore
-) : ViewModel() {
-
-    private val welcomeMessage = AiChatMessage(
-        id = "welcome",
-        text = tNow("নমস্কার! আমি নিংশিং চে AI সহকারী। বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, ঐতিহ্য ও সাধারণ জ্ঞানের প্রবন্ধ বিশ্লেষণ করে আমি সঠিক তথ্য প্রদান করি। ইঞ্চৌঘর, মিংকৌ, ভাষা আন্দোলন বা যেকোনো বিষয়ে প্রশ্ন করতে পারেন।"),
-        isUser = false,
-        citations = emptyList(),
-        suggestedQuestions = listOf(
-            tNow("বিষ্ণুপ্রিয়া মণিপুরি ভাষা আন্দোলনের ইতিহাস কী?"),
-            tNow("মণিপুরি সমাজের ঐতিহ্যবাহী 'ইঞ্চৌঘর' কী?"),
-            tNow("মণিপুরি সমাজে 'মিংকৌ' নামপ্রথা কী?")
-        )
-    )
-
-    private val _messages = MutableStateFlow(listOf(welcomeMessage))
-    val messages: StateFlow<List<AiChatMessage>> = _messages.asStateFlow()
-
-    private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
-
-    val suggestedQuestions = listOf(
-        tNow("বিষ্ণুপ্রিয়া মণিপুরি ভাষা আন্দোলনের ইতিহাস কী?"),
-        tNow("মণিপুরি সমাজের ঐতিহ্যবাহী 'ইঞ্চৌঘর' কী?"),
-        tNow("মণিপুরি সমাজে 'মিংকৌ' নামপ্রথা কী?"),
-        tNow("বিশু উৎসব কীভাবে পালিত হয়?"),
-        tNow("শহীদ সুদেষ্ণা সিংহের আত্মত্যাগ সম্পর্কে বলুন"),
-        tNow("মহারাস ও রাখাল রাসের বিশেষত্ব কী?")
-    )
-
-    init {
-        viewModelScope.launch {
-            val stored = chatStore.load(ArticleAiChatStore.GLOBAL_THREAD)
-            if (stored.isNotEmpty()) {
-                _messages.value = stored
-            }
-        }
-    }
-
-    fun sendQuestion(question: String) {
-        if (question.isBlank() || _isLoading.value) return
-
-        val userMessage = AiChatMessage(
-            id = UUID.randomUUID().toString(),
-            text = question.trim(),
-            isUser = true
-        )
-
-        val currentHistory = _messages.value
-        _messages.value = currentHistory + userMessage
-        _isLoading.value = true
-        persist(userMessage)
-
-        viewModelScope.launch {
-            try {
-                val response = aiAssistant.answerQuestion(
-                    userQuestion = question.trim(),
-                    history = currentHistory
-                )
-                _messages.value = _messages.value + response
-                persist(response)
-            } catch (e: Exception) {
-                val error = AiChatMessage(
-                    id = UUID.randomUUID().toString(),
-                    text = tNow("দুঃখিত, তথ্য সংগ্রহে একটি ত্রুটি দেখা দিয়েছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।"),
-                    isUser = false
-                )
-                _messages.value = _messages.value + error
-                persist(error)
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    private fun persist(message: AiChatMessage) {
-        viewModelScope.launch {
-            chatStore.append(ArticleAiChatStore.GLOBAL_THREAD, message)
         }
     }
 }
@@ -805,7 +716,6 @@ class PdfViewerViewModel(
 class ViewModelFactory(
     private val repository: ArticleRepository,
     private val preferencesRepository: UserPreferencesRepository,
-    private val aiAssistant: NinghsingCheAiAssistant,
     private val googleAuthRepository: GoogleAuthRepository,
     private val context: Context,
     private val supabaseClient: SupabaseClient,
@@ -818,10 +728,6 @@ class ViewModelFactory(
             modelClass.isAssignableFrom(HomeViewModel::class.java) -> HomeViewModel(repository) as T
             modelClass.isAssignableFrom(BookmarksViewModel::class.java) -> BookmarksViewModel(repository) as T
             modelClass.isAssignableFrom(SavedArticlesViewModel::class.java) -> SavedArticlesViewModel(repository) as T
-            modelClass.isAssignableFrom(AiViewModel::class.java) -> AiViewModel(
-                aiAssistant,
-                ArticleAiChatStore(com.ningshingche.app.data.local.AppDatabase.getInstance(context).chatDao())
-            ) as T
             modelClass.isAssignableFrom(SettingsViewModel::class.java) -> SettingsViewModel(preferencesRepository, repository, googleAuthRepository, supabaseClient, translations) as T
             modelClass.isAssignableFrom(PdfArchiveViewModel::class.java) -> PdfArchiveViewModel(repository) as T
             modelClass.isAssignableFrom(PdfViewerViewModel::class.java) ->

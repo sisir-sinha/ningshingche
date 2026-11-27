@@ -206,28 +206,8 @@ data class ReaderPreferences(
     val termsAcceptedVersion: String = ""
 )
 
-data class ArticleCitation(
-    val articleId: String,
-    val title: String,
-    val author: String,
-    val category: String,
-    val snippet: String
-)
-
 data class ArticleComment(
     val name: String,
     val content: String,
     val meta: String = ""
-)
-
-data class AiChatMessage(
-    val id: String,
-    val text: String,
-    val isUser: Boolean,
-    val timestamp: Long = System.currentTimeMillis(),
-    val citations: List<ArticleCitation> = emptyList(),
-    val isThinking: Boolean = false,
-    /** True when the assistant found nothing locally and offers to fetch online. */
-    val offerOnline: Boolean = false,
-    val suggestedQuestions: List<String> = emptyList()
 )

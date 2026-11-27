@@ -165,7 +165,7 @@ private val YOUTUBE_RE = Regex(
 )
 
 /**
- * Renders markdown from the AI assistant with full rich-media support:
+ * Renders markdown with full rich-media support:
  *  - **bold**, *italic*, `code`, headings, lists, quotes and code blocks
  *  - `[links](url)` — drawn in the primary colour, underlined and tappable
  *  - `![alt](image-url)` — loads the image inline (Coil)
@@ -674,7 +674,7 @@ fun parseInlineMarkdown(
     linkColor: Color,
     onLinkClick: (String) -> Unit = {}
 ): AnnotatedString {
-    // AI providers sometimes return HTML (or HTML-escaped HTML) instead of Markdown.
+    // Text can contain HTML (or HTML-escaped HTML) instead of Markdown.
     // Normalize it before parsing so users see styled text, never literal tags/entities.
     val normalizedText = normalizeRichText(text)
     return buildAnnotatedString {

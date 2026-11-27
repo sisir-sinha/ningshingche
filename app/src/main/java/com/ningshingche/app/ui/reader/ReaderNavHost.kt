@@ -27,14 +27,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -59,7 +59,6 @@ import com.ningshingche.app.ui.navigation.ExploreTab
 import com.ningshingche.app.ui.components.PortalDrawerContent
 import com.ningshingche.app.ui.components.PortalDrawerWidth
 import com.ningshingche.app.ui.screens.AboutScreen
-import com.ningshingche.app.ui.screens.AiAssistantScreen
 import com.ningshingche.app.ui.screens.AuthorsDirectoryScreen
 import com.ningshingche.app.ui.screens.BookmarksScreen
 import com.ningshingche.app.ui.screens.ExploreScreen
@@ -82,7 +81,6 @@ import com.ningshingche.app.ui.screens.UserDashboardScreen
 
 import com.ningshingche.app.ui.screens.UserProfileScreen
 import com.ningshingche.app.ui.screens.FirstRunFlow
-import com.ningshingche.app.ui.viewmodel.AiViewModel
 import com.ningshingche.app.ui.viewmodel.BookmarksViewModel
 import com.ningshingche.app.ui.viewmodel.SavedArticlesViewModel
 import com.ningshingche.app.ui.components.BookmarkController
@@ -120,8 +118,6 @@ object ReaderRoute {
     const val Article = "article/{articleId}"
     const val Category = "category/{categorySlug}"
     const val Author = "author/{authorId}"
-    const val AiAssistant = "ai_assistant"
-    const val AiAssistantPattern = "ai_assistant?q={q}"
     const val Settings = "settings"
     const val BlockedUsers = "blocked_users"
     const val Login = "login"
@@ -159,10 +155,6 @@ object ReaderRoute {
     const val ForumNewPattern = "forum_new?room={room}"
     // সেরা অবদানকারী — the monthly board, for signed-in readers.
     const val Contributors = "contributors"
-
-    fun ai(question: String = ""): String {
-        return if (question.isBlank()) AiAssistant else "ai_assistant?q=${encode(question)}"
-    }
 
     /**
      * A user id is already URL-safe, so it goes in unescaped: a percent-encoded
@@ -267,7 +259,6 @@ fun EditorialReaderApp(
     val mainFactory = ViewModelFactory(
         repository = app.articleRepository,
         preferencesRepository = app.preferencesRepository,
-        aiAssistant = app.aiAssistant,
         googleAuthRepository = app.googleAuthRepository,
         context = context,
         supabaseClient = app.supabaseClient,
@@ -522,12 +513,6 @@ fun EditorialReaderApp(
                     onContributorClick = { navController.navigate(ReaderRoute.publicProfile(it)) },
                     onForumDiscussionClick = { id -> navController.navigate(ReaderRoute.forumThread(id)) },
                     onSeeAllForum = { navController.navigate(ReaderRoute.Forum) },
-                    onAiClick = {
-                        navController.navigate(ReaderRoute.AiAssistant)
-                    },
-                    onAiPrompt = { question ->
-                        navController.navigate(ReaderRoute.ai(question))
-                    },
                     onLoginClick = { navController.navigate(ReaderRoute.Login) },
                     onDashboardClick = { navController.navigate(ReaderRoute.UserDashboard) },
                     onProfileClick = { navController.navigate(ReaderRoute.UserProfile) },
@@ -713,55 +698,6 @@ fun EditorialReaderApp(
                     viewModel = authorViewModel,
                     onBackClick = { navController.popBackStack() },
                     onArticleClick = { navController.navigate(ReaderRoute.article(it)) }
-                )
-            }
-
-            // NingshingChe AI Assistant Screen
-            composable(ReaderRoute.AiAssistant, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
-                val aiViewModel: AiViewModel = viewModel(factory = mainFactory)
-                AiAssistantScreen(
-                    viewModel = aiViewModel,
-                    onBackClick = { navController.popBackStack() },
-                    onArticleClick = { navController.navigate(ReaderRoute.article(it)) },
-                    // Play's Generative AI policy: a reader must be able to flag an
-                    // answer from the answer. Same queue as the forum's reports.
-                    reportAnswer = { messageId, reason ->
-                        app.portalRepository.reportContent(
-                            contentType = "ai_output",
-                            contentId = messageId,
-                            reason = reason
-                        )
-                    }
-                )
-            }
-
-            composable(
-                enterTransition = navEnter,
-                exitTransition = navExit,
-                popEnterTransition = navPopEnter,
-                popExitTransition = navPopExit,
-                route = ReaderRoute.AiAssistantPattern,
-                arguments = listOf(
-                    navArgument("q") { type = NavType.StringType; defaultValue = "" }
-                )
-            ) { entry ->
-                val aiViewModel: AiViewModel = viewModel(factory = mainFactory)
-                val question = java.net.URLDecoder.decode(
-                    entry.arguments?.getString("q").orEmpty(),
-                    "UTF-8"
-                )
-                AiAssistantScreen(
-                    viewModel = aiViewModel,
-                    onBackClick = { navController.popBackStack() },
-                    onArticleClick = { navController.navigate(ReaderRoute.article(it)) },
-                    initialQuestion = question,
-                    reportAnswer = { messageId, reason ->
-                        app.portalRepository.reportContent(
-                            contentType = "ai_output",
-                            contentId = messageId,
-                            reason = reason
-                        )
-                    }
                 )
             }
 

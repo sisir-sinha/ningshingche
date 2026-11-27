@@ -41,13 +41,13 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -75,7 +75,6 @@ import com.ningshingche.app.ui.components.LocalMusicController
 import com.ningshingche.app.ui.editorial.EditorialFooter
 import com.ningshingche.app.ui.components.AccountHeaderButton
 import com.ningshingche.app.ui.components.HomeSkeletonLayout
-import com.ningshingche.app.ui.editorial.AiAssistantHomeBanner
 import com.ningshingche.app.ui.editorial.ArticleRail
 import com.ningshingche.app.ui.editorial.ArticleRow
 import com.ningshingche.app.ui.editorial.AuthorRail
@@ -103,7 +102,6 @@ import com.ningshingche.app.ui.i18n.tNow
  * Structure, top to bottom:
  * masthead (Fixed top bar with animated hamburger & logo) →
  * hero carousel (auto sliding, is_slider filter) →
- * AI Assistant Banner →
  * category rail (first article thumb backdrop, Kalpurush) →
  * featured rail (is_featured filter, All Featured navigation) →
  * numbered specials →
@@ -133,8 +131,6 @@ fun HomeScreen(
     /** সাম্প্রতিক আলোচনা: the five newest threads, for a signed-in reader. */
     onForumDiscussionClick: (String) -> Unit = {},
     onSeeAllForum: () -> Unit = {},
-    onAiClick: () -> Unit = {},
-    onAiPrompt: (String) -> Unit = {},
     onLoginClick: () -> Unit = {},
     onDashboardClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
@@ -285,8 +281,6 @@ fun HomeScreen(
                     onSeeAllSpecial = onSeeAllSpecial,
                     onSeeAllVideos = onSeeAllVideos,
                     onSeeAllMusic = onSeeAllMusic,
-                    onAiClick = onAiClick,
-                    onAiPrompt = onAiPrompt,
                     onNavigate = onNavigate,
                     onOpenLink = onOpenLink
                 )
@@ -326,8 +320,6 @@ private fun HomeContent(
     onSeeAllSpecial: (() -> Unit)? = null,
     onSeeAllVideos: () -> Unit,
     onSeeAllMusic: () -> Unit,
-    onAiClick: () -> Unit,
-    onAiPrompt: (String) -> Unit = {},
     onNavigate: (String) -> Unit = {},
     onOpenLink: (String) -> Unit = {}
 ) {
@@ -426,15 +418,6 @@ private fun HomeContent(
                     )
                 )
             }
-        }
-
-        // 2. AI Assistant Banner (Placed right after Hero Carousel)
-        item {
-            AiAssistantHomeBanner(
-                onAiClick = onAiClick,
-                onPromptClick = onAiPrompt,
-                modifier = Modifier.padding(top = EditorialSpace.xs, bottom = EditorialSpace.xs)
-            )
         }
 
         // 3. Category Section (Visual Cards with first article thumbnail)

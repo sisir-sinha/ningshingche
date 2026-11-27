@@ -35,11 +35,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BrokenImage
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Tag
@@ -54,10 +52,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -87,8 +85,6 @@ import com.ningshingche.app.data.portal.GalleryItem
 import com.ningshingche.app.data.portal.PdfBook
 import com.ningshingche.app.data.portal.MusicTrack
 import com.ningshingche.app.data.portal.VideoItem
-import com.ningshingche.app.data.portal.excerptOf
-import com.ningshingche.app.data.portal.stripHtml
 import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.i18n.t
@@ -603,136 +599,6 @@ fun AnimatedHamburgerIcon(
             strokeWidth = stroke,
             cap = cap
         )
-    }
-}
-
-@Composable
-fun AiAssistantHomeBanner(
-    onAiClick: () -> Unit,
-    onPromptClick: (String) -> Unit = { onAiClick() },
-    modifier: Modifier = Modifier
-) {
-    val tokens = LocalEditorialTokens.current
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = tokens.surfaceVariant
-        ),
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = EditorialSpace.gutter, vertical = EditorialSpace.xs)
-            .border(
-                1.dp,
-                tokens.ruleStrong,
-                RoundedCornerShape(16.dp)
-            )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.clickable(onClick = onAiClick)
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = tokens.accent,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = t("নিংশিং চে AI সহকারী"),
-                        fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = textSize(16),
-                        lineHeight = leading(16),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = t("বিষ্ণুপ্রিয়া মণিপুরি ভাষা, সাহিত্য, সংস্কৃতি ও ইতিহাসের যে কোনো প্রশ্ন করুন"),
-                        fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-                        fontSize = textSize(12),
-                        lineHeight = textSize(17),
-                        color = tokens.inkSoft
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(10.dp))
-
-            // Quick suggestion chips — tap sends the topic as a question to AI.
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                listOf(t("সুদেষ্ণা সিংহ"), t("মিংকৌ প্রথা"), t("বিষু উৎসব")).forEach { tag ->
-                    Surface(
-                        onClick = { onPromptClick(tag) },
-                        shape = RoundedCornerShape(16.dp),
-                        color = if (tokens.isDark) tokens.surface else Color.White,
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (tokens.isDark) tokens.rule else tokens.ruleStrong
-                        ),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            text = tag,
-                            fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-                            fontSize = textSize(11),
-                            lineHeight = leading(11),
-                            fontWeight = FontWeight.Medium,
-                            color = tokens.accent,
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Ellipsis,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 6.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(10.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onAiClick),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = t("AI সহকারীকে জিজ্ঞাসা করুন"),
-                    fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
-                    fontSize = textSize(13),
-                    lineHeight = leading(13),
-                    fontWeight = FontWeight.Bold,
-                    color = tokens.accent
-                )
-                Spacer(Modifier.width(4.dp))
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = null,
-                    tint = tokens.accent,
-                    modifier = Modifier.size(14.dp)
-                )
-            }
-        }
     }
 }
 

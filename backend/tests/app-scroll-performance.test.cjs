@@ -171,14 +171,14 @@ test('an article can be skipped when nothing about it changed', () => {
 
 test('the loading skeletons are reachable, and only while loading', () => {
   // An earlier pass of this work deleted `SkeletonShimmer.kt` on the belief that
-  // nothing called it. Three screens did: `HomeScreen`, `AiAssistantScreen` and
+  // nothing called it. Two screens do: `HomeScreen` and
   // `ExploreScreen` show a skeleton while their first page loads, and the file
   // was restored. What matters for scrolling is not that the file is absent but
   // that the animation behind it can only run while a screen has nothing to show.
   const shimmer = read('ui', 'components', 'SkeletonShimmer.kt');
   assert.match(shimmer, /fun Modifier\.shimmerEffect\(/, 'one shimmer implementation');
 
-  const LAYOUTS = ['HomeSkeletonLayout', 'ExploreSkeletonLayout', 'AiAssistantSkeletonLayout'];
+  const LAYOUTS = ['HomeSkeletonLayout', 'ExploreSkeletonLayout'];
   for (const name of LAYOUTS) {
     assert.match(shimmer, new RegExp(`fun ${name}\\(`), `${name} exists`);
     const callers = kotlinFiles(APP).filter((file) => {

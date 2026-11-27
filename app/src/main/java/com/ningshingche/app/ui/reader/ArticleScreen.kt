@@ -1,29 +1,12 @@
 package com.ningshingche.app.ui.reader
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,11 +16,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -45,18 +25,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Comment
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Pause
@@ -64,7 +40,6 @@ import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.RestartAlt
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.outlined.BookmarkBorder
@@ -73,14 +48,11 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -91,41 +63,30 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
-import com.ningshingche.app.data.local.ArticleAiChatStore
-import androidx.compose.ui.zIndex
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.ningshingche.app.NinghsingCheApp
-import com.ningshingche.app.data.model.AiChatMessage
-import java.util.UUID
 import com.ningshingche.app.data.portal.ArticleDetail
 import com.ningshingche.app.data.portal.ArticleSummary
 import com.ningshingche.app.data.portal.AuthorRef
@@ -133,7 +94,6 @@ import com.ningshingche.app.data.portal.CommentItem
 import com.ningshingche.app.data.portal.permalinkOf
 import com.ningshingche.app.data.remote.AuthorProfiles
 import com.ningshingche.app.ui.components.DialogImeAdjustResize
-import com.ningshingche.app.ui.components.MarkdownFormattedText
 import com.ningshingche.app.ui.components.ContentReportDialog
 import com.ningshingche.app.ui.components.TermsConsentDialog
 import com.ningshingche.app.ui.components.VerifiedBadge
@@ -210,12 +170,10 @@ fun ArticleScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
 
     var fontSizeSp by remember { mutableFloatStateOf(DEFAULT_READER_SP) }
     var lineSpacingMultiplier by remember { mutableFloatStateOf(APP_LEADING) }
     var showFontSizeSheet by remember { mutableStateOf(false) }
-    var showAiSheet by remember { mutableStateOf(false) }
     var showArticleReport by remember { mutableStateOf(false) }
     // Terms, once per install, on the way into the comment form.
     val scope = rememberCoroutineScope()
@@ -380,47 +338,6 @@ fun ArticleScreen(
                 )
             }
         },
-        floatingActionButton = {
-            val readyState = state as? ArticleUiState.Ready
-            // Hidden while the assistant is up. The FAB is drawn above the
-            // screen content, so it used to sit on the sheet's input row; it
-            // comes back on its own when the sheet closes.
-            AnimatedVisibility(
-                visible = readyState != null && !showAiSheet,
-                enter = fadeIn(tween(180)) + scaleIn(tween(220, easing = FastOutSlowInEasing), initialScale = 0.85f),
-                exit = fadeOut(tween(120)) + scaleOut(tween(160, easing = FastOutSlowInEasing), targetScale = 0.85f)
-            ) {
-                FloatingActionButton(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        showAiSheet = true
-                    },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.padding(bottom = 8.dp, end = 4.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = tNow("নিবন্ধ এআই সহায়িকা"),
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Text(
-                            text = tNow("এআই সহায়িকা"),
-                            fontFamily = Kalpurush,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = textSize(14.5),
-                            lineHeight = leading(14.5)
-                        )
-                    }
-                }
-            }
-        }
     ) { padding ->
         val isRefreshing = (state as? ArticleUiState.Ready)?.isRefreshing == true
 
@@ -482,24 +399,6 @@ fun ArticleScreen(
                         )
                     }
 
-                    AnimatedVisibility(
-                        visible = showAiSheet,
-                        enter = fadeIn(tween(220)) + slideInVertically(
-                            animationSpec = tween(340, easing = FastOutSlowInEasing),
-                            initialOffsetY = { it / 2 }
-                        ),
-                        exit = fadeOut(tween(180)) + slideOutVertically(
-                            animationSpec = tween(280, easing = FastOutSlowInEasing),
-                            targetOffsetY = { it / 2 }
-                        )
-                    ) {
-                        ArticleAiAssistantBottomSheet(
-                            article = current.article,
-                            authorName = current.author?.name ?: current.article.summary.authorName,
-                            category = current.article.summary.categoryTitle,
-                            onDismiss = { showAiSheet = false }
-                        )
-                    }
                 }
             }
         }
@@ -1146,406 +1045,6 @@ private fun ModernCommentCard(comment: CommentItem) {
 }
 
 
-/**
- * Article AI assistant popup.
- * Stays a fixed height, does not grow or scroll the article when sending,
- * and only closes from the top handle (or the close button). Chat history
- * is stored on-device per article.
- */
-@Composable
-fun ArticleAiAssistantBottomSheet(
-    article: ArticleDetail,
-    authorName: String,
-    category: String,
-    onDismiss: () -> Unit
-) {
-    val tokens = LocalEditorialTokens.current
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val chatListState = rememberLazyListState()
-    val store = remember { ArticleAiChatStore(NinghsingCheApp.instance.database.chatDao()) }
-    val articleId = article.id
-
-    val welcome = remember(article.title) {
-        AiChatMessage(
-            id = "welcome-$articleId",
-            text = "নমস্কার! আমি এই নিবন্ধের এআই সহায়িকা।\n\n📌 **\"${article.title}\"** নিবন্ধটির যেকোনো তথ্য, বিশ্লেষণ বা মূল ভাব সম্পর্কে জানতে নিচের দ্রুত প্রশ্ন বেছে নিন অথবা নিচে আপনার প্রশ্ন লিখুন।",
-            isUser = false
-        )
-    }
-
-    var messages by remember(articleId) { mutableStateOf(listOf(welcome)) }
-    var historyReady by remember(articleId) { mutableStateOf(false) }
-    var inputText by remember { mutableStateOf(TextFieldValue("")) }
-    var isLoading by remember { mutableStateOf(false) }
-    var handleDrag by remember { mutableFloatStateOf(0f) }
-
-    BackHandler(onBack = onDismiss)
-
-    LaunchedEffect(articleId) {
-        val stored = store.load(articleId)
-        messages = if (stored.isEmpty()) listOf(welcome) else stored
-        historyReady = true
-    }
-
-    LaunchedEffect(messages.size, isLoading) {
-        val last = messages.size - 1 + if (isLoading) 1 else 0
-        if (last >= 0) {
-            chatListState.animateScrollToItem(last)
-        }
-    }
-
-    fun persist(message: AiChatMessage) {
-        scope.launch { store.append(articleId, message) }
-    }
-
-    fun askQuestion(promptText: String) {
-        val cleanPrompt = promptText.trim()
-        if (cleanPrompt.isBlank() || isLoading || !historyReady) return
-
-        val userMsg = AiChatMessage(
-            id = UUID.randomUUID().toString(),
-            text = cleanPrompt,
-            isUser = true
-        )
-        val snapshot = messages + userMsg
-        messages = snapshot
-        persist(userMsg)
-        inputText = TextFieldValue("")
-        isLoading = true
-
-        scope.launch {
-            try {
-                val assistant = (context.applicationContext as? NinghsingCheApp)?.aiAssistant
-                    ?: NinghsingCheApp.instance.aiAssistant
-                val response = assistant.answerArticleSpecificQuestion(
-                    articleTitle = article.title,
-                    authorName = authorName,
-                    category = category,
-                    articleContentHtml = article.html,
-                    userQuestion = cleanPrompt,
-                    history = snapshot
-                )
-                messages = messages + response
-                persist(response)
-            } catch (e: Exception) {
-                val error = AiChatMessage(
-                    id = UUID.randomUUID().toString(),
-                    text = tNow("দুঃখিত, উত্তর তৈরি করতে সমস্যা হয়েছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।"),
-                    isUser = false
-                )
-                messages = messages + error
-                persist(error)
-            } finally {
-                isLoading = false
-            }
-        }
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .zIndex(8f)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.35f))
-        )
-        Surface(
-            // 90% of the space the sheet has to work with, so a long answer is
-            // readable without the keyboard eating the conversation.
-            //
-            // The system-bar inset belongs *inside* the surface: a
-            // `navigationBarsPadding()` in front of the background paints the
-            // padding itself, which leaves the gesture-bar strip transparent and
-            // shows the article through it. Seen from the sheet, that strip is
-            // simply missing — the empty band under the input row.
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .imePadding()
-                .fillMaxHeight(0.9f),
-            shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
-            color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 16.dp
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .navigationBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp, bottom = 8.dp)
-                        .pointerInput(Unit) {
-                            detectVerticalDragGestures(
-                                onDragEnd = {
-                                    if (handleDrag > 72f) onDismiss()
-                                    handleDrag = 0f
-                                },
-                                onDragCancel = { handleDrag = 0f },
-                                onVerticalDrag = { change, amount ->
-                                    change.consume()
-                                    if (amount > 0f) handleDrag += amount else handleDrag = 0f
-                                }
-                            )
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .width(42.dp)
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(MaterialTheme.colorScheme.outline)
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.AutoAwesome,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                        Column {
-                            Text(
-                                text = t("নিবন্ধ এআই সহায়িকা"),
-                                fontFamily = Kalpurush,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = textSize(17),
-                                lineHeight = leading(17),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = t("শুধুমাত্র এই নিবন্ধের তথ্যের ভিত্তিতে উত্তর প্রদান করা হয়"),
-                                fontFamily = Kalpurush,
-                                fontSize = textSize(11.5),
-                                lineHeight = leading(11.5),
-                                color = tokens.inkMuted
-                            )
-                        }
-                    }
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = t("বন্ধ করুন"))
-                    }
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    val promptSuggestions = listOf(
-                        t("📌 সম্পূর্ণ সারসংক্ষেপ") to t("এই নিবন্ধের একটি সংক্ষিপ্ত ও গোছানো সারসংক্ষেপ দিন।"),
-                        t("💡 মূল শিক্ষণীয় বিষয়") to t("এই নিবন্ধ থেকে কী কী মূল বিষয় বা শিক্ষা পাওয়া যায়?"),
-                        t("🎯 লেখকের বক্তব্য") to t("এই নিবন্ধে লেখকের মূল বক্তব্য ও লক্ষ্য কী?"),
-                        t("❓ প্রশ্নোত্তর বিশ্লেষণ") to t("নিবন্ধটির সবচেয়ে গুরুত্বপূর্ণ ৩টি প্রশ্নোত্তর তৈরি করে দিন।")
-                    )
-
-                    promptSuggestions.forEach { (label, prompt) ->
-                        Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            color = tokens.accentSoft,
-                            border = BorderStroke(1.dp, tokens.accent.copy(alpha = 0.35f)),
-                            modifier = Modifier.clickable(enabled = !isLoading) { askQuestion(prompt) }
-                        ) {
-                            Text(
-                                text = label,
-                                fontFamily = Kalpurush,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = textSize(12.5),
-                                lineHeight = leading(12.5),
-                                color = tokens.accent,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                            )
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(12.dp))
-
-                LazyColumn(
-                    state = chatListState,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(tokens.surfaceSunken.copy(alpha = 0.4f))
-                        .padding(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(messages, key = { it.id }) { msg ->
-                        val isUser = msg.isUser
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
-                        ) {
-                            Surface(
-                                shape = RoundedCornerShape(
-                                    topStart = 14.dp,
-                                    topEnd = 14.dp,
-                                    bottomStart = if (isUser) 14.dp else 2.dp,
-                                    bottomEnd = if (isUser) 2.dp else 14.dp
-                                ),
-                                color = if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                                border = if (!isUser) BorderStroke(1.dp, tokens.rule) else null,
-                                shadowElevation = if (!isUser) 1.dp else 0.dp,
-                                modifier = Modifier.fillMaxWidth(0.92f)
-                            ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
-                                    if (isUser) {
-                                        Text(
-                                            text = msg.text,
-                                            fontFamily = Kalpurush,
-                                            fontSize = textSize(14.5),
-                                            lineHeight = leading(14.5),
-                                            color = MaterialTheme.colorScheme.onPrimary
-                                        )
-                                    } else {
-                                        MarkdownFormattedText(
-                                            markdown = msg.text,
-                                            fontSize = textSize(14.5),
-                                            lineHeight = textSize(21),
-                                            baseTextColor = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Spacer(Modifier.height(6.dp))
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.End
-                                        ) {
-                                            IconButton(
-                                                onClick = {
-                                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-                                                    val clip = ClipData.newPlainText("Article AI Answer", msg.text)
-                                                    clipboard?.setPrimaryClip(clip)
-                                                    Toast.makeText(context, tNow("উত্তর কপি করা হয়েছে"), Toast.LENGTH_SHORT).show()
-                                                },
-                                                modifier = Modifier.size(28.dp)
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.ContentCopy,
-                                                    contentDescription = t("কপি করুন"),
-                                                    modifier = Modifier.size(14.dp),
-                                                    tint = tokens.inkMuted
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if (isLoading) {
-                        item("thinking") {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.padding(6.dp)
-                            ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Text(
-                                    text = t("নিবন্ধ থেকে উত্তর তৈরি করা হচ্ছে..."),
-                                    fontFamily = Kalpurush,
-                                    fontSize = textSize(13),
-                                    lineHeight = leading(13),
-                                    color = tokens.inkMuted
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = inputText,
-                        onValueChange = { inputText = it },
-                        placeholder = {
-                            Text(
-                                t("এই নিবন্ধ সম্পর্কে প্রশ্ন লিখুন..."),
-                                fontFamily = Kalpurush,
-                                fontSize = textSize(14),
-                                lineHeight = leading(14)
-                            )
-                        },
-                        singleLine = true,
-                        textStyle = androidx.compose.ui.text.TextStyle(fontFamily = Kalpurush, fontSize = textSize(14.5), lineHeight = leading(14.5)),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = tokens.accent,
-                            unfocusedBorderColor = tokens.rule
-                        ),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                        keyboardActions = KeyboardActions(
-                            onSend = { askQuestion(inputText.text) }
-                        ),
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    IconButton(
-                        onClick = { askQuestion(inputText.text) },
-                        enabled = !isLoading && inputText.text.isNotBlank(),
-                        modifier = Modifier
-                            .size(46.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (!isLoading && inputText.text.isNotBlank())
-                                    MaterialTheme.colorScheme.primary
-                                else
-                                    MaterialTheme.colorScheme.outlineVariant
-                            )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Send,
-                            contentDescription = t("পাঠান"),
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * Font Size & Line Spacing Control Bottom Sheet with live preview in Kalpurush font.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FontSizeControlBottomSheet(

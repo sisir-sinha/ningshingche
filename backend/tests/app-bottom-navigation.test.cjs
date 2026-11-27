@@ -21,7 +21,7 @@ test('bottom navigation has four ordered destinations and defaults to home', () 
 });
 
 test('top menu is removed and mini player respects the bottom bar', () => {
-  for (const file of ['reader/HomeScreen.kt', 'screens/ExploreScreen.kt', 'screens/AiAssistantScreen.kt']) {
+  for (const file of ['reader/HomeScreen.kt', 'screens/ExploreScreen.kt']) {
     const source = read(file);
     assert.doesNotMatch(source, /onMenuClick|hamburger_menu_button|ai_menu_button/);
   }

@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -247,48 +246,3 @@ fun ExploreSkeletonLayout() {
         }
     }
 }
-
-
-@Composable
-fun AiAssistantSkeletonLayout() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        ShimmerBox(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(130.dp),
-            shape = RoundedCornerShape(20.dp)
-        )
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            ShimmerBox(modifier = Modifier.size(width = 110.dp, height = 36.dp), shape = RoundedCornerShape(18.dp))
-            ShimmerBox(modifier = Modifier.size(width = 120.dp, height = 36.dp), shape = RoundedCornerShape(18.dp))
-            ShimmerBox(modifier = Modifier.size(width = 100.dp, height = 36.dp), shape = RoundedCornerShape(18.dp))
-        }
-
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surface,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                ShimmerBox(modifier = Modifier.fillMaxWidth().height(16.dp))
-                ShimmerBox(modifier = Modifier.fillMaxWidth(0.85f).height(16.dp))
-                ShimmerBox(modifier = Modifier.fillMaxWidth(0.6f).height(16.dp))
-            }
-        }
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        ShimmerBox(modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(28.dp))
-    }
-}
-
-

@@ -7,7 +7,6 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
-import com.ningshingche.app.data.ai.NinghsingCheAiAssistant
 import com.ningshingche.app.data.auth.GoogleAuthRepository
 import com.ningshingche.app.data.local.AppDatabase
 import com.ningshingche.app.data.local.ForumDraftStore
@@ -51,9 +50,6 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
         private set
 
     lateinit var commenterPreferencesRepository: CommenterPreferencesRepository
-        private set
-
-    lateinit var aiAssistant: NinghsingCheAiAssistant
         private set
 
     lateinit var websiteClient: NingshingCheWebsiteClient
@@ -197,7 +193,6 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
         if (android.os.Build.FINGERPRINT != "robolectric") {
             musicController.ensureConnected()
         }
-        aiAssistant = NinghsingCheAiAssistant(articleRepository, portalRepository)
         appNotificationManager = AppNotificationManager(this).also { it.createChannels() }
         contentUpdateNotifier = ContentUpdateNotifier(
             context = this,
