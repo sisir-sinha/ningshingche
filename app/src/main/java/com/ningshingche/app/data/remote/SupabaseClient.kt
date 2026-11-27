@@ -8,6 +8,7 @@ import com.ningshingche.app.data.auth.GoogleAuthException
 import com.ningshingche.app.data.portal.ViewDay
 import com.ningshingche.app.data.portal.ViewTotals
 import com.ningshingche.app.data.auth.GoogleAuthMapper
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,14 +26,15 @@ import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-class SupabaseClient(private val context: Context) {
-
-    private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
-    private val httpClient = OkHttpClient.Builder()
+class SupabaseClient(
+    private val context: Context,
+    private val httpClient: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
         .build()
+) {
+    private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
     private val _currentUser = MutableStateFlow<UserProfile?>(null)
     val currentUser: StateFlow<UserProfile?> = _currentUser.asStateFlow()
@@ -367,7 +369,7 @@ class SupabaseClient(private val context: Context) {
         val token = json.optString("access_token", "")
         if (!GoogleAuthMapper.isSupabaseJwt(token)) return null
         val userObj = json.optJSONObject("user") ?: return null
-        val profile = GoogleAuthMapper.profileFromAuthUser(userObj)
+        val profile = GoogleAuthMapper.profileFromAuthUser(userObj).copy(authProvider = "email")
         val refresh = json.optString("refresh_token", "")
         val expiresAt = System.currentTimeMillis() +
             json.optLong("expires_in", 3600L) * 1000L - 30_000L
@@ -458,58 +460,6 @@ class SupabaseClient(private val context: Context) {
     }
 
     /**
-     * Whether an address already has an account.
-     *
-     * Three answers, and the third is the reason this is not a boolean: a failed
-     * request is *not* proof that the address is free, and refusing a sign-up
-     * because a lookup happened to fail would be worse than letting the server
-     * decide. `null` means "could not tell" — the caller goes ahead, and Supabase's
-     * own duplicate rule produces [EmailAuthException.AlreadyRegistered] if it is
-     * taken anyway.
-     *
-     * ## Why this is not just a `select`
-     *
-     * `auth.users` is not readable with the publishable key; the table is behind
-     * RLS and only the service role can read it. What *is* callable from the app is
-     * the admin endpoint for a single address:
-     *
-     *     GET /auth/v1/admin/users?email=<address>
-     *
-     * and it wants the service role key, which must never ship inside an APK.
-     *
-     * So the check that ships is the one Supabase already performs for free:
-     * `POST /signup` with the address and a throwaway password answers
-     * `user_already_exists` when the address is taken, and — with confirmation off —
-     * creates the account when it is not. That is not a side effect we want during
-     * a typo, so this probe is used only for the friendly message *before* the form
-     * is submitted, and it sends the address with no other field set.
-     *
-     * Returns true when taken, false when free, null when the server could not say.
-     */
-    suspend fun isEmailRegistered(email: String): Boolean? = withContext(Dispatchers.IO) {
-        if (EmailAuthRules.emailProblem(email) != null) return@withContext null
-        val payload = JSONObject().put("email", EmailAuthRules.cleanEmail(email)).toString()
-        val request = createAuthRequestBuilder("${SupabaseConfig.authBaseUrl}/signup")
-            .post(payload.toRequestBody(jsonMediaType))
-            .build()
-        try {
-            httpClient.newCall(request).execute().use { response ->
-                val body = response.body?.string().orEmpty()
-                if (response.isSuccessful) return@withContext false
-                when (val error = emailAuthError(response.code, body)) {
-                    is EmailAuthException.AlreadyRegistered -> true
-                    // A 422 about a missing password means the address is unknown and
-                    // the endpoint wanted more fields — i.e. not registered.
-                    is EmailAuthException.WeakPassword -> false
-                    else -> if (error is EmailAuthException.Failed) null else false
-                }
-            }
-        } catch (error: IOException) {
-            null
-        }
-    }
-
-    /**
      * Creates an account. With email confirmation switched off on the project this
      * returns a session and the reader is straight in; with it on, the call
      * succeeds but carries no token, and [EmailAuthException.NotConfirmed] tells the
@@ -552,7 +502,7 @@ class SupabaseClient(private val context: Context) {
      */
     suspend fun signInWithEmail(email: String, password: String): Result<UserProfile> =
         withContext(Dispatchers.IO) {
-            EmailAuthRules.emailProblem(email)?.let { return@withContext Result.failure(it) }
+            if (!EmailAuthRules.isEmail(email)) return@withContext Result.failure(EmailAuthException.InvalidEmail())
             if (password.isEmpty()) {
                 return@withContext Result.failure(EmailAuthException.WrongCredentials())
             }
@@ -574,7 +524,7 @@ class SupabaseClient(private val context: Context) {
      */
     suspend fun sendPasswordResetCode(email: String): Result<Unit> =
         withContext(Dispatchers.IO) {
-            EmailAuthRules.emailProblem(email)?.let { return@withContext Result.failure(it) }
+            if (!EmailAuthRules.isEmail(email)) return@withContext Result.failure(EmailAuthException.InvalidEmail())
             val payload = JSONObject().put("email", EmailAuthRules.cleanEmail(email)).toString()
             postAuthNoSession("${SupabaseConfig.authBaseUrl}/recover", payload)
         }
@@ -585,7 +535,7 @@ class SupabaseClient(private val context: Context) {
      */
     suspend fun verifyPasswordResetCode(email: String, code: String): Result<UserProfile> =
         withContext(Dispatchers.IO) {
-            EmailAuthRules.emailProblem(email)?.let { return@withContext Result.failure(it) }
+            if (!EmailAuthRules.isEmail(email)) return@withContext Result.failure(EmailAuthException.InvalidEmail())
             EmailAuthRules.codeProblem(code)?.let { return@withContext Result.failure(it) }
             val payload = JSONObject().apply {
                 put("type", "recovery")
@@ -621,44 +571,54 @@ class SupabaseClient(private val context: Context) {
     }
 
     /**
-     * Idempotent upsert of the signed-in Google user into `public.profiles`.
-     * Existing completed fields are never overwritten by Google defaults.
-     * Missing table or RLS errors do not fail the login.
+     * Save the reader's profile without reporting HTTP/RLS failures as success.
+     * Existing fields are merged before the write and never erased by defaults.
      */
     suspend fun upsertReaderProfile(profile: UserProfile): Result<UserProfile> = withContext(Dispatchers.IO) {
         val token = authToken
         if (!GoogleAuthMapper.isSupabaseJwt(token) || token == null) {
-            return@withContext Result.success(profile)
+            return@withContext Result.failure(EmailAuthException.NoSession())
         }
+        var localProfile = profile
         try {
             val existing = fetchReaderProfile(profile.id, token)
             val merged = mergeGoogleProfile(profile, existing)
+            localProfile = merged
             val payload = readerProfilePayload(merged, includeEmail = existing == null)
-            if (existing != null) {
-                val url = "${SupabaseConfig.restBaseUrl}/profiles?id=eq.${profile.id}"
-                val request = createUserAuthedRequestBuilder(url, token)
-                    .patch(payload.toString().toRequestBody(jsonMediaType))
-                    .build()
-                httpClient.newCall(request).execute().use { it.body?.close() }
+            val request = if (existing != null) {
+                createUserAuthedRequestBuilder("${SupabaseConfig.restBaseUrl}/profiles?id=eq.${profile.id}", token)
+                    .addHeader("Prefer", "return=representation")
+                    .patch(payload.toString().toRequestBody(jsonMediaType)).build()
             } else {
-                val url = "${SupabaseConfig.restBaseUrl}/profiles"
-                val request = createUserAuthedRequestBuilder(url, token)
-                    .addHeader("Prefer", "resolution=merge-duplicates,return=minimal")
-                    .post(payload.toString().toRequestBody(jsonMediaType))
-                    .build()
-                httpClient.newCall(request).execute().use { it.body?.close() }
+                createUserAuthedRequestBuilder("${SupabaseConfig.restBaseUrl}/profiles", token)
+                    .addHeader("Prefer", "return=representation")
+                    .post(payload.toString().toRequestBody(jsonMediaType)).build()
             }
-            val hydrated = fetchReaderProfile(profile.id, token)?.let { row ->
-                UserProfile.fromJson(row).copy(
-                    role = profile.role,
-                    authProvider = profile.authProvider,
-                    email = profile.email.ifBlank { UserProfile.fromJson(row).email }
-                )
-            } ?: merged
+            val row = httpClient.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) throw IOException("Profile save failed (HTTP ${response.code})")
+                val rows = JSONArray(body)
+                if (rows.length() == 0) throw IOException("Profile save returned no row")
+                rows.getJSONObject(0)
+            }
+            if (row.optString("id") != profile.id) throw IOException("Unexpected profile returned")
+            val saved = UserProfile.fromJson(row)
+            val hydrated = saved.copy(
+                role = profile.role,
+                authProvider = profile.authProvider,
+                email = profile.email.ifBlank { saved.email }
+            )
             saveSession(token, hydrated, refreshToken, expiresAtMillis)
             Result.success(hydrated)
-        } catch (_: Exception) {
-            Result.success(profile)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            // Keep the typed fields on this device for recovery, without claiming
+            // that a failed server write succeeded.
+            if (_currentUser.value?.id == profile.id) {
+                saveSession(token, localProfile, refreshToken, expiresAtMillis)
+            }
+            Result.failure(error)
         }
     }
 
@@ -679,17 +639,23 @@ class SupabaseClient(private val context: Context) {
                 .addHeader("Prefer", "return=representation")
                 .patch(payload.toString().toRequestBody(jsonMediaType))
                 .build()
-            val response = httpClient.newCall(request).execute()
-            val body = response.body?.string().orEmpty()
-            if (!response.isSuccessful) {
-                return@withContext Result.failure(
-                    Exception("প্রোফাইল সংরক্ষণ যায়নি (${response.code})। SQL মাইগ্রেশন 006 চালানো হয়েছে কি?")
-                )
+            val savedRow = httpClient.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) throw IOException("প্রোফাইল সংরক্ষণ যায়নি (${response.code})।")
+                val rows = JSONArray(body)
+                if (rows.length() > 0) rows.getJSONObject(0) else null
             }
-            val saved = if (body.startsWith("[")) {
-                val array = JSONArray(body)
-                if (array.length() > 0) UserProfile.fromJson(array.getJSONObject(0)) else completed
-            } else completed
+            if (savedRow == null) {
+                // A failed initial insert can leave no row. Retry creation only
+                // after confirming it is absent; never overwrite an existing row.
+                return@withContext if (fetchReaderProfile(profile.id, token) == null) {
+                    upsertReaderProfile(completed)
+                } else {
+                    Result.failure(IOException("প্রোফাইল সংরক্ষণ যায়নি।"))
+                }
+            }
+            if (savedRow.optString("id") != profile.id) throw IOException("Unexpected profile returned")
+            val saved = UserProfile.fromJson(savedRow)
             val hydrated = saved.copy(
                 role = profile.role,
                 authProvider = profile.authProvider,
@@ -697,6 +663,8 @@ class SupabaseClient(private val context: Context) {
             )
             saveSession(token, hydrated, refreshToken, expiresAtMillis)
             Result.success(hydrated)
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: Exception) {
             Result.failure(error)
         }
@@ -939,7 +907,7 @@ class SupabaseClient(private val context: Context) {
             try {
                 val url = "${SupabaseConfig.restBaseUrl}/user_notifications"
                 val request = createUserAuthedRequestBuilder(url, token)
-                    .addHeader("Prefer", "resolution=merge-duplicates,return=representation")
+                    .addHeader("Prefer", "return=representation")
                     .post(notice.toJson().toString().toRequestBody(jsonMediaType))
                     .build()
                 httpClient.newCall(request).execute().use { response ->
@@ -1126,11 +1094,12 @@ class SupabaseClient(private val context: Context) {
     private fun fetchReaderProfile(userId: String, token: String): JSONObject? {
         val url = "${SupabaseConfig.restBaseUrl}/profiles?id=eq.$userId&select=*&limit=1"
         val request = createUserAuthedRequestBuilder(url, token).get().build()
-        val response = httpClient.newCall(request).execute()
-        val body = response.body?.string().orEmpty()
-        if (!response.isSuccessful || body.isBlank()) return null
-        val array = JSONArray(body)
-        return if (array.length() > 0) array.getJSONObject(0) else null
+        return httpClient.newCall(request).execute().use { response ->
+            val body = response.body?.string().orEmpty()
+            if (!response.isSuccessful || body.isBlank()) throw IOException("Profile lookup failed (HTTP ${response.code})")
+            val array = JSONArray(body)
+            if (array.length() > 0) array.getJSONObject(0) else null
+        }
     }
 
     private fun createAuthRequestBuilder(url: String, bearer: String? = null): Request.Builder {
@@ -1313,7 +1282,7 @@ class SupabaseClient(private val context: Context) {
             val url = "${SupabaseConfig.restBaseUrl}/comments"
             val payload = comment.toJson().toString()
             val request = createBaseRequestBuilder(url)
-                .addHeader("Prefer", "resolution=merge-duplicates,return=representation")
+                .addHeader("Prefer", "return=representation")
                 .post(payload.toRequestBody(jsonMediaType))
                 .build()
 
@@ -1622,7 +1591,7 @@ class SupabaseClient(private val context: Context) {
             val url = "${SupabaseConfig.restBaseUrl}/settings"
             val payload = settings.toJson().toString()
             val request = createBaseRequestBuilder(url)
-                .addHeader("Prefer", "resolution=merge-duplicates,return=representation")
+                .addHeader("Prefer", "return=representation")
                 .post(payload.toRequestBody(jsonMediaType))
                 .build()
 

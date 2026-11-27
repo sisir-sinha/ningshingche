@@ -151,7 +151,7 @@ test('recovery holds the navigation back until the new password is saved', () =>
   // still works.
   assert.match(
     LOGIN,
-    /if \(currentUser != null && !passwordResetActive\) onSignedIn\(\)/,
+    /currentUser != null && !passwordResetActive && !emailInProgress && !inProgress && registrationWarning == null/,
     'the login screen navigates on a user alone'
   );
   assert.match(

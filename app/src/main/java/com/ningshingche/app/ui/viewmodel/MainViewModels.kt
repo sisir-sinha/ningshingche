@@ -207,9 +207,9 @@ class SettingsViewModel(
     val googleAuthMessage: StateFlow<String?> = _googleAuthMessage.asStateFlow()
 
     fun signInWithGoogle(activityContext: android.content.Context) {
-        if (_googleAuthInProgress.value) return
+        if (_googleAuthInProgress.value || _emailAuthInProgress.value) return
+        _googleAuthInProgress.value = true
         viewModelScope.launch {
-            _googleAuthInProgress.value = true
             _googleAuthMessage.value = null
             try {
                 val result = googleAuthRepository.signInWithGoogle(activityContext)
@@ -250,6 +250,11 @@ class SettingsViewModel(
     private val _emailAuthMessage = MutableStateFlow<String?>(null)
     val emailAuthMessage: StateFlow<String?> = _emailAuthMessage.asStateFlow()
 
+    /** Account exists, but its profile needs the reader's attention. */
+    private val _registrationProfileWarning = MutableStateFlow<String?>(null)
+    val registrationProfileWarning: StateFlow<String?> = _registrationProfileWarning.asStateFlow()
+    fun acknowledgeRegistrationProfileWarning() { _registrationProfileWarning.value = null }
+
     /** True once the recovery code is accepted, until a new password is saved. */
     private val _passwordResetActive = MutableStateFlow(false)
     val passwordResetActive: StateFlow<Boolean> = _passwordResetActive.asStateFlow()
@@ -271,10 +276,9 @@ class SettingsViewModel(
      *
      * `signUpWithEmail` returns a session when the project does not require an
      * email confirmation, and the view model saves it — so a reader who has just
-     * registered never sees the sign-in form. The profile they typed travels in the
-     * same request as `user_metadata`, and [runEmailAuth] upserts it into
-     * `public.profiles` on success, so the name and picture are on the account the
-     * moment it exists.
+     * registered never sees the sign-in form. Names and the avatar go into auth
+     * metadata; optional contact details and the image deletion link are saved
+     * to the reader's profile. A failed profile write is shown explicitly.
      */
     fun signUpWithEmail(
         firstName: String,
@@ -282,24 +286,17 @@ class SettingsViewModel(
         email: String,
         password: String,
         avatarUrl: String = "",
-        avatarDeleteUrl: String = ""
+        avatarDeleteUrl: String = "",
+        phone: String = "",
+        address: String = ""
     ) {
-        if (_emailAuthInProgress.value) return
+        if (_emailAuthInProgress.value || _googleAuthInProgress.value) return
+        _emailAuthInProgress.value = true
         viewModelScope.launch {
-            _emailAuthInProgress.value = true
             _emailAuthMessage.value = null
+            _registrationProfileWarning.value = null
             try {
-                // A taken address is the one failure a reader can act on before
-                // waiting for the network round trip of a full sign-up.
-                when (supabaseClient.isEmailRegistered(email)) {
-                    true -> {
-                        _emailAuthMessage.value = EmailAuthMessages.userMessage(
-                            EmailAuthException.AlreadyRegistered()
-                        )
-                        return@launch
-                    }
-                    else -> Unit // free, or the server could not say: let signup decide
-                }
+                // One signup request only; Supabase is authoritative for duplicates.
                 supabaseClient
                     .signUpWithEmail(email, password, firstName, lastName, avatarUrl)
                     .onSuccess { profile ->
@@ -310,9 +307,14 @@ class SettingsViewModel(
                                 .filter { it.isNotBlank() }.joinToString(" ")
                                 .ifBlank { profile.fullName },
                             avatarUrl = avatarUrl.ifBlank { profile.avatarUrl },
-                            imgbbDeleteUrl = avatarDeleteUrl.ifBlank { profile.imgbbDeleteUrl }
+                            imgbbDeleteUrl = avatarDeleteUrl.ifBlank { profile.imgbbDeleteUrl },
+                            phone = phone.trim(),
+                            address = address.trim()
                         )
-                        supabaseClient.upsertReaderProfile(completed)
+                        supabaseClient.upsertReaderProfile(completed).onFailure {
+                            _registrationProfileWarning.value =
+                                tNow("অ্যাকাউন্ট তৈরি হয়েছে, কিন্তু প্রোফাইলের তথ্য সার্ভারে সংরক্ষিত হয়নি। পরে প্রোফাইল সম্পাদনা করে আবার সংরক্ষণ করুন।")
+                        }
                     }
                     .onFailure { _emailAuthMessage.value = EmailAuthMessages.userMessage(it) }
             } finally {
@@ -379,9 +381,9 @@ class SettingsViewModel(
     }
 
     private fun runEmailAuth(block: suspend () -> Result<UserProfile>) {
-        if (_emailAuthInProgress.value) return
+        if (_emailAuthInProgress.value || _googleAuthInProgress.value) return
+        _emailAuthInProgress.value = true
         viewModelScope.launch {
-            _emailAuthInProgress.value = true
             _emailAuthMessage.value = null
             try {
                 block()

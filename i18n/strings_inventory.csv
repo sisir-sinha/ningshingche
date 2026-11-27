@@ -152,6 +152,7 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 ছবি আপলোড হয়নি।,,ui,2,0,"ForumScreens.kt, HtmlContentEditor.kt"
 ছবি ঘর,,ui,2,0,EditorialComponents.kt
 ছবি শেয়ার করুন,,ui,2,0,"HomeScreen.kt, HtmlArticleRenderer.kt"
+ছবির ঠিকানা পাওয়া যায়নি।,,ui,2,0,"ForumAttachmentUploader.kt, ImgBbUploader.kt"
 ছোট করুন,,ui,2,0,"ArticleScreen.kt, MusicPlayer.kt"
 জমা দিন,,ui,2,0,"NewArticleScreen.kt, NewMusicScreen.kt"
 জানুয়ারি,,ui,2,0,"ContributorScreen.kt, LocalizedFormatting.kt"
@@ -183,6 +184,7 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 প্রবন্ধ ভিউ,,ui,2,0,UserDashboardScreen.kt
 প্রবন্ধ রিপোর্ট করুন,,ui,2,0,ArticleScreen.kt
 প্রোফাইল,,ui,2,0,"AccountHeaderButton.kt, UserProfileScreen.kt"
+প্রোফাইল সংরক্ষণ যায়নি।,,ui,2,0,"ReaderWorkspaceViewModel.kt, SupabaseClient.kt"
 প্রোফাইল সম্পাদনা,,ui,2,0,UserDashboardScreen.kt
 প্রোফাইলে যান,,ui,2,0,"NewArticleScreen.kt, NewMusicScreen.kt"
 প্লেলিস্টে যোগ করুন,,ui,2,0,MusicPlayer.kt
@@ -191,6 +193,7 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 ফাইল ৩২ এমবি-র বেশি হতে পারবে না।,,ui,2,0,SupabaseClient.kt
 ফিচার্ড প্রবন্ধসমূহ,,ui,2,0,PortalPages.kt
 ফেব্রুয়ারি,,ui,2,0,"ContributorScreen.kt, LocalizedFormatting.kt"
+ফোন (ঐচ্ছিক),,ui,2,0,"ArticleCommentForm.kt, RegisterForm.kt"
 বন্ধ,,ui,2,0,"PdfViewerScreen.kt, UserDashboardScreen.kt"
 বার্তা লিখুন।,,ui,2,0,"ReaderWorkspaceViewModel.kt, SupabaseClient.kt"
 বার্ষিক সংখ্যা • {1} সালে প্রকাশিত লেখাসমূহ,,ui,2,0,"ExploreScreen.kt, ListScreens.kt"
@@ -323,6 +326,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 "অস্থায়ী ইমেইল দিয়ে অ্যাকাউন্ট খোলা যায় না। Gmail, Yahoo বা নিজের ডোমেইন ব্যবহার করুন।",,ui,1,0,RegisterForm.kt
 অ্যাকসেন্ট,,ui,1,0,SettingsScreen.kt
 অ্যাকাউন্ট খুলুন,,ui,1,0,RegisterForm.kt
+"অ্যাকাউন্ট তৈরি হয়েছে, কিন্তু প্রোফাইলের তথ্য সার্ভারে সংরক্ষিত হয়নি। পরে প্রোফাইল সম্পাদনা করে আবার সংরক্ষণ করুন।",,ui,1,0,MainViewModels.kt
 অ্যাকাউন্ট মুছুন,,ui,1,0,SettingsScreen.kt
 অ্যাকাউন্ট মুছে ফেলুন?,,ui,1,0,SettingsScreen.kt
 অ্যাডমিন নতুন বার্তা পাঠালে,,ui,1,0,AppNotificationManager.kt
@@ -553,6 +557,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 চলচ্চিত্র,,ui,1,0,MusicGenres.kt
 চাকা ঘুরিয়ে নিজের অ্যাকসেন্ট বেছে নিন,,ui,1,0,EditorialPalettes.kt
 "চাকা ঘুরিয়ে রঙ, কেন্দ্র থেকে দূরে টেনে গাঢ়তা — দুটোই এক আঙুলে।",,ui,1,0,SettingsScreen.kt
+চালিয়ে যান,,ui,1,0,RegisterForm.kt
 চালু করে শেষ করুন,,ui,1,0,FirstRunFlow.kt
 চৈত্র সংক্রান্তি ও বৈশাখের মিলনে উদযাপিত বিষ্ণুপ্রিয়া মণিপুরিদের ঐতিহ্যবাহী 'বিশু' উৎসবের পুণ্য আচার ও সামাজিক মিলনমেলা।,,content,1,0,NinghsingCheContentData.kt
 চোখে-আরাম,,ui,1,0,EditorialPalettes.kt
@@ -566,10 +571,9 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 ছবি যোগ করুন,,ui,1,0,ForumScreens.kt
 ছবি লোড করা যায়নি,,ui,1,0,HtmlArticleRenderer.kt
 ছবি সংরক্ষণ যায়নি।,,ui,1,0,ReaderWorkspaceViewModel.kt
-ছবির আকার ৩২ মেগাবাইটের বেশি হতে পারবে না (Exceeds 32MB limit: {1}MB),,ui,1,1,ImgBbUploader.kt
 ছবির আকার ৩২ মেগাবাইটের বেশি হতে পারবে না (Image exceeds 32MB),,ui,1,0,ImgBbUploader.kt
+ছবির আকার ৩২ মেগাবাইটের বেশি হতে পারবে না।,,ui,1,0,ImgBbUploader.kt
 ছবির আকার ৩২ মেগাবাইটের বেশি হতে পারে না।,,ui,1,0,ForumAttachmentUploader.kt
-ছবির ঠিকানা পাওয়া যায়নি।,,ui,1,0,ForumAttachmentUploader.kt
 ছবির ফাইল পড়া যাচ্ছে না (Cannot read image file),,ui,1,0,ImgBbUploader.kt
 ছেড়ে দিলে ছোট হয়ে যাবে,,ui,1,0,MusicPlayer.kt
 জনপ্রিয়,,ui,1,0,ForumScreens.kt
@@ -586,6 +590,8 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 ঠার,,ui,1,0,NingshingCheWebsiteClient.kt
 ঠিক আছে,,ui,1,0,ContentSafetySheet.kt
 ঠিকানা,,ui,1,0,UserProfileScreen.kt
+ঠিকানা (ঐচ্ছিক),,ui,1,0,RegisterForm.kt
+ঠিকানা আপনার প্রকাশ্য প্রোফাইলে দেখা যেতে পারে।,,ui,1,0,RegisterForm.kt
 ঠিকানা দিন।,,ui,1,0,ReaderWorkspaceViewModel.kt
 "ঠিকানা: তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট",,ui,1,0,PortalPages.kt
 ড.,,content,1,0,AuthorProfiles.kt
@@ -640,6 +646,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 নতুন কিছু প্রকাশিত হলে অ্যান্ড্রয়েড নোটিফিকেশনে জানানো হবে।,,ui,1,0,WelcomeOnboardingScreen.kt
 নতুন গান,,ui,1,0,NewMusicScreen.kt
 নতুন ছবি,,ui,1,0,ContentNotice.kt
+নতুন ছবি আপলোড হয়নি; আগের ছবিটি রাখা হয়েছে।,,ui,1,0,RegisterForm.kt
 নতুন পাসওয়ার্ড,,ui,1,0,EmailAuthForm.kt
 নতুন পাসওয়ার্ড দিন,,ui,1,0,EmailAuthForm.kt
 নতুন প্রকাশিত প্রবন্ধ এলে জানান,,ui,1,0,SettingsScreen.kt
@@ -800,8 +807,8 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 প্রোফাইল ছবি আপলোড করুন।,,ui,1,0,ReaderWorkspaceViewModel.kt
 প্রোফাইল লোড হয়নি।,,ui,1,0,PublicProfileScreen.kt
 প্রোফাইল সংরক্ষণ করুন,,ui,1,0,UserProfileScreen.kt
-প্রোফাইল সংরক্ষণ যায়নি ({1})। SQL মাইগ্রেশন 006 চালানো হয়েছে কি?,,ui,1,1,SupabaseClient.kt
-প্রোফাইল সংরক্ষণ যায়নি।,,ui,1,0,ReaderWorkspaceViewModel.kt
+প্রোফাইল সংরক্ষণ যায়নি ({1})।,,ui,1,1,SupabaseClient.kt
+প্রোফাইল সংরক্ষণ হয়নি,,ui,1,0,RegisterForm.kt
 প্রোফাইল সংরক্ষিত হয়েছে।,,ui,1,0,ReaderWorkspaceViewModel.kt
 প্লেয়ার চালু হয়নি। আবার চেষ্টা করুন।,,ui,1,0,MusicController.kt
 প্লেলিস্ট,,ui,1,0,MusicScreen.kt
@@ -821,7 +828,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 ফিচার্ড ও সম্পাদকীয় পছন্দ,,ui,1,0,SettingsScreen.kt
 ফেব,,ui,1,0,UserDashboardCharts.kt
 ফোক-ফিউশন,,ui,1,0,MusicGenres.kt
-ফোন (ঐচ্ছিক),,ui,1,0,ArticleCommentForm.kt
 ফোন নম্বর,,ui,1,0,UserProfileScreen.kt
 ফোন নম্বর দিন।,,ui,1,0,ReaderWorkspaceViewModel.kt
 ফোন: +880 9638-781890,,ui,1,0,PortalPages.kt

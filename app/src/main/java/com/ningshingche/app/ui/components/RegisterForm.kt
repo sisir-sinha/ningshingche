@@ -20,6 +20,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -29,9 +30,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -53,12 +55,13 @@ import com.ningshingche.app.ui.i18n.t
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.textSize
+import kotlinx.coroutines.launch
 
 /**
  * The registration form.
  *
- * Five things are asked for: a first name, a last name, a picture, an address and
- * a password twice. The picture is optional — an account without one shows the
+ * The form asks for names, email and a password twice, with an optional picture,
+ * phone number and address. The picture is optional — an account without one shows the
  * app's own logo in its place, and refusing to create an account because somebody
  * did not want to upload a photo would be a strange door to close.
  *
@@ -82,7 +85,8 @@ import com.ningshingche.app.ui.theme.textSize
 fun RegisterForm(
     inProgress: Boolean,
     message: String?,
-    onRegister: (firstName: String, lastName: String, email: String, password: String, avatarUrl: String, avatarDeleteUrl: String) -> Unit,
+    onRegister: (firstName: String, lastName: String, email: String, password: String,
+        avatarUrl: String, avatarDeleteUrl: String, phone: String, address: String) -> Unit,
     onSwitchToSignIn: () -> Unit
 ) {
     val context = LocalContext.current
@@ -90,39 +94,39 @@ fun RegisterForm(
     var firstName by rememberSaveable { mutableStateOf("") }
     var lastName by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
-    var confirmPassword by rememberSaveable { mutableStateOf("") }
+    // Passwords do not belong in the Activity's saved-state Bundle.
+    var password by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var phone by rememberSaveable { mutableStateOf("") }
+    var address by rememberSaveable { mutableStateOf("") }
     var showPassword by rememberSaveable { mutableStateOf(false) }
     var showConfirm by rememberSaveable { mutableStateOf(false) }
     var avatarUrl by rememberSaveable { mutableStateOf("") }
     var avatarDeleteUrl by rememberSaveable { mutableStateOf("") }
     var previewUri by rememberSaveable { mutableStateOf<String?>(null) }
-    var uploading by rememberSaveable { mutableStateOf(false) }
+    // An in-flight operation cannot survive the composition; do not restore a
+    // spinner after rotation or process recreation when no job is running.
+    var uploading by remember { mutableStateOf(false) }
     var uploadError by rememberSaveable { mutableStateOf<String?>(null) }
-
-    // ImgBB needs the bytes, and the picker hands back a content:// Uri that does
-    // not survive a process death — the string form does, for the preview only.
-    var pendingUpload by rememberSaveable { mutableStateOf<String?>(null) }
+    val uploadScope = rememberCoroutineScope()
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        previewUri = uri.toString()
-        pendingUpload = uri.toString()
-    }
-
-    LaunchedEffect(pendingUpload) {
-        val value = pendingUpload ?: return@LaunchedEffect
-        pendingUpload = null
-        uploading = true
-        uploadError = null
-        val uri = Uri.parse(value)
-        ImgBbUploader.uploadFromUri(context, uri, "avatar_${System.currentTimeMillis()}")
-            .onSuccess { image ->
-                avatarUrl = image.displayUrl.ifBlank { image.url }
-                avatarDeleteUrl = image.deleteUrl
+        if (uri != null && !uploading && !inProgress) {
+            uploading = true
+            uploadError = null
+            uploadScope.launch {
+                finishRegistrationPhotoUpload(
+                    upload = { ImgBbUploader.uploadFromUri(context, uri, "avatar_${System.currentTimeMillis()}") },
+                    onSuccess = { image ->
+                        avatarUrl = image.displayUrl.ifBlank { image.url }
+                        avatarDeleteUrl = image.deleteUrl
+                        previewUri = uri.toString()
+                    },
+                    onFailure = { uploadError = it.message ?: t("ছবি আপলোড যায়নি।") },
+                    onFinish = { uploading = false }
+                )
             }
-            .onFailure { uploadError = it.message ?: t("ছবি আপলোড যায়নি।") }
-        uploading = false
+        }
     }
 
     val editable = !inProgress && !uploading
@@ -156,7 +160,8 @@ fun RegisterForm(
                 .testTag("register_avatar"),
             contentAlignment = Alignment.Center
         ) {
-            val shown = previewUri
+            // The hosted URL survives process recreation; picker permissions may not.
+            val shown = avatarUrl.ifBlank { previewUri.orEmpty() }.takeIf { it.isNotBlank() }
             when {
                 uploading -> CircularProgressIndicator(
                     modifier = Modifier.size(26.dp),
@@ -187,7 +192,7 @@ fun RegisterForm(
         )
         if (uploadError != null) {
             Text(
-                text = uploadError.orEmpty(),
+                text = t(uploadError.orEmpty()),
                 fontFamily = Kalpurush,
                 fontSize = textSize(12),
                 lineHeight = leading(12),
@@ -195,6 +200,16 @@ fun RegisterForm(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(bottom = 6.dp)
             )
+            if (avatarUrl.isNotBlank()) {
+                Text(
+                    text = t("নতুন ছবি আপলোড হয়নি; আগের ছবিটি রাখা হয়েছে।"),
+                    fontFamily = Kalpurush,
+                    fontSize = textSize(12),
+                    lineHeight = leading(12),
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
         }
 
         if (message != null) {
@@ -262,6 +277,34 @@ fun RegisterForm(
 
         Spacer(Modifier.height(10.dp))
 
+        // Optional contact details are saved to the reader's profile.
+        OutlinedTextField(
+            value = phone,
+            onValueChange = { phone = it },
+            label = { Text(t("ফোন (ঐচ্ছিক)"), fontFamily = Kalpurush) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            singleLine = true,
+            enabled = editable,
+            modifier = Modifier.fillMaxWidth().testTag("register_phone")
+        )
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value = address,
+            onValueChange = { address = it },
+            label = { Text(t("ঠিকানা (ঐচ্ছিক)"), fontFamily = Kalpurush) },
+            enabled = editable,
+            minLines = 1,
+            maxLines = 3,
+            modifier = Modifier.fillMaxWidth().testTag("register_address")
+        )
+        Text(
+            text = t("ঠিকানা আপনার প্রকাশ্য প্রোফাইলে দেখা যেতে পারে।"),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp, start = 4.dp)
+        )
+        Spacer(Modifier.height(10.dp))
+
         // ------------------------------------------------------- the passwords
         PasswordWithEye(
             value = password,
@@ -308,7 +351,7 @@ fun RegisterForm(
         Spacer(Modifier.height(16.dp))
 
         Button(
-            onClick = { onRegister(firstName, lastName, email, password, avatarUrl, avatarDeleteUrl) },
+            onClick = { onRegister(firstName, lastName, email, password, avatarUrl, avatarDeleteUrl, phone, address) },
             enabled = canSubmit && !inProgress,
             shape = RoundedCornerShape(14.dp),
             modifier = Modifier
@@ -346,6 +389,17 @@ fun RegisterForm(
             )
         }
     }
+}
+
+/** Do not ask the reader to register twice when only the profile save failed. */
+@Composable
+fun RegistrationProfileWarning(message: String, onAcknowledge: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = {},
+        title = { Text(t("প্রোফাইল সংরক্ষণ হয়নি")) },
+        text = { Text(t(message)) },
+        confirmButton = { TextButton(onClick = onAcknowledge) { Text(t("চালিয়ে যান")) } }
+    )
 }
 
 /**

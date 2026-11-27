@@ -1,5 +1,6 @@
 package com.ningshingche.app.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -37,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ningshingche.app.ui.components.EmailAuthSection
 import com.ningshingche.app.ui.components.RegisterForm
+import com.ningshingche.app.ui.components.RegistrationProfileWarning
 import com.ningshingche.app.ui.components.GoogleSignInButton
 import com.ningshingche.app.ui.components.NingshingCheBrandLogo
 import com.ningshingche.app.ui.theme.textSize
@@ -58,6 +60,8 @@ fun LoginScreen(
     val message by viewModel.googleAuthMessage.collectAsStateWithLifecycle()
     val emailInProgress by viewModel.emailAuthInProgress.collectAsStateWithLifecycle()
     val emailMessage by viewModel.emailAuthMessage.collectAsStateWithLifecycle()
+    val registrationWarning by viewModel.registrationProfileWarning.collectAsStateWithLifecycle()
+    BackHandler(enabled = emailInProgress) { /* Let the auth operation finish. */ }
     val resetCodeSent by viewModel.resetCodeSent.collectAsStateWithLifecycle()
     val passwordResetActive by viewModel.passwordResetActive.collectAsStateWithLifecycle()
 
@@ -69,8 +73,13 @@ fun LoginScreen(
     // Step two of password recovery signs the reader in, so a non-null user is not
     // by itself a reason to leave this screen: until the new password is saved,
     // navigating away would leave the old one working and the new one unset.
-    LaunchedEffect(currentUser?.id, passwordResetActive) {
-        if (currentUser != null && !passwordResetActive) onSignedIn()
+    LaunchedEffect(currentUser?.id, passwordResetActive, emailInProgress, inProgress, registrationWarning) {
+        if (currentUser != null && !passwordResetActive && !emailInProgress && !inProgress && registrationWarning == null) {
+            onSignedIn()
+        }
+    }
+    registrationWarning?.let { warning ->
+        RegistrationProfileWarning(warning, viewModel::acknowledgeRegistrationProfileWarning)
     }
 
     Scaffold(
@@ -78,7 +87,7 @@ fun LoginScreen(
             TopAppBar(
                 title = { Text(t("সাইন ইন"), fontFamily = Kalpurush, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = onBackClick, modifier = Modifier.testTag("login_back_button")) {
+                    IconButton(onClick = onBackClick, enabled = !emailInProgress && !inProgress, modifier = Modifier.testTag("login_back_button")) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t("ফিরুন"))
                     }
                 },
@@ -138,16 +147,18 @@ fun LoginScreen(
 
             if (registering) {
                 RegisterForm(
-                    inProgress = emailInProgress,
+                    inProgress = emailInProgress || inProgress,
                     message = emailMessage,
-                    onRegister = { firstName, lastName, email, password, avatarUrl, avatarDeleteUrl ->
+                    onRegister = { firstName, lastName, email, password, avatarUrl, avatarDeleteUrl, phone, address ->
                         viewModel.signUpWithEmail(
                             firstName = firstName,
                             lastName = lastName,
                             email = email,
                             password = password,
                             avatarUrl = avatarUrl,
-                            avatarDeleteUrl = avatarDeleteUrl
+                            avatarDeleteUrl = avatarDeleteUrl,
+                            phone = phone,
+                            address = address
                         )
                     },
                     onSwitchToSignIn = { registering = false }
@@ -155,12 +166,12 @@ fun LoginScreen(
                 Spacer(Modifier.height(10.dp))
                 GoogleSignInButton(
                     isLoading = inProgress,
-                    enabled = !inProgress,
+                    enabled = !inProgress && !emailInProgress,
                     onClick = { viewModel.signInWithGoogle(context) }
                 )
             } else {
                 EmailAuthSection(
-                    inProgress = emailInProgress,
+                    inProgress = emailInProgress || inProgress,
                     message = emailMessage,
                     resetCodeSent = resetCodeSent,
                     passwordResetActive = passwordResetActive,
@@ -183,7 +194,7 @@ fun LoginScreen(
 
                 GoogleSignInButton(
                     isLoading = inProgress,
-                    enabled = !inProgress,
+                    enabled = !inProgress && !emailInProgress,
                     onClick = { viewModel.signInWithGoogle(context) }
                 )
             }

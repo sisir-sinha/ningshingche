@@ -98,6 +98,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 অ্যাকসেন্ট,Accent
 অ্যাকাউন্ট,Account
 অ্যাকাউন্ট খুলুন,Create an account
+"অ্যাকাউন্ট তৈরি হয়েছে, কিন্তু প্রোফাইলের তথ্য সার্ভারে সংরক্ষিত হয়নি। পরে প্রোফাইল সম্পাদনা করে আবার সংরক্ষণ করুন।","Your account was created, but the profile details were not saved to the server. Please edit your profile and save again later."
 অ্যাকাউন্ট মুছুন,Delete account
 অ্যাকাউন্ট মুছে ফেলুন?,Delete your account?
 অ্যাডমিন,Admin
@@ -338,6 +339,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 চাকা ঘুরিয়ে নিজের অ্যাকসেন্ট বেছে নিন,Turn the wheel to pick your own accent
 "চাকা ঘুরিয়ে রঙ, কেন্দ্র থেকে দূরে টেনে গাঢ়তা — দুটোই এক আঙুলে।","Turn the wheel for the colour, pull away from the centre for depth — both with one finger."
 চালান,Play
+চালিয়ে যান,Continue
 চালু করে শেষ করুন,Turn it on and finish
 চোখে-আরাম,Eye comfort
 ছবি,Photos
@@ -355,8 +357,8 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 ছবি লোড করা যায়নি,The photo could not be loaded
 ছবি শেয়ার করুন,Share the photo
 ছবি সংরক্ষণ যায়নি।,The photo could not be saved.
-ছবির আকার ৩২ মেগাবাইটের বেশি হতে পারবে না (Exceeds 32MB limit: {1}MB),The photo cannot be larger than 32 MB (exceeds 32MB limit: {1}MB)
 ছবির আকার ৩২ মেগাবাইটের বেশি হতে পারবে না (Image exceeds 32MB),The photo cannot be larger than 32 MB (image exceeds 32MB)
+ছবির আকার ৩২ মেগাবাইটের বেশি হতে পারবে না।,The image must be no larger than 32 MB.
 ছবির আকার ৩২ মেগাবাইটের বেশি হতে পারে না।,The photo cannot be larger than 32 MB.
 ছবির ঠিকানা পাওয়া যায়নি।,No address for the photo was found.
 ছবির ফাইল পড়া যাচ্ছে না (Cannot read image file),The photo file cannot be read (cannot read image file)
@@ -380,6 +382,8 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 ঠার,Language
 ঠিক আছে,OK
 ঠিকানা,Address
+ঠিকানা (ঐচ্ছিক),Address (optional)
+ঠিকানা আপনার প্রকাশ্য প্রোফাইলে দেখা যেতে পারে।,Your address may appear on your public profile.
 ঠিকানা দিন।,Enter the address.
 "ঠিকানা: তিলকপুর, কমলগঞ্জ, মৌলভীবাজার, সিলেট","Address: Tilakpur, Kamalganj, Moulvibazar, Sylhet"
 ডাউনলোড,Download
@@ -434,6 +438,7 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 নতুন গান,New song
 নতুন গান জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।,Complete your profile first to submit a new song.
 নতুন ছবি,New photos
+নতুন ছবি আপলোড হয়নি; আগের ছবিটি রাখা হয়েছে।,The new photo was not uploaded; the previous photo has been kept.
 নতুন পাসওয়ার্ড,New password
 নতুন পাসওয়ার্ড দিন,Enter a new password
 নতুন প্রকাশিত প্রবন্ধ এলে জানান,Tell me when a new article is published
@@ -591,8 +596,9 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 প্রোফাইল ছবি আপলোড করুন।,Upload a profile photo.
 প্রোফাইল লোড হয়নি।,The profile did not load.
 প্রোফাইল সংরক্ষণ করুন,Save the profile
-প্রোফাইল সংরক্ষণ যায়নি ({1})। SQL মাইগ্রেশন 006 চালানো হয়েছে কি?,The profile could not be saved ({1}). Has SQL migration 006 been run?
+প্রোফাইল সংরক্ষণ যায়নি ({1})।,Could not save the profile ({1}).
 প্রোফাইল সংরক্ষণ যায়নি।,The profile could not be saved.
+প্রোফাইল সংরক্ষণ হয়নি,Profile not saved
 প্রোফাইল সংরক্ষিত হয়েছে।,The profile was saved.
 প্রোফাইল সম্পাদনা,Edit the profile
 প্রোফাইলে যান,Go to the profile

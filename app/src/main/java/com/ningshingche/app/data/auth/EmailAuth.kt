@@ -65,7 +65,7 @@ object EmailAuthRules {
         "mailcatch.com", "spamgourmet.com", "mailsac.com",
         "harakirimail.com", "jetable.org", "incognitomail.org",
         "throwaway.email", "tempr.email", "discard.email",
-        "cock.li", "tutanota.de", "protonmail.ch"
+        "cock.li"
     )
 
     /**

@@ -10,8 +10,7 @@
  *   email                            -> validated, and refused for throwaway services
  *   password + confirm               -> and a rule that says why it is refused
  *   an eye on each password field    -> so a typo is visible before the account exists
- *   no duplicate account             -> the address is probed first, and Supabase
- *                                       refuses a second one even if the probe fails
+ *   no duplicate account             -> Supabase rejects duplicates on the real signup
  *   straight in after registering    -> the view model saves the session it gets back
  *
  * Source assertions, like the rest of this folder: they cannot prove the app
@@ -96,20 +95,14 @@ test('the form says so while the address is being typed, not after submitting', 
   assert.match(FORM, /isError = emailProblem != null/, 'the field does not turn red');
 });
 
-test('a duplicate address is refused before the form is submitted', () => {
+test('duplicate accounts are rejected by the real signup, not an extra signup probe', () => {
   assert.match(RULES, /class AlreadyRegistered/);
-  assert.match(CLIENT, /suspend fun isEmailRegistered/, 'there is no uniqueness check');
-  assert.match(VIEW_MODEL, /supabaseClient\.isEmailRegistered\(email\)/,
-    'the sign-up never asks whether the address is taken');
-  assert.match(VIEW_MODEL, /EmailAuthException\.AlreadyRegistered\(\)/,
-    'and never reports the one failure a reader can act on');
-});
-
-test('the uniqueness check may fail without blocking a real sign-up', () => {
-  // It returns Boolean? on purpose: null means "the server could not say", and the
-  // sign-up must go ahead so Supabase's own duplicate rule is the final word.
-  assert.match(CLIENT, /suspend fun isEmailRegistered\(email: String\): Boolean\?/);
-  assert.match(VIEW_MODEL, /else -> Unit/, 'an unknown answer is treated as "free"');
+  assert.match(CLIENT, /user_already_exists/);
+  assert.match(CLIENT, /EmailAuthException\.AlreadyRegistered\(\)/);
+  assert.doesNotMatch(CLIENT, /suspend fun isEmailRegistered/);
+  const signup = VIEW_MODEL.slice(VIEW_MODEL.indexOf('fun signUpWithEmail('), VIEW_MODEL.indexOf('fun sendResetCode('));
+  assert.doesNotMatch(signup, /isEmailRegistered/);
+  assert.match(signup, /\.signUpWithEmail\(/);
 });
 
 // --------------------------------------------------------------- after sign-up ---
@@ -136,6 +129,35 @@ test('the first-run step offers registration beside Google and skip', () => {
   assert.match(WELCOME, /welcome_register_button/, 'no way to reach it');
   assert.match(WELCOME, /GoogleSignInButton\(/, 'Google was removed');
   assert.match(WELCOME, /welcome_login_skip_button/, 'skip was removed');
-  assert.match(WELCOME, /if \(currentUser != null && !passwordResetActive\) onSignedIn\(\)/,
+  assert.match(WELCOME, /currentUser != null && !passwordResetActive && !emailInProgress && !inProgress && registrationWarning == null/,
     'the recovery guard was lost from this screen');
+});
+
+
+test('photo upload cannot cancel itself or restore a spinner without a job', () => {
+  const helper = read('ui', 'components', 'RegistrationPhotoUpload.kt');
+  assert.doesNotMatch(FORM, /LaunchedEffect\(pendingUpload\)|pendingUpload/);
+  assert.match(FORM, /uploading by remember \{ mutableStateOf\(false\) \}/);
+  assert.match(FORM, /uploadScope\.launch/);
+  assert.match(FORM, /onFinish = \{ uploading = false \}/);
+  assert.match(helper, /finally \{\s*onFinish\(\)/);
+  assert.match(helper, /catch \(cancelled: CancellationException\) \{\s*throw cancelled/);
+});
+
+test('optional phone and address reach the profile without becoming signup requirements', () => {
+  const login = read('ui', 'screens', 'LoginScreen.kt');
+  for (const tag of ['register_phone', 'register_address']) assert.ok(FORM.includes(`"${tag}"`));
+  const submit = FORM.slice(FORM.indexOf('val canSubmit'), FORM.indexOf('Column('));
+  assert.doesNotMatch(submit, /phone|address/);
+  for (const screen of [login, WELCOME]) {
+    assert.match(screen, /phone = phone/); assert.match(screen, /address = address/);
+    assert.match(screen, /!emailInProgress && !inProgress && registrationWarning == null/);
+    assert.match(screen, /RegistrationProfileWarning\(/);
+  }
+  assert.match(VIEW_MODEL, /phone = phone\.trim\(\)/);
+  assert.match(VIEW_MODEL, /address = address\.trim\(\)/);
+  assert.match(VIEW_MODEL, /upsertReaderProfile\(completed\)\.onFailure/);
+  assert.match(CLIENT, /if \(!response\.isSuccessful\) throw IOException\("Profile save failed/);
+  assert.match(CLIENT, /if \(rows\.length\(\) == 0\) throw IOException/);
+  assert.doesNotMatch(RULES, /"tutanota\.de"|"protonmail\.ch"/);
 });

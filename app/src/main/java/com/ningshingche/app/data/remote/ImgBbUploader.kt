@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Base64
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MultipartBody
@@ -29,6 +30,7 @@ object ImgBbUploader {
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
+        .callTimeout(75, TimeUnit.SECONDS)
         .build()
 
     suspend fun uploadFromUri(
@@ -48,19 +50,27 @@ object ImgBbUploader {
             val inputStream = contentResolver.openInputStream(uri)
                 ?: return@withContext Result.failure(IllegalStateException("ছবির ফাইল পড়া যাচ্ছে না (Cannot read image file)"))
 
-            val bytes = inputStream.use { it.readBytes() }
-
-            // Validate Size
-            if (bytes.size > MAX_SIZE_BYTES) {
-                return@withContext Result.failure(
-                    IllegalArgumentException(
-                        "ছবির আকার ৩২ মেগাবাইটের বেশি হতে পারবে না (Exceeds 32MB limit: ${bytes.size / (1024 * 1024)}MB)"
-                    )
-                )
+            // Stop reading at the limit instead of allocating an unbounded file.
+            val bytes = inputStream.use { input ->
+                val output = ByteArrayOutputStream()
+                val buffer = ByteArray(16 * 1024)
+                var size = 0
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    size += count
+                    if (size > MAX_SIZE_BYTES) {
+                        throw IllegalArgumentException("ছবির আকার ৩২ মেগাবাইটের বেশি হতে পারবে না।")
+                    }
+                    output.write(buffer, 0, count)
+                }
+                output.toByteArray()
             }
 
             val fileName = customName ?: "img_${System.currentTimeMillis()}"
             uploadBytes(bytes, fileName, mimeType)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -86,6 +96,8 @@ object ImgBbUploader {
             val fileName = customName ?: "img_${System.currentTimeMillis()}"
             val mimeType = if (format == Bitmap.CompressFormat.PNG) "image/png" else "image/jpeg"
             uploadBytes(bytes, fileName, mimeType)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -146,6 +158,9 @@ object ImgBbUploader {
 
             val data = json.getJSONObject("data")
             val url = data.optString("url", "")
+            if (url.isBlank()) {
+                return@withContext Result.failure(IllegalStateException("ছবির ঠিকানা পাওয়া যায়নি।"))
+            }
             val displayUrl = data.optString("display_url", url)
             val deleteUrl = data.optString("delete_url", "")
             val title = data.optString("title", fileName)
@@ -161,6 +176,8 @@ object ImgBbUploader {
                     mimeType = mimeType
                 )
             )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(e)
         }

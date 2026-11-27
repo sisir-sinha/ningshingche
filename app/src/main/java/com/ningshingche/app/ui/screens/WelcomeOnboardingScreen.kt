@@ -6,6 +6,7 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -52,6 +53,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ningshingche.app.ui.components.GoogleSignInButton
 import com.ningshingche.app.ui.components.RegisterForm
+import com.ningshingche.app.ui.components.RegistrationProfileWarning
 import com.ningshingche.app.ui.components.NingshingCheBrandLogo
 import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.leading
@@ -73,6 +75,8 @@ fun WelcomeLoginScreen(
     val message by viewModel.googleAuthMessage.collectAsStateWithLifecycle()
     val emailInProgress by viewModel.emailAuthInProgress.collectAsStateWithLifecycle()
     val emailMessage by viewModel.emailAuthMessage.collectAsStateWithLifecycle()
+    val registrationWarning by viewModel.registrationProfileWarning.collectAsStateWithLifecycle()
+    BackHandler(enabled = emailInProgress) { /* Let the auth operation finish. */ }
     val passwordResetActive by viewModel.passwordResetActive.collectAsStateWithLifecycle()
 
     // false = the Google-or-skip step this screen has always been; true = the
@@ -81,8 +85,13 @@ fun WelcomeLoginScreen(
     // be a new reader than a returning one.
     var registering by rememberSaveable { mutableStateOf(false) }
 
-    LaunchedEffect(currentUser?.id, passwordResetActive) {
-        if (currentUser != null && !passwordResetActive) onSignedIn()
+    LaunchedEffect(currentUser?.id, passwordResetActive, emailInProgress, inProgress, registrationWarning) {
+        if (currentUser != null && !passwordResetActive && !emailInProgress && !inProgress && registrationWarning == null) {
+            onSignedIn()
+        }
+    }
+    registrationWarning?.let { warning ->
+        RegistrationProfileWarning(warning, viewModel::acknowledgeRegistrationProfileWarning)
     }
 
     Column(
@@ -145,16 +154,18 @@ fun WelcomeLoginScreen(
 
         if (registering) {
             RegisterForm(
-                inProgress = emailInProgress,
+                inProgress = emailInProgress || inProgress,
                 message = emailMessage,
-                onRegister = { firstName, lastName, email, password, avatarUrl, avatarDeleteUrl ->
+                onRegister = { firstName, lastName, email, password, avatarUrl, avatarDeleteUrl, phone, address ->
                     viewModel.signUpWithEmail(
                         firstName = firstName,
                         lastName = lastName,
                         email = email,
                         password = password,
                         avatarUrl = avatarUrl,
-                        avatarDeleteUrl = avatarDeleteUrl
+                        avatarDeleteUrl = avatarDeleteUrl,
+                        phone = phone,
+                        address = address
                     )
                 },
                 onSwitchToSignIn = { registering = false }
@@ -164,6 +175,7 @@ fun WelcomeLoginScreen(
 
             TextButton(
                 onClick = onSkip,
+                enabled = !emailInProgress && !inProgress,
                 modifier = Modifier.testTag("welcome_login_skip_button")
             ) {
                 Text(
@@ -177,6 +189,7 @@ fun WelcomeLoginScreen(
         } else {
             Button(
                 onClick = { registering = true },
+                enabled = !emailInProgress && !inProgress,
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -196,7 +209,7 @@ fun WelcomeLoginScreen(
 
             GoogleSignInButton(
                 isLoading = inProgress,
-                enabled = !inProgress,
+                enabled = !inProgress && !emailInProgress,
                 onClick = { viewModel.signInWithGoogle(context) }
             )
 
@@ -204,6 +217,7 @@ fun WelcomeLoginScreen(
 
             TextButton(
                 onClick = onSkip,
+                enabled = !emailInProgress && !inProgress,
                 modifier = Modifier.testTag("welcome_login_skip_button")
             ) {
                 Text(
