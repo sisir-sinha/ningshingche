@@ -375,10 +375,12 @@ class MusicController(
         val id = meterTrackId
         if (id.isBlank()) return
         if (reportedMs == 0L && listenedMs < meterValidMs) return
-        val seconds = ((listenedMs - reportedMs) / 1000L).toInt()
+        val callback = onListened ?: return
+        val seconds = unreportedListeningSeconds(listenedMs, reportedMs)
         if (seconds <= 0) return
-        reportedMs = listenedMs
-        onListened?.invoke(id, seconds)
+        // Keep sub-second remainder instead of silently throwing it away.
+        reportedMs = reportedListeningMillis(reportedMs, seconds)
+        callback(id, seconds)
     }
 
     /**
@@ -416,6 +418,15 @@ class MusicController(
 
     fun dismiss() {
         clearSleepTimer()
+        // Capture and flush the final heard segment before visibility goes false
+        // and the ticker stops. Reset even when reopening the very same song.
+        controller?.let { meterListening(it, _state.value.track) }
+        reportListening()
+        meterTrackId = ""
+        listenedMs = 0L
+        reportedMs = 0L
+        lastPositionMs = 0L
+        lastAnnouncedViewId = null
         controller?.run {
             pause()
             stop()

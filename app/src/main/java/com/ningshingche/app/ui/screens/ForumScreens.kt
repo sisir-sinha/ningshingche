@@ -1154,7 +1154,9 @@ fun ForumThreadScreen(
         error = null
         // The view is counted once per discussion per destination: a rebuild of
         // this screen is the same reader looking again, and so is a refresh.
-        val countView = reloadToken == 0 && !holder.counted
+        // A failed first request must be allowed to count on retry. The server
+        // deduplicates a response-lost retry within its visit window.
+        val countView = !holder.counted
         loadThread(discussionId, countView)
             .onSuccess { loaded ->
                 if (countView) holder.markCounted()
@@ -1343,8 +1345,7 @@ fun ForumThreadScreen(
         } ?: tNow("লোড হচ্ছে…"),
         refreshing = refreshing,
         onBackClick = onBackClick,
-        // Refreshing re-reads without counting a second view — the reader is the
-        // same reader looking again.
+        // A successful visit stays counted; an earlier failed load is retried.
         onRefreshClick = { reloadToken += 1 },
         bottomBar = {
             if (isSignedIn) {

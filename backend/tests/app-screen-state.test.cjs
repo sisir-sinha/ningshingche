@@ -102,15 +102,15 @@ test('one visit counts one view', async (t) => {
     assert.match(FORUM_SCREENS, /var counted: Boolean = false\s*private set/);
     assert.match(FORUM_SCREENS, /fun markCounted\(\) \{\s*counted = true\s*\}/);
     const thread = screen('ForumThreadScreen');
-    assert.match(thread, /val countView = reloadToken == 0 && !holder\.counted/,
-      'the first load of a visit, and only if it has not already happened');
+    assert.match(thread, /val countView = !holder\.counted/,
+      'retry until a count succeeds; do not count successful visits again');
     assert.match(thread, /if \(countView\) holder\.markCounted\(\)/, 'marked when it has');
     assert.match(thread, /loadThread\(discussionId, countView\)/);
     assert.ok(!/loadThread\(discussionId, reloadToken == 0\)/.test(thread),
       'the old rule — the screen\'s own lifetime — is gone');
   });
 
-  await t.test('and a refresh still never counts', () => {
+  await t.test('a successful visit is not recounted on refresh', () => {
     const thread = screen('ForumThreadScreen');
     assert.match(thread, /reloadToken \+= 1/, 'the refresh button still walks the token');
     assert.match(thread, /if \(countView\) holder\.markCounted\(\)/,

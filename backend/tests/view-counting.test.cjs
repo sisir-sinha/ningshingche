@@ -244,3 +244,11 @@ test('the reader-facing strings the split needs are in the inventory', () => {
     assert.ok(inventory.includes(label), `${label} should be translatable`);
   }
 });
+
+test('dismissing the music player flushes and resets its meter before hiding', () => {
+  const body = MUSIC_CONTROLLER.slice(MUSIC_CONTROLLER.indexOf('    fun dismiss() {'), MUSIC_CONTROLLER.indexOf('    fun playQueueItem('));
+  assert.match(body, /meterListening\(it, _state\.value\.track\)/);
+  assert.ok(body.indexOf('reportListening()') < body.indexOf('_state.value = MusicPlayerUiState'));
+  assert.match(body, /meterTrackId = ""/);
+  assert.match(body, /reportedMs = 0L/);
+});
