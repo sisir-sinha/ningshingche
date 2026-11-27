@@ -536,6 +536,8 @@ class SettingsViewModel(
     fun clearCache() {
         viewModelScope.launch {
             articleRepository.clearAllCache()
+            com.ningshingche.app.data.portal.PortalProvider.clearPublicCache()
+            com.ningshingche.app.data.portal.PortalProvider.repository().invalidatePublicMemoryCache()
         }
     }
 

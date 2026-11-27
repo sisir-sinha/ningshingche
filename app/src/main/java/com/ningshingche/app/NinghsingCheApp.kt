@@ -21,6 +21,7 @@ import com.ningshingche.app.notifications.ContentCheckWorker
 import com.ningshingche.app.notifications.ContentUpdateNotifier
 import com.ningshingche.app.notifications.SeenContentStore
 import com.ningshingche.app.data.i18n.TranslationRepository
+import com.ningshingche.app.data.cache.PublicCacheWarmWorker
 import com.ningshingche.app.analytics.AppTimeTracker
 import com.ningshingche.app.data.music.MusicLibraryStore
 import com.ningshingche.app.playback.MusicController
@@ -168,6 +169,7 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
         // Guests are unaffected — the provider answers null and the transport
         // falls back to the key, which is all the public reads need.
         PortalProvider.installReaderSession { supabaseClient.readerAuthToken() }
+        PortalProvider.installPublicCache(this)
         articleRepository = ArticleRepository(database, supabaseClient, websiteClient)
         portalRepository = PortalProvider.repository()
         val musicStore = MusicLibraryStore(this, database, supabaseClient)
@@ -201,6 +203,9 @@ class NinghsingCheApp : Application(), ImageLoaderFactory {
             preferencesRepository = preferencesRepository
         )
         ContentCheckWorker.schedule(this)
+        if (android.os.Build.FINGERPRINT != "robolectric") {
+            runCatching { PublicCacheWarmWorker.schedule(this) }
+        }
     }
 
     companion object {

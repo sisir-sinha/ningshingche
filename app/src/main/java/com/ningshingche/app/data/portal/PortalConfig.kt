@@ -1,6 +1,7 @@
 package com.ningshingche.app.data.portal
 
 import com.ningshingche.app.BuildConfig
+import com.ningshingche.app.data.cache.PublicResponseCache
 import okhttp3.ConnectionSpec
 import okhttp3.OkHttpClient
 import okhttp3.TlsVersion
@@ -79,7 +80,7 @@ object PortalConfig {
             .build()
     }
 
-    fun okHttpClient(debug: Boolean): OkHttpClient {
+    fun okHttpClient(debug: Boolean, publicCache: PublicResponseCache? = null): OkHttpClient {
         val builder = OkHttpClient.Builder()
             .connectTimeout(CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .readTimeout(READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
@@ -96,7 +97,10 @@ object PortalConfig {
                 val key = publishableKey
                 // Read per request, never captured: a reader who signs in (or
                 // whose token expires) must affect the very next call.
-                val readerToken = readerSession?.invoke()?.takeIf { it.isNotBlank() }
+                // Public cacheable reads are deliberately anonymous and must not
+                // refresh a user session before showing an offline cache hit.
+                val readerToken = if (publicCache?.eligible(chain.request()) == true) null
+                    else readerSession?.invoke()?.takeIf { it.isNotBlank() }
                 val request = chain.request().newBuilder()
                     .header("apikey", key)
                     // `header`, not `addHeader`: exactly one bearer, and it is
@@ -115,7 +119,7 @@ object PortalConfig {
             }
             builder.addInterceptor(logging)
         }
-        return builder.build()
+        return publicCache?.install(builder) ?: builder.build()
     }
 
     fun retrofit(client: OkHttpClient): Retrofit = Retrofit.Builder()

@@ -254,21 +254,10 @@ class MusicController(
         }
         refreshTrackFlags(list.getOrNull(index) ?: track)
         announceStarted(list.getOrNull(index) ?: track)
-        prefetch(list.drop(index).take(3), MusicStreamCache.NEXT_BYTES)
     }
 
     fun prefetchCatalog(tracks: List<MusicTrack>) {
         library.seedLoveCounts(tracks)
-        prefetch(tracks, MusicStreamCache.HEAD_BYTES, limit = 12)
-    }
-
-    private fun prefetch(tracks: List<MusicTrack>, bytes: Long, limit: Int = tracks.size) {
-        if (tracks.isEmpty()) return
-        scope.launch(Dispatchers.IO) {
-            runCatching {
-                MusicStreamCache.prefetch(appContext, tracks, library, bytes = bytes, limit = limit)
-            }
-        }
     }
 
     fun togglePlayPause() {
@@ -706,8 +695,6 @@ class MusicController(
         if (track != null && track.id != previousId) {
             retriedStorage = false
             refreshTrackFlags(track)
-            val index = queue.indexOfFirst { it.id == track.id }
-            if (index >= 0) prefetch(queue.drop(index + 1).take(2), MusicStreamCache.NEXT_BYTES)
         }
     }
 

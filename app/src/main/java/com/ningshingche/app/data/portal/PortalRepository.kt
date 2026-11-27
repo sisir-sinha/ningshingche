@@ -102,6 +102,13 @@ class PortalRepository(
         )
     }
 
+    /** Clear only the reference-data memory layer after a public disk refresh. */
+    suspend fun invalidatePublicMemoryCache() = cacheMutex.withLock {
+        categoriesCache.clear(); authorsCache.clear(); pdfCache.clear(); videoCache.clear()
+        musicCache.clear(); settingsCache.clear(); facetsCache.clear(); issuesCache.clear()
+        tagCountsCache.clear(); tagSpellingsCache.clear()
+    }
+
     // ------------------------------------------------------------ home feed
 
     /**
@@ -471,12 +478,14 @@ class PortalRepository(
             if (isUuid) {
                 api.blogs(
                     select = PortalApi.BLOG_DETAIL_COLUMNS,
+                    status = "eq.Publish",
                     id = "eq.$trimmed",
                     limit = 1
                 )
             } else {
                 api.blogs(
                     select = PortalApi.BLOG_DETAIL_COLUMNS,
+                    status = "eq.Publish",
                     slug = "eq.${escapeFilterValue(trimmed)}",
                     limit = 1
                 )
@@ -488,6 +497,7 @@ class PortalRepository(
             } else if (isUuid) {
                 val fallback = api.blogs(
                     select = PortalApi.BLOG_DETAIL_COLUMNS,
+                    status = "eq.Publish",
                     slug = "eq.${escapeFilterValue(trimmed)}",
                     limit = 1
                 ).body()?.firstOrNull()
@@ -495,19 +505,7 @@ class PortalRepository(
             } else {
                 throw PortalError.NotFound
             }
-        }.map { detail -> detail.withFreshViewCount() }
-    }
-
-    /**
-     * Counts this reading of the article and folds the new total into the
-     * article the screen is about to show.
-     *
-     * A failed count is not an error the reader should see — the article is
-     * open, the number is simply the one the row carried.
-     */
-    private suspend fun ArticleDetail.withFreshViewCount(): ArticleDetail {
-        val total = recordArticleView(summary.id).getOrNull() ?: return this
-        return copy(summary = summary.copy(viewsCount = total))
+        }
     }
 
     // --------------------------------------------------------- public profile

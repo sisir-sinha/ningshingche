@@ -27,6 +27,7 @@ import com.ningshingche.app.data.portal.GalleryItem
 import com.ningshingche.app.data.portal.IssueSummary
 import com.ningshingche.app.data.portal.IssueTags
 import com.ningshingche.app.data.portal.PortalConfig
+import com.ningshingche.app.data.portal.PortalProvider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -140,7 +141,20 @@ class HomeViewModel(private val repository: PortalRepository) : ViewModel() {
     private val _musicError = MutableStateFlow<String?>(null)
     val musicError: StateFlow<String?> = _musicError.asStateFlow()
 
-    init { load() }
+    init {
+        load()
+        viewModelScope.launch {
+            var refreshJob: Job? = null
+            PortalProvider.cacheChanges()?.collect {
+                refreshJob?.cancel()
+                refreshJob = launch {
+                    delay(1000)
+                    repository.invalidatePublicMemoryCache()
+                    if (_state.value is HomeUiState.Ready) load()
+                }
+            }
+        }
+    }
 
     fun loadVideoCatalog(force: Boolean = false) {
         viewModelScope.launch {
@@ -250,10 +264,14 @@ class HomeViewModel(private val repository: PortalRepository) : ViewModel() {
     }
 
     fun load(force: Boolean = false) {
+        if (force) PortalProvider.refreshPublicCacheSoon()
         viewModelScope.launch {
+            if (force) repository.invalidatePublicMemoryCache()
             val isRefresh = _state.value is HomeUiState.Ready
             if (isRefresh) {
-                _state.update { (it as HomeUiState.Ready).copy(isRefreshing = true) }
+                _state.update { current ->
+                    if (current is HomeUiState.Ready) current.copy(isRefreshing = true) else current
+                }
             } else {
                 _state.value = HomeUiState.Loading
             }
@@ -363,6 +381,29 @@ class ArticleViewModel(
                 }
             }
         }
+        viewModelScope.launch {
+            var refreshJob: Job? = null
+            PortalProvider.cacheChanges()?.collect {
+                refreshJob?.cancel()
+                refreshJob = launch refresh@ {
+                    delay(1000)
+                    val key = currentIdOrSlug
+                    val ready = _state.value as? ArticleUiState.Ready ?: return@refresh
+                    val result = repository.article(key)
+                    if (result.exceptionOrNull() == PortalError.NotFound) {
+                        if (key == currentIdOrSlug) _state.value = ArticleUiState.Error(PortalError.NotFound.message())
+                        return@refresh
+                    }
+                    val updated = result.getOrNull() ?: return@refresh
+                    val comments = repository.comments(updated.id).getOrNull()
+                    if (key == currentIdOrSlug) _state.update { current ->
+                        if (current is ArticleUiState.Ready && current.article.id == ready.article.id)
+                            current.copy(article = updated, comments = comments ?: current.comments)
+                        else current
+                    }
+                }
+            }
+        }
     }
 
     fun updateCommentForm(form: CommentFormState) {
@@ -379,6 +420,7 @@ class ArticleViewModel(
 
     fun refresh() {
         if (currentIdOrSlug.isBlank()) return
+        PortalProvider.refreshPublicCacheSoon()
         val currentReady = _state.value as? ArticleUiState.Ready
         if (currentReady != null) {
             _state.value = currentReady.copy(isRefreshing = true)
@@ -432,6 +474,16 @@ class ArticleViewModel(
 
             val article = detail.getOrThrow()
             _state.value = ArticleUiState.Ready(article)
+
+            // View counting is a write, not a prerequisite for showing cached text.
+            launch {
+                val total = repository.recordArticleView(article.id).getOrNull()
+                if (total != null) _state.update { current ->
+                    if (current is ArticleUiState.Ready && current.article.id == article.id)
+                        current.copy(article = current.article.copy(summary = current.article.summary.copy(viewsCount = total)))
+                    else current
+                }
+            }
 
             // Load author details if available
             launch {
