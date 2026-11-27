@@ -765,6 +765,10 @@ class ReaderWorkspaceViewModel(
         }
     }
 
+    suspend fun bookSubmissionReady(): Result<Unit> = supabaseClient.bookSubmissionReady()
+    suspend fun submitReaderBook(payload: org.json.JSONObject): Result<Unit> = supabaseClient.submitReaderBook(payload)
+    suspend fun myReaderBooks() = supabaseClient.myReaderBooks()
+
     /**
      * Adds a song file to the host: `upload.satoru.click` first, because it
      * needs no session and takes up to 200 MB, then Supabase Storage if that

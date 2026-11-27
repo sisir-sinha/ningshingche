@@ -66,6 +66,7 @@ import com.ningshingche.app.ui.screens.FeaturedScreen
 import com.ningshingche.app.ui.screens.LoginScreen
 import com.ningshingche.app.ui.screens.NewArticleScreen
 import com.ningshingche.app.ui.screens.NewMusicScreen
+import com.ningshingche.app.ui.screens.NewBookScreen
 import com.ningshingche.app.data.music.MusicShelfKind
 import com.ningshingche.app.ui.screens.PdfArchiveScreen
 import com.ningshingche.app.ui.screens.ContributorScreen
@@ -133,6 +134,7 @@ object ReaderRoute {
     const val UserProfile = "user_profile"
     const val NewArticle = "new_article"
     const val NewMusic = "new_music"
+    const val NewBook = "new_book"
     const val Bookmarks = "bookmarks"
     const val PdfArchive = "pdf_archive"
     const val PdfViewer = "pdf_viewer/{pdfId}"
@@ -395,7 +397,7 @@ fun EditorialReaderApp(
     // Do not silently discard work if a bottom/drawer destination is chosen from an editor.
     var pendingNavigation by remember { mutableStateOf<(() -> Unit)?>(null) }
     fun requestNavigation(action: () -> Unit) {
-        if (currentRoute in setOf(ReaderRoute.NewArticle, ReaderRoute.NewMusic,
+        if (currentRoute in setOf(ReaderRoute.NewArticle, ReaderRoute.NewMusic, ReaderRoute.NewBook,
                 ReaderRoute.ForumNew, ReaderRoute.ForumNewPattern, ReaderRoute.UserProfile)) {
             pendingNavigation = action
         } else {
@@ -792,6 +794,7 @@ fun EditorialReaderApp(
                     onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) },
                     onNewArticle = { navController.navigate(ReaderRoute.NewArticle) },
                     onNewMusic = { navController.navigate(ReaderRoute.NewMusic) },
+                    onNewBook = { navController.navigate(ReaderRoute.NewBook) },
                     onOpenArticle = openSubmittedArticle,
                     onOpenComment = { comment ->
                         if (comment.blogId.isNotBlank()) {
@@ -860,6 +863,7 @@ fun EditorialReaderApp(
                     onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) },
                     onNewArticle = { navController.navigate(ReaderRoute.NewArticle) },
                     onNewMusic = { navController.navigate(ReaderRoute.NewMusic) },
+                    onNewBook = { navController.navigate(ReaderRoute.NewBook) },
                     onOpenArticle = openSubmittedArticle,
                     onOpenComment = { comment ->
                         if (comment.blogId.isNotBlank()) {
@@ -931,6 +935,12 @@ fun EditorialReaderApp(
                     onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) },
                     onSubmitted = { navController.openSubmittedContent() }
                 )
+            }
+
+            composable(ReaderRoute.NewBook, enterTransition = navEnter, exitTransition = navExit, popEnterTransition = navPopEnter, popExitTransition = navPopExit) {
+                NewBookScreen(viewModel = workspaceViewModel, onBackClick = { navController.popBackStack() },
+                    onCompleteProfile = { navController.navigate(ReaderRoute.UserProfile) },
+                    onSubmitted = { navController.openSubmittedContent() })
             }
 
             // Bookmarks / Saved Screen

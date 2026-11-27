@@ -117,12 +117,45 @@
     } catch (error) { console.error(error); NC.components.toast(NC.api.userMessage(error, 'Unable to delete the PDF book.'), 'error'); }
   }
 
+  // Kept separate from the public catalogue: pending rows are never published by
+  // a client-side status edit. The review RPC performs the conversion atomically.
+  async function loadReaderSubmissions() {
+    const host = root.querySelector('[data-reader-book-submissions]');
+    try {
+      const data = await NC.api.rpc('dashboard_book_submissions');
+      const rows = Array.isArray(data) ? data : [];
+      host.innerHTML = rows.length ? `<h2>Reader book submissions awaiting review</h2>${rows.map((r) => `
+        <article class="surface" style="padding:16px;margin:12px 0">
+          <strong>${escapeHTML(r.title)}</strong><p>${escapeHTML(r.author_or_editor || '')} · ${escapeHTML(r.edition || '')}</p>
+          <p>${escapeHTML(r.description || '')}</p>
+          ${safeExternalUrl(r.link) ? `<a class="btn btn-secondary" href="${escapeHTML(r.link)}" target="_blank" rel="noopener noreferrer">Open submitted PDF</a>` : ''}
+          <button type="button" class="btn btn-primary" data-book-review="approve" data-book-id="${escapeHTML(r.id)}">Approve & publish</button>
+          <button type="button" class="btn btn-secondary" data-book-review="reject" data-book-id="${escapeHTML(r.id)}">Reject</button>
+        </article>`).join('')}` : '';
+      host.querySelectorAll('[data-book-review]').forEach((button) => button.addEventListener('click', async () => {
+        if (!await NC.components.confirm({ title: button.dataset.bookReview === 'approve' ? 'Publish this book?' : 'Reject this book?',
+          description: 'Review the PDF, rights and details before deciding.', danger: button.dataset.bookReview !== 'approve' })) return;
+        button.disabled = true;
+        try {
+          await NC.api.rpc('dashboard_review_book', { p_id: button.dataset.bookId, p_action: button.dataset.bookReview });
+          NC.components.toast('Book submission reviewed.', 'success');
+          await load();
+        } catch (error) { NC.components.toast(NC.api.userMessage(error, 'Could not review the book.'), 'error'); }
+        finally { button.disabled = false; }
+      }));
+    } catch (error) {
+      // An older database is not evidence that there are zero pending submissions.
+      host.textContent = 'Reader book submissions are unavailable. Check the submission service and permissions.';
+    }
+  }
+
   async function load(context = {}) {
     const content = root.querySelector('[data-books-content]'); content.innerHTML = NC.components.skeleton(7, 5);
     try {
       const result = await NC.api.list('books', { select: '*', order: 'book_published_date.desc.nullslast,created_at.desc', limit: 2000 });
       if (NC.crud.isStaleNavigation(context)) return;
       state.setRecords(result.data); renderList();
+      await loadReaderSubmissions();
       const action = context.params?.get('action'), id = context.params?.get('id');
       if (action === 'new') openForm();
       if (id && ['view', 'edit'].includes(action)) { const record = state.records.find((item) => item.id === id); if (record) action === 'view' ? openView(record) : openForm(record); }
@@ -131,7 +164,7 @@
 
   function render(container, context = {}) {
     root = container;
-    root.innerHTML = `${NC.components.pageHeader({ eyebrow: 'Library', title: 'PDF Books', description: 'Manage magazine editions, books, and downloadable archives.', breadcrumb: [{ label: 'PDF Books' }], actions: `${NC.importer.bulkButton('books')}<button type="button" class="btn btn-primary" data-add-book><i class="fa-regular fa-book-circle-plus" aria-hidden="true"></i>Add book</button>` })}<section class="surface"><div class="list-toolbar"><label class="search-field"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><span class="sr-only">Search books</span><input type="search" placeholder="Search title, editor, edition…" data-book-search></label><input class="form-input toolbar-select" type="date" data-book-date aria-label="Filter by published date"></div><div data-books-content>${NC.components.skeleton(7, 5)}</div></section>`;
+    root.innerHTML = `${NC.components.pageHeader({ eyebrow: 'Library', title: 'PDF Books', description: 'Manage magazine editions, books, and downloadable archives.', breadcrumb: [{ label: 'PDF Books' }], actions: `${NC.importer.bulkButton('books')}<button type="button" class="btn btn-primary" data-add-book><i class="fa-regular fa-book-circle-plus" aria-hidden="true"></i>Add book</button>` })}<section data-reader-book-submissions aria-live="polite"></section><section class="surface"><div class="list-toolbar"><label class="search-field"><i class="fa-regular fa-magnifying-glass" aria-hidden="true"></i><span class="sr-only">Search books</span><input type="search" placeholder="Search title, editor, edition…" data-book-search></label><input class="form-input toolbar-select" type="date" data-book-date aria-label="Filter by published date"></div><div data-books-content>${NC.components.skeleton(7, 5)}</div></section>`;
     root.querySelector('[data-add-book]').addEventListener('click', () => openForm());
     root.querySelector('[data-book-search]').addEventListener('input', debounce((event) => { state.setQuery(event.target.value); renderList(); }, 220));
     root.querySelector('[data-book-date]').addEventListener('change', (event) => { const value = event.target.value; state.setFilter('book_published_date', value ? (date) => String(date || '').slice(0, 10) === value : 'all'); renderList(); });

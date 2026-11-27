@@ -1273,6 +1273,40 @@ class SupabaseClient(
         }
     }
 
+    /** Book submission preflight happens before any third-party upload. */
+    suspend fun bookSubmissionReady(): Result<Unit> = bookRpc("reader_book_submission_ready", JSONObject()).map { Unit }
+
+    suspend fun submitReaderBook(payload: JSONObject): Result<Unit> = bookRpc("submit_reader_book", payload).map { Unit }
+
+    private suspend fun bookRpc(name: String, payload: JSONObject): Result<String> = withContext(Dispatchers.IO) {
+        val jwt = sessionUserJwt() ?: return@withContext Result.failure(ReaderSessionRequiredException())
+        try {
+            val request = createUserAuthedRequestBuilder("${SupabaseConfig.restBaseUrl}/rpc/$name", jwt)
+                .post(payload.toString().toRequestBody(jsonMediaType)).build()
+            httpClient.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) return@withContext Result.failure(
+                    when {
+                        body.contains("terms_acceptance_required", true) -> TermsAcceptanceRequiredException()
+                        body.contains("profile_required", true) -> IllegalStateException("profile_required")
+                        response.code == 404 -> IOException("বই জমার ব্যবস্থা এখনো চালু হয়নি।")
+                        else -> IOException("বই জমা যায়নি (${response.code})")
+                    }
+                )
+                Result.success(body)
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (e: Exception) { Result.failure(e) }
+    }
+
+    data class ReaderBookSummary(val id: String, val title: String, val status: String, val createdAt: String)
+    suspend fun myReaderBooks(): Result<List<ReaderBookSummary>> = bookRpc("my_reader_books", JSONObject()).mapCatching { body ->
+        val rows = JSONArray(body)
+        (0 until rows.length()).map { i -> rows.getJSONObject(i).let {
+            ReaderBookSummary(it.getString("id"), it.getString("title"), it.getString("status"), it.optString("created_at"))
+        } }
+    }
+
     // ==========================================
     // PDF BOOKS CRUD
     // ==========================================

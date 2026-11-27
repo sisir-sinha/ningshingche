@@ -16,6 +16,7 @@ ImgBB আপলোড ব্যর্থ হয়েছে: {1},ImgBB upload fa
 ImgBB ত্রুটি: {1},ImgBB error: {1}
 PDF আর্কাইভ,PDF archive
 PDF প্রকাশনা শেয়ার করুন,Share the PDF publication
+PDF ফাইল নির্বাচন করুন,Choose a PDF file
 Supabase-এ Google সাইন-ইন চালু নেই। Authentication → Providers → Google চালু করুন।,Google sign-in is not enabled in Supabase. Enable it in Authentication → Providers → Google.
 chепе ধরে প্রতিক্রিয়া দিন,Press and hold to react
 ningshingche.com ওয়েবসাইটে যান,Go to the ningshingche.com website
@@ -139,6 +140,7 @@ ningshingche.com ওয়েবসাইটে যান,Go to the ningshingche
 আপনার সংরক্ষিত প্লেলিস্ট,Your saved playlist
 আপনার সেশনের মেয়াদ শেষ হয়েছে। আবার সাইন ইন করলে তালিকা ও পয়েন্ট দেখা যাবে।,Your session has ended. Sign in again to see the list and the points.
 আপনি,You
+আপলোড করা PDF যাচাই করা যায়নি।,The uploaded PDF could not be verified.
 আপলোড সার্ভার এখন সাড়া দিচ্ছে না ({1})।,The upload server is not responding right now ({1}).
 আপলোড সার্ভার ঠিকানা দেয়নি।,The upload server did not give an address.
 আপলোডার: {1},Uploader: {1}
@@ -402,7 +404,9 @@ ningshingche.com ওয়েবসাইটে যান,Go to the ningshingche
 ড্যাশবোর্ড ও নতুন প্রবন্ধ ব্যবহার করতে প্রোফাইলের সব আবশ্যক ঘর পূরণ করুন।,Fill in every required profile field to use the dashboard and new articles.
 তথ্য লোড করতে সমস্যা হয়েছে।,There was a problem loading the data.
 তথ্য লোড করতে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।,There was a problem loading the data. Please try again.
+তথ্যের দৈর্ঘ্য অনুমোদিত সীমার বেশি।,The information exceeds the permitted length.
 তামকরিক,Tamkarik
+তারিখ YYYY-MM-DD আকারে লিখুন।,Enter the date as YYYY-MM-DD.
 তালিকা,List
 তালিকা আনা যায়নি।,Could not load the list.
 তালিকা পড়তে ডেটাবেস আপডেট দরকার — 033_profile_paging.sql চালান।,A database update is needed to read the list — run 033_profile_paging.sql.
@@ -444,6 +448,7 @@ ningshingche.com ওয়েবসাইটে যান,Go to the ningshingche
 নতুন প্রবন্ধ জমা দিতে আগে প্রোফাইল সম্পূর্ণ করুন।,Complete your profile first to submit a new article.
 নতুন প্রবন্ধসমূহ পুনরায় সিঙ্ক করবে,New articles will sync again
 নতুন প্লেলিস্ট,New playlist
+নতুন বই,New book
 নতুন ভিডিও,New videos
 নতুন ভিডিও যোগ হলে,When a new video is added
 নতুন? অ্যাকাউন্ট খুলুন,New here? Create an account
@@ -549,7 +554,9 @@ ningshingche.com ওয়েবসাইটে যান,Go to the ningshingche
 পৃষ্ঠা {1} / {2},Page {1} / {2}
 পৃষ্ঠা খোলা যায়নি,The page could not be opened
 পৃষ্ঠা ছাড়ুন,Leave page
+পৃষ্ঠা সংখ্যা,Page count
 পৃষ্ঠায় যান,Go to the page
+পৃষ্ঠার সংখ্যা সঠিক নয়।,The page count is invalid.
 পেছনে,Back
 পেস্ট,Paste
 পৌ,পৌ
@@ -559,6 +566,7 @@ ningshingche.com ওয়েবসাইটে যান,Go to the ningshingche
 প্রকাশিত,Published
 প্রকাশিত লেখা বা গান সংরক্ষণাগারে “লেখক মুছে ফেলা হয়েছে” নামে থাকতে পারে।,Articles or songs already published may remain in the archive under “deleted author”.
 প্রকাশিত হলে লিংকটি কাজ করবে।,The link works once it is published.
+প্রকাশের তারিখ (YYYY-MM-DD),Publication date (YYYY-MM-DD)
 প্রতিক্রিয়া,Reaction
 প্রত্যাখ্যাত,Rejected
 প্রথম নাম,First name
@@ -599,6 +607,7 @@ ningshingche.com ওয়েবসাইটে যান,Go to the ningshingche
 প্রোফাইল সংরক্ষণ হয়নি,Profile not saved
 প্রোফাইল সংরক্ষিত হয়েছে।,The profile was saved.
 প্রোফাইল সম্পাদনা,Edit the profile
+প্রোফাইল সম্পূর্ণ করুন।,Complete your profile.
 প্রোফাইলে যান,Go to the profile
 প্লেয়ার চালু হয়নি। আবার চেষ্টা করুন।,The player did not start. Try again.
 প্লেলিস্ট,Playlist
@@ -642,7 +651,12 @@ ningshingche.com ওয়েবসাইটে যান,Go to the ningshingche
 বই,Books
 বই ও সাময়িকী,Books and periodicals
 বই খুঁজুন...,Search books...
+বই জমা যায়নি ({1}),The book could not be submitted ({1}).
+বই জমা যায়নি।,The book could not be submitted.
+বই জমার ব্যবস্থা এখনো চালু হয়নি।,Book submissions are not available yet.
 বই দৃশ্য  ·  সোয়াইপ করে পাতা উল্টান,Book view  ·  swipe to turn the page
+বই পর্যালোচনার পর প্রকাশিত হবে। ফাইলটি তৃতীয় পক্ষের সার্ভারে থাকবে; লিংক জানা থাকলে অন্যরাও খুলতে পারে।,The book will be published after review. The file is on a third-party server; anyone with its link may open it.
+বই যোগ,Add book
 বইটি খোলা যায়নি,The book could not be opened
 বইটি খোলা যায়নি।,The book could not be opened.
 বড় করুন,Bigger
@@ -674,6 +688,7 @@ ningshingche.com ওয়েবসাইটে যান,Go to the ningshingche
 বিজ্ঞান,Science
 বিজ্ঞান ও প্রযুক্তি,Science and technology
 বিজ্ঞান-ও-প্রযুক্তি,Science-and-technology
+বিবরণ,Description
 বিভাগ,Category
 বিভাগ গুটিয়ে নিন,Collapse the category
 বিভাগ দেখুন,See the category
@@ -787,6 +802,7 @@ ningshingche.com ওয়েবসাইটে যান,Go to the ningshingche
 লাইভ প্রিভিউ (কালপুরুষ ফন্ট):,Live preview (Kalpurush font):
 লিরিক,Lyrics
 লেখক,Writer
+লেখক / সম্পাদক,Author / editor
 লেখক • নিংশিং চে,Writer • Ningshing Che
 লেখকবৃন্দ,Writers
 লেখকের রচনাবলী,The author's works
@@ -807,6 +823,7 @@ ningshingche.com ওয়েবসাইটে যান,Go to the ningshingche
 শিরোনাম,Title
 শিরোনাম অন্তত ৪ অক্ষরের হতে হবে।,The title must be at least 4 characters.
 শিরোনাম আবশ্যক।,The title is required.
+শিরোনাম ও PDF ফাইল নির্বাচন করুন।,Enter a title and choose a PDF file.
 শিরোনাম ও লেখা আবশ্যক।,Title and writing are required.
 শিরোনাম ১৬০ অক্ষরের বেশি হতে পারবে না।,The title cannot be longer than 160 characters.
 শিরোনামহীন,Untitled
@@ -815,6 +832,7 @@ ningshingche.com ওয়েবসাইটে যান,Go to the ningshingche
 শিশু,Children
 শীর্ষ উত্তর,Top answer
 শুধু ছবি ও পিডিএফ ফাইল যুক্ত করা যাবে।,Only photo and PDF files can be attached.
+শুধু বৈধ PDF ফাইল নির্বাচন করুন।,Choose a valid PDF file only.
 শুনুন,Listen
 শুরু করুন,Start
 শেয়ার,Share
@@ -839,6 +857,7 @@ ningshingche.com ওয়েবসাইটে যান,Go to the ningshingche
 সংরক্ষিত তথ্য লোড হচ্ছে...,Loading the saved data...
 সংরক্ষিত তালিকার মধ্যে খুঁজুন...,Search within the saved list...
 সংরক্ষিত প্রবন্ধ,Saved articles
+সংস্করণ,Edition
 সংস্করণ ১.০.০ (অফিশিয়াল সংস্করণ),Version 1.0.0 (official release)
 সংস্কৃতি,Culture
 সংস্কৃতি ও উৎসব,Culture and festivals

@@ -154,6 +154,18 @@ object SatoruUploadClient {
             }
         }
 
+    /** PDF submissions impose no client size cap; the host may reject large files. */
+    suspend fun uploadBookPdf(context: Context, uri: Uri): Result<UploadedFile> = withContext(Dispatchers.IO) {
+        val file = describe(context, uri, fallbackName = "book.pdf")
+        try {
+            val name = file.displayName.substringAfterLast('/').ifBlank { "book.pdf" }
+                .let { if (it.endsWith(".pdf", true)) it else "$it.pdf" }
+            val url = sendFile(context, uri, name, "application/pdf", file.sizeBytes)
+            Result.success(UploadedFile(url, name, "application/pdf", file.sizeBytes))
+        } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (e: Exception) { Result.failure(e) }
+    }
+
     /** One multipart POST to the host, and the URL it answers with. */
     private fun sendFile(
         context: Context,
@@ -233,7 +245,7 @@ object SatoruUploadClient {
 
         override fun contentType(): MediaType? = contentType
 
-        override fun contentLength(): Long = declaredLength
+        override fun contentLength(): Long = if (declaredLength > 0L) declaredLength else -1L
 
         override fun writeTo(sink: BufferedSink) {
             val input = context.contentResolver.openInputStream(uri)

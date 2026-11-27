@@ -338,7 +338,7 @@ test('a successful submission forwards to the content tab', async (t) => {
     has(open, 'navigate(ReaderRoute.dashboard(tab = ReaderRoute.DASHBOARD_CONTENT))',
       'one trip, to the content tab');
     const callers = HOST.split('onSubmitted = { navController.openSubmittedContent() }').length - 1;
-    assert.equal(callers, 2, 'both new-article and new-song routes use it');
+    assert.equal(callers, 3, 'article, song, and book routes use it');
   });
 
   await t.test('the dashboard lands on the tab the note names, once', () => {

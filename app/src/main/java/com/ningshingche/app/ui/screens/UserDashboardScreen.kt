@@ -66,6 +66,7 @@ import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.HowToReg
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Notifications
@@ -128,6 +129,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.ningshingche.app.data.remote.SupabaseClient
 import com.ningshingche.app.data.remote.AdminMessageRecord
 import com.ningshingche.app.data.remote.CommentRecord
 import com.ningshingche.app.data.remote.ImgBbUploader
@@ -178,6 +180,7 @@ fun UserDashboardScreen(
     onCompleteProfile: () -> Unit,
     onNewArticle: () -> Unit,
     onNewMusic: () -> Unit = {},
+    onNewBook: () -> Unit = {},
     // Suspends until the article route knows whether it has somewhere to go:
     // `false` means the submission has nothing published behind it, and the
     // dashboard shows its own preview instead.
@@ -230,6 +233,15 @@ fun UserDashboardScreen(
     val onNoticesTab = pagerState.currentPage == TAB_NOTICES
     val onMessagesTab = pagerState.currentPage == TAB_MESSAGES
     val onContentTab = pagerState.currentPage == TAB_CONTENT
+    var bookSummaries by remember(user?.id) { mutableStateOf<List<SupabaseClient.ReaderBookSummary>?>(null) }
+    var bookLoadError by remember(user?.id) { mutableStateOf(false) }
+    LaunchedEffect(user?.id, onContentTab, loading) {
+        if (user != null && onContentTab && !loading) {
+            val result = viewModel.myReaderBooks()
+            bookSummaries = result.getOrNull()
+            bookLoadError = result.isFailure
+        }
+    }
 
     LaunchedEffect(user?.id) {
         if (user != null) viewModel.refresh()
@@ -398,6 +410,10 @@ fun UserDashboardScreen(
                                 fabOpen = false
                                 if (user?.isProfileComplete == true) onNewMusic() else onCompleteProfile()
                             }
+                            SpeedDialItem(tNow("বই যোগ"), Icons.Default.MenuBook) {
+                                fabOpen = false
+                                if (user?.isProfileComplete == true) onNewBook() else onCompleteProfile()
+                            }
                         }
                     }
                     FloatingActionButton(
@@ -466,6 +482,8 @@ fun UserDashboardScreen(
                     TAB_CONTENT -> ContentPane(
                         articles = articles,
                         tracks = tracks,
+                        books = bookSummaries,
+                        bookLoadError = bookLoadError,
                         focusId = contentFocus,
                         onOpenArticle = onOpenArticle,
                     )
@@ -888,6 +906,8 @@ private enum class ContentFilter { All, Articles, Songs }
 private fun ContentPane(
     articles: List<SubmittedBlogRecord>,
     tracks: List<SubmittedMusicRecord>,
+    books: List<SupabaseClient.ReaderBookSummary>?,
+    bookLoadError: Boolean,
     focusId: String = "",
     onOpenArticle: suspend (SubmittedBlogRecord) -> Boolean
 ) {
@@ -984,7 +1004,21 @@ private fun ContentPane(
                 )
             }
         }
-        if (rows.isEmpty()) {
+        if (filter == ContentFilter.All && bookLoadError) {
+            item { Text(t("কিছু তথ্য লোড হয়নি। ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন।"), color = MaterialTheme.colorScheme.error, fontFamily = Kalpurush) }
+        }
+        if (filter == ContentFilter.All && !books.isNullOrEmpty()) {
+            item { Text(t("বই"), fontFamily = Kalpurush, fontWeight = FontWeight.Bold) }
+            items(books, key = { "book_" + it.id }) { book ->
+                Surface(shape = RoundedCornerShape(14.dp), tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+                    Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(book.title, fontFamily = Kalpurush, modifier = Modifier.weight(1f))
+                        ContentStatusChip(status = book.status)
+                    }
+                }
+            }
+        }
+        if (rows.isEmpty() && (filter != ContentFilter.All || books.isNullOrEmpty())) {
             item {
                 EmptyHint(
                     when (filter) {
@@ -994,7 +1028,7 @@ private fun ContentPane(
                     }
                 )
             }
-        } else {
+        } else if (rows.isNotEmpty()) {
             items(rows.take(limit), key = { it.id }) { row ->
                 ContentCard(
                     row = row,
