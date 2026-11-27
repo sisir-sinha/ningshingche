@@ -402,6 +402,11 @@ fun EditorialReaderApp(
     fun requestTopLevel(route: String) {
         if (currentRoute != route) requestNavigation { navigateTopLevel(route) }
     }
+    // Unlike the drawer, the bottom tabs must always open a section's root,
+    // including when its detail route is selected or a saved stack exists.
+    fun requestBottomRoot(route: String) {
+        requestNavigation { navController.navigateToBottomRoot(route) }
+    }
 
     // Material3 measures the drawer sheet to learn where "closed" sits, and draws
     // it at offset 0 until that first measurement is in — which shows the panel for
@@ -1261,9 +1266,9 @@ fun EditorialReaderApp(
                 currentRoute = currentRoute,
                 drawerOpen = drawerState.isOpen,
                 onMenu = { coroutineScope.launch { drawerState.open() } },
-                onHome = { requestTopLevel(ReaderRoute.Home) },
-                onMusic = { requestTopLevel(ReaderRoute.Music) },
-                onForum = { requestTopLevel(ReaderRoute.Forum) }
+                onHome = { requestBottomRoot(ReaderRoute.Home) },
+                onMusic = { requestBottomRoot(ReaderRoute.Music) },
+                onForum = { requestBottomRoot(ReaderRoute.Forum) }
             )
         }
         }

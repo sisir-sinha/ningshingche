@@ -16,7 +16,7 @@ test('bottom navigation has four ordered destinations and defaults to home', () 
   assert.match(bar, /ReaderRoute\.ForumThread/);
   assert.match(host, /onMenu\s*=\s*\{\s*coroutineScope\.launch\s*\{\s*drawerState\.open\(\)/);
   for (const route of ['Home', 'Music', 'Forum']) {
-    assert.ok(host.includes(`requestTopLevel(ReaderRoute.${route})`));
+    assert.ok(host.includes(`requestBottomRoot(ReaderRoute.${route})`));
   }
 });
 
@@ -31,4 +31,18 @@ test('top menu is removed and mini player respects the bottom bar', () => {
   assert.match(host, /aboveBottomNavigation\s*=\s*showBottomNavigation/);
   assert.match(host, /pendingNavigation/);
   assert.match(read('components/MusicPlayer.kt'), /if \(aboveBottomNavigation\) Modifier else Modifier\.navigationBarsPadding\(\)/);
+});
+
+
+test('bottom tabs clear nested routes and do not restore saved section stacks', () => {
+  const routing = read('reader/BottomNavigationRouting.kt');
+  assert.match(host, /fun requestBottomRoot\(route: String\) \{\s*requestNavigation \{ navController\.navigateToBottomRoot\(route\) \}/);
+  assert.match(routing, /require\(route in setOf\(ReaderRoute\.Home, ReaderRoute\.Music, ReaderRoute\.Forum\)\)/);
+  assert.match(routing, /getBackStackEntry\(ReaderRoute\.Home\)/);
+  assert.match(routing, /popBackStack\(ReaderRoute\.Home, inclusive = false, saveState = false\)/);
+  assert.match(routing, /popUpTo\(graph\.id\) \{ inclusive = false; saveState = false \}/);
+  assert.match(routing, /if \(route != ReaderRoute\.Home\)[\s\S]*navigate\(route\)[\s\S]*restoreState = false/);
+  assert.doesNotMatch(routing, /restoreState = true|saveState = true/);
+  // Editor safety remains in the path for the bottom bar too.
+  assert.match(host, /fun requestNavigation\(action: \(\) -> Unit\)[\s\S]*ReaderRoute\.NewArticle[\s\S]*pendingNavigation = action/);
 });
