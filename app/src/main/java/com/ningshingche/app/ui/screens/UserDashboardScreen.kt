@@ -297,6 +297,8 @@ fun UserDashboardScreen(
     LaunchedEffect(onContentTab) {
         if (!onContentTab) fabOpen = false
     }
+    // Close the expanded actions when moving between the two allowed tabs too.
+    LaunchedEffect(pagerState.currentPage) { fabOpen = false }
     BackHandler(enabled = onNoticesTab) {
         scope.launch { pagerState.animateScrollToPage(TAB_HOME) }
     }
@@ -378,7 +380,7 @@ fun UserDashboardScreen(
             )
         },
         floatingActionButton = {
-            if (onContentTab) {
+            if (pagerState.currentPage == TAB_HOME || onContentTab) {
                 Column(
                     horizontalAlignment = Alignment.End,
                     verticalArrangement = Arrangement.spacedBy(10.dp)

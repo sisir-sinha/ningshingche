@@ -36,3 +36,9 @@ test('splash only contains requested text and progress', () => {
   assert.match(splash, /splash_progress/);
   assert.doesNotMatch(splash, /NingshingCheBrandLogo|Canvas\(|AutoAwesome|সংস্করণের|tagline/i);
 });
+
+test('creation actions are confined to Home and Content and close on tab change', () => {
+  const dashboard = read('ui/screens/UserDashboardScreen.kt');
+  assert.match(dashboard, /if \(pagerState.currentPage == TAB_HOME \|\| onContentTab\)/);
+  assert.match(dashboard, /LaunchedEffect\(pagerState.currentPage\) \{ fabOpen = false \}/);
+});
