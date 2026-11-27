@@ -420,20 +420,13 @@ fun ArticleScreen(
                 }
             }
             if (state is ArticleUiState.Ready && !keyboardVisible) {
-                Column(
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilledTonalIconButton(
-                        onClick = { scope.launch { listState.scrollToItem(0) } },
-                        enabled = listState.canScrollBackward,
-                        modifier = Modifier.size(48.dp).testTag("article_jump_top")
-                    ) {
-                        Icon(Icons.Default.KeyboardArrowUp, contentDescription = t("উপরে যান"))
-                    }
-                    FilledTonalIconButton(
-                        onClick = {
-                            scope.launch {
+                val jumpUp = listState.canScrollBackward
+                FilledTonalIconButton(
+                    onClick = {
+                        scope.launch {
+                            if (jumpUp) {
+                                listState.scrollToItem(0)
+                            } else {
                                 val last = listState.layoutInfo.totalItemsCount - 1
                                 if (last >= 0) {
                                     listState.scrollToItem(last)
@@ -441,12 +434,14 @@ fun ArticleScreen(
                                     while (listState.canScrollForward && listState.scrollBy(16_384f) > 0f) { }
                                 }
                             }
-                        },
-                        enabled = listState.canScrollForward,
-                        modifier = Modifier.size(48.dp).testTag("article_jump_bottom")
-                    ) {
-                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = t("নিচে যান"))
-                    }
+                        }
+                    },
+                    enabled = listState.canScrollBackward || listState.canScrollForward,
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 16.dp)
+                        .size(48.dp).testTag("article_jump_toggle")
+                ) {
+                    Icon(if (jumpUp) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = if (jumpUp) t("উপরে যান") else t("নিচে যান"))
                 }
             }
         }

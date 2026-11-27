@@ -76,9 +76,7 @@ import com.ningshingche.app.ui.i18n.t
  * is a number to be trusted rather than read, and the parts are how a reader knows
  * that the six discussions nobody seems to open are counted at all.
  *
- * On a database that has not run `036_view_logic.sql` yet the totals are zero and
- * the line stays quiet: `userViewTotals` answers with null rather than with a
- * guess, and this card shows ০ the way every other empty count in the app does.
+ * When the totals cannot be fetched, show a dash rather than an invented zero.
  */
 @Composable
 private fun ProfileViewsCard(metrics: ReaderMetrics) {
@@ -107,7 +105,7 @@ private fun ProfileViewsCard(metrics: ReaderMetrics) {
                     modifier = Modifier.size(20.dp)
                 )
                 Text(
-                    text = toBengaliNumeral(metrics.totalViews),
+                    text = if (metrics.viewsAvailable) toBengaliNumeral(metrics.totalViews) else "—",
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
                     fontSize = textSize(24),
@@ -125,7 +123,7 @@ private fun ProfileViewsCard(metrics: ReaderMetrics) {
             // Four words and their numbers, separated by a middot — the same four
             // the public profile page prints, and the same string keys, so a
             // translator fills each word once.
-            Text(
+            if (metrics.viewsAvailable) Text(
                 text = listOf(
                     t("প্রবন্ধ {1}", toBengaliNumeral(metrics.articleViews)),
                     t("গান {1}", toBengaliNumeral(metrics.musicViews)),
@@ -139,7 +137,7 @@ private fun ProfileViewsCard(metrics: ReaderMetrics) {
                 textAlign = TextAlign.Center,
                 modifier = Modifier.testTag("profile_views_breakdown")
             )
-            if (metrics.minutesListened > 0L) {
+            if (metrics.viewsAvailable && metrics.minutesListened > 0L) {
                 Text(
                     text = t("শোনা {1} মিনিট", toBengaliNumeral(metrics.minutesListened)),
                     fontFamily = Kalpurush,

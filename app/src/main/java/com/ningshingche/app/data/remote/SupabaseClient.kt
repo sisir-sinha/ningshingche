@@ -689,74 +689,54 @@ class SupabaseClient(
         }
     }
 
+    // PostgREST caps each response; a single request silently undercounts large accounts.
+    private fun dashboardRows(url: String): JSONArray {
+        val all = JSONArray()
+        val pageSize = 500
+        var offset = 0
+        while (true) {
+            val pageUrl = "$url&limit=$pageSize&offset=$offset"
+            var response = httpClient.newCall(createBaseRequestBuilder(pageUrl).get().build()).execute()
+            var body = response.body?.string().orEmpty()
+            if (response.code == 401) {
+                refreshAccessTokenLocked()
+                response = httpClient.newCall(createBaseRequestBuilder(pageUrl).get().build()).execute()
+                body = response.body?.string().orEmpty()
+            }
+            if (!response.isSuccessful) throw Exception("Dashboard request failed (${response.code})")
+            val page = JSONArray(body.ifBlank { "[]" })
+            for (i in 0 until page.length()) all.put(page.getJSONObject(i))
+            if (page.length() < pageSize) return all
+            offset += page.length()
+        }
+    }
+
     suspend fun getMySubmittedBlogs(userId: String, email: String): Result<List<SubmittedBlogRecord>> =
         withContext(Dispatchers.IO) {
             try {
-                val params = mutableListOf("select=*", "order=created_at.desc")
                 val filter = when {
                     userId.isNotBlank() -> "user_id=eq.$userId"
                     email.isNotBlank() -> "writer_email=eq.${java.net.URLEncoder.encode(email, "UTF-8")}"
-                    else -> return@withContext Result.success(emptyList())
+                    else -> return@withContext Result.failure(Exception("Missing account"))
                 }
-                params.add(filter)
-                val url = "${SupabaseConfig.restBaseUrl}/submitted_blogs?${params.joinToString("&")}"
-                var response = httpClient.newCall(createBaseRequestBuilder(url).get().build()).execute()
-                var body = response.body?.string().orEmpty()
-                if (response.code == 401) {
-                    refreshAccessTokenLocked()
-                    response = httpClient.newCall(createBaseRequestBuilder(url).get().build()).execute()
-                    body = response.body?.string().orEmpty()
-                }
-                if (response.isSuccessful) {
-                    val array = JSONArray(body.ifBlank { "[]" })
-                    val list = mutableListOf<SubmittedBlogRecord>()
-                    for (i in 0 until array.length()) {
-                        list.add(SubmittedBlogRecord.fromJson(array.getJSONObject(i)))
-                    }
-                    Result.success(list)
-                } else if (response.code == 401 || response.code == 403) {
-                    Result.success(emptyList())
-                } else {
-                    Result.failure(Exception("প্রবন্ধ তালিকা লোড হয়নি (${response.code})"))
-                }
-            } catch (e: Exception) {
-                Result.failure(e)
-            }
+                val rows = dashboardRows("${SupabaseConfig.restBaseUrl}/submitted_blogs?select=*&order=created_at.desc,id.desc&$filter")
+                Result.success((0 until rows.length()).map { SubmittedBlogRecord.fromJson(rows.getJSONObject(it)) })
+            } catch (e: Exception) { Result.failure(e) }
         }
 
     suspend fun getMyComments(userId: String, email: String): Result<List<CommentRecord>> =
         withContext(Dispatchers.IO) {
             try {
-                val params = mutableListOf("select=*", "order=created_at.desc")
+                val encoded = java.net.URLEncoder.encode(email, "UTF-8")
                 val filter = when {
-                    userId.isNotBlank() -> "or=(user_id.eq.$userId,email.eq.${java.net.URLEncoder.encode(email, "UTF-8")})"
-                    email.isNotBlank() -> "email=eq.${java.net.URLEncoder.encode(email, "UTF-8")}"
-                    else -> return@withContext Result.success(emptyList())
+                    userId.isNotBlank() && email.isNotBlank() -> "or=(user_id.eq.$userId,email.eq.$encoded)"
+                    userId.isNotBlank() -> "user_id=eq.$userId"
+                    email.isNotBlank() -> "email=eq.$encoded"
+                    else -> return@withContext Result.failure(Exception("Missing account"))
                 }
-                params.add(filter)
-                val url = "${SupabaseConfig.restBaseUrl}/comments?${params.joinToString("&")}"
-                var response = httpClient.newCall(createBaseRequestBuilder(url).get().build()).execute()
-                var body = response.body?.string().orEmpty()
-                if (response.code == 401) {
-                    refreshAccessTokenLocked()
-                    response = httpClient.newCall(createBaseRequestBuilder(url).get().build()).execute()
-                    body = response.body?.string().orEmpty()
-                }
-                if (response.isSuccessful) {
-                    val array = JSONArray(body.ifBlank { "[]" })
-                    val list = mutableListOf<CommentRecord>()
-                    for (i in 0 until array.length()) {
-                        list.add(CommentRecord.fromJson(array.getJSONObject(i)))
-                    }
-                    Result.success(list)
-                } else if (response.code == 401 || response.code == 403) {
-                    Result.success(emptyList())
-                } else {
-                    Result.failure(Exception("মন্তব্য তালিকা লোড হয়নি (${response.code})"))
-                }
-            } catch (e: Exception) {
-                Result.failure(e)
-            }
+                val rows = dashboardRows("${SupabaseConfig.restBaseUrl}/comments?select=*&order=created_at.desc,id.desc&$filter")
+                Result.success((0 until rows.length()).map { CommentRecord.fromJson(rows.getJSONObject(it)) })
+            } catch (e: Exception) { Result.failure(e) }
         }
 
     /**
@@ -1329,22 +1309,11 @@ class SupabaseClient(
     suspend fun getMyMusicTracks(userId: String): Result<List<SubmittedMusicRecord>> =
         withContext(Dispatchers.IO) {
             val clean = userId.trim()
-            if (clean.isBlank()) return@withContext Result.success(emptyList())
+            if (clean.isBlank()) return@withContext Result.failure(Exception("Missing account"))
             try {
-                val url = "${SupabaseConfig.restBaseUrl}/music_tracks?select=*&user_id=eq.$clean&order=created_at.desc"
-                val request = createBaseRequestBuilder(url).get().build()
-                val response = httpClient.newCall(request).execute()
-                val body = response.body?.string().orEmpty()
-                if (!response.isSuccessful) return@withContext Result.success(emptyList())
-                val array = JSONArray(body.ifBlank { "[]" })
-                val list = mutableListOf<SubmittedMusicRecord>()
-                for (i in 0 until array.length()) {
-                    list.add(SubmittedMusicRecord.fromJson(array.getJSONObject(i)))
-                }
-                Result.success(list)
-            } catch (_: Exception) {
-                Result.success(emptyList())
-            }
+                val rows = dashboardRows("${SupabaseConfig.restBaseUrl}/music_tracks?select=*&user_id=eq.$clean&order=created_at.desc,id.desc")
+                Result.success((0 until rows.length()).map { SubmittedMusicRecord.fromJson(rows.getJSONObject(it)) })
+            } catch (e: Exception) { Result.failure(e) }
         }
 
     data class MusicUpload(
@@ -1534,18 +1503,22 @@ class SupabaseClient(
             val request = createBaseRequestBuilder("${SupabaseConfig.restBaseUrl}/rpc/user_view_totals")
                 .post(payload.toRequestBody(jsonMediaType))
                 .build()
-            val response = httpClient.newCall(request).execute()
-            val body = response.body?.string().orEmpty()
+            var response = httpClient.newCall(request).execute()
+            var body = response.body?.string().orEmpty()
+            if (response.code == 401) {
+                refreshAccessTokenLocked()
+                val retry = createBaseRequestBuilder(request.url.toString())
+                    .post(payload.toRequestBody(jsonMediaType)).build()
+                response = httpClient.newCall(retry).execute()
+                body = response.body?.string().orEmpty()
+            }
             if (!response.isSuccessful || body.isBlank() || body == "null") return@withContext null
             val json = if (body.trimStart().startsWith("[")) {
                 JSONArray(body).optJSONObject(0)
             } else {
                 JSONObject(body)
             } ?: return@withContext null
-            ViewTotals(
-                articleViews = json.optLong("article_views", 0L).coerceAtLeast(0L),
-                musicViews = json.optLong("music_views", 0L).coerceAtLeast(0L)
-            )
+            parseViewTotals(json)
         } catch (_: Exception) {
             null
         }
@@ -1564,21 +1537,20 @@ class SupabaseClient(
                 val request = createBaseRequestBuilder("${SupabaseConfig.restBaseUrl}/rpc/user_view_series")
                     .post(payload.toRequestBody(jsonMediaType))
                     .build()
-                val response = httpClient.newCall(request).execute()
-                val body = response.body?.string().orEmpty()
-                if (!response.isSuccessful) return@withContext Result.success(emptyList())
+                var response = httpClient.newCall(request).execute()
+                var body = response.body?.string().orEmpty()
+                if (response.code == 401) {
+                    refreshAccessTokenLocked()
+                    val retry = createBaseRequestBuilder(request.url.toString())
+                        .post(payload.toRequestBody(jsonMediaType)).build()
+                    response = httpClient.newCall(retry).execute()
+                    body = response.body?.string().orEmpty()
+                }
+                if (!response.isSuccessful) return@withContext Result.failure(Exception("View history failed (${response.code})"))
                 val array = JSONArray(body.ifBlank { "[]" })
                 val rows = mutableListOf<ViewDay>()
                 for (i in 0 until array.length()) {
-                    val row = array.optJSONObject(i) ?: continue
-                    val day = row.optString("day").take(10)
-                    if (day.isBlank()) continue
-                    rows.add(
-                        ViewDay(
-                            day = day,
-                            views = row.optLong("views", 0L).coerceAtLeast(0L)
-                        )
-                    )
+                    rows.add(parseViewDay(array.getJSONObject(i)))
                 }
                 Result.success(rows)
             } catch (e: Exception) {

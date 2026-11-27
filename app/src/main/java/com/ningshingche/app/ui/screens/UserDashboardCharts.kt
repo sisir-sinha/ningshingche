@@ -248,7 +248,7 @@ internal fun ViewsOverTimeChart(
             )
             val line = Path().apply {
                 moveTo(point(0).x, point(0).y)
-                for (index in 1..span) {
+                for (index in 1 until series.size) {
                     val current = point(index)
                     lineTo(current.x, current.y)
                 }

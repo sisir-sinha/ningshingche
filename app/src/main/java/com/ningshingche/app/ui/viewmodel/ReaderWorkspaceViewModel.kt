@@ -31,6 +31,10 @@ import java.util.UUID
 import com.ningshingche.app.ui.i18n.tNow
 
 data class ReaderMetrics(
+    val articlesAvailable: Boolean = false,
+    val songsAvailable: Boolean = false,
+    val commentsAvailable: Boolean = false,
+    val viewsAvailable: Boolean = false,
     val totalArticles: Int = 0,
     val pendingArticles: Int = 0,
     val publishedArticles: Int = 0,
@@ -253,33 +257,50 @@ class ReaderWorkspaceViewModel(
         )
     }
 
+    private var metricsOwnerId: String? = null
+
     fun refresh() {
         val user = currentUser.value ?: return
+        if (metricsOwnerId != user.id) {
+            metricsOwnerId = user.id
+            _metrics.value = ReaderMetrics()
+            _articles.value = emptyList()
+            _tracks.value = emptyList()
+            _comments.value = emptyList()
+            _viewSeries.value = emptyList()
+        }
         viewModelScope.launch {
             _isLoading.value = true
             val articleResult = supabaseClient.getMySubmittedBlogs(user.id, user.email)
             val commentResult = supabaseClient.getMyComments(user.id, user.email)
-            val articles = articleResult.getOrDefault(emptyList())
-            val comments = commentResult.getOrDefault(emptyList())
-            val tracks = supabaseClient.getMyMusicTracks(user.id).getOrDefault(emptyList())
-            val songs = tracks.size.coerceAtLeast(supabaseClient.countMyMusicTracks(user.id))
+            val trackResult = supabaseClient.getMyMusicTracks(user.id)
+            val articles = articleResult.getOrDefault(_articles.value)
+            val comments = commentResult.getOrDefault(_comments.value)
+            val tracks = trackResult.getOrDefault(_tracks.value)
+            val songs = tracks.size
             // The view counter is the database's number, not the app's guess:
             // `user_view_totals` sums the counts on the blogs this reader's
             // submissions became plus the plays of the tracks they uploaded.
             // `userViewTotals` answers with the totals or with null, not with a
             // Result, so there is no `getOrNull()` to unwrap.
             val viewTotals = supabaseClient.userViewTotals(user.id)
-            val series = supabaseClient.userViewSeries(user.id, VIEW_SERIES_DAYS)
-                .getOrDefault(_viewSeries.value)
+            val seriesResult = supabaseClient.userViewSeries(user.id, VIEW_SERIES_DAYS)
+            val series = seriesResult.getOrDefault(emptyList())
             val score = portalRepository.contributorPoints(user.id).getOrNull()
             // The reader's own forum work: three counts and the two lists, in one
             // call, read from the same function their public page uses.
             val forum = portalRepository.forumActivity(user.id, limit = forumLimit).getOrNull()
+            if (currentUser.value?.id != user.id) { _isLoading.value = false; return@launch }
             if (forum != null) _forumHasMore.value = forum.hasMoreThan(forumLimit)
+            val previous = _metrics.value
             _articles.value = articles
             _tracks.value = tracks
             _comments.value = comments
             _metrics.value = ReaderMetrics(
+                articlesAvailable = articleResult.isSuccess,
+                commentsAvailable = commentResult.isSuccess,
+                songsAvailable = trackResult.isSuccess,
+                viewsAvailable = viewTotals != null,
                 totalArticles = articles.size,
                 pendingArticles = articles.count { it.status.equals("Pending", true) },
                 publishedArticles = articles.count {
@@ -288,19 +309,22 @@ class ReaderWorkspaceViewModel(
                 rejectedArticles = articles.count { it.status.equals("Rejected", true) },
                 comments = comments.size,
                 songs = songs,
-                articleViews = viewTotals?.articleViews ?: 0L,
-                musicViews = viewTotals?.musicViews ?: 0L,
-                forumViews = viewTotals?.forumViews ?: 0L,
-                visitors = viewTotals?.visitors ?: 0L,
-                registeredViews = viewTotals?.registeredViews ?: 0L,
-                guestViews = viewTotals?.guestViews ?: 0L,
-                minutesListened = viewTotals?.minutesListened ?: 0L
+                articleViews = viewTotals?.articleViews ?: previous.articleViews,
+                musicViews = viewTotals?.musicViews ?: previous.musicViews,
+                forumViews = viewTotals?.forumViews ?: previous.forumViews,
+                visitors = viewTotals?.visitors ?: previous.visitors,
+                registeredViews = viewTotals?.registeredViews ?: previous.registeredViews,
+                guestViews = viewTotals?.guestViews ?: previous.guestViews,
+                minutesListened = viewTotals?.minutesListened ?: previous.minutesListened
             )
             _viewSeries.value = series
             _contributorScore.value = score
             _forumActivity.value = forum
             articleResult.exceptionOrNull()?.message?.let { _message.value = it }
             commentResult.exceptionOrNull()?.message?.let { if (_message.value == null) _message.value = it }
+            if (articleResult.isFailure || commentResult.isFailure || trackResult.isFailure || viewTotals == null || seriesResult.isFailure) {
+                _message.value = tNow("কিছু তথ্য লোড হয়নি। ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন।")
+            }
             refreshInbox(user.id, articles, comments, notifySystem = true, markSeen = false)
             _isLoading.value = false
         }
@@ -318,9 +342,22 @@ class ReaderWorkspaceViewModel(
      */
     fun refreshViews() {
         val user = currentUser.value ?: return
+        if (metricsOwnerId != user.id) {
+            metricsOwnerId = user.id
+            _metrics.value = ReaderMetrics()
+            _articles.value = emptyList()
+            _tracks.value = emptyList()
+            _comments.value = emptyList()
+            _viewSeries.value = emptyList()
+        }
         viewModelScope.launch {
-            val totals = supabaseClient.userViewTotals(user.id) ?: return@launch
+            val totals = supabaseClient.userViewTotals(user.id) ?: run {
+                if (currentUser.value?.id == user.id) _metrics.value = _metrics.value.copy(viewsAvailable = false)
+                return@launch
+            }
+            if (currentUser.value?.id != user.id) return@launch
             _metrics.value = _metrics.value.copy(
+                viewsAvailable = true,
                 articleViews = totals.articleViews,
                 musicViews = totals.musicViews,
                 forumViews = totals.forumViews,
@@ -768,6 +805,8 @@ class ReaderWorkspaceViewModel(
             _adminMessages.value = emptyList()
             _unreadCount.value = 0
             _metrics.value = ReaderMetrics()
+            metricsOwnerId = null
+            _viewSeries.value = emptyList()
         }
     }
 }

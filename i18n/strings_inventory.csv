@@ -125,6 +125,7 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 অপছন্দ,,ui,2,0,"ForumScreens.kt, PublicProfileScreen.kt"
 অফলাইন,,ui,2,0,MusicScreen.kt
 অ্যাডমিন,,ui,2,0,"ForumScreens.kt, UserDashboardScreen.kt"
+আপনার গানে শ্রোতাদের মোট শোনার সময় (মিনিট),,ui,2,0,UserDashboardScreen.kt
 আপনার সেশনের মেয়াদ শেষ হয়েছে। আবার সাইন ইন করলে তালিকা ও পয়েন্ট দেখা যাবে।,,ui,2,0,"ContributorScreen.kt, PortalModels.kt"
 আপনি,,ui,2,0,"ContributorScreen.kt, UserDashboardScreen.kt"
 আলোচনা {1},,ui,2,0,"PublicProfileScreen.kt, UserProfileScreen.kt"
@@ -147,6 +148,7 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 কম দেখান,,ui,2,0,"ForumScreens.kt, PdfArchiveScreen.kt"
 কমল সিংহ বিষ্ণুপ্রিয়া,,content,2,0,NinghsingCheContentData.kt
 কার্যক্রম,,ui,2,0,"UserDashboardCharts.kt, UserDashboardScreen.kt"
+কিছু তথ্য লোড হয়নি। ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন।,,ui,2,0,"ReaderWorkspaceViewModel.kt, UserDashboardScreen.kt"
 কোনো লেখক পাওয়া যায়নি।,,ui,2,0,"ExploreScreen.kt, PortalPages.kt"
 গান জমা হয়েছে। সম্পাদকীয় পর্যালোচনার পর যুক্ত হবে।,,ui,2,0,ReaderWorkspaceViewModel.kt
 গান ভিউ,,ui,2,0,UserDashboardScreen.kt
@@ -259,7 +261,6 @@ PDF প্রকাশনা শেয়ার করুন,,ui,1,0,PdfHelper.k
 Supabase-এ Google সাইন-ইন চালু নেই। Authentication → Providers → Google চালু করুন।,,ui,1,0,SupabaseClient.kt
 chепе ধরে প্রতিক্রিয়া দিন,,ui,1,0,ForumScreens.kt
 ningshingche.com ওয়েবসাইটে যান,,ui,1,0,SettingsScreen.kt
-ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 {1} ({2}) — বিষ্ণুপ্রিয়া মণিপুরি ডিজিটাল তথ্যকোষ 'নিংশিং চে' থেকে সংগৃহীত। https://ningshingche.com,,ui,1,0,PdfHelper.kt
 {1} {2} {3}  নিংশিং চে,,ui,1,3,HomeScreen.kt
 {1} অক্ষর,,ui,1,0,ForumScreens.kt
@@ -583,7 +584,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 জুম করতে দুই আঙুল ব্যবহার করুন,,ui,1,0,HtmlArticleRenderer.kt
 জুম রিসেট করতে ট্যাপ করুন,,ui,1,0,HtmlArticleRenderer.kt
 জেলা / দেশ (ঐচ্ছিক),,ui,1,0,UserProfileScreen.kt
-"জ্ঞান, ইতিহাস ও সাহিত্যের মুক্ত তথ্যকোষ",,ui,1,0,SplashScreen.kt
 ট্যাগসমূহ,,ui,1,0,ArticleScreen.kt
 "ঠান্ডা কাগজ, ইন্ডিগো আর সোনালি",,ui,1,0,EditorialPalettes.kt
 ঠার,,ui,1,0,NingshingCheWebsiteClient.kt
@@ -783,7 +783,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 প্রধান প্রশাসক,,ui,1,0,SupabaseModels.kt
 প্রবন্ধ ও গান খুঁজুন...,,ui,1,0,ListScreens.kt
 প্রবন্ধ জমা দেওয়ার আগে বর্তমান ব্যবহারের শর্তাবলিতে সম্মতি দিন।,,ui,1,0,ReaderWorkspaceViewModel.kt
-প্রবন্ধ তালিকা লোড হয়নি ({1}),,ui,1,1,SupabaseClient.kt
 প্রবন্ধ বিশ্লেষণ,,ui,1,0,UserDashboardScreen.kt
 প্রবন্ধ যোগ,,ui,1,0,UserDashboardScreen.kt
 প্রবন্ধ সংরক্ষণ হয়েছে,,ui,1,0,MainViewModels.kt
@@ -898,11 +897,11 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 "বিষ্ণুপ্রিয়া মণিপুরি লোকবিশ্বাস, পৌরাণিক দেব-দেবী, লাই-হারাওবা এবং কিংবদন্তির আখ্যান।",,content,1,0,NinghsingCheContentData.kt
 "বিষ্ণুপ্রিয়া মণিপুরি লোকসংগীত, পৌরাণিক ঐতিহ্য ও সমাজসংস্কৃতি সংখ্যা।",,content,1,0,NinghsingCheContentData.kt
 বিষ্ণুপ্রিয়া মণিপুরি সমাজের ঐতিহ্যবাহী লোকসংগীত ও রাগধারা,,content,1,0,NinghsingCheContentData.kt
-বিষ্ণুপ্রিয়া মণিপুরি সাহিত্য ও সংস্কৃতি পোর্টাল,,ui,1,0,SplashScreen.kt
 বিষ্ণুপ্রিয়া মণিপুরি সাহিত্যের আদিযুগ থেকে আধুনিক পর্ব,,content,1,0,NinghsingCheContentData.kt
 বিষ্ণুপ্রিয়া মণিপুরিদের ঐতিহ্যবাহী বসতবাড়ির স্থাপত্য: 'ইঞ্চৌঘর',,content,1,0,NinghsingCheContentData.kt
 বিষ্ণুপ্রিয়া মণিপুরী,,ui,1,0,LanguageSetupScreen.kt
 বিষ্ণুপ্রিয়া মণিপুরী / Bishnupriya Manipuri,,ui,1,0,LanguageSetupScreen.kt
+বিষ্ণুপ্রিয়া মণিপুরি ডিজিটাল কমিউনিটি,,ui,1,0,SplashScreen.kt
 বিস্তারিত (ঐচ্ছিক),,ui,1,0,ContentSafetySheet.kt
 বৈষ্ণব পদাবলী,,content,1,0,NinghsingCheContentData.kt
 ব্যবহারকারীর পাতা,,ui,1,0,PublicProfileScreen.kt
@@ -943,7 +942,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 মন্তব্য করুন,,ui,1,0,ArticleCommentForm.kt
 মন্তব্য জমা দিন,,ui,1,0,ArticleCommentForm.kt
 মন্তব্য জমা হয়েছে। অনুমোদনের পর প্রকাশিত হবে।,,ui,1,0,ReaderViewModels.kt
-মন্তব্য তালিকা লোড হয়নি ({1}),,ui,1,1,SupabaseClient.kt
 মন্তব্য পাঠানি ইল। পর্যালোচনার পর প্রকাশ অইতই।,,ui,1,0,NingshingCheWebsiteClient.kt
 মন্তব্য পাঠানো হচ্ছে...,,ui,1,0,ReaderViewModels.kt
 "মহারাস, বসন্তরাস, তাল-লয়, ঢাকের বোল এবং বিষ্ণুপ্রিয়া মণিপুরি ধ্রুপদী নৃত্যকলার পূর্ণাঙ্গ সচিত্র নির্দেশিকা।",,content,1,0,NinghsingCheContentData.kt
@@ -1046,7 +1044,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 সংরক্ষিত তালিকার মধ্যে খুঁজুন...,,ui,1,0,BookmarksScreen.kt
 সংরক্ষিত প্রবন্ধ,,ui,1,0,BookmarksScreen.kt
 সংস্করণ ১.০.০ (অফিশিয়াল সংস্করণ),,ui,1,0,SettingsScreen.kt
-সংস্কৃতির আলোয় পথচলা…,,ui,1,0,SplashScreen.kt
 সকল কন্টেন্ট তৈরি ও সম্পাদনার অনুমতি,,ui,1,0,SupabaseModels.kt
 "সকল ক্ষমতা, সেটিংস ও মুছে ফেলার পূর্ণ নিয়ন্ত্রণ",,ui,1,0,SupabaseModels.kt
 সঠিক ইমেইল দিন অথবা ঐচ্ছিক ঘরটি খালি রাখুন।,,ui,1,0,ReaderViewModels.kt

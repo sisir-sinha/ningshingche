@@ -438,6 +438,7 @@ fun UserDashboardScreen(
                     TAB_HOME -> HomePane(
                         user = user,
                         metrics = metrics,
+                        loading = loading,
                         contributorScore = contributorScore,
                         viewSeries = viewSeries,
                         viewSeriesDays = viewModel.viewSeriesDays,
@@ -583,19 +584,19 @@ private fun ViewSplit(metrics: ReaderMetrics) {
         ) {
             MetricCard(
                 t("প্রবন্ধ ভিউ"),
-                toBengaliNumeral(metrics.articleViews),
+                if (metrics.viewsAvailable) toBengaliNumeral(metrics.articleViews) else "—",
                 Icons.AutoMirrored.Filled.Article,
                 Modifier.weight(1f)
             )
             MetricCard(
                 t("গান ভিউ"),
-                toBengaliNumeral(metrics.musicViews),
+                if (metrics.viewsAvailable) toBengaliNumeral(metrics.musicViews) else "—",
                 Icons.Default.MusicNote,
                 Modifier.weight(1f)
             )
             MetricCard(
                 t("আলোচনা ভিউ"),
-                toBengaliNumeral(metrics.forumViews),
+                if (metrics.viewsAvailable) toBengaliNumeral(metrics.forumViews) else "—",
                 Icons.Default.Forum,
                 Modifier.weight(1f)
             )
@@ -606,19 +607,19 @@ private fun ViewSplit(metrics: ReaderMetrics) {
         ) {
             MetricCard(
                 t("পাঠক"),
-                toBengaliNumeral(metrics.visitors),
+                if (metrics.viewsAvailable) toBengaliNumeral(metrics.visitors) else "—",
                 Icons.Default.Groups,
                 Modifier.weight(1f)
             )
             MetricCard(
                 t("নিবন্ধিত ভিউ"),
-                toBengaliNumeral(metrics.registeredViews),
+                if (metrics.viewsAvailable) toBengaliNumeral(metrics.registeredViews) else "—",
                 Icons.Default.HowToReg,
                 Modifier.weight(1f)
             )
             MetricCard(
                 t("অতিথি ভিউ"),
-                toBengaliNumeral(metrics.guestViews),
+                if (metrics.viewsAvailable) toBengaliNumeral(metrics.guestViews) else "—",
                 Icons.Default.PersonOutline,
                 Modifier.weight(1f)
             )
@@ -629,11 +630,14 @@ private fun ViewSplit(metrics: ReaderMetrics) {
         ) {
             MetricCard(
                 t("শোনা মিনিট"),
-                toBengaliNumeral(metrics.minutesListened),
+                if (metrics.viewsAvailable) toBengaliNumeral(metrics.minutesListened) else "—",
                 Icons.Default.Timer,
                 Modifier.weight(1f)
             )
         }
+        Text(t("আপনার গানে শ্রোতাদের মোট শোনার সময় (মিনিট)"),
+            fontFamily = Kalpurush, fontSize = textSize(11), lineHeight = leading(11),
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -741,6 +745,7 @@ private fun ArticleAnalyticsList(
 private fun HomePane(
     user: UserProfile?,
     metrics: ReaderMetrics,
+    loading: Boolean,
     contributorScore: ContributorScore?,
     viewSeries: List<ViewDay>,
     viewSeriesDays: Int,
@@ -782,6 +787,12 @@ private fun HomePane(
             }
         }
         MetricsGrid(metrics = metrics)
+        if (!loading && (!metrics.articlesAvailable || !metrics.commentsAvailable ||
+                    !metrics.songsAvailable || !metrics.viewsAvailable)) {
+            Text(t("কিছু তথ্য লোড হয়নি। ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন।"),
+                color = MaterialTheme.colorScheme.error, fontFamily = Kalpurush,
+                fontSize = textSize(12), lineHeight = leading(12))
+        }
 
         // One section at a time, in tabs.
         //
@@ -815,7 +826,7 @@ private fun HomePane(
                 // by day.
                 ViewsOverTimeChart(
                     series = viewSeries,
-                    totalViews = metrics.totalViews,
+                    totalViews = if (metrics.viewsAvailable) metrics.totalViews else 0L,
                     days = viewSeriesDays
                 )
                 ViewSplit(metrics = metrics)
@@ -1624,16 +1635,16 @@ private fun UserInfoCard(
 private fun MetricsGrid(metrics: ReaderMetrics) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag("dashboard_metrics")) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            MetricCard(t("প্রবন্ধ"), metrics.totalArticles.toString(), Icons.AutoMirrored.Filled.Article, Modifier.weight(1f))
-            MetricCard(t("গান"), metrics.songs.toString(), Icons.Default.MusicNote, Modifier.weight(1f))
-            MetricCard(t("অপেক্ষমাণ"), metrics.pendingArticles.toString(), Icons.Default.HourglassTop, Modifier.weight(1f))
+            MetricCard(t("প্রবন্ধ"), if (metrics.articlesAvailable) metrics.totalArticles.toString() else "—", Icons.AutoMirrored.Filled.Article, Modifier.weight(1f))
+            MetricCard(t("গান"), if (metrics.songsAvailable) metrics.songs.toString() else "—", Icons.Default.MusicNote, Modifier.weight(1f))
+            MetricCard(t("অপেক্ষমাণ"), if (metrics.articlesAvailable) metrics.pendingArticles.toString() else "—", Icons.Default.HourglassTop, Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            MetricCard(t("প্রকাশিত"), metrics.publishedArticles.toString(), Icons.Default.Publish, Modifier.weight(1f))
-            MetricCard(t("মন্তব্য"), metrics.comments.toString(), Icons.Default.Comment, Modifier.weight(1f))
+            MetricCard(t("প্রকাশিত"), if (metrics.articlesAvailable) metrics.publishedArticles.toString() else "—", Icons.Default.Publish, Modifier.weight(1f))
+            MetricCard(t("মন্তব্য"), if (metrics.commentsAvailable) metrics.comments.toString() else "—", Icons.Default.Comment, Modifier.weight(1f))
             MetricCard(
                 t("ভিউ"),
-                toBengaliNumeral(metrics.totalViews),
+                if (metrics.viewsAvailable) toBengaliNumeral(metrics.totalViews) else "—",
                 Icons.Default.Visibility,
                 Modifier.weight(1f)
             )
@@ -1643,19 +1654,19 @@ private fun MetricsGrid(metrics: ReaderMetrics) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             MetricCard(
                 t("প্রবন্ধ ভিউ"),
-                toBengaliNumeral(metrics.articleViews),
+                if (metrics.viewsAvailable) toBengaliNumeral(metrics.articleViews) else "—",
                 Icons.AutoMirrored.Filled.Article,
                 Modifier.weight(1f)
             )
             MetricCard(
                 t("গান ভিউ"),
-                toBengaliNumeral(metrics.musicViews),
+                if (metrics.viewsAvailable) toBengaliNumeral(metrics.musicViews) else "—",
                 Icons.Default.MusicNote,
                 Modifier.weight(1f)
             )
             MetricCard(
                 t("আলোচনা ভিউ"),
-                toBengaliNumeral(metrics.forumViews),
+                if (metrics.viewsAvailable) toBengaliNumeral(metrics.forumViews) else "—",
                 Icons.Default.Forum,
                 Modifier.weight(1f)
             )
@@ -1663,19 +1674,19 @@ private fun MetricsGrid(metrics: ReaderMetrics) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             MetricCard(
                 t("পাঠক"),
-                toBengaliNumeral(metrics.visitors),
+                if (metrics.viewsAvailable) toBengaliNumeral(metrics.visitors) else "—",
                 Icons.Default.Groups,
                 Modifier.weight(1f)
             )
             MetricCard(
                 t("নিবন্ধিত ভিউ"),
-                toBengaliNumeral(metrics.registeredViews),
+                if (metrics.viewsAvailable) toBengaliNumeral(metrics.registeredViews) else "—",
                 Icons.Default.HowToReg,
                 Modifier.weight(1f)
             )
             MetricCard(
                 t("অতিথি ভিউ"),
-                toBengaliNumeral(metrics.guestViews),
+                if (metrics.viewsAvailable) toBengaliNumeral(metrics.guestViews) else "—",
                 Icons.Default.PersonOutline,
                 Modifier.weight(1f)
             )
@@ -1683,11 +1694,14 @@ private fun MetricsGrid(metrics: ReaderMetrics) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             MetricCard(
                 t("শোনা মিনিট"),
-                toBengaliNumeral(metrics.minutesListened),
+                if (metrics.viewsAvailable) toBengaliNumeral(metrics.minutesListened) else "—",
                 Icons.Default.Timer,
                 Modifier.weight(1f)
             )
         }
+        Text(t("আপনার গানে শ্রোতাদের মোট শোনার সময় (মিনিট)"),
+            fontFamily = Kalpurush, fontSize = textSize(11), lineHeight = leading(11),
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

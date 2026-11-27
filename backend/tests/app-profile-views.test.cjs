@@ -250,7 +250,7 @@ test('the reader’s own প্রোফাইল shows the same total', () => {
   assert.match(OWN_SCREEN, /private fun ProfileViewsCard\(metrics: ReaderMetrics\)/);
   assert.match(OWN_SCREEN, /val metrics by viewModel\.metrics\.collectAsStateWithLifecycle\(\)/);
   assert.match(OWN_SCREEN, /ProfileViewsCard\(metrics\)/);
-  assert.match(OWN_SCREEN, /text = toBengaliNumeral\(metrics\.totalViews\)/);
+  assert.match(OWN_SCREEN, /text = if \(metrics\.viewsAvailable\) toBengaliNumeral\(metrics\.totalViews\) else "—"/);
   assert.match(OWN_SCREEN, /text = "মোট ভিউ"/);
   assert.match(OWN_SCREEN, /testTag\("profile_views_card"\)/);
   const card = OWN_SCREEN.slice(
@@ -265,7 +265,7 @@ test('the reader’s own প্রোফাইল shows the same total', () => {
   assert.match(card, /metrics\.forumViews/);
   assert.match(card, /metrics\.visitors/);
   // And the minutes only when somebody actually listened.
-  assert.match(card, /if \(metrics\.minutesListened > 0L\)/);
+  assert.match(card, /if \(metrics\.viewsAvailable && metrics\.minutesListened > 0L\)/);
 });
 
 test('the profile asks the database, through the call the dashboard uses', () => {
@@ -273,7 +273,7 @@ test('the profile asks the database, through the call the dashboard uses', () =>
     VIEW_MODEL.indexOf('fun refreshViews()'),
     VIEW_MODEL.indexOf('/**', VIEW_MODEL.indexOf('fun refreshViews()'))
   );
-  assert.match(refresh, /val totals = supabaseClient\.userViewTotals\(user\.id\) \?: return@launch/);
+  assert.match(refresh, /val totals = supabaseClient\.userViewTotals\(user\.id\) \?: run/);
   assert.match(refresh, /_metrics\.value = _metrics\.value\.copy\(/,
     'it adds to the metrics another screen may have loaded rather than clearing them');
   for (const field of ['articleViews', 'musicViews', 'forumViews', 'visitors', 'registeredViews',
