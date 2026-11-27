@@ -300,6 +300,12 @@ fun UserProfileScreen(
                 modifier = Modifier.fillMaxWidth()
             )
             OutlinedTextField(
+                value = designation,
+                onValueChange = { designation = it },
+                label = { Text(t("পদবি / পরিচয় (আবশ্যক)"), fontFamily = Kalpurush) },
+                modifier = Modifier.fillMaxWidth().testTag("profile_designation")
+            )
+            OutlinedTextField(
                 value = about,
                 onValueChange = { about = it },
                 label = { Text(t("নিজের সম্পর্কে"), fontFamily = Kalpurush) },
@@ -322,14 +328,8 @@ fun UserProfileScreen(
             OutlinedTextField(
                 value = facebook,
                 onValueChange = { facebook = it },
-                label = { Text(t("Facebook আইডি / লিংক"), fontFamily = Kalpurush) },
+                label = { Text(t("Facebook আইডি / লিংক (ঐচ্ছিক)"), fontFamily = Kalpurush) },
                 modifier = Modifier.fillMaxWidth().testTag("profile_facebook")
-            )
-            OutlinedTextField(
-                value = designation,
-                onValueChange = { designation = it },
-                label = { Text(t("পদবি / পরিচয় (ঐচ্ছিক)"), fontFamily = Kalpurush) },
-                modifier = Modifier.fillMaxWidth()
             )
             OutlinedTextField(
                 value = location,

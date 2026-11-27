@@ -155,3 +155,20 @@ RLS, not only the disposable fixture:
 throwaway PostgreSQL with simplified auth/dashboard functions and a deliberately
 broad old policy. It does not prove real Supabase grants, JWT verification,
 dashboard sessions, triggers or application behavior.
+
+## Migration 051: profile title/identity
+
+Migration 051 updates the 041 article-submission RPC to require a nonblank
+profile designation instead of a Facebook ID. It preserves existing Facebook
+values and all article/terms/moderation behavior. It refuses to replace a
+missing or independently modified function; compare the effective function,
+permissions and triggers with the repository and review the migration rather
+than bypassing this guard. It does not update existing profiles.
+
+Stage after 041 and 044 (and relevant intervening migrations); test existing
+and new users with/without Facebook and designation, terms and restrictions,
+idempotent retries, and all existing clients. Review the impact on existing
+profiles, which will need a designation before submitting. Before production,
+verify a restorable backup and an approved rollback plan preserving data and
+the original function definition and permissions. The local PostgreSQL fixture
+is not a substitute for real Supabase staging and JWT/RLS verification.

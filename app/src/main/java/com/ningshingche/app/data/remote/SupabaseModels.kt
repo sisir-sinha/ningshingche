@@ -59,7 +59,7 @@ data class UserProfile(
             email.isNotBlank() &&
             phone.isNotBlank() &&
             address.isNotBlank() &&
-            facebookId.isNotBlank()
+            designation.isNotBlank()
 
     fun composedFullName(): String {
         return listOf(displayFirstName, displayLastName)

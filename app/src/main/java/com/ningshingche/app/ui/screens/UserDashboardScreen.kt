@@ -507,7 +507,7 @@ private fun DashboardBottomBar(
             selected = selected == TAB_HOME,
             onClick = { onSelect(TAB_HOME) },
             icon = { Icon(Icons.Default.Home, contentDescription = null) },
-            label = { Text("ঘর", fontFamily = Kalpurush, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            label = { Text(t("ঘর"), fontFamily = Kalpurush, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         )
         NavigationBarItem(
             selected = selected == TAB_MESSAGES,

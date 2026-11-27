@@ -46,7 +46,10 @@ for file in \
   "$HERE/ugc-050-setup.sql" \
   "$MIG/050_authenticated_article_comments.sql" \
   "$MIG/050_authenticated_article_comments.sql" \
-  "$HERE/ugc-050-checks.sql"; do
+  "$HERE/ugc-050-checks.sql" \
+  "$MIG/051_profile_identity_requirement.sql" \
+  "$MIG/051_profile_identity_requirement.sql" \
+  "$HERE/ugc-051-checks.sql"; do
   printf 'Testing %s\n' "$(basename "$file")"
   psql -X -q -v ON_ERROR_STOP=1 -f "$file" > /dev/null
 done

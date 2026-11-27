@@ -2,8 +2,7 @@ key,value
 Choose your language · লাউখোল,তর ঠার বাছ · লাউখোল
 Downloads/Ningshingche_PDFs/{1} ফোল্ডারে সংরক্ষিত হয়েছে!,Downloads/Ningshingche_PDFs/{1} ফোল্ডারত ইতু অইল!
 Downloads/{1}/{2} ফোল্ডারে সংরক্ষিত হয়েছে!,Downloads/{1}/{2} ফোল্ডারত ইতু অইল!
-Facebook আইডি / লিংক,Facebook আইডি / মিলাপ
-Facebook আইডি দিন।,Facebook আইডি দে।
+Facebook আইডি / লিংক (ঐচ্ছিক),Facebook আইডি / লিংক (ঐচ্ছিক)
 Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন। একবার সাইন-ইন করলে অ্যাপ বন্ধ করলেও সেশন থাকবে।,Google একাউন্ট দিয়ে হমানি। আকবার সাইন-ইন করিলে অ্যাপ বন্ধ করলেউ সেশন থাইব।
 Google ও Supabase-এ Web Client ID মিলছে না। Dashboard → Authentication → Google-এ Web Client ID দিন।,Google বারো Supabase-এ Web Client ID মিলতাই না। Dashboard → Authentication → Google-ত Web Client ID দে।
 Google কনসোলে এই অ্যাপের প্যাকেজ নাম (com.ningshingche.app) ও সাইনিং SHA-1 মিলছে না। Debug ও Release দুই SHA-1 Android OAuth ক্লায়েন্টে যোগ করুন।,Google কনসোলত এরে অ্যাপর প্যাকেজ নাঙ (com.ningshingche.app) বারো সাইনিং SHA-1 মিলতাই না। Debug বারো Release দুই SHA-1 Android OAuth ক্লায়েন্টে যোগ কর।
@@ -504,7 +503,8 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • সং�
 পড়ার মতো কোনো লেখা পাওয়া যায়নি।,পড়ানিরকা কোনো লেখা পানা নার অইল।
 পড়ে শোনানোর সময় ত্রুটি হয়েছে।,পড়িয়া হুনানির সময়ত ত্রুটি অইল।
 পদবি,জরম নাঙর বাদে
-পদবি / পরিচয় (ঐচ্ছিক),পদবি / পরিচয় (ঐচ্ছিক)
+পদবি / পরিচয় (আবশ্যক),পদবি / পরিচয় (দরকারি)
+পদবি / পরিচয় দিন।,পদবি / পরিচয় দে।
 পয়েন্ট,পয়েন্ট
 পয়েন্টের হিসাব এখনো পাওয়া যায়নি।,পয়েন্টর হিসাব এপাগাও পানা নার অইল।
 পরবর্তী,থাংনাত

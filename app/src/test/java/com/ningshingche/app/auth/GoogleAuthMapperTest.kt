@@ -80,9 +80,13 @@ class GoogleAuthMapperTest {
             about = "লেখক",
             phone = "01700000000",
             address = "Sylhet",
-            facebookId = "facebook.com/ab"
+            facebookId = "",
+            designation = "Writer"
         )
         assertTrue(complete.isProfileComplete)
+        assertTrue(complete.copy(facebookId = "facebook.com/ab").isProfileComplete)
+        assertFalse(complete.copy(designation = "   ").isProfileComplete)
+        assertFalse(complete.copy(designation = "", facebookId = "facebook.com/ab").isProfileComplete)
     }
 
     @Test

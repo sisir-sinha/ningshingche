@@ -504,6 +504,10 @@ class ReaderWorkspaceViewModel(
             _message.value = tNow("নামের প্রথম ও শেষ অংশ পূরণ করুন।")
             return
         }
+        if (updated.designation.isBlank()) {
+            _message.value = tNow("পদবি / পরিচয় দিন।")
+            return
+        }
         if (updated.about.isBlank()) {
             _message.value = tNow("নিজের সম্পর্কে সংক্ষিপ্ত পরিচিতি লিখুন।")
             return
@@ -514,10 +518,6 @@ class ReaderWorkspaceViewModel(
         }
         if (updated.address.isBlank()) {
             _message.value = tNow("ঠিকানা দিন।")
-            return
-        }
-        if (updated.facebookId.isBlank()) {
-            _message.value = tNow("Facebook আইডি দিন।")
             return
         }
         if (updated.avatarUrl.isBlank()) {

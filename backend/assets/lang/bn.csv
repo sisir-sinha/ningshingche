@@ -2,8 +2,7 @@ key,value
 Choose your language · লাউখোল,Choose your language · লাউখোল
 Downloads/Ningshingche_PDFs/{1} ফোল্ডারে সংরক্ষিত হয়েছে!,Downloads/Ningshingche_PDFs/{1} ফোল্ডারে সংরক্ষিত হয়েছে!
 Downloads/{1}/{2} ফোল্ডারে সংরক্ষিত হয়েছে!,Downloads/{1}/{2} ফোল্ডারে সংরক্ষিত হয়েছে!
-Facebook আইডি / লিংক,Facebook আইডি / লিংক
-Facebook আইডি দিন।,Facebook আইডি দিন।
+Facebook আইডি / লিংক (ঐচ্ছিক),Facebook আইডি / লিংক (ঐচ্ছিক)
 Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন। একবার সাইন-ইন করলে অ্যাপ বন্ধ করলেও সেশন থাকবে।,Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন। একবার সাইন-ইন করলে অ্যাপ বন্ধ করলেও সেশন থাকবে।
 Google ও Supabase-এ Web Client ID মিলছে না। Dashboard → Authentication → Google-এ Web Client ID দিন।,Google ও Supabase-এ Web Client ID মিলছে না। Dashboard → Authentication → Google-এ Web Client ID দিন।
 Google কনসোলে এই অ্যাপের প্যাকেজ নাম (com.ningshingche.app) ও সাইনিং SHA-1 মিলছে না। Debug ও Release দুই SHA-1 Android OAuth ক্লায়েন্টে যোগ করুন।,Google কনসোলে এই অ্যাপের প্যাকেজ নাম (com.ningshingche.app) ও সাইনিং SHA-1 মিলছে না। Debug ও Release দুই SHA-1 Android OAuth ক্লায়েন্টে যোগ করুন।
@@ -504,7 +503,8 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • সং�
 পড়ার মতো কোনো লেখা পাওয়া যায়নি।,পড়ার মতো কোনো লেখা পাওয়া যায়নি।
 পড়ে শোনানোর সময় ত্রুটি হয়েছে।,পড়ে শোনানোর সময় ত্রুটি হয়েছে।
 পদবি,পদবি
-পদবি / পরিচয় (ঐচ্ছিক),পদবি / পরিচয় (ঐচ্ছিক)
+পদবি / পরিচয় (আবশ্যক),পদবি / পরিচয় (আবশ্যক)
+পদবি / পরিচয় দিন।,পদবি / পরিচয় দিন।
 পয়েন্ট,পয়েন্ট
 পয়েন্টের হিসাব এখনো পাওয়া যায়নি।,পয়েন্টের হিসাব এখনো পাওয়া যায়নি।
 পরবর্তী,পরবর্তী

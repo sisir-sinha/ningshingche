@@ -244,8 +244,7 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 Choose your language · লাউখোল,,ui,1,0,LanguageSetupScreen.kt
 Downloads/Ningshingche_PDFs/{1} ফোল্ডারে সংরক্ষিত হয়েছে!,,ui,1,0,PdfHelper.kt
 Downloads/{1}/{2} ফোল্ডারে সংরক্ষিত হয়েছে!,,ui,1,0,PdfHelper.kt
-Facebook আইডি / লিংক,,ui,1,0,UserProfileScreen.kt
-Facebook আইডি দিন।,,ui,1,0,ReaderWorkspaceViewModel.kt
+Facebook আইডি / লিংক (ঐচ্ছিক),,ui,1,0,UserProfileScreen.kt
 Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন। একবার সাইন-ইন করলে অ্যাপ বন্ধ করলেও সেশন থাকবে।,,ui,1,0,SettingsScreen.kt
 Google ও Supabase-এ Web Client ID মিলছে না। Dashboard → Authentication → Google-এ Web Client ID দিন।,,ui,1,0,SupabaseClient.kt
 Google কনসোলে এই অ্যাপের প্যাকেজ নাম (com.ningshingche.app) ও সাইনিং SHA-1 মিলছে না। Debug ও Release দুই SHA-1 Android OAuth ক্লায়েন্টে যোগ করুন।,,ui,1,0,GoogleAuthMapper.kt
@@ -726,7 +725,8 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 পড়ার মতো কোনো লেখা পাওয়া যায়নি।,,ui,1,0,ArticleTtsPlayer.kt
 পড়ে শোনানোর সময় ত্রুটি হয়েছে।,,ui,1,0,ArticleTtsPlayer.kt
 পদবি,,ui,1,0,RegisterForm.kt
-পদবি / পরিচয় (ঐচ্ছিক),,ui,1,0,UserProfileScreen.kt
+পদবি / পরিচয় (আবশ্যক),,ui,1,0,UserProfileScreen.kt
+পদবি / পরিচয় দিন।,,ui,1,0,ReaderWorkspaceViewModel.kt
 পয়েন্টের হিসাব এখনো পাওয়া যায়নি।,,ui,1,0,UserDashboardScreen.kt
 পরবর্তী,,ui,1,0,FirstRunFlow.kt
 পরিবেশ,,content,1,0,NinghsingCheContentData.kt
