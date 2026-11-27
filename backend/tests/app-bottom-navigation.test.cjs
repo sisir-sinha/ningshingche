@@ -46,3 +46,15 @@ test('bottom tabs clear nested routes and do not restore saved section stacks', 
   // Editor safety remains in the path for the bottom bar too.
   assert.match(host, /fun requestNavigation\(action: \(\) -> Unit\)[\s\S]*ReaderRoute\.NewArticle[\s\S]*pendingNavigation = action/);
 });
+
+
+test('dashboard uses its own tabs rather than stacking the app-wide bottom bar', () => {
+  const visibility = read('reader/DashboardNavigationVisibility.kt');
+  assert.match(visibility, /route == ReaderRoute\.UserDashboardPattern/);
+  assert.match(visibility, /route == ReaderRoute\.UserDashboard/);
+  assert.match(host, /dashboardHasBottomNavigation = isDashboardRoute\(currentRoute\)/);
+  assert.match(host, /!dashboardHasBottomNavigation && !keyboardVisible/);
+  assert.match(host, /if \(showBottomNavigation \|\| showMiniBar\) Modifier\.consumeWindowInsets/);
+  assert.match(host, /showBottomNavigation \|\| dashboardHasBottomNavigation/);
+  assert.match(read('screens/UserDashboardScreen.kt'), /bottomBar\s*=\s*\{\s*DashboardBottomBar\(/);
+});

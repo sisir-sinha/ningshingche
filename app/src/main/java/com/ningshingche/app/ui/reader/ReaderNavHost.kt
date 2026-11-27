@@ -379,10 +379,13 @@ fun EditorialReaderApp(
         }
     }
 
+    // The dashboard provides its own bottom tabs; avoid stacking two menus.
+    val dashboardHasBottomNavigation = isDashboardRoute(currentRoute)
     // A keyboard needs the space, and onboarding must finish before top-level navigation.
     val keyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     val showBottomNavigation = navBackStackEntry != null &&
-        currentRoute != ReaderRoute.Splash && currentRoute != ReaderRoute.FirstRun && !keyboardVisible
+        currentRoute != ReaderRoute.Splash && currentRoute != ReaderRoute.FirstRun &&
+        !dashboardHasBottomNavigation && !keyboardVisible
     // Keep existing edge-swipe behavior on the home/explore screens without
     // stealing horizontal gestures from forum threads, players or editors.
     val drawerGesturesEnabled = showBottomNavigation && (drawerState.isOpen ||
@@ -476,7 +479,7 @@ fun EditorialReaderApp(
             navController = navController,
             startDestination = ReaderRoute.Splash,
             modifier = Modifier.weight(1f).then(
-                if (showBottomNavigation) Modifier.consumeWindowInsets(WindowInsets.navigationBars)
+                if (showBottomNavigation || showMiniBar) Modifier.consumeWindowInsets(WindowInsets.navigationBars)
                 else Modifier
             )
         ) {
@@ -1282,7 +1285,8 @@ fun EditorialReaderApp(
     AppToastHost(
         modifier = Modifier.padding(
             // The host itself handles the system inset. Clear both fixed bars.
-            bottom = (if (showBottomNavigation) 80.dp else 0.dp) + (if (showMiniBar) 56.dp else 0.dp)
+            bottom = (if (showBottomNavigation || dashboardHasBottomNavigation) 80.dp else 0.dp) +
+                (if (showMiniBar) 56.dp else 0.dp)
         )
     )
     pendingNavigation?.let { action ->
