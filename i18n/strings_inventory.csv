@@ -168,6 +168,7 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 নিংশিং চে প্রকাশনা পর্ষদ,,ui,2,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 নিংশিং চে লেখক,,ui,2,0,"ArticleRepository.kt, NingshingCheWebsiteClient.kt"
 নিংশিং চে — বিষ্ণুপ্রিয়া মণিপুরি তথ্যকোষ,,ui,2,0,"PortalPages.kt, SettingsScreen.kt"
+নিচে যান,,ui,2,0,"ArticleScreen.kt, UserDashboardScreen.kt"
 নিবন্ধিত ভিউ,,ui,2,0,UserDashboardScreen.kt
 নির্বাচিত প্রবন্ধ,,ui,2,0,"ContentNotice.kt, SettingsScreen.kt"
 পছন্দের গান,,ui,2,0,"MusicLibraryStore.kt, MusicScreen.kt"
@@ -424,6 +425,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 উত্তরসমূহ,,ui,1,0,ForumScreens.kt
 উত্তরসমূহ (৩),,ui,1,0,ForumScreens.kt
 উপর-নিচ স্ক্রল করে পুরো বই পড়ুন।,,ui,1,0,PdfViewerScreen.kt
+উপরে যান,,ui,1,0,ArticleScreen.kt
 এই {1}-এ কোনো গান নেই।,,ui,1,0,MusicBrowseScreens.kt
 এই অডিও ফর্ম্যাট সাপোর্টেড নয়। এমপি৩ নির্বাচন করুন।,,ui,1,0,SupabaseClient.kt
 এই আলোচনাটি রিপোর্ট করুন,,ui,1,0,ForumScreens.kt
@@ -701,7 +703,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 নিংশিংচে.কম থেকে {1}টি প্রবন্ধ হালনাগাদ হয়েছে,,ui,1,1,ArticleRepository.kt
 নিংশিংচে.কম থেকে সংগৃহীত মূল ডিজিটাল সংস্করণ।,,ui,1,0,NingshingCheWebsiteClient.kt
 নিচে দাগ,,ui,1,0,HtmlContentEditor.kt
-নিচে যান,,ui,1,0,UserDashboardScreen.kt
 নিজস্ব প্রবন্ধ রচনা ও খসড়া সংরক্ষণ,,ui,1,0,SupabaseModels.kt
 নিজের রঙ,,ui,1,0,EditorialPalettes.kt
 নিজের সম্পর্কে,,ui,1,0,UserProfileScreen.kt
@@ -789,6 +790,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 প্রবন্ধটি পাওয়া যায়নি।,,ui,1,0,ReaderViewModels.kt
 প্রবন্ধের অবস্থা,,ui,1,0,UserDashboardCharts.kt
 প্রবন্ধের ছবি,,ui,1,0,HtmlArticleRenderer.kt
+প্রবন্ধের লিংক পাওয়া যায়নি; শুধু শিরোনাম শেয়ার করা হচ্ছে।,,ui,1,0,ArticleScreen.kt
 প্রবেশ করা হচ্ছে...,,ui,1,0,GoogleSignInButton.kt
 প্রভাস,,content,1,0,AuthorProfiles.kt
 প্রস্থ,,ui,1,0,PdfViewerScreen.kt

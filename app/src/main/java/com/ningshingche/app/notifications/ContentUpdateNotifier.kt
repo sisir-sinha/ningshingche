@@ -5,7 +5,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import com.ningshingche.app.data.model.ReaderPreferences
 import com.ningshingche.app.data.portal.HomeFeed
-import com.ningshingche.app.data.portal.permalinkOf
 import com.ningshingche.app.data.preferences.UserPreferencesRepository
 import com.ningshingche.app.data.remote.AdminMessageRecord
 import com.ningshingche.app.data.remote.UserNotificationRecord
@@ -150,7 +149,7 @@ class ContentUpdateNotifier(
                 id = article.id,
                 title = article.title,
                 body = article.subTitle.ifBlank { article.authorName },
-                uri = permalinkOf(article.slug.ifBlank { article.id })
+                uri = article.id
             )
         }
         val featured = feed.featured.map { article ->
@@ -159,7 +158,7 @@ class ContentUpdateNotifier(
                 id = article.id,
                 title = article.title,
                 body = article.authorName,
-                uri = permalinkOf(article.slug.ifBlank { article.id })
+                uri = article.id
             )
         }
         val videos = feed.videos.map { video ->

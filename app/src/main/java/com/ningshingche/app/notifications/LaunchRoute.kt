@@ -2,13 +2,20 @@ package com.ningshingche.app.notifications
 
 import android.content.Intent
 import com.ningshingche.app.ui.reader.ReaderRoute
+import com.ningshingche.app.data.portal.articleIdFromWebsiteUrl
 
 fun routeFromLaunchIntent(intent: Intent?): String? {
     if (intent == null) return null
     val extraRoute = intent.getStringExtra(AppNotificationManager.EXTRA_ROUTE).orEmpty()
-    val target = intent.getStringExtra(AppNotificationManager.EXTRA_TARGET_ID).orEmpty()
-        .substringAfterLast('/')
-        .substringBefore('?')
+    val rawTarget = intent.getStringExtra(AppNotificationManager.EXTRA_TARGET_ID).orEmpty()
+    val isArticle = extraRoute == AppNotificationManager.ROUTE_ARTICLE ||
+        extraRoute == AppNotificationManager.ROUTE_COMMENT
+    val target = if (isArticle && (rawTarget.startsWith("https://") || rawTarget.startsWith("http://"))) {
+        articleIdFromWebsiteUrl(rawTarget).orEmpty()
+    } else {
+        val segment = android.net.Uri.decode(rawTarget.substringBefore('?').trimEnd('/').substringAfterLast('/'))
+        if (isArticle) segment.removeSuffix(".kehem") else segment
+    }
     when (extraRoute) {
         AppNotificationManager.ROUTE_ARTICLE,
         AppNotificationManager.ROUTE_COMMENT ->
@@ -24,10 +31,6 @@ fun routeFromLaunchIntent(intent: Intent?): String? {
         AppNotificationManager.ROUTE_HOME -> return ReaderRoute.Home
     }
     val data = intent.data ?: return null
-    val path = data.path.orEmpty()
-    if (path.contains("/article/")) {
-        val slug = path.substringAfterLast('/').substringBefore('?')
-        if (slug.isNotBlank()) return ReaderRoute.article(slug)
-    }
-    return null
+    val slug = articleIdFromWebsiteUrl(data.toString()) ?: return null
+    return ReaderRoute.article(slug)
 }

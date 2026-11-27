@@ -2,11 +2,13 @@ package com.ningshingche.app.ui.reader
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +17,8 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -34,6 +38,8 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Comment
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PictureAsPdf
@@ -81,6 +87,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -91,7 +98,7 @@ import com.ningshingche.app.data.portal.ArticleDetail
 import com.ningshingche.app.data.portal.ArticleSummary
 import com.ningshingche.app.data.portal.AuthorRef
 import com.ningshingche.app.data.portal.CommentItem
-import com.ningshingche.app.data.portal.permalinkOf
+import com.ningshingche.app.data.portal.websiteArticleUrl
 import com.ningshingche.app.data.remote.AuthorProfiles
 import com.ningshingche.app.ui.components.DialogImeAdjustResize
 import com.ningshingche.app.ui.components.ContentReportDialog
@@ -202,6 +209,7 @@ fun ArticleScreen(
     }
 
     val listState = rememberLazyListState()
+    val keyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     val readingProgress by remember {
         derivedStateOf {
             val totalItems = listState.layoutInfo.totalItemsCount
@@ -315,9 +323,13 @@ fun ArticleScreen(
                         // Share Button
                         IconButton(onClick = {
                             val article = (state as? ArticleUiState.Ready)?.article ?: return@IconButton
+                            val url = websiteArticleUrl(article.summary.websiteSlug, article.summary.websiteDate)
+                            if (url == null) {
+                                Toast.makeText(context, tNow("প্রবন্ধের লিংক পাওয়া যায়নি; শুধু শিরোনাম শেয়ার করা হচ্ছে।"), Toast.LENGTH_LONG).show()
+                            }
                             val send = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, "${article.title}\n${permalinkOf(article.summary.slug)}")
+                                putExtra(Intent.EXTRA_TEXT, listOfNotNull(article.title, url).joinToString("\n"))
                                 putExtra(Intent.EXTRA_SUBJECT, article.title)
                             }
                             context.startActivity(Intent.createChooser(send, tNow("শেয়ার করুন")))
@@ -343,67 +355,98 @@ fun ArticleScreen(
     ) { padding ->
         val isRefreshing = (state as? ArticleUiState.Ready)?.isRefreshing == true
 
-        PullToRefreshBox(
-            isRefreshing = isRefreshing,
-            onRefresh = { viewModel.refresh() },
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            when (val current = state) {
-                ArticleUiState.Loading -> LoadingFeed()
+        Box(Modifier.fillMaxSize().padding(padding)) {
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = { viewModel.refresh() },
+                modifier = Modifier.fillMaxSize()
+            ) {
+                when (val current = state) {
+                    ArticleUiState.Loading -> LoadingFeed()
 
-                is ArticleUiState.Error -> ErrorState(
-                    message = current.message,
-                    onRetry = { viewModel.retry() }
-                )
-
-                is ArticleUiState.Ready -> {
-                    ArticleReaderContent(
-                        article = current.article,
-                        author = current.author,
-                        comments = current.comments,
-                        related = current.related,
-                        padding = PaddingValues(0.dp),
-                        fontSizeSp = fontSizeSp,
-                        lineSpacingMultiplier = lineSpacingMultiplier,
-                        listState = listState,
-                        onRelatedClick = onRelatedClick,
-                        onCategoryClick = onCategoryClick,
-                        onAuthorClick = onAuthorClick,
-                        onTagClick = onTagClick,
-                        onOpenLink = { url ->
-                            try {
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                            } catch (_: Exception) { }
-                        },
-                        onPostComment = {
-                            if (!isSignedIn) onSignInClick()
-                            else if (termsOk) viewModel.postComment() else termsPrompt = true
-                        },
-                        isSignedIn = isSignedIn,
-                        onSignInClick = onSignInClick,
-                        commentForm = viewModel.commentForm.collectAsState().value,
-                        onCommentFormChange = viewModel::updateCommentForm,
-                        commentStatus = viewModel.commentStatus.collectAsState().value,
-                        isPostingComment = viewModel.isPostingComment.collectAsState().value
+                    is ArticleUiState.Error -> ErrorState(
+                        message = current.message,
+                        onRetry = { viewModel.retry() }
                     )
 
-                    // Font Size & Spacing Bottom Sheet
-                    if (showFontSizeSheet) {
-                        FontSizeControlBottomSheet(
+                    is ArticleUiState.Ready -> {
+                        ArticleReaderContent(
+                            article = current.article,
+                            author = current.author,
+                            comments = current.comments,
+                            related = current.related,
+                            padding = PaddingValues(0.dp),
                             fontSizeSp = fontSizeSp,
-                            lineSpacing = lineSpacingMultiplier,
-                            onFontSizeChange = { fontSizeSp = it },
-                            onLineSpacingChange = { lineSpacingMultiplier = it },
-                            onReset = {
-                                fontSizeSp = DEFAULT_READER_SP
-                                lineSpacingMultiplier = APP_LEADING
+                            lineSpacingMultiplier = lineSpacingMultiplier,
+                            listState = listState,
+                            scrollToComments = scrollToComments,
+                            onRelatedClick = onRelatedClick,
+                            onCategoryClick = onCategoryClick,
+                            onAuthorClick = onAuthorClick,
+                            onTagClick = onTagClick,
+                            onOpenLink = { url ->
+                                try {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                                } catch (_: Exception) { }
                             },
-                            onDismiss = { showFontSizeSheet = false }
+                            onPostComment = {
+                                if (!isSignedIn) onSignInClick()
+                                else if (termsOk) viewModel.postComment() else termsPrompt = true
+                            },
+                            isSignedIn = isSignedIn,
+                            onSignInClick = onSignInClick,
+                            commentForm = viewModel.commentForm.collectAsState().value,
+                            onCommentFormChange = viewModel::updateCommentForm,
+                            commentStatus = viewModel.commentStatus.collectAsState().value,
+                            isPostingComment = viewModel.isPostingComment.collectAsState().value
                         )
-                    }
 
+                        // Font Size & Spacing Bottom Sheet
+                        if (showFontSizeSheet) {
+                            FontSizeControlBottomSheet(
+                                fontSizeSp = fontSizeSp,
+                                lineSpacing = lineSpacingMultiplier,
+                                onFontSizeChange = { fontSizeSp = it },
+                                onLineSpacingChange = { lineSpacingMultiplier = it },
+                                onReset = {
+                                    fontSizeSp = DEFAULT_READER_SP
+                                    lineSpacingMultiplier = APP_LEADING
+                                },
+                                onDismiss = { showFontSizeSheet = false }
+                            )
+                        }
+
+                    }
+                }
+            }
+            if (state is ArticleUiState.Ready && !keyboardVisible) {
+                Column(
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilledTonalIconButton(
+                        onClick = { scope.launch { listState.scrollToItem(0) } },
+                        enabled = listState.canScrollBackward,
+                        modifier = Modifier.size(48.dp).testTag("article_jump_top")
+                    ) {
+                        Icon(Icons.Default.KeyboardArrowUp, contentDescription = t("উপরে যান"))
+                    }
+                    FilledTonalIconButton(
+                        onClick = {
+                            scope.launch {
+                                val last = listState.layoutInfo.totalItemsCount - 1
+                                if (last >= 0) {
+                                    listState.scrollToItem(last)
+                                    // The final item can itself exceed the viewport.
+                                    while (listState.canScrollForward && listState.scrollBy(16_384f) > 0f) { }
+                                }
+                            }
+                        },
+                        enabled = listState.canScrollForward,
+                        modifier = Modifier.size(48.dp).testTag("article_jump_bottom")
+                    ) {
+                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = t("নিচে যান"))
+                    }
                 }
             }
         }

@@ -41,7 +41,10 @@ data class ArticleSummary(
     val year: Int,
     val isSlider: Boolean,
     val isFeature: Boolean,
-    val isSpecial: Boolean
+    val isSpecial: Boolean,
+    /** Raw website slug and date; no fabricated UUID/date fallback for sharing. */
+    val websiteSlug: String = slug,
+    val websiteDate: String = publishedDate
 )
 
 data class ArticleDetail(
@@ -916,7 +919,9 @@ internal fun BlogDto.toSummary(): ArticleSummary {
         year = yearOf(date, createdAt),
         isSlider = isSlider ?: false,
         isFeature = isFeature ?: false,
-        isSpecial = isSpecialArticle ?: false
+        isSpecial = isSpecialArticle ?: false,
+        websiteSlug = slug.orEmpty(),
+        websiteDate = publishedDate ?: createdAt.orEmpty()
     )
 }
 
@@ -1093,13 +1098,6 @@ fun thumbnailOf(url: String): String {
         ?.groupValues?.getOrNull(1)
     return if (id != null) "https://i.ytimg.com/vi/$id/hqdefault.jpg" else ""
 }
-
-/** Public permalink for a blog. Bengali slugs must be percent-encoded. */
-fun permalinkOf(slug: String): String {
-    val encoded = java.net.URLEncoder.encode(slug, "UTF-8").replace("+", "%20")
-    return "https://ningshingche.com/article/$encoded"
-}
-
 
 /**
  * A registered reader's public page: who they are and everything of theirs that

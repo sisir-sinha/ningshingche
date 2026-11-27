@@ -10,6 +10,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import com.ningshingche.app.data.portal.articleIdFromWebsiteUrl
 import com.ningshingche.app.MainActivity
 import com.ningshingche.app.R
 import com.ningshingche.app.ui.i18n.tNow
@@ -123,7 +124,8 @@ class AppNotificationManager(private val context: Context) {
         val uri = draft.uri
         if (uri.isBlank()) return ""
         if (uri.startsWith("http://") || uri.startsWith("https://")) {
-            return uri.substringAfterLast('/').substringBefore('?').ifBlank { uri }
+            return articleIdFromWebsiteUrl(uri)
+                ?: uri.substringBefore('?').trimEnd('/').substringAfterLast('/').ifBlank { uri }
         }
         return uri
     }
