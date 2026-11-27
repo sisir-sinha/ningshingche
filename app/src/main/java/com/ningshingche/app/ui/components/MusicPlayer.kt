@@ -1347,6 +1347,6 @@ private fun formatMs(ms: Long): String {
     val total = (ms / 1000L).coerceAtLeast(0L)
     val m = total / 60
     val s = total % 60
-    return tNow("{1}:{2}", toBengaliNumeral(m), toBengaliNumeral(s).padStart(2, '০'))
+    return tNow("{1}:{2}", toBengaliNumeral(m), toBengaliNumeral(s + 100).takeLast(2))
 }
 

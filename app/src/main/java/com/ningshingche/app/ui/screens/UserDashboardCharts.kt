@@ -54,8 +54,8 @@ import com.ningshingche.app.ui.i18n.tNow
  * Android 7.
  */
 
-private val BENGALI_MONTHS = listOf(
-    tNow("জানু"), tNow("ফেব"), tNow("মার্চ"), tNow("এপ্রিল"), "মে", tNow("জুন"),
+private val BENGALI_MONTHS: List<String> get() = listOf(
+    tNow("জানু"), tNow("ফেব"), tNow("মার্চ"), tNow("এপ্রিল"), tNow("মে"), tNow("জুন"),
     tNow("জুলাই"), tNow("আগস্ট"), tNow("সেপ্টে"), tNow("অক্টো"), tNow("নভে"), tNow("ডিসে")
 )
 

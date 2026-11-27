@@ -57,7 +57,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.ningshingche.app.data.portal.IssueTags
 import com.ningshingche.app.ui.components.ArticleListItemCard
 import com.ningshingche.app.ui.components.NingshingCheBrandLogo
 import com.ningshingche.app.ui.components.PortalAsyncImage
@@ -76,6 +75,7 @@ import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import com.ningshingche.app.ui.viewmodel.HomeViewModel
+import com.ningshingche.app.ui.editorial.toBengaliNumeral
 import com.ningshingche.app.ui.i18n.t
 
 /** One swipeable tab on the Featured page: "সব" or a single category. */
@@ -208,7 +208,7 @@ fun FeaturedScreen(
                                             modifier = Modifier.size(16.dp)
                                         )
                                         Text(
-                                            text = tab.title,
+                                            text = if (tab.key == "all") t("সব") else tab.title,
                                             fontFamily = Kalpurush,
                                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                             color = tint,
@@ -218,7 +218,7 @@ fun FeaturedScreen(
                                         )
                                         if (tab.key != "all") {
                                             Text(
-                                                text = IssueTags.toBengaliDigits(tab.articles.size),
+                                                text = toBengaliNumeral(tab.articles.size),
                                                 fontFamily = Kalpurush,
                                                 fontSize = textSize(11),
                                                 lineHeight = leading(11),
@@ -413,7 +413,7 @@ private fun AuthorDirectoryRow(facet: AuthorFacet, onClick: () -> Unit) {
                     )
                 }
                 Text(
-                    text = t("{1}টি প্রবন্ধ", IssueTags.toBengaliDigits(facet.articleCount)) +
+                    text = t("{1}টি প্রবন্ধ", toBengaliNumeral(facet.articleCount)) +
                         if (author.location.isNotBlank()) " • ${author.location}" else "",
                     fontFamily = Kalpurush,
                     fontSize = textSize(11),

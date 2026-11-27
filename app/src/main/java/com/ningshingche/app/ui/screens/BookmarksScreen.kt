@@ -170,7 +170,7 @@ fun BookmarksScreen(
                     ) {
                         item {
                             FilterChipPill(
-                                label = "সব",
+                                label = t("সব"),
                                 isSelected = selectedCategoryFilter == null,
                                 onClick = { viewModel.setCategoryFilter(null) }
                             )

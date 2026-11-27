@@ -164,7 +164,7 @@ fun MusicScreen(
                 contentPadding = PaddingValues(horizontal = EditorialSpace.gutter),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                item { MusicTabChip("সব", tab == MusicTab.All) { goToTab(MusicTab.All) } }
+                item { MusicTabChip(tNow("সব"), tab == MusicTab.All) { goToTab(MusicTab.All) } }
                 item { MusicTabChip(tNow("ধরন"), tab == MusicTab.Genres) { goToTab(MusicTab.Genres) } }
                 item { MusicTabChip(tNow("শিল্পী"), tab == MusicTab.Artists) { goToTab(MusicTab.Artists) } }
                 item { MusicTabChip(tNow("অ্যালবাম"), tab == MusicTab.Albums) { goToTab(MusicTab.Albums) } }

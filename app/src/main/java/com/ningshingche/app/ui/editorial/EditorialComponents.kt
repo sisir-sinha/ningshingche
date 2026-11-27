@@ -89,15 +89,10 @@ import com.ningshingche.app.data.portal.MusicTrack
 import com.ningshingche.app.data.portal.VideoItem
 import com.ningshingche.app.data.portal.excerptOf
 import com.ningshingche.app.data.portal.stripHtml
-import java.text.SimpleDateFormat
-import java.util.Locale
 import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.i18n.t
 import com.ningshingche.app.ui.i18n.tNow
-import com.ningshingche.app.util.DateFormats
-import com.ningshingche.app.util.bengaliDigits
-import com.ningshingche.app.util.toBengaliDigits
 
 /**
  * Reusable building blocks for the modern-editorial reader.
@@ -243,88 +238,15 @@ fun rememberShimmerBrush(): Brush {
 // Meta / byline
 // ---------------------------------------------------------------------------
 
-/**
- * Formats `2025-06-17` as `১৭ জুন, ২০২৫`.
- *
- * The formatter comes from [DateFormats], which builds each pattern once per
- * thread; the result is kept per timestamp, because a card's date does not change
- * while the reader scrolls past it. (And it is `SimpleDateFormat` rather than
- * `java.time` on purpose: `minSdk` is 24 and this module does not enable core
- * library desugaring, so `java.time.*` would throw `NoClassDefFoundError` on
- * Android 7.)
- */
-fun formatBengaliDate(iso: String): String = memoisedDate(iso) {
-    if (iso.isBlank()) return@memoisedDate ""
-    runCatching {
-        val parsed = DateFormats.of("yyyy-MM-dd").parse(iso.take(10))
-            ?: return@memoisedDate iso.take(10)
-        DateFormats.of("d MMMM, yyyy", Locale("bn", "BD")).format(parsed)
-    }.getOrDefault(iso.take(10))
+/** Calendar dates and timestamps follow the interface language on every screen. */
+fun formatBengaliDate(iso: String): String {
+    return com.ningshingche.app.util.LocalizedFormatting.date(iso, com.ningshingche.app.ui.i18n.Translations.current.language)
 }
 
-/**
- * Formats a timestamp as `১২ সেপ্টেম্বর, ৩:৪৫ অপরাহ্ণ`.
- *
- * The companion to [formatBengaliDate] for the places where a date alone says too
- * little — an answer in a thread is read within the hour it was written, and "১২
- * সেপ্টেম্বর" would not tell the reader whether it is the answer above or the one
- * below. The stored value is UTC (Supabase writes `timestamptz`), so it is parsed
- * as UTC and rendered in the phone's own zone: the reader sees the clock on their
- * wall, not the database's.
- *
- * Like [formatBengaliDate], the formatter is cached and the answer remembered; the
- * same reason applies, `minSdk` is 24 and this module does not enable core library
- * desugaring.
- */
-fun formatBengaliDateTime(iso: String): String = memoisedDate(iso) {
-    if (iso.isBlank()) return@memoisedDate ""
-    runCatching {
-        val parsed = DateFormats.of("yyyy-MM-dd'T'HH:mm:ss", utc = true).parse(iso.take(19)) ?: return@memoisedDate ""
-        val date = DateFormats.of("d MMMM", Locale("bn", "BD")).format(parsed)
-        val clock = DateFormats.of("h:mm").format(parsed)
-        val hour = DateFormats.of("H").format(parsed).toIntOrNull() ?: 0
-        bengaliDigits("$date, $clock ${if (hour < 12) "পূর্বাহ্ণ" else "অপরাহ্ণ"}")
-    }.getOrDefault("")
+/** Timestamps are displayed in the device time zone, e.g. ১২ সেপ্টেম্বর, ৩:৪৫ অপরাহ্ণ. */
+fun formatBengaliDateTime(iso: String): String {
+    return com.ningshingche.app.util.LocalizedFormatting.dateTime(iso, com.ningshingche.app.ui.i18n.Translations.current.language)
 }
-
-/**
- * The same date, formatted once.
- *
- * These are called from list rows — a card's date, an answer's clock — and a row
- * is re-drawn whenever anything above it changes. Re-formatting an unchanged
- * timestamp on every frame of a scroll is work that cannot show anything new, so
- * the last few hundred answers are kept keyed by their own text. The cache is
- * small on purpose: a screen shows tens of dates, a scroll touches hundreds, and
- * an unbounded map here would be a leak with a friendly face.
- */
-private fun memoisedDate(iso: String, format: () -> String): String {
-    if (iso.isEmpty()) return ""
-    cachedDates[iso]?.let { return it }
-    val formatted = format()
-    if (cachedDates.size > DATE_CACHE_MAX) cachedDates.clear()
-    cachedDates[iso] = formatted
-    return formatted
-}
-
-/** Results of [memoisedDate]; a few hundred timestamps, replaced wholesale when full. */
-private val cachedDates = java.util.concurrent.ConcurrentHashMap<String, String>(512)
-private const val DATE_CACHE_MAX = 512
-
-/**
- * The date formatters, one set per thread.
- *
- * `SimpleDateFormat` is not thread-safe, so each thread keeps its own — and
- * building one is not cheap: the pattern is compiled and the locale's month and
- * weekday names are loaded. Constructing two of them per row (`formatBengaliDate`
- * built three) put that cost inside the scroll, where it was paid again for every
- * visible row on every pass.
- *
- * `java.time` would do this without the ceremony, but `minSdk` is 24 and this
- * module does not enable core library desugaring, so it would throw on Android 7.
- */
-
-/** Every digit of [text] in Bengali numerals — dates and clocks included. */
-
 
 @Composable
 fun Byline(
@@ -479,7 +401,7 @@ fun HeroArticleCard(
                     }
                     if (article.publishedDate.isNotBlank()) {
                         Text(
-                            text = "•  ${article.publishedDate}",
+                            text = "•  ${formatBengaliDate(article.publishedDate)}",
                             style = EditorialType.Caption,
                             color = Color.White.copy(alpha = 0.75f)
                         )
@@ -633,7 +555,7 @@ fun NumberedArticleCard(
         verticalAlignment = Alignment.Top
     ) {
         Text(
-            text = String.format(Locale("bn", "BD"), "%d", index),
+            text = toBengaliNumeral(index),
             style = EditorialType.Display,
             color = LocalEditorialTokens.current.accent.copy(alpha = 0.35f),
             modifier = Modifier.width(46.dp)
@@ -940,8 +862,8 @@ fun CategoryRail(
     if (categories.isEmpty()) return
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(
-            title = t("বিষয় ও বিভাগসমূহ"),
-            actionLabel = if (onSeeAll != null) "সব" else null,
+            title = t("ক্যাটাগরি"),
+            actionLabel = if (onSeeAll != null) t("সব") else null,
             onAction = onSeeAll
         )
         LazyRow(
@@ -1025,7 +947,7 @@ fun GalleryModalDialog(
                         }
                         if (items.size > 1) {
                             Text(
-                                text = "${toBengaliDigits(pagerState.currentPage + 1)} / ${toBengaliDigits(items.size)}",
+                                text = "${toBengaliNumeral(pagerState.currentPage + 1)} / ${toBengaliNumeral(items.size)}",
                                 fontFamily = com.ningshingche.app.ui.theme.Kalpurush,
                                 fontSize = textSize(12),
                                 lineHeight = leading(12),
@@ -1201,7 +1123,7 @@ fun ArticleRail(
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(
             title = title,
-            actionLabel = if (onSeeAll != null) "সব" else null,
+            actionLabel = if (onSeeAll != null) t("সব") else null,
             onAction = onSeeAll
         )
         LazyRow(
@@ -1423,7 +1345,7 @@ fun PdfRail(
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(
             title = t("বই ও সাময়িকী"),
-            actionLabel = if (onSeeAll != null) "সব" else null,
+            actionLabel = if (onSeeAll != null) t("সব") else null,
             onAction = onSeeAll
         )
         LazyRow(
@@ -1481,7 +1403,7 @@ fun VideoRail(
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(
             title = t("ভিডিও"),
-            actionLabel = if (onSeeAll != null) "সব" else null,
+            actionLabel = if (onSeeAll != null) t("সব") else null,
             onAction = onSeeAll
         )
         LazyRow(
@@ -1549,7 +1471,7 @@ fun MusicRail(
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(
             title = t("সঙ্গীত"),
-            actionLabel = if (onSeeAll != null) "সব" else null,
+            actionLabel = if (onSeeAll != null) t("সব") else null,
             onAction = onSeeAll
         )
         LazyRow(

@@ -273,7 +273,7 @@ fun ArticleListItemCard(
                         modifier = Modifier.size(12.dp)
                     )
                     Text(
-                        text = "${article.authorName} • ${article.publishedDate}",
+                        text = "${article.authorName} • ${com.ningshingche.app.ui.editorial.formatBengaliDate(article.publishedDate)}",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = textSize(11),

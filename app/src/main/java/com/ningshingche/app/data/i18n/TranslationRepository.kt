@@ -26,10 +26,9 @@ import java.util.concurrent.TimeUnit
  * the UI. Keys are the Bengali strings written in the app, so a language file
  * only has to translate what it knows — anything absent stays Bengali.
  *
- * Order of business, and it is the whole point of this class: the table in force
- * is available immediately (offline first), then a refresh replaces it if the
- * server has something newer. Three places a table can come from, in the order
- * they win:
+ * The table is available offline first, then a refresh supplies dashboard
+ * overrides. The packaged table supplies keys missing from older published
+ * files; for matching keys the most recent dashboard wording wins:
  *
  *   1. the file published from the dashboard — an editor's rewording reaches the
  *      app without an update;
@@ -66,11 +65,11 @@ class TranslationRepository(context: Context) {
         val flow = flows.getOrPut(language) { MutableStateFlow<Map<String, String>>(emptyMap()) }
         if (loaded.putIfAbsent(language, true) == null) {
             scope.launch {
-                // A published copy on disk is the newest thing the app has seen;
-                // failing that, the copy that came with the app. Either way the
-                // table is in place before the request goes out, so the swap is
-                // instant and survives being offline.
-                val base = readCache(language).ifEmpty { packaged(language) }
+                // Merge the newest published copy on disk over the packaged
+                // wording before making a network request, so the swap works offline.
+                // Older published files must not hide translations shipped in a
+                // newer app. Dashboard wording wins for keys it actually contains.
+                val base = packaged(language) + readCache(language)
                 if (base.isNotEmpty()) flow.value = base
                 refresh(language)
             }
@@ -96,7 +95,7 @@ class TranslationRepository(context: Context) {
             // Something was actually published for this language: it wins.
             published != null && published.csv.isNotBlank() -> {
                 writeCache(language, published.csv)
-                flow.value = published.table
+                flow.value = packaged(language) + published.table
             }
             flow.value.isEmpty() -> flow.value = packaged(language)
         }

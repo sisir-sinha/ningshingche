@@ -141,10 +141,10 @@ import com.ningshingche.app.data.portal.ForumActivity
 import com.ningshingche.app.data.portal.ViewDay
 import com.ningshingche.app.data.remote.UserProfile
 import com.ningshingche.app.data.remote.messageAttachmentUrls
-import com.ningshingche.app.data.remote.shortDateTime
 import com.ningshingche.app.ui.components.AppToasts
 import com.ningshingche.app.ui.editorial.cardBorder
 import com.ningshingche.app.ui.editorial.formatBengaliDate
+import com.ningshingche.app.ui.editorial.formatBengaliDateTime
 import com.ningshingche.app.ui.editorial.Hairline
 import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.editorial.toBengaliNumeral
@@ -951,7 +951,7 @@ private fun ContentPane(
                 FilterChip(
                     selected = filter == ContentFilter.All,
                     onClick = { filter = ContentFilter.All; limit = PAGE_SIZE },
-                    label = { Text("সব", fontFamily = Kalpurush) }
+                    label = { Text(t("সব"), fontFamily = Kalpurush) }
                 )
                 FilterChip(
                     selected = filter == ContentFilter.Articles,
@@ -1546,7 +1546,7 @@ private fun ChatBubble(item: AdminMessageRecord, onOpenImage: (String) -> Unit) 
                 ) {
                     if (item.createdAt.isNotBlank()) {
                         Text(
-                            shortDateTime(item.createdAt),
+                            formatBengaliDateTime(item.createdAt),
                             fontFamily = Kalpurush,
                             fontSize = textSize(10),
                             lineHeight = leading(10),

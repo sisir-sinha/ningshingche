@@ -63,7 +63,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ningshingche.app.data.portal.AuthorRef
 import com.ningshingche.app.data.portal.CategoryRef
-import com.ningshingche.app.data.portal.IssueTags
 import com.ningshingche.app.data.portal.stripHtml
 import com.ningshingche.app.ui.components.HtmlFormattedText
 import com.ningshingche.app.ui.components.VerifiedBadge
@@ -81,6 +80,7 @@ import com.ningshingche.app.ui.editorial.LocalEditorialTokens
 import com.ningshingche.app.ui.editorial.SectionHeader
 import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.leading
+import com.ningshingche.app.ui.editorial.toBengaliNumeral
 import com.ningshingche.app.ui.i18n.t
 import com.ningshingche.app.ui.i18n.tNow
 
@@ -433,7 +433,7 @@ fun IssueScreen(
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsState()
-    val label = IssueTags.issueLabel(viewModel.year)
+    val label = "${t("নিংশিং চে")}-${toBengaliNumeral(viewModel.year)}"
 
     Scaffold(
         modifier = modifier,
@@ -466,7 +466,7 @@ fun IssueScreen(
                 )
                 Spacer(Modifier.height(EditorialSpace.xs))
                 Text(
-                    text = t("বার্ষিক সংখ্যা • {1} সালে প্রকাশিত লেখাসমূহ", IssueTags.toBengaliDigits(viewModel.year)),
+                    text = t("বার্ষিক সংখ্যা • {1} সালে প্রকাশিত লেখাসমূহ", toBengaliNumeral(viewModel.year)),
                     style = EditorialType.Body,
                     color = LocalEditorialTokens.current.inkSoft
                 )
@@ -475,7 +475,7 @@ fun IssueScreen(
                     if (total != null) {
                         Spacer(Modifier.height(EditorialSpace.sm))
                         Text(
-                            text = t("{1} টি প্রবন্ধ", IssueTags.toBengaliDigits(total)),
+                            text = t("{1} টি প্রবন্ধ", toBengaliNumeral(total)),
                             style = EditorialType.Caption,
                             color = LocalEditorialTokens.current.inkMuted
                         )

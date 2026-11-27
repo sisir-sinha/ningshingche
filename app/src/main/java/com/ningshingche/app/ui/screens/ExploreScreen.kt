@@ -62,7 +62,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ningshingche.app.data.portal.ArticleSummary
 import com.ningshingche.app.data.portal.IssueSummary
-import com.ningshingche.app.data.portal.IssueTags
 import com.ningshingche.app.ui.components.ExploreSkeletonLayout
 import com.ningshingche.app.ui.components.PortalAsyncImage
 import com.ningshingche.app.ui.components.VerifiedBadge
@@ -81,6 +80,7 @@ import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.leading
 import com.ningshingche.app.ui.theme.Kalpurush
 import kotlinx.coroutines.launch
+import com.ningshingche.app.ui.editorial.toBengaliNumeral
 import com.ningshingche.app.ui.i18n.t
 import com.ningshingche.app.ui.i18n.tNow
 
@@ -481,7 +481,7 @@ private fun CategoryFacetCard(facet: CategoryFacet, onClick: () -> Unit) {
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            CountChip(t("{1}টি", IssueTags.toBengaliDigits(facet.articleCount)))
+            CountChip(t("{1}টি", toBengaliNumeral(facet.articleCount)))
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = null,
@@ -564,7 +564,7 @@ private fun AuthorFacetCard(facet: AuthorFacet, onClick: () -> Unit) {
                         modifier = Modifier.size(12.dp)
                     )
                     Text(
-                        text = t("{1}টি প্রবন্ধ", IssueTags.toBengaliDigits(facet.articleCount)) +
+                        text = t("{1}টি প্রবন্ধ", toBengaliNumeral(facet.articleCount)) +
                             if (author.location.isNotBlank()) " • ${author.location}" else "",
                         fontFamily = Kalpurush,
                         fontSize = textSize(11),
@@ -618,7 +618,7 @@ private fun IssueCard(issue: IssueSummary, onClick: () -> Unit) {
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
-                        text = issue.bengaliYear,
+                        text = toBengaliNumeral(issue.year),
                         fontFamily = Kalpurush,
                         fontWeight = FontWeight.Black,
                         fontSize = textSize(13),
@@ -629,7 +629,7 @@ private fun IssueCard(issue: IssueSummary, onClick: () -> Unit) {
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = issue.label,
+                    text = "${t("নিংশিং চে")}-${toBengaliNumeral(issue.year)}",
                     fontFamily = Kalpurush,
                     fontWeight = FontWeight.Bold,
                     fontSize = textSize(16),
@@ -637,7 +637,7 @@ private fun IssueCard(issue: IssueSummary, onClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = t("বার্ষিক সংখ্যা • {1} সালে প্রকাশিত লেখাসমূহ", issue.bengaliYear),
+                    text = t("বার্ষিক সংখ্যা • {1} সালে প্রকাশিত লেখাসমূহ", toBengaliNumeral(issue.year)),
                     fontFamily = Kalpurush,
                     fontSize = textSize(12),
                     lineHeight = leading(12),
@@ -646,7 +646,7 @@ private fun IssueCard(issue: IssueSummary, onClick: () -> Unit) {
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(Modifier.height(4.dp))
-                CountChip(t("{1}টি প্রবন্ধ", IssueTags.toBengaliDigits(issue.articleCount)))
+                CountChip(t("{1}টি প্রবন্ধ", toBengaliNumeral(issue.articleCount)))
             }
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,

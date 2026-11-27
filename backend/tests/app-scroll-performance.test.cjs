@@ -92,8 +92,8 @@ test('a date is formatted once, not once per row per frame', () => {
   assert.match(formats, /ThreadLocal\.withInitial/, 'one set per thread: SimpleDateFormat is not thread-safe');
   assert.match(formats, /mine\[key\]\?\.let \{ return it \}/, 'and reused after the first call');
 
-  const editorial = read('ui', 'editorial', 'EditorialComponents.kt');
-  assert.match(editorial, /private fun memoisedDate\(/, 'the result of an unchanged date is kept');
+  const editorial = read('util', 'LocalizedFormatting.kt');
+  assert.match(editorial, /private fun cached\(/, 'the result of an unchanged date is kept');
   assert.match(editorial, /DateFormats\.of\(/, 'and the formatters come from the cache');
 
   // One construction in the whole app: the one inside the cache.
@@ -121,7 +121,7 @@ test('the numeral converter does not build a list to read a number', () => {
   // Every caller reaches that one implementation: the theme's own name delegates
   // to it, so the 81 call sites did not have to move.
   const theme = read('ui', 'editorial', 'EditorialTheme.kt');
-  assert.match(theme, /fun toBengaliNumeral\(number: Number\): String = bengaliDigits\(number\.toString\(\)\)/);
+  assert.match(theme, /LocalizedFormatting\.digits\(number\.toString\(\),.*Translations\.current\.language\)/);
 
   const offenders = [];
   for (const file of kotlinFiles(APP)) {

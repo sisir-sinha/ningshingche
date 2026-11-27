@@ -492,35 +492,24 @@ private fun RankBadge(rank: Int, medal: Color) {
 
 
 /** The twelve month names, in the order the database numbers them. */
-private val BENGALI_MONTHS = listOf(
-    tNow("জানুয়ারি"), tNow("ফেব্রুয়ারি"), tNow("মার্চ"), tNow("এপ্রিল"), "মে", tNow("জুন"),
+/** Look up months each time: the reader can change language without restarting. */
+private val BENGALI_MONTHS: List<String> get() = listOf(
+    tNow("জানুয়ারি"), tNow("ফেব্রুয়ারি"), tNow("মার্চ"), tNow("এপ্রিল"), tNow("মে"), tNow("জুন"),
     tNow("জুলাই"), tNow("আগস্ট"), tNow("সেপ্টেম্বর"), tNow("অক্টোবর"), tNow("নভেম্বর"), tNow("ডিসেম্বর")
 )
 
-/**
- * `2026-09` → `সেপ্টেম্বর`. The month key is the database's; the name is the
- * reader's, so the two never have to agree on a date format.
- *
- * An empty key — the board has not arrived yet — falls back to the month on the
- * device, which is what the caller is about to be shown anyway.
- */
 internal fun monthNameOf(monthKey: String): String {
-    val month = monthKey.split("-").getOrNull(1)?.toIntOrNull()
-    if (month != null && month in 1..12) return BENGALI_MONTHS[month - 1]
-    // Calendar, not java.time: minSdk is 24 and this module has no desugaring.
-    @Suppress("DEPRECATION")
-    val now = java.util.Calendar.getInstance().get(java.util.Calendar.MONTH)
-    return BENGALI_MONTHS[now.coerceIn(0, 11)]
+    val parsed = monthKey.split("-").getOrNull(1)?.toIntOrNull()
+    val month = parsed?.takeIf { it in 1..12 }
+        ?: (java.util.Calendar.getInstance().get(java.util.Calendar.MONTH) + 1)
+    return BENGALI_MONTHS[month - 1]
 }
 
-/**
- * `2026-09` → `সেপ্টেম্বর ২০২৬`. The board page's app bar wants the year too.
- */
 internal fun monthLabel(monthKey: String): String {
     val year = monthKey.split("-").getOrNull(0)?.toIntOrNull() ?: return monthKey
-    val month = monthKey.split("-").getOrNull(1)?.toIntOrNull()
-    if (month == null || month !in 1..12) return monthKey
-    return "${BENGALI_MONTHS[month - 1]} ${toBengaliNumeral(year)}"
+    val month = monthKey.split("-").getOrNull(1)?.toIntOrNull() ?: return monthKey
+    if (month !in 1..12) return monthKey
+    return "${monthNameOf(monthKey)} ${toBengaliNumeral(year)}"
 }
 
 /**

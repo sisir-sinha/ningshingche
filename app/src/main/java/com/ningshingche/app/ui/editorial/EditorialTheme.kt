@@ -16,7 +16,6 @@ import androidx.compose.ui.unit.dp
 import com.ningshingche.app.ui.theme.bengaliTextStyle
 import com.ningshingche.app.ui.theme.textSize
 import com.ningshingche.app.ui.theme.leading
-import com.ningshingche.app.util.bengaliDigits
 
 /**
  * "Modern editorial" design system — the theme itself.
@@ -267,5 +266,6 @@ fun EditorialTheme(
     }
 }
 
-fun toBengaliNumeral(number: Number): String = bengaliDigits(number.toString())
+fun toBengaliNumeral(number: Number): String =
+    com.ningshingche.app.util.LocalizedFormatting.digits(number.toString(), com.ningshingche.app.ui.i18n.Translations.current.language)
 

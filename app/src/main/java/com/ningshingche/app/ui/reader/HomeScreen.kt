@@ -470,7 +470,7 @@ private fun HomeContent(
             item {
                 SectionHeader(
                     title = tNow("সাম্প্রতিক"),
-                    actionLabel = "সব",
+                    actionLabel = tNow("সব"),
                     onAction = onSeeAllLatest
                 )
             }
@@ -490,7 +490,7 @@ private fun HomeContent(
                 Column(modifier = Modifier.fillMaxWidth()) {
                     SectionHeader(
                         title = tNow("বিশেষ নির্বাচন"),
-                        actionLabel = if (onSeeAllSpecial != null) "সব" else null,
+                        actionLabel = if (onSeeAllSpecial != null) tNow("সব") else null,
                         onAction = onSeeAllSpecial
                     )
                     feed.special.forEachIndexed { index, article ->

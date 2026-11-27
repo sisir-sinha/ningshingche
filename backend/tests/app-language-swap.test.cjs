@@ -121,7 +121,7 @@ test('the packaged copy is in place before the request goes out', () => {
   // network is only ever an improvement on it.
   const strings = repository.slice(repository.indexOf('fun strings('));
   const body = strings.slice(0, strings.indexOf('return flow'));
-  assert.match(body, /val base = readCache\(language\)\.ifEmpty \{ packaged\(language\) \}/);
+  assert.match(body, /val base = packaged\(language\) \+ readCache\(language\)/);
   assert.match(body, /if \(base\.isNotEmpty\(\)\) flow\.value = base/);
   assert.match(body, /refresh\(language\)/);
   assert.ok(
@@ -136,7 +136,7 @@ test('a published file wins over the packaged one, and a blank row changes nothi
   // Published first (with the freshness test on the row, not on the response):
   assert.match(body, /published != null && published\.csv\.isNotBlank\(\)/);
   assert.match(body, /writeCache\(language, published\.csv\)/);
-  assert.match(body, /flow\.value = published\.table/);
+  assert.match(body, /flow\.value = packaged\(language\) \+ published\.table/);
   // And nothing is written to the flow from a blank row: the only other line
   // that assigns a table is the packaged fallback, and only when the app has none.
   const assignments = body.match(/flow\.value = /g) || [];
@@ -207,7 +207,7 @@ const APP_SRC = path.join(REPO, 'app', 'src', 'main', 'java');
 const SWEEP_DIRS = ['ui/', 'notifications/', 'util/'];
 
 /** Publication text: names and standing copy, the same in every language. */
-const CONTENT_FILES = new Set(['NinghsingCheContentData.kt', 'AuthorProfiles.kt', 'SiteContact.kt']);
+const CONTENT_FILES = new Set(['NinghsingCheContentData.kt', 'AuthorProfiles.kt', 'SiteContact.kt', 'LocalizedFormatting.kt']);
 
 /** Bengali that is not copy a reader reads off a screen. */
 const NOT_COPY = [
