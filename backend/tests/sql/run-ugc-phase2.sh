@@ -42,7 +42,11 @@ for file in \
   "$MIG/048_evidence_access_audit.sql" \
   "$MIG/049_forum_edit_guards.sql" \
   "$HERE/ugc-049-checks.sql" \
-  "$MIG/049_forum_edit_guards.sql"; do
+  "$MIG/049_forum_edit_guards.sql" \
+  "$HERE/ugc-050-setup.sql" \
+  "$MIG/050_authenticated_article_comments.sql" \
+  "$MIG/050_authenticated_article_comments.sql" \
+  "$HERE/ugc-050-checks.sql"; do
   printf 'Testing %s\n' "$(basename "$file")"
   psql -X -q -v ON_ERROR_STOP=1 -f "$file" > /dev/null
 done

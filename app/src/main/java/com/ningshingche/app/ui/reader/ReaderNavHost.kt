@@ -569,6 +569,8 @@ fun EditorialReaderApp(
                     viewModel = articleViewModel,
                     onBackClick = { navController.popBackStack() },
                     onRelatedClick = { navController.navigate(ReaderRoute.article(it)) },
+                    isSignedIn = isSignedIn,
+                    onSignInClick = { navController.navigate(ReaderRoute.Login) },
                     scrollToComments = entry.arguments?.getString("focus") == "comments",
                     // A comment is UGC too: the same acceptance the forum asks for.
                     termsAccepted = !isSignedIn && articlePrefs.termsAccepted &&
@@ -617,6 +619,8 @@ fun EditorialReaderApp(
                     viewModel = articleViewModel,
                     onBackClick = { navController.popBackStack() },
                     onRelatedClick = { navController.navigate(ReaderRoute.article(it)) },
+                    isSignedIn = isSignedIn,
+                    onSignInClick = { navController.navigate(ReaderRoute.Login) },
                     scrollToComments = entry.arguments?.getString("focus") == "comments",
                     // A comment is UGC too: the same acceptance the forum asks for.
                     termsAccepted = !isSignedIn && articlePrefs.termsAccepted &&

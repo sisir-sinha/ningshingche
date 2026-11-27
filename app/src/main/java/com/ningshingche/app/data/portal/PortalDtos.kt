@@ -168,9 +168,8 @@ data class SettingsDto(
 )
 
 /**
- * Payload for the public comment insert. RLS grants `INSERT` to anonymous users
- * for `comments` only, and the default status is `Unpublish`, so anything posted
- * here waits for moderation in the dashboard.
+ * Payload for an authenticated comment insert. The user ID is checked against
+ * the signed-in session, and Unpublish comments await dashboard moderation.
  */
 @JsonClass(generateAdapter = true)
 data class NewCommentDto(

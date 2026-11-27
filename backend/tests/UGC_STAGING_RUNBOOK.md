@@ -122,3 +122,36 @@ consent, content, action or appeal data. Rollback of 044–046 requires a separa
 reviewed compatibility/security plan and preservation of their records. Record
 who approved the plan, before/after definitions and results securely; no production
 rollback, migration or credential action has been performed here.
+
+## Migration 050: authenticated article comments
+
+Migration 050 supersedes the earlier Phase 2 guest-comment behavior described
+above **only after it is deployed**. It leaves old comments and public reading
+untouched and keeps the dashboard's authorized comments staff exception. Do not
+apply it to production without a verified, restorable backup, a recovery plan,
+and staging review. It requires migrations 004 and 006; if 044 is deployed,
+its terms and moderation guards remain in force.
+
+Before staging, inventory actual `pg_policies`, table grants, triggers and any
+SECURITY DEFINER comment-writing functions, including any added outside this
+repository. Preserve the exact existing policy definitions for an approved
+rollback; do not assume repository migrations match production. Verify the app
+version and dashboard permissions on staging. Test with real Supabase JWTs and
+RLS, not only the disposable fixture:
+
+1. Guests can read approved historical comments, but anonymous direct REST
+   inserts and anonymous-auth JWT inserts are denied, including with a forged
+   `user_id` or an extra permissive policy.
+2. A signed-in reader can insert their own `Unpublish` comment, but cannot
+   publish directly, omit/forge `user_id`, or bypass existing terms/restriction
+   guards. Confirm session expiry and sign-out during a submission fail safely.
+3. An authorized dashboard operator retains intended comments permissions;
+   guests and dashboard operators without that permission cannot use the staff
+   exception. Test old app versions and any non-app clients.
+4. Apply the migration twice on staging, review effects and logs, and exercise
+   the backup restore and approved rollback plan before production deployment.
+
+`backend/tests/sql/comment-login-fixture.sql` exercises the migration twice in a
+throwaway PostgreSQL with simplified auth/dashboard functions and a deliberately
+broad old policy. It does not prove real Supabase grants, JWT verification,
+dashboard sessions, triggers or application behavior.

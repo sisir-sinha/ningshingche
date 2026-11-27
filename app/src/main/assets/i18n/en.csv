@@ -132,7 +132,6 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 "আপনার অ্যাকাউন্ট, প্রোফাইল, পয়েন্ট, সংরক্ষিত তালিকা, মন্তব্য ও ফোরামের উত্তর স্থায়ীভাবে মুছে যাবে। এটি ফেরানো যাবে না।","Your account, profile, points, saved lists, comments and forum answers will be permanently deleted. This cannot be undone."
 আপনার উত্তর,Your answer
 আপনার কোনো মন্তব্য পাওয়া যায়নি।,No comment of yours was found.
-আপনার নাম *,Your name *
 আপনার পছন্দের প্রদর্শন শৈলী নির্বাচন করুন:,Choose how you would like it shown:
 আপনার পয়েন্ট,Your points
 আপনার মন্তব্য সফলভাবে প্রকাশিত হয়েছে!,Your comment was published!
@@ -186,7 +185,6 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 ইমার ঠারর এলা,Songs of the mother tongue
 ইমার-ঠারর-এলা,Imar-tharar-ela
 ইমেইল,Email
-ইমেইল (ঐচ্ছিক),Email (optional)
 ইমেইল (পরিবর্তন করা যায় না),Email (cannot be changed)
 ইমেইল বা Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন,Sign in with email or your Google account
 ইমেইল বা পাসওয়ার্ড মিলছে না। আবার চেষ্টা করুন।,The email or password does not match. Try again.
@@ -453,7 +451,6 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 নভেম্বর,November
 না,No
 নাটক,Drama
-নাম ও মন্তব্য আবশ্যক।,Name and comment are required.
 নাম লিখুন,Write your name
 নামের প্রথম অংশ,First part of the name
 নামের প্রথম ও শেষ অংশ পূরণ করুন।,Fill in the first and last part of the name.
@@ -732,11 +729,11 @@ ningshingche.com • সংস্করণ ১.০,ningshingche.com • version 
 মন্তব্য,Comments
 মন্তব্য আবশ্যক।,A comment is required.
 মন্তব্য ও পাঠক রচনা পর্যালোচনা,Review comments and reader writing
+মন্তব্য করতে সাইন ইন করুন।,Sign in to comment.
 মন্তব্য করিক,Comment
 মন্তব্য করুন,Comment
 মন্তব্য জমা দিন,Submit the comment
 মন্তব্য জমা হয়েছে। অনুমোদনের পর প্রকাশিত হবে।,The comment is submitted. It appears after approval.
-মন্তব্য জমা হয়েছে। অনুমোদনের পর প্রকাশিত হবে। তবে এই ডিভাইসে আপনার তথ্য মনে রাখা যায়নি।,The comment is submitted. It appears after approval. Your details could not be kept on this device though.
 মন্তব্য তালিকা লোড হয়নি ({1}),The comment list did not load ({1})
 মন্তব্য পাঠানি ইল। পর্যালোচনার পর প্রকাশ অইতই।,The comment was sent. It appears after review.
 মন্তব্য পাঠানো হচ্ছে...,Sending the comment...

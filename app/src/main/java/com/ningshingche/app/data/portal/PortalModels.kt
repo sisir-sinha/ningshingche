@@ -884,6 +884,7 @@ sealed class PortalError(message: String, cause: Throwable? = null) : Exception(
 
 internal fun Throwable.toPortalError(): Throwable = when (this) {
     is PortalError -> this
+    is CommentSessionRequired -> PortalError.SignedOut()
     is IOException -> PortalError.Offline(this)
     else -> PortalError.Unknown(this)
 }

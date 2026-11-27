@@ -806,8 +806,8 @@ class PortalRepository(
     }
 
     /**
-     * Public comment submission. RLS inserts the row as `Unpublish`, so it is
-     * invisible until a moderator approves it in the dashboard.
+     * Signed-in comment submission. Pending comments remain invisible until
+     * a moderator approves them in the dashboard.
      */
     suspend fun postComment(
         blogId: String,
@@ -818,8 +818,9 @@ class PortalRepository(
         phone: String = "",
         address: String = "",
         avatarUrl: String = "",
-        userId: String? = null
+        userId: String
     ): Result<Unit> = withContext(Dispatchers.IO) {
+        if (userId.isBlank()) return@withContext Result.failure(PortalError.SignedOut())
         try {
             val response = api.postComment(
                 NewCommentDto(
@@ -832,10 +833,11 @@ class PortalRepository(
                     content = content.trim(),
                     status = "Unpublish",
                     avatarUrl = avatarUrl.trim(),
-                    userId = userId?.takeIf { it.isNotBlank() }
-                )
+                    userId = userId
+                ),
+                expectedUserId = userId
             )
-            // The successful anonymous insert has no response body (201/204).
+            // The successful pending insert has no response body (201/204).
             if (!response.isSuccessful) throw httpError(response.code(), response)
             Result.success(Unit)
         } catch (cancelled: CancellationException) {

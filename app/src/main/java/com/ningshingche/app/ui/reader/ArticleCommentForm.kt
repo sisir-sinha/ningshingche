@@ -100,14 +100,14 @@ internal fun ArticleCommentForm(
     modifier: Modifier = Modifier
 ) {
     val tokens = LocalEditorialTokens.current
-    val editable = form.detailsLoaded && !isPosting
     val registered = form.identityFromAccount
+    val editable = form.detailsLoaded && registered && !isPosting
     val fieldColors = OutlinedTextFieldDefaults.colors(
         focusedBorderColor = tokens.accent,
         unfocusedBorderColor = tokens.rule
     )
     val fieldStyle = TextStyle(fontFamily = Kalpurush, fontSize = textSize(15), lineHeight = leading(15))
-    val canSubmit = editable && form.content.isNotBlank() && (registered || form.name.isNotBlank())
+    val canSubmit = editable && form.content.isNotBlank()
 
     Surface(
         shape = RoundedCornerShape(16.dp),
@@ -155,33 +155,6 @@ internal fun ArticleCommentForm(
                         )
                     }
                 }
-            } else {
-                OutlinedTextField(
-                    value = form.name,
-                    onValueChange = { onFormChange(form.copy(name = it)) },
-                    label = { Text(t("আপনার নাম *"), fontFamily = Kalpurush) },
-                    singleLine = true, enabled = editable, textStyle = fieldStyle,
-                    shape = RoundedCornerShape(10.dp), colors = fieldColors,
-                    modifier = Modifier.fillMaxWidth().testTag("comment_name")
-                )
-                OutlinedTextField(
-                    value = form.email,
-                    onValueChange = { onFormChange(form.copy(email = it)) },
-                    label = { Text(t("ইমেইল (ঐচ্ছিক)"), fontFamily = Kalpurush) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    singleLine = true, enabled = editable, textStyle = fieldStyle,
-                    shape = RoundedCornerShape(10.dp), colors = fieldColors,
-                    modifier = Modifier.fillMaxWidth().testTag("comment_email")
-                )
-                OutlinedTextField(
-                    value = form.phone,
-                    onValueChange = { onFormChange(form.copy(phone = it)) },
-                    label = { Text(t("ফোন (ঐচ্ছিক)"), fontFamily = Kalpurush) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                    singleLine = true, enabled = editable, textStyle = fieldStyle,
-                    shape = RoundedCornerShape(10.dp), colors = fieldColors,
-                    modifier = Modifier.fillMaxWidth().testTag("comment_phone")
-                )
             }
             OutlinedTextField(
                 value = form.content,

@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.ningshingche.app.data.auth.GoogleAuthRepository
-import com.ningshingche.app.data.preferences.CommenterDetails
 import com.ningshingche.app.data.preferences.CommenterDetailsStore
 import com.ningshingche.app.data.portal.ArticleDetail
 import com.ningshingche.app.data.remote.UserProfile
@@ -37,7 +36,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import com.ningshingche.app.ui.i18n.tNow
 
@@ -330,7 +328,7 @@ data class CommentFormState(
 
 class ArticleViewModel(
     private val repository: PortalRepository,
-    private val commenterDetailsStore: CommenterDetailsStore,
+    @Suppress("UNUSED_PARAMETER") commenterDetailsStore: CommenterDetailsStore,
     private val currentUser: kotlinx.coroutines.flow.StateFlow<UserProfile?> = kotlinx.coroutines.flow.MutableStateFlow(null)
 ) : ViewModel() {
 
@@ -350,35 +348,27 @@ class ArticleViewModel(
 
     init {
         viewModelScope.launch {
-            try {
-                val saved = commenterDetailsStore.details.first()
-                _commentForm.value = CommentFormState(
-                    name = saved.name, email = saved.email, phone = saved.phone,
-                    detailsLoaded = true
-                )
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (_: Exception) {
-                // A local storage problem must never require login or block commenting.
-                _commentForm.update { it.copy(detailsLoaded = true) }
-            }
+            // Do not load legacy guest identity or wait on local storage: account
+            // identity is the sole source for authenticated comments.
+            var previousUserId: String? = null
             currentUser.collect { user ->
-                if (user != null) {
-                    val name = user.composedFullName().ifBlank { user.fullName }
-                    _commentForm.update { form ->
-                        form.copy(
-                            name = name.ifBlank { form.name },
-                            email = user.email.ifBlank { form.email },
-                            phone = user.phone.ifBlank { form.phone },
-                            address = user.address.ifBlank { form.address },
-                            avatarUrl = user.avatarUrl.ifBlank { form.avatarUrl },
-                            identityFromAccount = true,
-                            detailsLoaded = true
-                        )
-                    }
-                } else {
-                    _commentForm.update { it.copy(identityFromAccount = false) }
+                val nextId = user?.id
+                val changedAccount = previousUserId != nextId
+                previousUserId = nextId
+                _commentForm.update { form ->
+                    form.copy(
+                        name = user?.composedFullName().orEmpty(),
+                        email = user?.email.orEmpty(),
+                        phone = user?.phone.orEmpty(),
+                        address = user?.address.orEmpty(),
+                        avatarUrl = user?.avatarUrl.orEmpty(),
+                        content = if (changedAccount) "" else form.content,
+                        identityFromAccount = user != null && user.id.isNotBlank(),
+                        detailsLoaded = true,
+                        isError = false
+                    )
                 }
+                if (changedAccount) _commentStatus.value = null
             }
         }
         viewModelScope.launch {
@@ -407,7 +397,7 @@ class ArticleViewModel(
     }
 
     fun updateCommentForm(form: CommentFormState) {
-        if (_isPostingComment.value || !_commentForm.value.detailsLoaded) return
+        if (_isPostingComment.value || !_commentForm.value.detailsLoaded || currentUser.value == null) return
         _commentForm.value = form.copy(detailsLoaded = true, isError = false)
         _commentStatus.value = null
     }
@@ -536,16 +526,21 @@ class ArticleViewModel(
 
     fun postComment() {
         if (_isPostingComment.value || !_commentForm.value.detailsLoaded) return
+        val account = currentUser.value
+        if (account == null || account.id.isBlank()) {
+            _commentStatus.value = tNow("মন্তব্য করতে সাইন ইন করুন।")
+            return
+        }
         val current = (_state.value as? ArticleUiState.Ready) ?: return
         val form = _commentForm.value
-        val account = currentUser.value
-        val name = account?.composedFullName()?.ifBlank { account.fullName }?.ifBlank { form.name } ?: form.name
-        val email = account?.email?.ifBlank { form.email } ?: form.email
-        val phone = account?.phone?.ifBlank { form.phone } ?: form.phone
-        val address = account?.address?.ifBlank { form.address } ?: form.address
-        val avatarUrl = account?.avatarUrl?.ifBlank { form.avatarUrl } ?: form.avatarUrl
+        // Never fall back to a previous reader's saved guest details.
+        val name = account.composedFullName().ifBlank { account.fullName }.ifBlank { tNow("পাঠক") }
+        val email = account.email
+        val phone = account.phone
+        val address = account.address
+        val avatarUrl = account.avatarUrl
         val invalid = when {
-            name.isBlank() || form.content.isBlank() -> if (account != null) tNow("মন্তব্য আবশ্যক।") else tNow("নাম ও মন্তব্য আবশ্যক।")
+            form.content.isBlank() -> tNow("মন্তব্য আবশ্যক।")
             email.isNotBlank() && !Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$").matches(email.trim()) ->
                 tNow("সঠিক ইমেইল দিন অথবা ঐচ্ছিক ঘরটি খালি রাখুন।")
             else -> null
@@ -570,20 +565,20 @@ class ArticleViewModel(
                     content = form.content,
                     address = address,
                     avatarUrl = avatarUrl,
-                    userId = account?.id
+                    userId = account.id
                 ).onSuccess {
-                    val details = CommenterDetails(name.trim(), email.trim(), phone.trim())
+                    if (currentUser.value?.id != account.id) return@onSuccess
                     // Clear the draft ONLY after the server confirms the insert.
                     _commentForm.update {
                         it.copy(
-                            name = details.name,
-                            email = details.email,
-                            phone = details.phone,
+                            name = name.trim(),
+                            email = email.trim(),
+                            phone = phone.trim(),
                             address = address,
                             avatarUrl = avatarUrl,
                             content = "",
                             isError = false,
-                            identityFromAccount = account != null
+                            identityFromAccount = true
                         )
                     }
                     _commentStatus.value = tNow("মন্তব্য জমা হয়েছে। অনুমোদনের পর প্রকাশিত হবে।")
@@ -591,16 +586,8 @@ class ArticleViewModel(
                         (state as? ArticleUiState.Ready)?.takeIf { it.article.id == current.article.id }
                             ?.copy(commentPosted = true) ?: state
                     }
-                    try {
-                        commenterDetailsStore.save(details)
-                    } catch (cancelled: CancellationException) {
-                        throw cancelled
-                    } catch (_: Exception) {
-                        // The comment succeeded. Never report a failed POST or invite a duplicate
-                        // submission merely because saving local contact details failed.
-                        _commentStatus.value = tNow("মন্তব্য জমা হয়েছে। অনুমোদনের পর প্রকাশিত হবে। তবে এই ডিভাইসে আপনার তথ্য মনে রাখা যায়নি।")
-                    }
                 }.onFailure { error ->
+                    if (currentUser.value?.id != account.id) return@onFailure
                     _commentForm.update { it.copy(isError = true) }
                     _commentStatus.value = if (error is PortalError.Offline) {
                         tNow("ইন্টারনেট সংযোগ যাচাই করে আবার চেষ্টা করুন। আপনার মন্তব্য মুছে ফেলা হয়নি।")

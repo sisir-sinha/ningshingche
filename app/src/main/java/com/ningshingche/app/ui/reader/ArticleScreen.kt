@@ -155,6 +155,8 @@ fun ArticleScreen(
     onCategoryClick: (String) -> Unit = { },
     onAuthorClick: (String) -> Unit = { },
     onTagClick: (String) -> Unit = { },
+    isSignedIn: Boolean = false,
+    onSignInClick: () -> Unit = {},
     scrollToComments: Boolean = false,
     /**
      * Play's UGC policy: the terms are accepted before anything is written. A
@@ -376,8 +378,11 @@ fun ArticleScreen(
                             } catch (_: Exception) { }
                         },
                         onPostComment = {
-                            if (termsOk) viewModel.postComment() else termsPrompt = true
+                            if (!isSignedIn) onSignInClick()
+                            else if (termsOk) viewModel.postComment() else termsPrompt = true
                         },
+                        isSignedIn = isSignedIn,
+                        onSignInClick = onSignInClick,
                         commentForm = viewModel.commentForm.collectAsState().value,
                         onCommentFormChange = viewModel::updateCommentForm,
                         commentStatus = viewModel.commentStatus.collectAsState().value,
@@ -462,6 +467,8 @@ private fun ArticleReaderContent(
     onTagClick: (String) -> Unit,
     onOpenLink: (String) -> Unit,
     onPostComment: () -> Unit,
+    isSignedIn: Boolean,
+    onSignInClick: () -> Unit,
     commentForm: CommentFormState,
     onCommentFormChange: (CommentFormState) -> Unit,
     commentStatus: String?,
@@ -779,15 +786,19 @@ private fun ArticleReaderContent(
             }
         }
 
-        // Comment Input Form
+        // Guests can read the conversation but cannot open the posting form.
         item {
-            ArticleCommentForm(
-                form = commentForm,
-                status = commentStatus,
-                isPosting = isPostingComment,
-                onFormChange = onCommentFormChange,
-                onSubmit = onPostComment
-            )
+            if (isSignedIn) {
+                ArticleCommentForm(
+                    form = commentForm,
+                    status = commentStatus,
+                    isPosting = isPostingComment,
+                    onFormChange = onCommentFormChange,
+                    onSubmit = onPostComment
+                )
+            } else {
+                CommentSignInPrompt(onSignInClick)
+            }
         }
 
         // 7. Related Articles
@@ -947,6 +958,24 @@ fun ArticleAuthorMetaCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+            }
+        }
+    }
+}
+
+@Composable
+internal fun CommentSignInPrompt(onSignInClick: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = EditorialSpace.gutter, vertical = EditorialSpace.md)
+            .testTag("comment_sign_in_prompt")
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(t("মন্তব্য করতে সাইন ইন করুন।"), fontFamily = Kalpurush,
+                fontSize = textSize(15), lineHeight = leading(15))
+            Button(onClick = onSignInClick, modifier = Modifier.testTag("comment_sign_in_button")) {
+                Text(t("সাইন ইন"), fontFamily = Kalpurush, fontSize = textSize(15), lineHeight = leading(15))
             }
         }
     }

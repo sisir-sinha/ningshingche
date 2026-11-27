@@ -134,6 +134,7 @@ create table if not exists public.comments (
   id uuid primary key default gen_random_uuid(),
   blog_id uuid not null references public.blogs(id) on update cascade on delete cascade,
   blog_title text not null default '',
+  user_id uuid references auth.users(id) on delete set null,
   name text not null check (length(btrim(name)) > 0),
   address text not null default '',
   phone text not null default '',
@@ -143,6 +144,9 @@ create table if not exists public.comments (
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
+
+-- Existing installations may have created the table before reader profiles.
+alter table public.comments add column if not exists user_id uuid references auth.users(id) on delete set null;
 
 create index if not exists comments_blog_id_idx on public.comments (blog_id);
 create index if not exists comments_status_created_idx on public.comments (status, created_at desc);
@@ -474,8 +478,13 @@ create policy settings_public_read on public.settings for select to anon, authen
 
 -- Public contribution policies expose INSERT only, never private submissions.
 drop policy if exists comments_public_insert on public.comments;
-create policy comments_public_insert on public.comments for insert to anon, authenticated
-with check (status = 'Unpublish');
+create policy comments_public_insert on public.comments for insert to authenticated
+with check (
+  auth.uid() is not null
+  and coalesce(auth.jwt() ->> 'is_anonymous', 'false') <> 'true'
+  and user_id = auth.uid()
+  and status = 'Unpublish'
+);
 drop policy if exists submissions_public_insert on public.submitted_blogs;
 create policy submissions_public_insert on public.submitted_blogs for insert to anon, authenticated
 with check (status = 'Pending' and converted_blog_id is null);

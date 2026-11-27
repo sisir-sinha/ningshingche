@@ -4,9 +4,9 @@ bengali,bishnupriya,kind,uses,slots,screens
 সব,,ui,16,0,"BookmarksScreen.kt, EditorialComponents.kt, HomeScreen.kt, MusicScreen.kt, PortalPages.kt, Type.kt, UserDashboardScreen.kt"
 আরও দেখুন,,ui,13,0,"ForumScreens.kt, PdfArchiveScreen.kt, PortalModels.kt, PortalRepository.kt, UserDashboardScreen.kt"
 আলোচনা,,ui,12,0,"ForumScreens.kt, PortalModels.kt, PublicProfileScreen.kt, UserDashboardScreen.kt"
+পাঠক,,ui,11,0,"ArticleCommentForm.kt, ArticleRepository.kt, GoogleAuthMapper.kt, NingshingCheWebsiteClient.kt, PublicProfileScreen.kt, ReaderViewModels.kt, SettingsScreen.kt, SupabaseClient.kt, UserDashboardScreen.kt"
 সাহিত্য,,ui,11,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
 ইতিহাস,,ui,10,0,"EditorialComponents.kt, NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
-পাঠক,,ui,10,0,"ArticleCommentForm.kt, ArticleRepository.kt, GoogleAuthMapper.kt, NingshingCheWebsiteClient.kt, PublicProfileScreen.kt, SettingsScreen.kt, SupabaseClient.kt, UserDashboardScreen.kt"
 গান,,ui,8,0,"ListScreens.kt, NewMusicScreen.kt, PublicProfileScreen.kt, UserDashboardCharts.kt, UserDashboardScreen.kt"
 বাতিল,,ui,8,0,"BlockedUsersScreen.kt, ContentSafetySheet.kt, ForumScreens.kt, MusicScreen.kt, ReaderNavHost.kt, SettingsScreen.kt, TermsConsentDialog.kt"
 লেখক,,ui,8,0,"EditorialComponents.kt, ListScreens.kt, NinghsingCheContentData.kt, PortalDrawer.kt, PortalPages.kt, SupabaseModels.kt"
@@ -101,6 +101,7 @@ Google সাইন-ইন সময় শেষ হয়েছে। আব�
 সঙ্গীত,,ui,3,0,"EditorialComponents.kt, MusicScreen.kt, PortalDrawer.kt"
 সব দেখুন,,ui,3,0,"ForumScreens.kt, HomeScreen.kt, ReaderViewModels.kt"
 সরান,,ui,3,0,"ForumScreens.kt, NewMusicScreen.kt, UserDashboardScreen.kt"
+সাইন ইন,,ui,3,0,"AccountHeaderButton.kt, ArticleScreen.kt, LoginScreen.kt"
 সাইন ইন করা নেই।,,ui,3,0,"SupabaseClient.kt, UserProfileScreen.kt"
 সাইন ইন করা নেই। আবার প্রবেশ করুন।,,ui,3,0,SupabaseClient.kt
 সাধারণ,,ui,3,0,"ArticleRepository.kt, PortalModels.kt"
@@ -193,7 +194,6 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 ফাইল ৩২ এমবি-র বেশি হতে পারবে না।,,ui,2,0,SupabaseClient.kt
 ফিচার্ড প্রবন্ধসমূহ,,ui,2,0,PortalPages.kt
 ফেব্রুয়ারি,,ui,2,0,"ContributorScreen.kt, LocalizedFormatting.kt"
-ফোন (ঐচ্ছিক),,ui,2,0,"ArticleCommentForm.kt, RegisterForm.kt"
 বন্ধ,,ui,2,0,"PdfViewerScreen.kt, UserDashboardScreen.kt"
 বার্তা লিখুন।,,ui,2,0,"ReaderWorkspaceViewModel.kt, SupabaseClient.kt"
 বার্ষিক সংখ্যা • {1} সালে প্রকাশিত লেখাসমূহ,,ui,2,0,"ExploreScreen.kt, ListScreens.kt"
@@ -211,6 +211,7 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 ব্লক খোলা যায়নি। আবার চেষ্টা করুন।,,ui,2,0,BlockedUsersScreen.kt
 ভাষা বাছাই করুন,,ui,2,0,"LanguageSetupScreen.kt, SettingsScreen.kt"
 ভূমিকা,,ui,2,0,"NinghsingCheContentData.kt, NingshingCheWebsiteClient.kt"
+মন্তব্য করতে সাইন ইন করুন।,,ui,2,0,"ArticleScreen.kt, ReaderViewModels.kt"
 মন্তব্য প্রকাশিত হয়েছে,,ui,2,0,"ContentUpdateNotifier.kt, InboxModels.kt"
 মুছে ফেলুন,,ui,2,0,"ForumScreens.kt, SettingsScreen.kt"
 মোট ভিউ,,ui,2,0,"PublicProfileScreen.kt, UserProfileScreen.kt"
@@ -234,7 +235,6 @@ Google সাইন-ইন খোলার জন্য অ্যাপ স্�
 সব সংরক্ষিত,,ui,2,0,"Entities.kt, Models.kt"
 সমাজ,,ui,2,0,"EditorialComponents.kt, NingshingCheWebsiteClient.kt"
 সম্পাদক,,ui,2,0,"NingshingCheWebsiteClient.kt, SupabaseModels.kt"
-সাইন ইন,,ui,2,0,"AccountHeaderButton.kt, LoginScreen.kt"
 সাম্প্রতিক আলোচনা,,ui,2,0,ForumScreens.kt
 সুদেষ্ণা সিংহ,,content,2,0,NinghsingCheContentData.kt
 সেপ্টেম্বর,,ui,2,0,"ContributorScreen.kt, LocalizedFormatting.kt"
@@ -359,7 +359,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 "আপনার অ্যাকাউন্ট, প্রোফাইল, পয়েন্ট, সংরক্ষিত তালিকা, মন্তব্য ও ফোরামের উত্তর স্থায়ীভাবে মুছে যাবে। এটি ফেরানো যাবে না।",,ui,1,0,SettingsScreen.kt
 আপনার উত্তর,,ui,1,0,ForumScreens.kt
 আপনার কোনো মন্তব্য পাওয়া যায়নি।,,ui,1,0,UserDashboardScreen.kt
-আপনার নাম *,,ui,1,0,ArticleCommentForm.kt
 আপনার পছন্দের প্রদর্শন শৈলী নির্বাচন করুন:,,ui,1,0,SettingsScreen.kt
 আপনার পয়েন্ট,,ui,1,0,ContributorScreen.kt
 আপনার মন্তব্য সফলভাবে প্রকাশিত হয়েছে!,,ui,1,0,ArticleRepository.kt
@@ -406,7 +405,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 ইমার,,ui,1,0,NingshingCheWebsiteClient.kt
 ইমার ঠারর এলা,,ui,1,0,NingshingCheWebsiteClient.kt
 ইমার-ঠারর-এলা,,ui,1,0,EditorialComponents.kt
-ইমেইল (ঐচ্ছিক),,ui,1,0,ArticleCommentForm.kt
 ইমেইল (পরিবর্তন করা যায় না),,ui,1,0,UserProfileScreen.kt
 ইমেইল বা Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন,,ui,1,0,LoginScreen.kt
 ইমেইল বা পাসওয়ার্ড মিলছে না। আবার চেষ্টা করুন।,,ui,1,0,EmailAuth.kt
@@ -659,7 +657,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 নভে,,ui,1,0,UserDashboardCharts.kt
 না,,ui,1,0,ForumScreens.kt
 নাটক,,ui,1,0,EditorialComponents.kt
-নাম ও মন্তব্য আবশ্যক।,,ui,1,0,ReaderViewModels.kt
 নাম লিখুন,,ui,1,0,MusicPlayer.kt
 নামের প্রথম অংশ,,ui,1,0,UserProfileScreen.kt
 নামের প্রথম ও শেষ অংশ পূরণ করুন।,,ui,1,0,ReaderWorkspaceViewModel.kt
@@ -828,6 +825,7 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 ফিচার্ড ও সম্পাদকীয় পছন্দ,,ui,1,0,SettingsScreen.kt
 ফেব,,ui,1,0,UserDashboardCharts.kt
 ফোক-ফিউশন,,ui,1,0,MusicGenres.kt
+ফোন (ঐচ্ছিক),,ui,1,0,RegisterForm.kt
 ফোন নম্বর,,ui,1,0,UserProfileScreen.kt
 ফোন নম্বর দিন।,,ui,1,0,ReaderWorkspaceViewModel.kt
 ফোন: +880 9638-781890,,ui,1,0,PortalPages.kt
@@ -943,7 +941,6 @@ ningshingche.com • সংস্করণ ১.০,,ui,1,0,SplashScreen.kt
 মন্তব্য করুন,,ui,1,0,ArticleCommentForm.kt
 মন্তব্য জমা দিন,,ui,1,0,ArticleCommentForm.kt
 মন্তব্য জমা হয়েছে। অনুমোদনের পর প্রকাশিত হবে।,,ui,1,0,ReaderViewModels.kt
-মন্তব্য জমা হয়েছে। অনুমোদনের পর প্রকাশিত হবে। তবে এই ডিভাইসে আপনার তথ্য মনে রাখা যায়নি।,,ui,1,0,ReaderViewModels.kt
 মন্তব্য তালিকা লোড হয়নি ({1}),,ui,1,1,SupabaseClient.kt
 মন্তব্য পাঠানি ইল। পর্যালোচনার পর প্রকাশ অইতই।,,ui,1,0,NingshingCheWebsiteClient.kt
 মন্তব্য পাঠানো হচ্ছে...,,ui,1,0,ReaderViewModels.kt

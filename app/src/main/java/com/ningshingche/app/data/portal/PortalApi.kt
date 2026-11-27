@@ -3,6 +3,7 @@ package com.ningshingche.app.data.portal
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Header
 import retrofit2.http.Headers
 import retrofit2.http.POST
 import retrofit2.http.Query
@@ -406,15 +407,16 @@ interface PortalApi {
     ): Response<List<CommentDto>>
 
     /**
-     * Anonymous comment submission. Allowed by the `comments_public_insert`
-     * RLS policy; the row lands as `Unpublish` until a moderator approves it.
+     * Signed-in comment submission. The reader must match user_id; the row
+     * lands as `Unpublish` until a moderator approves it.
      */
     // Anonymous users may INSERT an Unpublish row, but may not SELECT it.
     // Asking for a representation triggers the SELECT policy and rejects the insert.
     @Headers("Prefer: return=minimal")
     @POST("comments")
     suspend fun postComment(
-        @Body comment: NewCommentDto
+        @Body comment: NewCommentDto,
+        @Header(COMMENT_USER_HEADER) expectedUserId: String
     ): Response<Unit>
 
     // --------------------------------------------------------------- settings

@@ -2,6 +2,7 @@ package com.ningshingche.app.data.portal
 
 import com.ningshingche.app.BuildConfig
 import com.ningshingche.app.data.cache.PublicResponseCache
+import com.ningshingche.app.data.auth.GoogleAuthMapper
 import okhttp3.ConnectionSpec
 import okhttp3.OkHttpClient
 import okhttp3.TlsVersion
@@ -101,7 +102,16 @@ object PortalConfig {
                 // refresh a user session before showing an offline cache hit.
                 val readerToken = if (publicCache?.eligible(chain.request()) == true) null
                     else readerSession?.invoke()?.takeIf { it.isNotBlank() }
-                val request = chain.request().newBuilder()
+                val original = chain.request()
+                if (original.method == "POST" && original.url.encodedPath.endsWith("/rest/v1/comments")) {
+                    val claims = readerToken?.let { GoogleAuthMapper.jwtPayload(it) }
+                    if (!canSendComment(original.header(COMMENT_USER_HEADER), claims?.optString("sub"),
+                            claims?.optString("role"), claims?.optBoolean("is_anonymous", false) == true)) {
+                        throw CommentSessionRequired()
+                    }
+                }
+                val request = original.newBuilder()
+                    .removeHeader(COMMENT_USER_HEADER)
                     .header("apikey", key)
                     // `header`, not `addHeader`: exactly one bearer, and it is
                     // the reader's own token when there is one.
