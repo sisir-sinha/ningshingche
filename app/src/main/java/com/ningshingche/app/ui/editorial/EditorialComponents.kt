@@ -252,7 +252,6 @@ fun formatBengaliDateTime(iso: String): String {
 fun Byline(
     authorName: String,
     publishedDate: String,
-    readingTimeMinutes: Int,
     modifier: Modifier = Modifier,
     category: String? = null,
     maxLines: Int = 1
@@ -262,7 +261,6 @@ fun Byline(
         if (!category.isNullOrBlank()) add(category)
         val date = formatBengaliDate(publishedDate)
         if (date.isNotBlank()) add(date)
-        if (readingTimeMinutes > 0) add(tNow("{1} মিনিট", readingTimeMinutes))
     }
     if (parts.isEmpty()) return
     Text(
@@ -401,14 +399,7 @@ fun HeroArticleCard(
                     }
                     if (article.publishedDate.isNotBlank()) {
                         Text(
-                            text = "•  ${formatBengaliDate(article.publishedDate)}",
-                            style = EditorialType.Caption,
-                            color = Color.White.copy(alpha = 0.75f)
-                        )
-                    }
-                    if (article.readingTimeMinutes > 0) {
-                        Text(
-                            text = "•  " + t("{1} মি.", article.readingTimeMinutes),
+                            text = (if (article.authorName.isNotBlank()) "•  " else "") + formatBengaliDate(article.publishedDate),
                             style = EditorialType.Caption,
                             color = Color.White.copy(alpha = 0.75f)
                         )
@@ -451,7 +442,6 @@ fun RailArticleCard(
                 Byline(
                     authorName = article.authorName,
                     publishedDate = article.publishedDate,
-                    readingTimeMinutes = article.readingTimeMinutes,
                     maxLines = Int.MAX_VALUE
                 )
             }
@@ -509,8 +499,7 @@ fun ArticleRow(
             Spacer(Modifier.height(8.dp))
             Byline(
                 authorName = article.authorName,
-                publishedDate = article.publishedDate,
-                readingTimeMinutes = article.readingTimeMinutes
+                publishedDate = article.publishedDate
             )
         }
         Spacer(Modifier.width(EditorialSpace.md))
@@ -571,8 +560,7 @@ fun NumberedArticleCard(
             Spacer(Modifier.height(4.dp))
             Byline(
                 authorName = article.authorName,
-                publishedDate = article.publishedDate,
-                readingTimeMinutes = article.readingTimeMinutes
+                publishedDate = article.publishedDate
             )
         }
     }

@@ -192,7 +192,7 @@
           <div class="article-kicker"><span>${escapeHTML(data.category_title || categoryName(data))}</span><time>${escapeHTML(formatDate(data.published_date || data.created_at || new Date()))}</time></div>
           <h1>${escapeHTML(data.title || 'Untitled article')}</h1>
           ${data.sub_title ? `<p class="article-subtitle">${escapeHTML(data.sub_title)}</p>` : ''}
-          <div class="article-byline">${NC.utils.avatarHTML(data.author_name || authorName(data), data.author_image || authors.find((item) => item.id === data.author_id)?.image, 'article-author-avatar')}<div><strong>${escapeHTML(data.author_name || authorName(data))}</strong><span>${escapeHTML(data.status || 'Draft')} preview · ${Number(data.reading_time_minutes || estimateReadingTime(data.content)).toLocaleString()} min read</span></div></div>
+          <div class="article-byline">${NC.utils.avatarHTML(data.author_name || authorName(data), data.author_image || authors.find((item) => item.id === data.author_id)?.image, 'article-author-avatar')}<div><strong>${escapeHTML(data.author_name || authorName(data))}</strong><span>${escapeHTML(data.status || 'Draft')} preview</span></div></div>
         </header>
         ${image ? `<img class="article-hero" src="${escapeHTML(image)}" alt="${escapeHTML(data.title || '')}" referrerpolicy="no-referrer">` : ''}
         <div class="article-body prose-content">${NC.utils.sanitizeHTML(data.content || '<p>Article content preview will appear here.</p>')}</div>
@@ -288,7 +288,7 @@
             <div class="field"><div class="field-heading"><label class="field-label" for="blog-slug">Slug <span aria-hidden="true">*</span></label><button type="button" class="field-action" data-generate-blog-slug><i class="fa-regular fa-wand-magic-sparkles" aria-hidden="true"></i>Generate</button></div><input class="form-input" id="blog-slug" name="slug" value="${escapeHTML(record?.slug || '')}" placeholder="article-url-slug"><div class="slug-feedback" data-slug-feedback></div><p class="field-error hidden" data-field-error="slug"></p></div>
             <fieldset class="field"><legend class="field-label">Homepage placement</legend><div class="check-list"><label class="check-row"><input type="checkbox" name="is_slider" ${record?.is_slider ? 'checked' : ''}><span class="check-control"><i class="fa-solid fa-check" aria-hidden="true"></i></span><span>Hero slider</span></label><label class="check-row"><input type="checkbox" name="is_feature" ${record?.is_feature ? 'checked' : ''}><span class="check-control"><i class="fa-solid fa-check" aria-hidden="true"></i></span><span>Featured article</span></label><label class="check-row"><input type="checkbox" name="is_special_article" ${record?.is_special_article ? 'checked' : ''}><span class="check-control"><i class="fa-solid fa-check" aria-hidden="true"></i></span><span>Special article</span></label></div></fieldset>
           </section>
-          <section class="surface mt-5"><p class="eyebrow mb-3">At a glance</p><div class="editor-summary"><div><span>Words</span><strong data-blog-word-count>0</strong></div><div><span>Reading time</span><strong data-blog-read-time>1 min</strong></div><div><span>Last saved</span><strong>${escapeHTML(record?.updated_at ? formatDate(record.updated_at) : 'Not saved')}</strong></div></div></section>
+          <section class="surface mt-5"><p class="eyebrow mb-3">At a glance</p><div class="editor-summary"><div><span>Words</span><strong data-blog-word-count>0</strong></div><div><span>Last saved</span><strong>${escapeHTML(record?.updated_at ? formatDate(record.updated_at) : 'Not saved')}</strong></div></div></section>
         </aside>
         <div class="editor-action-bar"><div><span class="save-indicator"><i class="fa-regular fa-shield-check" aria-hidden="true"></i>Content is sanitized before save</span></div><div class="editor-actions"><button type="button" class="btn btn-secondary" data-editor-cancel>Cancel</button><button type="button" class="btn btn-secondary" data-blog-preview><i class="fa-regular fa-eye" aria-hidden="true"></i>Preview</button><button type="button" class="btn btn-secondary" data-blog-save="Draft"><i class="fa-regular fa-floppy-disk" aria-hidden="true"></i>Save draft</button><button type="button" class="btn btn-primary" data-blog-save="Publish"><i class="fa-regular fa-paper-plane" aria-hidden="true"></i>Publish</button></div></div>
       </form>`;
@@ -352,7 +352,6 @@
         : (editorController?.getValue?.() || record?.content || '');
       const words = NC.utils.stripHTML(html).split(/\s+/).filter(Boolean).length;
       root.querySelector('[data-blog-word-count]').textContent = words.toLocaleString();
-      root.querySelector('[data-blog-read-time]').textContent = `${Math.max(1, Math.ceil(words / 220))} min`;
     }
     title.addEventListener('input', debounce(() => { if (!slugTouched) slug.value = slugify(title.value); }, 100));
     slug.addEventListener('input', () => { slugTouched = true; root.querySelector('[data-slug-feedback]').textContent = ''; });

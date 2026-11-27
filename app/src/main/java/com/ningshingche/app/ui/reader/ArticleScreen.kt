@@ -64,7 +64,6 @@ import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.RestartAlt
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Visibility
@@ -178,7 +177,7 @@ private val READER_SP_RANGE = 16f..34f
  * - Kalpurush font definition applied across all titles, buttons, links, and content
  * - Interactive Font Size and Line Spacing control
  * - Voice Synthesis (Text-to-Speech) player bar
- * - Small author image + 2-row layout (Row 1: Author name & designation, Row 2: Date & reading time)
+ * - Small author image + 2-row layout (Row 1: Author name & designation, Row 2: Date)
  * - Clickable author navigating to Author profile
  * - WYSIWYG HTML article content rendering (headings, blockquotes, lists, bold/italic, code, links)
  * - 100% width images with tap-to-enlarge modal dialog and zoom/pan support
@@ -688,54 +687,26 @@ private fun ArticleReaderContent(
                     )
                 }
 
-                // Reading time & views below title
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.padding(top = EditorialSpace.xs, bottom = EditorialSpace.sm)
-                ) {
-                    if (article.summary.readingTimeMinutes > 0) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(3.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Schedule,
-                                contentDescription = null,
-                                modifier = Modifier.size(13.dp),
-                                tint = tokens.inkMuted
-                            )
-                            Text(
-                                text = tNow("{1} মিনিট পাঠ", toBengaliNumeral(article.summary.readingTimeMinutes)),
-                                fontFamily = Kalpurush,
-                                fontSize = textSize(12),
-                                lineHeight = leading(12),
-                                color = tokens.inkMuted
-                            )
-                        }
-                    }
-                    if (article.summary.viewsCount > 0) {
-                        if (article.summary.readingTimeMinutes > 0) {
-                            Text("•", fontSize = textSize(10), lineHeight = leading(10), color = tokens.inkMuted)
-                        }
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(3.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Visibility,
-                                contentDescription = null,
-                                modifier = Modifier.size(13.dp),
-                                tint = tokens.inkMuted
-                            )
-                            Text(
-                                text = tNow("{1} বার পঠিত", toBengaliNumeral(article.summary.viewsCount.toInt())),
-                                fontFamily = Kalpurush,
-                                fontSize = textSize(12),
-                                lineHeight = leading(12),
-                                color = tokens.inkMuted
-                            )
-                        }
+                // Views below the title, when available.
+                if (article.summary.viewsCount > 0) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                        modifier = Modifier.padding(top = EditorialSpace.xs, bottom = EditorialSpace.sm)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Visibility,
+                            contentDescription = null,
+                            modifier = Modifier.size(13.dp),
+                            tint = tokens.inkMuted
+                        )
+                        Text(
+                            text = tNow("{1} বার পঠিত", toBengaliNumeral(article.summary.viewsCount.toInt())),
+                            fontFamily = Kalpurush,
+                            fontSize = textSize(12),
+                            lineHeight = leading(12),
+                            color = tokens.inkMuted
+                        )
                     }
                 }
 

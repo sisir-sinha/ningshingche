@@ -662,7 +662,7 @@
             <div class="field"><label class="field-label" for="ru-article-status">Status</label><select class="form-select" id="ru-article-status" name="status">${ARTICLE_STATUSES.map((status) => `<option value="${status}" ${status === (draft.status || 'Pending') ? 'selected' : ''}>${status}</option>`).join('')}</select><span class="field-hint">“Published” is what the Android app shows readers. “Approved” means converted to a magazine blog.</span></div>
             ${isEdit ? `<dl class="details-list"><div><dt>Submitted</dt><dd>${escapeHTML(formatDateTime(record.created_at))}</dd></div>${record.reviewed_at ? `<div><dt>Reviewed</dt><dd>${escapeHTML(formatDateTime(record.reviewed_at))}</dd></div>` : ''}${record.converted_blog_id && NC.auth.canAccess('blogs') ? `<div><dt>Blog</dt><dd><button type="button" class="table-link" data-open-converted="${escapeHTML(record.converted_blog_id)}">Open converted blog</button></dd></div>` : ''}</dl>` : ''}
           </section>
-          <section class="surface mt-5"><p class="eyebrow mb-3">At a glance</p><div class="editor-summary"><div><span>Words</span><strong data-article-word-count>0</strong></div><div><span>Reading time</span><strong data-article-read-time>1 min</strong></div><div><span>Last saved</span><strong>${escapeHTML(record?.updated_at || record?.reviewed_at ? NC.utils.formatDate(record.updated_at || record.reviewed_at) : 'Not saved')}</strong></div></div></section>
+          <section class="surface mt-5"><p class="eyebrow mb-3">At a glance</p><div class="editor-summary"><div><span>Words</span><strong data-article-word-count>0</strong></div><div><span>Last saved</span><strong>${escapeHTML(record?.updated_at || record?.reviewed_at ? NC.utils.formatDate(record.updated_at || record.reviewed_at) : 'Not saved')}</strong></div></div></section>
         </aside>
         <div class="editor-action-bar"><div><span class="save-indicator"><i class="fa-regular fa-shield-check" aria-hidden="true"></i>Content is sanitized before save</span></div><div class="editor-actions">
           <button type="button" class="btn btn-secondary" data-article-cancel>Cancel</button>
@@ -697,9 +697,7 @@
       const html = typeof changedHtml === 'string' ? changedHtml : (articleEditor?.getValue?.() || draft.content || '');
       const words = NC.utils.stripHTML(html).split(/\s+/).filter(Boolean).length;
       const count = root.querySelector('[data-article-word-count]');
-      const time = root.querySelector('[data-article-read-time]');
       if (count) count.textContent = words.toLocaleString();
-      if (time) time.textContent = `${Math.max(1, Math.ceil(words / 220))} min`;
     }
     updateWordCount();
 
